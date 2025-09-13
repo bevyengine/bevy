@@ -1,9 +1,7 @@
 //! A shader that uses the GLSL shading language.
 
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses shader source files from the assets subdirectory

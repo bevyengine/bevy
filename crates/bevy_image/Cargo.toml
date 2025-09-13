@@ -32,7 +32,7 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = ["bevy_reflect", "bevy_platform/serialize"]
+serialize = ["bevy_reflect", "bevy_platform/serialize", "wgpu-types/serde"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -70,7 +70,7 @@ image = { version = "0.25.2", default-features = false }
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "25", default-features = false }
+wgpu-types = { version = "26", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 futures-lite = "2.0.1"
@@ -89,6 +89,7 @@ half = { version = "2.4.1" }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+serde_json = "1.0.140"
 
 [lints]
 workspace = true

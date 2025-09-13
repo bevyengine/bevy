@@ -14,23 +14,22 @@
 //!
 //! ## Implementation Notes
 //!
-//! - `bevy_ui` can only render to the primary window
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
-//! - The `position` reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at
-//!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
-//!   node, not just the visible region. This backend does not provide a `normal`.
+//! - The `position` reported in `HitData` is normalized relative to the node, with
+//!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
+//!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::InheritedVisibility, Camera};
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -79,7 +78,6 @@ pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiPickingSettings>()
-            .register_type::<(UiPickingCamera, UiPickingSettings)>()
             .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }
@@ -93,7 +91,7 @@ pub struct NodeQuery {
     transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -107,11 +105,11 @@ pub fn ui_picking(
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
-    mut output: EventWriter<PointerHits>,
+    mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
-    // For each camera, the pointer and its position
+    // Map from each camera to its active pointers and their positions in viewport space
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
 
     for (pointer_id, pointer_location) in
@@ -181,7 +179,7 @@ pub fn ui_picking(
         {
             continue;
         }
-        let Some(camera_entity) = node.target_camera.camera() else {
+        let Some(camera_entity) = node.target_camera.get() else {
             continue;
         };
 
@@ -225,7 +223,7 @@ pub fn ui_picking(
         for (hovered_node, position) in hovered {
             let node = node_query.get(*hovered_node).unwrap();
 
-            let Some(camera_entity) = node.target_camera.camera() else {
+            let Some(camera_entity) = node.target_camera.get() else {
                 continue;
             };
 

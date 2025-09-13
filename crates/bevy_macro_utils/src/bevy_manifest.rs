@@ -8,12 +8,12 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use toml_edit::{ImDocument, Item};
+use toml_edit::{Document, Item};
 
 /// The path to the `Cargo.toml` file for the Bevy project.
 #[derive(Debug)]
 pub struct BevyManifest {
-    manifest: ImDocument<Box<str>>,
+    manifest: Document<Box<str>>,
     modified_time: SystemTime,
 }
 
@@ -29,10 +29,9 @@ impl BevyManifest {
 
         if let Ok(manifest) =
             RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
+            && manifest.modified_time == modified_time
         {
-            if manifest.modified_time == modified_time {
-                return manifest;
-            }
+            return manifest;
         }
 
         let manifest = BevyManifest {
@@ -70,11 +69,11 @@ impl BevyManifest {
         std::fs::metadata(cargo_manifest_path).and_then(|metadata| metadata.modified())
     }
 
-    fn read_manifest(path: &Path) -> ImDocument<Box<str>> {
+    fn read_manifest(path: &Path) -> Document<Box<str>> {
         let manifest = std::fs::read_to_string(path)
             .unwrap_or_else(|_| panic!("Unable to read cargo manifest: {}", path.display()))
             .into_boxed_str();
-        ImDocument::parse(manifest)
+        Document::parse(manifest)
             .unwrap_or_else(|_| panic!("Failed to parse cargo manifest: {}", path.display()))
     }
 

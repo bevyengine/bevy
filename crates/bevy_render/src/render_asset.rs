@@ -3,10 +3,9 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-pub use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
@@ -223,7 +222,7 @@ impl<A: RenderAsset> RenderAssets<A> {
 #[derive(Resource)]
 struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
-        EventReader<'static, 'static, AssetEvent<A::SourceAsset>>,
+        MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
     )>,
 }

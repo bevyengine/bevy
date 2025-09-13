@@ -1,5 +1,6 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
+#[cfg(feature = "alloc")]
 use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
@@ -17,7 +18,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 
 /// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -54,7 +55,7 @@ impl Circle {
 
     /// Get the diameter of the circle
     #[inline(always)]
-    pub fn diameter(&self) -> f32 {
+    pub const fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
 
@@ -141,13 +142,13 @@ impl Default for Arc2d {
 impl Arc2d {
     /// Create a new [`Arc2d`] from a `radius` and a `half_angle`
     #[inline(always)]
-    pub fn new(radius: f32, half_angle: f32) -> Self {
+    pub const fn new(radius: f32, half_angle: f32) -> Self {
         Self { radius, half_angle }
     }
 
     /// Create a new [`Arc2d`] from a `radius` and an `angle` in radians
     #[inline(always)]
-    pub fn from_radians(radius: f32, angle: f32) -> Self {
+    pub const fn from_radians(radius: f32, angle: f32) -> Self {
         Self {
             radius,
             half_angle: angle / 2.0,
@@ -156,7 +157,7 @@ impl Arc2d {
 
     /// Create a new [`Arc2d`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, angle: f32) -> Self {
+    pub const fn from_degrees(radius: f32, angle: f32) -> Self {
         Self {
             radius,
             half_angle: angle.to_radians() / 2.0,
@@ -167,7 +168,7 @@ impl Arc2d {
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_turns(radius: f32, fraction: f32) -> Self {
+    pub const fn from_turns(radius: f32, fraction: f32) -> Self {
         Self {
             radius,
             half_angle: fraction * PI,
@@ -176,13 +177,13 @@ impl Arc2d {
 
     /// Get the angle of the arc
     #[inline(always)]
-    pub fn angle(&self) -> f32 {
+    pub const fn angle(&self) -> f32 {
         self.half_angle * 2.0
     }
 
     /// Get the length of the arc
     #[inline(always)]
-    pub fn length(&self) -> f32 {
+    pub const fn length(&self) -> f32 {
         self.angle() * self.radius
     }
 
@@ -255,7 +256,7 @@ impl Arc2d {
     ///
     /// **Note:** This is not the negation of [`is_major`](Self::is_major): an exact semicircle is both major and minor.
     #[inline(always)]
-    pub fn is_minor(&self) -> bool {
+    pub const fn is_minor(&self) -> bool {
         self.half_angle <= FRAC_PI_2
     }
 
@@ -263,7 +264,7 @@ impl Arc2d {
     ///
     /// **Note:** This is not the negation of [`is_minor`](Self::is_minor): an exact semicircle is both major and minor.
     #[inline(always)]
-    pub fn is_major(&self) -> bool {
+    pub const fn is_major(&self) -> bool {
         self.half_angle >= FRAC_PI_2
     }
 }
@@ -321,51 +322,59 @@ impl Measured2d for CircularSector {
 impl CircularSector {
     /// Create a new [`CircularSector`] from a `radius` and an `angle`
     #[inline(always)]
-    pub fn new(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::new(radius, angle))
+    pub const fn new(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::new(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSector`] from a `radius` and an `angle` in radians.
     #[inline(always)]
-    pub fn from_radians(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::from_radians(radius, angle))
+    pub const fn from_radians(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::from_radians(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSector`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::from_degrees(radius, angle))
+    pub const fn from_degrees(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::from_degrees(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSector`] from a `radius` and a number of `turns` of a circle.
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_turns(radius: f32, fraction: f32) -> Self {
-        Self::from(Arc2d::from_turns(radius, fraction))
+    pub const fn from_turns(radius: f32, fraction: f32) -> Self {
+        Self {
+            arc: Arc2d::from_turns(radius, fraction),
+        }
     }
 
     /// Get half the angle of the sector
     #[inline(always)]
-    pub fn half_angle(&self) -> f32 {
+    pub const fn half_angle(&self) -> f32 {
         self.arc.half_angle
     }
 
     /// Get the angle of the sector
     #[inline(always)]
-    pub fn angle(&self) -> f32 {
+    pub const fn angle(&self) -> f32 {
         self.arc.angle()
     }
 
     /// Get the radius of the sector
     #[inline(always)]
-    pub fn radius(&self) -> f32 {
+    pub const fn radius(&self) -> f32 {
         self.arc.radius
     }
 
     /// Get the length of the arc defining the sector
     #[inline(always)]
-    pub fn arc_length(&self) -> f32 {
+    pub const fn arc_length(&self) -> f32 {
         self.arc.length()
     }
 
@@ -461,51 +470,59 @@ impl Measured2d for CircularSegment {
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
-    pub fn new(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::new(radius, angle))
+    pub const fn new(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::new(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSegment`] from a `radius` and an `angle` in radians.
     #[inline(always)]
-    pub fn from_radians(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::from_radians(radius, angle))
+    pub const fn from_radians(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::from_radians(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSegment`] from a `radius` and an `angle` in degrees.
     #[inline(always)]
-    pub fn from_degrees(radius: f32, angle: f32) -> Self {
-        Self::from(Arc2d::from_degrees(radius, angle))
+    pub const fn from_degrees(radius: f32, angle: f32) -> Self {
+        Self {
+            arc: Arc2d::from_degrees(radius, angle),
+        }
     }
 
     /// Create a new [`CircularSegment`] from a `radius` and a number of `turns` of a circle.
     ///
     /// For instance, `0.5` turns is a semicircle.
     #[inline(always)]
-    pub fn from_turns(radius: f32, fraction: f32) -> Self {
-        Self::from(Arc2d::from_turns(radius, fraction))
+    pub const fn from_turns(radius: f32, fraction: f32) -> Self {
+        Self {
+            arc: Arc2d::from_turns(radius, fraction),
+        }
     }
 
     /// Get the half-angle of the segment
     #[inline(always)]
-    pub fn half_angle(&self) -> f32 {
+    pub const fn half_angle(&self) -> f32 {
         self.arc.half_angle
     }
 
     /// Get the angle of the segment
     #[inline(always)]
-    pub fn angle(&self) -> f32 {
+    pub const fn angle(&self) -> f32 {
         self.arc.angle()
     }
 
     /// Get the radius of the segment
     #[inline(always)]
-    pub fn radius(&self) -> f32 {
+    pub const fn radius(&self) -> f32 {
         self.arc.radius
     }
 
     /// Get the length of the arc defining the segment
     #[inline(always)]
-    pub fn arc_length(&self) -> f32 {
+    pub const fn arc_length(&self) -> f32 {
         self.arc.length()
     }
 
@@ -820,9 +837,9 @@ impl Ellipse {
     ///
     /// `size.x` is the diameter along the X axis, and `size.y` is the diameter along the Y axis.
     #[inline(always)]
-    pub fn from_size(size: Vec2) -> Self {
+    pub const fn from_size(size: Vec2) -> Self {
         Self {
-            half_size: size / 2.0,
+            half_size: Vec2::new(size.x / 2.0, size.y / 2.0),
         }
     }
 
@@ -970,13 +987,13 @@ impl Annulus {
 
     /// Get the diameter of the annulus
     #[inline(always)]
-    pub fn diameter(&self) -> f32 {
+    pub const fn diameter(&self) -> f32 {
         self.outer_circle.diameter()
     }
 
     /// Get the thickness of the annulus
     #[inline(always)]
-    pub fn thickness(&self) -> f32 {
+    pub const fn thickness(&self) -> f32 {
         self.outer_circle.radius - self.inner_circle.radius
     }
 
@@ -1058,7 +1075,7 @@ impl Default for Rhombus {
 impl Rhombus {
     /// Create a new `Rhombus` from a vertical and horizontal diagonal sizes.
     #[inline(always)]
-    pub fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
+    pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
         Self {
             half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
         }
@@ -1066,7 +1083,7 @@ impl Rhombus {
 
     /// Create a new `Rhombus` from a side length with all inner angles equal.
     #[inline(always)]
-    pub fn from_side(side: f32) -> Self {
+    pub const fn from_side(side: f32) -> Self {
         Self {
             half_diagonals: Vec2::splat(side * FRAC_1_SQRT_2),
         }
@@ -1074,7 +1091,7 @@ impl Rhombus {
 
     /// Create a new `Rhombus` from a given inradius with all inner angles equal.
     #[inline(always)]
-    pub fn from_inradius(inradius: f32) -> Self {
+    pub const fn from_inradius(inradius: f32) -> Self {
         let half_diagonal = inradius * 2.0 / core::f32::consts::SQRT_2;
         Self {
             half_diagonals: Vec2::new(half_diagonal, half_diagonal),
@@ -1090,7 +1107,7 @@ impl Rhombus {
     /// Get the radius of the circumcircle on which all vertices
     /// of the rhombus lie
     #[inline(always)]
-    pub fn circumradius(&self) -> f32 {
+    pub const fn circumradius(&self) -> f32 {
         self.half_diagonals.x.max(self.half_diagonals.y)
     }
 
@@ -1245,6 +1262,14 @@ pub struct Segment2d {
 
 impl Primitive2d for Segment2d {}
 
+impl Default for Segment2d {
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)],
+        }
+    }
+}
+
 impl Segment2d {
     /// Create a new `Segment2d` from its endpoints.
     #[inline(always)]
@@ -1290,13 +1315,13 @@ impl Segment2d {
 
     /// Get the position of the first endpoint of the line segment.
     #[inline(always)]
-    pub fn point1(&self) -> Vec2 {
+    pub const fn point1(&self) -> Vec2 {
         self.vertices[0]
     }
 
     /// Get the position of the second endpoint of the line segment.
     #[inline(always)]
-    pub fn point2(&self) -> Vec2 {
+    pub const fn point2(&self) -> Vec2 {
         self.vertices[1]
     }
 
@@ -1480,6 +1505,38 @@ impl Segment2d {
         self.reverse();
         self
     }
+
+    /// Returns the point on the [`Segment2d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
+    }
 }
 
 impl From<[Vec2; 2]> for Segment2d {
@@ -1497,8 +1554,7 @@ impl From<(Vec2, Vec2)> for Segment2d {
 }
 
 /// A series of connected line segments in 2D space.
-///
-/// For a version without generics: [`BoxedPolyline2d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1510,62 +1566,52 @@ impl From<(Vec2, Vec2)> for Segment2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polyline2d<const N: usize> {
+pub struct Polyline2d {
     /// The vertices of the polyline
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polyline2d<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polyline2d {}
 
-impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polyline2d {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl Default for Polyline2d {
+    fn default() -> Self {
+        Self {
+            vertices: Vec::from([Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)]),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Polyline2d {
     /// Create a new `Polyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
-}
 
-/// A series of connected line segments in 2D space, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polyline2d`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolyline2d {
-    /// The vertices of the polyline
-    pub vertices: Box<[Vec2]>,
-}
+    /// Create a new `Polyline2d` from two endpoints with subdivision points.
+    /// `subdivisions = 0` creates a simple line with just start and end points.
+    /// `subdivisions = 1` adds one point in the middle, creating 2 segments, etc.
+    pub fn with_subdivisions(start: Vec2, end: Vec2, subdivisions: usize) -> Self {
+        let total_vertices = subdivisions + 2;
+        let mut vertices = Vec::with_capacity(total_vertices);
 
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolyline2d {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolyline2d {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
+        let step = (end - start) / (subdivisions + 1) as f32;
+        for i in 0..total_vertices {
+            vertices.push(start + step * i as f32);
         }
-    }
-}
 
-#[cfg(feature = "alloc")]
-impl BoxedPolyline2d {
-    /// Create a new `BoxedPolyline2d` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
+        Self { vertices }
     }
 }
 
@@ -1773,15 +1819,15 @@ impl Default for Rectangle {
 impl Rectangle {
     /// Create a new `Rectangle` from a full width and height
     #[inline(always)]
-    pub fn new(width: f32, height: f32) -> Self {
+    pub const fn new(width: f32, height: f32) -> Self {
         Self::from_size(Vec2::new(width, height))
     }
 
     /// Create a new `Rectangle` from a given full size
     #[inline(always)]
-    pub fn from_size(size: Vec2) -> Self {
+    pub const fn from_size(size: Vec2) -> Self {
         Self {
-            half_size: size / 2.0,
+            half_size: Vec2::new(size.x / 2.0, size.y / 2.0),
         }
     }
 
@@ -1796,7 +1842,7 @@ impl Rectangle {
     /// Create a `Rectangle` from a single length.
     /// The resulting `Rectangle` will be the same size in every direction.
     #[inline(always)]
-    pub fn from_length(length: f32) -> Self {
+    pub const fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec2::splat(length / 2.0),
         }
@@ -1834,8 +1880,7 @@ impl Measured2d for Rectangle {
 }
 
 /// A polygon with N vertices.
-///
-/// For a version without generics: [`BoxedPolygon`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1847,26 +1892,25 @@ impl Measured2d for Rectangle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polygon<const N: usize> {
+pub struct Polygon {
     /// The vertices of the `Polygon`
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polygon {}
 
-impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polygon {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polygon<N> {
+#[cfg(feature = "alloc")]
+impl Polygon {
     /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
@@ -1882,8 +1926,9 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
-impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
-    fn from(val: ConvexPolygon<N>) -> Self {
+#[cfg(feature = "alloc")]
+impl From<ConvexPolygon> for Polygon {
+    fn from(val: ConvexPolygon) -> Self {
         Polygon {
             vertices: val.vertices,
         }
@@ -1891,6 +1936,7 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
 }
 
 /// A convex polygon with `N` vertices.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1902,15 +1948,16 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct ConvexPolygon<const N: usize> {
+pub struct ConvexPolygon {
     /// The vertices of the [`ConvexPolygon`].
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    vertices: [Vec2; N],
+    vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for ConvexPolygon {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
+#[cfg(feature = "alloc")]
 #[derive(Error, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
@@ -1918,7 +1965,8 @@ pub enum ConvexPolygonError {
     Concave,
 }
 
-impl<const N: usize> ConvexPolygon<N> {
+#[cfg(feature = "alloc")]
+impl ConvexPolygon {
     fn triangle_winding_order(
         &self,
         a_index: usize,
@@ -1936,11 +1984,12 @@ impl<const N: usize> ConvexPolygon<N> {
     /// # Errors
     ///
     /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
-    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
-        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
-        for i in 1..N {
-            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+        let len = polygon.vertices.len();
+        let ref_winding_order = polygon.triangle_winding_order(len - 1, 0, 1);
+        for i in 1..len {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % len);
             if winding_order != ref_winding_order {
                 return Err(ConvexPolygonError::Concave);
             }
@@ -1951,63 +2000,25 @@ impl<const N: usize> ConvexPolygon<N> {
     /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
     /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
-    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
-        Self { vertices }
+    pub fn new_unchecked(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self {
+            vertices: vertices.into_iter().collect(),
+        }
     }
 
     /// Get the vertices of this polygon
     #[inline(always)]
-    pub fn vertices(&self) -> &[Vec2; N] {
+    pub fn vertices(&self) -> &[Vec2] {
         &self.vertices
     }
 }
 
-impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+#[cfg(feature = "alloc")]
+impl TryFrom<Polygon> for ConvexPolygon {
     type Error = ConvexPolygonError;
 
-    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+    fn try_from(val: Polygon) -> Result<Self, Self::Error> {
         ConvexPolygon::new(val.vertices)
-    }
-}
-
-/// A polygon with a variable number of vertices, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polygon`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolygon {
-    /// The vertices of the `BoxedPolygon`
-    pub vertices: Box<[Vec2]>,
-}
-
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolygon {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolygon {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
-        }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl BoxedPolygon {
-    /// Create a new `BoxedPolygon` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
-    }
-
-    /// Tests if the polygon is simple.
-    ///
-    /// A polygon is simple if it is not self intersecting and not self tangent.
-    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
-    pub fn is_simple(&self) -> bool {
-        is_polygon_simple(&self.vertices)
     }
 }
 
@@ -2050,7 +2061,7 @@ impl RegularPolygon {
     ///
     /// Panics if `circumradius` is negative
     #[inline(always)]
-    pub fn new(circumradius: f32, sides: u32) -> Self {
+    pub const fn new(circumradius: f32, sides: u32) -> Self {
         assert!(
             circumradius.is_sign_positive(),
             "polygon has a negative radius"
@@ -2068,7 +2079,7 @@ impl RegularPolygon {
     /// Get the radius of the circumcircle on which all vertices
     /// of the regular polygon lie
     #[inline(always)]
-    pub fn circumradius(&self) -> f32 {
+    pub const fn circumradius(&self) -> f32 {
         self.circumcircle.radius
     }
 
@@ -2092,7 +2103,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the interior of the polygon
     #[inline(always)]
-    pub fn internal_angle_degrees(&self) -> f32 {
+    pub const fn internal_angle_degrees(&self) -> f32 {
         (self.sides - 2) as f32 / self.sides as f32 * 180.0
     }
 
@@ -2101,7 +2112,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the interior of the polygon
     #[inline(always)]
-    pub fn internal_angle_radians(&self) -> f32 {
+    pub const fn internal_angle_radians(&self) -> f32 {
         (self.sides - 2) as f32 * PI / self.sides as f32
     }
 
@@ -2110,7 +2121,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the exterior of the polygon
     #[inline(always)]
-    pub fn external_angle_degrees(&self) -> f32 {
+    pub const fn external_angle_degrees(&self) -> f32 {
         360.0 / self.sides as f32
     }
 
@@ -2119,7 +2130,7 @@ impl RegularPolygon {
     /// This is the angle formed by two adjacent sides with points
     /// within the angle being in the exterior of the polygon
     #[inline(always)]
-    pub fn external_angle_radians(&self) -> f32 {
+    pub const fn external_angle_radians(&self) -> f32 {
         2.0 * PI / self.sides as f32
     }
 
@@ -2193,7 +2204,7 @@ impl Default for Capsule2d {
 
 impl Capsule2d {
     /// Create a new `Capsule2d` from a radius and length
-    pub fn new(radius: f32, length: f32) -> Self {
+    pub const fn new(radius: f32, length: f32) -> Self {
         Self {
             radius,
             half_length: length / 2.0,
@@ -2202,7 +2213,7 @@ impl Capsule2d {
 
     /// Get the part connecting the semicircular ends of the capsule as a [`Rectangle`]
     #[inline]
-    pub fn to_inner_rectangle(&self) -> Rectangle {
+    pub const fn to_inner_rectangle(&self) -> Rectangle {
         Rectangle::new(self.radius * 2.0, self.half_length * 2.0)
     }
 }
@@ -2286,6 +2297,52 @@ mod tests {
         assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(3.0, 0.0))
+                .closest_point(Vec2::new(1.0, 6.0)),
+            Vec2::new(1.0, 0.0)
+        );
+
+        let segments = [
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(1.0, 5.0 * f32::EPSILON)),
+        ];
+        let points = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(5.0, -1.0),
+            Vec2::new(1.0, f32::EPSILON),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

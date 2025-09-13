@@ -615,42 +615,16 @@ impl<'de> Deserialize<'de> for Entity {
     }
 }
 
-/// Outputs the full entity identifier, including the index, generation, and the raw bits.
+/// Outputs the short entity identifier, including the index and generation.
 ///
-/// This takes the format: `{index}v{generation}#{bits}`.
+/// This takes the format: `{index}v{generation}`.
 ///
 /// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 ///
-/// # Usage
-///
-/// Prefer to use this format for debugging and logging purposes. Because the output contains
-/// the raw bits, it is easy to check it against serialized scene data.
-///
-/// Example serialized scene data:
-/// ```text
-/// (
-///   ...
-///   entities: {
-///     4294967297: (  <--- Raw Bits
-///       components: {
-///         ...
-///       ),
-///   ...
-/// )
-/// ```
+/// For a unique [`u64`] representation, use [`Entity::to_bits`].
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self == &Self::PLACEHOLDER {
-            write!(f, "PLACEHOLDER")
-        } else {
-            write!(
-                f,
-                "{}v{}#{}",
-                self.index(),
-                self.generation(),
-                self.to_bits()
-            )
-        }
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -800,7 +774,7 @@ impl Entities {
         clippy::unnecessary_fallible_conversions,
         reason = "`IdCursor::try_from` may fail on 32-bit platforms."
     )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator<'_> {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
@@ -998,10 +972,10 @@ impl Entities {
     /// # Safety
     ///  - `index` must be a valid entity index.
     #[inline]
-    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, at: Tick) {
+    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, tick: Tick) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+        meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -1063,7 +1037,7 @@ impl Entities {
         &mut self,
         mut init: impl FnMut(Entity, &mut EntityIdLocation),
         by: MaybeLocation,
-        at: Tick,
+        tick: Tick,
     ) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -1081,7 +1055,7 @@ impl Entities {
                     Entity::from_raw_and_generation(row, meta.generation),
                     &mut meta.location,
                 );
-                meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+                meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
             }
 
             *free_cursor = 0;
@@ -1094,13 +1068,13 @@ impl Entities {
                 Entity::from_raw_and_generation(row, meta.generation),
                 &mut meta.location,
             );
-            meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+            meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
         }
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
-    pub fn flush_as_invalid(&mut self, by: MaybeLocation, at: Tick) {
+    pub fn flush_as_invalid(&mut self, by: MaybeLocation, tick: Tick) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
@@ -1109,7 +1083,7 @@ impl Entities {
                     *location = None;
                 },
                 by,
-                at,
+                tick,
             );
         }
     }
@@ -1177,9 +1151,9 @@ impl Entities {
     ///
     /// Returns `None` if its index has been reused by another entity or if this entity
     /// has never been spawned.
-    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
+    pub fn entity_get_spawn_or_despawn_tick(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
-            .map(|spawned_or_despawned| spawned_or_despawned.at)
+            .map(|spawned_or_despawned| spawned_or_despawned.tick)
     }
 
     /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawn,
@@ -1213,13 +1187,13 @@ impl Entities {
     ) -> (MaybeLocation, Tick) {
         // SAFETY: caller ensures entity is allocated
         let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
-        (meta.spawned_or_despawned.by, meta.spawned_or_despawned.at)
+        (meta.spawned_or_despawned.by, meta.spawned_or_despawned.tick)
     }
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for meta in &mut self.meta {
-            meta.spawned_or_despawned.at.check_tick(check);
+            meta.spawned_or_despawned.tick.check_tick(check);
         }
     }
 
@@ -1289,7 +1263,7 @@ struct EntityMeta {
 #[derive(Copy, Clone, Debug)]
 struct SpawnedOrDespawned {
     by: MaybeLocation,
-    at: Tick,
+    tick: Tick,
 }
 
 impl EntityMeta {
@@ -1299,7 +1273,7 @@ impl EntityMeta {
         location: None,
         spawned_or_despawned: SpawnedOrDespawned {
             by: MaybeLocation::caller(),
-            at: Tick::new(0),
+            tick: Tick::new(0),
         },
     };
 }
@@ -1645,7 +1619,7 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{entity:?}");
-        assert_eq!(string, "42v0#4294967253");
+        assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity:?}");

@@ -60,7 +60,6 @@ impl Oklcha {
     /// * `lightness` - Lightness channel. [0.0, 1.0]
     /// * `chroma` - Chroma channel. [0.0, 1.0]
     /// * `hue` - Hue channel. [0.0, 360.0]
-    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::new(lightness, chroma, hue, 1.0)
     }

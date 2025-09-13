@@ -47,9 +47,6 @@ pub mod prelude {
     pub use crate::default;
 }
 
-#[cfg(feature = "wgpu_wrapper")]
-mod wgpu_wrapper;
-
 mod debug_info;
 mod default;
 mod once;
@@ -58,9 +55,6 @@ mod once;
 pub use once::OnceFlag;
 
 pub use default::default;
-
-#[cfg(feature = "wgpu_wrapper")]
-pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
 

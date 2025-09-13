@@ -335,7 +335,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::resource::Resource;
+    use crate::{component::Component, resource::Resource};
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -405,11 +405,14 @@ mod test {
         assert_eq!(drops_b.load(Ordering::Relaxed), 1);
     }
 
+    #[derive(Component)]
+    struct A;
+
     struct SpawnCommand;
 
     impl Command for SpawnCommand {
         fn apply(self, world: &mut World) {
-            world.spawn_empty();
+            world.spawn(A);
         }
     }
 
@@ -423,12 +426,12 @@ mod test {
         let mut world = World::new();
         queue.apply(&mut world);
 
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&A>().query(&world).count(), 2);
 
         // The previous call to `apply` cleared the queue.
         // This call should do nothing.
         queue.apply(&mut world);
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&A>().query(&world).count(), 2);
     }
 
     #[expect(
@@ -462,7 +465,7 @@ mod test {
         queue.push(SpawnCommand);
         queue.push(SpawnCommand);
         queue.apply(&mut world);
-        assert_eq!(world.entity_count(), 3);
+        assert_eq!(world.query::<&A>().query(&world).count(), 3);
     }
 
     #[test]

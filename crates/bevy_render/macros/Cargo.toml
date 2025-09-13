@@ -14,7 +14,7 @@ proc-macro = true
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.17.0-dev" }
 
-syn = "2.0"
+syn = { version = "2.0", features = ["full"] }
 proc-macro2 = "1.0"
 quote = "1.0"
 

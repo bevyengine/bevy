@@ -9,16 +9,17 @@ use tracing::info_span;
 #[cfg(feature = "std")]
 use std::eprintln;
 
+#[cfg(feature = "hotpatching")]
+use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
     error::{ErrorContext, ErrorHandler},
     schedule::{
         executor::is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor,
         SystemSchedule,
     },
+    system::{RunSystemError, ScheduleSystem},
     world::World,
 };
-#[cfg(feature = "hotpatching")]
-use crate::{event::Events, HotPatched};
 
 use super::__rust_begin_short_backtrace;
 
@@ -64,14 +65,16 @@ impl SystemExecutor for SimpleExecutor {
         }
 
         #[cfg(feature = "hotpatching")]
-        let should_update_hotpatch = !world
-            .get_resource::<Events<HotPatched>>()
-            .map(Events::is_empty)
-            .unwrap_or(true);
+        let hotpatch_tick = world
+            .get_resource_ref::<HotPatchChanges>()
+            .map(|r| r.last_changed())
+            .unwrap_or_default();
 
         for system_index in 0..schedule.systems.len() {
+            let system = &mut schedule.systems[system_index].system;
+
             #[cfg(feature = "trace")]
-            let name = schedule.systems[system_index].system.name();
+            let name = system.name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = name.as_string()).entered();
 
@@ -86,6 +89,8 @@ impl SystemExecutor for SimpleExecutor {
                     &mut schedule.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
+                    true,
                 );
 
                 if !set_conditions_met {
@@ -102,35 +107,17 @@ impl SystemExecutor for SimpleExecutor {
                 &mut schedule.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
+                false,
             );
 
             should_run &= system_conditions_met;
-
-            let system = &mut schedule.systems[system_index].system;
-            if should_run {
-                let valid_params = match system.validate_param(world) {
-                    Ok(()) => true,
-                    Err(e) => {
-                        if !e.skipped {
-                            error_handler(
-                                e.into(),
-                                ErrorContext::System {
-                                    name: system.name(),
-                                    last_run: system.get_last_run(),
-                                },
-                            );
-                        }
-                        false
-                    }
-                };
-                should_run &= valid_params;
-            }
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
             #[cfg(feature = "hotpatching")]
-            if should_update_hotpatch {
+            if hotpatch_tick.is_newer_than(system.get_last_run(), world.change_tick()) {
                 system.refresh_hotpatch();
             }
 
@@ -141,12 +128,14 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            if is_apply_deferred(system) {
+            if is_apply_deferred(&**system) {
                 continue;
             }
 
             let f = AssertUnwindSafe(|| {
-                if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                if let Err(RunSystemError::Failed(err)) =
+                    __rust_begin_short_backtrace::run(system, world)
+                {
                     error_handler(
                         err,
                         ErrorContext::System {
@@ -199,12 +188,14 @@ fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: &mut World,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[cfg(feature = "hotpatching")]
-    let should_update_hotpatch = !world
-        .get_resource::<Events<HotPatched>>()
-        .map(Events::is_empty)
-        .unwrap_or(true);
+    let hotpatch_tick = world
+        .get_resource_ref::<HotPatchChanges>()
+        .map(|r| r.last_changed())
+        .unwrap_or_default();
 
     #[expect(
         clippy::unnecessary_fold,
@@ -213,26 +204,26 @@ fn evaluate_and_fold_conditions(
     conditions
         .iter_mut()
         .map(|ConditionWithAccess { condition, .. }| {
-            match condition.validate_param(world) {
-                Ok(()) => (),
-                Err(e) => {
-                    if !e.skipped {
-                        error_handler(
-                            e.into(),
-                            ErrorContext::System {
-                                name: condition.name(),
-                                last_run: condition.get_last_run(),
-                            },
-                        );
-                    }
-                    return false;
-                }
-            }
             #[cfg(feature = "hotpatching")]
-            if should_update_hotpatch {
+            if hotpatch_tick.is_newer_than(condition.get_last_run(), world.change_tick()) {
                 condition.refresh_hotpatch();
             }
-            __rust_begin_short_backtrace::readonly_run(&mut **condition, world)
+            __rust_begin_short_backtrace::readonly_run(&mut **condition, world).unwrap_or_else(
+                |err| {
+                    if let RunSystemError::Failed(err) = err {
+                        error_handler(
+                            err,
+                            ErrorContext::RunCondition {
+                                name: condition.name(),
+                                last_run: condition.get_last_run(),
+                                system: for_system.name(),
+                                on_set,
+                            },
+                        );
+                    };
+                    false
+                },
+            )
         })
         .fold(true, |acc, res| acc && res)
 }

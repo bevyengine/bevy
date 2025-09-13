@@ -19,8 +19,7 @@ impl Plugin for TextureAtlasPlugin {
         app.init_asset::<TextureAtlasLayout>();
 
         #[cfg(feature = "bevy_reflect")]
-        app.register_asset_reflect::<TextureAtlasLayout>()
-            .register_type::<TextureAtlas>();
+        app.register_asset_reflect::<TextureAtlasLayout>();
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
+use async_channel::{Receiver, Sender};
 use bevy_platform::collections::HashMap;
-use crossbeam_channel::{Receiver, Sender};
 use parking_lot::RwLock;
 use std::path::Path;
 
@@ -35,8 +35,8 @@ impl GateOpener {
         let mut gates = self.gates.write();
         let gates = gates
             .entry_ref(path.as_ref())
-            .or_insert_with(crossbeam_channel::unbounded);
-        gates.0.send(()).unwrap();
+            .or_insert_with(async_channel::unbounded);
+        gates.0.send_blocking(()).unwrap();
     }
 }
 
@@ -61,10 +61,10 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
             let mut gates = self.gates.write();
             let gates = gates
                 .entry_ref(path.as_ref())
-                .or_insert_with(crossbeam_channel::unbounded);
+                .or_insert_with(async_channel::unbounded);
             gates.1.clone()
         };
-        receiver.recv().unwrap();
+        receiver.recv().await.unwrap();
         let result = self.reader.read(path).await?;
         Ok(result)
     }

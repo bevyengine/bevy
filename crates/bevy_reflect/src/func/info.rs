@@ -177,7 +177,7 @@ impl FunctionInfo {
     /// let pretty = info.pretty_printer();
     /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
     /// ```
-    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo<'_> {
         PrettyPrintFunctionInfo::new(self)
     }
 

@@ -3,6 +3,8 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
+#[cfg(feature = "bevy_render")]
+use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
@@ -14,7 +16,7 @@ use {
         entity::Entity,
         system::{Commands, Local, Query},
     },
-    bevy_render::{view::RenderLayers, Extract},
+    bevy_render::Extract,
     bevy_transform::components::GlobalTransform,
 };
 

@@ -642,11 +642,12 @@ impl AssetProcessor {
                     ))
                     .await?;
                 }
-                if !contains_files && path.parent().is_some() {
-                    if let Some(writer) = clean_empty_folders_writer {
-                        // it is ok for this to fail as it is just a cleanup job.
-                        let _ = writer.remove_empty_directory(&path).await;
-                    }
+                if !contains_files
+                    && path.parent().is_some()
+                    && let Some(writer) = clean_empty_folders_writer
+                {
+                    // it is ok for this to fail as it is just a cleanup job.
+                    let _ = writer.remove_empty_directory(&path).await;
                 }
                 Ok(contains_files)
             } else {
@@ -892,22 +893,21 @@ impl AssetProcessor {
             if let Some(current_processed_info) = infos
                 .get(asset_path)
                 .and_then(|i| i.processed_info.as_ref())
+                && current_processed_info.hash == new_hash
             {
-                if current_processed_info.hash == new_hash {
-                    let mut dependency_changed = false;
-                    for current_dep_info in &current_processed_info.process_dependencies {
-                        let live_hash = infos
-                            .get(&current_dep_info.path)
-                            .and_then(|i| i.processed_info.as_ref())
-                            .map(|i| i.full_hash);
-                        if live_hash != Some(current_dep_info.full_hash) {
-                            dependency_changed = true;
-                            break;
-                        }
+                let mut dependency_changed = false;
+                for current_dep_info in &current_processed_info.process_dependencies {
+                    let live_hash = infos
+                        .get(&current_dep_info.path)
+                        .and_then(|i| i.processed_info.as_ref())
+                        .map(|i| i.full_hash);
+                    if live_hash != Some(current_dep_info.full_hash) {
+                        dependency_changed = true;
+                        break;
                     }
-                    if !dependency_changed {
-                        return Ok(ProcessResult::SkippedNotChanged);
-                    }
+                }
+                if !dependency_changed {
+                    return Ok(ProcessResult::SkippedNotChanged);
                 }
             }
         }

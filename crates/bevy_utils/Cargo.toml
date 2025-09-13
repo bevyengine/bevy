@@ -11,8 +11,6 @@ keywords = ["bevy"]
 [features]
 default = ["parallel"]
 
-wgpu_wrapper = ["dep:send_wrapper"]
-
 # Provides access to the `Parallel` type.
 parallel = ["bevy_platform/std", "dep:thread_local"]
 
@@ -25,9 +23,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 
 disqualified = { version = "1.0", default-features = false }
 thread_local = { version = "1.0", optional = true }
-
-[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
-send_wrapper = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 static_assertions = "1.1.0"

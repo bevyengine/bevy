@@ -117,7 +117,7 @@ use super::error::ResourceFetchError;
 #[derive(Clone, Copy)]
 pub struct FilteredResources<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     last_run: Tick,
     this_run: Tick,
 }
@@ -128,7 +128,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: &'s Access<ComponentId>,
+        access: &'s Access,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -141,7 +141,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -220,8 +220,8 @@ impl<'w, 's> From<&'w FilteredResourcesMut<'_, 's>> for FilteredResources<'w, 's
 
 impl<'w> From<&'w World> for FilteredResources<'w, 'static> {
     fn from(value: &'w World) -> Self {
-        const READ_ALL_RESOURCES: &Access<ComponentId> = {
-            const ACCESS: Access<ComponentId> = {
+        const READ_ALL_RESOURCES: &Access = {
+            const ACCESS: Access = {
                 let mut access = Access::new();
                 access.read_all_resources();
                 access
@@ -373,7 +373,7 @@ impl<'w> From<&'w mut World> for FilteredResources<'w, 'static> {
 /// ```
 pub struct FilteredResourcesMut<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     last_run: Tick,
     this_run: Tick,
 }
@@ -384,7 +384,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     /// It is the callers responsibility to ensure that nothing else may access the any resources in the `world` in a way that conflicts with `access`.
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
-        access: &'s Access<ComponentId>,
+        access: &'s Access,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -409,7 +409,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -510,8 +510,8 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
 
 impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
     fn from(value: &'w mut World) -> Self {
-        const WRITE_ALL_RESOURCES: &Access<ComponentId> = {
-            const ACCESS: Access<ComponentId> = {
+        const WRITE_ALL_RESOURCES: &Access = {
+            const ACCESS: Access = {
                 let mut access = Access::new();
                 access.write_all_resources();
                 access
@@ -538,7 +538,7 @@ impl<'w> From<&'w mut World> for FilteredResourcesMut<'w, 'static> {
 /// This is passed to a callback in [`FilteredResourcesParamBuilder`](crate::system::FilteredResourcesParamBuilder).
 pub struct FilteredResourcesBuilder<'w> {
     world: &'w mut World,
-    access: Access<ComponentId>,
+    access: Access,
 }
 
 impl<'w> FilteredResourcesBuilder<'w> {
@@ -551,7 +551,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         &self.access
     }
 
@@ -574,7 +574,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
     }
 
     /// Create an [`Access`] that represents the accesses of the builder.
-    pub fn build(self) -> Access<ComponentId> {
+    pub fn build(self) -> Access {
         self.access
     }
 }
@@ -584,7 +584,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
 /// This is passed to a callback in [`FilteredResourcesMutParamBuilder`](crate::system::FilteredResourcesMutParamBuilder).
 pub struct FilteredResourcesMutBuilder<'w> {
     world: &'w mut World,
-    access: Access<ComponentId>,
+    access: Access,
 }
 
 impl<'w> FilteredResourcesMutBuilder<'w> {
@@ -597,7 +597,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
     }
 
     /// Returns a reference to the underlying [`Access`].
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         &self.access
     }
 
@@ -638,7 +638,7 @@ impl<'w> FilteredResourcesMutBuilder<'w> {
     }
 
     /// Create an [`Access`] that represents the accesses of the builder.
-    pub fn build(self) -> Access<ComponentId> {
+    pub fn build(self) -> Access {
         self.access
     }
 }

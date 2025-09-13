@@ -3,16 +3,17 @@ use crate::{
     FullscreenShader,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_resource::{binding_types::texture_2d, *},
     renderer::RenderDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 use super::DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT;
@@ -31,18 +32,12 @@ impl Plugin for CopyDeferredLightingIdPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app.add_systems(
-            Render,
-            (prepare_deferred_lighting_id_textures.in_set(RenderSystems::PrepareResources),),
-        );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<CopyDeferredLightingIdPipeline>();
+        render_app
+            .add_systems(RenderStartup, init_copy_deferred_lighting_id_pipeline)
+            .add_systems(
+                Render,
+                (prepare_deferred_lighting_id_textures.in_set(RenderSystems::PrepareResources),),
+            );
     }
 }
 
@@ -83,6 +78,8 @@ impl ViewNode for CopyDeferredLightingIdNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let bind_group = render_context.render_device().create_bind_group(
             "copy_deferred_lighting_id_bind_group",
             &copy_deferred_lighting_id_pipeline.layout,
@@ -90,7 +87,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("copy_deferred_lighting_id_pass"),
+            label: Some("copy_deferred_lighting_id"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
@@ -104,9 +101,13 @@ impl ViewNode for CopyDeferredLightingIdNode {
             occlusion_query_set: None,
         });
 
+        let pass_span = diagnostics.pass_span(&mut render_pass, "copy_deferred_lighting_id");
+
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -118,47 +119,46 @@ struct CopyDeferredLightingIdPipeline {
     pipeline_id: CachedRenderPipelineId,
 }
 
-impl FromWorld for CopyDeferredLightingIdPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_copy_deferred_lighting_id_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+    pipeline_cache: Res<PipelineCache>,
+) {
+    let layout = render_device.create_bind_group_layout(
+        "copy_deferred_lighting_id_bind_group_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::FRAGMENT,
+            texture_2d(TextureSampleType::Uint),
+        ),
+    );
 
-        let layout = render_device.create_bind_group_layout(
-            "copy_deferred_lighting_id_bind_group_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::FRAGMENT,
-                texture_2d(TextureSampleType::Uint),
-            ),
-        );
+    let vertex_state = fullscreen_shader.to_vertex_state();
+    let shader = load_embedded_asset!(asset_server.as_ref(), "copy_deferred_lighting_id.wgsl");
 
-        let vertex_state = world.resource::<FullscreenShader>().to_vertex_state();
-        let shader = load_embedded_asset!(world, "copy_deferred_lighting_id.wgsl");
+    let pipeline_id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+        label: Some("copy_deferred_lighting_id_pipeline".into()),
+        layout: vec![layout.clone()],
+        vertex: vertex_state,
+        fragment: Some(FragmentState {
+            shader,
+            ..default()
+        }),
+        depth_stencil: Some(DepthStencilState {
+            format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
+            depth_write_enabled: true,
+            depth_compare: CompareFunction::Always,
+            stencil: StencilState::default(),
+            bias: DepthBiasState::default(),
+        }),
+        ..default()
+    });
 
-        let pipeline_id =
-            world
-                .resource_mut::<PipelineCache>()
-                .queue_render_pipeline(RenderPipelineDescriptor {
-                    label: Some("copy_deferred_lighting_id_pipeline".into()),
-                    layout: vec![layout.clone()],
-                    vertex: vertex_state,
-                    fragment: Some(FragmentState {
-                        shader,
-                        ..default()
-                    }),
-                    depth_stencil: Some(DepthStencilState {
-                        format: DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: CompareFunction::Always,
-                        stencil: StencilState::default(),
-                        bias: DepthBiasState::default(),
-                    }),
-                    ..default()
-                });
-
-        Self {
-            layout,
-            pipeline_id,
-        }
-    }
+    commands.insert_resource(CopyDeferredLightingIdPipeline {
+        layout,
+        pipeline_id,
+    });
 }
 
 #[derive(Component)]

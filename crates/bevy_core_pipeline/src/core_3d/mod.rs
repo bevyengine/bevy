@@ -1,4 +1,3 @@
-mod camera_3d;
 mod main_opaque_pass_3d_node;
 mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
@@ -29,9 +28,12 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Wireframe,
+        StartMainPassPostProcessing,
         LateDownsampleDepth,
-        Taa,
         MotionBlur,
+        Taa,
+        DlssSuperResolution,
+        DlssRayReconstruction,
         Bloom,
         AutoExposure,
         DepthOfField,
@@ -70,14 +72,15 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    camera::CameraRenderGraph,
     experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
     view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
-pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
 
@@ -89,7 +92,7 @@ use bevy_image::{BevyDefault, ToExtents};
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
@@ -119,7 +122,6 @@ use crate::{
         AlphaMask3dDeferred, Opaque3dDeferred, DEFERRED_LIGHTING_PASS_ID_FORMAT,
         DEFERRED_PREPASS_FORMAT,
     },
-    dof::DepthOfFieldNode,
     prepass::{
         node::{EarlyPrepassNode, LatePrepassNode},
         AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
@@ -127,7 +129,7 @@ use crate::{
         ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
-    tonemapping::TonemappingNode,
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
     upscaling::UpscalingNode,
 };
 
@@ -137,8 +139,11 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera3d>()
-            .register_type::<ScreenSpaceTransmissionQuality>()
+        app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
+            .register_required_components_with::<Camera3d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core3d)
+            })
+            .register_required_components::<Camera3d, Tonemapping>()
             .add_plugins((SkyboxPlugin, ExtractComponentPlugin::<Camera3d>::default()))
             .add_systems(PostUpdate, check_msaa);
 
@@ -209,7 +214,7 @@ impl Plugin for Core3dPlugin {
                 Node3d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPass)
-            .add_render_graph_node::<ViewNodeRunner<DepthOfFieldNode>>(Core3d, Node3d::DepthOfField)
+            .add_render_graph_node::<EmptyNode>(Core3d, Node3d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core3d, Node3d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core3d, Node3d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core3d, Node3d::Upscaling)
@@ -227,6 +232,7 @@ impl Plugin for Core3dPlugin {
                     Node3d::MainTransmissivePass,
                     Node3d::MainTransparentPass,
                     Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::Tonemapping,
                     Node3d::EndMainPassPostProcessing,
                     Node3d::Upscaling,

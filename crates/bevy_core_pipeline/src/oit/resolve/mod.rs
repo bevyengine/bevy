@@ -13,13 +13,13 @@ use bevy_render::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderDefVal, ShaderStages,
-        TextureFormat,
+        FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
+use bevy_shader::ShaderDefVal;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -167,11 +167,11 @@ pub fn queue_oit_resolve_pipeline(
             layer_count: oit_settings.layer_count,
         };
 
-        if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
-            if *cached_key == key {
-                commands.entity(e).insert(OitResolvePipelineId(*id));
-                continue;
-            }
+        if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
+            && *cached_key == key
+        {
+            commands.entity(e).insert(OitResolvePipelineId(*id));
+            continue;
         }
 
         let desc = specialize_oit_resolve_pipeline(

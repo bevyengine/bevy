@@ -5,8 +5,7 @@ use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
     resource::Resource,
-    system::{Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Res, ResMut},
 };
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
@@ -30,20 +29,17 @@ pub struct MeshletMeshManager {
         HashMap<AssetId<MeshletMesh>, ([Range<BufferAddress>; 7], MeshletAabb, u32)>,
 }
 
-impl FromWorld for MeshletMeshManager {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        Self {
-            vertex_positions: PersistentGpuBuffer::new("meshlet_vertex_positions", render_device),
-            vertex_normals: PersistentGpuBuffer::new("meshlet_vertex_normals", render_device),
-            vertex_uvs: PersistentGpuBuffer::new("meshlet_vertex_uvs", render_device),
-            indices: PersistentGpuBuffer::new("meshlet_indices", render_device),
-            bvh_nodes: PersistentGpuBuffer::new("meshlet_bvh_nodes", render_device),
-            meshlets: PersistentGpuBuffer::new("meshlets", render_device),
-            meshlet_cull_data: PersistentGpuBuffer::new("meshlet_cull_data", render_device),
-            meshlet_mesh_slices: HashMap::default(),
-        }
-    }
+pub fn init_meshlet_mesh_manager(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(MeshletMeshManager {
+        vertex_positions: PersistentGpuBuffer::new("meshlet_vertex_positions", &render_device),
+        vertex_normals: PersistentGpuBuffer::new("meshlet_vertex_normals", &render_device),
+        vertex_uvs: PersistentGpuBuffer::new("meshlet_vertex_uvs", &render_device),
+        indices: PersistentGpuBuffer::new("meshlet_indices", &render_device),
+        bvh_nodes: PersistentGpuBuffer::new("meshlet_bvh_nodes", &render_device),
+        meshlets: PersistentGpuBuffer::new("meshlets", &render_device),
+        meshlet_cull_data: PersistentGpuBuffer::new("meshlet_cull_data", &render_device),
+        meshlet_mesh_slices: HashMap::default(),
+    });
 }
 
 impl MeshletMeshManager {

@@ -63,7 +63,6 @@ libm = ["bevy_math/libm"]
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
   "glam",
 ], default-features = false, optional = true }

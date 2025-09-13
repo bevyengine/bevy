@@ -219,16 +219,16 @@ impl SerializedMeshAttributeData {
 /// the sum of these vectors which are then normalized, a constant multiple has
 /// no effect.
 #[inline]
-pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).into()
 }
 
 /// Compute the normal of a face made of three points: a, b, and c.
 #[inline]
-pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+pub fn triangle_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
-    (b - a).cross(c - a).normalize().into()
+    (b - a).cross(c - a).normalize_or_zero().into()
 }
 
 /// Contains an array where each entry describes a property of a single vertex.

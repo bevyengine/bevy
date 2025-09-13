@@ -7,9 +7,9 @@ use super::helpers::*;
 use bevy_color::Color;
 use bevy_math::{
     primitives::{
-        Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
-        RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
+        Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
+        Triangle2d,
     },
     Dir2, Isometry2d, Rot2, Vec2,
 };
@@ -648,7 +648,7 @@ where
 
 // polyline 2d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive2d<Polyline2d<N>> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Polyline2d> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -660,42 +660,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: &Polyline2d<N>,
-        isometry: impl Into<Isometry2d>,
-        color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        let isometry = isometry.into();
-
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .map(|vec2| isometry * vec2),
-            color,
-        );
-    }
-}
-
-// boxed polyline 2d
-
-impl<Config, Clear> GizmoPrimitive2d<BoxedPolyline2d> for GizmoBuffer<Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    type Output<'a>
-        = ()
-    where
-        Self: 'a;
-
-    fn primitive_2d(
-        &mut self,
-        primitive: &BoxedPolyline2d,
+        primitive: &Polyline2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
@@ -784,7 +749,7 @@ where
 
 // polygon 2d
 
-impl<const N: usize, Config, Clear> GizmoPrimitive2d<Polygon<N>> for GizmoBuffer<Config, Clear>
+impl<Config, Clear> GizmoPrimitive2d<Polygon> for GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -796,7 +761,7 @@ where
 
     fn primitive_2d(
         &mut self,
-        primitive: &Polygon<N>,
+        primitive: &Polygon,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
     ) -> Self::Output<'_> {
@@ -815,49 +780,6 @@ where
                 .cloned()
         };
 
-        self.linestrip_2d(
-            primitive
-                .vertices
-                .iter()
-                .copied()
-                .chain(closing_point)
-                .map(|vec2| isometry * vec2),
-            color,
-        );
-    }
-}
-
-// boxed polygon 2d
-
-impl<Config, Clear> GizmoPrimitive2d<BoxedPolygon> for GizmoBuffer<Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    type Output<'a>
-        = ()
-    where
-        Self: 'a;
-
-    fn primitive_2d(
-        &mut self,
-        primitive: &BoxedPolygon,
-        isometry: impl Into<Isometry2d>,
-        color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        if !self.enabled {
-            return;
-        }
-
-        let isometry = isometry.into();
-
-        let closing_point = {
-            let first = primitive.vertices.first();
-            (primitive.vertices.last() != first)
-                .then_some(first)
-                .flatten()
-                .cloned()
-        };
         self.linestrip_2d(
             primitive
                 .vertices

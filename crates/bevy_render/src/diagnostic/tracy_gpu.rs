@@ -56,7 +56,7 @@ fn initial_timestamp(device: &RenderDevice, queue: &RenderQueue) -> i64 {
     // Workaround for https://github.com/gfx-rs/wgpu/issues/6406
     // TODO when that bug is fixed, merge these encoders together again
     let mut copy_encoder = device.create_command_encoder(&CommandEncoderDescriptor::default());
-    copy_encoder.copy_buffer_to_buffer(&resolve_buffer, 0, &map_buffer, 0, QUERY_SIZE as _);
+    copy_encoder.copy_buffer_to_buffer(&resolve_buffer, 0, &map_buffer, 0, Some(QUERY_SIZE as _));
     queue.submit([timestamp_encoder.finish(), copy_encoder.finish()]);
 
     map_buffer.slice(..).map_async(MapMode::Read, |_| ());

@@ -8,8 +8,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
-ron = "0.10"
-toml_edit = { version = "0.22.7", default-features = false, features = [
+toml_edit = { version = "0.23.2", default-features = false, features = [
   "parse",
 ] }
 pbr = "1.1"

@@ -47,9 +47,14 @@ impl bevy_mikktspace::Geometry for MikktspaceGeometryHelper<'_> {
         self.uvs[self.index(face, vert)]
     }
 
-    fn set_tangent_encoded(&mut self, tangent: [f32; 4], face: usize, vert: usize) {
+    fn set_tangent(
+        &mut self,
+        tangent_space: Option<bevy_mikktspace::TangentSpace>,
+        face: usize,
+        vert: usize,
+    ) {
         let idx = self.index(face, vert);
-        self.tangents[idx] = tangent;
+        self.tangents[idx] = tangent_space.unwrap_or_default().tangent_encoded();
     }
 }
 
@@ -65,7 +70,7 @@ pub enum GenerateTangentsError {
     #[error("the '{0}' vertex attribute should have {1:?} format")]
     InvalidVertexAttributeFormat(&'static str, VertexFormat),
     #[error("mesh not suitable for tangent generation")]
-    MikktspaceError,
+    MikktspaceError(#[from] bevy_mikktspace::GenerateTangentSpaceError),
 }
 
 pub(crate) fn generate_tangents_for_mesh(
@@ -113,10 +118,7 @@ pub(crate) fn generate_tangents_for_mesh(
         uvs,
         tangents,
     };
-    let success = bevy_mikktspace::generate_tangents(&mut mikktspace_mesh);
-    if !success {
-        return Err(GenerateTangentsError::MikktspaceError);
-    }
+    bevy_mikktspace::generate_tangents(&mut mikktspace_mesh)?;
 
     // mikktspace seems to assume left-handedness so we can flip the sign to correct for this
     for tangent in &mut mikktspace_mesh.tangents {

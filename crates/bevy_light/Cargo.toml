@@ -1,0 +1,42 @@
+[package]
+name = "bevy_light"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Keeps the lights on at Bevy Engine"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.17.0-dev", features = [
+  "serialize",
+] }
+
+# other
+tracing = { version = "0.1", default-features = false }
+
+[features]
+default = []
+experimental_pbr_pcss = []
+webgl = []
+webgpu = []
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

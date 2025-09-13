@@ -8,10 +8,10 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::RemovedComponentEvents,
+    lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{DebugCheckedUnwrap, ReleaseStateQueryData},
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -275,8 +275,8 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.components
     }
 
-    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
-    pub fn removed_components(self) -> &'w RemovedComponentEvents {
+    /// Retrieves this world's collection of [removed components](RemovedComponentMessages).
+    pub fn removed_components(self) -> &'w RemovedComponentMessages {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.removed_components
@@ -998,7 +998,8 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
-    pub(crate) unsafe fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    /// - The `QueryData` does not provide aliasing mutable references to the same component.
+    pub(crate) unsafe fn get_components<Q: ReleaseStateQueryData>(
         &self,
     ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: World is only used to access query data and initialize query state
@@ -1165,7 +1166,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(self) -> Tick {
+    pub fn spawn_tick(self) -> Tick {
         // SAFETY: UnsafeEntityCell is only constructed for living entities and offers no despawn method
         unsafe {
             self.world()
