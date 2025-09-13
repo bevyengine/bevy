@@ -13,7 +13,7 @@ use crate::{
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
@@ -22,7 +22,7 @@ use bevy_ecs::{
     entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
-use bevy_platform::collections::HashSet;
+use bevy_platform::{cell::SyncCell, collections::HashSet};
 use bevy_reflect::Reflect;
 use bevy_shader::Shader;
 use bevy_tasks::AsyncComputeTaskPool;
@@ -31,10 +31,7 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use core::ops::Deref;
 use std::{
     path::Path,
-    sync::{
-        mpsc::{Receiver, Sender},
-        Mutex,
-    },
+    sync::mpsc::{Receiver, Sender},
 };
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
@@ -114,7 +111,7 @@ struct ScreenshotPreparedState {
 }
 
 #[derive(Resource, Deref, DerefMut)]
-pub struct CapturedScreenshots(pub Arc<Mutex<Receiver<(Entity, Image)>>>);
+pub struct CapturedScreenshots(pub SyncCell<Receiver<(Entity, Image)>>);
 
 #[derive(Resource, Deref, DerefMut, Default)]
 struct RenderScreenshotTargets(EntityHashMap<NormalizedRenderTarget>);
@@ -195,10 +192,9 @@ fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Cap
 
 pub fn trigger_screenshots(
     mut commands: Commands,
-    captured_screenshots: ResMut<CapturedScreenshots>,
+    mut captured_screenshots: ResMut<CapturedScreenshots>,
 ) {
-    let captured_screenshots = captured_screenshots.lock().unwrap();
-    while let Ok((entity, image)) = captured_screenshots.try_recv() {
+    while let Ok((entity, image)) = captured_screenshots.get().try_recv() {
         commands.entity(entity).insert(Captured);
         commands.trigger(ScreenshotCaptured { image, entity });
     }
@@ -400,7 +396,7 @@ impl Plugin for ScreenshotPlugin {
         embedded_asset!(app, "screenshot.wgsl");
 
         let (tx, rx) = std::sync::mpsc::channel();
-        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+        app.insert_resource(CapturedScreenshots(SyncCell::new(rx)))
             .add_systems(
                 First,
                 clear_screenshots

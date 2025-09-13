@@ -122,7 +122,7 @@ mod tests {
             .insert_state(StateTest::A)
             .register_type_mutable_state::<StateTest>();
 
-        let type_registry = app.world_mut().resource::<AppTypeRegistry>().0.clone();
+        let type_registry = app.world().resource::<AppTypeRegistry>().clone();
         let type_registry = type_registry.read();
 
         let (reflect_state, reflect_mutable_state) = (
