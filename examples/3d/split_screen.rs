@@ -1,4 +1,4 @@
-//! Renders two cameras to the same window to accomplish "split screen".
+//! Renders four cameras to the same window to accomplish "split screen".
 
 use std::f32::consts::PI;
 
