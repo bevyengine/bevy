@@ -1,5 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
+//! Macros for deriving asset traits.
+
 use bevy_macro_utils::{as_member, BevyManifest};
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
