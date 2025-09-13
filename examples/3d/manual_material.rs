@@ -9,7 +9,7 @@ use bevy::{
     },
     pbr::{
         DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialDrawFunction,
+        MainPassOpaqueDrawFunction, MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
         RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
     },
@@ -187,7 +187,7 @@ impl ErasedRenderAsset for ImageMaterial {
             material_layout: Some(material_layout),
             ..Default::default()
         };
-        properties.add_draw_function(MaterialDrawFunction, draw_function_id);
+        properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
         Ok(PreparedMaterial {
