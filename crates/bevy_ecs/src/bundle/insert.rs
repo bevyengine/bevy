@@ -9,7 +9,7 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{Components, StorageType, Tick},
+    component::{Components, ComponentsRegistrator, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
@@ -34,12 +34,20 @@ pub(crate) struct BundleInserter<'w> {
 impl<'w> BundleInserter<'w> {
     #[inline]
     pub(crate) fn new<T: Bundle>(
+        bundle: &T,
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
     ) -> Self {
-        let bundle_id = world.register_bundle_info::<T>();
-
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        // SAFETY: `world.bundles`, `world.storages` and `registrator` are all created from the given `world`
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(bundle, &mut registrator, &mut world.storages)
+        };
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }

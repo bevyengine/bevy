@@ -4,9 +4,9 @@ use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
-    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode, StaticBundle},
     change_detection::MaybeLocation,
-    component::Tick,
+    component::{ComponentsRegistrator, Tick},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
@@ -26,9 +26,23 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
-        let bundle_id = world.register_bundle_info::<T>();
+    pub fn new<T: Bundle>(bundle: &T, world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        // SAFETY: `world.bundles`, `world.storages` and `registrator` are all created from the given `world`
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info(bundle, &mut registrator, &mut world.storages)
+        };
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
+    }
 
+    #[inline]
+    pub fn new_static<T: StaticBundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        let bundle_id = world.register_bundle_info::<T>();
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }

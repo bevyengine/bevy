@@ -2,7 +2,7 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect, StaticBundle},
     change_detection::MaybeLocation,
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -56,7 +56,9 @@ pub trait SpawnableList<R>: Sized {
     fn size_hint(&self) -> usize;
 }
 
-impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
+impl<R: Relationship, B: Bundle<Effect: NoBundleEffect> + StaticBundle> SpawnableList<R>
+    for Vec<B>
+{
     fn spawn(ptr: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
         let mapped_bundles = ptr.read().into_iter().map(|b| (R::from(entity), b));
         world.spawn_batch(mapped_bundles);
@@ -306,21 +308,42 @@ pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
+unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> StaticBundle
     for SpawnRelatedBundle<R, L>
 {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
+    }
+}
+
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
+    for SpawnRelatedBundle<R, L>
+{
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn get_component_ids(
+        &self,
+        components: &crate::component::Components,
+        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
+    ) {
+        <Self as StaticBundle>::get_component_ids(components, ids);
     }
 }
 
@@ -399,21 +422,39 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         entity.with_related::<R>(effect.bundle);
     }
 }
-
-// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+// SAFETY: This internally relies on the RelationshipTarget's StaticBundle implementation, which is sound.
+unsafe impl<R: Relationship, B: Bundle> StaticBundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as StaticBundle>::get_component_ids(components, ids);
+    }
+}
+
+// SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
+unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+    fn component_ids(
+        &self,
+        components: &mut crate::component::ComponentsRegistrator,
+        ids: &mut impl FnMut(crate::component::ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn get_component_ids(
+        &self,
+        components: &crate::component::Components,
+        ids: &mut impl FnMut(Option<crate::component::ComponentId>),
+    ) {
+        <Self as StaticBundle>::get_component_ids(components, ids);
     }
 }
 

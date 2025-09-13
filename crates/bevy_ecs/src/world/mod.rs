@@ -33,7 +33,7 @@ use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        NoBundleEffect, StaticBundle,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -1164,7 +1164,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        let mut bundle_spawner = BundleSpawner::new::<B>(&bundle, self, change_tick);
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type
@@ -1240,7 +1240,7 @@ impl World {
     pub fn spawn_batch<I>(&mut self, iter: I) -> SpawnBatchIter<'_, I::IntoIter>
     where
         I: IntoIterator,
-        I::Item: Bundle<Effect: NoBundleEffect>,
+        I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         SpawnBatchIter::new(self, iter.into_iter(), MaybeLocation::caller())
     }
@@ -2256,7 +2256,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller());
     }
@@ -2281,7 +2281,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller());
     }
@@ -2300,7 +2300,7 @@ impl World {
     ) where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
@@ -2404,7 +2404,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.try_insert_batch_with_caller(batch, InsertMode::Replace, MaybeLocation::caller())
     }
@@ -2426,7 +2426,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.try_insert_batch_with_caller(batch, InsertMode::Keep, MaybeLocation::caller())
     }
@@ -2450,7 +2450,7 @@ impl World {
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
@@ -3085,14 +3085,14 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: StaticBundle>(&mut self) -> &BundleInfo {
         let id = self.register_bundle_info::<B>();
 
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+    pub(crate) fn register_bundle_info<B: StaticBundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
@@ -3100,11 +3100,11 @@ impl World {
         // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
         unsafe {
             self.bundles
-                .register_info::<B>(&mut registrator, &mut self.storages)
+                .register_static_info::<B>(&mut registrator, &mut self.storages)
         }
     }
 
-    pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+    pub(crate) fn register_contributed_bundle_info<B: StaticBundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };

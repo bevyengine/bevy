@@ -9,6 +9,7 @@ use alloc::{
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
+    bundle::StaticBundle,
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
     event::Event,
@@ -1378,7 +1379,7 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
