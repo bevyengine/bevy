@@ -460,19 +460,19 @@
 //! Retrieve schema information about registered types in the Bevy app's type registry.
 //!
 //! `params` (optional):
-//! - `with_crates`: An array of crate names to include in the results. If non-empty, only types from these crates will be included.
-//! - `without_crates`: An array of crate names to exclude from the results. If non-empty, types from these crates will be excluded.
+//! - `with_crates`: An array of crate names to include in the results. When empty or omitted, types from all crates will be included.
+//! - `without_crates`: An array of crate names to exclude from the results. When empty or omitted, no crates will be excluded.
 //! - `type_limit`: Additional type constraints:
 //!   - `with`: An array of reflect type names that must be present for a type to be included
 //!   - `without`: An array of reflect type names that must not be present for a type to be excluded
 //!
-//! `result`: A map associating each type's [fully-qualified type names] with [JsonSchemaBevyType](crate::schemas::json_schema::JsonSchemaBevyType)
-//! which contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
+//! `result`: A map associating each type's [fully-qualified type name] to a [JsonSchemaBevyType](crate::schemas::json_schema::JsonSchemaBevyType).
+//! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
 //! helpful for understanding the structure of the type.
 //!
 //! ### `rpc.discover`
 //!
-//! Discover available remote methods and server information. This follows the OpenRPC specification for service discovery.
+//! Discover available remote methods and server information. This follows the [OpenRPC specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
 //!
 //! This method takes no parameters.
 //!
