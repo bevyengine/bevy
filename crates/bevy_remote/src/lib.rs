@@ -463,23 +463,23 @@
 //! - `with_crates`: An array of crate names to include in the results. When empty or omitted, types from all crates will be included.
 //! - `without_crates`: An array of crate names to exclude from the results. When empty or omitted, no crates will be excluded.
 //! - `type_limit`: Additional type constraints:
-//!   - `with`: An array of reflect type names that must be present for a type to be included
-//!   - `without`: An array of reflect type names that must not be present for a type to be excluded
+//!   - `with`: An array of [fully-qualified type names] that must be present for a type to be included
+//!   - `without`: An array of [fully-qualified type names] that must not be present for a type to be excluded
 //!
-//! `result`: A map associating each type's [fully-qualified type name] to a [JsonSchemaBevyType](crate::schemas::json_schema::JsonSchemaBevyType).
+//! `result`: A map associating each type's [fully-qualified type name] to a [`JsonSchemaBevyType`](crate::schemas::json_schema::JsonSchemaBevyType).
 //! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
 //! helpful for understanding the structure of the type.
 //!
 //! ### `rpc.discover`
 //!
-//! Discover available remote methods and server information. This follows the [OpenRPC specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
+//! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
 //!
 //! This method takes no parameters.
 //!
-//! `result`: An OpenRPC document containing:
+//! `result`: An `OpenRPC` document containing:
 //! - Information about all available remote methods
 //! - Server connection information (when using HTTP transport)
-//! - OpenRPC specification version
+//! - `OpenRPC` specification version
 //!
 //! ## Custom methods
 //!
