@@ -3,7 +3,7 @@ use bevy_ptr::ConstNonNull;
 use core::ptr::NonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes, Edges},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
@@ -64,6 +64,7 @@ impl<'w> BundleRemover<'w> {
         let (new_archetype_id, is_new_created) = unsafe {
             bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
+                &mut world.edges,
                 &mut world.storages,
                 &world.components,
                 &world.observers,
@@ -320,6 +321,7 @@ impl BundleInfo {
     pub(crate) unsafe fn remove_bundle_from_archetype(
         &self,
         archetypes: &mut Archetypes,
+        edges: &mut Edges,
         storages: &mut Storages,
         components: &Components,
         observers: &Observers,
@@ -329,11 +331,10 @@ impl BundleInfo {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
-            let edges = archetypes[archetype_id].edges();
             if intersection {
-                edges.get_archetype_after_bundle_remove(self.id())
+                edges.get_archetype_after_bundle_remove(archetype_id, self.id())
             } else {
-                edges.get_archetype_after_bundle_take(self.id())
+                edges.get_archetype_after_bundle_take(archetype_id, self.id())
             }
         };
         let (result, is_new_created) = if let Some(result) = archetype_after_remove_result {
@@ -360,9 +361,7 @@ impl BundleInfo {
                     } else if !intersection {
                         // A component in the bundle was not present in the entity's archetype, so this
                         // removal is invalid. Cache the result in the archetype graph.
-                        current_archetype
-                            .edges_mut()
-                            .cache_archetype_after_bundle_take(self.id(), None);
+                        edges.cache_archetype_after_bundle_take(archetype_id, self.id(), None);
                         return (None, false);
                     }
                 }
@@ -400,16 +399,12 @@ impl BundleInfo {
             );
             (Some(new_archetype_id), is_new_created)
         };
-        let current_archetype = &mut archetypes[archetype_id];
+
         // Cache the result in an edge.
         if intersection {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_remove(self.id(), result);
+            edges.cache_archetype_after_bundle_remove(archetype_id, self.id(), result);
         } else {
-            current_archetype
-                .edges_mut()
-                .cache_archetype_after_bundle_take(self.id(), result);
+            edges.cache_archetype_after_bundle_take(archetype_id, self.id(), result);
         }
         (result, is_new_created)
     }
