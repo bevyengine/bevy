@@ -1724,9 +1724,16 @@ pub fn check_views_lights_need_specialization(
                 continue;
             }
 
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
-            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
+            let light_key = MeshPipelineKey::DEPTH_PREPASS
+                | match light_entity {
+                    LightEntity::Directional { .. } => {
+                        MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC
+                            | MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO
+                    }
+                    LightEntity::Spot { .. } | LightEntity::Point { .. } => {
+                        MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE
+                    }
+                };
             if let Some(current_key) =
                 light_key_cache.get_mut(&extracted_view_light.retained_view_entity)
             {
