@@ -10,6 +10,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
+    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -52,8 +53,13 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
         );
 
-        let archetype = &mut world.archetypes[new_archetype_id];
-        let table = &mut world.storages.tables[archetype.table_id()];
+        // SAFETY: The archetypes was just creatd in `insert_bundle_into_archetype`
+        let archetype = world.archetypes.get_unchecked_mut(new_archetype_id);
+        let table = world
+            .storages
+            .tables
+            .get_mut(archetype.table_id())
+            .debug_checked_unwrap();
         let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),

@@ -21,6 +21,8 @@ pub use par_iter::*;
 pub use state::*;
 pub use world_query::*;
 
+use alloc::vec::Vec;
+
 /// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
 /// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
 /// equivalent to `Option::unwrap_unchecked` or `Result::unwrap_unchecked`
@@ -98,6 +100,27 @@ impl<T> DebugCheckedUnwrap for Option<T> {
             inner
         } else {
             core::hint::unreachable_unchecked()
+        }
+    }
+}
+
+pub(crate) trait UnsafeVecExtensions<T> {
+    unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T;
+}
+
+impl<T> UnsafeVecExtensions<T> for Vec<T> {
+    /// # Safety
+    /// `index` must be in the bounds `0 <= index < self.len()`.
+    unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T {
+        let len = self.len();
+        // SAFETY: Caller guarantees that `index` is in bounds. We replace self[index] with the last element.
+        // If index is in bounds, there must be a last element (which can be self[index] itself).
+        unsafe {
+            let value = core::ptr::read(self.as_ptr().add(index));
+            let base_ptr = self.as_mut_ptr();
+            core::ptr::copy(base_ptr.add(len - 1), base_ptr.add(index), 1);
+            self.set_len(len - 1);
+            value
         }
     }
 }
