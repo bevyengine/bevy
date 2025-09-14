@@ -54,7 +54,7 @@ impl Plugin for MeshPlugin {
             .register_asset_reflect::<Mesh>()
             .add_systems(
                 PostUpdate,
-                mark_3d_meshes_as_changed_if_their_assets_changed.before(AssetEventSystems),
+                mark_3d_meshes_as_changed_if_their_assets_changed.after(AssetEventSystems),
             );
     }
 }

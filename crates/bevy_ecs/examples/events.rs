@@ -1,29 +1,29 @@
-//! In this example a system sends a custom buffered event with a 50/50 chance during any frame.
-//! If an event was sent, it will be printed by the console in a receiving system.
+//! In this example a system sends a custom messages with a 50/50 chance during any frame.
+//! If a message was sent, it will be printed by the console in a receiving system.
 
 #![expect(clippy::print_stdout, reason = "Allowed in examples.")]
 
-use bevy_ecs::{event::EventRegistry, prelude::*};
+use bevy_ecs::{message::MessageRegistry, prelude::*};
 
 fn main() {
-    // Create a new empty world and add the event as a resource
+    // Create a new empty world.
     let mut world = World::new();
-    // The event registry is stored as a resource, and allows us to quickly update all events at once.
-    // This call adds both the registry resource and the events resource into the world.
-    EventRegistry::register_event::<MyEvent>(&mut world);
+    // The message registry is stored as a resource, and allows us to quickly update all messages at once.
+    // This call adds both the registry resource and the `Messages` resource into the world.
+    MessageRegistry::register_message::<MyMessage>(&mut world);
 
     // Create a schedule to store our systems
     let mut schedule = Schedule::default();
 
-    // Buffered events need to be updated every frame in order to clear our buffers.
-    // This update should happen before we use the events.
+    // Messages need to be updated every frame in order to clear our buffers.
+    // This update should happen before we use the messages.
     // Here, we use system sets to control the ordering.
     #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
     pub struct EventFlusherSystems;
 
-    schedule.add_systems(bevy_ecs::event::event_update_system.in_set(EventFlusherSystems));
+    schedule.add_systems(bevy_ecs::message::message_update_system.in_set(EventFlusherSystems));
 
-    // Add systems sending and receiving events after the events are flushed.
+    // Add systems sending and receiving messages after the messages are flushed.
     schedule.add_systems((
         sending_system.after(EventFlusherSystems),
         receiving_system.after(sending_system),
@@ -36,31 +36,31 @@ fn main() {
     }
 }
 
-// This is our event that we will send and receive in systems
-#[derive(BufferedEvent)]
-struct MyEvent {
+// This is our message that we will send and receive in systems
+#[derive(Message)]
+struct MyMessage {
     pub message: String,
     pub random_value: f32,
 }
 
-// In every frame we will send an event with a 50/50 chance
-fn sending_system(mut event_writer: EventWriter<MyEvent>) {
+// In every frame we will send a message with a 50/50 chance
+fn sending_system(mut message_writer: MessageWriter<MyMessage>) {
     let random_value: f32 = rand::random();
     if random_value > 0.5 {
-        event_writer.write(MyEvent {
-            message: "A random event with value > 0.5".to_string(),
+        message_writer.write(MyMessage {
+            message: "A random message with value > 0.5".to_string(),
             random_value,
         });
     }
 }
 
-// This system listens for events of the type MyEvent
-// If an event is received it will be printed to the console
-fn receiving_system(mut event_reader: EventReader<MyEvent>) {
-    for my_event in event_reader.read() {
+// This system listens for messages of the type MyEvent
+// If a message is received it will be printed to the console
+fn receiving_system(mut message_reader: MessageReader<MyMessage>) {
+    for my_message in message_reader.read() {
         println!(
             "    Received message {}, with random value of {}",
-            my_event.message, my_event.random_value
+            my_message.message, my_message.random_value
         );
     }
 }

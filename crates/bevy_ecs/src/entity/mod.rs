@@ -972,10 +972,10 @@ impl Entities {
     /// # Safety
     ///  - `index` must be a valid entity index.
     #[inline]
-    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, at: Tick) {
+    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, tick: Tick) {
         // SAFETY: Caller guarantees that `index` a valid entity index
         let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+        meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
     }
 
     /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
@@ -1037,7 +1037,7 @@ impl Entities {
         &mut self,
         mut init: impl FnMut(Entity, &mut EntityIdLocation),
         by: MaybeLocation,
-        at: Tick,
+        tick: Tick,
     ) {
         let free_cursor = self.free_cursor.get_mut();
         let current_free_cursor = *free_cursor;
@@ -1055,7 +1055,7 @@ impl Entities {
                     Entity::from_raw_and_generation(row, meta.generation),
                     &mut meta.location,
                 );
-                meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+                meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
             }
 
             *free_cursor = 0;
@@ -1068,13 +1068,13 @@ impl Entities {
                 Entity::from_raw_and_generation(row, meta.generation),
                 &mut meta.location,
             );
-            meta.spawned_or_despawned = SpawnedOrDespawned { by, at };
+            meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
         }
     }
 
     /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
     /// unless they are later populated with a valid archetype.
-    pub fn flush_as_invalid(&mut self, by: MaybeLocation, at: Tick) {
+    pub fn flush_as_invalid(&mut self, by: MaybeLocation, tick: Tick) {
         // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
         // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
         unsafe {
@@ -1083,7 +1083,7 @@ impl Entities {
                     *location = None;
                 },
                 by,
-                at,
+                tick,
             );
         }
     }
@@ -1151,9 +1151,9 @@ impl Entities {
     ///
     /// Returns `None` if its index has been reused by another entity or if this entity
     /// has never been spawned.
-    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
+    pub fn entity_get_spawn_or_despawn_tick(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
-            .map(|spawned_or_despawned| spawned_or_despawned.at)
+            .map(|spawned_or_despawned| spawned_or_despawned.tick)
     }
 
     /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawn,
@@ -1187,13 +1187,13 @@ impl Entities {
     ) -> (MaybeLocation, Tick) {
         // SAFETY: caller ensures entity is allocated
         let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
-        (meta.spawned_or_despawned.by, meta.spawned_or_despawned.at)
+        (meta.spawned_or_despawned.by, meta.spawned_or_despawned.tick)
     }
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for meta in &mut self.meta {
-            meta.spawned_or_despawned.at.check_tick(check);
+            meta.spawned_or_despawned.tick.check_tick(check);
         }
     }
 
@@ -1263,7 +1263,7 @@ struct EntityMeta {
 #[derive(Copy, Clone, Debug)]
 struct SpawnedOrDespawned {
     by: MaybeLocation,
-    at: Tick,
+    tick: Tick,
 }
 
 impl EntityMeta {
@@ -1273,7 +1273,7 @@ impl EntityMeta {
         location: None,
         spawned_or_despawned: SpawnedOrDespawned {
             by: MaybeLocation::caller(),
-            at: Tick::new(0),
+            tick: Tick::new(0),
         },
     };
 }

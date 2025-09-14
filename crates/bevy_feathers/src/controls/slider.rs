@@ -2,7 +2,6 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -24,6 +23,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
+use bevy_ui_widgets::{Callback, Slider, SliderRange, SliderValue, TrackClick, ValueChange};
 
 use crate::{
     constants::{fonts, size},
@@ -59,7 +59,7 @@ impl Default for SliderProps {
 }
 
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider)]
+#[require(Slider)]
 #[derive(Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderStyle;
@@ -85,7 +85,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreSlider {
+        Slider {
             on_change: props.on_change,
             track_click: TrackClick::Drag,
         },
@@ -172,12 +172,12 @@ fn set_slider_styles(
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(match disabled {
+    let bar_color = theme.color(&match disabled {
         true => tokens::SLIDER_BAR_DISABLED,
         false => tokens::SLIDER_BAR,
     });
 
-    let bg_color = theme.color(tokens::SLIDER_BG);
+    let bg_color = theme.color(&tokens::SLIDER_BG);
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,

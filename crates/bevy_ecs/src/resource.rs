@@ -3,6 +3,7 @@
 use crate::entity_disabling::Internal;
 use crate::prelude::Component;
 use crate::prelude::ReflectComponent;
+use crate::prelude::ReflectResource;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;
@@ -115,8 +116,9 @@ pub struct IsResource;
 
 /// Used in conjunction with [`ResourceEntity<R>`], when no type information is available.
 /// This is used by [`World::insert_resource_by_id`](crate::world::World).
-#[derive(Resource)]
-pub(crate) struct TypeErasedResource;
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Debug))]
+#[derive(Resource, Debug)]
+pub struct TypeErasedResource;
 
 #[cfg(test)]
 mod tests {

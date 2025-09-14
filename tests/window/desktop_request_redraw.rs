@@ -82,14 +82,12 @@ fn setup(
             AnimationActive,
         ))
         .observe(
-            |trigger: On<Pointer<Click>>, mut commands: Commands| match trigger.button {
+            |click: On<Pointer<Click>>, mut commands: Commands| match click.button {
                 PointerButton::Primary => {
-                    commands.entity(trigger.entity()).insert(AnimationActive);
+                    commands.entity(click.entity).insert(AnimationActive);
                 }
                 PointerButton::Secondary => {
-                    commands
-                        .entity(trigger.entity())
-                        .remove::<AnimationActive>();
+                    commands.entity(click.entity).remove::<AnimationActive>();
                 }
                 _ => {}
             },
@@ -104,6 +102,6 @@ fn update(time: Res<Time>, mut query: Query<&mut Transform, With<AnimationActive
 
 fn redraw(mut commands: Commands, query: Query<Entity, With<AnimationActive>>) {
     if query.iter().next().is_some() {
-        commands.write_event(RequestRedraw);
+        commands.write_message(RequestRedraw);
     }
 }

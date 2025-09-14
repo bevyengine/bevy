@@ -5,7 +5,7 @@ pull_requests: [16615]
 
 Bevy UI now uses specialized 2D UI transform components `UiTransform` and `UiGlobalTransform` in place of `Transform` and `GlobalTransform`.
 
-UiTransform is a 2d-only equivalent of Transform with a responsive translation in `Val`s. `UiGlobalTransform` newtypes `Affine2` and is updated in `ui_layout_system
+`UiTransform` is a 2D-only equivalent of Transform with a responsive translation in `Val`s. `UiGlobalTransform` newtypes `Affine2` and is updated in `ui_layout_system`.
 
 `Node` now requires `UiTransform` instead of `Transform`. `UiTransform` requires `UiGlobalTransform`.
 

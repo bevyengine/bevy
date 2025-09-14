@@ -81,13 +81,21 @@ impl Plugin for BloomPlugin {
             .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core3d, Node3d::Bloom)
             .add_render_graph_edges(
                 Core3d,
-                (Node3d::EndMainPass, Node3d::Bloom, Node3d::Tonemapping),
+                (
+                    Node3d::StartMainPassPostProcessing,
+                    Node3d::Bloom,
+                    Node3d::Tonemapping,
+                ),
             )
             // Add bloom to the 2d render graph
             .add_render_graph_node::<ViewNodeRunner<BloomNode>>(Core2d, Node2d::Bloom)
             .add_render_graph_edges(
                 Core2d,
-                (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
+                (
+                    Node2d::StartMainPassPostProcessing,
+                    Node2d::Bloom,
+                    Node2d::Tonemapping,
+                ),
             );
     }
 }

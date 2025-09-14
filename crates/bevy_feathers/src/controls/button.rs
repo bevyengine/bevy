@@ -1,5 +1,4 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Activate, Callback, CoreButton};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -16,6 +15,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_ui_widgets::{Activate, Button, Callback};
 
 use crate::{
     constants::{fonts, size},
@@ -71,7 +71,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreButton {
+        Button {
             on_activate: props.on_click,
         },
         props.variant,

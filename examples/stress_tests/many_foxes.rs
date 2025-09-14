@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -54,10 +54,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
@@ -231,18 +228,18 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    event: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    for child in children.iter_descendants(event.entity()) {
+    for child in children.iter_descendants(scene_ready.entity) {
         if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(event.entity().index() as f32 / 10.0);
+                playing_animation.seek_to(scene_ready.entity.index() as f32 / 10.0);
             }
             commands
                 .entity(child)

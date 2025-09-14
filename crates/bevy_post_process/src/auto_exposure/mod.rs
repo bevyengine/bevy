@@ -75,7 +75,11 @@ impl Plugin for AutoExposurePlugin {
             .add_render_graph_node::<AutoExposureNode>(Core3d, node::AutoExposure)
             .add_render_graph_edges(
                 Core3d,
-                (Node3d::EndMainPass, node::AutoExposure, Node3d::Tonemapping),
+                (
+                    Node3d::StartMainPassPostProcessing,
+                    node::AutoExposure,
+                    Node3d::Tonemapping,
+                ),
             );
     }
 }

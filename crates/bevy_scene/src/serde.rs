@@ -789,7 +789,7 @@ mod tests {
 
         let (scene, deserialized_scene) = roundtrip_ron(&world);
 
-        assert_eq!(3, deserialized_scene.entities.len());
+        assert_eq!(3, deserialized_scene.entities.len()); // 1 entity and 2 resources
         assert_scene_eq(&scene, &deserialized_scene);
 
         let mut world = create_world();
