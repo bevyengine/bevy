@@ -211,7 +211,7 @@ animation = [
 
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
-bevy_sprite = ["dep:bevy_sprite", "bevy_camera", "bevy_gizmos?/bevy_sprite"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]
 bevy_text = [
   "dep:bevy_text",
   "bevy_image",
