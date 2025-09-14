@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 bevy_ecs = { path = "../" }
-bevy_ptr = { path = "../../bevy_ptr" }
 
 [dev-dependencies]
 compile_fail_utils = { path = "../../../tools/compile_fail_utils" }

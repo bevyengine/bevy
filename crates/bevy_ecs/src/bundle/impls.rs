@@ -133,7 +133,7 @@ macro_rules! tuple_impl {
             )]
             #[inline(always)]
             unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                bevy_ptr::deconstruct_moving_ptr!(ptr => ($($index => $alias),*));
+                bevy_ptr::deconstruct_moving_ptr!(let tuple { $($index: $alias,)* } = ptr);
                 // SAFETY: Caller ensures requirements for calling `get_components` are met.
                 $( $name::get_components($alias, func); )*
             }
@@ -144,9 +144,7 @@ macro_rules! tuple_impl {
             )]
             #[inline(always)]
             unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
-                bevy_ptr::deconstruct_moving_ptr!(ptr: MaybeUninit => (
-                    $($index => $alias),*
-                ));
+                bevy_ptr::deconstruct_moving_ptr!(let uninit tuple { $($index: $alias,)* } = ptr);
                 // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
                 $( $name::apply_effect($alias, entity); )*
             }
