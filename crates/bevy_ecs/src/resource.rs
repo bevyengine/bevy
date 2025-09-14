@@ -92,6 +92,8 @@ pub trait Resource: Send + Sync + 'static {}
 ///
 /// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
 /// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
+///
+/// Note that because [`Internal`] is a required component, this entity will not appear in queries by default.
 #[derive(Component, Debug)]
 #[require(Internal, IsResource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Default))]
