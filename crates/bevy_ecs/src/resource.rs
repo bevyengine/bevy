@@ -82,6 +82,7 @@ pub use bevy_ecs_macros::Resource;
 pub trait Resource: Send + Sync + 'static {}
 
 /// A marker component for the entity that stores the resource of type `T`.
+/// Note that until [#20934](https://github.com/bevyengine/bevy/pull/20934) is merged, this does not actually store any data.
 ///
 /// This component is automatically inserted when a resource of type `T` is inserted into the world,
 /// and can be used to find the entity that stores a particular resource.
