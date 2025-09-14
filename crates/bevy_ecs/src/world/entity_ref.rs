@@ -146,6 +146,13 @@ impl<'w> EntityRef<'w> {
         unsafe { self.cell.get_change_ticks::<T>() }
     }
 
+    /// Retrieves the caller information for the given component.
+    #[inline]
+    pub fn get_caller<T: Component>(&self) -> Option<MaybeLocation> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.cell.get_caller::<T>() }
+    }
+
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
@@ -1740,6 +1747,16 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Retrieves the caller information for the given component.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_caller<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_caller::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change

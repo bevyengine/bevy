@@ -2593,12 +2593,13 @@ impl World {
     ) -> Option<U> {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
-        let mut caller = MaybeLocation::caller(); // TODO: Fix up caller location.
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
         let entity = self.components.resource_entities.get(&component_id)?;
         let mut entity_mut = self.get_entity_mut(*entity).ok()?;
-        let mut ticks = entity_mut.get_change_ticks_by_id(component_id)?;
+
+        let mut ticks = entity_mut.get_change_ticks::<R>()?;
+        let mut caller = entity_mut.get_caller::<R>()?;
         let mut value = entity_mut.take::<R>()?;
 
         let value_mut = Mut {
@@ -2621,8 +2622,15 @@ impl World {
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             DebugName::type_name::<R>());
 
-        // TODO: insert with ticks of value_mut and maybe also caller
-        entity_mut.insert(value);
+        move_as_ptr!(value);
+
+        // TODO: insert with ticks, not only caller
+        entity_mut.insert_with_caller(
+            value,
+            InsertMode::Replace,
+            caller,
+            RelationshipHookMode::Skip,
+        );
 
         Some(result)
     }

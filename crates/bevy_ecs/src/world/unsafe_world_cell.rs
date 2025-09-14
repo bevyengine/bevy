@@ -880,6 +880,30 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
+    /// Retrieves the caller information for the given component.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_caller<T: Component>(self) -> Option<MaybeLocation> {
+        let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
+
+        // SAFETY:
+        // - entity location is valid
+        // - proper world access is promised by caller
+        unsafe {
+            get_caller(
+                self.world,
+                component_id,
+                T::STORAGE_TYPE,
+                self.entity,
+                self.location,
+            )
+        }
+    }
+
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
@@ -1290,6 +1314,36 @@ unsafe fn get_ticks(
         }
         StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_ticks(entity),
     }
+}
+
+/// Get the caller information for a [`Component`] on a particular [`Entity`]
+///
+/// # Safety
+/// - `location` must refer to an archetype that contains `entity`
+///   the archetype
+/// - `component_id` must be valid
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+/// - the caller must ensure that no aliasing rules are violated
+#[inline]
+unsafe fn get_caller(
+    world: UnsafeWorldCell<'_>,
+    component_id: ComponentId,
+    storage_type: StorageType,
+    entity: Entity,
+    location: EntityLocation,
+) -> Option<MaybeLocation> {
+    let caller = match storage_type {
+        StorageType::Table => world
+            .fetch_table(location)?
+            .get_changed_by(component_id, location.table_row),
+        StorageType::SparseSet => world.fetch_sparse_set(component_id)?.get_changed_by(entity),
+    };
+    Some(
+        caller
+            .transpose()?
+            // SAFETY: This function is being called through an exclusive mutable reference to Self
+            .map(|changed_by| unsafe { *changed_by.deref() }),
+    )
 }
 
 impl ContainsEntity for UnsafeEntityCell<'_> {
