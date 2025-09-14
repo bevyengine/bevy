@@ -8,7 +8,7 @@ now you can use `Observer::with_dynamic_runner` to build custom Observe.
 
 ```rust
 let observe = unsafe {
-    Observer::with_dynamic_runner(|mut world, trigger, ptr, propagate| {
+    Observer::with_dynamic_runner(|world, trigger_context, event_ptr, trigger_ptr| {
         // do something
     })
     .with_event(event_a)

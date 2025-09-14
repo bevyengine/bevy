@@ -2,14 +2,20 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect},
+    change_detection::MaybeLocation,
     entity::Entity,
-    relationship::{RelatedSpawner, Relationship, RelationshipTarget},
+    query::DebugCheckedUnwrap,
+    relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use core::marker::PhantomData;
-use variadics_please::all_tuples;
+use bevy_ptr::{move_as_ptr, MovingPtr};
+use core::{
+    marker::PhantomData,
+    mem::{self, MaybeUninit},
+};
+use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
 /// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
@@ -37,18 +43,22 @@ pub struct Spawn<B: Bundle>(pub B);
 
 /// A spawn-able list of changes to a given [`World`] and relative to a given [`Entity`]. This is generally used
 /// for spawning "related" entities, such as children.
-pub trait SpawnableList<R> {
+pub trait SpawnableList<R>: Sized {
     /// Spawn this list of changes in a given [`World`] and relative to a given [`Entity`]. This is generally used
     /// for spawning "related" entities, such as children.
-    fn spawn(self, world: &mut World, entity: Entity);
+    // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
+    // information.
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity);
+
     /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
     /// less than or equal to the actual size of the list. When in doubt, just use 0.
     fn size_hint(&self) -> usize;
 }
 
 impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
+    fn spawn(ptr: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        let mapped_bundles = ptr.read().into_iter().map(|b| (R::from(entity), b));
         world.spawn_batch(mapped_bundles);
     }
 
@@ -58,8 +68,38 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 }
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world.spawn((R::from(entity), self.0));
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        #[track_caller]
+        fn spawn<B: Bundle, R: Relationship>(
+            this: MovingPtr<'_, Spawn<B>>,
+            world: &mut World,
+            entity: Entity,
+        ) {
+            let caller = MaybeLocation::caller();
+
+            // SAFETY:
+            //  - `Spawn<B>` has one field at index 0.
+            //  - if `this` is aligned, then its inner bundle must be as well.
+            let bundle = unsafe {
+                bevy_ptr::deconstruct_moving_ptr!(this => (
+                    0 => bundle,
+                ));
+                bundle.try_into().debug_checked_unwrap()
+            };
+
+            let r = R::from(entity);
+            move_as_ptr!(r);
+            let mut entity = world.spawn_with_caller(r, caller);
+
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            );
+        }
+
+        spawn::<B, R>(this, world, entity);
     }
 
     fn size_hint(&self) -> usize {
@@ -88,8 +128,8 @@ pub struct SpawnIter<I>(pub I);
 impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> SpawnableList<R>
     for SpawnIter<I>
 {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        for bundle in self.0 {
+    fn spawn(mut this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        for bundle in &mut this.0 {
             world.spawn((R::from(entity), bundle));
         }
     }
@@ -124,8 +164,10 @@ pub struct SpawnWith<F>(pub F);
 impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static> SpawnableList<R>
     for SpawnWith<F>
 {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).with_related_entities(self.0);
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        world
+            .entity_mut(entity)
+            .with_related_entities(this.read().0);
     }
 
     fn size_hint(&self) -> usize {
@@ -167,10 +209,9 @@ impl<I> WithRelated<I> {
 }
 
 impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world
-            .entity_mut(entity)
-            .add_related::<R>(&self.0.collect::<Vec<_>>());
+    fn spawn(mut this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        let related = (&mut this.0).collect::<Vec<_>>();
+        world.entity_mut(entity).add_related::<R>(&related);
     }
 
     fn size_hint(&self) -> usize {
@@ -205,8 +246,8 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelat
 pub struct WithOneRelated(pub Entity);
 
 impl<R: Relationship> SpawnableList<R> for WithOneRelated {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).add_one_related::<R>(self.0);
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        world.entity_mut(entity).add_one_related::<R>(this.read().0);
     }
 
     fn size_hint(&self) -> usize {
@@ -215,40 +256,43 @@ impl<R: Relationship> SpawnableList<R> for WithOneRelated {
 }
 
 macro_rules! spawnable_list_impl {
-    ($(#[$meta:meta])* $($list: ident),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
-        )]
+    ($(#[$meta:meta])* $(($index:tt, $list: ident, $alias: ident)),*) => {
         $(#[$meta])*
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R> for ($($list,)*) {
-            fn spawn(self, _world: &mut World, _entity: Entity) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($list,)*) = self;
-                $($list.spawn(_world, _entity);)*
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+            )]
+            #[allow(unused_unsafe, reason = "The empty tuple will leave the unsafe blocks unused.")]
+            fn spawn(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
+            where
+                Self: Sized,
+            {
+                // SAFETY:
+                //  - The indices uniquely match the type definition and thus must point to the right fields.
+                //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
+                //    pointers must also be properly aligned.
+                unsafe {
+                    bevy_ptr::deconstruct_moving_ptr!(_this => ($($index => $alias,)*));
+                    $( SpawnableList::<R>::spawn($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
+                }
             }
 
             fn size_hint(&self) -> usize {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($list,)*) = self;
-                0 $(+ $list.size_hint())*
+                let ($($alias,)*) = self;
+                0 $(+ $alias.size_hint())*
             }
        }
     }
 }
 
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     spawnable_list_impl,
     0,
     12,
-    P
+    P,
+    field_
 );
 
 /// A [`Bundle`] that:
@@ -259,15 +303,6 @@ all_tuples!(
 pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
     list: L,
     marker: PhantomData<R>,
-}
-
-impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R, L> {
-    fn apply(self, entity: &mut EntityWorldMut) {
-        let id = entity.id();
-        entity.world_scope(|world: &mut World| {
-            self.list.spawn(world, id);
-        });
-    }
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
@@ -292,13 +327,37 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
-    fn get_components(
-        self,
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
-    ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(self.list.size_hint())
-            .get_components(func);
-        self
+    ) {
+        let target =
+            <R::RelationshipTarget as RelationshipTarget>::with_capacity(ptr.list.size_hint());
+        move_as_ptr!(target);
+        // SAFETY:
+        // - The caller must ensure that this is called exactly once before `apply_effect`.
+        // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
+        //   called exactly once for each component being fetched with the correct `StorageType`
+        // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
+        //   at least once before returning to safe code.
+        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        // Forget the pointer so that the value is available in `apply_effect`.
+        mem::forget(ptr);
+    }
+
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
+        // be valid and initialized.
+        let effect = unsafe { ptr.assume_init() };
+        let id = entity.id();
+
+        // SAFETY:
+        //  - `ptr` points to an instance of type `Self`
+        //  - The field names and types match with the type definition.
+        entity.world_scope(|world: &mut World| unsafe {
+            bevy_ptr::deconstruct_moving_ptr!(effect => { list, });
+            L::spawn(list.try_into().debug_checked_unwrap(), world, id);
+        });
     }
 }
 
@@ -312,21 +371,32 @@ pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
     marker: PhantomData<R>,
 }
 
-impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
-    fn apply(self, entity: &mut EntityWorldMut) {
-        entity.with_related::<R>(self.bundle);
-    }
-}
-
 impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
-    fn get_components(
-        self,
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
-    ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(1).get_components(func);
-        self
+    ) {
+        let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+        move_as_ptr!(target);
+        // SAFETY:
+        // - The caller must ensure that this is called exactly once before `apply_effect`.
+        // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
+        //   called exactly once for each component being fetched with the correct `StorageType`
+        // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
+        //   at least once before returning to safe code.
+        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
+        // Forget the pointer so that the value is available in `apply_effect`.
+        mem::forget(ptr);
+    }
+
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
+        // be valid and initialized.
+        let effect = unsafe { ptr.assume_init() };
+        let effect = effect.read();
+        entity.with_related::<R>(effect.bundle);
     }
 }
 

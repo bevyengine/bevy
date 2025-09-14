@@ -1,7 +1,7 @@
 ---
 title: Bevy Feathers
 authors: ["@viridia", "@Atlas16A", "@ickshonpe", "@amedoeyes"]
-pull_requests: [19730, 19900, 19928, 20237, 20169, 20422, 20350, 20548]
+pull_requests: [19730, 19900, 19928, 20237, 20169, 20422, 20350, 20548, 20969]
 ---
 
 TODO: add screenshot of `feathers` in practice
@@ -30,6 +30,6 @@ Let us know what problems you run into, and feel free to contribute missing widg
 
 But if you can't wait to get your hands on `bevy_ui` widgets for your game,
 copy the code into your project and start hacking away at it!
-While it deliberately does not expose very many tuning levers (keeping a coherent visual style in an open source project is *hard*),
+While it deliberately does not expose very many tuning levers (keeping a coherent visual style in an open source project is _hard_),
 it's a helpful base to understand how to extend and style `bevy_ui` and our new headless widgets
 to meet the unique style and design patterns of your project.

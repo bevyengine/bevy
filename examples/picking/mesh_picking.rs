@@ -163,8 +163,8 @@ fn update_material_on<E: EntityEvent>(
     // An observer closure that captures `new_material`. We do this to avoid needing to write four
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
-    move |trigger, mut query| {
-        if let Ok(mut material) = query.get_mut(trigger.entity()) {
+    move |event, mut query| {
+        if let Ok(mut material) = query.get_mut(event.event_target()) {
             material.0 = new_material.clone();
         }
     }
@@ -191,7 +191,7 @@ fn rotate(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>) {
 
 /// An observer to rotate an entity when it is dragged
 fn rotate_on_drag(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    let mut transform = transforms.get_mut(drag.entity()).unwrap();
+    let mut transform = transforms.get_mut(drag.entity).unwrap();
     transform.rotate_y(drag.delta.x * 0.02);
     transform.rotate_x(drag.delta.y * 0.02);
 }

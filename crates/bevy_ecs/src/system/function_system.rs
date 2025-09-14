@@ -114,7 +114,7 @@ impl SystemMeta {
 /// can be significantly simpler and ensures that change detection and command flushing work as expected.
 ///
 /// Borrow-checking is handled for you, allowing you to mutably access multiple compatible system parameters at once,
-/// and arbitrary system parameters (like [`EventWriter`](crate::event::EventWriter)) can be conveniently fetched.
+/// and arbitrary system parameters (like [`MessageWriter`](crate::message::MessageWriter)) can be conveniently fetched.
 ///
 /// For an alternative approach to split mutable access to the world, see [`World::resource_scope`].
 ///
@@ -125,7 +125,7 @@ impl SystemMeta {
 /// These include:
 /// - [`Added`](crate::query::Added), [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) query filters
 /// - [`Local`](crate::system::Local) variables that hold state
-/// - [`EventReader`](crate::event::EventReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which events have been seen
+/// - [`MessageReader`](crate::message::MessageReader) system parameters, which rely on a [`Local`](crate::system::Local) to track which messages have been seen
 ///
 /// Note that this is automatically handled for you when using a [`World::run_system`](World::run_system).
 ///
@@ -137,8 +137,8 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
 /// #
@@ -147,19 +147,19 @@ impl SystemMeta {
 /// #
 /// // Work directly on the `World`
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
+/// world.init_resource::<Messages<MyMessage>>();
 ///
 /// // Construct a `SystemState` struct, passing in a tuple of `SystemParam`
 /// // as if you were writing an ordinary system.
 /// let mut system_state: SystemState<(
-///     EventWriter<MyEvent>,
+///     MessageWriter<MyMessage>,
 ///     Option<ResMut<MyResource>>,
 ///     Query<&MyComponent>,
 /// )> = SystemState::new(&mut world);
 ///
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
-/// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+/// let (message_writer, maybe_resource, query) = system_state.get_mut(&mut world);
 ///
 /// // If you are using `Commands`, you can choose when you want to apply them to the world.
 /// // You need to manually call `.apply(world)` on the `SystemState` to apply them.
@@ -168,30 +168,30 @@ impl SystemMeta {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
-/// # use bevy_ecs::event::Events;
+/// # use bevy_ecs::message::Messages;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
-///     event_state: SystemState<EventReader<'static, 'static, MyEvent>>,
+///     message_state: SystemState<MessageReader<'static, 'static, MyMessage>>,
 /// }
 ///
 /// // Create and store a system state once
 /// let mut world = World::new();
-/// world.init_resource::<Events<MyEvent>>();
-/// let initial_state: SystemState<EventReader<MyEvent>> = SystemState::new(&mut world);
+/// world.init_resource::<Messages<MyMessage>>();
+/// let initial_state: SystemState<MessageReader<MyMessage>> = SystemState::new(&mut world);
 ///
 /// // The system state is cached in a resource
 /// world.insert_resource(CachedSystemState {
-///     event_state: initial_state,
+///     message_state: initial_state,
 /// });
 ///
 /// // Later, fetch the cached system state, saving on overhead
 /// world.resource_scope(|world, mut cached_state: Mut<CachedSystemState>| {
-///     let mut event_reader = cached_state.event_state.get_mut(world);
+///     let mut message_reader = cached_state.message_state.get_mut(world);
 ///
-///     for events in event_reader.read() {
+///     for message in message_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// });
@@ -201,13 +201,13 @@ impl SystemMeta {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
+/// # #[derive(Message)]
+/// # struct MyMessage;
 /// #
-/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<EventReader<MyEvent>>) {
-///     let mut event_reader = system_state.get_mut(world);
+/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<MessageReader<MyMessage>>) {
+///     let mut message_reader = system_state.get_mut(world);
 ///
-///     for events in event_reader.read() {
+///     for message in message_reader.read() {
 ///         println!("Hello World!");
 ///     }
 /// }

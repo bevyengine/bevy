@@ -166,7 +166,7 @@ impl AssetServer {
         self.register_handle_provider(assets.get_handle_provider());
         fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
             world
-                .resource_mut::<Events<AssetEvent<A>>>()
+                .resource_mut::<Messages<AssetEvent<A>>>()
                 .write(AssetEvent::LoadedWithDependencies { id: id.typed() });
         }
         fn failed_sender<A: Asset>(
@@ -176,7 +176,7 @@ impl AssetServer {
             error: AssetLoadError,
         ) {
             world
-                .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
+                .resource_mut::<Messages<AssetLoadFailedEvent<A>>>()
                 .write(AssetLoadFailedEvent {
                     id: id.typed(),
                     path,
@@ -1686,7 +1686,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         if !untyped_failures.is_empty() {
-            world.write_event_batch(untyped_failures);
+            world.write_message_batch(untyped_failures);
         }
 
         fn queue_ancestors(

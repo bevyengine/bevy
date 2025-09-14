@@ -2,8 +2,9 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{EntityEvent, EventCursor, Events},
+    event::EntityEvent,
     hierarchy::ChildOf,
+    message::{MessageCursor, Messages},
     reflect::AppTypeRegistry,
     resource::Resource,
     world::{Mut, World},
@@ -22,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`SceneInstance`](`crate::SceneInstance`) becomes ready to use.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
@@ -30,6 +31,8 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    /// The entity whose scene instance is ready.
+    pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
@@ -81,7 +84,7 @@ pub struct SceneSpawner {
     pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
+    scene_asset_event_reader: MessageCursor<AssetEvent<Scene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // To handle scene hot reloading, they are unloaded/reloaded on asset modifications.
     // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
@@ -90,7 +93,7 @@ pub struct SceneSpawner {
     // Debouncing scene asset events let us ignore events that happen less than SCENE_ASSET_AGE_THRESHOLD frames
     // apart and not reload the scene in those cases as it's unlikely to be an actual asset change.
     debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
-    dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
+    dynamic_scene_asset_event_reader: MessageCursor<AssetEvent<DynamicScene>>,
     // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
     // See debounced_scene_asset_events
     debounced_dynamic_scene_asset_events: HashMap<AssetId<DynamicScene>, u32>,
@@ -506,12 +509,18 @@ impl SceneSpawner {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
             }
         }
     }
@@ -554,8 +563,8 @@ pub fn scene_spawner_system(world: &mut World) {
             .scenes_to_spawn
             .retain(|(_, _, parent)| is_parent_alive(parent));
 
-        let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
-        let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
+        let scene_asset_events = world.resource::<Messages<AssetEvent<Scene>>>();
+        let dynamic_scene_asset_events = world.resource::<Messages<AssetEvent<DynamicScene>>>();
         let scene_spawner = &mut *scene_spawner;
 
         let mut updated_spawned_scenes = Vec::new();
@@ -889,7 +898,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    event.entity(),
+                    event.event_target(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );

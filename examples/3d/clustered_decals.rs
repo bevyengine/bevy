@@ -131,7 +131,7 @@ fn main() {
             ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
         >::default())
         .init_resource::<AppStatus>()
-        .add_event::<WidgetClickEvent<Selection>>()
+        .add_message::<WidgetClickEvent<Selection>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
@@ -163,7 +163,7 @@ fn setup(
     // Error out if clustered decals aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Clustered decals aren't usable on this platform.");
-        commands.write_event(AppExit::error());
+        commands.write_message(AppExit::error());
     }
 
     spawn_cube(&mut commands, &mut meshes, &mut materials);
@@ -372,7 +372,7 @@ fn update_radio_buttons(
 
 /// Changes the selection when the user clicks a radio button.
 fn handle_selection_change(
-    mut events: EventReader<WidgetClickEvent<Selection>>,
+    mut events: MessageReader<WidgetClickEvent<Selection>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
