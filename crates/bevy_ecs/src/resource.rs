@@ -114,7 +114,7 @@ impl<R: Resource> Default for ResourceEntity<R> {
 #[derive(Component, Default, Debug)]
 pub struct IsResource;
 
-/// Used in conjunction with [`ResourceEntity<R>`], when no type information is available.
+/// Used as the `R` generic of [`ResourceEntity<R>`], when no type information is available.
 /// This is used by [`World::insert_resource_by_id`](crate::world::World).
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Debug))]
 #[derive(Resource, Debug)]
