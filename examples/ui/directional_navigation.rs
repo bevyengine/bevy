@@ -386,10 +386,10 @@ fn interact_with_focused_button(
             pointer_id: PointerId::Mouse,
             // This field isn't used, so we're just setting it to a placeholder value
             pointer_location: Location {
-                target: NormalizedRenderTarget::Image(bevy::camera::ImageRenderTarget {
-                    handle: Handle::default(),
-                    scale_factor: 1.0,
-                }),
+                target: NormalizedRenderTarget::None {
+                    width: 0,
+                    height: 0,
+                },
                 position: Vec2::ZERO,
             },
             event: Click {
