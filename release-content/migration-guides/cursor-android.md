@@ -5,6 +5,7 @@ pull_requests: [20427]
 
 In an effort to reduce and untangle dependencies, cursor-related types have been moved from the `bevy_winit` crate to the `bevy_window` crate.
 The following types have been moved as part of this change:
+
 - `CursorIcon` is now located at `bevy::window::CursorIcon`.
 - `CustomCursor` is now located at `bevy::window::CustomCursor`.
 - `CustomCursorImage` is now located at `bevy::window::CustomCursorImage`.
