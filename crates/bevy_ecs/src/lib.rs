@@ -1943,10 +1943,6 @@ mod tests {
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
