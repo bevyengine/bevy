@@ -18,17 +18,19 @@ Light types such `AmbientLight`, `PointLight`, `SpotLight`, `DirectionalLight`, 
 Import them directly or from `bevy::light` now.
 
 Mesh types such as `Mesh`, `Mesh3d`, `Mesh2d`, `MorphWeights`, `MeshBuilder`, and `Meshable` have been moved to a new crate, `bevy_mesh`.
-Import them directly or from `bevy::mesh` now.
+Import them directly or from `bevy::mesh` now. This crate is actually present in the previous release, but its `bevy_render` re-exports have now been removed.
 
-Image types such as `Image`, `ImagePlugin`, `ImageFormat`, `ImageSampler`, `ImageAddressMode`, `ImageSamplerDescriptor`, `ImageCompareFunction`, and `ImageSamplerBorderColor` have been moved to a new crate, `bevy_image`.
+Image types such as `Image`, `ImagePlugin`, `ImageFormat`, `ImageSampler`, `ImageAddressMode`, `ImageSamplerDescriptor`, `ImageCompareFunction`, and `ImageSamplerBorderColor` have been moved to a new crate, `bevy_image`. This crate is actually present in the previous release, but its `bevy_render` re-exports have now been removed.
 Import them directly or from `bevy::image` now.
 
 Ui rendering types such as `MaterialNode`, `UiMaterial`, `UiMaterialKey`, and modules `bevy_ui::render` and `bevy_ui::ui_material` have been moved to a new crate, `bevy_ui_render`.
 Import them directly or from `bevy::ui_render` now.
 Furthermore, `UiPlugin` no longer has any fields. To control whether or not UI is rendered, enable or disable `UiRenderPlugin`, which is included in the DefaultPlugins.
+If you were manually enabling "bevy_ui" feature on bevy, you probably want to enable "bevy_ui_render" feature instead now if you are using rendering features.
 
 Sprite rendering types such as `Material2d`, `Material2dPlugin`, `MeshMaterial2d`, `AlphaMode2d`, `Wireframe2d`, `TileData`, `TilemapChunk`, and `TilemapChunkTileData` have been moved to a new crate, `bevy_sprite_render`.
 Import them directly or from `bevy::sprite_render` now.
+If you were manually enabling "bevy_sprite" feature on bevy, you probably want to enable "bevy_sprite_render" feature instead now if you are using rendering features such as 2d gizmos.
 
 `RenderAssetUsages` is no longer re-exported by `bevy_render`.
 Import it from `bevy_asset` or `bevy::asset` instead.
