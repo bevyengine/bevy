@@ -388,7 +388,7 @@ fn interact_with_focused_button(
             pointer_location: Location {
                 target: NormalizedRenderTarget::Image(bevy::camera::ImageRenderTarget {
                     handle: Handle::default(),
-                    scale_factor: FloatOrd(1.0),
+                    scale_factor: 1.0,
                 }),
                 position: Vec2::ZERO,
             },
