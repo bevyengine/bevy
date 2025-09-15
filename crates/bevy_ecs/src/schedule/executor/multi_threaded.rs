@@ -849,7 +849,6 @@ unsafe fn evaluate_and_fold_conditions(
                     // SAFETY:
                     // - The caller ensures that `world` has permission to read any data
                     //   required by the condition.
-                    // - `update_archetype_component_access` has been called for condition.
                     unsafe {
                         __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
                     }
