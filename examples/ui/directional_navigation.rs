@@ -15,7 +15,7 @@ use bevy::{
         },
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, FloatOrd},
+    math::CompassOctant,
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
