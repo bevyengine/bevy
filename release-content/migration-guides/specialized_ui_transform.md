@@ -26,7 +26,9 @@ UiTransform {
     translation: Val2::px(x, y),
     rotation: Rot2::from_rotation(radians),
     scale: scale.xy(),
-} 
+}
 ```
 
 In previous versions of Bevy `ui_layout_system` would overwrite UI node's `Transform::translation` each frame. `UiTransform`s aren't overwritten and there is no longer any need for systems that cache and rewrite the transform for translated UI elements.
+
+If you were relying on the `z` value of the `GlobalTransform`, this can be derived from `UiStack` instead.
