@@ -910,7 +910,7 @@ impl PartialOrd for ImageRenderTarget {
 }
 
 impl Ord for ImageRenderTarget {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.handle
             .cmp(&other.handle)
             .then_with(|| FloatOrd(self.scale_factor).cmp(&FloatOrd(other.scale_factor)))
