@@ -46,16 +46,16 @@ pub mod prelude {
     };
 }
 
-/// An event produced by a picking backend after it has run its hit tests, describing the entities
+/// A message produced by a picking backend after it has run its hit tests, describing the entities
 /// under a pointer.
 ///
 /// Some backends may only support providing the topmost entity; this is a valid limitation. For
 /// example, a picking shader might only have data on the topmost rendered output from its buffer.
 ///
-/// Note that systems reading these events in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
+/// Note that systems reading these messages in [`PreUpdate`](bevy_app::PreUpdate) will not report ordering
 /// ambiguities with picking backends. Take care to ensure such systems are explicitly ordered
 /// against [`PickingSystems::Backend`](crate::PickingSystems::Backend), or better, avoid reading `PointerHits` in `PreUpdate`.
-#[derive(BufferedEvent, Debug, Clone, Reflect)]
+#[derive(Message, Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct PointerHits {
     /// The pointer associated with this hit test.
@@ -170,7 +170,7 @@ pub mod ray {
     /// # use bevy_picking::backend::ray::RayMap;
     /// # use bevy_picking::backend::PointerHits;
     /// // My raycasting backend
-    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_events: EventWriter<PointerHits>,) {
+    /// pub fn update_hits(ray_map: Res<RayMap>, mut output_messages: MessageWriter<PointerHits>,) {
     ///     for (&ray_id, &ray) in ray_map.iter() {
     ///         // Run a raycast with each ray, returning any `PointerHits` found.
     ///     }

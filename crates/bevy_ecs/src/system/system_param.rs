@@ -59,8 +59,8 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # struct SomeComponent;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(BufferedEvent)]
-/// # struct SomeEvent;
+/// # #[derive(Message)]
+/// # struct SomeMessage;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
 /// # use bevy_ecs::system::SystemParam;
@@ -78,10 +78,10 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// Local<'s, u8>,
 /// #    commands:
 /// Commands<'w, 's>,
-/// #    eventreader:
-/// EventReader<'w, 's, SomeEvent>,
-/// #    eventwriter:
-/// EventWriter<'w, SomeEvent>
+/// #    message_reader:
+/// MessageReader<'w, 's, SomeMessage>,
+/// #    message_writer:
+/// MessageWriter<'w, SomeMessage>
 /// # }
 /// ```
 /// ## `PhantomData`
@@ -605,19 +605,19 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(BufferedEvent)]
-/// # struct MyEvent;
-/// # impl MyEvent {
+/// # #[derive(Message)]
+/// # struct MyMessage;
+/// # impl MyMessage {
 /// #   pub fn new() -> Self { Self }
 /// # }
-/// fn event_system(
+/// fn message_system(
 ///     mut set: ParamSet<(
-///         // PROBLEM: `EventReader` and `EventWriter` cannot be used together normally,
-///         // because they both need access to the same event queue.
+///         // PROBLEM: `MessageReader` and `MessageWriter` cannot be used together normally,
+///         // because they both need access to the same message queue.
 ///         // SOLUTION: `ParamSet` allows these conflicting parameters to be used safely
 ///         // by ensuring only one is accessed at a time.
-///         EventReader<MyEvent>,
-///         EventWriter<MyEvent>,
+///         MessageReader<MyMessage>,
+///         MessageWriter<MyMessage>,
 ///         // PROBLEM: `&World` needs read access to everything, which conflicts with
 ///         // any mutable access in the same system.
 ///         // SOLUTION: `ParamSet` ensures `&World` is only accessed when we're not
@@ -625,17 +625,17 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         &World,
 ///     )>,
 /// ) {
-///     for event in set.p0().read() {
+///     for message in set.p0().read() {
 ///         // ...
-///         # let _event = event;
+///         # let _message = message;
 ///     }
-///     set.p1().write(MyEvent::new());
+///     set.p1().write(MyMessage::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...
 ///     # let _entities = entities;
 /// }
-/// # bevy_ecs::system::assert_is_system(event_system);
+/// # bevy_ecs::system::assert_is_system(message_system);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
@@ -2777,7 +2777,7 @@ pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
     ///
     /// If `false`, the error should be handled.
-    /// By default, this will result in a panic. See [`crate::error`] for more information.
+    /// By default, this will result in a panic. See [`error`](`crate::error`) for more information.
     ///
     /// This is the default behavior, and is suitable for system params that should *always* be valid,
     /// either because sensible fallback behavior exists (like [`Query`]) or because
@@ -3104,17 +3104,17 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn missing_event_error() {
-        use crate::prelude::{BufferedEvent, EventReader};
+    fn missing_message_error() {
+        use crate::prelude::{Message, MessageReader};
 
-        #[derive(BufferedEvent)]
+        #[derive(Message)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();
-        schedule.add_systems(event_system);
+        schedule.add_systems(message_system);
         let mut world = World::new();
         schedule.run(&mut world);
 
-        fn event_system(_: EventReader<MissingEvent>) {}
+        fn message_system(_: MessageReader<MissingEvent>) {}
     }
 }

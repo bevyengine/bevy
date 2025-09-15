@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     text::TextColor,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -84,10 +84,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     if !args.no_camera {
@@ -166,7 +163,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -180,8 +177,8 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             ..default()
         })
         .with_children(|commands| {
@@ -223,7 +220,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -234,8 +231,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             } else {
                 Display::Grid
             },
-            width: Val::Percent(100.),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             ..default()
@@ -274,8 +271,8 @@ fn spawn_button(
     border_color: BorderColor,
     image: Option<Handle<Image>>,
 ) {
-    let width = Val::Vw(90.0 / buttons);
-    let height = Val::Vh(90.0 / buttons);
+    let width = vw(90.0 / buttons);
+    let height = vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
@@ -339,7 +336,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -367,8 +364,8 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: percent(100),
+                        height: percent(100),
                         ..default()
                     },
                     UiTargetCamera(camera),
@@ -377,8 +374,8 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                     commands
                         .spawn(Node {
                             position_type: PositionType::Absolute,
-                            top: Val::Vh(column as f32 * 100. / buttons_f),
-                            left: Val::Vw(row as f32 * 100. / buttons_f),
+                            top: vh(column as f32 * 100. / buttons_f),
+                            left: vw(row as f32 * 100. / buttons_f),
                             ..Default::default()
                         })
                         .with_children(|commands| {

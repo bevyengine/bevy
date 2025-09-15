@@ -243,7 +243,7 @@ impl From<Justify> for cosmic_text::Align {
 }
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
-/// the font face, the font size, and the color.
+/// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
@@ -273,19 +273,9 @@ pub struct TextFont {
 }
 
 impl TextFont {
-    /// Returns a new [`TextFont`] with the specified font face handle.
-    pub fn from_font(font: Handle<Font>) -> Self {
-        Self::default().with_font(font)
-    }
-
     /// Returns a new [`TextFont`] with the specified font size.
     pub fn from_font_size(font_size: f32) -> Self {
         Self::default().with_font_size(font_size)
-    }
-
-    /// Returns a new [`TextFont`] with the specified line height.
-    pub fn from_line_height(line_height: LineHeight) -> Self {
-        Self::default().with_line_height(line_height)
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.

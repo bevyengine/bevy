@@ -1,7 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -20,6 +19,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
+use bevy_ui_widgets::{Callback, Checkbox, ValueChange};
 
 use crate::{
     constants::size,
@@ -58,7 +58,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
             border: UiRect::all(Val::Px(2.0)),
             ..Default::default()
         },
-        CoreCheckbox {
+        Checkbox {
             on_change: props.on_change,
         },
         ToggleSwitchOutline,

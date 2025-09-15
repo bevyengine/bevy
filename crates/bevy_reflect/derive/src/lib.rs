@@ -16,7 +16,6 @@
 
 extern crate proc_macro;
 
-mod attribute_parser;
 mod container_attributes;
 mod conversion;
 mod custom_attributes;
@@ -33,7 +32,6 @@ mod meta;
 mod reflect_opaque;
 mod registration;
 mod remote;
-mod result_sifter;
 mod serialization;
 mod string_expr;
 mod struct_utility;

@@ -16,13 +16,12 @@ The default feature set enables most of the expected features of a game engine, 
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
 |bevy_animation|Provides animation functionality|
-|bevy_anti_aliasing|Provides various anti aliasing solutions|
+|bevy_anti_alias|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
-|bevy_core_widgets|Headless widget collection for Bevy UI.|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -34,6 +33,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
+|bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_shader|Provides shaders usable through asset handles.|
@@ -92,6 +92,7 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_bevy_feathers|Feathers widget collection.|
+|experimental_bevy_ui_widgets|Experimental headless widget collection for Bevy UI.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|

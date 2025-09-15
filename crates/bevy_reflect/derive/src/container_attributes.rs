@@ -6,10 +6,12 @@
 //! `#[reflect(PartialEq, Default, ...)]`.
 
 use crate::{
-    attribute_parser::terminated_parser, conversion::Conversion,
-    custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl,
+    conversion::Conversion, custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl,
 };
-use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQClone, FQOption, FQResult},
+    terminated_parser,
+};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{

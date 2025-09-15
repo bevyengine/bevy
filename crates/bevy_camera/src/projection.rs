@@ -81,7 +81,7 @@ pub trait CameraProjection {
 mod sealed {
     use super::CameraProjection;
 
-    /// A wrapper trait to make it possible to implement Clone for boxed [`super::CameraProjection`]
+    /// A wrapper trait to make it possible to implement Clone for boxed [`CameraProjection`](`super::CameraProjection`)
     /// trait objects, without breaking object safety rules by making it `Sized`. Additional bounds
     /// are included for downcasting, and fulfilling the trait bounds on `Projection`.
     pub trait DynCameraProjection:
@@ -236,6 +236,16 @@ impl Projection {
         Projection::Custom(CustomProjection {
             dyn_projection: Box::new(projection),
         })
+    }
+
+    /// Check if the projection is perspective.
+    /// For [`CustomProjection`], this checks if the projection matrix's w-axis's w is 0.0.
+    pub fn is_perspective(&self) -> bool {
+        match self {
+            Projection::Perspective(_) => true,
+            Projection::Orthographic(_) => false,
+            Projection::Custom(projection) => projection.get_clip_from_view().w_axis.w == 0.0,
+        }
     }
 }
 
