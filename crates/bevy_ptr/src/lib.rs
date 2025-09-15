@@ -105,7 +105,9 @@ impl IsAligned for Aligned {
         //  - The caller is required to ensure that `ptr` points must be valid for dropping.
         //  - The caller is required to ensure that the value `ptr` points must not be used after this function
         //    call.
-        unsafe { ptr::drop_in_place(ptr) };
+        unsafe {
+            ptr::drop_in_place(ptr);
+        }
     }
 }
 
@@ -145,7 +147,9 @@ impl IsAligned for Unaligned {
         //  - The caller is required to ensure that `ptr` points must be valid for dropping.
         //  - The caller is required to ensure that the value `ptr` points must not be used after this function
         //    call.
-        unsafe { drop(ptr.read_unaligned()) }
+        unsafe {
+            drop(ptr.read_unaligned());
+        }
     }
 }
 
@@ -734,14 +738,14 @@ impl<T, A: IsAligned> Pointer for MovingPtr<'_, T, A> {
 impl<T> Debug for MovingPtr<'_, T, Aligned> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
+        write!(f, "MovingPtr<Aligned>({:?})", self.0)
     }
 }
 
 impl<T> Debug for MovingPtr<'_, T, Unaligned> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+        write!(f, "MovingPtr<Unaligned>({:?})", self.0)
     }
 }
 
