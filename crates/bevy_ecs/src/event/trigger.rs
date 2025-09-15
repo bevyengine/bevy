@@ -258,6 +258,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
         f.debug_struct("PropagateEntityTrigger")
             .field("original_event_target", &self.original_event_target)
             .field("propagate", &self.propagate)
+            .field("_marker", &self._marker)
             .finish()
     }
 }
