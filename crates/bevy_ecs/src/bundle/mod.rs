@@ -198,6 +198,8 @@ use bevy_ptr::OwningPtr;
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
 pub unsafe trait BundleImpl: DynamicBundle + Send + Sync {
+    /// This type is used to track the identity of this bundle.
+    /// Bundles with an equal `Name` must have equal components.
     type Name: 'static;
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
@@ -207,10 +209,19 @@ pub unsafe trait BundleImpl: DynamicBundle + Send + Sync {
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 }
 
-pub const fn bundle_id_of<T: BundleImpl>() -> TypeId {
+/// Retrieves the `TypeId` of the bundle type. Used for registering bundles.
+///
+/// See also [`Bundle::type_id_of_val`] for retrieving the bundle id without naming the type.
+// TODO: make this const in rust 1.92
+pub fn bundle_id_of<T: BundleImpl>() -> TypeId {
     TypeId::of::<T::Name>()
 }
-pub const fn bundle_id_of_val<T: BundleImpl>(_: &T) -> TypeId {
+
+/// Retrieves the `TypeId` of a bundle when the type may not be easily named. Used for registering bundles.
+///
+/// See also [`Bundle::type_id`] for retrieving the bundle id without an instance of the bundle.
+// TODO: make this const in rust 1.92
+pub fn bundle_id_of_val<T: BundleImpl>(_: &T) -> TypeId {
     TypeId::of::<T::Name>()
 }
 
