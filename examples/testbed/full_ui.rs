@@ -22,7 +22,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
     app.add_systems(Update, toggle_debug_overlay);
-
+    app.init_resource::<UiDebugOptions>();
     app.run();
 }
 
