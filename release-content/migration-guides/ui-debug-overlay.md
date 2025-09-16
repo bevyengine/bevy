@@ -1,9 +1,9 @@
 ---
 title: Move UI Debug Options from `bevy_ui` to `bevy_ui_render`
-pull_requests: [16693]
+pull_requests: [18703]
 ---
 
-The `UiDebugOptions` resource used for controlling the UI Debug Overlay has been moved from the internal `bevy_ui` crate to the `bevy_ui_render` crate, and is now accessible from the prelude of `bevy_ui_render` and, as before, from the prelude of `bevy` when using the `bevy_ui_debug` cargo feature:
+The `UiDebugOptions` resource used for controlling the UI Debug Overlay has been moved from the internal `bevy_ui` crate to the `bevy_ui_render` crate, and is now accessible from the prelude of `bevy_ui_render` and, as before, from the prelude of `bevy`:
 
 ```rust
 // 0.16
