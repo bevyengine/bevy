@@ -68,7 +68,7 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = ["bevy_platform/critical-section"]
 
-# Enables automatic reflect registration. Does nothing by itself, 
+# Enables automatic reflect registration. Does nothing by itself,
 # must select `auto_register_inventory` or `auto_register_static` to make it work.
 auto_register = []
 ## Enables automatic reflect registration using inventory. Not supported on all platforms.
@@ -113,7 +113,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.30.1", default-features = false, features = [
+glam = { version = "0.30.5", git = "https://github.com/bitshifter/glam-rs.git", rev = "9a992a8", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.8", features = ["serde-1"], optional = true }
