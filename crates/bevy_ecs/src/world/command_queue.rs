@@ -1,9 +1,9 @@
+#[cfg(feature = "track_location")]
+use crate::change_detection::MaybeLocation;
 use crate::{
     system::{Command, SystemBuffer, SystemMeta},
     world::{DeferredWorld, World},
 };
-#[cfg(feature = "track_location")]
-use crate::change_detection::MaybeLocation;
 
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
@@ -563,7 +563,7 @@ mod test {
 
         #[cfg(feature = "track_location")]
         println!("caller:{:?}", queue.caller);
-        
+
         let mut queue = CommandQueue::default();
         queue.push(|world: &mut World| {
             world.spawn(A);
