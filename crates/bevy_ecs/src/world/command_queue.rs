@@ -39,6 +39,7 @@ pub struct CommandQueue {
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
+    #[cfg(feature = "track_location")]
     pub(crate) caller: MaybeLocation,
 }
 
@@ -49,6 +50,7 @@ impl Default for CommandQueue {
             bytes: Default::default(),
             cursor: Default::default(),
             panic_recovery: Default::default(),
+            #[cfg(feature = "track_location")]
             caller: MaybeLocation::caller(),
         }
     }
