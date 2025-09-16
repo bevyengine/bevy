@@ -6,7 +6,6 @@ use bevy_math::Affine2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
-use bevy_transform::components::GlobalTransform;
 use core::ops::Mul;
 
 /// A pair of [`Val`]s used to represent a 2-dimensional size or offset.
