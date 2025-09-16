@@ -26,10 +26,10 @@ impl ManualTextureView {
     }
 }
 
-/// Resource that stores manually managed [`ManualTextureView`]s for use as a [`bevy_camera::RenderTarget`].
+/// Resource that stores manually managed [`ManualTextureView`]s for use as a [`RenderTarget`](bevy_camera::RenderTarget).
 /// This type dereferences to a `HashMap<ManualTextureViewHandle, ManualTextureView>`.
 /// To add a new texture view, pick a new [`ManualTextureViewHandle`] and insert it into the map.
-/// Then, to render to the view, set a [`Camera`]s `target` to `RenderTarget::TextureView(handle)`.
+/// Then, to render to the view, set a [`Camera`](bevy_camera::Camera)s `target` to `RenderTarget::TextureView(handle)`.
 /// ```ignore
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
