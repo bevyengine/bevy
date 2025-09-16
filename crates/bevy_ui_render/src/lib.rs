@@ -52,7 +52,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_debug")]
+
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
 
