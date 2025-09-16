@@ -37,7 +37,7 @@ bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }
-derive_more = { version = "1", default-features = false, features = ["from"] }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
