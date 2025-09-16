@@ -878,27 +878,25 @@ mod tests {
         let mut app = setup_ui_test_app();
         let world = app.world_mut();
 
-        let camid = world
-            .spawn((
-                Camera2d,
-                Camera {
-                    order: 1,
-                    computed: ComputedCameraValues {
-                        target_info: Some(RenderTargetInfo {
-                            physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
-                            scale_factor: 1.,
-                            ..default()
-                        }),
-                        ..default()
-                    },
-                    viewport: Some(Viewport {
+        world.spawn((
+            Camera2d,
+            Camera {
+                order: 1,
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
                         physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                        scale_factor: 1.,
                         ..default()
                     }),
                     ..default()
                 },
-            ))
-            .id();
+                viewport: Some(Viewport {
+                    physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
+                    ..default()
+                }),
+                ..default()
+            },
+        ));
 
         world.spawn((
             Node {
