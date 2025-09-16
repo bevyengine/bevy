@@ -886,7 +886,6 @@ mod tests {
                     target_info: Some(RenderTargetInfo {
                         physical_size: UVec2::new(TARGET_WIDTH, TARGET_HEIGHT),
                         scale_factor: 1.,
-                        ..default()
                     }),
                     ..default()
                 },
