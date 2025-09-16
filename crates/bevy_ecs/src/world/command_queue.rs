@@ -553,23 +553,4 @@ mod test {
         queue.push(CommandWithPadding(0, 0));
         let _ = format!("{:?}", queue.bytes);
     }
-
-    #[test]
-    fn test_caller() {
-        use std::println;
-
-        let queue = CommandQueue::default();
-        println!("queue:{:?}", queue);
-
-        #[cfg(feature = "track_location")]
-        println!("caller:{:?}", queue.caller);
-
-        let mut queue = CommandQueue::default();
-        queue.push(|world: &mut World| {
-            world.spawn(A);
-        });
-
-        // Printing errors and source path
-        drop(queue);
-    }
 }
