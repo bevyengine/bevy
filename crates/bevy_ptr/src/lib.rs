@@ -1404,7 +1404,7 @@ macro_rules! deconstruct_moving_ptr {
     };
     ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<_, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
@@ -1451,7 +1451,7 @@ macro_rules! deconstruct_moving_ptr {
     };
     ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
-        let mut ptr: $crate::MovingPtr<_, _> = $ptr;
+        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
         let _ = || {
             // SAFETY: This closure is never called
             let value = unsafe { ptr.assume_init_mut() };
