@@ -1,8 +1,10 @@
 use crate::{
-    change_detection::MaybeLocation,
     system::{Command, SystemBuffer, SystemMeta},
     world::{DeferredWorld, World},
 };
+#[cfg(feature = "track_location")]
+use crate::change_detection::MaybeLocation;
+
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
@@ -363,7 +365,6 @@ mod test {
         panic::AssertUnwindSafe,
         sync::atomic::{AtomicU32, Ordering},
     };
-    use std::println;
 
     #[cfg(miri)]
     use alloc::format;
@@ -554,11 +555,15 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     fn test_caller() {
+        use std::println;
+
         let queue = CommandQueue::default();
         println!("queue:{:?}", queue);
+
+        #[cfg(feature = "track_location")]
         println!("caller:{:?}", queue.caller);
+        
         let mut queue = CommandQueue::default();
         queue.push(|world: &mut World| {
             world.spawn(A);
