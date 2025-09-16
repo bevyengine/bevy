@@ -515,9 +515,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// // SAFETY:
     /// // - `field_a` and `field_b` are both unique.
     /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| unsafe {
-    ///   bevy_ptr::deconstruct_moving_ptr!(
-    ///     let Parent { field_a, field_b, field_c } = parent_ptr
-    ///   );
+    ///   bevy_ptr::deconstruct_moving_ptr!({
+    ///     let Parent { field_a, field_b, field_c } = parent_ptr;
+    ///   });
     ///   
     ///   insert(field_a);
     ///   insert(field_b);
@@ -529,9 +529,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// // - `field_c` is by itself unique and does not conflict with the previous accesses
     /// //   inside `partial_move`.
     /// unsafe {
-    ///   bevy_ptr::deconstruct_moving_ptr!(
-    ///     let uninit Parent { field_a: _, field_b: _, field_c } = partial_parent
-    ///   );
+    ///   bevy_ptr::deconstruct_moving_ptr!({
+    ///     let MaybeUninit::<Parent> { field_a: _, field_b: _, field_c } = partial_parent;
+    ///   });
     ///
     ///   insert(field_c);
     /// }
@@ -1273,9 +1273,9 @@ macro_rules! get_pattern {
 ///
 /// // The field names must match the name used in the type definition.
 /// // Each one will be a `MovingPtr` of the field's type.
-/// bevy_ptr::deconstruct_moving_ptr!(
-///   let Parent { field_a, field_b, field_c } = parent
-/// );
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let Parent { field_a, field_b, field_c } = parent;
+/// });
 ///
 /// field_a.assign_to(&mut target_a);
 /// field_b.assign_to(&mut target_b);
@@ -1317,9 +1317,9 @@ macro_rules! get_pattern {
 ///
 /// // The field names must match the name used in the type definition.
 /// // Each one will be a `MovingPtr` of the field's type.
-/// bevy_ptr::deconstruct_moving_ptr!(
-///   let tuple { 0: field_a, 1: field_b, 2: field_c } = parent
-/// );
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let tuple { 0: field_a, 1: field_b, 2: field_c } = parent;
+/// });
 ///
 /// field_a.assign_to(&mut target_a);
 /// field_b.assign_to(&mut target_b);
@@ -1361,9 +1361,9 @@ macro_rules! get_pattern {
 ///
 /// // The field names must match the name used in the type definition.
 /// // Each one will be a `MovingPtr` of the field's type.
-/// bevy_ptr::deconstruct_moving_ptr!(
-///   let uninit Parent { field_a, field_b, field_c } = parent
-/// );
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let MaybeUninit::<Parent> { field_a, field_b, field_c } = parent;
+/// });
 ///
 /// field_a.assign_to(&mut target_a);
 /// field_b.assign_to(&mut target_b);
@@ -1379,7 +1379,7 @@ macro_rules! get_pattern {
 /// [`assign_to`]: MovingPtr::assign_to
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
-    (let tuple { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr) => {
+    ({ let tuple { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
         let mut ptr: $crate::MovingPtr<_, _> = $ptr;
         let _ = || {
@@ -1402,7 +1402,7 @@ macro_rules! deconstruct_moving_ptr {
         $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
         core::mem::forget(ptr);
     };
-    (let uninit tuple { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr) => {
+    ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
         let mut ptr: $crate::MovingPtr<_, _> = $ptr;
         let _ = || {
@@ -1426,7 +1426,7 @@ macro_rules! deconstruct_moving_ptr {
         $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
         core::mem::forget(ptr);
     };
-    (let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr) => {
+    ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
         let mut ptr: $crate::MovingPtr<_, _> = $ptr;
         let _ = || {
@@ -1449,7 +1449,7 @@ macro_rules! deconstruct_moving_ptr {
         $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
         core::mem::forget(ptr);
     };
-    (let uninit $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr) => {
+    ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
         // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
         let mut ptr: $crate::MovingPtr<_, _> = $ptr;
         let _ = || {

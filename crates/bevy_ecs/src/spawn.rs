@@ -76,7 +76,9 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         ) {
             let caller = MaybeLocation::caller();
 
-            bevy_ptr::deconstruct_moving_ptr!(let Spawn { 0: bundle } = this);
+            bevy_ptr::deconstruct_moving_ptr!({
+                let Spawn { 0: bundle } = this;
+            });
 
             let r = R::from(entity);
             move_as_ptr!(r);
@@ -259,7 +261,9 @@ macro_rules! spawnable_list_impl {
             where
                 Self: Sized,
             {
-                bevy_ptr::deconstruct_moving_ptr!(let tuple { $($index: $alias),* } = _this);
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let tuple { $($index: $alias),* } = _this;
+                });
                 $( SpawnableList::<R>::spawn($alias, _world, _entity); )*
             }
 
@@ -337,7 +341,9 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         let id = entity.id();
 
         entity.world_scope(|world: &mut World| {
-            bevy_ptr::deconstruct_moving_ptr!(let Self { list, marker: _ } = effect);
+            bevy_ptr::deconstruct_moving_ptr!({
+                let Self { list, marker: _ } = effect;
+            });
             L::spawn(list, world, id);
         });
     }

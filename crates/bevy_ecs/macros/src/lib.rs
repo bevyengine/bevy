@@ -178,7 +178,9 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
-                #ecs_path::ptr::deconstruct_moving_ptr!(let #struct_name { #(#active_field_tokens: #active_field_alias,)* #(#inactive_field_tokens: _,)* } = ptr);
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let #struct_name { #(#active_field_tokens: #active_field_alias,)* #(#inactive_field_tokens: _,)* } = ptr;
+                });
                 #(
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
                         #active_field_alias,
