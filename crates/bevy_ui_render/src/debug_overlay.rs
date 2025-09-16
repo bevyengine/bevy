@@ -71,7 +71,7 @@ pub fn extract_debug_overlay(
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let Some(debug_options) = maybe_debug_options else {
+    let Some(debug_options) = maybe_debug_options.as_ref() else {
         return;
     };
 
