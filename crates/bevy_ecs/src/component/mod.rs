@@ -14,7 +14,7 @@ pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
-    fragmenting_value::FragmentingValue,
+    fragmenting_value::{FragmentingValue, FragmentingValueComponent, Keyless},
     lifecycle::ComponentHook,
     system::{Local, SystemParam},
     world::{FromWorld, World},
@@ -699,7 +699,7 @@ impl ComponentMutability for Mutable {
 /// itself acts as the fragmenting key. Defining other key as a component might be used in the future to define component groups.
 pub trait ComponentKey: private::Seal {
     /// The value that will be used to fragment the archetypes.
-    type KeyType: FragmentingValue;
+    type KeyType: FragmentingValueComponent;
     /// The component this key is set to. Currently used only for validation.
     type ValueType: Component;
     /// A `const` to assert values not enforceable by type system at compile time.
@@ -712,7 +712,7 @@ pub struct NoKey<C>(PhantomData<C>);
 
 impl<C> private::Seal for NoKey<C> {}
 impl<C: Component> ComponentKey for NoKey<C> {
-    type KeyType = ();
+    type KeyType = Keyless;
     type ValueType = C;
     const INVARIANT_ASSERT: () = ();
 }
@@ -722,7 +722,7 @@ impl<C: Component> ComponentKey for NoKey<C> {
 pub struct OtherComponentKey<C, K>(PhantomData<(C, K)>);
 
 impl<C, K> private::Seal for OtherComponentKey<C, K> {}
-impl<C: Component, K: FragmentingValue + Component> ComponentKey for OtherComponentKey<C, K> {
+impl<C: Component, K: FragmentingValueComponent> ComponentKey for OtherComponentKey<C, K> {
     type KeyType = K;
     type ValueType = C;
     const INVARIANT_ASSERT: () = ();

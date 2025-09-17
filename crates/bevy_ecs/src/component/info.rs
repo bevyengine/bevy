@@ -290,9 +290,6 @@ impl ComponentDescriptor {
         clone_behavior: ComponentCloneBehavior,
         fragmenting_value_vtable: Option<FragmentingValueVtable>,
     ) -> Self {
-        if fragmenting_value_vtable.is_some() && mutable {
-            panic!("Fragmenting value components must be immutable");
-        }
         Self {
             name: name.into().into(),
             storage_type,
