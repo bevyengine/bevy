@@ -33,7 +33,7 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ScalingMode,
+        SpriteScalingMode,
     };
 }
 
