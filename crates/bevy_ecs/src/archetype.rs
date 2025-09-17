@@ -248,17 +248,21 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
-        added: Vec<ComponentId>,
-        existing: impl IntoIterator<Item = ComponentId>,
+        mut added: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
     ) {
+        let added_len = added.len();
+        // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
+        added.reserve_exact(existing.len());
+        added.extend(existing);
         self.insert_bundle.insert(
             bundle_id,
             ArchetypeAfterBundleInsert {
                 archetype_id,
                 bundle_status: bundle_status.into(),
                 required_components: required_components.into(),
-                added_len: added.len(),
-                inserted: added.into_iter().chain(existing).collect(),
+                added_len,
+                inserted: added.into(),
             },
         );
     }
