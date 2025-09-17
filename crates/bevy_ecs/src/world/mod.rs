@@ -47,7 +47,7 @@ use crate::{
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, Insert, Remove, Replace, Without},
+    prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::{Resource, ResourceEntity, TypeErasedResource},
@@ -2624,13 +2624,16 @@ impl World {
 
         move_as_ptr!(value);
 
-        // TODO: insert with ticks, not only caller
         entity_mut.insert_with_caller(
             value,
             InsertMode::Replace,
             caller,
             RelationshipHookMode::Skip,
         );
+
+        // Update ticks
+        entity_mut.get_mut::<R>()?.set_last_added(ticks.added);
+        entity_mut.get_mut::<R>()?.set_last_changed(ticks.changed);
 
         Some(result)
     }
@@ -3284,7 +3287,6 @@ impl World {
         })
     }
 
-    /*
     /// Mutably iterates over all resources in the world.
     ///
     /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading from or writing
@@ -3350,47 +3352,28 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    #[inline]
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
-        self.storages
-            .resources
+        self.components()
+            .resource_entities
             .iter()
-            .filter_map(|(component_id, data)| {
+            .map(|(component_id, entity)| (*component_id, *entity))
+            .filter_map(|(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info = unsafe {
                     self.components
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks, caller) = data.get_with_ticks()?;
 
-                // SAFETY:
-                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
-                let ticks = unsafe {
-                    TicksMut::from_tick_cells(
-                        ticks,
-                        self.last_change_tick(),
-                        self.read_change_tick(),
-                    )
-                };
+                let world = self.as_unsafe_world_cell_readonly();
+                let entity_cell = world.get_entity(entity).ok()?;
 
-                let mut_untyped = MutUntyped {
-                    // SAFETY:
-                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
-                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    value: unsafe { ptr.assert_unique() },
-                    ticks,
-                    // SAFETY:
-                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
-                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
-                };
+                // SAFETY: We have exclusive world access and we don't iterate any entity twice
+                let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
                 Some((component_info, mut_untyped))
             })
     }
-    */
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
@@ -3921,7 +3904,6 @@ mod tests {
         assert!(iter.next().is_none());
     }
 
-    /*
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
@@ -3957,7 +3939,6 @@ mod tests {
             "Hello, world?".to_string()
         );
     }
-    */
 
     #[test]
     fn dynamic_resource() {

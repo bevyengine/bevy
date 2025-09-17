@@ -1,4 +1,3 @@
-use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;

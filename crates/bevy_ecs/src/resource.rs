@@ -1,5 +1,6 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use crate::component::Mutable;
 use crate::entity_disabling::Internal;
 use crate::prelude::Component;
 use crate::prelude::ReflectComponent;
@@ -79,7 +80,7 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component {}
+pub trait Resource: Component<Mutability = Mutable> {}
 
 /// A marker component for the entity that stores the resource of type `T`.
 ///
