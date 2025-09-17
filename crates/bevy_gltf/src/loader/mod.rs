@@ -191,6 +191,10 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will load `AnimationClip` assets, and also add
+    /// `AnimationTarget` and `AnimationPlayer` components to hierarchies
+    /// affected by animation. Requires the `bevy_animation` feature.
+    pub load_animations: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
     /// Overrides the default sampler. Data from sampler node is added on top of that.
@@ -221,6 +225,7 @@ impl Default for GltfLoaderSettings {
             load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
+            load_animations: true,
             include_source: false,
             default_sampler: None,
             override_sampler: false,
@@ -253,7 +258,7 @@ impl GltfLoader {
         let linear_textures = get_linear_textures(&gltf.document);
 
         #[cfg(feature = "bevy_animation")]
-        let paths = {
+        let paths = if settings.load_animations {
             let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
             for scene in gltf.scenes() {
                 for node in scene.nodes() {
@@ -262,6 +267,8 @@ impl GltfLoader {
                 }
             }
             paths
+        } else {
+            Default::default()
         };
 
         let convert_coordinates = match settings.use_model_forward_direction {
@@ -270,7 +277,7 @@ impl GltfLoader {
         };
 
         #[cfg(feature = "bevy_animation")]
-        let (animations, named_animations, animation_roots) = {
+        let (animations, named_animations, animation_roots) = if settings.load_animations {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
@@ -571,6 +578,8 @@ impl GltfLoader {
                 animations.push(handle);
             }
             (animations, named_animations, animation_roots)
+        } else {
+            Default::default()
         };
 
         let default_sampler = match settings.default_sampler.as_ref() {

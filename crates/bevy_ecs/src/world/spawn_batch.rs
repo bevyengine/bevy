@@ -1,3 +1,5 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
@@ -18,7 +20,7 @@ enum BundleSpawnerOrWorld<'w> {
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
     spawner_or_world: BundleSpawnerOrWorld<'w>,
@@ -62,7 +64,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -81,24 +83,18 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        match &mut self.spawner_or_world {
-            BundleSpawnerOrWorld::World(world) => {
-                let change_tick = world.change_tick();
-                let mut spawner = BundleSpawner::new(world, change_tick, &bundle);
-                // SAFETY: bundle matches spawner type
-                unsafe { Some(spawner.spawn(bundle, self.caller).0) }
-            }
-            BundleSpawnerOrWorld::Spawner(spawner) => {
-                // SAFETY: bundle matches spawner type
-                unsafe { Some(spawner.spawn(bundle, self.caller).0) }
-            }
-        }
+        move_as_ptr!(bundle);
+        // SAFETY:
+        // - The spawner matches `I::Item`'s type.
+        // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
+        // - `bundle` is not accessed or dropped after this function call.
+        unsafe { Some(self.spawner.spawn::<I::Item>(bundle, self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -109,7 +105,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -119,7 +115,7 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }
 
@@ -127,6 +123,6 @@ where
 unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }

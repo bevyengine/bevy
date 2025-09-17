@@ -84,35 +84,30 @@ fn setup(mut commands: Commands) {
     for (row, functions) in chunks.enumerate() {
         for (col, function) in functions.iter().enumerate() {
             let color = Hsla::hsl(col as f32 / COLS as f32 * 360.0, 0.8, 0.75).into();
-            commands
-                .spawn((
-                    EaseFunctionPlot(*function, color),
-                    Transform::from_xyz(
-                        -half_extent.x + EXTENT.x / (COLS - 1) as f32 * col as f32,
-                        half_extent.y - EXTENT.y / (max_rows - 1) as f32 * row as f32,
-                        0.0,
-                    ),
-                ))
-                .with_children(|p| {
-                    // Marks the y value on the right side of the plot
-                    p.spawn((
+            commands.spawn((
+                EaseFunctionPlot(*function, color),
+                Transform::from_xyz(
+                    -half_extent.x + EXTENT.x / (COLS - 1) as f32 * col as f32,
+                    half_extent.y - EXTENT.y / (max_rows - 1) as f32 * row as f32,
+                    0.0,
+                ),
+                children![
+                    (
                         Sprite::from_color(color, Vec2::splat(5.0)),
                         Transform::from_xyz(half_size.x + 5.0, -half_size.y, 0.0),
-                    ));
-                    // Marks the x and y value inside the plot
-                    p.spawn((
+                    ),
+                    (
                         Sprite::from_color(color, Vec2::splat(4.0)),
                         Transform::from_xyz(-half_size.x, -half_size.y, 0.0),
-                    ));
-
-                    // Label
-                    p.spawn((
+                    ),
+                    (
                         Text2d(format!("{function:?}")),
                         text_font.clone(),
                         TextColor(color),
                         Transform::from_xyz(0.0, -half_size.y - 15.0, 0.0),
-                    ));
-                });
+                    )
+                ],
+            ));
         }
     }
     commands.spawn((

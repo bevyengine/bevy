@@ -1,4 +1,3 @@
-use bevy_core_widgets::{Activate, Callback};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -11,6 +10,7 @@ use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_ui::Node;
 use bevy_ui::Val;
 use bevy_ui::{widget::Text, FlexDirection};
+use bevy_ui_widgets::{Activate, Callback};
 
 use crate::controls::{button, ButtonProps};
 

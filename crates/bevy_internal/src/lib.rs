@@ -20,8 +20,8 @@ pub use bevy_a11y as a11y;
 pub use bevy_android as android;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
-#[cfg(feature = "bevy_anti_aliasing")]
-pub use bevy_anti_aliasing as anti_aliasing;
+#[cfg(feature = "bevy_anti_alias")]
+pub use bevy_anti_alias as anti_alias;
 pub use bevy_app as app;
 #[cfg(feature = "bevy_asset")]
 pub use bevy_asset as asset;
@@ -33,8 +33,6 @@ pub use bevy_camera as camera;
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
-#[cfg(feature = "bevy_core_widgets")]
-pub use bevy_core_widgets as core_widgets;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
@@ -64,6 +62,8 @@ pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
 pub use bevy_picking as picking;
 pub use bevy_platform as platform;
+#[cfg(feature = "bevy_post_process")]
+pub use bevy_post_process as post_process;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]
@@ -91,6 +91,8 @@ pub use bevy_transform as transform;
 pub use bevy_ui as ui;
 #[cfg(feature = "bevy_ui_render")]
 pub use bevy_ui_render as ui_render;
+#[cfg(feature = "bevy_ui_widgets")]
+pub use bevy_ui_widgets as ui_widgets;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;

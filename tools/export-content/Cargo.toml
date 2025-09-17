@@ -2,6 +2,7 @@
 name = "export-content"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [dependencies]
 miette = { version = "7.6.0", features = ["fancy"] }

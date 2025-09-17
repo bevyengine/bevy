@@ -6,9 +6,10 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
-    component::{ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    lifecycle::{REMOVE, REPLACE},
+    event::EntityComponentsTrigger,
+    lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -39,16 +40,8 @@ impl<'w> BundleRemover<'w> {
         archetype_id: ArchetypeId,
         require_all: bool,
     ) -> Option<Self> {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world.register_bundle_info::<T>();
 
-        // SAFETY: `registrator`, `world.storages`, and `world.bundles` all come from the same world.
-        let bundle_id = unsafe {
-            world
-                .bundles
-                .register_info::<T>(&mut registrator, &mut world.storages)
-        };
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
@@ -155,10 +148,14 @@ impl<'w> BundleRemover<'w> {
                     .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
             };
             if self.old_archetype.as_ref().has_replace_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Replace { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -170,10 +167,14 @@ impl<'w> BundleRemover<'w> {
                 self.relationship_hook_mode,
             );
             if self.old_archetype.as_ref().has_remove_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Remove { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
