@@ -539,7 +539,7 @@ impl World {
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().valid_component_id::<C>()?;
+        let id = self.components().get_valid_id(TypeId::of::<C>())?;
         let component_info = self.components().get_info(id)?;
         Some(component_info.required_components())
     }
@@ -595,7 +595,7 @@ impl World {
     /// * [`Components::get_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.components.component_id::<T>()
+        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
