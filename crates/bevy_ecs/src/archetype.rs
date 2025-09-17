@@ -25,6 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
+    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -156,11 +157,13 @@ impl ArchetypeAfterBundleInsert {
     }
 
     pub(crate) fn added(&self) -> &[ComponentId] {
-        &self.inserted[..self.added_len]
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
     }
 
     pub(crate) fn existing(&self) -> &[ComponentId] {
-        &self.inserted[self.added_len..]
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
     }
 }
 
