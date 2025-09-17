@@ -12,7 +12,7 @@ commands.spawn(ViewportNode::new(camera));
 
 The referenced `camera` here does require its target to be a `RenderTarget::Image`. See the new [`viewport_node`](https://github.com/bevyengine/bevy/blob/v0.17.0/examples/ui/viewport_node.rs) for more implementation details.
 
-Furthermore, if the `bevy_ui_picking_backend` feature is enabled, you can "pick" using the rendered target. That is, you can use **any** picking backend through the viewport node, as per normal.
+Furthermore, if the `bevy_ui_picking_backend` feature is enabled, you can "pick" using the rendered target. That is, you can use **any** picking backend through the viewport node.
 
 ## Showcase
 
