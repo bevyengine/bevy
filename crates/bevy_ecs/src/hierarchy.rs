@@ -808,6 +808,9 @@ mod tests {
     fn spawn_many_children() {
         let mut world = World::new();
 
+        // ensure an empty set can be mentioned
+        world.spawn(children![]);
+
         // 12 children should result in a flat tuple
         let id = world
             .spawn(children![(), (), (), (), (), (), (), (), (), (), (), ()])
