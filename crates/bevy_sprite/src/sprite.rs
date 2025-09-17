@@ -194,7 +194,7 @@ impl SpriteImageMode {
         )
     }
 
-    /// Returns [`ScalingMode`] if scale is presented or [`Option::None`] otherwise.
+    /// Returns [`SpriteScalingMode`] if scale is presented or [`Option::None`] otherwise.
     #[inline]
     #[must_use]
     pub const fn scale(&self) -> Option<SpriteScalingMode> {
