@@ -45,7 +45,7 @@ use bevy_render::{
 use bevy_sprite::Sprite;
 
 #[cfg(feature = "bevy_text")]
-use crate::text2d::extract_text2d_sprite;
+pub use crate::text2d::extract_text2d_sprite;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
