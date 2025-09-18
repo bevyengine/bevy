@@ -107,12 +107,6 @@ pub struct ThemeBorderColor(pub ThemeToken);
 #[reflect(Component, Clone)]
 pub struct ThemeFontColor(pub ThemeToken);
 
-/// A marker component that is used to indicate that the text entity wants to opt-in to using
-/// inherited text styles.
-#[derive(Component, Reflect)]
-#[reflect(Component)]
-pub struct ThemedText;
-
 pub(crate) fn update_theme(
     mut q_background: Query<(&mut BackgroundColor, &ThemeBackgroundColor)>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor)>,
@@ -157,7 +151,7 @@ pub(crate) fn on_changed_border(
 }
 
 /// An observer which looks for changes to the [`ThemeFontColor`] component on an entity, and
-/// propagates downward the text color to all participating text entities.
+/// propagates downward the text color to all its descendants.
 pub(crate) fn on_changed_font_color(
     insert: On<Insert, ThemeFontColor>,
     font_color: Query<&ThemeFontColor>,

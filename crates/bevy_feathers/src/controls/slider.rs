@@ -31,7 +31,7 @@ use crate::{
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
-    theme::{ThemeFontColor, ThemedText, UiTheme},
+    theme::{ThemeFontColor, UiTheme},
     tokens,
 };
 
@@ -122,7 +122,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 font: HandleOrPath::Path(fonts::MONO.to_owned()),
                 font_size: 12.0,
             },
-            children![(Text::new("10.0"), ThemedText, SliderValueText,)],
+            children![(Text::new("10.0"), SliderValueText,)],
         )],
     )
 }

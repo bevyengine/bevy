@@ -14,7 +14,10 @@ use bevy_text::{Font, TextFont};
 use crate::handle_or_path::HandleOrPath;
 
 /// A component which, when inserted on an entity, will load the given font and propagate it
-/// downward to any child text entity that has the [`ThemedText`](crate::theme::ThemedText) marker.
+/// downward to its descendants, including non-text entities.
+///
+/// The [`PropagateOver`](`bevy_app::propagate::PropagateOver`) and [`PropagateStop`](`bevy_app::propagate::PropagateStop`) components with a [`TextFont`]
+/// type parameter, let you either skip propagation on an entity or stop propagation at that entity, respectively..
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct InheritableFont {
@@ -43,7 +46,7 @@ impl InheritableFont {
 }
 
 /// An observer which looks for changes to the `InheritableFont` component on an entity, and
-/// propagates downward the font to all participating text entities.
+/// propagates downward the font to all its descendants.
 pub(crate) fn on_changed_font(
     insert: On<Insert, InheritableFont>,
     font_style: Query<&InheritableFont>,

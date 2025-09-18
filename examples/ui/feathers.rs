@@ -10,7 +10,7 @@ use bevy::{
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
+        theme::{ThemeBackgroundColor, UiTheme},
         tokens, FeathersPlugins,
     },
     input_focus::tab_navigation::TabGroup,
@@ -157,7 +157,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Normal"), ThemedText))
+                            Spawn(Text::new("Normal"))
                         ),
                         button(
                             ButtonProps {
@@ -169,7 +169,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             InteractionDisabled,
-                            Spawn((Text::new("Disabled"), ThemedText))
+                            Spawn(Text::new("Disabled"))
                         ),
                         button(
                             ButtonProps {
@@ -182,7 +182,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Primary"), ThemedText))
+                            Spawn(Text::new("Primary"))
                         ),
                     ]
                 ),
@@ -207,7 +207,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Left"), ThemedText))
+                            Spawn(Text::new("Left"))
                         ),
                         button(
                             ButtonProps {
@@ -220,7 +220,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn((Text::new("Center"), ThemedText))
+                            Spawn(Text::new("Center"))
                         ),
                         button(
                             ButtonProps {
@@ -233,7 +233,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 corners: RoundedCorners::Right,
                             },
                             (),
-                            Spawn((Text::new("Right"), ThemedText))
+                            Spawn(Text::new("Right"))
                         ),
                     ]
                 ),
@@ -245,28 +245,28 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     (),
-                    Spawn((Text::new("Button"), ThemedText))
+                    Spawn(Text::new("Button"))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     Checked,
-                    Spawn((Text::new("Checkbox"), ThemedText))
+                    Spawn(Text::new("Checkbox"))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     InteractionDisabled,
-                    Spawn((Text::new("Disabled"), ThemedText))
+                    Spawn(Text::new("Disabled"))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     (InteractionDisabled, Checked),
-                    Spawn((Text::new("Disabled+Checked"), ThemedText))
+                    Spawn(Text::new("Disabled+Checked"))
                 ),
                 (
                     Node {
@@ -279,13 +279,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![
-                        radio(Checked, Spawn((Text::new("One"), ThemedText))),
-                        radio((), Spawn((Text::new("Two"), ThemedText))),
-                        radio((), Spawn((Text::new("Three"), ThemedText))),
-                        radio(
-                            InteractionDisabled,
-                            Spawn((Text::new("Disabled"), ThemedText))
-                        ),
+                        radio(Checked, Spawn(Text::new("One"))),
+                        radio((), Spawn(Text::new("Two"))),
+                        radio((), Spawn(Text::new("Three"))),
+                        radio(InteractionDisabled, Spawn(Text::new("Disabled"))),
                     ]
                 ),
                 (

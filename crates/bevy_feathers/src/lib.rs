@@ -22,7 +22,7 @@ use bevy_app::{
     HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
 };
 use bevy_asset::embedded_asset;
-use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
@@ -33,7 +33,7 @@ use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
-    theme::{ThemedText, UiTheme},
+    theme::UiTheme,
 };
 
 mod alpha_pattern;
@@ -68,8 +68,8 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
-            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<TextColor>::new(PostUpdate),
+            HierarchyPropagatePlugin::<TextFont>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
