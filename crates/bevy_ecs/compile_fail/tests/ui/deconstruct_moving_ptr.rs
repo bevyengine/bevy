@@ -15,8 +15,10 @@ fn test1(
     a: MovingPtr<A>,
     box_a: MovingPtr<Box<A>>,
     mut_a: MovingPtr<&mut A>,
-    box_t: MovingPtr<Box<(usize, usize)>>,
-    mut_t: MovingPtr<&mut (usize, usize)>,
+    box_t1: MovingPtr<Box<(usize,)>>,
+    mut_t1: MovingPtr<&mut (usize,)>,
+    box_t2: MovingPtr<Box<(usize, usize)>>,
+    mut_t2: MovingPtr<&mut (usize, usize)>,
 ) {
     // Moving the same field twice would cause mutable aliased pointers
     //~v E0025
@@ -35,11 +37,19 @@ fn test1(
     });
     //~v E0308
     deconstruct_moving_ptr!({
-        let tuple { 0: _, 1: _ } = box_t;
+        let tuple { 0: _ } = box_t1;
     });
     //~v E0308
     deconstruct_moving_ptr!({
-        let tuple { 0: _, 1: _ } = mut_t;
+        let tuple { 0: _ } = mut_t1;
+    });
+    //~v E0308
+    deconstruct_moving_ptr!({
+        let tuple { 0: _, 1: _ } = box_t2;
+    });
+    //~v E0308
+    deconstruct_moving_ptr!({
+        let tuple { 0: _, 1: _ } = mut_t2;
     });
 }
 
@@ -59,7 +69,7 @@ fn test3(b: MovingPtr<B>) {
     });
 }
 
-fn test4(a: &mut MovingPtr<A>, t: &mut MovingPtr<(usize, usize)>) {
+fn test4(a: &mut MovingPtr<A>, t1: &mut MovingPtr<(usize,)>, t2: &mut MovingPtr<(usize, usize)>) {
     // Make sure it only takes `MovingPtr` by value and not by reference,
     // since the child `MovingPtr`s will drop part of the parent
     deconstruct_moving_ptr!({
@@ -68,6 +78,10 @@ fn test4(a: &mut MovingPtr<A>, t: &mut MovingPtr<(usize, usize)>) {
     });
     deconstruct_moving_ptr!({
         //~v E0308
-        let tuple { 0: _, 1: _ } = t;
+        let tuple { 0: _ } = t1;
+    });
+    deconstruct_moving_ptr!({
+        //~v E0308
+        let tuple { 0: _, 1: _ } = t2;
     });
 }

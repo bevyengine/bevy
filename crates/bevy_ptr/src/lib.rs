@@ -1390,13 +1390,13 @@ macro_rules! deconstruct_moving_ptr {
             let value = &mut *ptr;
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::mem::drop(($(&mut value.$field_index),*));
+            core::mem::drop(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
                 unreachable!()
             }
-            *value = ($(unreachable($field_index)),*);
+            *value = ($(unreachable($field_index),)*);
         };
         // SAFETY:
         // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
@@ -1414,13 +1414,13 @@ macro_rules! deconstruct_moving_ptr {
             let value = unsafe { ptr.assume_init_mut() };
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            core::mem::drop(($(&mut value.$field_index),*));
+            core::mem::drop(($(&mut value.$field_index,)*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
                 unreachable!()
             }
-            *value = ($(unreachable($field_index)),*);
+            *value = ($(unreachable($field_index),)*);
         };
         // SAFETY:
         // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
