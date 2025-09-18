@@ -1212,7 +1212,7 @@ macro_rules! move_as_ptr {
         //   it is impossible to refer to the original value, preventing further access after
         //   the `MovingPtr` has been used. `MaybeUninit` also prevents the compiler from
         //   dropping the original value.
-        let $value = unsafe { bevy_ptr::MovingPtr::from_value(&mut $value) };
+        let $value = unsafe { $crate::MovingPtr::from_value(&mut $value) };
     };
 }
 
