@@ -21,6 +21,7 @@ use bevy::{
         ValueChange,
     },
 };
+use bevy_ecs::relationship::RelatedSpawner;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
@@ -146,47 +147,58 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         column_gap: px(8),
                         ..default()
                     },
-                    children![
-                        button(
+                    Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
+                        let system = parent.world_mut().register_system(|_: In<Activate>| {
+                            info!("Normal button clicked!");
+                        });
+                        let normal_button_entity = parent
+                            .spawn(button(
+                                ButtonProps {
+                                    on_click: Callback::System(system),
+                                    ..default()
+                                },
+                                (),
+                                Spawn((Text::new("Normal"))),
+                            ))
+                            .id();
+
+                        let system = parent.world_mut().register_system(
+                            move |_: In<Activate>,
+                                  query: Query<Has<InteractionDisabled>>,
+                                  mut commands: Commands| {
+                                info!("Disable button clicked!");
+                                if let Ok(true) = query.get(normal_button_entity) {
+                                    commands
+                                        .entity(normal_button_entity)
+                                        .remove::<InteractionDisabled>();
+                                } else {
+                                    commands
+                                        .entity(normal_button_entity)
+                                        .insert(InteractionDisabled);
+                                }
+                            },
+                        );
+                        parent.spawn(button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Normal button clicked!");
-                                    }
-                                )),
+                                on_click: Callback::System(system),
                                 ..default()
                             },
                             (),
-                            Spawn(Text::new("Normal"))
-                        ),
-                        button(
+                            Spawn((Text::new("Disable"))),
+                        ));
+                        let system = parent.world_mut().register_system(|_: In<Activate>| {
+                            info!("Primary button clicked!");
+                        });
+                        parent.spawn(button(
                             ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |In(Activate(button_entity)): In<Activate>,
-                                     mut commands: Commands| {
-                                        commands.entity(button_entity).insert(InteractionDisabled);
-                                        info!("Disable button clicked!");
-                                    }
-                                )),
-                                ..default()
-                            },
-                            (),
-                            Spawn(Text::new("Disable"))
-                        ),
-                        button(
-                            ButtonProps {
-                                on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Primary button clicked!");
-                                    }
-                                )),
+                                on_click: Callback::System(system),
                                 variant: ButtonVariant::Primary,
                                 ..default()
                             },
                             (),
-                            Spawn(Text::new("Primary"))
-                        ),
-                    ]
+                            Spawn((Text::new("Primary"))),
+                        ));
+                    }))
                 ),
                 (
                     Node {
@@ -209,7 +221,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn(Text::new("Left"))
+                            Spawn((Text::new("Left")))
                         ),
                         button(
                             ButtonProps {
@@ -222,7 +234,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 ..default()
                             },
                             (),
-                            Spawn(Text::new("Center"))
+                            Spawn((Text::new("Center")))
                         ),
                         button(
                             ButtonProps {
@@ -235,7 +247,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 corners: RoundedCorners::Right,
                             },
                             (),
-                            Spawn(Text::new("Right"))
+                            Spawn((Text::new("Right")))
                         ),
                     ]
                 ),
@@ -247,28 +259,28 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     (),
-                    Spawn(Text::new("Button"))
+                    Spawn((Text::new("Button")))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     Checked,
-                    Spawn(Text::new("Checkbox"))
+                    Spawn((Text::new("Checkbox")))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     InteractionDisabled,
-                    Spawn(Text::new("Disabled"))
+                    Spawn((Text::new("Disabled")))
                 ),
                 checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     (InteractionDisabled, Checked),
-                    Spawn(Text::new("Disabled+Checked"))
+                    Spawn((Text::new("Disabled+Checked")))
                 ),
                 (
                     Node {
@@ -281,10 +293,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![
-                        radio(Checked, Spawn(Text::new("One"))),
-                        radio((), Spawn(Text::new("Two"))),
-                        radio((), Spawn(Text::new("Three"))),
-                        radio(InteractionDisabled, Spawn(Text::new("Disabled"))),
+                        radio(Checked, Spawn((Text::new("One")))),
+                        radio((), Spawn((Text::new("Two")))),
+                        radio((), Spawn((Text::new("Three")))),
+                        radio(InteractionDisabled, Spawn((Text::new("Disabled")))),
                     ]
                 ),
                 (
