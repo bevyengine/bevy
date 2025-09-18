@@ -16,6 +16,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
+use bevy_platform::collections::HashMap;
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
@@ -275,6 +276,14 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.components
     }
 
+    /// Retrieves this world's resource-entity map.
+    #[inline]
+    pub fn resource_entities(self) -> &'w HashMap<ComponentId, Entity> {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.resource_entities
+    }
+
     /// Retrieves this world's collection of [removed components](RemovedComponentMessages).
     pub fn removed_components(self) -> &'w RemovedComponentMessages {
         // SAFETY:
@@ -455,7 +464,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let entity = self.components().resource_entities.get(&component_id)?;
+        let entity = self.resource_entities().get(&component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
@@ -541,7 +550,7 @@ impl<'w> UnsafeWorldCell<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
         self.assert_allows_mutable_access();
-        let entity = self.components().resource_entities.get(&component_id)?;
+        let entity = self.resource_entities().get(&component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
@@ -625,7 +634,7 @@ impl<'w> UnsafeWorldCell<'w> {
         TickCells<'w>,
         MaybeLocation<&'w UnsafeCell<&'static Location<'static>>>,
     )> {
-        let entity = self.components().resource_entities.get(&component_id)?;
+        let entity = self.resource_entities().get(&component_id)?;
         let storage_type = self.components().get_info(component_id)?.storage_type();
         let location = self.get_entity(*entity).ok()?.location();
         // SAFETY:
@@ -927,6 +936,34 @@ impl<'w> UnsafeEntityCell<'w> {
         // - the storage type provided is correct for T
         unsafe {
             get_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+        }
+    }
+
+    /// Retrieves the caller information for the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_caller_by_id(&self, component_id: ComponentId) -> Option<MaybeLocation> {
+        let info = self.world.components().get_info(component_id)?;
+        // SAFETY:
+        // - entity location and entity is valid
+        // - world access is immutable, lifetime tied to `&self`
+        // - the storage type provided is correct for T
+        unsafe {
+            get_caller(
                 self.world,
                 component_id,
                 info.storage_type(),

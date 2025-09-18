@@ -62,6 +62,7 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform::collections::HashMap;
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
@@ -92,6 +93,9 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
+    /// A lookup for the entities on which resources are stored.
+    /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
+    pub resource_entities: HashMap<ComponentId, Entity>,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -110,6 +114,7 @@ impl Default for World {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
             components: Default::default(),
+            resource_entities: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
@@ -1703,11 +1708,7 @@ impl World {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !self
-            .components
-            .resource_entities
-            .contains_key(&component_id)
-        {
+        if !self.resource_entities.contains_key(&component_id) {
             let value = R::from_world(self);
             move_as_ptr!(value);
 
@@ -1715,9 +1716,7 @@ impl World {
                 .spawn_with_caller(value, caller)
                 .insert(ResourceEntity::<R>::default())
                 .id();
-            self.components
-                .resource_entities
-                .insert(component_id, entity);
+            self.resource_entities.insert(component_id, entity);
         }
 
         component_id
@@ -1744,26 +1743,16 @@ impl World {
     ) {
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !self
-            .components
-            .resource_entities
-            .contains_key(&component_id)
-        {
+        if !self.resource_entities.contains_key(&component_id) {
             move_as_ptr!(value);
 
             let entity = self
                 .spawn_with_caller(value, caller)
                 .insert(ResourceEntity::<R>::default())
                 .id();
-            self.components
-                .resource_entities
-                .insert(component_id, entity);
+            self.resource_entities.insert(component_id, entity);
         } else {
-            let entity = self
-                .components
-                .resource_entities
-                .get(&component_id)
-                .unwrap();
+            let entity = self.resource_entities.get(&component_id).unwrap();
             move_as_ptr!(value);
             if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
                 entity_mut.insert_with_caller(
@@ -1835,11 +1824,11 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.components.resource_entities.remove(&component_id)?;
+        let entity = self.resource_entities.remove(&component_id)?;
         let mut entity_ref = self.get_entity_mut(entity).ok()?;
         let value = entity_ref.take::<R>()?;
         entity_ref.despawn();
-        self.components.resource_entities.remove(&component_id);
+        self.resource_entities.remove(&component_id);
         Some(value)
     }
 
@@ -1877,7 +1866,7 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.components.resource_entities.get(&component_id)
+        if let Some(entity) = self.resource_entities.get(&component_id)
             && let Ok(entity_ref) = self.get_entity(*entity)
         {
             return entity_ref.contains_id(component_id);
@@ -1967,7 +1956,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity = self.components.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(&component_id)?;
         let entity_ref = self.get_entity(*entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
@@ -2097,11 +2086,11 @@ impl World {
 
         if !self.contains_resource_by_id(component_id) {
             let value = func();
-            if let Some(entity) = self.components.resource_entities.get(&component_id) {
+            if let Some(entity) = self.resource_entities.get(&component_id) {
                 if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
                     entity_mut.insert(value);
                 } else {
-                    self.components.resource_entities.remove(&component_id);
+                    self.resource_entities.remove(&component_id);
                     self.insert_resource_with_caller(value, caller);
                 }
             } else {
@@ -2595,7 +2584,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.components.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(&component_id)?;
         let mut entity_mut = self.get_entity_mut(*entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -2717,11 +2706,7 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        if !self
-            .components
-            .resource_entities
-            .contains_key(&component_id)
-        {
+        if !self.resource_entities.contains_key(&component_id) {
             let resource_entity = ResourceEntity::<TypeErasedResource>::default();
             move_as_ptr!(resource_entity);
 
@@ -2730,9 +2715,7 @@ impl World {
                 .spawn_with_caller(resource_entity, caller)
                 .insert_by_id(component_id, value)
                 .id();
-            self.components
-                .resource_entities
-                .insert(component_id, entity);
+            self.resource_entities.insert(component_id, entity);
         }
     }
 
@@ -3075,16 +3058,11 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let resource_entities: Vec<Entity> = self
-            .components
-            .resource_entities
-            .values()
-            .copied()
-            .collect();
+        let resource_entities: Vec<Entity> = self.resource_entities.values().copied().collect();
         for entity in resource_entities {
             self.despawn(entity);
         }
-        self.components.resource_entities.clear();
+        self.resource_entities.clear();
         self.storages.non_send_resources.clear();
     }
 
@@ -3278,8 +3256,7 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids: Vec<ComponentId> =
-            self.components.resource_entities.keys().copied().collect();
+        let component_ids: Vec<ComponentId> = self.resource_entities.keys().copied().collect();
         component_ids.into_iter().filter_map(|component_id| {
             let component_info = self.components().get_info(component_id)?;
             let resource = self.get_resource_by_id(component_id)?;
@@ -3353,8 +3330,7 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
-        self.components()
-            .resource_entities
+        self.resource_entities
             .iter()
             .map(|(component_id, entity)| (*component_id, *entity))
             .filter_map(|(component_id, entity)| {
@@ -3420,7 +3396,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        if let Some(entity) = self.components.resource_entities.remove(&component_id) {
+        if let Some(entity) = self.resource_entities.remove(&component_id) {
             self.despawn(entity).then_some::<()>(())
         } else {
             None
@@ -3625,7 +3601,7 @@ impl fmt::Debug for World {
             .field("entity_count", &self.entities.len())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
-            .field("resource_count", &self.components.resource_entities.len())
+            .field("resource_count", &self.resource_entities.len())
             .finish()
     }
 }
