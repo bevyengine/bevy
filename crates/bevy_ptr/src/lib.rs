@@ -1390,7 +1390,7 @@ macro_rules! deconstruct_moving_ptr {
             let value = &mut *ptr;
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            let _ = ($(&mut value.$field_index),*);
+            core::mem::drop(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
@@ -1414,7 +1414,7 @@ macro_rules! deconstruct_moving_ptr {
             let value = unsafe { ptr.assume_init_mut() };
             // Ensure that each field index exists and is mentioned only once
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            let _ = ($(&mut value.$field_index),*);
+            core::mem::drop(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a tuple and not something that derefs to it
             // Ensure that the number of patterns matches the number of fields
             fn unreachable<T>(_index: usize) -> T {
@@ -1439,7 +1439,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            let _ = ($(&mut value.$field_index),*);
+            core::mem::drop(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
@@ -1463,7 +1463,7 @@ macro_rules! deconstruct_moving_ptr {
             // Ensure that each field is on the struct and not accessed using autoref
             let $struct_name { $($field_index: _),* } = value;
             // Ensure that the struct is not `repr(packed)` and that we may take references to fields
-            let _ = ($(&mut value.$field_index),*);
+            core::mem::drop(($(&mut value.$field_index),*));
             // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
             let value: *mut _ = value;
             // SAFETY: This closure is never called
