@@ -1,17 +1,18 @@
 //! A framework for inheritable font styles.
-use bevy_app::Propagate;
 use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
+    hierarchy::Children,
     lifecycle::Insert,
     observer::On,
+    query::With,
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{Font, TextFont};
 
-use crate::handle_or_path::HandleOrPath;
+use crate::{handle_or_path::HandleOrPath, theme::ThemedText};
 
 /// A component which, when inserted on an entity, will load the given font and propagate it
 /// downward to any child text entity that has the [`ThemedText`](crate::theme::ThemedText) marker.
@@ -46,20 +47,27 @@ impl InheritableFont {
 /// propagates downward the font to all participating text entities.
 pub(crate) fn on_changed_font(
     insert: On<Insert, InheritableFont>,
-    font_style: Query<&InheritableFont>,
+    q_font_style: Query<&InheritableFont>,
+    q_children: Query<&Children>,
+    q_themed_text: Query<(), With<ThemedText>>,
     assets: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    if let Ok(style) = font_style.get(insert.entity)
+    if let Ok(style) = q_font_style.get(insert.entity)
         && let Some(font) = match style.font {
             HandleOrPath::Handle(ref h) => Some(h.clone()),
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
         }
     {
-        commands.entity(insert.entity).insert(Propagate(TextFont {
-            font,
-            font_size: style.font_size,
-            ..Default::default()
-        }));
+        q_children
+            .iter_descendants(insert.entity)
+            .filter(|text_entity| q_themed_text.contains(*text_entity))
+            .for_each(|text_entity| {
+                commands.entity(text_entity).insert(TextFont {
+                    font: font.clone(),
+                    font_size: style.font_size,
+                    ..Default::default()
+                });
+            });
     }
 }

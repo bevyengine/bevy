@@ -1,12 +1,13 @@
 //! A framework for theming.
-use bevy_app::Propagate;
+use bevy_asset::AssetServer;
 use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    hierarchy::{ChildOf, Children},
     lifecycle::Insert,
     observer::On,
-    query::Changed,
+    query::{Changed, With},
     reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
@@ -14,9 +15,11 @@ use bevy_ecs::{
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::TextColor;
+use bevy_text::{Font, TextColor, TextFont};
 use bevy_ui::{BackgroundColor, BorderColor};
 use smol_str::SmolStr;
+
+use crate::{font_styles::InheritableFont, handle_or_path::HandleOrPath};
 
 /// A design token for the theme. This serves as the lookup key for the theme properties.
 #[derive(Clone, PartialEq, Eq, Hash, Reflect)]
@@ -160,14 +163,57 @@ pub(crate) fn on_changed_border(
 /// propagates downward the text color to all participating text entities.
 pub(crate) fn on_changed_font_color(
     insert: On<Insert, ThemeFontColor>,
-    font_color: Query<&ThemeFontColor>,
+    q_font_color: Query<&ThemeFontColor>,
+    q_children: Query<&Children>,
+    q_themed_text: Query<(), With<ThemedText>>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(insert.entity) {
+    if let Ok(token) = q_font_color.get(insert.entity) {
         let color = theme.color(&token.0);
-        commands
-            .entity(insert.entity)
-            .insert(Propagate(TextColor(color)));
+        q_children
+            .iter_descendants(insert.entity)
+            .filter(|text_entity| q_themed_text.contains(*text_entity))
+            .for_each(|text_entity| {
+                commands.entity(text_entity).insert(TextColor(color));
+            });
+    }
+}
+
+/// An observer which looks for newly inserted or changed text nodes, and updates their
+/// font and text color.
+pub(crate) fn on_changed_text(
+    insert: On<Insert, ThemedText>,
+    q_font: Query<&InheritableFont>,
+    q_font_color: Query<&ThemeFontColor>,
+    q_parent: Query<&ChildOf>,
+    assets: Res<AssetServer>,
+    theme: Res<UiTheme>,
+    mut commands: Commands,
+) {
+    let mut found_color = false;
+    let mut found_font = false;
+    for ancestor in q_parent.iter_ancestors(insert.entity) {
+        if let Ok(token) = q_font_color.get(ancestor) {
+            let color = theme.color(&token.0);
+            commands.entity(insert.entity).insert(TextColor(color));
+            found_color = true;
+        }
+        if let Ok(style) = q_font.get(ancestor)
+            && let Some(font) = match style.font {
+                HandleOrPath::Handle(ref h) => Some(h.clone()),
+                HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
+            }
+        {
+            commands.entity(insert.entity).insert(TextFont {
+                font: font.clone(),
+                font_size: style.font_size,
+                ..Default::default()
+            });
+            found_font = true;
+        }
+        if found_color && found_font {
+            break;
+        }
     }
 }
