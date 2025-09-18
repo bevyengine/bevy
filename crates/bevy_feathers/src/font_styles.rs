@@ -16,7 +16,7 @@ use crate::handle_or_path::HandleOrPath;
 /// A component which, when inserted on an entity, will load the given font and propagate it
 /// downward to its descendants, including non-text entities.
 ///
-/// The [`PropagateOver`](`bevy_app::propagate::PropagateOver`) and [`PropagateStop`](`bevy_app::propagate::PropagateStop`) components with a [`TextFont`]
+/// The [`PropagateOver`](`bevy_app::PropagateOver`) and [`PropagateStop`](`bevy_app::PropagateStop`) components with a [`TextFont`]
 /// type parameter, let you either skip propagation on an entity or stop propagation at that entity, respectively..
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
