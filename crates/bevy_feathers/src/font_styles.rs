@@ -15,7 +15,7 @@ use bevy_text::{Font, TextFont};
 use crate::{handle_or_path::HandleOrPath, theme::ThemedText};
 
 /// A component which, when inserted on an entity, will load the given font and propagate it
-/// downward to any child text entity that has the [`ThemedText`](ThemedText) marker.
+/// downward to any child text entity that has the [`ThemedText`] marker.
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct InheritableFont {
