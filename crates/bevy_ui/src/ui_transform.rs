@@ -228,11 +228,11 @@ impl From<&UiGlobalTransform> for Affine2 {
     }
 }
 
-impl Mul<UiGlobalTransform> for UiGlobalTransform {
+impl Mul for UiGlobalTransform {
     type Output = Affine2;
 
     #[inline]
-    fn mul(self, value: UiGlobalTransform) -> Self::Output {
+    fn mul(self, value: Self) -> Self::Output {
         self.0 * value.0
     }
 }
@@ -243,6 +243,15 @@ impl Mul<Affine2> for UiGlobalTransform {
     #[inline]
     fn mul(self, affine2: Affine2) -> Self::Output {
         self.0 * affine2
+    }
+}
+
+impl Mul<UiGlobalTransform> for Affine2 {
+    type Output = Affine2;
+
+    #[inline]
+    fn mul(self, transform: UiGlobalTransform) -> Self::Output {
+        self * transform.0
     }
 }
 
