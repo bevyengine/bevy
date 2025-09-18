@@ -229,11 +229,11 @@ impl From<&UiGlobalTransform> for Affine2 {
 }
 
 impl Mul for UiGlobalTransform {
-    type Output = Affine2;
+    type Output = Self;
 
     #[inline]
     fn mul(self, value: Self) -> Self::Output {
-        self.0 * value.0
+        Self(self.0 * value.0)
     }
 }
 
