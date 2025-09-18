@@ -162,14 +162,16 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
-                                    |_: In<Activate>| {
-                                        info!("Disabled button clicked!");
+                                    |In(Activate(button_entity)): In<Activate>,
+                                     mut commands: Commands| {
+                                        commands.entity(button_entity).insert(InteractionDisabled);
+                                        info!("Disable button clicked!");
                                     }
                                 )),
                                 ..default()
                             },
-                            InteractionDisabled,
-                            Spawn(Text::new("Disabled"))
+                            (),
+                            Spawn(Text::new("Disable"))
                         ),
                         button(
                             ButtonProps {
