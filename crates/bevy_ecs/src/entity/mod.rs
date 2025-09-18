@@ -218,7 +218,7 @@ impl EntityGeneration {
     /// Gets some bits that represent this value.
     /// The bits are opaque and should not be regarded as meaningful.
     #[inline(always)]
-    const fn to_bits(self) -> u32 {
+    pub const fn to_bits(self) -> u32 {
         self.0
     }
 
@@ -226,7 +226,7 @@ impl EntityGeneration {
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
     #[inline]
-    const fn from_bits(bits: u32) -> Self {
+    pub const fn from_bits(bits: u32) -> Self {
         Self(bits)
     }
 
