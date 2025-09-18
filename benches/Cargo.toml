@@ -31,9 +31,7 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = { version = "0.30.5", git = "https://github.com/bitshifter/glam-rs.git", rev = "9a992a8", default-features = false, features = [
-  "std",
-] }
+glam = { version = "0.30.6", default-features = false, features = ["std"] }
 rand = "0.9"
 rand_chacha = "0.9"
 nonmax = { version = "0.5", default-features = false }

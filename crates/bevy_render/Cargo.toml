@@ -97,7 +97,7 @@ downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
-glam = { version = "0.30.5", git = "https://github.com/bitshifter/glam-rs.git", rev = "9a992a8", default-features = false, features = [
+glam = { version = "0.30.6", default-features = false, features = [
   "std",
   "encase",
 ] }
