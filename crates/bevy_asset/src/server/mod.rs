@@ -26,8 +26,9 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
+use bevy_platform::collections::{hash_map::Entry, HashSet};
 use bevy_tasks::IoTaskPool;
+use bevy_utils::OnDrop;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
@@ -676,6 +677,62 @@ impl AssetServer {
                     });
                 }
             })?;
+
+        // We want to prevent loading the same root asset multiple times
+        // (`get_or_create_path_handle` prevents loading an asset again if the asset is already
+        // loaded). So flag that the root asset is loading when we start loading the asset, and
+        // clear that flag when the asset stops loading.
+        let _loading_guard = {
+            let asset_type_id = loader.asset_type_id();
+            let root_path = path.without_label().clone_owned();
+
+            let mut infos = self.data.infos.write();
+            let entry = infos
+                .root_asset_to_loading_count
+                .entry((asset_type_id, root_path.clone_owned()));
+
+            match (entry, input_handle.is_some()) {
+                (Entry::Occupied(_), true) => {
+                    // Bail out early. There's already a load for this asset running, and we already
+                    // have the handle we need.
+                    return Ok(None);
+                }
+                (Entry::Occupied(mut entry), false) => {
+                    // There is already a load running, but the caller expects us to return an asset
+                    // handle (or an error). So we proceed with the load anyway and just count this
+                    // new load. For a concrete case, if we use `load_untyped_async`, we need to get
+                    // the handle back, so we can't just bail out with no handle - we need to go
+                    // through the rest of the loading process.
+                    *entry.get_mut() += 1;
+                }
+                (Entry::Vacant(entry), _) => {
+                    // There's a new load, so keep track of it.
+                    entry.insert(1);
+                }
+            }
+
+            // On drop, we should decrement the loading count so future loads can load the asset.
+            let this = self;
+            OnDrop::new(move || {
+                let mut infos = this.data.infos.write();
+                let Entry::Occupied(mut entry) = infos
+                    .root_asset_to_loading_count
+                    .entry((asset_type_id, root_path))
+                else {
+                    // Each load increments the loading count before starting, and we only decrement
+                    // the count in this OnDrop (at most once per load), so this should never be
+                    // missing.
+                    unreachable!("No loading count associated with currently loading asset.");
+                };
+
+                // Decrement the loading count and remove it if the count is zero (so the entry is
+                // no longer occupied).
+                *entry.get_mut() -= 1;
+                if *entry.get() == 0 {
+                    entry.remove();
+                }
+            })
+        };
 
         if let Some(meta_transform) = input_handle.as_ref().and_then(|h| h.meta_transform()) {
             (*meta_transform)(&mut *meta);
