@@ -882,6 +882,8 @@ pub enum NormalizedRenderTarget {
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
+///
+/// See `ManualTextureViews` in `bevy_camera` for more details.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
