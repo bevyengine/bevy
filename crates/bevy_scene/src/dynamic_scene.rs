@@ -1,6 +1,5 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
@@ -8,8 +7,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
-use crate::reflect_utils::clone_reflect_value;
 use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::component::ComponentId;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
@@ -29,7 +28,7 @@ use {
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn PartialReflect>>,
+    pub resources: Vec<(ComponentId, DynamicEntity)>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -80,9 +79,20 @@ impl DynamicScene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
+        let entities = self
+            .entities
+            .iter()
+            .map(|scene_entity| (None, scene_entity))
+            .chain(
+                self.resources
+                    .iter()
+                    .map(|(resource_id, scene_entity)| (Some(resource_id), scene_entity)),
+            )
+            .collect::<Vec<(Option<&ComponentId>, &DynamicEntity)>>();
+
         // First ensure that every entity in the scene has a corresponding world
         // entity in the entity map.
-        for scene_entity in &self.entities {
+        for (_resource_id, scene_entity) in &entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
@@ -91,7 +101,7 @@ impl DynamicScene {
                 .or_insert_with(|| world.spawn_empty().id());
         }
 
-        for scene_entity in &self.entities {
+        for (resource_id, scene_entity) in &entities {
             // Fetch the entity with the given entity id from the `entity_map`.
             let entity = *entity_map
                 .get(&scene_entity.entity)
@@ -140,45 +150,11 @@ impl DynamicScene {
                     );
                 });
             }
-        }
 
-        // Insert resources after all entities have been added to the world.
-        // This ensures the entities are available for the resources to reference during mapping.
-        for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                SceneSpawnError::NoRepresentedType {
-                    type_path: resource.reflect_type_path().to_string(),
-                }
-            })?;
-            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredButReflectedType {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-
-            // If this component references entities in the scene, update
-            // them to the entities in the world.
-            let mut cloned_resource;
-            let partial_reflect_resource = if let Some(map_entities) =
-                registration.data::<ReflectMapEntities>()
-            {
-                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
-                SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
-                });
-                cloned_resource.as_partial_reflect()
-            } else {
-                resource.as_partial_reflect()
-            };
-
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
+            // If this entity is also a resource, we have to also update the resource_entities
+            if let Some(resource_id) = resource_id {
+                world.resource_entities.insert(**resource_id, entity);
+            }
         }
 
         Ok(())

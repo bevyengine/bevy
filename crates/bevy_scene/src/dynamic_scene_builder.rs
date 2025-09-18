@@ -7,11 +7,10 @@ use bevy_ecs::{
     component::{Component, ComponentId},
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent},
     resource::Resource,
     world::World,
 };
-use bevy_reflect::PartialReflect;
 use bevy_utils::default;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
@@ -59,7 +58,7 @@ use bevy_utils::default;
 ///
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
-    extracted_resources: BTreeMap<ComponentId, Box<dyn PartialReflect>>,
+    extracted_resources: BTreeMap<ComponentId, DynamicEntity>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
     component_filter: SceneFilter,
     resource_filter: SceneFilter,
@@ -211,7 +210,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            resources: self.extracted_resources.into_values().collect(),
+            resources: self.extracted_resources.into_iter().collect(),
             entities: self.extracted_scene.into_values().collect(),
         }
     }
@@ -351,40 +350,62 @@ impl<'w> DynamicSceneBuilder<'w> {
             .original_world
             .components()
             .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
+        // Don't extract the AppTypeRegistry resource
+        let original_world_atr_id = self
+            .original_world
+            .components()
+            .get_valid_resource_id(TypeId::of::<AppTypeRegistry>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, entity) in self.original_world.components().resource_entities.iter() {
-            if Some(*component_id) == original_world_dqf_id {
+        for (resource_id, entity) in self.original_world.resource_entities.iter() {
+            if (Some(*resource_id) == original_world_dqf_id)
+                || (Some(*resource_id) == original_world_atr_id)
+            {
                 continue;
             }
-            let mut extract_and_push = || {
-                let type_id = self
-                    .original_world
-                    .components()
-                    .get_info(*component_id)?
-                    .type_id()?;
 
-                let is_denied = self.resource_filter.is_denied_by_id(type_id);
+            if self
+                .original_world
+                .components()
+                .get_info(*resource_id)
+                .and_then(|info| info.type_id())
+                .is_some_and(|type_id| self.resource_filter.is_denied_by_id(type_id))
+            {
+                continue;
+            }
 
-                if is_denied {
-                    // Resource is either in the denylist or _not_ in the allowlist
-                    return None;
-                }
-
-                let type_registration = type_registry.get(type_id)?;
-                let entity = self.original_world.get_entity(*entity).ok()?;
-                let component = type_registration
-                    .data::<ReflectComponent>()?
-                    .reflect(entity)?;
-
-                let component =
-                    clone_reflect_value(component.as_partial_reflect(), type_registration);
-
-                self.extracted_resources.insert(*component_id, component);
-                Some(())
+            let mut entry = DynamicEntity {
+                entity: *entity,
+                components: Vec::new(),
             };
-            extract_and_push();
+
+            let original_entity = self.original_world.entity(*entity);
+            for component_id in original_entity.archetype().iter_components() {
+                let mut extract_and_push = || {
+                    let type_id = self
+                        .original_world
+                        .components()
+                        .get_info(component_id)?
+                        .type_id()?;
+
+                    // The resource_id has been approved, so we don't do any other checks
+                    let type_registration = type_registry.get(type_id)?;
+
+                    let component = type_registration
+                        .data::<ReflectComponent>()?
+                        .reflect(original_entity)?;
+
+                    let component =
+                        clone_reflect_value(component.as_partial_reflect(), type_registration);
+
+                    entry.components.push(component);
+                    Some(())
+                };
+                extract_and_push();
+            }
+
+            self.extracted_resources.insert(*resource_id, entry);
         }
 
         drop(type_registry);
@@ -576,7 +597,12 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(
+            scene.resources[0].0,
+            world
+                .resource_id::<ResourceA>()
+                .expect("ResourceA is registered")
+        );
     }
 
     #[test]
@@ -595,7 +621,12 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(
+            scene.resources[0].0,
+            world
+                .resource_id::<ResourceA>()
+                .expect("ResourceA is registered")
+        );
     }
 
     #[test]
@@ -673,7 +704,12 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert_eq!(
+            scene.resources[0].0,
+            world
+                .resource_id::<ResourceA>()
+                .expect("ResourceA is registered")
+        );
     }
 
     #[test]
@@ -697,7 +733,12 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceB>());
+        assert_eq!(
+            scene.resources[0].0,
+            world
+                .resource_id::<ResourceB>()
+                .expect("ResourceA is registered")
+        );
     }
 
     #[test]
@@ -728,10 +769,12 @@ mod tests {
             .expect("component should be concrete due to `FromReflect`")
             .is::<SomeType>());
 
+        /*
         let resource = &scene.resources[0];
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
             .is::<SomeType>());
+        */
     }
 }

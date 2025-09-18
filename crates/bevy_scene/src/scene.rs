@@ -7,7 +7,7 @@ use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent},
     relationship::RelationshipHookMode,
     world::World,
 };
@@ -71,7 +71,7 @@ impl Scene {
             .get_resource_id(TypeId::of::<DefaultQueryFilters>());
 
         // Resources archetype
-        for (component_id, entity) in self.world.components().resource_entities.iter() {
+        for (component_id, entity) in self.world.resource_entities.iter() {
             if Some(*component_id) == self_dqf_id {
                 continue;
             }

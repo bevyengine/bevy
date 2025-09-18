@@ -1,6 +1,7 @@
 //! `serde` serialization and deserialization implementation for Bevy scenes.
 
 use crate::{DynamicEntity, DynamicScene};
+use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::Entity;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{
@@ -26,6 +27,10 @@ pub const SCENE_ENTITIES: &str = "entities";
 
 /// Name of the serialized entity struct type.
 pub const ENTITY_STRUCT: &str = "Entity";
+/// Name of the serialized resource struct type.
+pub const RESOURCE_STRUCT: &str = "Resource";
+/// Name of the serialized resource id.
+pub const RESOURCE_ID: &str = "Resource ID";
 /// Name of the serialized component field in an entity struct.
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
@@ -81,8 +86,8 @@ impl<'a> Serialize for SceneSerializer<'a> {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
             SCENE_RESOURCES,
-            &SceneMapSerializer {
-                entries: &self.scene.resources,
+            &ResourcesSerializer {
+                resource_entities: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -124,6 +129,34 @@ impl<'a> Serialize for EntitiesSerializer<'a> {
     }
 }
 
+/// Handles serialization of multiple resources.
+pub struct ResourcesSerializer<'a> {
+    /// The resource entity to serialize.
+    pub resource_entities: &'a [(ComponentId, DynamicEntity)],
+    /// Type registry in which the component types used by the entity are registered.
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for ResourcesSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_map(Some(self.resource_entities.len()))?;
+        for (resource_id, entity) in self.resource_entities {
+            state.serialize_entry(
+                &entity.entity,
+                &ResourceSerializer {
+                    resource_id,
+                    entity,
+                    registry: self.registry,
+                },
+            )?;
+        }
+        state.end()
+    }
+}
+
 /// Handles entity serialization as a map of component type to component value.
 pub struct EntitySerializer<'a> {
     /// The entity to serialize.
@@ -142,6 +175,34 @@ impl<'a> Serialize for EntitySerializer<'a> {
             ENTITY_FIELD_COMPONENTS,
             &SceneMapSerializer {
                 entries: &self.entity.components,
+                registry: self.registry,
+            },
+        )?;
+        state.end()
+    }
+}
+
+/// Handles entity serialization as a map of component type to component value.
+pub struct ResourceSerializer<'a> {
+    /// The [`ComponentId`] of the resource
+    pub resource_id: &'a ComponentId,
+    /// The entity to serialize.
+    pub entity: &'a DynamicEntity,
+    /// Type registry in which the component types used by the entity are registered.
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a> Serialize for ResourceSerializer<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct(RESOURCE_STRUCT, 2)?;
+        state.serialize_field(RESOURCE_ID, &self.resource_id.index())?;
+        state.serialize_field(
+            ENTITY_FIELD_COMPONENTS,
+            &EntitySerializer {
+                entity: self.entity,
                 registry: self.registry,
             },
         )?;
@@ -207,6 +268,13 @@ enum EntityField {
     Components,
 }
 
+#[derive(Deserialize)]
+#[serde(field_identifier, rename_all = "lowercase")]
+enum ResourceField {
+    ResourceId,
+    Entity,
+}
+
 /// Handles scene deserialization.
 pub struct SceneDeserializer<'a> {
     /// Type registry in which the components and resources types used in the scene to deserialize are registered.
@@ -246,8 +314,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
+            .next_element_seed(SceneResourcesDeserializer {
+                type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
 
@@ -275,8 +343,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if resources.is_some() {
                         return Err(Error::duplicate_field(SCENE_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(SceneMapDeserializer {
-                        registry: self.type_registry,
+                    resources = Some(map.next_value_seed(SceneResourcesDeserializer {
+                        type_registry: self.type_registry,
                     })?);
                 }
                 SceneField::Entities => {
@@ -344,6 +412,53 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
         }
 
         Ok(entities)
+    }
+}
+
+/// Handles deserialization for a collection of resources.
+pub struct SceneResourcesDeserializer<'a> {
+    /// Type registry in which the component types used by the entities to deserialize are registered.
+    pub type_registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for SceneResourcesDeserializer<'a> {
+    type Value = Vec<(ComponentId, DynamicEntity)>;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(SceneResourcesVisitor {
+            type_registry: self.type_registry,
+        })
+    }
+}
+
+struct SceneResourcesVisitor<'a> {
+    pub type_registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SceneResourcesVisitor<'a> {
+    type Value = Vec<(ComponentId, DynamicEntity)>;
+
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+        formatter.write_str("map of resources")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut resources = Vec::new();
+        while let Some(entity) = map.next_key::<Entity>()? {
+            let entity = map.next_value_seed(SceneResourceDeserializer {
+                entity,
+                type_registry: self.type_registry,
+            })?;
+            resources.push(entity);
+        }
+
+        Ok(resources)
     }
 }
 
@@ -427,6 +542,97 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             entity: self.entity,
             components,
         })
+    }
+}
+
+/// Handle deserialization of a resource.
+pub struct SceneResourceDeserializer<'a> {
+    /// Id of the deserialized resource.
+    pub entity: Entity,
+    /// Type registry in which the component types used by the resource to deserialize are registered.
+    pub type_registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for SceneResourceDeserializer<'a> {
+    type Value = (ComponentId, DynamicEntity);
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_struct(
+            RESOURCE_STRUCT,
+            &[RESOURCE_ID, ENTITY_FIELD_COMPONENTS],
+            SceneResourceVisitor {
+                entity: self.entity,
+                registry: self.type_registry,
+            },
+        )
+    }
+}
+
+struct SceneResourceVisitor<'a> {
+    pub entity: Entity,
+    pub registry: &'a TypeRegistry,
+}
+
+impl<'a, 'de> Visitor<'de> for SceneResourceVisitor<'a> {
+    type Value = (ComponentId, DynamicEntity);
+
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
+        formatter.write_str("resources")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let resource_id = ComponentId::new(
+            seq.next_element::<usize>()?
+                .ok_or_else(|| Error::missing_field(RESOURCE_ID))?,
+        );
+        let dynamic_entity = seq
+            .next_element_seed(SceneEntityDeserializer {
+                entity: self.entity,
+                type_registry: self.registry,
+            })?
+            .ok_or_else(|| Error::missing_field(ENTITY_STRUCT))?;
+
+        Ok((resource_id, dynamic_entity))
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut resource_id = None;
+        let mut entity = None;
+        while let Some(key) = map.next_key()? {
+            match key {
+                ResourceField::ResourceId => {
+                    if resource_id.is_some() {
+                        return Err(Error::duplicate_field(RESOURCE_ID));
+                    }
+
+                    resource_id = Some(ComponentId::new(map.next_value()?));
+                }
+                ResourceField::Entity => {
+                    if entity.is_some() {
+                        return Err(Error::duplicate_field(ENTITY_STRUCT));
+                    }
+
+                    entity = Some(map.next_value_seed(SceneEntityDeserializer {
+                        entity: self.entity,
+                        type_registry: self.registry,
+                    })?);
+                }
+            }
+        }
+
+        let resource_id = resource_id.ok_or_else(|| Error::missing_field(RESOURCE_ID))?;
+        let entity = entity.ok_or_else(|| Error::missing_field(ENTITY_STRUCT))?;
+
+        Ok((resource_id, entity))
     }
 }
 
