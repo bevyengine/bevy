@@ -2258,6 +2258,21 @@ impl<'a> EntityCommands<'a> {
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::move_components::<B>(target))
     }
+
+    /// Deprecated. Use [`Commands::trigger`] instead.
+    #[track_caller]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use Commands::trigger with an EntityEvent instead."
+    )]
+    pub fn trigger<'t, E: EntityEvent>(
+        &mut self,
+        event: impl EntityEvent<Trigger<'t>: Default>,
+    ) -> &mut Self {
+        log::warn!("EntityCommands::trigger is deprecated and no longer triggers the event for the current EntityCommands entity. Use Commands::trigger instead with an EntityEvent.");
+        self.commands.trigger(event);
+        self
+    }
 }
 
 /// A wrapper around [`EntityCommands`] with convenience methods for working with a specified component type.
@@ -2807,7 +2822,7 @@ mod tests {
         world.flush();
         assert_eq!(
             Some(expected),
-            world.entities().entity_get_spawned_or_despawned_at(id)
+            world.entities().entity_get_spawn_or_despawn_tick(id)
         );
     }
 }

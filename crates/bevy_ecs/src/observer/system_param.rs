@@ -14,11 +14,13 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. It also provides access to the [`Trigger`](crate::event::Trigger), which for things like
-/// [`EntityEvent`] with a [`PropagateEntityTrigger`], includes control over event propagation.
+/// A [system parameter] used by an observer to process events. See [`Observer`] and [`Event`] for examples.
 ///
-/// The generic `B: Bundle` is used to modify the further specialize the events that this observer is interested in.
+/// `On` contains the triggered [`Event`] data for a given run of an `Observer`. It also provides access to the
+/// [`Trigger`](crate::event::Trigger), which for things like [`EntityEvent`] with a [`PropagateEntityTrigger`],
+/// includes control over event propagation.
+///
+/// The generic `B: Bundle` is used to further specialize the events that this observer is interested in.
 /// The entity involved *does not* have to have these components, but the observer will only be
 /// triggered if the event matches the components in `B`.
 ///
@@ -28,6 +30,8 @@ use core::{
 /// Providing multiple components in this bundle will cause this event to be triggered by any
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
+///
+/// [system parameter]: crate::system::SystemParam
 // SAFETY WARNING!
 // this type must _never_ expose anything with the 'w lifetime
 // See the safety discussion on `Trigger` for more details.
@@ -125,15 +129,7 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     }
 }
 
-impl<
-        'w,
-        't,
-        const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
-        B: Bundle,
-        T: Traversal<E>,
-    > On<'w, 't, E, B>
-{
+impl<'w, 't, E: EntityEvent, B: Bundle> On<'w, 't, E, B> {
     /// A deprecated way to retrieve the entity that this [`EntityEvent`] targeted at.
     ///
     /// Access the event via [`On::event`], then read the entity that the event was targeting.
@@ -146,7 +142,17 @@ impl<
     pub fn target(&self) -> Entity {
         self.event.event_target()
     }
+}
 
+impl<
+        'w,
+        't,
+        const AUTO_PROPAGATE: bool,
+        E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
+        B: Bundle,
+        T: Traversal<E>,
+    > On<'w, 't, E, B>
+{
     /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
     /// prior to any propagation logic.
     pub fn original_event_target(&self) -> Entity {
