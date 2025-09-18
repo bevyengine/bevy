@@ -21,7 +21,7 @@ We recommend:
 
 1. Enable `reflect_auto_register` in your application code, CI and in examples/tests. You can enable `bevy` features for tests only by adding a matching copy of `bevy` to `dev-dependencies` with the needed features enabled.
    1. Most libraries and some production applications do not need this functionality. This feature flag (like all reflection) is most useful for dev tools, although some workflows enable it during production as well. Reflection can seriously increase both compile times and binary sizes, so enabling reflection in your library or project should be a deliberate choice.
-2. Do not enable these features in your library code.
+2. Do not enable the `reflect_auto_register` feature, or the fallback `reflect_autoregister_static`, in your library code.
 3. As a library author, you can safely remove all non-generic `.register_type` calls.
 4. As a user, if you run into an unregistered generic type with the correct feature enabled, file a bug with the project that defined the offending type, and workaround it by calling `.register_type` manually.
 5. If you are on an unsupported platform but need reflection support, try the `reflect_autoregister_static` feature, and consider working upstream to add support for your platform in `inventory`. As a last resort, you can still manually register all of the needed types in your application code.
