@@ -187,7 +187,7 @@ impl UiGlobalTransform {
     /// Creates a `UiGlobalTransform` from the given rotation.
     #[inline]
     pub fn from_rotation(rotation: Rot2) -> Self {
-        Self(Affine2::from_angle(rotation.as_radians()))
+        Self(Affine2::from_mat2(rotation.into()))
     }
 
     /// Creates a `UiGlobalTransform` from the given scaling.
