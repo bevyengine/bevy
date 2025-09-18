@@ -3,6 +3,7 @@ use bevy_derive::Deref;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_math::Affine2;
+use bevy_math::Mat2;
 use bevy_math::Rot2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
@@ -130,9 +131,8 @@ impl UiTransform {
     /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
     pub fn compute_affine(&self, scale_factor: f32, base_size: Vec2, target_size: Vec2) -> Affine2 {
-        Affine2::from_scale_angle_translation(
-            self.scale,
-            self.rotation.as_radians(),
+        Affine2::from_mat2_translation(
+            Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
             self.translation
                 .resolve(scale_factor, base_size, target_size),
         )
@@ -187,7 +187,7 @@ impl UiGlobalTransform {
     /// Creates a `UiGlobalTransform` from the given rotation.
     #[inline]
     pub fn from_rotation(rotation: Rot2) -> Self {
-        Self(Affine2::from_angle(rotation.as_radians()))
+        Self(Affine2::from_mat2(rotation.into()))
     }
 
     /// Creates a `UiGlobalTransform` from the given scaling.
