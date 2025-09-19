@@ -221,7 +221,6 @@ fn setup(mut commands: Commands) {
         Node {
             margin: px(25).all(),
             flex_direction: FlexDirection::Column,
-            align_self: AlignSelf::Stretch,
             justify_self: JustifySelf::Stretch,
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
