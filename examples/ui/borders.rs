@@ -93,9 +93,6 @@ fn setup(mut commands: Commands) {
         Node {
             margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
@@ -158,9 +155,6 @@ fn setup(mut commands: Commands) {
         Node {
             margin: px(25).all(),
             flex_wrap: FlexWrap::Wrap,
-            justify_content: JustifyContent::FlexStart,
-            align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         Children::spawn(SpawnIter(border_labels.into_iter().zip(borders).map(
