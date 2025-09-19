@@ -14,17 +14,15 @@ mod private {
         use bevy::prelude::*;
 
         // Works with private types too!
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct PrivateStruct {
             a: i32,
         }
-
-        const _: () = {
-            // This prevents the compiler from emitting warnings about unused
-            // types, rather than simply expecting the warning, since it appears
-            // only in some calls to cargo.
-            _ = || -> PrivateStruct { unreachable!() };
-        };
     }
 }
 
