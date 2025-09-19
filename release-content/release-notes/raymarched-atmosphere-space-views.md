@@ -9,13 +9,13 @@ pull_requests: [20766]
 Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate views from above the atmosphere. This means **Bevy 0.17** now has two atmosphere rendering modes to choose from:
 
 - [`AtmosphereMode::Raymarched`]
-  - Ideal for cinematic shots, planets seen from space, and flight simulator type scenes
+  - Ideal for cinematic shots, planets seen from space, and "flight simulator" type scenes
   - More accurate lighting, but slower
   - Sharper shadows through the atmosphere
 - [`AtmosphereMode::LookupTexture`]
   - This is the default
   - Great for ground level and broad outdoor scenes
-  - Less accurate lighting (especially at long distances), but faster
+  - Less accurate lighting at long distances, but faster
   - Softer shadows through the atmosphere
 
 To use it, add an [`Atmosphere`] component to your [`Camera`] and set the rendering method on the camera’s [`AtmosphereSettings`]:
@@ -26,7 +26,7 @@ commands.spawn((
     Atmosphere::default(),
     AtmosphereSettings { 
       rendering_method: AtmosphereMode::Raymarched, 
-      ..Default::default() 
+      ..default() 
     }
 ));
 ```
