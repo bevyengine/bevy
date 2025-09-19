@@ -90,6 +90,8 @@ pub struct App {
     pub(crate) runner: RunnerFn,
     /// The list of hooks to run distributing exclusive app access to outside code.
     pub(crate) hooks: HashMap<usize, RunnerHookFn>,
+    /// The next id that will be used for a newly registered hook.
+    /// This value does not track the currently active hook amount as it is never decremented.
     pub(crate) hook_id_count: usize,
     default_error_handler: Option<ErrorHandler>,
 }
