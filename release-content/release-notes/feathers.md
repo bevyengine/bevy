@@ -26,7 +26,7 @@ Feathers is still early in development. It is currently hidden behind the `exper
 - We will port Feathers to BSN (Bevy's [Next-Generation Scene/UI System](https://github.com/bevyengine/bevy/pull/20158/)) when that lands (targeted for **Bevy 0.18**).
 - We are still discussing the best way to handle UI callbacks / events in Feathers. It includes a proposal API, but the debate is ongoing!
 - We are still working on polishing up some UX issues.
-- There are missing widgets and features. Notably the "input" widget is still being developed.
+- There are missing widgets and features. Notably the "text input" widget is still being developed.
 
 If you're looking to experiment with building tooling for Bevy, enable it and give it a whirl!
 Let us know what problems you run into, and feel free to contribute missing widgets and bugs upstream.
