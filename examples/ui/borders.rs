@@ -223,10 +223,8 @@ fn setup(mut commands: Commands) {
             flex_direction: FlexDirection::Column,
             align_self: AlignSelf::Stretch,
             justify_self: JustifySelf::Stretch,
-            flex_wrap: FlexWrap::Wrap,
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
-            align_content: AlignContent::FlexStart,
             ..default()
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
