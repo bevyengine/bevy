@@ -21,7 +21,7 @@ types that derived [`Reflect`] had to be manually registered using [`register_ty
 app.register_type::<Foo>()
 ```
 
-In **Bevy 0.17**, all types that [`#[derive(Reflect)]`] are now automatically registered! This significantly reduces the boilerplate required to use Bevy's reflection features, which will be increasingly important as we build out Bevy's new scene system and visual editor.
+In **Bevy 0.17**, all types that [`#[derive(Reflect)]`] are now automatically registered! This significantly reduces the boilerplate required to use Bevy's reflection features, which will be increasingly important as we build out Bevy's new scene system, entity inspector, and visual editor.
 
 Note that generic types still require manual registration, as these types don't (yet) exist when [`Reflect`] is derived:
 

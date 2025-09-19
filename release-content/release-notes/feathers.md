@@ -28,7 +28,7 @@ Feathers is still early in development. It is currently hidden behind the `exper
 - We are still working on polishing up some UX issues.
 - There are missing widgets and features. Notably the "text input" widget is still being developed.
 
-If you're looking to experiment with building tooling for Bevy, enable it and give it a whirl!
+If you're looking to experiment with building tooling for Bevy, enable it and take `feathers` for a test flight!
 Let us know what problems you run into, and feel free to contribute missing widgets and bugs upstream.
 
 If you can't wait to get your hands on `bevy_ui` widgets for your game,
