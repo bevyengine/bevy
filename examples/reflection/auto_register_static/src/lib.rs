@@ -14,14 +14,17 @@ mod private {
         use bevy::prelude::*;
 
         // Works with private types too!
-        #[expect(
-            dead_code,
-            reason = "This private struct demonstrates the use of a derive macro only, and as such is intentionally never constructed."
-        )]
         #[derive(Reflect)]
         struct PrivateStruct {
             a: i32,
         }
+
+        const _: () = {
+            // This prevents the compiler from emitting warnings about unused
+            // types, rather than simply expecting the warning, since it appears
+            // only in some calls to cargo.
+            _ = || -> PrivateStruct { unreachable!() };
+        };
     }
 }
 
