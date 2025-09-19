@@ -1,3 +1,4 @@
+use bevy_ecs::event::Event;
 use bevy_ecs::system::{Commands, SystemId, SystemInput};
 use bevy_ecs::world::{DeferredWorld, World};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -33,6 +34,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 pub enum Callback<I: SystemInput = ()> {
     /// Invoke a one-shot system
     System(SystemId<I>),
+    /// Emit an event
+    Event,
     /// Ignore this notification
     #[default]
     Ignore,
@@ -40,75 +43,50 @@ pub enum Callback<I: SystemInput = ()> {
 
 /// Trait used to invoke a [`Callback`], unifying the API across callers.
 pub trait Notify {
-    /// Invoke the callback with no arguments.
-    fn notify(&mut self, callback: &Callback<()>);
-
     /// Invoke the callback with one argument.
     fn notify_with<I>(&mut self, callback: &Callback<I>, input: I::Inner<'static>)
     where
-        I: SystemInput<Inner<'static>: Send> + 'static;
+        I: SystemInput<Inner<'static>: Send + Event<Trigger<'static>: Default>> + 'static;
 }
 
 impl<'w, 's> Notify for Commands<'w, 's> {
-    fn notify(&mut self, callback: &Callback<()>) {
-        match callback {
-            Callback::System(system_id) => self.run_system(*system_id),
-            Callback::Ignore => (),
-        }
-    }
-
     fn notify_with<I>(&mut self, callback: &Callback<I>, input: I::Inner<'static>)
     where
-        I: SystemInput<Inner<'static>: Send> + 'static,
+        I: SystemInput<Inner<'static>: Send + Event<Trigger<'static>: Default>> + 'static,
     {
         match callback {
             Callback::System(system_id) => self.run_system_with(*system_id, input),
+            Callback::Event => self.trigger(input),
             Callback::Ignore => (),
         }
     }
 }
 
 impl Notify for World {
-    fn notify(&mut self, callback: &Callback<()>) {
-        match callback {
-            Callback::System(system_id) => {
-                let _ = self.run_system(*system_id);
-            }
-            Callback::Ignore => (),
-        }
-    }
-
     fn notify_with<I>(&mut self, callback: &Callback<I>, input: I::Inner<'static>)
     where
-        I: SystemInput<Inner<'static>: Send> + 'static,
+        I: SystemInput<Inner<'static>: Send + Event<Trigger<'static>: Default>> + 'static,
     {
         match callback {
             Callback::System(system_id) => {
                 let _ = self.run_system_with(*system_id, input);
             }
+            Callback::Event => self.trigger(input),
             Callback::Ignore => (),
         }
     }
 }
 
 impl Notify for DeferredWorld<'_> {
-    fn notify(&mut self, callback: &Callback<()>) {
-        match callback {
-            Callback::System(system_id) => {
-                self.commands().run_system(*system_id);
-            }
-            Callback::Ignore => (),
-        }
-    }
-
     fn notify_with<I>(&mut self, callback: &Callback<I>, input: I::Inner<'static>)
     where
-        I: SystemInput<Inner<'static>: Send> + 'static,
+        I: SystemInput<Inner<'static>: Send + Event<Trigger<'static>: Default>> + 'static,
     {
         match callback {
             Callback::System(system_id) => {
                 self.commands().run_system_with(*system_id, input);
             }
+            Callback::Event => self.trigger(input),
             Callback::Ignore => (),
         }
     }
