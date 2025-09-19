@@ -1240,7 +1240,7 @@ macro_rules! get_pattern {
 /// like `let tuple { 0: pat0, 1: pat1 } = value`.
 ///
 /// This can also project into `MaybeUninit`.
-/// Write the identifier `uninit` after `let`,
+/// Wrap the type name or `tuple` with `MaybeUninit::<_>`,
 /// and the macro will deconstruct a `MovingPtr<MaybeUninit<ParentType>>`
 /// into `MovingPtr<MaybeUninit<FieldType>>` values.
 ///
