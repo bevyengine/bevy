@@ -92,8 +92,6 @@ fn setup(mut commands: Commands) {
     let borders_examples = (
         Node {
             margin: px(25).all(),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
             flex_wrap: FlexWrap::Wrap,
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
@@ -159,8 +157,6 @@ fn setup(mut commands: Commands) {
     let borders_examples_rounded = (
         Node {
             margin: px(25).all(),
-            align_self: AlignSelf::Stretch,
-            justify_self: JustifySelf::Stretch,
             flex_wrap: FlexWrap::Wrap,
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::FlexStart,
