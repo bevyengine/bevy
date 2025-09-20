@@ -39,7 +39,7 @@ cfg::web! {
                     // Catch any panics that occur when polling the future so they can
                     // be propagated back to the task handle.
                     let value = CatchUnwind(AssertUnwindSafe(future)).await;
-                    let _ = sender.send(value);
+                    let _ = sender.send(value).await;
                 });
                 Self(receiver)
             }
