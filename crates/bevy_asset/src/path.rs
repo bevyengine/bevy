@@ -339,6 +339,16 @@ impl<'a> AssetPath<'a> {
         }
     }
 
+    /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible.
+    /// See [`normalize_cow_path`] for more details.
+    pub fn normalized(self) -> AssetPath<'a> {
+        AssetPath {
+            source: self.source,
+            path: normalize_cow_path(self.path),
+            label: self.label,
+        }
+    }
+
     /// Clones this into an "owned" value. If internally a value is borrowed, it will be cloned into an "owned [`Arc`]".
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
@@ -659,11 +669,74 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
     result_path
 }
 
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+/// Returns a borrowed path if no normalization was necessary, otherwise returns an owned normalized path.
+pub(crate) fn maybe_normalize_path(path: &Path) -> alloc::borrow::Cow<'_, Path> {
+    let mut result_path: core::cell::OnceCell<PathBuf> = core::cell::OnceCell::new();
+    let init = |i: usize| -> PathBuf { path.iter().take(i).collect() };
+
+    for (i, elt) in path.iter().enumerate() {
+        if elt == "." {
+            result_path.get_or_init(|| init(i));
+        } else if elt == ".." {
+            result_path.get_or_init(|| init(i));
+
+            if let Some(path) = result_path.get_mut()
+                && !path.pop()
+            {
+                path.push(elt);
+            }
+        } else if let Some(path) = result_path.get_mut() {
+            path.push(elt);
+        }
+    }
+
+    match result_path.into_inner() {
+        Some(path_buf) => path_buf.into(),
+        None => path.into(),
+    }
+}
+
+/// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
+/// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+pub(crate) fn normalize_cow_path(path: CowArc<'_, Path>) -> CowArc<'_, Path> {
+    match path {
+        CowArc::Borrowed(p) | CowArc::Static(p) => match maybe_normalize_path(p) {
+            alloc::borrow::Cow::Borrowed(path) => CowArc::Borrowed(path),
+            alloc::borrow::Cow::Owned(path) => CowArc::Owned(path.into()),
+        },
+        CowArc::Owned(p) => CowArc::Owned(normalize_path(&p).into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::AssetPath;
+    use crate::{normalize_cow_path, AssetPath};
     use alloc::string::ToString;
+    use atomicow::CowArc;
     use std::path::Path;
+
+    #[test]
+    fn normalize_cow_paths() {
+        let path: CowArc<Path> = "a/../a/b".into();
+
+        assert_eq!(
+            normalize_cow_path(path),
+            CowArc::Owned(Path::new("a/b").into())
+        );
+
+        let path: CowArc<Path> = "a/b".into();
+        assert_eq!(normalize_cow_path(path), CowArc::Static(Path::new("a/b")));
+
+        let path = "a/b";
+        let donor = 3;
+        fn steal_lifetime<'a, 'b: 'a, T, U: ?Sized>(_: &'a T, u: &'b U) -> &'a U {
+            u
+        }
+        let path = CowArc::<Path>::Borrowed(steal_lifetime(&donor, Path::new(path)));
+        assert_eq!(normalize_cow_path(path), CowArc::Borrowed(Path::new("a/b")));
+    }
 
     #[test]
     fn parse_asset_path() {
