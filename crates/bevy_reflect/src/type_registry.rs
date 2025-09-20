@@ -12,7 +12,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use downcast_rs::{impl_downcast, Downcast};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A registry of [reflected] types.
 ///
@@ -754,13 +754,13 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: fn(value: &dyn Reflect) -> Serializable,
+    func: fn(value: &dyn Reflect) -> Serializable,
 }
 
 impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
-            get_serializable: |value| {
+            func: |value| {
                 value
                     .downcast_ref::<T>()
                     .map(|value| Serializable::Borrowed(value))
@@ -779,7 +779,15 @@ impl<T: TypePath + FromReflect + erased_serde::Serialize> FromType<T> for Reflec
 impl ReflectSerialize {
     /// Turn the value into a serializable representation
     pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
-        (self.get_serializable)(value)
+        (self.func)(value)
+    }
+
+    /// Serializes a reflected value.
+    pub fn serialize<S>(&self, value: &dyn Reflect, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (self.func)(value).serialize(serializer)
     }
 }
 
@@ -791,7 +799,7 @@ impl ReflectSerialize {
 pub struct ReflectDeserialize {
     /// Function used by [`ReflectDeserialize::deserialize`] to
     /// perform deserialization.
-    pub func: fn(
+    func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
 }
