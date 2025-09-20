@@ -4004,8 +4004,8 @@ path = "examples/gltf/edit_material_on_gltf.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.edit_material_on_gltf]
-name = "Edit Gltf Material"
-description = "Showcases changing materials of a Gltf after Scene spawn"
+name = "Edit glTF Material"
+description = "Showcases changing materials of a glTF after Scene spawn"
 category = "glTF"
 wasm = true
 

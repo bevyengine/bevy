@@ -617,7 +617,7 @@ Example | Description
 Example | Description
 --- | ---
 [Custom glTF vertex attribute 2D](../examples/gltf/custom_gltf_vertex_attribute.rs) | Renders a glTF mesh in 2D with a custom vertex attribute
-[Edit Gltf Material](../examples/gltf/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
+[Edit glTF Material](../examples/gltf/edit_material_on_gltf.rs) | Showcases changing materials of a glTF after Scene spawn
 [Load glTF](../examples/gltf/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Load glTF extras](../examples/gltf/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
 [Query glTF primitives](../examples/gltf/query_gltf_primitives.rs) | Query primitives in a glTF scene
