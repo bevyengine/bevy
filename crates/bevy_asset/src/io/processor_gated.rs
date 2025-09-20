@@ -1,6 +1,5 @@
 use crate::{
     io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
-    normalize_path,
     processor::{AssetProcessorData, ProcessStatus},
     AssetPath,
 };
@@ -53,8 +52,7 @@ impl ProcessorGatedReader {
 
 impl AssetReader for ProcessorGatedReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let normalized_path = normalize_path(path);
-        let asset_path = AssetPath::from(normalized_path).with_source(self.source.clone());
+        let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
             .processor_data
@@ -74,8 +72,7 @@ impl AssetReader for ProcessorGatedReader {
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        let normalized_path = normalize_path(path);
-        let asset_path = AssetPath::from(normalized_path).with_source(self.source.clone());
+        let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading meta for {asset_path}",);
         let process_result = self
             .processor_data
