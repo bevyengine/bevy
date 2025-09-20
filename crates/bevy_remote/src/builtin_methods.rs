@@ -1637,6 +1637,35 @@ mod tests {
     use super::*;
 
     #[test]
+    fn insert_reflect_only_component() {
+        use bevy_ecs::prelude::Component;
+        use bevy_reflect::Reflect;
+        #[derive(Reflect, Component)]
+        #[reflect(Component)]
+        struct Player {
+            name: String,
+            health: u32,
+        }
+        let components: HashMap<String, Value> = [(
+            String::from("bevy_remote::builtin_methods::tests::Player"),
+            serde_json::json!({"name": "John", "health": 50}),
+        )]
+        .into();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Player>();
+        }
+        let deserialized_components = {
+            let type_reg = atr.read();
+            deserialize_components(&type_reg, components).expect("FAIL")
+        };
+        let mut world = World::new();
+        let e = world.spawn_empty();
+        insert_reflected_components(&atr.read(), e, deserialized_components).expect("FAIL");
+    }
+
+    #[test]
     fn serialization_tests() {
         test_serialize_deserialize(BrpQueryRow {
             components: Default::default(),
