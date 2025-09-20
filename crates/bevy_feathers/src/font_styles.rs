@@ -2,6 +2,7 @@
 use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
+    entity::Entity,
     hierarchy::Children,
     lifecycle::Insert,
     observer::On,
@@ -59,15 +60,21 @@ pub(crate) fn on_changed_font(
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
         }
     {
-        q_children
-            .iter_descendants(insert.entity)
-            .filter(|text_entity| q_themed_text.contains(*text_entity))
-            .for_each(|text_entity| {
-                commands.entity(text_entity).insert(TextFont {
-                    font: font.clone(),
-                    font_size: style.font_size,
-                    ..Default::default()
-                });
-            });
+        commands.insert_batch(
+            q_children
+                .iter_descendants(insert.entity)
+                .filter(|text_entity| q_themed_text.contains(*text_entity))
+                .map(|text_entity| {
+                    (
+                        text_entity,
+                        TextFont {
+                            font: font.clone(),
+                            font_size: style.font_size,
+                            ..Default::default()
+                        },
+                    )
+                })
+                .collect::<Vec<(Entity, TextFont)>>(),
+        );
     }
 }

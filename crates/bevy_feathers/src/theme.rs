@@ -4,6 +4,7 @@ use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
+    entity::Entity,
     hierarchy::{ChildOf, Children},
     lifecycle::Insert,
     observer::On,
@@ -171,12 +172,13 @@ pub(crate) fn on_changed_font_color(
 ) {
     if let Ok(token) = q_font_color.get(insert.entity) {
         let color = theme.color(&token.0);
-        q_children
-            .iter_descendants(insert.entity)
-            .filter(|text_entity| q_themed_text.contains(*text_entity))
-            .for_each(|text_entity| {
-                commands.entity(text_entity).insert(TextColor(color));
-            });
+        commands.insert_batch(
+            q_children
+                .iter_descendants(insert.entity)
+                .filter(|text_entity| q_themed_text.contains(*text_entity))
+                .map(|text_entity| (text_entity, TextColor(color)))
+                .collect::<Vec<(Entity, TextColor)>>(),
+        );
     }
 }
 
