@@ -10,9 +10,11 @@ but users have had to reinvent the wheel every time they wanted to use similar p
 
 While this pain was most acute when working with [`RenderLayers`], this pattern is more broadly useful,
 and has been exposed to end users in the form of the [`HierarchyPropagatePlugin`].
-You might use this for synchronizing color and alpha values for "ghost" versions of previewed buildings,
-ensuring that all of the parts of a model are on the same render layer,
-or propagating font styles.
+Some example use cases:
+
+- Synchronizing color and alpha values for "ghost" versions of previewed buildings
+- Ensuring that all of the parts of a model are on the same render layer
+- Propagating font styles
 
 This plugin has three generics:
 
