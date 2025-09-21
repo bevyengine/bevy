@@ -27,13 +27,10 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: Option<&T>) -> Self {
+    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: &T) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
-        let value_components = if let Some(bundle) = bundle {
-            unsafe { FragmentingValuesBorrowed::from_bundle(world.components(), bundle) }
-        } else {
-            FragmentingValuesBorrowed::empty()
-        };
+        let value_components =
+            unsafe { FragmentingValuesBorrowed::from_bundle(world.components(), bundle) };
 
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick, value_components) }
@@ -222,10 +219,6 @@ impl<'w> BundleSpawner<'w> {
 
     #[inline]
     pub(crate) fn replace<T: Bundle>(&mut self, bundle: &T) {
-        *self = BundleSpawner::new(
-            unsafe { self.world.world_mut() },
-            self.change_tick,
-            Some(bundle),
-        )
+        *self = BundleSpawner::new(unsafe { self.world.world_mut() }, self.change_tick, bundle)
     }
 }

@@ -1165,7 +1165,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new(self, change_tick, Some(&*bundle));
+        let mut bundle_spawner = BundleSpawner::new(self, change_tick, &*bundle);
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type

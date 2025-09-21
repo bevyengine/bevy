@@ -466,7 +466,7 @@ impl BundleInfo {
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id, &value_components)
+            .get_archetype_after_bundle_insert(self.id, value_components)
         {
             return (archetype_after_insert_id, false);
         }

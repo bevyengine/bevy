@@ -6,7 +6,7 @@ use crate::{
     entity::{Entity, EntitySetIterator},
     world::World,
 };
-use core::iter::FusedIterator;
+use core::iter::{FusedIterator, Peekable};
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -17,8 +17,8 @@ where
     I: Iterator,
     I::Item: Bundle<Effect: NoBundleEffect>,
 {
-    inner: I,
-    spawner: BundleSpawner<'w>,
+    inner: Peekable<I>,
+    spawner: Option<BundleSpawner<'w>>,
     caller: MaybeLocation,
 }
 
@@ -38,13 +38,20 @@ where
         let length = upper.unwrap_or(lower);
         world.entities.reserve(length as u32);
         let change_tick = world.change_tick();
-        let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick, None);
-        if I::Item::count_fragmenting_values() == 0 {
-            spawner.reserve_storage(length);
-        }
+        let mut inner = iter.peekable();
+
+        let spawner = if let Some(bundle) = inner.peek() {
+            let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick, bundle);
+            if I::Item::count_fragmenting_values() == 0 {
+                spawner.reserve_storage(length);
+            }
+            Some(spawner)
+        } else {
+            None
+        };
 
         Self {
-            inner: iter,
+            inner,
             spawner,
             caller,
         }
@@ -61,8 +68,10 @@ where
         for _ in &mut *self {}
         // Apply any commands from those operations.
 
-        // SAFETY: `self.spawner` will be dropped immediately after this call.
-        unsafe { self.spawner.flush_commands() }
+        if let Some(spawner) = &mut self.spawner {
+            // SAFETY: `self.spawner` will be dropped immediately after this call.
+            unsafe { spawner.flush_commands() }
+        }
     }
 }
 
@@ -76,8 +85,10 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
 
+        let spawner = self.spawner.as_mut().unwrap();
+
         if I::Item::count_fragmenting_values() > 0 {
-            self.spawner.replace(&bundle);
+            spawner.replace(&bundle);
         }
 
         move_as_ptr!(bundle);
@@ -85,7 +96,7 @@ where
         // - The spawner matches `I::Item`'s type.
         // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
         // - `bundle` is not accessed or dropped after this function call.
-        unsafe { Some(self.spawner.spawn::<I::Item>(bundle, self.caller)) }
+        unsafe { Some(spawner.spawn::<I::Item>(bundle, self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
