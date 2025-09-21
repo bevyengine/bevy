@@ -7,6 +7,7 @@ default_android_target := "aarch64-linux-android"
 clippy:
     @just bevy_a11y
     @just bevy_app
+    @just bevy_animation
     @just bevy_ecs
 
 [doc("Runs clippy on all of Bevy's crates for Android targets (TODO)")]
@@ -45,6 +46,17 @@ bevy_android target=default_android_target:
     cargo clippy -p bevy_android --no-default-features --target="{{target}}"
     cargo clippy -p bevy_android --target="{{target}}"
     cargo clippy -p bevy_android --all-features --target="{{target}}"
+
+# Runs clippy on `bevy_animation`, with all this permutations of features
+# * --no-default-features
+# * "default features"
+# * --all-features
+[doc("Runs clippy for `bevy_animation`")]
+[group("clippy")]
+bevy_animation:
+    cargo clippy -p bevy_animation --no-default-features
+    cargo clippy -p bevy_animation
+    cargo clippy -p bevy_animation --all-features
 
 # Runs clippy on `bevy_app`, with all this permutations of features
 # * --no-default-features
