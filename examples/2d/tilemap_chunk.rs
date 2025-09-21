@@ -1,6 +1,7 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
+    color::palettes::tailwind::RED_400,
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
@@ -10,8 +11,11 @@ use rand_chacha::ChaCha8Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_systems(Startup, setup)
-        .add_systems(Update, (update_tileset_image, update_tilemap, log_tile))
+        .add_systems(Startup, (setup, spawn_fake_player).chain())
+        .add_systems(
+            Update,
+            (update_tileset_image, update_tilemap, move_player, log_tile),
+        )
         .run();
 }
 
@@ -53,6 +57,55 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.insert_resource(SeededRng(rng));
+}
+
+#[derive(Component)]
+struct MovePlayer;
+
+fn spawn_fake_player(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    chunk: Single<&TilemapChunk>,
+) {
+    let mut transform = chunk.calculate_tile_transform(UVec2::new(0, 0));
+    transform.translation.z = 1.;
+
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(8., 8.))),
+        MeshMaterial2d(materials.add(Color::from(RED_400))),
+        transform,
+        MovePlayer,
+    ));
+
+    let mut transform = chunk.calculate_tile_transform(UVec2::new(5, 6));
+    transform.translation.z = 1.;
+
+    // second "player" to visually test a non-zero position
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(8., 8.))),
+        MeshMaterial2d(materials.add(Color::from(RED_400))),
+        transform,
+    ));
+}
+
+fn move_player(
+    mut player: Single<&mut Transform, With<MovePlayer>>,
+    time: Res<Time>,
+    chunk: Single<&TilemapChunk>,
+) {
+    let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
+
+    let origin = chunk
+        .calculate_tile_transform(UVec2::new(0, 0))
+        .translation
+        .x;
+    let destination = chunk
+        .calculate_tile_transform(UVec2::new(63, 0))
+        .translation
+        .x;
+
+    player.translation.x = origin.lerp(destination, t);
 }
 
 fn update_tileset_image(
