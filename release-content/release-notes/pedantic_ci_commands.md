@@ -1,7 +1,7 @@
 ---
 title: Pedantic CI commands
 authors: ["@hukasu"]
-pull_requests: [todo]
+pull_requests: [21145]
 ---
 
 New commands were added to CI tool to allow running clippy with multiple permutations of
