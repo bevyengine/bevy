@@ -91,7 +91,7 @@ fn move_player(
     time: Res<Time>,
     chunk: Single<&TilemapChunk>,
 ) {
-    let t = (time.elapsed_secs().sin() + 1.) / 2.;
+    let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
     let origin = chunk
         .calculate_tile_transform(UVec2::new(0, 0))
