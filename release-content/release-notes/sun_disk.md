@@ -13,7 +13,7 @@ The sun will move with your light, playing nicely with any positioning or moveme
 You can set both the `angular_size` and `intensity` of the sun disk, changing the size and brightness of the sun.
 We've included a convenient `SunDisk::EARTH` constant, to spare you the tricky experimental trigonometry.
 
-If you've ever stared directly at the sun in real life (don't!), you'll also be familiar with a spreading glow
+If you've ever stared directly at the sun in real life (not recommended), you'll also be familiar with a spreading glow
 that bleeds out into the nearby sky.
 In rendering, this achieved through a post-processing effect is known as "bloom", and is enabled by adding the [`Bloom`] component to your camera entity.
 
