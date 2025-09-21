@@ -7,7 +7,7 @@ pull_requests: [20731, 19596, 19663, 19611, 19935, 20274]
 Bevy's Observer API landed a few releases ago, and it has quickly become one of our most popular features. In **Bevy 0.17** we rearchitected and refined the Event and Observer APIs to be clearer, easier to use, and more performant. We plan on rolling out Bevy's next generation Scene / UI system in the near future, and observers are a key piece! We wanted to ensure they were in a better place for the next phase of Bevy development. The old API had some problems:
 
 1. **Concept names were confusing and ambiguous**: Events could be "observed", "buffered" in `Events` collections, or both. Knowing how to produce or consume a given [`Event`] required too much implied context: "do I write an Observer or use an EventReader system?", "do I trigger the event with or without targets?", what should the targets be?", etc. We need better, less ambiguous ways to refer to events.
-2. **The API was not "static" enough**: This relates to (1). Because a given [`Event`] type could be used by and produced for _any context_, we had to provide access to _every possible API_ for _every event type_. It should not be possible to trigger an "entity event" without an entity! An Observer of an event that was not designed to have a target entity should not have an `entity()` field! Every [`Event`] impl had to define an "entity propagation traversal", even it was not designed to propagate (and even if it didn't target entities at all!). Events should be self documenting, impossible to produce or consume in the wrong context, and should only encode the information that is necessary for that event.
+2. **The API was not "static" enough**: This relates to (1). Because a given [`Event`] type could be used by and produced for _any context_, we had to provide access to _every possible API_ for _every event type_. It should not be possible to trigger an "entity event" without an entity! An Observer of an event that was not designed to have a target entity should not have functions that return entity targets! Every [`Event`] impl had to define an "entity propagation traversal", even it was not designed to propagate (and even if it didn't target entities at all!). Events should be self documenting, impossible to produce or consume in the wrong context, and should only encode the information that is necessary for that event.
 3. **The API did too much work**: Because events could be produced and used in any context, this meant that they all branched through code for every possible context. This incurred unnecessary overhead. It also resulted in lots of unnecessary codegen!
 
 In **Bevy 0.17** we have sorted out these issues without fundamentally changing the shape of the API. Migrations should generally be very straightforward.
@@ -57,11 +57,9 @@ world.trigger(GameOver { score: 100 });
 In **Bevy 0.17**, defining observers has only changed slightly:
 
 ```rust
-
 world.add_observer(|game_over: On<GameOver>| {
     info!("Game over! You scored {} points", game_over.score);
 });
-
 ```
 
 `Trigger` is now `On`. `On` encourages developers to think of this parameter _as the event itself_. This is also reflected in the new naming convention, where we name the variable after the `Event` (ex: `game_over`) rather than the `Trigger` (ex: `trigger`).
@@ -125,7 +123,7 @@ struct Attack {
 
 ## EntityEvent Propagation
 
-An [`EntityEvent`] does not "propagate" by default (and they now statically have no access to APIs that control propagation). Propagation can be enabled using the `propagate` attribute (which defaults to using the [`ChildOf`] relationship to "bubble events up the hierarchy"):
+An [`EntityEvent`] does not "propagate" by default (and by default they now _statically_ have no access to APIs that control propagation). Propagation can be enabled using the `propagate` attribute (which defaults to using the [`ChildOf`] relationship to "bubble events up the hierarchy"):
 
 ```rust
 #[derive(EntityEvent)]
@@ -172,7 +170,7 @@ Component lifecycle events are an [`EntityEvent`] (and thus store the target ent
 
 ## AnimationEvent
 
-"Animation events" are custom events that are registered with an [`AnimationPlayer`] and triggered at a specific point in the animation. [`AnimationEvent`] is a new event sub-trait / derive (much like [`EntityEvent`]). Animation events use the [`AnimationEventTrigger`]. They behave like an [`EntityEvent`] (they observers on the [`AnimationPlayer`]), but they notably _do not store the entity on the event type_. This allows for directly registering them in [`AnimationPlayer`] without needing to set an entity target:
+"Animation events" are custom events that are registered with an [`AnimationPlayer`] and triggered at a specific point in the animation. [`AnimationEvent`] is a new event sub-trait / derive (much like [`EntityEvent`]). Animation events use the [`AnimationEventTrigger`]. They behave like an [`EntityEvent`] (they trigger observers of the [`AnimationPlayer`]), but they notably _do not store the entity on the event type_. This allows for directly registering them in [`AnimationPlayer`] without needing to set an entity target:
 
 ```rust
 animation.add_event(
