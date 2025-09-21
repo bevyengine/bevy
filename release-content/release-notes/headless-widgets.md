@@ -28,7 +28,8 @@ sliders, scrollbars, checkboxes, radio buttons, and more. This set will likely b
 future releases.
 
 While these widgets are usable today, and are a solid choice for creating your own widgets for your
-own game or application, they are still **experimental**.
+own game or application, they are still **experimental**. We are still polishing up some aspects of the
+developer experience and filling in gaps.
 Expect breaking changes as we continue to iterate and improve on them!
 
 We're as excited as you are for first-party widgets,
@@ -71,17 +72,9 @@ expansion toggle).
 
 ## Widget Notifications
 
-Applications need a way to be notified when the user interacts with a widget. One way to do this
-is using Bevy observers. This approach is useful in cases where you want the widget notifications
-to bubble up the hierarchy.
-
-However, in UI work it's often desirable to send notifications "point-to-point" in ways that cut
-across the hierarchy. For these kinds of situations, the standard widgets offer a different
-approach: callbacks. The `Callback` enum allows different options for triggering a notification
-when a widget's state is updated. For example, you can pass in the `SystemId` of a registered
-one-shot system as a widget parameter when it is constructed. When the button subsequently
-gets clicked or the slider is dragged, the system gets run. Because it's an ECS system, it can
-inject any additional parameters it needs to update the Bevy world in response to the interaction.
+Applications need a way to be notified when the user interacts with a widget. Currently in `bevy_ui_widgets`
+we're experimenting with a `Callback` system, which uses "one shot systems" under the hood. We're also heavily
+considering using Events / Observers for this. This is one of the primary reasons for the "experimental" label!
 
 ## State Management
 
