@@ -37,4 +37,4 @@ we are hoping to explore in `0.18` and beyond, including:
 
 With this foundation in place, we're actively evolving the renderer to embrace the flexibility and composability
 that defines Bevy's ECS. If you'd like to help us explore the possibilities of ECS-driven rendering, please join us on
-[Discord](https://discord.gg/bevy) or (GitHub Discussions)[https://github.com/bevyengine/bevy/discussions]!
+[Discord](https://discord.gg/bevy) or [GitHub Discussions](https://github.com/bevyengine/bevy/discussions)!
