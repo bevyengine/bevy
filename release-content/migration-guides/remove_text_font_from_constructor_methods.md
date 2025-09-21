@@ -1,5 +1,5 @@
 ---
-title: `TextFont` constructor methods replaced with `From` impls
+title: Replaced `TextFont` constructor methods with `From` impls
 pull_requests: [20335, 20450]
 ---
 
