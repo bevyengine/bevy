@@ -121,6 +121,7 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    BevyApp(commands::BevyApp),
     BevyEcs(commands::BevyEcs),
 }
 
@@ -145,6 +146,7 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, args),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyApp(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyEcs(subcommand) => subcommand.prepare(sh, args),
         }
     }

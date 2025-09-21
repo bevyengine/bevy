@@ -1,4 +1,5 @@
 pub use bench_check::*;
+pub use bevy_app::*;
 pub use bevy_ecs::*;
 pub use clippy::*;
 pub use clippys::*;
@@ -18,6 +19,7 @@ pub use test::*;
 pub use test_check::*;
 
 mod bench_check;
+mod bevy_app;
 mod bevy_ecs;
 mod clippy;
 mod clippy_permutations;
