@@ -6,6 +6,7 @@ pull_requests: [todo]
 
 New commands were added to CI tool to allow running clippy with multiple permutations of
 features. For a crate it is run with:
+
 * `--no-default-features`
 * Multiple `--no-default-features --features="..."`
 * Default features
@@ -16,6 +17,7 @@ another crate that has a switchable features. Examples are `bevy_image/zstd_c` o
 `bevy_image/zstd_rust`, or `bevy_reflect/auto_register_inventory` or `bevy_reflect/auto_register_static`.
 
 ## Commands
+
 ### `clippys`
 
 This is a meta commands that runs the other clippy permutation commands.
