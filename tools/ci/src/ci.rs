@@ -114,6 +114,7 @@ enum Commands {
     // Actual subcommands
     Format(commands::FormatCommand),
     Clippy(commands::ClippyCommand),
+    ClippyAndroid(commands::ClippyAndroidCommand),
     ClippyDlss(commands::ClippyDlssCommand),
     Test(commands::TestCommand),
     TestCheck(commands::TestCheckCommand),
@@ -127,6 +128,7 @@ enum Commands {
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
     BevyA11y(commands::BevyA11y),
+    BevyAndroid(commands::BevyAndroid),
     BevyAnimation(commands::BevyAnimation),
     BevyAntiAlias(commands::BevyAntiAlias),
     BevyApp(commands::BevyApp),
@@ -143,6 +145,7 @@ impl Prepare for Commands {
 
             Commands::Format(subcommand) => subcommand.prepare(sh, args),
             Commands::Clippy(subcommand) => subcommand.prepare(sh, args),
+            Commands::ClippyAndroid(subcommand) => subcommand.prepare(sh, args),
             Commands::ClippyDlss(subcommand) => subcommand.prepare(sh, args),
             Commands::Test(subcommand) => subcommand.prepare(sh, args),
             Commands::TestCheck(subcommand) => subcommand.prepare(sh, args),
@@ -156,6 +159,7 @@ impl Prepare for Commands {
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyA11y(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyAndroid(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyAnimation(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyAntiAlias(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyApp(subcommand) => subcommand.prepare(sh, args),

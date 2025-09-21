@@ -1,10 +1,12 @@
 pub use bench_check::*;
 pub use bevy_a11y::*;
+pub use bevy_android::*;
 pub use bevy_animation::*;
 pub use bevy_anti_alias::*;
 pub use bevy_app::*;
 pub use bevy_ecs::*;
 pub use clippy::*;
+pub use clippy_android::*;
 pub use clippy_dlss::*;
 pub use clippys::*;
 pub use compile::*;
@@ -24,11 +26,13 @@ pub use test_check::*;
 
 mod bench_check;
 mod bevy_a11y;
+mod bevy_android;
 mod bevy_animation;
 mod bevy_anti_alias;
 mod bevy_app;
 mod bevy_ecs;
 mod clippy;
+mod clippy_android;
 mod clippy_dlss;
 mod clippy_permutations;
 mod clippys;
