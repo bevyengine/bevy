@@ -10,7 +10,7 @@ In Bevy 0.17 however, types which implement `Reflect` are now automatically regi
 You should be able to remove almost all of your `register_type` calls.
 This comes with a few caveats however:
 
-1. Automatic type registration is gated by feature flags. Projects with default features off will not see reflected types unless one of these features is enabled.
+1. Automatic type registration is gated by feature flags.
 2. There are two approaches to do this: one has incomplete platform support, while the other relies on a specific project structure.
 3. Generic types are not automatically registered, and must still be manually registered.
 
