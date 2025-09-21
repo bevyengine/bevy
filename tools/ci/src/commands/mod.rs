@@ -1,5 +1,7 @@
 pub use bench_check::*;
+pub use bevy_ecs::*;
 pub use clippy::*;
+pub use clippys::*;
 pub use compile::*;
 pub use compile_check::*;
 pub use compile_fail::*;
@@ -16,7 +18,10 @@ pub use test::*;
 pub use test_check::*;
 
 mod bench_check;
+mod bevy_ecs;
 mod clippy;
+mod clippy_permutations;
+mod clippys;
 mod compile;
 mod compile_check;
 mod compile_fail;

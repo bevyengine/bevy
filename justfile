@@ -114,33 +114,3 @@ bevy_app:
     cargo clippy -p bevy_app
     cargo clippy -p bevy_app --all-features --features="bevy_reflect/auto_register_inventory"
     cargo clippy -p bevy_app --all-features --features="bevy_reflect/auto_register_static"
-
-# Runs clippy on `bevy_ecs`, with all this permutations of features
-# * --no-default-features
-# * --no-default-features --features="*each feature in Cargo.toml individually*"
-# * "default features"
-# * --all-features
-# 
-# Some of the features require that either `bevy_reflect/auto_register_inventory` or
-# `bevy_reflect/auto_register_static` be enabled.
-[doc("Runs clippy for `bevy_ecs`")]
-[group("clippy")]
-bevy_ecs:
-    cargo clippy -p bevy_ecs --no-default-features
-    cargo clippy -p bevy_ecs --no-default-features --features="multi_threaded"
-    cargo clippy -p bevy_ecs --no-default-features --features="serialize"
-    cargo clippy -p bevy_ecs --no-default-features --features="bevy_reflect"
-    cargo clippy -p bevy_ecs --no-default-features --features="reflect_functions"
-    cargo clippy -p bevy_ecs --no-default-features --features="reflect_auto_register bevy_reflect/auto_register_inventory"
-    cargo clippy -p bevy_ecs --no-default-features --features="reflect_auto_register bevy_reflect/auto_register_static"
-    cargo clippy -p bevy_ecs --no-default-features --features="backtrace"
-    cargo clippy -p bevy_ecs --no-default-features --features="trace"
-    cargo clippy -p bevy_ecs --no-default-features --features="detailed_trace"
-    cargo clippy -p bevy_ecs --no-default-features --features="track_location"
-    cargo clippy -p bevy_ecs --no-default-features --features="async_executor"
-    cargo clippy -p bevy_ecs --no-default-features --features="std"
-    cargo clippy -p bevy_ecs --no-default-features --features="critical-section"
-    cargo clippy -p bevy_ecs --no-default-features --features="hotpatching"
-    cargo clippy -p bevy_ecs
-    cargo clippy -p bevy_ecs --all-features --features="bevy_reflect/auto_register_inventory"
-    cargo clippy -p bevy_ecs --all-features --features="bevy_reflect/auto_register_static"

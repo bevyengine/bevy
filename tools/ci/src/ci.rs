@@ -75,6 +75,7 @@ impl CI {
                 let mut cmds = vec![];
                 cmds.append(&mut commands::FormatCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::ClippyCommand::default().prepare(sh, args));
+                cmds.append(&mut commands::ClippysCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::TestCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::TestCheckCommand::default().prepare(sh, args));
                 cmds.append(&mut commands::IntegrationTestCommand::default().prepare(sh, args));
@@ -105,6 +106,7 @@ enum Commands {
     Lints(commands::LintsCommand),
     Doc(commands::DocCommand),
     Compile(commands::CompileCommand),
+    Clippys(commands::ClippysCommand),
     // Actual subcommands
     Format(commands::FormatCommand),
     Clippy(commands::ClippyCommand),
@@ -119,6 +121,7 @@ enum Commands {
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
+    BevyEcs(commands::BevyEcs),
 }
 
 impl Prepare for Commands {
@@ -127,6 +130,7 @@ impl Prepare for Commands {
             Commands::Lints(subcommand) => subcommand.prepare(sh, args),
             Commands::Doc(subcommand) => subcommand.prepare(sh, args),
             Commands::Compile(subcommand) => subcommand.prepare(sh, args),
+            Commands::Clippys(subcommand) => subcommand.prepare(sh, args),
 
             Commands::Format(subcommand) => subcommand.prepare(sh, args),
             Commands::Clippy(subcommand) => subcommand.prepare(sh, args),
@@ -141,6 +145,7 @@ impl Prepare for Commands {
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, args),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyEcs(subcommand) => subcommand.prepare(sh, args),
         }
     }
 }
