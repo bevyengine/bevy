@@ -24,9 +24,10 @@ If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 clippys`.
 
 ### `clippy_android`
 
-Runs clippy on crates for Android targets.
+Runs clippy on crates for Android targets. Requires an Android
+target.
 
-If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 clippy_android`.
+If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 --target aarch64-linux-android clippy_android`.
 
 ### `clippy_dlss`
 
@@ -39,6 +40,13 @@ If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 clippy_dlss`
 Runs clippy on `bevy_a11y` with multiple feature permutations.
 
 If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 bevy_a11y`.
+
+### `bevy_android`
+
+Runs clippy on `bevy_android` with multiple feature permutations. Requires an Android
+target.
+
+If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 --target aarch64-linux-android bevy_android`.
 
 ### `bevy_animation`
 
