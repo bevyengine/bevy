@@ -28,8 +28,7 @@ impl Args {
 
     #[inline(always)]
     pub fn target(&self) -> Option<String> {
-        self.target
-            .map(|threads| format!("--test-threads={threads}"))
+        self.target.map(|target| format!("--target={target}"))
     }
 }
 
