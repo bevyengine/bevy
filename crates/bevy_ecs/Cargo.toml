@@ -152,3 +152,4 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
+features = ["bevy_reflect/auto_register_static"]
