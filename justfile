@@ -7,7 +7,7 @@ clippy:
     @just bevy_ecs
 
 
-# Runs clippy on `bevy_ecs`, with all this permutations of features
+# Runs clippy on `bevy_app`, with all this permutations of features
 # * --no-default-features
 # * --no-default-features --features="*each feature in Cargo.toml individually*"
 # * "default features"
