@@ -15,7 +15,7 @@ We've included a convenient `SunDisk::EARTH` constant, to spare you the tricky e
 
 If you've ever stared directly at the sun in real life (not recommended), you'll also be familiar with a spreading glow
 that bleeds out into the nearby sky.
-In rendering, this achieved through a post-processing effect is known as "bloom", and is enabled by adding the [`Bloom`] component to your camera entity.
+This is an effect known as "bloom", which is enabled by adding the [`Bloom`] component to your camera entity.
 
 [procedural atmosphere]: https://bevy.org/news/bevy-0-16/#procedural-atmospheric-scattering
 [`SunDisk`]: https://docs.rs/bevy/0.17.0-rc.1/bevy/light/struct.SunDisk.html
