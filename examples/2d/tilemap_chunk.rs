@@ -11,7 +11,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_tileset_image, update_tilemap))
+        .add_systems(Update, (update_tileset_image, update_tilemap, log_tile))
         .run();
 }
 
@@ -84,4 +84,11 @@ fn update_tilemap(
             }
         }
     }
+}
+
+// find the data for an arbitrary tile in the chunk and log its data
+fn log_tile(tilemap: Single<(&TilemapChunk, &TilemapChunkTileData)>) {
+    let (chunk, data) = tilemap.into_inner();
+    let tile_data = data.tile_data_from_tile_pos(chunk.chunk_size, UVec2::new(3, 4));
+    info!(?tile_data);
 }
