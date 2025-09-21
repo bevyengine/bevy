@@ -1,5 +1,11 @@
 use crate::CI;
 
+/// Android targets
+const ANDROID_TARGETS: &[&str] = &[
+    "aarch64-linux-android",
+    // Help expand this
+];
+
 /// Arguments that are available to CI commands.
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub struct Args {
@@ -29,6 +35,15 @@ impl Args {
     #[inline(always)]
     pub fn target(&self) -> Option<String> {
         self.target.map(|target| format!("--target={target}"))
+    }
+
+    /// Tests if the target is an android target
+    pub fn is_android_target(&self) -> bool {
+        if let Some(target) = &self.target {
+            ANDROID_TARGETS.contains(target)
+        } else {
+            cfg!(target_os = "android")
+        }
     }
 }
 
