@@ -3,7 +3,7 @@ title: Split `Hdr` from `Camera`
 pull_requests: [18873]
 ---
 
-`Camera.hdr` has been split out into a new marker component, `Hdr`
+`Camera.hdr` has been split out into a new marker component, `Hdr`, which can be found at `bevy::render::view::Hdr`.
 
 - before: `commands.spawn((Camera3d, Camera { hdr: true, ..default() });`
 - after: `commands.spawn((Camera3d, Hdr));`

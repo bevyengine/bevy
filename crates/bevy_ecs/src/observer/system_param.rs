@@ -129,15 +129,7 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     }
 }
 
-impl<
-        'w,
-        't,
-        const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
-        B: Bundle,
-        T: Traversal<E>,
-    > On<'w, 't, E, B>
-{
+impl<'w, 't, E: EntityEvent, B: Bundle> On<'w, 't, E, B> {
     /// A deprecated way to retrieve the entity that this [`EntityEvent`] targeted at.
     ///
     /// Access the event via [`On::event`], then read the entity that the event was targeting.
@@ -150,7 +142,17 @@ impl<
     pub fn target(&self) -> Entity {
         self.event.event_target()
     }
+}
 
+impl<
+        'w,
+        't,
+        const AUTO_PROPAGATE: bool,
+        E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
+        B: Bundle,
+        T: Traversal<E>,
+    > On<'w, 't, E, B>
+{
     /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
     /// prior to any propagation logic.
     pub fn original_event_target(&self) -> Entity {
