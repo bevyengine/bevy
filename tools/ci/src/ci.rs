@@ -110,6 +110,7 @@ enum Commands {
     // Actual subcommands
     Format(commands::FormatCommand),
     Clippy(commands::ClippyCommand),
+    ClippyDlss(commands::ClippyDlssCommand),
     Test(commands::TestCommand),
     TestCheck(commands::TestCheckCommand),
     IntegrationTest(commands::IntegrationTestCommand),
@@ -138,6 +139,7 @@ impl Prepare for Commands {
 
             Commands::Format(subcommand) => subcommand.prepare(sh, args),
             Commands::Clippy(subcommand) => subcommand.prepare(sh, args),
+            Commands::ClippyDlss(subcommand) => subcommand.prepare(sh, args),
             Commands::Test(subcommand) => subcommand.prepare(sh, args),
             Commands::TestCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::IntegrationTest(subcommand) => subcommand.prepare(sh, args),

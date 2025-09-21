@@ -16,12 +16,6 @@ clippy:
 clippy_android target=default_android_target:
     @just bevy_android {{target}}
 
-# These are crates that have features that require `DLSS_SDK`.
-[doc("Runs clippy on all of Bevy's crates that use DLSS (TODO)")]
-[group("ci")]
-clippy_dlss:
-    cargo clippy -p bevy_anti_alias --no-default-features --features="dlss"
-
 # Runs clippy on `bevy_android`, with all this permutations of features
 # * --no-default-features
 # * "default features"
