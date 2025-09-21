@@ -561,7 +561,7 @@ impl Table {
     /// - `current_column_capacity` is indeed the capacity of the columns
     ///
     /// The capacity of all columns is determined by that of the `entities` Vec. This means that
-    /// it must be the correct capacity to allocate, reallocate, and deallocate all columnts. This
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
     /// means the safety invariant must be enforced even in `TableBuilder`.
     unsafe fn realloc_columns(
         &mut self,
