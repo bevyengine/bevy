@@ -169,15 +169,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[inline]
             fn get_fragmenting_values<'a>(
                 &'a self,
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                values: &mut impl FnMut(#ecs_path::component::ComponentId, &'a dyn #ecs_path::fragmenting_value::FragmentingValue)
+                components: &#ecs_path::component::Components,
+                values: &mut impl FnMut(Option<#ecs_path::fragmenting_value::FragmentingValueV2Borrowed<'a>>)
             ) {
                 #(self.#active_field_tokens.get_fragmenting_values(components, &mut *values);)*
             }
 
             #[inline(always)]
-            fn has_fragmenting_values() -> bool {
-                false #(|| <#active_field_types as #ecs_path::bundle::Bundle>::has_fragmenting_values())*
+            fn count_fragmenting_values() -> usize {
+                0 #(+ <#active_field_types as #ecs_path::bundle::Bundle>::count_fragmenting_values())*
             }
         }
     };

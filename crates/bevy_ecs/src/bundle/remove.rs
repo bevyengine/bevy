@@ -393,10 +393,15 @@ impl BundleInfo {
 
                 next_value_components = current_archetype
                     .components_with_fragmenting_values()
-                    .filter(|(id, _)| {
-                        removed_sparse_set_components.binary_search(id).is_err()
-                            && removed_table_components.binary_search(id).is_err()
+                    .filter(|v| {
+                        removed_sparse_set_components
+                            .binary_search(&v.component_id())
+                            .is_err()
+                            && removed_table_components
+                                .binary_search(&v.component_id())
+                                .is_err()
                     })
+                    .cloned()
                     .collect();
             }
 

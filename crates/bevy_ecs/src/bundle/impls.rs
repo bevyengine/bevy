@@ -1,15 +1,13 @@
 use core::any::{Any, TypeId};
 
-use bevy_ptr::{MovingPtr, OwningPtr};
+use bevy_ptr::{MovingPtr, OwningPtr, Ptr};
 use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{
-        Component, ComponentId, ComponentKey, Components, ComponentsRegistrator, StorageType,
-    },
-    fragmenting_value::FragmentingValue,
+    component::{Component, ComponentId, Components, ComponentsRegistrator, KeyOf, StorageType},
+    fragmenting_value::{FragmentingValueComponent, FragmentingValueV2Borrowed},
     query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
@@ -29,17 +27,25 @@ unsafe impl<C: Component> Bundle for C {
     #[inline]
     fn get_fragmenting_values<'a>(
         &'a self,
-        components: &mut ComponentsRegistrator,
-        values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue),
+        components: &Components,
+        values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>),
     ) {
-        if let Some(key) = (self as &dyn Any).downcast_ref::<<C::Key as ComponentKey>::KeyType>() {
-            C::component_ids(components, &mut |id| values(id, key));
+        if let Some(component) = (self as &dyn Any).downcast_ref::<KeyOf<C>>() {
+            C::get_component_ids(components, &mut |id| {
+                values(id.map(|id| unsafe {
+                    FragmentingValueV2Borrowed::new(id, component.hash_data(), Ptr::from(self))
+                }))
+            });
         }
     }
 
-    #[inline(always)]
-    fn has_fragmenting_values() -> bool {
-        C::is_fragmenting_value_component()
+    #[inline]
+    fn count_fragmenting_values() -> usize {
+        if TypeId::of::<C>() == TypeId::of::<KeyOf<C>>() {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -99,7 +105,7 @@ macro_rules! tuple_impl {
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            fn get_fragmenting_values<'a>(&'a self, components: &mut ComponentsRegistrator, values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue)) {
+            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>)) {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."
@@ -112,8 +118,8 @@ macro_rules! tuple_impl {
             }
 
             #[inline(always)]
-            fn has_fragmenting_values() -> bool {
-                false $(|| <$name as Bundle>::has_fragmenting_values())*
+            fn count_fragmenting_values() -> usize {
+                0 $(+ <$name as Bundle>::count_fragmenting_values())*
             }
         }
 

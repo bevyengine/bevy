@@ -14,7 +14,7 @@ pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
-    fragmenting_value::{FragmentingValue, FragmentingValueComponent, Keyless},
+    fragmenting_value::{FragmentingValueComponent, Keyless},
     lifecycle::ComponentHook,
     system::{Local, SystemParam},
     world::{FromWorld, World},
@@ -629,12 +629,6 @@ pub trait Component: Send + Sync + 'static {
     /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
-
-    /// Returns `true` if this component is a [`FragmentingValue`] component and its value can be used to fragment archetypes.
-    #[inline(always)]
-    fn is_fragmenting_value_component() -> bool {
-        TypeId::of::<<Self::Key as ComponentKey>::KeyType>() == TypeId::of::<Self>()
-    }
 }
 
 mod private {
@@ -731,6 +725,8 @@ impl<C: Component, K: FragmentingValueComponent> ComponentKey for OtherComponent
 /// Set this component as the fragmenting key. This means every different value of this component (as defined by [`PartialEq::eq`])
 /// will exist only in it's own archetype.
 pub type SelfKey<C> = OtherComponentKey<C, C>;
+
+pub type KeyOf<T: Component> = <T::Key as ComponentKey>::KeyType;
 
 /// The storage used for a specific component type.
 ///

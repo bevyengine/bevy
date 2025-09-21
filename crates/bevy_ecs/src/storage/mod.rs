@@ -31,7 +31,10 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-use crate::component::{ComponentInfo, StorageType};
+use crate::{
+    component::{ComponentInfo, StorageType},
+    fragmenting_value::FragmentingValueComponentsStorage,
+};
 
 /// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]
@@ -45,6 +48,8 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+
+    pub fragmenting_values: FragmentingValueComponentsStorage,
 }
 
 impl Storages {

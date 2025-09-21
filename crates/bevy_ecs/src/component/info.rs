@@ -146,7 +146,11 @@ impl ComponentInfo {
     ///
     /// Will return `None` if this component isn't fragmenting by value.
     pub fn value_component_vtable(&self) -> Option<&FragmentingValueVtable> {
-        self.descriptor.fragmenting_value_vtable.as_ref()
+        if !self.mutable() {
+            self.descriptor.fragmenting_value_vtable.as_ref()
+        } else {
+            None
+        }
     }
 }
 

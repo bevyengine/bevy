@@ -24,7 +24,10 @@ use crate::{
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
     event::Event,
-    fragmenting_value::{FragmentingValue, FragmentingValuesBorrowed, FragmentingValuesOwned},
+    fragmenting_value::{
+        FragmentingValueOwned, FragmentingValueV2Borrowed, FragmentingValuesBorrowed,
+        FragmentingValuesBorrowedTupleKey, FragmentingValuesOwned,
+    },
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
@@ -135,7 +138,8 @@ pub(crate) enum ComponentStatus {
 /// Used in [`Edges`] to cache the result of inserting a bundle into the source archetype.
 pub(crate) struct ArchetypeAfterBundleInsert {
     /// The target archetype after the bundle is inserted into the source archetype.
-    pub archetype_id: ArchetypeId,
+    /// This will be `None` if bundle contains fragmenting value components.
+    pub archetype_id: Option<ArchetypeId>,
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed.
     bundle_status: Box<[ComponentStatus]>,
@@ -148,11 +152,6 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
     pub(crate) existing: Box<[ComponentId]>,
-    /// Maps this archetype to other component-identical archetypes based on [`FragmentingValue`]s of components.
-    /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
-    /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
-    /// point to the same archetype after transition.
-    pub fragmenting_values_map: HashMap<FragmentingValuesOwned, ArchetypeId>,
 }
 
 impl ArchetypeAfterBundleInsert {
@@ -218,6 +217,13 @@ pub struct Edges {
     insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
     remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+
+    /// Maps archetype to other component-identical archetypes based on [`FragmentingValue`]s of components.
+    /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
+    /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
+    /// point to the same archetype after transition.
+    pub(crate) insert_bundle_fragmenting_components:
+        HashMap<(BundleId, FragmentingValuesOwned), ArchetypeId>,
 }
 
 impl Edges {
@@ -227,18 +233,19 @@ impl Edges {
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     #[inline]
-    pub fn get_archetype_after_bundle_insert(
+    pub unsafe fn get_archetype_after_bundle_insert(
         &self,
         bundle_id: BundleId,
         value_components: &FragmentingValuesBorrowed,
     ) -> Option<ArchetypeId> {
         self.get_archetype_after_bundle_insert_internal(bundle_id)
-            .and_then(|bundle| {
-                if value_components.is_empty() {
-                    Some(bundle.archetype_id)
-                } else {
-                    bundle.fragmenting_values_map.get(value_components).copied()
-                }
+            .and_then(|bundle| bundle.archetype_id)
+            .or_else(|| {
+                self.insert_bundle_fragmenting_components
+                    .get(&FragmentingValuesBorrowedTupleKey(bundle_id, unsafe {
+                        value_components.as_key()
+                    }))
+                    .copied()
             })
     }
 
@@ -253,9 +260,6 @@ impl Edges {
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
-    ///
-    /// **NOTE**: to get the proper final archetype id use [`ArchetypeAfterBundleInsert::fragmenting_values_map`]
-    /// if there are any fragmenting value components present in the bundle.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_insert(
         &mut self,
@@ -265,35 +269,20 @@ impl Edges {
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
         added: impl Into<Box<[ComponentId]>>,
         existing: impl Into<Box<[ComponentId]>>,
-    ) {
-        self.insert_bundle.insert(
-            bundle_id,
-            ArchetypeAfterBundleInsert {
-                archetype_id,
-                bundle_status: bundle_status.into(),
-                required_components: required_components.into(),
-                added: added.into(),
-                existing: existing.into(),
-                fragmenting_values_map: Default::default(),
-            },
-        );
-    }
-
-    /// Caches the target archetype for this combination of [`BundleId`] and [`FragmentingValuesOwned`].
-    ///
-    /// For this to work, first cache the target archetype for this `bundle_id` without any fragmenting values
-    /// using [`Self::cache_archetype_after_bundle_insert`] if not already present, and then run this function.
-    pub(crate) fn cache_archetype_value_components_after_bundle_insert(
-        &mut self,
-        bundle_id: BundleId,
         value_components: FragmentingValuesOwned,
-        value_archetype_id: ArchetypeId,
     ) {
-        if let Some(bundle) = self.insert_bundle.get_mut(bundle_id) {
-            bundle
-                .fragmenting_values_map
-                .insert(value_components, value_archetype_id);
+        let bundle = ArchetypeAfterBundleInsert {
+            archetype_id: (value_components.is_empty()).then_some(archetype_id),
+            bundle_status: bundle_status.into(),
+            required_components: required_components.into(),
+            added: added.into(),
+            existing: existing.into(),
+        };
+        if bundle.archetype_id.is_none() {
+            self.insert_bundle_fragmenting_components
+                .insert((bundle_id, value_components), archetype_id);
         }
+        self.insert_bundle.insert(bundle_id, bundle);
     }
 
     /// Checks the cache for the target archetype when removing a bundle from the
@@ -391,7 +380,7 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// [`Component`]: crate::component::Component
 struct ArchetypeComponentInfo {
     storage_type: StorageType,
-    fragmenting_value: Option<Box<dyn FragmentingValue>>,
+    fragmenting_value: Option<FragmentingValueOwned>,
 }
 
 bitflags::bitflags! {
@@ -439,7 +428,7 @@ impl Archetype {
         table_id: TableId,
         table_components: impl Iterator<Item = ComponentId>,
         sparse_set_components: impl Iterator<Item = ComponentId>,
-        value_components: impl Iterator<Item = (ComponentId, &'a dyn FragmentingValue)>,
+        value_components: impl Iterator<Item = &'a FragmentingValueOwned>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -484,9 +473,9 @@ impl Archetype {
                 .insert(id, ArchetypeRecord { column: None });
         }
 
-        for (component_id, archetype_component_id) in value_components {
-            if let Some(info) = archetype_components.get_mut(component_id) {
-                info.fragmenting_value = Some(archetype_component_id.clone_boxed());
+        for value in value_components {
+            if let Some(info) = archetype_components.get_mut(value.component_id()) {
+                info.fragmenting_value = Some(value.clone());
             }
             flags.insert(ArchetypeFlags::HAS_VALUE_COMPONENTS);
         }
@@ -598,10 +587,10 @@ impl Archetype {
 
     pub(crate) fn components_with_fragmenting_values(
         &self,
-    ) -> impl Iterator<Item = (ComponentId, &dyn FragmentingValue)> {
+    ) -> impl Iterator<Item = &FragmentingValueOwned> {
         self.components
-            .iter()
-            .filter_map(|(id, info)| Some((*id, info.fragmenting_value.as_ref()?.as_ref())))
+            .values()
+            .filter_map(|info| info.fragmenting_value.as_ref())
     }
 
     /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
@@ -725,11 +714,10 @@ impl Archetype {
     /// Returns [`FragmentingValue`] for this archetype of the requested `component_id`.
     ///
     /// This will return `None` if requested component isn't a part of this archetype or isn't fragmenting.
-    pub fn get_value_component(&self, component_id: ComponentId) -> Option<&dyn FragmentingValue> {
+    pub fn get_value_component(&self, component_id: ComponentId) -> Option<&FragmentingValueOwned> {
         self.components
             .get(component_id)
             .and_then(|info| info.fragmenting_value.as_ref())
-            .map(AsRef::as_ref)
     }
 
     /// Returns `true` if this archetype contains any components that fragment by value.
@@ -1000,7 +988,7 @@ impl Archetypes {
                     table_id,
                     table_components.iter().copied(),
                     sparse_set_components.iter().copied(),
-                    value_components.iter_ids_and_values(),
+                    value_components.iter(),
                 ));
                 vacant.insert(id);
                 (id, true)

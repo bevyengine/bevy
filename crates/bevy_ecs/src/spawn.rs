@@ -325,18 +325,15 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 
     fn get_fragmenting_values<'a>(
         &'a self,
-        _components: &mut crate::component::ComponentsRegistrator,
-        _values: &mut impl FnMut(
-            crate::component::ComponentId,
-            &'a dyn crate::fragmenting_value::FragmentingValue,
-        ),
+        _components: &crate::component::Components,
+        _values: &mut impl FnMut(Option<crate::fragmenting_value::FragmentingValueV2Borrowed<'a>>),
     ) {
-        // RelationshipTargets never fragment by value since only immutable components can fragment.
+        // RelationshipTargets can't fragment by value since they're mutable
     }
 
-    fn has_fragmenting_values() -> bool {
-        // RelationshipTargets never fragment by value since only immutable components can fragment.
-        false
+    fn count_fragmenting_values() -> usize {
+        // RelationshipTargets can't fragment by value since they're mutable
+        0
     }
 }
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
@@ -433,18 +430,15 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 
     fn get_fragmenting_values<'a>(
         &'a self,
-        _components: &mut crate::component::ComponentsRegistrator,
-        _values: &mut impl FnMut(
-            crate::component::ComponentId,
-            &'a dyn crate::fragmenting_value::FragmentingValue,
-        ),
+        _components: &crate::component::Components,
+        _values: &mut impl FnMut(Option<crate::fragmenting_value::FragmentingValueV2Borrowed<'a>>),
     ) {
-        // RelationshipTargets never fragment by value since only immutable components can fragment.
+        // RelationshipTargets can't fragment by value since they're mutable
     }
 
-    fn has_fragmenting_values() -> bool {
-        // RelationshipTargets never fragment by value since only immutable components can fragment.
-        false
+    fn count_fragmenting_values() -> usize {
+        // RelationshipTargets can't fragment by value since they're mutable
+        0
     }
 }
 

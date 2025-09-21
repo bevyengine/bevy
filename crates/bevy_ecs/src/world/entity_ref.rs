@@ -10,6 +10,7 @@ use crate::{
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
+    fragmenting_value::FragmentingValuesBorrowed,
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -2036,7 +2037,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick, &*bundle);
         // SAFETY:
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.
@@ -2115,13 +2116,12 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
-        let mut dynamic_value_component = DynamicFragmentingValue::default();
-        let value_components = FragmentingValuesBorrowed::from_iter(
-            dynamic_value_component
-                .from_component(&self.world.components, component_id, component.as_ref())
-                .iter()
-                .map(|v| (component_id, *v)),
-        );
+        let value_components = unsafe {
+            FragmentingValuesBorrowed::from_components(
+                &self.world.components,
+                [(component_id, component.as_ref())],
+            )
+        };
 
         let bundle_inserter = BundleInserter::new_with_id(
             self.world,
@@ -2188,32 +2188,15 @@ impl<'w> EntityWorldMut<'w> {
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
         let mut components: Vec<_> = iter_components.collect();
-        let mut dynamic_value_components: Vec<_> = component_ids
-            .iter()
-            .zip(components.iter())
-            .filter_map(|(id, value)| {
-                self.world
-                    .components()
-                    .get_info(*id)?
-                    .value_component_vtable()
-                    .map(|_| (*id, value.as_ref(), DynamicFragmentingValue::default()))
-            })
-            .collect();
-        let value_components = dynamic_value_components
-            .iter_mut()
-            .map(|(id, value, dynamic_value)|
-                 // SAFETY:
-                 // - `id` and `value` match
-                 // - component is always fragmenting since we filtered it beforehand.
-                unsafe {
-                (
-                    *id,
-                    dynamic_value
-                        .from_component(self.world.components(), *id, *value)
-                        .debug_checked_unwrap(),
-                )
-            })
-            .collect();
+        let value_components = unsafe {
+            FragmentingValuesBorrowed::from_components(
+                &self.world.components,
+                component_ids
+                    .iter()
+                    .copied()
+                    .zip(components.iter().map(|ptr| ptr.as_ref())),
+            )
+        };
         let bundle_inserter = BundleInserter::new_with_id(
             self.world,
             location.archetype_id,

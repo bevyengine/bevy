@@ -27,11 +27,16 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: Option<&T>) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
+        let value_components = if let Some(bundle) = bundle {
+            unsafe { FragmentingValuesBorrowed::from_bundle(world.components(), bundle) }
+        } else {
+            FragmentingValuesBorrowed::empty()
+        };
 
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, value_components) }
     }
 
     /// Creates a new [`BundleSpawner`].
@@ -43,7 +48,7 @@ impl<'w> BundleSpawner<'w> {
         world: &'w mut World,
         bundle_id: BundleId,
         change_tick: Tick,
-        value_components: &FragmentingValuesBorrowed,
+        value_components: FragmentingValuesBorrowed,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
@@ -52,7 +57,7 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
-            value_components,
+            &value_components,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];
@@ -213,5 +218,14 @@ impl<'w> BundleSpawner<'w> {
     pub(crate) unsafe fn flush_commands(&mut self) {
         // SAFETY: pointers on self can be invalidated,
         self.world.world_mut().flush();
+    }
+
+    #[inline]
+    pub(crate) fn replace<T: Bundle>(&mut self, bundle: &T) {
+        *self = BundleSpawner::new(
+            unsafe { self.world.world_mut() },
+            self.change_tick,
+            Some(bundle),
+        )
     }
 }

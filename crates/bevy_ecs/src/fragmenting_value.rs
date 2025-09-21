@@ -4,107 +4,105 @@
 //! other ecs functions to fragment archetypes.
 
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use bevy_ecs::component::Component;
-use bevy_platform::hash::FixedHasher;
+use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     any::{Any, TypeId},
     borrow::Borrow,
     hash::{BuildHasher, Hash, Hasher},
     mem::MaybeUninit,
+    ops::Deref,
     ptr::NonNull,
 };
 use indexmap::Equivalent;
 
 use crate::{
     bundle::Bundle,
-    component::{ComponentId, ComponentInfo, ComponentKey, ComponentsRegistrator, Immutable},
+    component::{
+        CheckChangeTicks, ComponentId, ComponentInfo, ComponentKey, Components,
+        ComponentsRegistrator, Immutable, KeyOf,
+    },
     query::DebugCheckedUnwrap,
 };
 
-/// Trait used to define values that can fragment archetypes.
-///
-/// This trait is automatically implemented for all immutable components that also implement [`Eq`], [`Hash`] and [`Clone`].
-///
-/// For dynamic components see [`DynamicFragmentingValue`] and [`FragmentingValueVtable`].
-pub trait FragmentingValue: Any {
-    /// Return `true` if `self == other`. Dynamic version of [`PartialEq::eq`].
-    fn dyn_eq(&self, other: &dyn FragmentingValue) -> bool;
-    /// Returns the hash value of `self`. Dynamic version of [`Hash::hash`].
-    fn dyn_hash(&self) -> u64;
-    /// Returns a boxed clone of `self`. Dynamic version of [`Clone::clone`].
-    fn dyn_clone(&self) -> Box<dyn FragmentingValue>;
+#[derive(Default)]
+pub struct FragmentingValueComponentsStorage {
+    existing_values: HashSet<FragmentingValueOwned>,
 }
 
-pub trait FragmentingValueComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {}
+impl FragmentingValueComponentsStorage {
+    pub fn check_change_ticks(&mut self, _check: CheckChangeTicks) {}
+}
+
+#[derive(Clone)]
+pub struct FragmentingValueOwned {
+    inner: Arc<DynamicFragmentingValueInner>,
+}
+
+impl Hash for FragmentingValueOwned {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
+    }
+}
+
+impl PartialEq for FragmentingValueOwned {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+impl Eq for FragmentingValueOwned {}
+
+impl FragmentingValueOwned {
+    pub fn component_id(&self) -> ComponentId {
+        self.inner.component_id
+    }
+}
+
+pub trait FragmentingValueComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {
+    #[inline]
+    fn hash_data(&self) -> u64 {
+        let mut hasher = FixedHasher.build_hasher();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+}
 
 impl<C> FragmentingValueComponent for C where
     C: Component<Mutability = Immutable> + Eq + Hash + Clone
 {
 }
 
-impl<T> FragmentingValue for T
-where
-    T: FragmentingValueComponent,
-{
-    #[inline]
-    fn dyn_eq(&self, other: &dyn FragmentingValue) -> bool {
-        #[expect(clippy::let_unit_value, reason = "This is used for static asserts")]
-        {
-            _ = T::Key::INVARIANT_ASSERT;
-        }
-        let other_as_any = other as &dyn Any;
-        if let Some(other) = other_as_any.downcast_ref::<T>() {
-            self == other
-        } else if let Some(other) = other_as_any.downcast_ref::<DynamicFragmentingValueInner>()
-            && let Some(other_type_id) = other.get_component_info().type_id()
-            && other_type_id == TypeId::of::<Self>()
-        {
-            unsafe { other.get_data().deref::<Self>() == self }
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    fn dyn_hash(&self) -> u64 {
-        FixedHasher.hash_one(self)
-    }
-
-    #[inline]
-    fn dyn_clone(&self) -> Box<dyn FragmentingValue> {
-        Box::new(self.clone())
-    }
-}
-
 #[derive(Component, PartialEq, Eq, Hash, Clone)]
 #[component(immutable)]
 pub enum Keyless {}
-
-impl PartialEq for dyn FragmentingValue {
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.dyn_eq(other)
-    }
-}
-
-impl Eq for dyn FragmentingValue {}
-
-impl Hash for dyn FragmentingValue {
-    #[inline]
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.dyn_hash());
-    }
-}
 
 /// A collection of fragmenting component values and ids.
 /// This collection is sorted internally to allow for order-independent comparison.
 ///
 /// Owned version can be used as a key in maps. [`FragmentingValuesBorrowed`] is a version that doesn't require cloning the values.
-#[derive(Hash, PartialEq, Eq, Default)]
+#[derive(Hash, PartialEq, Eq, Default, Clone)]
 pub struct FragmentingValuesOwned {
-    values: Box<[(ComponentId, Box<dyn FragmentingValue>)]>,
+    values: Box<[FragmentingValueOwned]>,
+}
+
+impl Deref for FragmentingValuesOwned {
+    type Target = [FragmentingValueOwned];
+
+    fn deref(&self) -> &Self::Target {
+        &*self.values
+    }
+}
+
+impl FromIterator<FragmentingValueOwned> for FragmentingValuesOwned {
+    fn from_iter<T: IntoIterator<Item = FragmentingValueOwned>>(iter: T) -> Self {
+        Self {
+            values: iter.into_iter().collect(),
+        }
+    }
 }
 
 impl FragmentingValuesOwned {
@@ -112,45 +110,114 @@ impl FragmentingValuesOwned {
     pub fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
+}
 
-    /// Returns fragmenting component values with their corresponding [`ComponentId`]s.
-    pub fn iter_ids_and_values(
+pub struct FragmentingValueV2Borrowed<'a> {
+    component_id: ComponentId,
+    data_hash: u64,
+    data: Ptr<'a>,
+}
+
+impl<'a> FragmentingValueV2Borrowed<'a> {
+    pub unsafe fn new(component_id: ComponentId, data_hash: u64, data: Ptr<'a>) -> Self {
+        Self {
+            component_id,
+            data_hash,
+            data,
+        }
+    }
+
+    pub fn component_id(&self) -> ComponentId {
+        self.component_id
+    }
+
+    pub const unsafe fn as_key(&self) -> &FragmentingValueBorrowedKey {
+        &*(self as *const FragmentingValueV2Borrowed as *const FragmentingValueBorrowedKey)
+    }
+
+    pub unsafe fn to_owned(
         &self,
-    ) -> impl Iterator<Item = (ComponentId, &dyn FragmentingValue)> {
-        self.values.iter().map(|(id, v)| (*id, v.as_ref()))
+        components: &Components,
+        storage: &mut FragmentingValueComponentsStorage,
+    ) -> FragmentingValueOwned {
+        storage
+            .existing_values
+            .get_or_insert_with(unsafe { self.as_key() }, |v| {
+                let info = unsafe { components.get_info_unchecked(v.component_id) };
+                let vtable = unsafe { info.value_component_vtable().debug_checked_unwrap() };
+                let layout = info.layout();
+                let data = if layout.size() == 0 {
+                    NonNull::dangling()
+                } else {
+                    unsafe { NonNull::new(alloc::alloc::alloc(info.layout())).unwrap() }
+                };
+                (vtable.clone)(v.data, data);
+                FragmentingValueOwned {
+                    inner: Arc::new(DynamicFragmentingValueInner {
+                        component_id: v.component_id,
+                        data_hash: v.data_hash,
+                        data,
+                        data_drop: info.drop(),
+                        data_eq: vtable.eq,
+                    }),
+                }
+            })
+            .clone()
     }
 }
 
-impl<T: Borrow<dyn FragmentingValue>> FromIterator<(ComponentId, T)> for FragmentingValuesOwned {
-    fn from_iter<I: IntoIterator<Item = (ComponentId, T)>>(iter: I) -> Self {
-        let mut values = Vec::new();
-        for (id, value) in iter {
-            values.push((id, value.borrow().dyn_clone()));
-        }
-        values.sort_unstable_by_key(|(id, _)| *id);
-        FragmentingValuesOwned {
-            values: values.into_boxed_slice(),
-        }
+impl<'a> Hash for FragmentingValueV2Borrowed<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.component_id.hash(state);
+        state.write_u64(self.data_hash);
     }
 }
 
-/// A collection of fragmenting component values and ids.
-/// This collection is sorted internally to allow for order-independent comparison.
-///
-/// Borrowed version is used to query maps with [`FragmentingValuesOwned`] keys.
-#[derive(Hash, PartialEq, Eq, Default)]
+#[derive(Hash)]
 pub struct FragmentingValuesBorrowed<'a> {
-    values: Vec<(ComponentId, &'a dyn FragmentingValue)>,
+    values: Vec<FragmentingValueV2Borrowed<'a>>,
+}
+
+impl<'a> Deref for FragmentingValuesBorrowed<'a> {
+    type Target = [FragmentingValueV2Borrowed<'a>];
+
+    fn deref(&self) -> &Self::Target {
+        &*self.values
+    }
 }
 
 impl<'a> FragmentingValuesBorrowed<'a> {
-    /// Borrows fragmenting values from a [`Bundle`].
-    /// This is used to compare fragmenting values without cloning bundle's data.
-    pub fn from_bundle<B: Bundle>(components: &mut ComponentsRegistrator, bundle: &'a B) -> Self {
-        let mut values = Vec::new();
-        bundle.get_fragmenting_values(components, &mut |id, value| values.push((id, value)));
-        values.sort_unstable_by_key(|(id, _)| *id);
+    pub unsafe fn from_bundle<B: Bundle>(components: &Components, bundle: &'a B) -> Self {
+        let mut values = Vec::with_capacity(B::count_fragmenting_values());
+        bundle.get_fragmenting_values(components, &mut |value| {
+            values.push(value.debug_checked_unwrap())
+        });
+        values.sort_unstable_by_key(|v| v.component_id);
         FragmentingValuesBorrowed { values }
+    }
+
+    pub unsafe fn from_components(
+        components: &Components,
+        iter: impl IntoIterator<Item = (ComponentId, Ptr<'a>)>,
+    ) -> Self {
+        let mut values: Vec<_> = iter
+            .into_iter()
+            .filter_map(|(id, data)| {
+                let info = components.get_info_unchecked(id);
+                info.value_component_vtable()
+                    .map(|vtable| FragmentingValueV2Borrowed {
+                        component_id: id,
+                        data,
+                        data_hash: (vtable.hash)(data),
+                    })
+            })
+            .collect();
+        values.sort_unstable_by_key(|v| v.component_id);
+        FragmentingValuesBorrowed { values }
+    }
+
+    pub fn empty() -> Self {
+        FragmentingValuesBorrowed { values: Vec::new() }
     }
 
     /// Returns `true` if there are no fragmenting values.
@@ -158,165 +225,119 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         self.values.is_empty()
     }
 
-    /// Creates [`FragmentingValuesOwned`] by cloning all fragmenting values.
-    pub fn to_owned(&self) -> FragmentingValuesOwned {
-        FragmentingValuesOwned {
-            values: self
-                .values
-                .iter()
-                .map(|(id, v)| (*id, v.dyn_clone()))
-                .collect(),
-        }
-    }
-
-    /// Returns fragmenting component values with their corresponding [`ComponentId`]s.
-    pub fn iter_ids_and_values(
+    pub unsafe fn to_owned(
         &self,
-    ) -> impl Iterator<Item = (ComponentId, &'a dyn FragmentingValue)> {
-        self.values.iter().map(|(id, v)| (*id, *v))
+        components: &Components,
+        storage: &mut FragmentingValueComponentsStorage,
+    ) -> FragmentingValuesOwned {
+        let values = self
+            .values
+            .iter()
+            .map(|v| unsafe { v.to_owned(components, storage) })
+            .collect();
+        FragmentingValuesOwned { values }
+    }
+
+    pub const unsafe fn as_key(&self) -> &FragmentingValuesBorrowedKey {
+        &*(self as *const FragmentingValuesBorrowed as *const FragmentingValuesBorrowedKey)
     }
 }
 
-impl<'a> FromIterator<(ComponentId, &'a dyn FragmentingValue)> for FragmentingValuesBorrowed<'a> {
-    fn from_iter<I: IntoIterator<Item = (ComponentId, &'a dyn FragmentingValue)>>(iter: I) -> Self {
-        let mut values = Vec::new();
-        for (id, value) in iter {
-            values.push((id, value));
-        }
-        values.sort_unstable_by_key(|(id, _)| *id);
-        FragmentingValuesBorrowed { values }
+#[repr(transparent)]
+#[derive(Hash)]
+pub struct FragmentingValueBorrowedKey<'a>(FragmentingValueV2Borrowed<'a>);
+
+impl<'a> Deref for FragmentingValueBorrowedKey<'a> {
+    type Target = FragmentingValueV2Borrowed<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowed<'a> {
+impl<'a> Equivalent<FragmentingValueOwned> for FragmentingValueBorrowedKey<'a> {
+    fn equivalent(&self, key: &FragmentingValueOwned) -> bool {
+        self == key
+    }
+}
+
+impl<'a> PartialEq<FragmentingValueOwned> for FragmentingValueBorrowedKey<'a> {
+    fn eq(&self, other: &FragmentingValueOwned) -> bool {
+        self.component_id() == other.component_id()
+            && unsafe { (other.inner.data_eq)(self.data, other.inner.get_data()) }
+    }
+}
+
+#[repr(transparent)]
+#[derive(Hash)]
+pub struct FragmentingValuesBorrowedKey<'a>(FragmentingValuesBorrowed<'a>);
+
+impl<'a> Deref for FragmentingValuesBorrowedKey<'a> {
+    type Target = FragmentingValuesBorrowed<'a>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowedKey<'a> {
     fn equivalent(&self, key: &FragmentingValuesOwned) -> bool {
-        self.values.len() == key.values.len()
-            && self
-                .values
-                .iter()
-                .zip(key.values.iter())
-                // We know that v2 is never an instance of DynamicFragmentingValue since it is from FragmentingValuesOwned.
-                // Because FragmentingValuesOwned is created by calling clone_boxed, it always creates Box<T> of a proper type that DynamicFragmentingValues abstracts.
-                // This means that we don't have to use value_eq_dynamic implementation and can compare with value_eq instead.
-                .all(|((id1, v1), (id2, v2))| id1 == id2 && v1.dyn_eq(&**v2))
+        {
+            self.values.len() == key.values.len()
+                && self
+                    .values
+                    .iter()
+                    .zip(key.values.iter())
+                    .all(|(v1, v2)| unsafe { v1.as_key() == v2 })
+        }
+    }
+}
+
+#[derive(Hash)]
+pub struct FragmentingValuesBorrowedTupleKey<'a, T>(
+    pub T,
+    pub &'a FragmentingValuesBorrowedKey<'a>,
+);
+
+impl<'a, T: Equivalent<T>> Equivalent<(T, FragmentingValuesOwned)>
+    for FragmentingValuesBorrowedTupleKey<'a, T>
+{
+    fn equivalent(&self, key: &(T, FragmentingValuesOwned)) -> bool {
+        self.0.equivalent(&key.0) && self.1.equivalent(&key.1)
     }
 }
 
 struct DynamicFragmentingValueInner {
-    component_info: NonNull<ComponentInfo>,
-    component_data: NonNull<u8>,
+    component_id: ComponentId,
+    data_hash: u64,
+    data_eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
+    data_drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    data: NonNull<u8>,
+}
+
+unsafe impl Sync for DynamicFragmentingValueInner {}
+
+unsafe impl Send for DynamicFragmentingValueInner {}
+
+impl Hash for DynamicFragmentingValueInner {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.component_id.hash(state);
+        state.write_u64(self.data_hash);
+    }
 }
 
 impl DynamicFragmentingValueInner {
     #[inline]
     fn get_data(&self) -> Ptr<'_> {
-        unsafe { Ptr::new(self.component_data) }
-    }
-
-    #[inline]
-    fn get_component_info(&self) -> &ComponentInfo {
-        unsafe { self.component_info.as_ref() }
-    }
-
-    #[inline]
-    fn get_vtable(&self) -> &FragmentingValueVtable {
-        unsafe {
-            self.get_component_info()
-                .value_component_vtable()
-                .debug_checked_unwrap()
-        }
-    }
-}
-
-impl FragmentingValue for DynamicFragmentingValueInner {
-    #[inline]
-    fn dyn_eq(&self, other: &dyn FragmentingValue) -> bool {
-        let other_as_any = other as &dyn Any;
-        let self_info = self.get_component_info();
-        if let Some(other) = other_as_any.downcast_ref::<Self>() {
-            let other_info = other.get_component_info();
-            self_info.id() == other_info.id()
-                && (self.get_vtable().eq)(self_info, self.get_data(), other.get_data())
-        } else if let Some(type_id) = self_info.type_id()
-            && type_id == other_as_any.type_id()
-        {
-            let other_ptr = unsafe {
-                Ptr::new(NonNull::new_unchecked(
-                    core::ptr::from_ref(other).cast::<u8>().cast_mut(),
-                ))
-            };
-            (self.get_vtable().eq)(self_info, self.get_data(), other_ptr)
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    fn dyn_hash(&self) -> u64 {
-        (self.get_vtable().hash)(self.get_component_info(), self.get_data())
-    }
-
-    #[inline]
-    fn dyn_clone(&self) -> Box<dyn FragmentingValue> {
-        let info = self.get_component_info();
-        let layout = info.layout();
-        let component_data = if layout.size() != 0 {
-            unsafe { NonNull::new(alloc::alloc::alloc(layout)).debug_checked_unwrap() }
-        } else {
-            NonNull::dangling()
-        };
-        let component_info = unsafe {
-            NonNull::new_unchecked(Box::into_raw(Box::new(self.get_component_info().clone())))
-        };
-
-        (self.get_vtable().clone)(info, self.get_data(), component_data);
-
-        Box::new(Self {
-            component_data,
-            component_info,
-        })
+        unsafe { Ptr::new(self.data) }
     }
 }
 
 impl Drop for DynamicFragmentingValueInner {
     fn drop(&mut self) {
-        if let Some(drop) = self.get_component_info().drop() {
-            unsafe { drop(OwningPtr::new(self.component_data)) }
+        if let Some(drop) = self.data_drop {
+            unsafe { drop(OwningPtr::new(self.data)) }
         }
-        unsafe {
-            Box::from_raw(self.component_info.as_ptr());
-        }
-    }
-}
-
-/// Holder for a reference to a dynamic fragmenting component and a vtable.
-pub struct DynamicFragmentingValue(MaybeUninit<DynamicFragmentingValueInner>);
-
-impl DynamicFragmentingValue {
-    pub fn new() -> Self {
-        Self(MaybeUninit::uninit())
-    }
-
-    /// Create a new `&dyn` [`FragmentingValue`] from passed component data and id.
-    /// This is used mostly to construct [`FragmentingValuesBorrowed`] to compare dynamic components without copying data.
-    ///
-    /// Will return `None` if component isn't fragmenting.
-    ///
-    /// # Safety
-    /// - `component_id` must match data which `component` points to.
-    pub unsafe fn from_component<'a>(
-        &'a mut self,
-        component_info: &'a ComponentInfo,
-        component_data: Ptr<'a>,
-    ) -> Option<&'a dyn FragmentingValue> {
-        if component_info.mutable() {
-            return None;
-        }
-        let inner = DynamicFragmentingValueInner {
-            component_info: component_info.into(),
-            component_data: component_data.into(),
-        };
-        Some(self.0.write(inner))
     }
 }
 
@@ -324,9 +345,9 @@ impl DynamicFragmentingValue {
 /// This is used by [`crate::component::ComponentDescriptor`] to work with dynamic fragmenting components.
 #[derive(Clone, Copy, Debug)]
 pub struct FragmentingValueVtable {
-    eq: for<'a> fn(&'a ComponentInfo, Ptr<'a>, Ptr<'a>) -> bool,
-    hash: for<'a> fn(&'a ComponentInfo, Ptr<'a>) -> u64,
-    clone: for<'a> fn(&'a ComponentInfo, Ptr<'a>, NonNull<u8>),
+    eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
+    hash: for<'a> unsafe fn(Ptr<'a>) -> u64,
+    clone: for<'a> unsafe fn(Ptr<'a>, NonNull<u8>),
 }
 
 impl FragmentingValueVtable {
@@ -335,9 +356,9 @@ impl FragmentingValueVtable {
     /// Also see [`from_fragmenting_value`](FragmentingValueVtable::from_fragmenting_value) and
     /// [`from_component`](FragmentingValueVtable::from_component) for more convenient constructors.
     pub fn new(
-        eq: fn(&ComponentInfo, Ptr<'_>, Ptr<'_>) -> bool,
-        hash: fn(&ComponentInfo, Ptr<'_>) -> u64,
-        clone: fn(&ComponentInfo, Ptr<'_>, NonNull<u8>),
+        eq: unsafe fn(Ptr<'_>, Ptr<'_>) -> bool,
+        hash: unsafe fn(Ptr<'_>) -> u64,
+        clone: unsafe fn(Ptr<'_>, NonNull<u8>),
     ) -> Self {
         Self { eq, hash, clone }
     }
@@ -346,23 +367,18 @@ impl FragmentingValueVtable {
     ///
     /// This will return `None` if the component isn't fragmenting.
     pub fn from_component<T: Component>() -> Option<Self> {
-        type KeyOf<T: Component> = <T::Key as ComponentKey>::KeyType;
-
-        if TypeId::of::<KeyOf<T>>() == TypeId::of::<T>() {
-            Some(FragmentingValueVtable {
-                eq: |_, this, other| unsafe {
-                    this.deref::<KeyOf<T>>() == other.deref::<KeyOf<T>>()
-                },
-                hash: |_, this| unsafe { FixedHasher.hash_one(this.deref::<KeyOf<T>>()) },
-                clone: |_, this, target| unsafe {
-                    target
-                        .cast::<KeyOf<T>>()
-                        .write(this.deref::<KeyOf<T>>().clone());
-                },
-            })
-        } else {
-            None
+        if TypeId::of::<KeyOf<T>>() != TypeId::of::<T>() {
+            return None;
         }
+        Some(FragmentingValueVtable {
+            eq: |this, other| unsafe { this.deref::<KeyOf<T>>() == other.deref::<KeyOf<T>>() },
+            hash: |this| unsafe { this.deref::<KeyOf<T>>().hash_data() },
+            clone: |this, target| unsafe {
+                target
+                    .cast::<KeyOf<T>>()
+                    .write(this.deref::<KeyOf<T>>().clone());
+            },
+        })
     }
 }
 
@@ -376,7 +392,7 @@ mod tests {
             Component, ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType,
         },
         entity::Entity,
-        fragmenting_value::{DynamicFragmentingValue, FragmentingValue, FragmentingValueVtable},
+        fragmenting_value::FragmentingValueVtable,
         world::World,
     };
     use alloc::vec::Vec;
@@ -529,20 +545,18 @@ mod tests {
             data: [u8; COMPONENT_SIZE],
         }
 
-        fn eq(_: &ComponentInfo, this: Ptr<'_>, other: Ptr<'_>) -> bool {
-            unsafe { this.deref::<DynamicComponent>() == other.deref::<DynamicComponent>() }
+        unsafe fn eq(this: Ptr<'_>, other: Ptr<'_>) -> bool {
+            this.deref::<DynamicComponent>() == other.deref::<DynamicComponent>()
         }
 
-        fn hash(_: &ComponentInfo, this: Ptr<'_>) -> u64 {
-            unsafe { FixedHasher.hash_one(this.deref::<DynamicComponent>()) }
+        unsafe fn hash(this: Ptr<'_>) -> u64 {
+            FixedHasher.hash_one(this.deref::<DynamicComponent>())
         }
 
-        fn clone(_: &ComponentInfo, this: Ptr<'_>, target: NonNull<u8>) {
-            unsafe {
-                target
-                    .cast::<DynamicComponent>()
-                    .write(this.deref::<DynamicComponent>().clone())
-            }
+        unsafe fn clone(this: Ptr<'_>, target: NonNull<u8>) {
+            target
+                .cast::<DynamicComponent>()
+                .write(this.deref::<DynamicComponent>().clone())
         }
 
         let layout = Layout::new::<DynamicComponent>();
@@ -673,21 +687,6 @@ mod tests {
     }
 
     #[test]
-    fn fragmenting_value_compare_with_dynamic() {
-        let mut world = World::default();
-
-        let component_id = world.register_component::<Fragmenting>();
-        let info = world.components().get_info(component_id).unwrap();
-        let value: &dyn FragmentingValue = &Fragmenting(1);
-        let mut dynamic_holder = DynamicFragmentingValue::new();
-        let data = Fragmenting(1);
-        let dynamic = unsafe { dynamic_holder.from_component(info, Ptr::from(&data)) }.unwrap();
-
-        assert!(*value == *dynamic);
-        assert!(*dynamic == *value);
-    }
-
-    #[test]
     fn fragmenting_value_edges_cache_does_not_reset() {
         let mut world = World::default();
 
@@ -695,11 +694,10 @@ mod tests {
         let get_keys = |world: &World, archetype_id: ArchetypeId| {
             world.archetypes[archetype_id]
                 .edges()
-                .get_archetype_after_bundle_insert_internal(bundle_id)
-                .unwrap()
-                .fragmenting_values_map
+                .insert_bundle_fragmenting_components
                 .keys()
-                .len()
+                .filter(|(k, ..)| *k == bundle_id)
+                .count()
         };
 
         let empty_archetype = world.spawn_empty().archetype().id();
