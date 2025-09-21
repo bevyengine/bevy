@@ -339,8 +339,10 @@ impl<'a> AssetPath<'a> {
         }
     }
 
-    /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible.
-    /// See [`normalize_cow_path`] for more details.
+    /// Normalizes the path component of the `AssetPath` by collapsing all
+    /// occurrences of '.' and '..' dot-segments where possible as per [RFC
+    /// 1808](https://datatracker.ietf.org/doc/html/rfc1808).
+    /// If the path is already normalized, this will return `self` unchanged.
     pub fn normalized(self) -> AssetPath<'a> {
         AssetPath {
             source: self.source,
