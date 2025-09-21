@@ -135,7 +135,7 @@ struct Click {
 }
 ```
 
-This will set the [`Event`]'s [`Trigger`] to [`PropagatingEntityTrigger`].
+This will set the [`Event`]'s [`Trigger`] to [`PropagateEntityTrigger`].
 
 This enables access to "propagation" functionality like this:
 
@@ -148,7 +148,7 @@ world.add_observer(|mut click: On<Click>| {
 });
 ```
 
-Bevy's `Pointer` events have always tracked the "original target" that an "entity event" was targeting. This was handy! We've enabled this functionality for every [`EntityEvent`] with [`PropagatingEntityTrigger`]: simply call `On::original_event_target`.
+Bevy's `Pointer` events have always tracked the "original target" that an "entity event" was targeting. This was handy! We've enabled this functionality for every [`EntityEvent`] with [`PropagateEntityTrigger`]: simply call `On::original_event_target`.
 
 ## Component Lifecycle Events
 
@@ -232,13 +232,13 @@ In **Bevy 0.17**, [`Event`] is now _exclusively_ the name/trait for the concept 
 It is still possible to support both contexts by implementing _both traits_, but we expect that to be significantly less common than just choosing one.
 
 [`Event`]: https://dev-docs.bevy.org/bevy/ecs/event/trait.Event.html
-[`Trigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/trait.Trigger.html`
-[`GlobalTrigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/type.GlobalTrigger.html`
+[`Trigger`]: https://dev-docs.bevy.org/bevy/ecs/event/trait.Trigger.html
+[`GlobalTrigger`]: https://dev-docs.bevy.org/bevy/ecs/event/struct.GlobalTrigger.html
 [`EntityEvent`]: https://dev-docs.bevy.org/bevy/ecs/event/trait.EntityEvent.html
 [`ChildOf`]: https://dev-docs.bevy.org/bevy/ecs/hierarchy/struct.ChildOf.html
-[`PropagatingEntityTrigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/type.PropagatingEntityTrigger.html`
+[`PropagateEntityTrigger`]: https://dev-docs.bevy.org/bevy/ecs/event/struct.PropagateEntityTrigger.html
 [`Add`]: https://dev-docs.bevy.org/bevy/ecs/lifecycle/struct.Add.html
-[`EntityComponentsTrigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/type.EntityComponentsTrigger.html`
+[`EntityComponentsTrigger`]: https://dev-docs.bevy.org/bevy/ecs/event/struct.EntityComponentsTrigger.html
 [`AnimationPlayer`]: https://dev-docs.bevy.org/bevy/animation/struct.AnimationPlayer.html
 [`AnimationEvent`]: https://dev-docs.bevy.org/bevy/animation/trait.AnimationEvent.html
-[`AnimationEventTrigger`]: https://dev-docs.bevy.org/bevy/animation/type.AnimationEventTrigger.html
+[`AnimationEventTrigger`]: https://dev-docs.bevy.org/bevy/animation/struct.AnimationEventTrigger.html

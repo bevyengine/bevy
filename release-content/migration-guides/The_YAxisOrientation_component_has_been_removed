@@ -1,0 +1,6 @@
+---
+title: "`YAxisOrientation` has been removed"
+pull_requests: [ 19077 ]
+---
+
+The `YAxisOrientation` component has been removed from `bevy_text`. The correct y-axis orientation is now chosen automatically by the text systems.

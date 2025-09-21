@@ -136,7 +136,6 @@ default = [
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_post_process",
-  "bevy_ui_widgets",
   "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
@@ -295,11 +294,14 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Headless widget collection for Bevy UI.
-bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
+# Experimental headless widget collection for Bevy UI.
+experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = ["bevy_internal/bevy_feathers"]
+experimental_bevy_feathers = [
+  "bevy_internal/bevy_feathers",
+  "experimental_bevy_ui_widgets",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -4526,6 +4528,7 @@ hidden = true
 name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -4661,6 +4664,7 @@ wasm = false
 name = "standard_widgets"
 path = "examples/ui/standard_widgets.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets]
 name = "Standard Widgets"
@@ -4672,6 +4676,7 @@ wasm = true
 name = "standard_widgets_observers"
 path = "examples/ui/standard_widgets_observers.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
@@ -4683,6 +4688,7 @@ wasm = true
 name = "scrollbars"
 path = "examples/ui/scrollbars.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"

@@ -162,7 +162,7 @@ impl Default for SubCameraView {
 }
 
 /// Information about the current [`RenderTarget`].
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
@@ -171,6 +171,15 @@ pub struct RenderTargetInfo {
     /// When rendering to a window, typically it is a value greater or equal than 1.0,
     /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
     pub scale_factor: f32,
+}
+
+impl Default for RenderTargetInfo {
+    fn default() -> Self {
+        Self {
+            physical_size: Default::default(),
+            scale_factor: 1.,
+        }
+    }
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -873,6 +882,8 @@ pub enum NormalizedRenderTarget {
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
+///
+/// See `ManualTextureViews` in `bevy_camera` for more details.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);

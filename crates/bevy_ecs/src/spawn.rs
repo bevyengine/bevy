@@ -513,6 +513,7 @@ macro_rules! related {
 #[doc(hidden)]
 macro_rules! recursive_spawn {
     // direct expansion
+    () => { () };
     ($a:expr) => {
         $crate::spawn::Spawn($a)
     };

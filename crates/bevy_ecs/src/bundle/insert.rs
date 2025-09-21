@@ -174,7 +174,7 @@ impl<'w> BundleInserter<'w> {
                         REPLACE,
                         &mut Replace { entity },
                         &mut EntityComponentsTrigger {
-                            components: &archetype_after_insert.existing,
+                            components: archetype_after_insert.existing(),
                         },
                         caller,
                     );
@@ -182,7 +182,7 @@ impl<'w> BundleInserter<'w> {
                 deferred_world.trigger_on_replace(
                     archetype,
                     entity,
-                    archetype_after_insert.iter_existing(),
+                    archetype_after_insert.existing().iter().copied(),
                     caller,
                     relationship_hook_mode,
                 );
@@ -353,7 +353,7 @@ impl<'w> BundleInserter<'w> {
             deferred_world.trigger_on_add(
                 new_archetype,
                 entity,
-                archetype_after_insert.iter_added(),
+                archetype_after_insert.added().iter().copied(),
                 caller,
             );
             if new_archetype.has_add_observer() {
@@ -362,7 +362,7 @@ impl<'w> BundleInserter<'w> {
                     ADD,
                     &mut Add { entity },
                     &mut EntityComponentsTrigger {
-                        components: &archetype_after_insert.added,
+                        components: archetype_after_insert.added(),
                     },
                     caller,
                 );
@@ -373,7 +373,7 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        archetype_after_insert.iter_inserted(),
+                        archetype_after_insert.inserted().iter().copied(),
                         caller,
                         relationship_hook_mode,
                     );
@@ -382,12 +382,8 @@ impl<'w> BundleInserter<'w> {
                         deferred_world.trigger_raw(
                             INSERT,
                             &mut Insert { entity },
-                            // PERF: this is not a regression from what we were doing before, but ideally we don't
-                            // need to collect here
                             &mut EntityComponentsTrigger {
-                                components: &archetype_after_insert
-                                    .iter_inserted()
-                                    .collect::<Vec<_>>(),
+                                components: archetype_after_insert.inserted(),
                             },
                             caller,
                         );
@@ -399,7 +395,7 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        archetype_after_insert.iter_added(),
+                        archetype_after_insert.added().iter().copied(),
                         caller,
                         relationship_hook_mode,
                     );
@@ -409,7 +405,7 @@ impl<'w> BundleInserter<'w> {
                             INSERT,
                             &mut Insert { entity },
                             &mut EntityComponentsTrigger {
-                                components: &archetype_after_insert.added,
+                                components: archetype_after_insert.added(),
                             },
                             caller,
                         );
