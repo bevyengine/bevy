@@ -8,6 +8,7 @@ clippy:
     @just bevy_a11y
     @just bevy_app
     @just bevy_animation
+    @just bevy_anti_alias
     @just bevy_ecs
 
 [doc("Runs clippy on all of Bevy's crates for Android targets (TODO)")]
@@ -57,6 +58,29 @@ bevy_animation:
     cargo clippy -p bevy_animation --no-default-features
     cargo clippy -p bevy_animation
     cargo clippy -p bevy_animation --all-features
+
+# Runs clippy on `bevy_anti_alias`, with all this permutations of features
+# * --no-default-features
+# * --no-default-features --features="*each feature in Cargo.toml individually*"
+# * "default features"
+# * --all-features
+#
+# Some of the features require that either `bevy_image/zstd_rust` or
+# `bevy_image/zstd_c` be enabled.
+#
+# The `dlss` feature, without the `force_disable_dlss`, requires the environment
+# variable `DLSS_SDK`. See `dlss_wgpu` README for more information.
+[doc("Runs clippy for `bevy_anti_alias`")]
+[group("clippy")]
+bevy_anti_alias:
+    cargo clippy -p bevy_anti_alias --no-default-features
+    cargo clippy -p bevy_anti_alias --no-default-features --features="trace"
+    cargo clippy -p bevy_anti_alias --no-default-features --features="smaa_luts bevy_image/zstd_rust"
+    cargo clippy -p bevy_anti_alias --no-default-features --features="smaa_luts bevy_image/zstd_c"
+    cargo clippy -p bevy_anti_alias --no-default-features --features="dlss force_disable_dlss"
+    cargo clippy -p bevy_anti_alias
+    cargo clippy -p bevy_anti_alias --all-features --features="bevy_image/zstd_rust"
+    cargo clippy -p bevy_anti_alias --all-features --features="bevy_image/zstd_c"
 
 # Runs clippy on `bevy_app`, with all this permutations of features
 # * --no-default-features
