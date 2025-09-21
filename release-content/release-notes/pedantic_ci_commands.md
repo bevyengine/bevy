@@ -22,6 +22,12 @@ This is a meta commands that runs the other clippy permutation commands.
 
 If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 clippys`.
 
+### `bevy_animation`
+
+Runs clippy on `bevy_animation` with multiple feature permutations.
+
+If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 bevy_animation`.
+
 ### `bevy_app`
 
 Runs clippy on `bevy_app` with multiple feature permutations.

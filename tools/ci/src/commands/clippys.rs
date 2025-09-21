@@ -1,6 +1,6 @@
 use crate::{
     args::Args,
-    commands::{BevyApp, BevyEcs},
+    commands::{BevyAnimation, BevyApp, BevyEcs},
     Prepare, PreparedCommand,
 };
 use argh::FromArgs;
@@ -14,6 +14,7 @@ impl Prepare for ClippysCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
         let mut commands = Vec::new();
 
+        commands.append(&mut BevyAnimation::default().prepare(sh, args));
         commands.append(&mut BevyApp::default().prepare(sh, args));
         commands.append(&mut BevyEcs::default().prepare(sh, args));
 
