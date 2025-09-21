@@ -19,4 +19,4 @@ Speaking of concrete GPU cost, the scene above renders in about 3.5 ms on the 40
 After increasing the instance count to over 1 million (almost *900 billion triangles*!), the total increases to about 4.5 ms, with \~4.1 ms on geometry render and material evaluation remaining constant at ~0.4 ms.
 This is a 30% increase in GPU time for an almost 8x increase in scene complexity.
 
-Comparing GPU times to 0.16 on a much smaller scene with 1,300 instances, previously the full render took 2.2 ms, whereas now it is 1.3 ms.
+Comparing GPU times to **Bevy 0.16** on a much smaller scene with 1,300 instances, previously the full render took 2.2 ms, whereas now in **Bevy 0.17** it takes 1.3 ms.

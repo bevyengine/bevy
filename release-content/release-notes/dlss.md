@@ -15,7 +15,7 @@ Compared to Bevy's built-in TAA, DLSS:
 * Produces higher quality and more stable images
 * Supports upscaling in addition to anti-aliasing, leading to much cheaper render times, particularly when used with GPU-heavy features like Bevy Solari
 * Requires a NVIDIA RTX GPU
-* Requires running via the Vulkan backend on Windows/Linux (no macOS, web, or mobile support)
+* Currently requires running via the Vulkan backend on Windows/Linux (no macOS, web, or mobile support)
 
 To use DLSS in your app:
 
