@@ -1,11 +1,18 @@
 export RUSTFLAGS := "-Dwarnings"
 
+default_android_target := "aarch64-linux-android"
+
 [doc("Runs clippy on all of Bevy's crates (TODO)")]
 [group("ci")]
 clippy:
     @just bevy_a11y
     @just bevy_app
     @just bevy_ecs
+
+[doc("Runs clippy on all of Bevy's crates for Android targets (TODO)")]
+[group("ci")]
+clippy_android $TARGET=default_android_target:
+    @just bevy_android {{TARGET}}
 
 # Runs clippy on `bevy_a11y`, with all this permutations of features
 # * --no-default-features
@@ -22,6 +29,19 @@ bevy_a11y:
     cargo clippy -p bevy_a11y --no-default-features --features="critical-section"
     cargo clippy -p bevy_a11y
     cargo clippy -p bevy_a11y --all-features
+
+# Runs clippy on `bevy_android`, with all this permutations of features
+# * --no-default-features
+# * "default features"
+# * --all-features
+#
+# `bevy_android` only exists for `target_os="android"`.
+[doc("Runs clippy for `bevy_android`")]
+[group("clippy")]
+bevy_android $TARGET=default_android_target:
+    cargo clippy -p bevy_android --no-default-features --target="{{TARGET}}"
+    cargo clippy -p bevy_android --target="{{TARGET}}"
+    cargo clippy -p bevy_android --all-features --target="{{TARGET}}"
 
 # Runs clippy on `bevy_app`, with all this permutations of features
 # * --no-default-features
