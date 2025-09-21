@@ -20,10 +20,8 @@ Now, Bevy supports both modes of filtering!
 Adding a `GeneratedEnvironmentMapLight` to a `Camera` entity lets you use any environment map
 with Bevy's renderer, and enjoy all the benefits of prefiltering with none of the asset processing.
 
-We've made sure works with our built-in atmosphere shader too.
+We've made sure it works with our built-in atmosphere shader too.
 To enable this, add the new component `AtmosphereEnvironmentMapLight` to the camera entity.
 
-This is fully dynamic per-view effect: no pre-baked environment maps are needed.
+This is a fully dynamic per-view effect: no pre-baked environment maps are needed.
 However, please be aware that light probes are not yet supported.
-
-Special thanks to @atlv24, @JMS55 and @ecoskey for reviews, feedback, and assistance.

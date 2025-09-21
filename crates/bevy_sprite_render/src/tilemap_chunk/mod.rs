@@ -239,3 +239,15 @@ fn update_tilemap_chunk_indices(
         data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
     }
 }
+
+impl TilemapChunkTileData {
+    pub fn tile_data_from_tile_pos(
+        &self,
+        tilemap_size: UVec2,
+        position: UVec2,
+    ) -> Option<&TileData> {
+        self.0
+            .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
+            .and_then(|opt| opt.as_ref())
+    }
+}

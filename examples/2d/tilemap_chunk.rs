@@ -12,7 +12,10 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, spawn_fake_player).chain())
-        .add_systems(Update, (update_tileset_image, update_tilemap, move_player))
+        .add_systems(
+            Update,
+            (update_tileset_image, update_tilemap, move_player, log_tile),
+        )
         .run();
 }
 
@@ -133,5 +136,18 @@ fn update_tilemap(
                 tile_data[index] = Some(TileData::from_tileset_index(rng.random_range(0..5)));
             }
         }
+    }
+}
+
+// find the data for an arbitrary tile in the chunk and log its data
+fn log_tile(tilemap: Single<(&TilemapChunk, &TilemapChunkTileData)>, mut local: Local<u16>) {
+    let (chunk, data) = tilemap.into_inner();
+    let Some(tile_data) = data.tile_data_from_tile_pos(chunk.chunk_size, UVec2::new(3, 4)) else {
+        return;
+    };
+    // log when the tile changes
+    if tile_data.tileset_index != *local {
+        info!(?tile_data, "tile_data changed");
+        *local = tile_data.tileset_index;
     }
 }
