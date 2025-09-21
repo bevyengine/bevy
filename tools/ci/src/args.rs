@@ -6,6 +6,7 @@ pub struct Args {
     keep_going: bool,
     test_threads: Option<usize>,
     build_jobs: Option<usize>,
+    target: Option<&'static str>,
 }
 
 impl Args {
@@ -24,6 +25,12 @@ impl Args {
         self.test_threads
             .map(|threads| format!("--test-threads={threads}"))
     }
+
+    #[inline(always)]
+    pub fn target(&self) -> Option<String> {
+        self.target
+            .map(|threads| format!("--test-threads={threads}"))
+    }
 }
 
 impl From<&CI> for Args {
@@ -32,6 +39,10 @@ impl From<&CI> for Args {
             keep_going: value.keep_going,
             test_threads: value.test_threads,
             build_jobs: value.build_jobs,
+            target: value.target.as_ref().map(|string| {
+                let s: &'static str = string.clone().leak();
+                s
+            }),
         }
     }
 }

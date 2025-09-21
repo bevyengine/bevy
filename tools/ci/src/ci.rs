@@ -22,6 +22,10 @@ pub struct CI {
     /// number of build jobs
     #[argh(option)]
     pub(crate) build_jobs: Option<usize>,
+
+    /// target to compile to
+    #[argh(option)]
+    pub(crate) target: Option<String>,
 }
 
 impl CI {
