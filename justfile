@@ -11,8 +11,8 @@ clippy:
 
 [doc("Runs clippy on all of Bevy's crates for Android targets (TODO)")]
 [group("ci")]
-clippy_android $TARGET=default_android_target:
-    @just bevy_android {{TARGET}}
+clippy_android target=default_android_target:
+    @just bevy_android {{target}}
 
 # Runs clippy on `bevy_a11y`, with all this permutations of features
 # * --no-default-features
@@ -35,13 +35,16 @@ bevy_a11y:
 # * "default features"
 # * --all-features
 #
-# `bevy_android` only exists for `target_os="android"`.
+# `bevy_android` only exists for `target_os="android"`. Which means that it
+# requires either one of these targets:
+# * aarch64-linux-android
+# * List is not exhaustive
 [doc("Runs clippy for `bevy_android`")]
 [group("clippy")]
-bevy_android $TARGET=default_android_target:
-    cargo clippy -p bevy_android --no-default-features --target="{{TARGET}}"
-    cargo clippy -p bevy_android --target="{{TARGET}}"
-    cargo clippy -p bevy_android --all-features --target="{{TARGET}}"
+bevy_android target=default_android_target:
+    cargo clippy -p bevy_android --no-default-features --target="{{target}}"
+    cargo clippy -p bevy_android --target="{{target}}"
+    cargo clippy -p bevy_android --all-features --target="{{target}}"
 
 # Runs clippy on `bevy_app`, with all this permutations of features
 # * --no-default-features
