@@ -63,6 +63,10 @@ where
     }
 }
 
+/// A deprecated alias for [`DespawnOnExit`].
+#[deprecated(since = "0.17.0", note = "use DespawnOnExit instead")]
+pub type StateScoped<S> = DespawnOnExit<S>;
+
 /// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
 pub fn despawn_entities_on_exit_state<S: States>(

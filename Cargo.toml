@@ -753,17 +753,6 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
-name = "custom_gltf_vertex_attribute"
-path = "examples/2d/custom_gltf_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_gltf_vertex_attribute]
-name = "Custom glTF vertex attribute 2D"
-description = "Renders a glTF mesh in 2D with a custom vertex attribute"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
 name = "cpu_draw"
 path = "examples/2d/cpu_draw.rs"
 doc-scrape-examples = true
@@ -1099,17 +1088,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "edit_material_on_gltf"
-path = "examples/3d/edit_material_on_gltf.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.edit_material_on_gltf]
-name = "Edit Gltf Material"
-description = "Showcases changing materials of a Gltf after Scene spawn"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
@@ -1185,39 +1163,6 @@ doc-scrape-examples = true
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
 description = "Renders meshes with both forward and deferred pipelines"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "load_gltf"
-path = "examples/3d/load_gltf.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.load_gltf]
-name = "Load glTF"
-description = "Loads and renders a glTF file as a scene"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "load_gltf_extras"
-path = "examples/3d/load_gltf_extras.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.load_gltf_extras]
-name = "Load glTF extras"
-description = "Loads and renders a glTF file as a scene, including the gltf extras"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "query_gltf_primitives"
-path = "examples/3d/query_gltf_primitives.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.query_gltf_primitives]
-name = "Query glTF primitives"
-description = "Query primitives in a glTF scene"
 category = "3D Rendering"
 wasm = true
 
@@ -1422,17 +1367,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "update_gltf_scene"
-path = "examples/3d/update_gltf_scene.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.update_gltf_scene]
-name = "Update glTF Scene"
-description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "vertex_colors"
 path = "examples/3d/vertex_colors.rs"
 doc-scrape-examples = true
@@ -1630,17 +1564,6 @@ doc-scrape-examples = true
 [package.metadata.example.custom_skinned_mesh]
 name = "Custom Skinned Mesh"
 description = "Skinned mesh example with mesh and joints data defined in code"
-category = "Animation"
-wasm = true
-
-[[example]]
-name = "gltf_skinned_mesh"
-path = "examples/animation/gltf_skinned_mesh.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.gltf_skinned_mesh]
-name = "glTF Skinned Mesh"
-description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
 category = "Animation"
 wasm = true
 
@@ -4062,6 +3985,83 @@ doc-scrape-examples = true
 name = "Light Gizmos"
 description = "A scene showcasing light gizmos"
 category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "custom_gltf_vertex_attribute"
+path = "examples/gltf/custom_gltf_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_gltf_vertex_attribute]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "edit_material_on_gltf"
+path = "examples/gltf/edit_material_on_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.edit_material_on_gltf]
+name = "Edit glTF Material"
+description = "Showcases changing materials of a glTF after Scene spawn"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/gltf/gltf_skinned_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_skinned_mesh]
+name = "glTF Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "load_gltf"
+path = "examples/gltf/load_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf]
+name = "Load glTF"
+description = "Loads and renders a glTF file as a scene"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "load_gltf_extras"
+path = "examples/gltf/load_gltf_extras.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_extras]
+name = "Load glTF extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "query_gltf_primitives"
+path = "examples/gltf/query_gltf_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.query_gltf_primitives]
+name = "Query glTF primitives"
+description = "Query primitives in a glTF scene"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "update_gltf_scene"
+path = "examples/gltf/update_gltf_scene.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.update_gltf_scene]
+name = "Update glTF Scene"
+description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
+category = "glTF"
 wasm = true
 
 [[example]]

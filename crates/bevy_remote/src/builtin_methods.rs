@@ -952,8 +952,7 @@ pub fn process_remote_spawn_entity_request(
 
     let entity = world.spawn_empty();
     let entity_id = entity.id();
-    insert_reflected_components(&type_registry, entity, reflect_components)
-        .map_err(BrpError::component_error)?;
+    insert_reflected_components(entity, reflect_components).map_err(BrpError::component_error)?;
 
     let response = BrpSpawnEntityResponse { entity: entity_id };
     serde_json::to_value(response).map_err(BrpError::internal)
@@ -1010,12 +1009,8 @@ pub fn process_remote_insert_components_request(
     let reflect_components =
         deserialize_components(&type_registry, components).map_err(BrpError::component_error)?;
 
-    insert_reflected_components(
-        &type_registry,
-        get_entity_mut(world, entity)?,
-        reflect_components,
-    )
-    .map_err(BrpError::component_error)?;
+    insert_reflected_components(get_entity_mut(world, entity)?, reflect_components)
+        .map_err(BrpError::component_error)?;
 
     Ok(Value::Null)
 }
@@ -1552,14 +1547,11 @@ fn deserialize_resource(
 /// Given a collection `reflect_components` of reflected component values, insert them into
 /// the given entity (`entity_world_mut`).
 fn insert_reflected_components(
-    type_registry: &TypeRegistry,
     mut entity_world_mut: EntityWorldMut,
     reflect_components: Vec<Box<dyn PartialReflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
-        let reflect_component =
-            get_reflect_component(type_registry, reflected.reflect_type_path())?;
-        reflect_component.insert(&mut entity_world_mut, &*reflected, type_registry);
+        entity_world_mut.insert_reflect(reflected);
     }
 
     Ok(())
@@ -1635,6 +1627,36 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn insert_reflect_only_component() {
+        use bevy_ecs::prelude::Component;
+        use bevy_reflect::Reflect;
+        #[derive(Reflect, Component)]
+        #[reflect(Component)]
+        struct Player {
+            name: String,
+            health: u32,
+        }
+        let components: HashMap<String, Value> = [(
+            String::from("bevy_remote::builtin_methods::tests::Player"),
+            serde_json::json!({"name": "John", "health": 50}),
+        )]
+        .into();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Player>();
+        }
+        let deserialized_components = {
+            let type_reg = atr.read();
+            deserialize_components(&type_reg, components).expect("FAIL")
+        };
+        let mut world = World::new();
+        world.insert_resource(atr);
+        let e = world.spawn_empty();
+        insert_reflected_components(e, deserialized_components).expect("FAIL");
+    }
 
     #[test]
     fn serialization_tests() {

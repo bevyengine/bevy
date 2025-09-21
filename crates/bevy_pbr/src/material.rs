@@ -391,7 +391,9 @@ where
                         early_sweep_material_instances::<M>
                             .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
-                        extract_entities_needs_specialization::<M>.after(extract_cameras),
+                        extract_entities_needs_specialization::<M>
+                            .after(extract_cameras)
+                            .after(MaterialExtractionSystems),
                     ),
                 );
         }
@@ -779,6 +781,7 @@ pub(crate) fn late_sweep_material_instances(
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    material_instances: Res<RenderMaterialInstances>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
@@ -796,7 +799,20 @@ pub fn extract_entities_needs_specialization<M>(
     // Clean up any despawned entities, we do this first in case the removed material was re-added
     // the same frame, thus will appear both in the removed components list and have been added to
     // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
+    //
+    // Additionally, we need to make sure that we are careful about materials that could have changed
+    // type, e.g. from a `StandardMaterial` to a `CustomMaterial`, as this will also appear in the
+    // removed components list. As such, we make sure that this system runs after `MaterialExtractionSystems`
+    // so that the `RenderMaterialInstances` bookkeeping has already been done, and we can check if the entity
+    // still has a valid material instance.
     for entity in removed_mesh_material_components.read() {
+        if material_instances
+            .instances
+            .contains_key(&MainEntity::from(entity))
+        {
+            continue;
+        }
+
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             if let Some(cache) =
