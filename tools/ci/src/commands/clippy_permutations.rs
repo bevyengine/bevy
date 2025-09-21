@@ -20,6 +20,8 @@ impl ClippyPermutations {
     ) -> Vec<PreparedCommand<'a>> {
         let jobs = args.build_jobs();
         let jobs_ref = jobs.as_ref();
+        let target = args.target();
+        let target_ref = target.as_ref();
         let crate_name = self.crate_name;
 
         let mut permutations =
@@ -29,7 +31,7 @@ impl ClippyPermutations {
         permutations.push(PreparedCommand::new::<T>(
             cmd!(
                 sh,
-                "cargo clippy -p {crate_name} --no-default-features {jobs_ref...} -- -Dwarnings"
+                "cargo clippy -p {crate_name} --no-default-features {jobs_ref...} {target_ref...} -- -Dwarnings"
             ),
             "Please fix clippy errors in output above.",
         ));
@@ -38,7 +40,7 @@ impl ClippyPermutations {
             permutations.push(PreparedCommand::new::<T>(
                 cmd!(
                     sh,
-                    "cargo clippy -p {crate_name} --no-default-features --features={feature} {jobs_ref...} -- -Dwarnings"
+                    "cargo clippy -p {crate_name} --no-default-features --features={feature} {jobs_ref...} {target_ref...} -- -Dwarnings"
                 ),
                 "Please fix clippy errors in output above.",
             ));
@@ -47,7 +49,7 @@ impl ClippyPermutations {
         permutations.push(PreparedCommand::new::<T>(
             cmd!(
                 sh,
-                "cargo clippy -p {crate_name} {jobs_ref...} -- -Dwarnings"
+                "cargo clippy -p {crate_name} {jobs_ref...} {target_ref...} -- -Dwarnings"
             ),
             "Please fix clippy errors in output above.",
         ));
@@ -56,7 +58,7 @@ impl ClippyPermutations {
             permutations.push(PreparedCommand::new::<T>(
                 cmd!(
                     sh,
-                    "cargo clippy -p {crate_name} --all-features {jobs_ref...} -- -Dwarnings"
+                    "cargo clippy -p {crate_name} --all-features {jobs_ref...} {target_ref...} -- -Dwarnings"
                 ),
                 "Please fix clippy errors in output above.",
             ));
@@ -65,7 +67,7 @@ impl ClippyPermutations {
                 permutations.push(PreparedCommand::new::<T>(
                     cmd!(
                         sh,
-                        "cargo clippy -p {crate_name} --all-features --features={feature} {jobs_ref...} -- -Dwarnings"
+                        "cargo clippy -p {crate_name} --all-features --features={feature} {jobs_ref...} {target_ref...} -- -Dwarnings"
                     ),
                     "Please fix clippy errors in output above.",
                 ));
