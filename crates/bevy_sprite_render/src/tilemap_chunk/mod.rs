@@ -1,3 +1,5 @@
+use std::ops::Neg;
+
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{Assets, Handle};
@@ -18,6 +20,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -56,6 +59,33 @@ pub struct TilemapChunk {
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
+}
+
+impl TilemapChunk {
+    pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
+        Transform::from_xyz(
+            // tile position
+            position.x as f32 
+            // times display size for a tile
+            * self.tile_display_size.x as f32
+               // plus 1/2 the tile_display_size
+            + self.tile_display_size.x as f32 / 2.
+            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0,0 at top_left
+            - self.tile_display_size.x as f32 * self.chunk_size.y as f32 / 2.
+            ,
+            // tile position
+            position.y as f32 
+            // times display size for a tile
+            * (self.tile_display_size.y as f32).neg()
+            // plus 1/2 the tile_display_size
+            - self.tile_display_size.y as f32 / 2.
+            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0,0 at top_left
+            + self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            0.,
+        )
+    }
 }
 
 /// Data for a single tile in the tilemap chunk.
