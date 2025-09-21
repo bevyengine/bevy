@@ -110,6 +110,7 @@ ref_as_ptr = "warn"
 
 too_long_first_doc_paragraph = "allow"
 
+
 std_instead_of_core = "allow"
 std_instead_of_alloc = "allow"
 alloc_instead_of_core = "allow"
@@ -174,7 +175,6 @@ default = [
   "tonemapping_luts",
   "vorbis",
   "webgl2",
-  "x11",
   "wayland",
   "debug",
   "zstd_rust",
