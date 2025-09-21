@@ -65,7 +65,7 @@ impl TilemapChunk {
     pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
         Transform::from_xyz(
             // tile position
-            position.x as f32 
+            position.x as f32
             // times display size for a tile
             * self.tile_display_size.x as f32
             // plus 1/2 the tile_display_size to correct the center
