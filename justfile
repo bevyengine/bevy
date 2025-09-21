@@ -22,22 +22,6 @@ clippy_android target=default_android_target:
 clippy_dlss:
     cargo clippy -p bevy_anti_alias --no-default-features --features="dlss"
 
-# Runs clippy on `bevy_a11y`, with all this permutations of features
-# * --no-default-features
-# * --no-default-features --features="*each feature in Cargo.toml individually*"
-# * "default features"
-# * --all-features
-[doc("Runs clippy for `bevy_a11y`")]
-[group("clippy")]
-bevy_a11y:
-    cargo clippy -p bevy_a11y --no-default-features
-    cargo clippy -p bevy_a11y --no-default-features --features="bevy_reflect"
-    cargo clippy -p bevy_a11y --no-default-features --features="serialize"
-    cargo clippy -p bevy_a11y --no-default-features --features="std"
-    cargo clippy -p bevy_a11y --no-default-features --features="critical-section"
-    cargo clippy -p bevy_a11y
-    cargo clippy -p bevy_a11y --all-features
-
 # Runs clippy on `bevy_android`, with all this permutations of features
 # * --no-default-features
 # * "default features"

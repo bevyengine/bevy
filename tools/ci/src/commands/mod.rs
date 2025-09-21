@@ -1,4 +1,5 @@
 pub use bench_check::*;
+pub use bevy_a11y::*;
 pub use bevy_animation::*;
 pub use bevy_app::*;
 pub use bevy_ecs::*;
@@ -20,6 +21,7 @@ pub use test::*;
 pub use test_check::*;
 
 mod bench_check;
+mod bevy_a11y;
 mod bevy_animation;
 mod bevy_app;
 mod bevy_ecs;
