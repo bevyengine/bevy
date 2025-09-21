@@ -123,6 +123,7 @@ enum Commands {
     ExampleCheck(commands::ExampleCheckCommand),
     BevyA11y(commands::BevyA11y),
     BevyAnimation(commands::BevyAnimation),
+    BevyAntiAlias(commands::BevyAntiAlias),
     BevyApp(commands::BevyApp),
     BevyEcs(commands::BevyEcs),
 }
@@ -150,6 +151,7 @@ impl Prepare for Commands {
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyA11y(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyAnimation(subcommand) => subcommand.prepare(sh, args),
+            Commands::BevyAntiAlias(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyApp(subcommand) => subcommand.prepare(sh, args),
             Commands::BevyEcs(subcommand) => subcommand.prepare(sh, args),
         }

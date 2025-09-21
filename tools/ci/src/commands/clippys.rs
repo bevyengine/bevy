@@ -12,6 +12,7 @@ impl Prepare for ClippysCommand {
 
         commands.append(&mut BevyA11y::default().prepare(sh, args));
         commands.append(&mut BevyAnimation::default().prepare(sh, args));
+        commands.append(&mut BevyAntiAlias::default().prepare(sh, args));
         commands.append(&mut BevyApp::default().prepare(sh, args));
         commands.append(&mut BevyEcs::default().prepare(sh, args));
 

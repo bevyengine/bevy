@@ -34,6 +34,12 @@ Runs clippy on `bevy_animation` with multiple feature permutations.
 
 If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 bevy_animation`.
 
+### `bevy_anti_alias`
+
+Runs clippy on `bevy_anti_alias` with multiple feature permutations.
+
+If you are on the workspace, run `cargo run -p ci -- --build-jobs 4 bevy_anti_alias`.
+
 ### `bevy_app`
 
 Runs clippy on `bevy_app` with multiple feature permutations.
