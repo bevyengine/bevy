@@ -11,10 +11,4 @@ the shadow will be drawn behind the node.
 
 Changing the field to an `f32`, enables finer control of the UI draw order by allowing these offsets to be applied during extraction,
 and fixes a bug affecting the ordering of texture-sliced nodes.
- 
-
-
-
-
-
 
