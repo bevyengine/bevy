@@ -22,12 +22,9 @@ longer supported and must be explicitly typed like `const FOO: f32 = 1.0;`.
 
 See the [full changelog here](https://github.com/gfx-rs/wgpu/blob/trunk/CHANGELOG.md#v2500-2025-04-10).
 
-When migrating custom shaders, you may encounter panics like:
+When migrating shaders or other custom rendering code, you may encounter panics like:
 
 ```raw
-2025-09-14T14:40:30.518334Z ERROR wgpu::backend::wgpu_core: Handling wgpu errors as fatal by default
-
-thread 'Async Compute Task Pool (0)' (945450) panicked at /home/hhh/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-26.0.1/src/backend/wgpu_core.rs:1327:26:
 wgpu error: Validation Error
 
 Caused by:
@@ -41,4 +38,4 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 Encountered a panic in system `bevy_render::render_resource::pipeline_cache::PipelineCache::process_pipeline_queue_system`!
 ```
 
-Follow the advice above and fix your bindings to fix these problems.
+This error is a result of Bevy's bind group indices changing. Identify the shader by searching for the group and binding mentioned, e.g. `@group(2) @binding(100)`, and follow the above advice to fix the binding group index.
