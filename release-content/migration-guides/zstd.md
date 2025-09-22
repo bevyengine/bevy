@@ -9,6 +9,7 @@ If you have default-features disabled and use functionality that requires zstd d
 ## Migration Guide
 
 If you previously used the `zstd` feature explicitly, it has been renamed to `zstd_rust`:
+
 ```toml
 # 0.16
 [dependencies]
