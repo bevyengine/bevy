@@ -4,7 +4,7 @@ use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::Component,
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent},
@@ -58,7 +58,7 @@ use bevy_utils::default;
 ///
 /// [`Reflect`]: bevy_reflect::Reflect
 pub struct DynamicSceneBuilder<'w> {
-    extracted_resources: BTreeMap<ComponentId, DynamicEntity>,
+    extracted_resources: BTreeMap<Entity, DynamicEntity>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
     component_filter: SceneFilter,
     resource_filter: SceneFilter,
@@ -210,7 +210,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            resources: self.extracted_resources.into_iter().collect(),
+            resources: self.extracted_resources.into_values().collect(),
             entities: self.extracted_scene.into_values().collect(),
         }
     }
@@ -405,7 +405,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 extract_and_push();
             }
 
-            self.extracted_resources.insert(*resource_id, entry);
+            self.extracted_resources.insert(*entity, entry);
         }
 
         drop(type_registry);
@@ -417,9 +417,11 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
+        entity_disabling::Internal,
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+        resource::IsResource,
         world::World,
     };
 
@@ -436,11 +438,11 @@ mod tests {
     struct ComponentB;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Resource, Component)]
+    #[reflect(Resource)]
     struct ResourceA;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Resource, Component)]
+    #[reflect(Resource)]
     struct ResourceB;
 
     #[test]
@@ -588,6 +590,8 @@ mod tests {
 
         let atr = AppTypeRegistry::default();
         atr.write().register::<ResourceA>();
+        atr.write().register::<IsResource>();
+        atr.write().register::<Internal>();
         world.insert_resource(atr);
 
         world.insert_resource(ResourceA);
@@ -597,12 +601,10 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert_eq!(
-            scene.resources[0].0,
-            world
-                .resource_id::<ResourceA>()
-                .expect("ResourceA is registered")
-        );
+        assert_eq!(scene.resources[0].components.len(), 3);
+        assert!(scene.resources[0].components[0].represents::<Internal>());
+        assert!(scene.resources[0].components[1].represents::<IsResource>());
+        assert!(scene.resources[0].components[2].represents::<ResourceA>());
     }
 
     #[test]
@@ -621,12 +623,6 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert_eq!(
-            scene.resources[0].0,
-            world
-                .resource_id::<ResourceA>()
-                .expect("ResourceA is registered")
-        );
     }
 
     #[test]
@@ -704,12 +700,6 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert_eq!(
-            scene.resources[0].0,
-            world
-                .resource_id::<ResourceA>()
-                .expect("ResourceA is registered")
-        );
     }
 
     #[test]
@@ -733,18 +723,12 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert_eq!(
-            scene.resources[0].0,
-            world
-                .resource_id::<ResourceB>()
-                .expect("ResourceA is registered")
-        );
     }
 
     #[test]
     fn should_use_from_reflect() {
         #[derive(Resource, Reflect)]
-        #[reflect(Resource, Component)]
+        #[reflect(Resource)]
         struct SomeType(i32);
 
         let mut world = World::default();

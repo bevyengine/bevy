@@ -55,7 +55,6 @@ use {
     bevy_ecs::{
         entity_disabling::{DefaultQueryFilters, Internal},
         resource::IsResource,
-        resource::ResourceEntity,
     },
 };
 
@@ -74,7 +73,7 @@ impl Plugin for ScenePlugin {
             .register_type::<DynamicSceneRoot>()
             .register_type::<IsResource>()
             .register_type::<Internal>()
-            .register_type::<ResourceEntity<DefaultQueryFilters>>()
+            .register_type::<DefaultQueryFilters>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicSceneRoot

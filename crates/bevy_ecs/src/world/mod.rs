@@ -50,7 +50,7 @@ use crate::{
     prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceEntity, TypeErasedResource},
+    resource::{IsResource, Resource},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -1714,7 +1714,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert(ResourceEntity::<R>::default())
+                .insert(IsResource::default())
                 .id();
             self.resource_entities.insert(component_id, entity);
         }
@@ -1748,7 +1748,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert(ResourceEntity::<R>::default())
+                .insert(IsResource::default())
                 .id();
             self.resource_entities.insert(component_id, entity);
         } else {
@@ -2707,12 +2707,12 @@ impl World {
         caller: MaybeLocation,
     ) {
         if !self.resource_entities.contains_key(&component_id) {
-            let resource_entity = ResourceEntity::<TypeErasedResource>::default();
-            move_as_ptr!(resource_entity);
+            let is_resource = IsResource::default();
+            move_as_ptr!(is_resource);
 
             // Since we don't know the type, we use a placeholder type.
             let entity = self
-                .spawn_with_caller(resource_entity, caller)
+                .spawn_with_caller(is_resource, caller)
                 .insert_by_id(component_id, value)
                 .id();
             self.resource_entities.insert(component_id, entity);

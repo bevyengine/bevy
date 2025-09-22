@@ -848,7 +848,8 @@ mod tests {
     #[reflect(Component)]
     struct ComponentF;
 
-    #[derive(Resource, Default)]
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Component)]
     struct TriggerCount(u32);
 
     fn setup() -> App {

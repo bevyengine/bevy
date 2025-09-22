@@ -2,7 +2,7 @@ use bevy_ecs::resource::Resource;
 use core::time::Duration;
 #[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::reflect::ReflectResource,
+    bevy_ecs::reflect::{ReflectComponent, ReflectResource},
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 

@@ -1,7 +1,6 @@
 //! `serde` serialization and deserialization implementation for Bevy scenes.
 
 use crate::{DynamicEntity, DynamicScene};
-use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::Entity;
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{
@@ -30,7 +29,7 @@ pub const ENTITY_STRUCT: &str = "Entity";
 /// Name of the serialized resource struct type.
 pub const RESOURCE_STRUCT: &str = "Resource";
 /// Name of the serialized resource id.
-pub const RESOURCE_ID: &str = "Resource ID";
+pub const RESOURCE_ID: &str = "resourceid";
 /// Name of the serialized component field in an entity struct.
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
@@ -86,8 +85,8 @@ impl<'a> Serialize for SceneSerializer<'a> {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
             SCENE_RESOURCES,
-            &ResourcesSerializer {
-                resource_entities: &self.scene.resources,
+            &EntitiesSerializer {
+                entities: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -129,34 +128,6 @@ impl<'a> Serialize for EntitiesSerializer<'a> {
     }
 }
 
-/// Handles serialization of multiple resources.
-pub struct ResourcesSerializer<'a> {
-    /// The resource entity to serialize.
-    pub resource_entities: &'a [(ComponentId, DynamicEntity)],
-    /// Type registry in which the component types used by the entity are registered.
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for ResourcesSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_map(Some(self.resource_entities.len()))?;
-        for (resource_id, entity) in self.resource_entities {
-            state.serialize_entry(
-                &entity.entity,
-                &ResourceSerializer {
-                    resource_id,
-                    entity,
-                    registry: self.registry,
-                },
-            )?;
-        }
-        state.end()
-    }
-}
-
 /// Handles entity serialization as a map of component type to component value.
 pub struct EntitySerializer<'a> {
     /// The entity to serialize.
@@ -175,34 +146,6 @@ impl<'a> Serialize for EntitySerializer<'a> {
             ENTITY_FIELD_COMPONENTS,
             &SceneMapSerializer {
                 entries: &self.entity.components,
-                registry: self.registry,
-            },
-        )?;
-        state.end()
-    }
-}
-
-/// Handles entity serialization as a map of component type to component value.
-pub struct ResourceSerializer<'a> {
-    /// The [`ComponentId`] of the resource
-    pub resource_id: &'a ComponentId,
-    /// The entity to serialize.
-    pub entity: &'a DynamicEntity,
-    /// Type registry in which the component types used by the entity are registered.
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a> Serialize for ResourceSerializer<'a> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct(RESOURCE_STRUCT, 2)?;
-        state.serialize_field(RESOURCE_ID, &self.resource_id.index())?;
-        state.serialize_field(
-            ENTITY_FIELD_COMPONENTS,
-            &EntitySerializer {
-                entity: self.entity,
                 registry: self.registry,
             },
         )?;
@@ -314,7 +257,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(SceneResourcesDeserializer {
+            .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
@@ -343,7 +286,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if resources.is_some() {
                         return Err(Error::duplicate_field(SCENE_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(SceneResourcesDeserializer {
+                    resources = Some(map.next_value_seed(SceneEntitiesDeserializer {
                         type_registry: self.type_registry,
                     })?);
                 }
@@ -412,53 +355,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntitiesVisitor<'a> {
         }
 
         Ok(entities)
-    }
-}
-
-/// Handles deserialization for a collection of resources.
-pub struct SceneResourcesDeserializer<'a> {
-    /// Type registry in which the component types used by the entities to deserialize are registered.
-    pub type_registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for SceneResourcesDeserializer<'a> {
-    type Value = Vec<(ComponentId, DynamicEntity)>;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_map(SceneResourcesVisitor {
-            type_registry: self.type_registry,
-        })
-    }
-}
-
-struct SceneResourcesVisitor<'a> {
-    pub type_registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for SceneResourcesVisitor<'a> {
-    type Value = Vec<(ComponentId, DynamicEntity)>;
-
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
-        formatter.write_str("map of resources")
-    }
-
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut resources = Vec::new();
-        while let Some(entity) = map.next_key::<Entity>()? {
-            let entity = map.next_value_seed(SceneResourceDeserializer {
-                entity,
-                type_registry: self.type_registry,
-            })?;
-            resources.push(entity);
-        }
-
-        Ok(resources)
     }
 }
 
@@ -542,97 +438,6 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
             entity: self.entity,
             components,
         })
-    }
-}
-
-/// Handle deserialization of a resource.
-pub struct SceneResourceDeserializer<'a> {
-    /// Id of the deserialized resource.
-    pub entity: Entity,
-    /// Type registry in which the component types used by the resource to deserialize are registered.
-    pub type_registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> DeserializeSeed<'de> for SceneResourceDeserializer<'a> {
-    type Value = (ComponentId, DynamicEntity);
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_struct(
-            RESOURCE_STRUCT,
-            &[RESOURCE_ID, ENTITY_FIELD_COMPONENTS],
-            SceneResourceVisitor {
-                entity: self.entity,
-                registry: self.type_registry,
-            },
-        )
-    }
-}
-
-struct SceneResourceVisitor<'a> {
-    pub entity: Entity,
-    pub registry: &'a TypeRegistry,
-}
-
-impl<'a, 'de> Visitor<'de> for SceneResourceVisitor<'a> {
-    type Value = (ComponentId, DynamicEntity);
-
-    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
-        formatter.write_str("resources")
-    }
-
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let resource_id = ComponentId::new(
-            seq.next_element::<usize>()?
-                .ok_or_else(|| Error::missing_field(RESOURCE_ID))?,
-        );
-        let dynamic_entity = seq
-            .next_element_seed(SceneEntityDeserializer {
-                entity: self.entity,
-                type_registry: self.registry,
-            })?
-            .ok_or_else(|| Error::missing_field(ENTITY_STRUCT))?;
-
-        Ok((resource_id, dynamic_entity))
-    }
-
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
-    where
-        A: MapAccess<'de>,
-    {
-        let mut resource_id = None;
-        let mut entity = None;
-        while let Some(key) = map.next_key()? {
-            match key {
-                ResourceField::ResourceId => {
-                    if resource_id.is_some() {
-                        return Err(Error::duplicate_field(RESOURCE_ID));
-                    }
-
-                    resource_id = Some(ComponentId::new(map.next_value()?));
-                }
-                ResourceField::Entity => {
-                    if entity.is_some() {
-                        return Err(Error::duplicate_field(ENTITY_STRUCT));
-                    }
-
-                    entity = Some(map.next_value_seed(SceneEntityDeserializer {
-                        entity: self.entity,
-                        type_registry: self.registry,
-                    })?);
-                }
-            }
-        }
-
-        let resource_id = resource_id.ok_or_else(|| Error::missing_field(RESOURCE_ID))?;
-        let entity = entity.ok_or_else(|| Error::missing_field(ENTITY_STRUCT))?;
-
-        Ok((resource_id, entity))
     }
 }
 
@@ -722,11 +527,10 @@ mod tests {
     };
     use bevy_ecs::{
         entity::{Entity, EntityHashMap},
-        entity_disabling::DefaultQueryFilters,
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,
-        resource::{IsResource, ResourceEntity},
+        resource::IsResource,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -820,7 +624,6 @@ mod tests {
             registry.register::<Entity>();
             registry.register::<MyResource>();
             registry.register::<IsResource>();
-            registry.register::<ResourceEntity<DefaultQueryFilters>>();
         }
         world.insert_resource(registry);
         world
@@ -843,8 +646,13 @@ mod tests {
 
         let expected = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
+    4294967290: (
+      components: {
+        "bevy_ecs::resource::IsResource": (),
+        "bevy_scene::serde::tests::MyResource": (
+          foo: 123,
+        ),
+      },
     ),
   },
   entities: {
@@ -880,8 +688,13 @@ mod tests {
 
         let input = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
+    8589934588: (
+      components: {
+        "bevy_ecs::resource::IsResource": (),
+        "bevy_scene::serde::tests::MyResource": (
+          foo: 123,
+        ),
+      },
     ),
   },
   entities: {
@@ -967,7 +780,7 @@ mod tests {
             .write_to_world(&mut dst_world, &mut map)
             .unwrap();
 
-        assert_eq!(4, deserialized_scene.entities.len());
+        assert_eq!(2, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
 
         let bar_to_foo = dst_world
@@ -995,7 +808,7 @@ mod tests {
 
         let (scene, deserialized_scene) = roundtrip_ron(&world);
 
-        assert_eq!(3, deserialized_scene.entities.len()); // 1 entity and 2 resources
+        assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
 
         let mut world = create_world();
@@ -1025,19 +838,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 3, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                0, 1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
-                108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 254, 255,
-                255, 255, 15, 1, 30, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 114, 101, 115,
-                111, 117, 114, 99, 101, 58, 58, 73, 115, 82, 101, 115, 111, 117, 114, 99, 101, 255,
-                255, 255, 255, 15, 2, 30, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 114, 101,
-                115, 111, 117, 114, 99, 101, 58, 58, 73, 115, 82, 101, 115, 111, 117, 114, 99, 101,
-                83, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 114, 101, 115, 111, 117, 114, 99,
-                101, 58, 58, 82, 101, 115, 111, 117, 114, 99, 101, 69, 110, 116, 105, 116, 121, 60,
-                98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 101, 110, 116, 105, 116, 121, 95, 100,
-                105, 115, 97, 98, 108, 105, 110, 103, 58, 58, 68, 101, 102, 97, 117, 108, 116, 81,
-                117, 101, 114, 121, 70, 105, 108, 116, 101, 114, 115, 62
+                108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -1049,7 +853,7 @@ mod tests {
             .deserialize(&mut postcard::Deserializer::from_bytes(&serialized_scene))
             .unwrap();
 
-        assert_eq!(3, deserialized_scene.entities.len());
+        assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
     }
 
@@ -1075,21 +879,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 131, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
+                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
                 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
                 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
                 2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
-                108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33, 206, 255,
-                255, 255, 254, 145, 129, 190, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 114,
-                101, 115, 111, 117, 114, 99, 101, 58, 58, 73, 115, 82, 101, 115, 111, 117, 114, 99,
-                101, 144, 206, 255, 255, 255, 255, 145, 130, 190, 98, 101, 118, 121, 95, 101, 99,
-                115, 58, 58, 114, 101, 115, 111, 117, 114, 99, 101, 58, 58, 73, 115, 82, 101, 115,
-                111, 117, 114, 99, 101, 144, 217, 83, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58,
-                114, 101, 115, 111, 117, 114, 99, 101, 58, 58, 82, 101, 115, 111, 117, 114, 99,
-                101, 69, 110, 116, 105, 116, 121, 60, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58,
-                101, 110, 116, 105, 116, 121, 95, 100, 105, 115, 97, 98, 108, 105, 110, 103, 58,
-                58, 68, 101, 102, 97, 117, 108, 116, 81, 117, 101, 114, 121, 70, 105, 108, 116,
-                101, 114, 115, 62, 144
+                108, 101, 172, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );
@@ -1103,7 +897,7 @@ mod tests {
             .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
-        assert_eq!(3, deserialized_scene.entities.len());
+        assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
     }
 
@@ -1128,23 +922,13 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 253, 255, 255, 255, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 253, 255, 255, 255, 0, 0, 0, 0, 1,
                 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101,
                 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58,
                 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0,
                 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1,
                 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108,
-                100, 33, 254, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0,
-                0, 0, 98, 101, 118, 121, 95, 101, 99, 115, 58, 58, 114, 101, 115, 111, 117, 114,
-                99, 101, 58, 58, 73, 115, 82, 101, 115, 111, 117, 114, 99, 101, 255, 255, 255, 255,
-                0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95,
-                101, 99, 115, 58, 58, 114, 101, 115, 111, 117, 114, 99, 101, 58, 58, 73, 115, 82,
-                101, 115, 111, 117, 114, 99, 101, 83, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95,
-                101, 99, 115, 58, 58, 114, 101, 115, 111, 117, 114, 99, 101, 58, 58, 82, 101, 115,
-                111, 117, 114, 99, 101, 69, 110, 116, 105, 116, 121, 60, 98, 101, 118, 121, 95,
-                101, 99, 115, 58, 58, 101, 110, 116, 105, 116, 121, 95, 100, 105, 115, 97, 98, 108,
-                105, 110, 103, 58, 58, 68, 101, 102, 97, 117, 108, 116, 81, 117, 101, 114, 121, 70,
-                105, 108, 116, 101, 114, 115, 62
+                100, 33
             ],
             serialized_scene
         );
@@ -1157,7 +941,7 @@ mod tests {
             bincode::serde::seed_decode_from_slice(scene_deserializer, &serialized_scene, config)
                 .unwrap();
 
-        assert_eq!(3, deserialized_scene.entities.len());
+        assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
     }
 

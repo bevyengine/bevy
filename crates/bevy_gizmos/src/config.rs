@@ -8,7 +8,10 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 ))]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
-use bevy_ecs::{reflect::ReflectResource, resource::Resource};
+use bevy_ecs::{
+    reflect::{ReflectComponent, ReflectResource},
+    resource::Resource,
+};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
 use core::{

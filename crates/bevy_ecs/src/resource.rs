@@ -4,10 +4,8 @@ use crate::component::Mutable;
 use crate::entity_disabling::Internal;
 use crate::prelude::Component;
 use crate::prelude::ReflectComponent;
-use crate::prelude::ReflectResource;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use core::marker::PhantomData;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 
@@ -82,27 +80,6 @@ pub use bevy_ecs_macros::Resource;
 )]
 pub trait Resource: Component<Mutability = Mutable> {}
 
-/// A marker component for the entity that stores the resource of type `T`.
-///
-/// This component is automatically inserted when a resource of type `T` is inserted into the world,
-/// and can be used to find the entity that stores a particular resource.
-///
-/// By contrast, the [`IsResource`] component is used to find all entities that store resources,
-/// regardless of the type of resource they store.
-///
-/// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
-/// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
-#[derive(Component, Debug)]
-#[require(Internal, IsResource)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Default))]
-pub struct ResourceEntity<R: Resource>(#[reflect(ignore)] PhantomData<R>);
-
-impl<R: Resource> Default for ResourceEntity<R> {
-    fn default() -> Self {
-        ResourceEntity(PhantomData)
-    }
-}
-
 /// A marker component for entities which store resources.
 ///
 /// By contrast, the [`ResourceEntity<R>`] component is used to find the entity that stores a particular resource.
@@ -112,14 +89,9 @@ impl<R: Resource> Default for ResourceEntity<R> {
     derive(Reflect),
     reflect(Component, Default, Debug)
 )]
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug, Default)]
+#[require(Internal)]
 pub struct IsResource;
-
-/// Used in conjunction with [`ResourceEntity<R>`], when no type information is available.
-/// This is used by [`World::insert_resource_by_id`](crate::world::World).
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource, Debug))]
-#[derive(Resource, Debug)]
-pub struct TypeErasedResource;
 
 #[cfg(test)]
 mod tests {

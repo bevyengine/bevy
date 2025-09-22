@@ -3,12 +3,12 @@ use bevy_asset::Asset;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
+    resource::IsResource,
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
 
 use bevy_ecs::component::ComponentCloneBehavior;
-use bevy_ecs::component::ComponentId;
 use bevy_ecs::relationship::RelationshipHookMode;
 
 #[cfg(feature = "serialize")]
@@ -28,7 +28,7 @@ use {
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<(ComponentId, DynamicEntity)>,
+    pub resources: Vec<DynamicEntity>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -60,7 +60,12 @@ impl DynamicScene {
                     .archetypes()
                     .iter()
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
-                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id)
+                    .filter(|id| {
+                        world
+                            .get_entity(*id)
+                            .is_ok_and(|entity| !entity.contains::<IsResource>())
+                    }),
             )
             .extract_resources()
             .build()
@@ -79,20 +84,9 @@ impl DynamicScene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
-        let entities = self
-            .entities
-            .iter()
-            .map(|scene_entity| (None, scene_entity))
-            .chain(
-                self.resources
-                    .iter()
-                    .map(|(resource_id, scene_entity)| (Some(resource_id), scene_entity)),
-            )
-            .collect::<Vec<(Option<&ComponentId>, &DynamicEntity)>>();
-
         // First ensure that every entity in the scene has a corresponding world
         // entity in the entity map.
-        for (_resource_id, scene_entity) in &entities {
+        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
@@ -101,7 +95,7 @@ impl DynamicScene {
                 .or_insert_with(|| world.spawn_empty().id());
         }
 
-        for (resource_id, scene_entity) in &entities {
+        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
             // Fetch the entity with the given entity id from the `entity_map`.
             let entity = *entity_map
                 .get(&scene_entity.entity)
@@ -128,6 +122,10 @@ impl DynamicScene {
 
                 {
                     let component_id = reflect_component.register_component(world);
+
+                    // Really, really, really, hacky, but it does work, which is funny
+                    world.resource_entities.insert(component_id, entity);
+
                     // SAFETY: we registered the component above. the info exists
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
@@ -149,11 +147,6 @@ impl DynamicScene {
                         RelationshipHookMode::Skip,
                     );
                 });
-            }
-
-            // If this entity is also a resource, we have to also update the resource_entities
-            if let Some(resource_id) = resource_id {
-                world.resource_entities.insert(**resource_id, entity);
             }
         }
 

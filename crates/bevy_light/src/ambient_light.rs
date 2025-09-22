@@ -1,3 +1,4 @@
+use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
@@ -22,7 +23,7 @@ use bevy_reflect::prelude::*;
 ///
 /// [`LightPlugin`]: crate::LightPlugin
 #[derive(Resource, Clone, Debug, Reflect)]
-#[reflect(Resource, Component, Debug, Default, Clone)]
+#[reflect(Resource, Debug, Default, Clone)]
 #[require(Camera)]
 pub struct AmbientLight {
     pub color: Color,
