@@ -11,7 +11,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_ecs::{
-    event::EventReader,
+    message::MessageReader,
     system::{Commands, Res},
 };
 use bevy_image::{Image, ToExtents};
@@ -78,7 +78,7 @@ pub fn viewport_picking(
     camera_query: Query<&Camera>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
-    mut pointer_inputs: EventReader<PointerInput>,
+    mut pointer_inputs: MessageReader<PointerInput>,
 ) {
     // Handle hovered entities.
     let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
@@ -148,7 +148,7 @@ pub fn viewport_picking(
             };
             viewport_pointer_location.location = Some(location.clone());
 
-            commands.write_event(PointerInput {
+            commands.write_message(PointerInput {
                 location,
                 pointer_id: viewport_pointer_id,
                 action: input.action,

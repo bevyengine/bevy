@@ -39,7 +39,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
-use bevy_sprite::{Anchor, ScalingMode, Sprite};
+use bevy_sprite::{Anchor, Sprite, SpriteScalingMode};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -334,7 +334,7 @@ pub enum ExtractedSpriteKind {
     Single {
         anchor: Vec2,
         rect: Option<Rect>,
-        scaling_mode: Option<ScalingMode>,
+        scaling_mode: Option<SpriteScalingMode>,
         custom_size: Option<Vec2>,
     },
     /// Indexes into the list of [`ExtractedSlice`]s stored in the [`ExtractedSlices`] resource
@@ -359,7 +359,7 @@ pub struct SpriteAssetEvents {
 
 pub fn extract_sprite_events(
     mut events: ResMut<SpriteAssetEvents>,
-    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
+    mut image_events: Extract<MessageReader<AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
@@ -965,7 +965,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
 /// Scales a texture to fit within a given quad size with keeping the aspect ratio.
 fn apply_scaling(
-    scaling_mode: ScalingMode,
+    scaling_mode: SpriteScalingMode,
     texture_size: Vec2,
     quad_size: &mut Vec2,
     quad_translation: &mut Vec2,
@@ -977,7 +977,7 @@ fn apply_scaling(
     let quad_tex_scale = quad_ratio / texture_ratio;
 
     match scaling_mode {
-        ScalingMode::FillCenter => {
+        SpriteScalingMode::FillCenter => {
             if quad_ratio > texture_ratio {
                 // offset texture to center by y coordinate
                 uv_offset_scale.y += (uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale) * 0.5;
@@ -989,7 +989,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             };
         }
-        ScalingMode::FillStart => {
+        SpriteScalingMode::FillStart => {
             if quad_ratio > texture_ratio {
                 uv_offset_scale.y += uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale;
                 uv_offset_scale.w *= tex_quad_scale;
@@ -997,7 +997,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             }
         }
-        ScalingMode::FillEnd => {
+        SpriteScalingMode::FillEnd => {
             if quad_ratio > texture_ratio {
                 uv_offset_scale.w *= tex_quad_scale;
             } else {
@@ -1005,7 +1005,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             }
         }
-        ScalingMode::FitCenter => {
+        SpriteScalingMode::FitCenter => {
             if texture_ratio > quad_ratio {
                 // Scale based on width
                 quad_size.y *= quad_tex_scale;
@@ -1014,7 +1014,7 @@ fn apply_scaling(
                 quad_size.x *= tex_quad_scale;
             }
         }
-        ScalingMode::FitStart => {
+        SpriteScalingMode::FitStart => {
             if texture_ratio > quad_ratio {
                 // The quad is scaled to match the image ratio, and the quad translation is adjusted
                 // to start of the quad within the original quad size.
@@ -1031,7 +1031,7 @@ fn apply_scaling(
                 *quad_size = new_quad;
             }
         }
-        ScalingMode::FitEnd => {
+        SpriteScalingMode::FitEnd => {
             if texture_ratio > quad_ratio {
                 let scale = Vec2::new(1.0, quad_tex_scale);
                 let new_quad = *quad_size * scale;

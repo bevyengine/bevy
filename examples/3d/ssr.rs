@@ -299,7 +299,7 @@ fn rotate_model(
 // Processes input related to camera movement.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_input: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera>>,
 ) {
     let (mut distance_delta, mut theta_delta) = (0.0, 0.0);
@@ -319,8 +319,8 @@ fn move_camera(
     }
 
     // Handle mouse events.
-    for mouse_wheel_event in mouse_wheel_input.read() {
-        distance_delta -= mouse_wheel_event.y * CAMERA_MOUSE_WHEEL_ZOOM_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        distance_delta -= mouse_wheel.y * CAMERA_MOUSE_WHEEL_ZOOM_SPEED;
     }
 
     // Update transforms.

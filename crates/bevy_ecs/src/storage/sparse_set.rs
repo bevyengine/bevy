@@ -421,8 +421,8 @@ macro_rules! impl_sparse_set {
             }
 
             /// Returns an iterator visiting all keys (indices) in arbitrary order.
-            pub fn indices(&self) -> impl Iterator<Item = I> + Clone + '_ {
-                self.indices.iter().cloned()
+            pub fn indices(&self) -> &[I] {
+                &self.indices
             }
 
             /// Returns an iterator visiting all values in arbitrary order.
