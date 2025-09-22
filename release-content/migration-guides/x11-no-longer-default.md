@@ -1,5 +1,5 @@
 ---
-title: "X11 no longer enabled by default."
+title: "X11 is no longer enabled by default"
 pull_requests: [21158]
 ---
 
