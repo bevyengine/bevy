@@ -1,14 +1,12 @@
 #[cfg(feature = "std")]
 mod multi_threaded;
-mod simple;
 mod single_threaded;
 
 use alloc::{vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
-#[expect(deprecated, reason = "We still need to support this.")]
-pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+pub use self::single_threaded::SingleThreadedExecutor;
 
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
@@ -62,13 +60,6 @@ pub enum ExecutorKind {
         default
     )]
     SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
-    /// immediately after running each system.
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
-    )]
-    Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
@@ -288,6 +279,7 @@ mod __rust_begin_short_backtrace {
         black_box(system.run_unsafe((), world))
     }
 
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) fn run(
         system: &mut ScheduleSystem,
@@ -332,12 +324,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    const EXECUTORS: [ExecutorKind; 3] = [
-        #[expect(deprecated, reason = "We still need to test this.")]
-        ExecutorKind::Simple,
-        ExecutorKind::SingleThreaded,
-        ExecutorKind::MultiThreaded,
-    ];
+    const EXECUTORS: [ExecutorKind; 2] =
+        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct TestState {
@@ -387,18 +375,6 @@ mod tests {
     }
 
     fn look_for_missing_resource(_res: Res<TestState>) {}
-
-    #[test]
-    #[should_panic]
-    fn missing_resource_panics_simple() {
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-
-        #[expect(deprecated, reason = "We still need to test this.")]
-        schedule.set_executor_kind(ExecutorKind::Simple);
-        schedule.add_systems(look_for_missing_resource);
-        schedule.run(&mut world);
-    }
 
     #[test]
     #[should_panic]
