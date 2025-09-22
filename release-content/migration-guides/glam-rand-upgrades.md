@@ -20,7 +20,7 @@ error: the wasm*-unknown-unknown targets are not supported by default;
 to enable support, add this to your `Cargo.toml`:
 
 [dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 ```
 
 This is due to a breaking change in how `getrandom` handles entropy generation.
