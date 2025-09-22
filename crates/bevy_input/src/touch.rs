@@ -127,11 +127,14 @@ pub enum ForceTouch {
     reflect(Serialize, Deserialize)
 )]
 pub enum TouchPhase {
-    /// A finger started to touch the touchscreen.
+    /// A finger started to touch the touchscreen or a wheel scroll started.
     Started,
-    /// A finger moved over the touchscreen.
+    /// A finger moved over the touchscreen or touchpad scroll is in progress.
+    ///
+    /// This can be used to detect whether a scroll action is taking place on a
+    /// mouse wheel or touchpad, because mouse wheel scrolls do not emit this event.
     Moved,
-    /// A finger stopped touching the touchscreen.
+    /// A finger stopped touching the touchscreen or a wheel scroll finished.
     Ended,
     /// The system canceled the tracking of the finger.
     ///
