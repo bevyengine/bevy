@@ -1,6 +1,6 @@
 ---
 title: Removed `SimpleExecutor`
-pull_requests: [21174]
+pull_requests: [21176]
 ---
 
 Bevy has removed the previously deprecated `SimpleExecutor`, one of the `SystemExecutor`s in Bevy alongside `SingleThreadedExecutor` and `MultiThreadedExecutor` (which aren't going anywhere any time soon).
