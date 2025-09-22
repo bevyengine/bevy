@@ -1,16 +1,16 @@
 ---
-title: Updated `glam`, `rand` and `getrand` versions with new failures when building for web
+title: Updated `glam`, `rand` and `getrandom` versions with new failures when building for web
 pull_requests: [18047]
 ---
 
 We've upgraded `glam` and the other math crates (`encase`, `hexasphere`) that move in lockstep to the latest versions.
 With newer versions of `glam` & `encase`, the updated versions don't seem to have introduced breakages, though as always, best to consult their docs [1](https://docs.rs/glam/latest/glam/) [2](https://docs.rs/encase/0.11.0/encase/) for any changes.
 
-This has also upgraded the version of `rand` and `getrand` that Bevy relies on.
+This has also upgraded the version of `rand` and `getrandom` that Bevy relies on.
 `rand` changes are more extensive, with changes such as `thread_rng()` -> `rng()`, `from_entropy()` -> `from_os_rng()`, and so forth. `RngCore` is now split into infallible `RngCore` and fallible `TryRngCore`, and the `distributions` module has been renamed to `distr`. Most of this affects only internals, and doesn't directly affect Bevy's APIs. For the full set of changes, see `rand` [migration notes](https://rust-random.github.io/book/update-0.9.html).
 
 `getrandom` is also updated, and will require additional configuration when building Bevy for WASM/web browsers.
-**This will affect you even if you are not using `rand` or `getrand` directly,**
+**This will affect you even if you are not using `rand` or `getrandom` directly,**
 as `glam` (and thus `bevy_math`) will pull it in.
 
 You may encounter an error like:
@@ -37,5 +37,5 @@ Quoting from the `getrandom` docs on [WebAssembly support in `getrandom`](https:
 Note that if you were previously setting the [`RUSTFLAGS` environment variable](https://doc.rust-lang.org/cargo/reference/environment-variables.html)
 for any reason, this will override any previous settings: you need to add this to your existing list instead.
 
-If you were using the community-provided [`bevy_cli`](https://github.com/TheBevyFlock/bevy_cli) to easily create builds of your game for different platforms (including web),
-make sure to update to the latest version of this tool where these requirements are handled for you.
+If you were using the community-provided [Bevy CLI](https://github.com/TheBevyFlock/bevy_cli) to easily create builds of your game for different platforms (including web),
+make sure to update to v0.1.0-alpha.2 or later, which will [automatically configure `RUSTFLAGS` for you](https://thebevyflock.github.io/bevy_cli/cli/web/getrandom.html).
