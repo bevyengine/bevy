@@ -279,6 +279,7 @@ mod __rust_begin_short_backtrace {
         black_box(system.run_unsafe((), world))
     }
 
+    #[cfg(feature = "std")]
     #[inline(never)]
     pub(super) fn run(
         system: &mut ScheduleSystem,
