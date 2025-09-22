@@ -6,50 +6,31 @@ pull_requests: [20766]
 
 (Insert screenshot of space shot including volumetric shadows)
 
-Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate views from above the atmosphere. This is ideal for cinematic shots, planets seen from space, and scenes that need sharp shadows through the volume of the atmosphere.
+Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate views from above the atmosphere. This means **Bevy 0.17** now has two atmosphere rendering modes to choose from:
 
-### What changed
-
-- Added `AtmosphereMode::Raymarched`, as an alternative to the existing lookup texture method.
-- Added support for views from above the atmosphere.
-
-### When to choose which
-
-- LookupTexture
-  - Fastest, approximate lighting, inaccurate for long distance views
-  - Ground level and broad outdoor scenes
-  - Most cameras and typical view distances
+- [`AtmosphereMode::Raymarched`]
+  - Ideal for cinematic shots, planets seen from space, and "flight simulator" type scenes
+  - More accurate lighting, but slower
+  - Sharper shadows through the atmosphere
+- [`AtmosphereMode::LookupTexture`]
+  - This is the default
+  - Great for ground level and broad outdoor scenes
+  - Less accurate lighting at long distances, but faster
   - Softer shadows through the atmosphere
-- Raymarched
-  - Slightly slower, more accurate lighting
-  - Views from above the atmosphere or far from the scene
-  - Cinematic shots that demand stable lighting over a large range of scales
-  - Flight or space simulators
-  - Sharp, per‑pixel shadows through the atmosphere
 
-### How to use it
-
-Switch the rendering method on the camera’s `AtmosphereSettings`:
+To use it, add an [`Atmosphere`] component to your [`Camera`] and set the rendering method on the camera’s [`AtmosphereSettings`]:
 
 ```rust
-use bevy::prelude::*;
-use bevy::pbr::atmosphere::{Atmosphere, AtmosphereSettings, AtmosphereMode};
-
-fn setup(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Atmosphere::default(),
-        AtmosphereSettings { 
-          sky_max_samples: 16,
-          rendering_method: AtmosphereMode::Raymarched, 
-          ..Default::default() 
-        }
-    ));
-}
+commands.spawn((
+    Camera3d::default(),
+    Atmosphere::default(),
+    AtmosphereSettings { 
+      rendering_method: AtmosphereMode::Raymarched, 
+      ..default() 
+    }
+));
 ```
 
-You can also adjust the `sky_max_samples` for controlling what is the maximum number of steps to take when raymarching the atmosphere, which is `16` by default to set the right balance between performance and accuracy.
+You can also adjust the `AtmosphereSettings::sky_max_samples` to configure the maximum number of steps to take when raymarching the atmosphere. Lower numbers are faster and less accurate. Higher numbers are slower and more accurate.
 
-Keep the default method for most scenes. Use raymarching for cinematics, cameras positioned far from the scene, and shots requiring sharp volumetric shadows.
-
-See the updated `examples/3d/atmosphere.rs` for a working reference.
+See the updated [`atmosphere` example](https://github.com/bevyengine/bevy/blob/release-0.17.0/examples/3d/atmosphere.rs) for a working reference.
