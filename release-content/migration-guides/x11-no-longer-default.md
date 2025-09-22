@@ -9,7 +9,7 @@ Fedora 43 later this year is going to be Wayland only. With this in mind,
 the `x11` top level feature on the Bevy crate is no longer a default
 feature when building for Linux targets.
 
-If your project was already targetting Wayland-only systems, this is
+If your project was already targeting Wayland-only systems, this is
 effectively a no-op and can safely be ignored.
 
 If you still require X.Org support, you can manually reenable the `x11`
