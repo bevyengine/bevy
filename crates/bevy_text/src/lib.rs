@@ -39,6 +39,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod pipeline;
+pub mod style;
 mod text;
 mod text_access;
 
