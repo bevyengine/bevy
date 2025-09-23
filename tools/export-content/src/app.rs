@@ -245,7 +245,7 @@ impl App {
 
                     write!(
                         file,
-                        "## {title}\n{{% heading_metadata(authors=[{authors}] prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "## {title}\n\n{{{{ heading_metadata(authors=[{authors}] prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }
@@ -271,7 +271,7 @@ impl App {
 
                     write!(
                         file,
-                        "### {title}\n{{% heading_metadata(prs=[{pull_requests}]) %}}\n{content}\n\n"
+                        "### {title}\n\n{{{{ heading_metadata(prs=[{pull_requests}]) }}}}\n\n{content}\n"
                     )
                     .into_diagnostic()?;
                 }

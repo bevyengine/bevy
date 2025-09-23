@@ -32,6 +32,7 @@ use crate::{
         FragmentingValuesOwned,
     },
     observer::Observers,
+    query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -150,24 +151,27 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
-    /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    pub(crate) added: Box<[ComponentId]>,
-    /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
-    /// Required Components.
-    pub(crate) existing: Box<[ComponentId]>,
+    /// The components inserted by this bundle, with added components before existing ones.
+    /// Added components includes any Required Components that are inserted when adding this bundle,
+    /// but existing components only includes ones explicitly contributed by this bundle.
+    inserted: Box<[ComponentId]>,
+    /// The number of components added by this bundle, including Required Components.
+    added_len: usize,
 }
 
 impl ArchetypeAfterBundleInsert {
-    pub(crate) fn iter_inserted(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().chain(self.existing.iter()).copied()
+    pub(crate) fn inserted(&self) -> &[ComponentId] {
+        &self.inserted
     }
 
-    pub(crate) fn iter_added(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.added.iter().copied()
+    pub(crate) fn added(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(..self.added_len).debug_checked_unwrap() }
     }
 
-    pub(crate) fn iter_existing(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.existing.iter().copied()
+    pub(crate) fn existing(&self) -> &[ComponentId] {
+        // SAFETY: `added_len` is always in range `0..=inserted.len()`
+        unsafe { self.inserted.get(self.added_len..).debug_checked_unwrap() }
     }
 }
 
@@ -267,16 +271,20 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
-        added: impl Into<Box<[ComponentId]>>,
-        existing: impl Into<Box<[ComponentId]>>,
+        mut added: Vec<ComponentId>,
+        existing: Vec<ComponentId>,
         value_components: FragmentingValuesOwned,
     ) {
+        let added_len = added.len();
+        // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
+        added.reserve_exact(existing.len());
+        added.extend(existing);
         let bundle = ArchetypeAfterBundleInsert {
             archetype_id: (value_components.is_empty()).then_some(archetype_id),
             bundle_status: bundle_status.into(),
             required_components: required_components.into(),
-            added: added.into(),
-            existing: existing.into(),
+            added_len,
+            inserted: added.into(),
         };
         if bundle.archetype_id.is_none() {
             self.insert_bundle_fragmenting_components.insert(
