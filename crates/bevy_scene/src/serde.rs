@@ -26,10 +26,6 @@ pub const SCENE_ENTITIES: &str = "entities";
 
 /// Name of the serialized entity struct type.
 pub const ENTITY_STRUCT: &str = "Entity";
-/// Name of the serialized resource struct type.
-pub const RESOURCE_STRUCT: &str = "Resource";
-/// Name of the serialized resource id.
-pub const RESOURCE_ID: &str = "resourceid";
 /// Name of the serialized component field in an entity struct.
 pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 
@@ -209,13 +205,6 @@ enum SceneField {
 #[serde(field_identifier, rename_all = "lowercase")]
 enum EntityField {
     Components,
-}
-
-#[derive(Deserialize)]
-#[serde(field_identifier, rename_all = "lowercase")]
-enum ResourceField {
-    ResourceId,
-    Entity,
 }
 
 /// Handles scene deserialization.
