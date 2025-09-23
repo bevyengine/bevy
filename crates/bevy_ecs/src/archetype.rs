@@ -21,12 +21,15 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
+    component::{
+        ComponentId, Components, FragmentingValueTupleKey, RequiredComponentConstructor,
+        StorageType,
+    },
     entity::{Entity, EntityLocation},
     event::Event,
     fragmenting_value::{
         FragmentingValueOwned, FragmentingValueV2Borrowed, FragmentingValuesBorrowed,
-        FragmentingValuesBorrowedTupleKey, FragmentingValuesOwned,
+        FragmentingValuesOwned,
     },
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
@@ -222,8 +225,7 @@ pub struct Edges {
     /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
     /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
     /// point to the same archetype after transition.
-    pub(crate) insert_bundle_fragmenting_components:
-        HashMap<(BundleId, FragmentingValuesOwned), ArchetypeId>,
+    pub(crate) insert_bundle_fragmenting_components: HashMap<FragmentingValueTupleKey, ArchetypeId>,
 }
 
 impl Edges {
@@ -242,9 +244,7 @@ impl Edges {
             .and_then(|bundle| bundle.archetype_id)
             .or_else(|| {
                 self.insert_bundle_fragmenting_components
-                    .get(&FragmentingValuesBorrowedTupleKey(bundle_id, unsafe {
-                        value_components.as_key()
-                    }))
+                    .get(&(bundle_id, unsafe { value_components.as_key() }))
                     .copied()
             })
     }
@@ -279,8 +279,10 @@ impl Edges {
             existing: existing.into(),
         };
         if bundle.archetype_id.is_none() {
-            self.insert_bundle_fragmenting_components
-                .insert((bundle_id, value_components), archetype_id);
+            self.insert_bundle_fragmenting_components.insert(
+                FragmentingValueTupleKey(bundle_id, value_components),
+                archetype_id,
+            );
         }
         self.insert_bundle.insert(bundle_id, bundle);
     }

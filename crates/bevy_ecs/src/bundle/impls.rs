@@ -6,7 +6,7 @@ use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{Component, ComponentId, Components, ComponentsRegistrator, KeyOf, StorageType},
+    component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     fragmenting_value::{FragmentingValueComponent, FragmentingValueV2Borrowed},
     query::DebugCheckedUnwrap,
     world::EntityWorldMut,
@@ -30,18 +30,16 @@ unsafe impl<C: Component> Bundle for C {
         components: &Components,
         values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>),
     ) {
-        if let Some(component) = (self as &dyn Any).downcast_ref::<KeyOf<C>>() {
-            C::get_component_ids(components, &mut |id| {
-                values(id.map(|id| unsafe {
-                    FragmentingValueV2Borrowed::new(id, component.hash_data(), Ptr::from(self))
-                }))
-            });
+        if let Some(component) = (self as &dyn Any).downcast_ref::<C::Key>() {
+            values(FragmentingValueV2Borrowed::from_component(
+                components, component,
+            ));
         }
     }
 
     #[inline]
     fn count_fragmenting_values() -> usize {
-        if TypeId::of::<C>() == TypeId::of::<KeyOf<C>>() {
+        if TypeId::of::<C>() == TypeId::of::<C::Key>() {
             1
         } else {
             0

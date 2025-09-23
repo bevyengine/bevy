@@ -112,11 +112,11 @@ pub fn add_remove_fragmenting_value(c: &mut Criterion) {
             .collect();
         b.iter(move || {
             for entity in &entities {
-                world.entity_mut(*entity).insert(Fragmenting::<1>(2));
+                world.entity_mut(*entity).insert(Fragmenting::<2>(1));
             }
 
             for entity in &entities {
-                world.entity_mut(*entity).remove::<NonFragmenting<1>>();
+                world.entity_mut(*entity).remove::<Fragmenting<2>>();
             }
         });
     });

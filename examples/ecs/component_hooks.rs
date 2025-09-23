@@ -32,7 +32,7 @@ struct MyComponent(KeyCode);
 impl Component for MyComponent {
     const STORAGE_TYPE: StorageType = StorageType::Table;
     type Mutability = Mutable;
-    type Key = NoKey<Self>;
+    type Key = NoKey;
 
     /// Hooks can also be registered during component initialization by
     /// implementing the associated method

@@ -282,9 +282,6 @@ impl ComponentDescriptor {
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
     /// - if `fragmenting_value_vtable` is not `None`, it must be usable on a pointer with a value of the layout `layout`
-    ///
-    /// # Panics
-    /// This will panic if `fragmenting_value_vtable` is not `None` and `mutable` is `true`. Fragmenting value components must be immutable.
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,

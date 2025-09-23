@@ -2187,7 +2187,8 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let mut components: Vec<_> = iter_components.collect();
+        let mut components = Vec::with_capacity(component_ids.len());
+        components.extend(iter_components);
         let value_components = unsafe {
             FragmentingValuesBorrowed::from_components(
                 &self.world.components,
@@ -2209,7 +2210,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle_inserter,
             self.entity,
             location,
-            components.iter_mut().map(|ptr| ptr.as_mut().promote()),
+            components.into_iter(),
             (*storage_types).iter().cloned(),
             InsertMode::Replace,
             MaybeLocation::caller(),

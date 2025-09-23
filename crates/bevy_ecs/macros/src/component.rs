@@ -201,11 +201,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
-    let key = if let Some(key) = attrs.key {
-        quote! {#bevy_ecs_path::component::OtherComponentKey<Self, #key>}
-    } else {
-        quote! {#bevy_ecs_path::component::NoKey<Self>}
-    };
+    let key = attrs
+        .key
+        .map(ToTokens::into_token_stream)
+        .unwrap_or_else(|| quote! {#bevy_ecs_path::component::NoKey});
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type

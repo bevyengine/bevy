@@ -514,12 +514,11 @@ impl BundleInfo {
 
         for value in value_components.iter() {
             let component_id = value.component_id();
-            let key = unsafe { value.as_key() };
             if current_archetype
                 .get_value_component(component_id)
-                .is_none_or(|old_value| key != old_value)
+                .is_none_or(|old_value| unsafe { value.as_key() } != old_value)
             {
-                new_value_components.insert(component_id, key);
+                new_value_components.insert(component_id, value);
             }
         }
 
