@@ -1023,7 +1023,7 @@ impl ScheduleGraph {
         self.changed = true;
 
         match policy {
-            ScheduleCleanupPolicy::SetAndSystems => {
+            ScheduleCleanupPolicy::RemoveSetAndSystemsAllowBreakages => {
                 let Some(set_key) = self.system_sets.get_key(interned) else {
                     return Err(ScheduleError::SetNotFound);
                 };
@@ -1033,12 +1033,12 @@ impl ScheduleGraph {
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::OnlySystems => {
+            ScheduleCleanupPolicy::RemoveOnlySystemsAllowBreakages => {
                 self.remove_systems_by_keys(&keys);
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::FixSetAndSystems => {
+            ScheduleCleanupPolicy::RemoveSetAndSystems => {
                 let Some(set_key) = self.system_sets.get_key(interned) else {
                     return Err(ScheduleError::SetNotFound);
                 };
@@ -1054,7 +1054,7 @@ impl ScheduleGraph {
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::FixOnlySystems => {
+            ScheduleCleanupPolicy::RemoveOnlySystems => {
                 for &key in &keys {
                     self.add_edges_for_transitive_dependencies(key.into());
                 }
@@ -1626,21 +1626,25 @@ pub enum ReportCycles {
 /// Policy to use when removing systems.
 #[derive(Default)]
 pub enum ScheduleCleanupPolicy {
-    /// Remove the set and any systems in the set. Note that this will break any transient dependencies on
-    /// that set or systmes. This does not remove sets that might sub sets of the set.
+    /// Remove the referenced set and any systems in the set.
+    /// Attempts to maintain the order between the transitive dependencies by adding new edges
+    /// between the existing before and after dependendencies on the set and the systems.
+    /// This does not remove sets that might sub sets of the set.
     #[default]
-    SetAndSystems,
-    /// Remove only the systems in the set. This is useful if you want to keep the run conditions and dependencies
-    /// on the set and add new systems to the set. Note that this will break any transient dependencies on
-    /// the systems. i.e. if you remove `system_b`, but there is a chain between system_a, system_b, and system_c.
-    /// system_a and system_c will no longer be properly ordered.
-    OnlySystems,
-    /// attempt to fix the transitive dependencies and link before and after edges together. Add dependencies between
-    /// the existing before and after dependendencies. For every after dependency add a new edge to a before dependency
-    FixSetAndSystems,
-    /// attempt to fix the transitive dependencies and link before and after edges together. Add dependencies between
-    /// the existing before and after dependendencies. For every after dependency add a new edge to a before dependency
-    FixOnlySystems,
+    RemoveSetAndSystems,
+    /// Remove only the systems in the set. The set
+    /// Attempts to maintain the order between the transitive dependencies by adding new edges
+    /// between the existing before and after dependendencies on the systems.
+    RemoveOnlySystems,
+    /// Remove the set and any systems in the set.
+    /// Note that this will not add new edges and
+    /// so will break any transitive dependencies on that set or systems.
+    /// This does not remove sets that might sub sets of the set.
+    RemoveSetAndSystemsAllowBreakages,
+    /// Remove only the systems in the set.
+    /// Note that this will not add new edges and
+    /// so will break any transitive dependencies on that set or systems.
+    RemoveOnlySystemsAllowBreakages,
 }
 
 // methods for reporting errors
@@ -2869,7 +2873,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system,
             &mut world,
-            ScheduleCleanupPolicy::SetAndSystems,
+            ScheduleCleanupPolicy::RemoveSetAndSystemsAllowBreakages,
         );
         assert_eq!(remove_count.unwrap(), 1);
 
@@ -2889,7 +2893,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system,
             &mut world,
-            ScheduleCleanupPolicy::SetAndSystems,
+            ScheduleCleanupPolicy::RemoveSetAndSystemsAllowBreakages,
         );
         assert_eq!(remove_count.unwrap(), 2);
 
@@ -2910,7 +2914,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system_1,
             &mut world,
-            ScheduleCleanupPolicy::SetAndSystems,
+            ScheduleCleanupPolicy::RemoveSetAndSystemsAllowBreakages,
         );
         assert_eq!(remove_count.unwrap(), 1);
 
@@ -2935,7 +2939,7 @@ mod tests {
         let _ = schedule.remove_systems_in_set(
             system_2,
             &mut world,
-            ScheduleCleanupPolicy::FixSetAndSystems,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
         );
 
         let result = schedule.initialize(&mut world);
@@ -2960,8 +2964,11 @@ mod tests {
         schedule.add_systems((system_1.before(B), system_2, system_3.after(B)));
         let mut world = World::new();
 
-        let _ =
-            schedule.remove_systems_in_set(B, &mut world, ScheduleCleanupPolicy::FixSetAndSystems);
+        let _ = schedule.remove_systems_in_set(
+            B,
+            &mut world,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
+        );
 
         let result = schedule.initialize(&mut world);
         assert!(result.is_ok());
