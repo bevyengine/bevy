@@ -143,12 +143,6 @@ pub struct MainPassResolutionOverride(pub UVec2);
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
-    // /// Size of the entire camera view
-    // pub full_size: UVec2,
-    // /// Offset of the sub camera
-    // pub offset: Vec2,
-    // /// Size of the sub camera
-    // pub size: UVec2,
     /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the full view
     pub scale: f32,
     /// Aspect ratio of the sub view. Automatically updated by Bevy's `camera_system`.
@@ -171,9 +165,6 @@ impl SubCameraView {
 impl Default for SubCameraView {
     fn default() -> Self {
         Self {
-            // full_size: UVec2::new(1, 1),
-            // offset: Vec2::new(0., 0.),
-            // size: UVec2::new(1, 1),
             scale: 1.0,
             aspect_ratio: None,
             offset: Vec2::ZERO,
