@@ -3869,7 +3869,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// ### Example Usage
     ///
     /// ```
-    /// /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+    /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
     /// #
     /// # #[derive(Component)]
     /// # struct A;
