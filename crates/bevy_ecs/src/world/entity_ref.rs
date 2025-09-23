@@ -3860,6 +3860,46 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         Self { entity, access }
     }
 
+    /// Returns a copy of the `FilteredEntityMut`.
+    ///
+    /// This is unsafe because the user is now responsible to avoid aliasing violations.
+    ///
+    /// This can be useful to mutably query multiple components from a single `FilteredEntityMut`.
+    ///
+    /// ### Example Usage
+    ///
+    /// ```
+    /// /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+    /// #
+    /// # #[derive(Component)]
+    /// # struct A;
+    /// # #[derive(Component)]
+    /// # struct B;
+    /// #
+    /// # let mut world = World::new();
+    /// # world.spawn((A, B));
+    /// #
+    /// // This gives the `FilteredEntityMut` access to `&mut A` and `&mut B`.
+    /// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+    ///     .data::<(&mut A, &mut B)>()
+    ///     .build();
+    ///
+    /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+    /// // SAFETY: the clone won't cause aliasing violations
+    /// let mut filtered_entity_clone: FilteredEntityMut = unsafe { filtered_entity.clone() };
+    /// let a: Mut<A> = filtered_entity.get_mut().unwrap();
+    /// let b: Mut<B> = filtered_entity_clone.get_mut().unwrap();
+    /// ```
+    ///
+    /// # Safety
+    /// - The user must make sure to avoid aliasing violations
+    pub unsafe fn clone(&self) -> Self {
+        Self {
+            entity: self.entity,
+            access: self.access,
+        }
+    }
+
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut FilteredEntityMut`, but you need `FilteredEntityMut`.
     pub fn reborrow(&mut self) -> FilteredEntityMut<'_, 's> {
