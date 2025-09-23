@@ -339,6 +339,7 @@ impl App {
     /// ## Example
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleCleanupPolicy;
     /// #
     /// # let mut app = App::new();
     /// # fn system_a() {}
@@ -348,7 +349,7 @@ impl App {
     /// app.add_systems(Update, system_a);
     ///
     /// // remove the system
-    /// app.remove_systems_in_set(Update, system_a);
+    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveOnlySystems);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,

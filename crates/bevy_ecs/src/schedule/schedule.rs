@@ -1052,7 +1052,7 @@ impl ScheduleGraph {
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::RemoveOnlySystems => {
+            ScheduleCleanupPolicy::RemoveSystemsOnly => {
                 for &key in &keys {
                     self.add_edges_for_transitive_dependencies(key.into());
                 }
@@ -1626,14 +1626,14 @@ pub enum ReportCycles {
 pub enum ScheduleCleanupPolicy {
     /// Remove the referenced set and any systems in the set.
     /// Attempts to maintain the order between the transitive dependencies by adding new edges
-    /// between the existing before and after dependendencies on the set and the systems.
+    /// between the existing before and after dependencies on the set and the systems.
     /// This does not remove sets that might sub sets of the set.
     #[default]
     RemoveSetAndSystems,
     /// Remove only the systems in the set. The set
     /// Attempts to maintain the order between the transitive dependencies by adding new edges
-    /// between the existing before and after dependendencies on the systems.
-    RemoveOnlySystems,
+    /// between the existing before and after dependencies on the systems.
+    RemoveSystemsOnly,
     /// Remove the set and any systems in the set.
     /// Note that this will not add new edges and
     /// so will break any transitive dependencies on that set or systems.
@@ -1642,7 +1642,7 @@ pub enum ScheduleCleanupPolicy {
     /// Remove only the systems in the set.
     /// Note that this will not add new edges and
     /// so will break any transitive dependencies on that set or systems.
-    RemoveOnlySystemsAllowBreakages,
+    RemoveSystemsOnlyAllowBreakages,
 }
 
 // methods for reporting errors
