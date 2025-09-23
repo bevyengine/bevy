@@ -327,7 +327,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
-    /// # use bevy_ecs::prelude::{ReflectResource, Resource, World};
+    /// # use bevy_ecs::prelude::{ReflectResource, ReflectComponent, Resource, World};
     /// # use bevy_reflect::Reflect;
     /// #[derive(Resource, Default, Reflect)]
     /// #[reflect(Resource)]

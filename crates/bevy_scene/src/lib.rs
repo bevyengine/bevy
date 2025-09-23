@@ -171,6 +171,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -297,6 +299,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()

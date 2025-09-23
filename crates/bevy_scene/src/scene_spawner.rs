@@ -740,6 +740,7 @@ mod tests {
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin);
+        app.register_type::<ComponentA>();
         app.update();
 
         let mut scene_world = World::new();
@@ -773,7 +774,7 @@ mod tests {
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
             app.world().entity(entity).get::<Children>().unwrap().len(),
-            3 // two resources-as-entities are also counted
+            1
         );
 
         // let's try to delete the scene
@@ -1063,6 +1064,8 @@ mod tests {
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>()
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<ComponentF>();
         app.update();
 
