@@ -168,20 +168,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     };
 
     let dynamic_bundle_impl = quote! {
-        #[doc(hidden)]
-        #[expect(dead_code, reason = "This is a static assertion.")]
-        impl #impl_generics #struct_name #ty_generics #where_clause {
-            // Types that implement `Drop` cannot have their fields moved out. The implementation in
-            // `get_componments` avoids this with pointers, so there needs to be a static assertion
-            // that this is a sound thing to do. See https://doc.rust-lang.org/error_codes/E0509.html
-            // for more information.
-            fn check_no_bundle_drop(self) {
-                // This has no effect, but we need to make sure the compiler doesn't optimize it out
-                // black_box is used to do this
-                #( core::hint::black_box(self.#active_field_tokens); )*
-            }
-        }
-
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
@@ -192,11 +178,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
-                #( let #active_field_alias = ptr.move_field(|ptr| &raw mut (*ptr).#active_field_tokens); )*
-                core::mem::forget(ptr);
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let #struct_name { #(#active_field_tokens: #active_field_alias,)* #(#inactive_field_tokens: _,)* } = ptr;
+                });
                 #(
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
-                        #active_field_alias.try_into().debug_checked_unwrap(),
+                        #active_field_alias,
                         func
                     );
                 )*

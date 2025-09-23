@@ -3036,7 +3036,7 @@ mod tests {
         struct NonReleaseQueryData;
 
         /// SAFETY:
-        /// `update_component_access` and `update_archetype_component_access` do nothing.
+        /// `update_component_access` do nothing.
         /// This is sound because `fetch` does not access components.
         unsafe impl WorldQuery for NonReleaseQueryData {
             type Fetch<'w> = ();

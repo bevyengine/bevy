@@ -35,6 +35,9 @@ enum SwatchType {
     Hsl,
 }
 
+#[derive(Component, Clone, Copy)]
+struct DemoDisabledButton;
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FeathersPlugins))
@@ -168,7 +171,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 )),
                                 ..default()
                             },
-                            InteractionDisabled,
+                            (InteractionDisabled, DemoDisabledButton),
                             Spawn((Text::new("Disabled"), ThemedText))
                         ),
                         button(
@@ -249,7 +252,25 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 checkbox(
                     CheckboxProps {
-                        on_change: Callback::Ignore,
+                        on_change: Callback::System(commands.register_system(
+                            |change: In<ValueChange<bool>>,
+                             query: Query<Entity, With<DemoDisabledButton>>,
+                             mut commands: Commands| {
+                                info!("Checkbox clicked!");
+                                let mut button = commands.entity(query.single().unwrap());
+                                if change.value {
+                                    button.insert(InteractionDisabled);
+                                } else {
+                                    button.remove::<InteractionDisabled>();
+                                }
+                                let mut checkbox = commands.entity(change.source);
+                                if change.value {
+                                    checkbox.insert(Checked);
+                                } else {
+                                    checkbox.remove::<Checked>();
+                                }
+                            }
+                        )),
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))

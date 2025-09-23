@@ -87,7 +87,8 @@ impl Plugin for CameraPlugin {
 
 fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
+        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Usually, adding a `Camera2d` or `Camera3d` component will work.
+        However, you may instead need to enable `bevy_core_pipeline`, or may want to manually add a `CameraRenderGraph` component to create a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
     }
 }
 
@@ -240,7 +241,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 .get(&image_target.handle)
                 .map(|image| RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: image_target.scale_factor.0,
+                    scale_factor: image_target.scale_factor,
                 })
                 .ok_or(MissingRenderTargetInfoError::Image {
                     image: image_target.handle.id(),
