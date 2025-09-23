@@ -459,12 +459,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<Root>,
-                Changed<TextFont>,
+                Changed<ComputedTextStyle>,
                 Changed<TextLayout>,
                 Changed<Children>,
             )>,
             With<Root>,
-            With<TextFont>,
+            With<ComputedTextStyle>,
             With<TextLayout>,
         ),
     >,
@@ -473,13 +473,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<TextSpan>,
-                Changed<TextFont>,
+                Changed<ComputedTextStyle>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
-            With<TextFont>,
+            With<ComputedTextStyle>,
         ),
     >,
     mut computed: Query<(
