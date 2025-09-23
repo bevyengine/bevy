@@ -554,7 +554,7 @@ mod tests {
             bar: u8,
         }
 
-        #[expect(
+        #[allow(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
@@ -566,7 +566,7 @@ mod tests {
     }
     #[test]
     fn relationship_target_with_multiple_non_target_fields_compiles() {
-        #[expect(
+        #[allow(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
@@ -592,7 +592,7 @@ mod tests {
 
     #[test]
     fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
-        #[expect(
+        #[allow(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
@@ -600,7 +600,7 @@ mod tests {
         #[relationship(relationship_target=Target<T>)]
         struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
 
-        #[expect(
+        #[allow(
             dead_code,
             reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
         )]
