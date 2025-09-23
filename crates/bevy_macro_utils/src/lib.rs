@@ -16,6 +16,7 @@ pub mod fq_std;
 mod label;
 mod parser;
 mod result_sifter;
+mod member;
 mod shape;
 mod symbol;
 
@@ -24,5 +25,6 @@ pub use bevy_manifest::*;
 pub use label::*;
 pub use parser::*;
 pub use result_sifter::*;
+pub use member::*;
 pub use shape::*;
 pub use symbol::*;
