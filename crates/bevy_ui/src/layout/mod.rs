@@ -30,19 +30,22 @@ pub(crate) mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
+    pub rem: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
+        rem: 20.0,
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
-    const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    const fn new(scale_factor: f32, physical_size: Vec2, rem: f32) -> Self {
         Self {
             scale_factor,
             physical_size,
+            rem,
         }
     }
 }
@@ -52,6 +55,7 @@ impl LayoutContext {
     pub const TEST_CONTEXT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::new(1000.0, 1000.0),
+        rem: 20.0,
     };
 }
 
@@ -115,6 +119,7 @@ pub fn ui_layout_system(
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
+                    computed_target.rem,
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
@@ -182,6 +187,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
+            computed_target.rem,
         );
     }
 
@@ -206,6 +212,7 @@ pub fn ui_layout_system(
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        rem: f32,
     ) {
         if let Ok((
             mut node,
@@ -263,6 +270,7 @@ pub fn ui_layout_system(
                 inverse_target_scale_factor.recip(),
                 layout_size,
                 target_size,
+                rem,
             );
             local_transform.translation += local_center;
             inherited_transform *= local_transform;
@@ -277,6 +285,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor.recip(),
                     node.size,
                     target_size,
+                    rem,
                 );
             }
 
@@ -290,6 +299,7 @@ pub fn ui_layout_system(
                             inverse_target_scale_factor.recip(),
                             node.size().x,
                             target_size,
+                            rem,
                         )
                         .unwrap_or(0.)
                         .max(0.)
@@ -303,6 +313,7 @@ pub fn ui_layout_system(
                         inverse_target_scale_factor.recip(),
                         node.size().x,
                         target_size,
+                        rem,
                     )
                     .unwrap_or(0.)
                     .max(0.);
@@ -348,6 +359,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    rem,
                 );
             }
         }

@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_math::{Rect, UVec2};
 use bevy_sprite::BorderRect;
+use bevy_text::{DefaultTextStyle, TextFont};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -140,6 +141,8 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    rem_query: Query<&TextFont>,
+    default_text_style: Res<DefaultTextStyle>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -166,11 +169,18 @@ pub fn propagate_ui_target_cameras(
             })
             .unwrap_or((1., UVec2::ZERO));
 
+        let rem = rem_query
+            .get(root_entity)
+            .unwrap_or(&default_text_style.font)
+            .font_size
+            * scale_factor;
+
         commands
             .entity(root_entity)
             .insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
+                rem,
             }));
     }
 }
@@ -223,6 +233,7 @@ mod tests {
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
+    use bevy_text::TextFont;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
@@ -267,6 +278,7 @@ mod tests {
         let mut app = setup_test_app();
         let world = app.world_mut();
 
+        let rem = 25.;
         let scale_factor = 10.;
         let physical_size = UVec2::new(1000, 500);
 
@@ -280,7 +292,9 @@ mod tests {
 
         let camera = world.spawn(Camera2d).id();
 
-        let uinode = world.spawn(Node::default()).id();
+        let uinode = world
+            .spawn((Node::default(), TextFont::from_font_size(rem)))
+            .id();
 
         app.update();
         let world = app.world_mut();
@@ -295,6 +309,7 @@ mod tests {
             ComputedUiRenderTargetInfo {
                 physical_size,
                 scale_factor,
+                rem
             }
         );
     }
@@ -306,8 +321,10 @@ mod tests {
 
         let scale1 = 1.;
         let size1 = UVec2::new(100, 100);
+        let rem1 = 25.;
         let scale2 = 2.;
         let size2 = UVec2::new(200, 200);
+        let rem2 = 17.;
 
         world.spawn((
             Window {
@@ -335,21 +352,43 @@ mod tests {
             ))
             .id();
 
-        let uinode1a = world.spawn(Node::default()).id();
-        let uinode2a = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
-        let uinode2b = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
-        let uinode2c = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
-        let uinode1b = world.spawn(Node::default()).id();
+        let uinode1a = world
+            .spawn((Node::default(), TextFont::from_font_size(rem1)))
+            .id();
+        let uinode2a = world
+            .spawn((
+                Node::default(),
+                UiTargetCamera(camera2),
+                TextFont::from_font_size(rem2),
+            ))
+            .id();
+        let uinode2b = world
+            .spawn((
+                Node::default(),
+                UiTargetCamera(camera2),
+                TextFont::from_font_size(rem1),
+            ))
+            .id();
+        let uinode2c = world
+            .spawn((
+                Node::default(),
+                UiTargetCamera(camera2),
+                TextFont::from_font_size(rem2),
+            ))
+            .id();
+        let uinode1b = world
+            .spawn((Node::default(), TextFont::from_font_size(rem2)))
+            .id();
 
         app.update();
         let world = app.world_mut();
 
-        for (uinode, camera, scale_factor, physical_size) in [
-            (uinode1a, camera1, scale1, size1),
-            (uinode1b, camera1, scale1, size1),
-            (uinode2a, camera2, scale2, size2),
-            (uinode2b, camera2, scale2, size2),
-            (uinode2c, camera2, scale2, size2),
+        for (uinode, camera, scale_factor, physical_size, rem) in [
+            (uinode1a, camera1, scale1, size1, rem1),
+            (uinode1b, camera1, scale1, size1, rem1),
+            (uinode2a, camera2, scale2, size2, rem2),
+            (uinode2b, camera2, scale2, size2, rem1),
+            (uinode2c, camera2, scale2, size2, rem2),
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
@@ -361,6 +400,7 @@ mod tests {
                 ComputedUiRenderTargetInfo {
                     physical_size,
                     scale_factor,
+                    rem
                 }
             );
         }

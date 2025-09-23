@@ -59,13 +59,19 @@ impl Val2 {
     /// and `viewport_size`.
     ///
     /// Component values of [`Val::Auto`] are resolved to 0.
-    pub fn resolve(&self, scale_factor: f32, base_size: Vec2, viewport_size: Vec2) -> Vec2 {
+    pub fn resolve(
+        &self,
+        scale_factor: f32,
+        base_size: Vec2,
+        viewport_size: Vec2,
+        rem: f32,
+    ) -> Vec2 {
         Vec2::new(
             self.x
-                .resolve(scale_factor, base_size.x, viewport_size)
+                .resolve(scale_factor, base_size.x, viewport_size, rem)
                 .unwrap_or(0.),
             self.y
-                .resolve(scale_factor, base_size.y, viewport_size)
+                .resolve(scale_factor, base_size.y, viewport_size, rem)
                 .unwrap_or(0.),
         )
     }
@@ -130,11 +136,17 @@ impl UiTransform {
 
     /// Resolves the translation from the given `scale_factor`, `base_value`, and `target_size`
     /// and returns a 2d affine transform from the resolved translation, and the `UiTransform`'s rotation, and scale.
-    pub fn compute_affine(&self, scale_factor: f32, base_size: Vec2, target_size: Vec2) -> Affine2 {
+    pub fn compute_affine(
+        &self,
+        scale_factor: f32,
+        base_size: Vec2,
+        target_size: Vec2,
+        rem: f32,
+    ) -> Affine2 {
         Affine2::from_mat2_translation(
             Mat2::from(self.rotation) * Mat2::from_diagonal(self.scale),
             self.translation
-                .resolve(scale_factor, base_size, target_size),
+                .resolve(scale_factor, base_size, target_size, rem),
         )
     }
 }

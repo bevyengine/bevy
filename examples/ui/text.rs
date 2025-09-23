@@ -52,6 +52,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AnimatedText,
     ));
 
+    commands.spawn((
+        Node {
+            justify_self: JustifySelf::Center,
+            align_self: AlignSelf::Center,
+            height: Val::Rem(1.5),
+            ..default()
+        },
+        children![Text::new("Rem!")],
+    ));
+
     // Text with multiple sections
     commands
         .spawn((
