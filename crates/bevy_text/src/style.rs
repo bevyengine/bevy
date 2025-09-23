@@ -42,7 +42,8 @@ impl ComputedTextStyle {
     }
 }
 
-/// update text styles
+/// Update the `ComputedTextStyle` for each text node from the
+/// `TextFont`s and `TextColor`s of its nearest ancestors.
 pub fn update_text_styles(
     default_text_style: Res<DefaultTextStyle>,
     mut computed_text_query: Query<(Entity, &mut ComputedTextStyle)>,
