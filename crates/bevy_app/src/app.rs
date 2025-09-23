@@ -349,7 +349,7 @@ impl App {
     /// app.add_systems(Update, system_a);
     ///
     /// // remove the system
-    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveOnlySystems);
+    /// app.remove_systems_in_set(Update, system_a, ScheduleCleanupPolicy::RemoveSystemsOnly);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,

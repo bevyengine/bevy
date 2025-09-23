@@ -403,6 +403,7 @@ impl Schedule {
     /// ## Example
     /// ```
     /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleCleanupPolicy;
     /// #
     /// # fn my_system() {}
     /// #
@@ -412,7 +413,7 @@ impl Schedule {
     /// let mut world = World::default();
     ///
     /// // remove the system
-    /// schedule.remove_systems_in_set(my_system, &mut world);
+    /// schedule.remove_systems_in_set(my_system, &mut world, ScheduleCleanupPolicy::RemoveSystemsOnly);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,
@@ -1031,7 +1032,7 @@ impl ScheduleGraph {
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::RemoveOnlySystemsAllowBreakages => {
+            ScheduleCleanupPolicy::RemoveSystemsOnlyAllowBreakages => {
                 self.remove_systems_by_keys(&keys);
 
                 Ok(keys.len())
