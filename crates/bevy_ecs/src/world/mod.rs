@@ -1714,7 +1714,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert(IsResource::default())
+                .insert(IsResource)
                 .id();
             self.resource_entities.insert(component_id, entity);
         }
@@ -1748,7 +1748,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert(IsResource::default())
+                .insert(IsResource)
                 .id();
             self.resource_entities.insert(component_id, entity);
         } else {
@@ -2707,7 +2707,7 @@ impl World {
         caller: MaybeLocation,
     ) {
         if !self.resource_entities.contains_key(&component_id) {
-            let is_resource = IsResource::default();
+            let is_resource = IsResource;
             move_as_ptr!(is_resource);
 
             // Since we don't know the type, we use a placeholder type.

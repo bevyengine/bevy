@@ -369,7 +369,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 .original_world
                 .components()
                 .get_info(*resource_id)
-                .and_then(|info| info.type_id())
+                .and_then(bevy_ecs::component::ComponentInfo::type_id)
                 .is_some_and(|type_id| self.resource_filter.is_denied_by_id(type_id))
             {
                 continue;
