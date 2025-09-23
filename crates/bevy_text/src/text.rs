@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{style::ComputedTextStyle, Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -172,7 +172,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(ComputedTextStyle)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {

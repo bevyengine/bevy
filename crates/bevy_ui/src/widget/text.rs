@@ -18,8 +18,8 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
+    SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
     TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
@@ -95,7 +95,7 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(Node, TextLayout, ComputedTextStyle, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {
@@ -220,7 +220,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,

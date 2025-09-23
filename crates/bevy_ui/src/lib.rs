@@ -34,6 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::update_text_styles;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -235,6 +236,7 @@ fn build_text_interop(app: &mut App) {
             )
                 .chain()
                 .in_set(UiSystems::Content)
+                .after(update_text_styles)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
@@ -245,6 +247,7 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
+                .after(update_text_styles)
                 .in_set(UiSystems::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 .before(bevy_asset::AssetEventSystems)

@@ -24,6 +24,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
+use bevy_text::ComputedTextStyle;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -59,9 +60,7 @@ pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
-};
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
@@ -909,11 +908,11 @@ pub fn extract_text_sections(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ComputedTextBlock,
-            &TextColor,
+            &ComputedTextStyle,
             &TextLayoutInfo,
         )>,
     >,
-    text_styles: Extract<Query<&TextColor>>,
+    text_styles: Extract<Query<&ComputedTextStyle>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
@@ -928,7 +927,7 @@ pub fn extract_text_sections(
         clip,
         camera,
         computed_block,
-        text_color,
+        text_style,
         text_layout_info,
     ) in &uinode_query
     {
@@ -943,7 +942,7 @@ pub fn extract_text_sections(
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        let mut color = text_color.0.to_linear();
+        let mut color = text_style.color().to_linear();
 
         let mut current_span_index = 0;
 
@@ -963,7 +962,7 @@ pub fn extract_text_sections(
             {
                 color = text_styles
                     .get(span_entity)
-                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .map(|style| LinearRgba::from(style.color()))
                     .unwrap_or_default();
                 current_span_index = *span_index;
             }

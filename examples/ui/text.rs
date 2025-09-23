@@ -48,6 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             right: px(5),
             ..default()
         },
+        TextColor::WHITE,
         AnimatedText,
     ));
 
