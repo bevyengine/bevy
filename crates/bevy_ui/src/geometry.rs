@@ -482,6 +482,11 @@ pub fn percent<T: ValNum>(value: T) -> Val {
     Val::Percent(value.val_num_f32())
 }
 
+/// Returns a [`Val::Rem`] representing a value based on the root element's font size.
+pub fn rem<T: ValNum>(value: T) -> Val {
+    Val::Px(value.val_num_f32())
+}
+
 /// Returns a [`Val::Vw`] representing a percentage of the viewport width.
 pub fn vw<T: ValNum>(value: T) -> Val {
     Val::Vw(value.val_num_f32())

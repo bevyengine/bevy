@@ -4,7 +4,7 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::GOLD,
+    color::palettes::css::{GOLD, NAVY},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
@@ -59,6 +59,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Rem(1.5),
             ..default()
         },
+        BackgroundColor(NAVY.into()),
         children![Text::new("Rem!")],
     ));
 
