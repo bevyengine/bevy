@@ -28,8 +28,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     fragmenting_value::{
-        FragmentingValueOwned, FragmentingValueV2Borrowed, FragmentingValuesBorrowed,
-        FragmentingValuesOwned,
+        FragmentingValue, FragmentingValueBorrowed, FragmentingValues, FragmentingValuesBorrowed,
     },
     observer::Observers,
     query::DebugCheckedUnwrap,
@@ -273,7 +272,7 @@ impl Edges {
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
         mut added: Vec<ComponentId>,
         existing: Vec<ComponentId>,
-        value_components: FragmentingValuesOwned,
+        value_components: FragmentingValues,
     ) {
         let added_len = added.len();
         // Make sure `extend` doesn't over-reserve, since the conversion to `Box<[_]>` would reallocate to shrink.
@@ -390,7 +389,7 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 /// [`Component`]: crate::component::Component
 struct ArchetypeComponentInfo {
     storage_type: StorageType,
-    fragmenting_value: Option<FragmentingValueOwned>,
+    fragmenting_value: Option<FragmentingValue>,
 }
 
 bitflags::bitflags! {
@@ -438,7 +437,7 @@ impl Archetype {
         table_id: TableId,
         table_components: impl Iterator<Item = ComponentId>,
         sparse_set_components: impl Iterator<Item = ComponentId>,
-        value_components: impl Iterator<Item = &'a FragmentingValueOwned>,
+        value_components: impl Iterator<Item = &'a FragmentingValue>,
     ) -> Self {
         let (min_table, _) = table_components.size_hint();
         let (min_sparse, _) = sparse_set_components.size_hint();
@@ -597,7 +596,7 @@ impl Archetype {
 
     pub(crate) fn components_with_fragmenting_values(
         &self,
-    ) -> impl Iterator<Item = &FragmentingValueOwned> {
+    ) -> impl Iterator<Item = &FragmentingValue> {
         self.components
             .values()
             .filter_map(|info| info.fragmenting_value.as_ref())
@@ -724,7 +723,7 @@ impl Archetype {
     /// Returns [`FragmentingValue`] for this archetype of the requested `component_id`.
     ///
     /// This will return `None` if requested component isn't a part of this archetype or isn't fragmenting.
-    pub fn get_value_component(&self, component_id: ComponentId) -> Option<&FragmentingValueOwned> {
+    pub fn get_value_component(&self, component_id: ComponentId) -> Option<&FragmentingValue> {
         self.components
             .get(component_id)
             .and_then(|info| info.fragmenting_value.as_ref())
@@ -830,7 +829,7 @@ impl ArchetypeGeneration {
 struct ArchetypeComponents {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
-    value_components: FragmentingValuesOwned,
+    value_components: FragmentingValues,
 }
 
 /// Maps a [`ComponentId`] to the list of [`Archetypes`]([`Archetype`]) that contain the [`Component`](crate::component::Component),
@@ -971,7 +970,7 @@ impl Archetypes {
         table_id: TableId,
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
-        value_components: FragmentingValuesOwned,
+        value_components: FragmentingValues,
     ) -> (ArchetypeId, bool) {
         let archetype_identity = ArchetypeComponents {
             sparse_set_components: sparse_set_components.into_boxed_slice(),

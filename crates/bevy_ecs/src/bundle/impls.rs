@@ -1,13 +1,13 @@
 use core::any::{Any, TypeId};
 
-use bevy_ptr::{MovingPtr, OwningPtr, Ptr};
+use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
-    fragmenting_value::{FragmentingValueComponent, FragmentingValueV2Borrowed},
+    fragmenting_value::FragmentingValueBorrowed,
     world::EntityWorldMut,
 };
 
@@ -27,10 +27,10 @@ unsafe impl<C: Component> Bundle for C {
     fn get_fragmenting_values<'a>(
         &'a self,
         components: &Components,
-        values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>),
+        values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>),
     ) {
         if let Some(component) = (self as &dyn Any).downcast_ref::<C::Key>() {
-            values(FragmentingValueV2Borrowed::from_component(
+            values(FragmentingValueBorrowed::from_component(
                 components, component,
             ));
         }
@@ -102,7 +102,7 @@ macro_rules! tuple_impl {
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>)) {
+            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>)) {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."

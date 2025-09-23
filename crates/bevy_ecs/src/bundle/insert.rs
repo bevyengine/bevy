@@ -13,9 +13,7 @@ use crate::{
     component::{Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
-    fragmenting_value::{
-        FragmentingValueV2Borrowed, FragmentingValuesBorrowed, FragmentingValuesOwned,
-    },
+    fragmenting_value::{FragmentingValueBorrowed, FragmentingValues, FragmentingValuesBorrowed},
     lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
     observer::Observers,
     query::DebugCheckedUnwrap as _,

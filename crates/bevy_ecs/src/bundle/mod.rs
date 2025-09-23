@@ -73,7 +73,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     component::{ComponentId, Components, ComponentsRegistrator, StorageType},
-    fragmenting_value::FragmentingValueV2Borrowed,
+    fragmenting_value::FragmentingValueBorrowed,
     world::EntityWorldMut,
 };
 use bevy_ptr::OwningPtr;
@@ -210,7 +210,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     fn get_fragmenting_values<'a>(
         &'a self,
         components: &Components,
-        values: &mut impl FnMut(Option<FragmentingValueV2Borrowed<'a>>),
+        values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>),
     );
 
     #[doc(hidden)]

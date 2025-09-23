@@ -10,10 +10,8 @@ use bevy_ecs::component::Component;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
-    any::{Any, TypeId},
-    borrow::Borrow,
+    any::TypeId,
     hash::{BuildHasher, Hash, Hasher},
-    mem::MaybeUninit,
     ops::Deref,
     ptr::NonNull,
 };
@@ -21,15 +19,13 @@ use indexmap::Equivalent;
 
 use crate::{
     bundle::{Bundle, BundleId},
-    component::{
-        CheckChangeTicks, ComponentId, ComponentInfo, Components, ComponentsRegistrator, Immutable,
-    },
+    component::{CheckChangeTicks, ComponentId, Components, Immutable},
     query::DebugCheckedUnwrap,
 };
 
 #[derive(Default)]
 pub struct FragmentingValueComponentsStorage {
-    existing_values: HashSet<FragmentingValueOwned>,
+    existing_values: HashSet<FragmentingValue>,
 }
 
 impl FragmentingValueComponentsStorage {
@@ -37,26 +33,26 @@ impl FragmentingValueComponentsStorage {
 }
 
 #[derive(Clone)]
-pub struct FragmentingValueOwned {
-    inner: Arc<DynamicFragmentingValueInner>,
+pub struct FragmentingValue {
+    inner: Arc<FragmentingValueInner>,
 }
 
-impl Hash for FragmentingValueOwned {
+impl Hash for FragmentingValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.component_id().hash(state);
         state.write_u64(self.inner.data_hash);
     }
 }
 
-impl PartialEq for FragmentingValueOwned {
+impl PartialEq for FragmentingValue {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
 }
 
-impl Eq for FragmentingValueOwned {}
+impl Eq for FragmentingValue {}
 
-impl FragmentingValueOwned {
+impl FragmentingValue {
     #[inline]
     pub fn component_id(&self) -> ComponentId {
         self.inner.component_id
@@ -91,33 +87,41 @@ pub enum NoKey {}
 ///
 /// Owned version can be used as a key in maps. [`FragmentingValuesBorrowed`] is a version that doesn't require cloning the values.
 #[derive(Hash, PartialEq, Eq, Default, Clone)]
-pub struct FragmentingValuesOwned {
-    values: Box<[FragmentingValueOwned]>,
+pub struct FragmentingValues {
+    values: Box<[FragmentingValue]>,
 }
 
-impl Deref for FragmentingValuesOwned {
-    type Target = [FragmentingValueOwned];
+impl Deref for FragmentingValues {
+    type Target = [FragmentingValue];
 
     fn deref(&self) -> &Self::Target {
         &self.values
     }
 }
 
-impl FromIterator<FragmentingValueOwned> for FragmentingValuesOwned {
-    fn from_iter<T: IntoIterator<Item = FragmentingValueOwned>>(iter: T) -> Self {
+impl FromIterator<FragmentingValue> for FragmentingValues {
+    fn from_iter<T: IntoIterator<Item = FragmentingValue>>(iter: T) -> Self {
+        let mut values: Box<_> = iter.into_iter().collect();
+        values.sort_unstable_by_key(FragmentingValue::component_id);
+        Self { values }
+    }
+}
+
+impl FragmentingValues {
+    pub fn from_sorted<T: IntoIterator<Item = FragmentingValue>>(iter: T) -> Self {
         Self {
             values: iter.into_iter().collect(),
         }
     }
 }
 
-pub struct FragmentingValueV2Borrowed<'a> {
+pub struct FragmentingValueBorrowed<'a> {
     component_id: ComponentId,
     data_hash: u64,
     data: Ptr<'a>,
 }
 
-impl<'a> FragmentingValueV2Borrowed<'a> {
+impl<'a> FragmentingValueBorrowed<'a> {
     pub unsafe fn new(
         components: &Components,
         component_id: ComponentId,
@@ -149,10 +153,12 @@ impl<'a> FragmentingValueV2Borrowed<'a> {
             })
     }
 
+    #[inline]
     pub fn component_id(&self) -> ComponentId {
         self.component_id
     }
 
+    #[inline]
     pub fn component_data(&self) -> Ptr<'a> {
         self.data
     }
@@ -161,7 +167,7 @@ impl<'a> FragmentingValueV2Borrowed<'a> {
         &self,
         components: &Components,
         storage: &mut FragmentingValueComponentsStorage,
-    ) -> FragmentingValueOwned {
+    ) -> FragmentingValue {
         storage
             .existing_values
             .get_or_insert_with(unsafe { self.as_key() }, |v| {
@@ -174,8 +180,8 @@ impl<'a> FragmentingValueV2Borrowed<'a> {
                     unsafe { NonNull::new(alloc::alloc::alloc(info.layout())).unwrap() }
                 };
                 (vtable.clone)(v.data, data);
-                FragmentingValueOwned {
-                    inner: Arc::new(DynamicFragmentingValueInner {
+                FragmentingValue {
+                    inner: Arc::new(FragmentingValueInner {
                         component_id: v.component_id,
                         data_hash: v.data_hash,
                         data,
@@ -187,12 +193,13 @@ impl<'a> FragmentingValueV2Borrowed<'a> {
             .clone()
     }
 
+    #[inline]
     pub unsafe fn as_key(&self) -> &FragmentingValueBorrowedKey {
-        &*(self as *const FragmentingValueV2Borrowed as *const FragmentingValueBorrowedKey)
+        &*(self as *const FragmentingValueBorrowed as *const FragmentingValueBorrowedKey)
     }
 }
 
-impl<'a> Hash for FragmentingValueV2Borrowed<'a> {
+impl<'a> Hash for FragmentingValueBorrowed<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.component_id.hash(state);
         state.write_u64(self.data_hash);
@@ -201,11 +208,11 @@ impl<'a> Hash for FragmentingValueV2Borrowed<'a> {
 
 #[derive(Hash)]
 pub struct FragmentingValuesBorrowed<'a> {
-    values: Vec<FragmentingValueV2Borrowed<'a>>,
+    values: Vec<FragmentingValueBorrowed<'a>>,
 }
 
 impl<'a> Deref for FragmentingValuesBorrowed<'a> {
-    type Target = [FragmentingValueV2Borrowed<'a>];
+    type Target = [FragmentingValueBorrowed<'a>];
 
     fn deref(&self) -> &Self::Target {
         self.values.as_slice()
@@ -218,7 +225,7 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         bundle.get_fragmenting_values(components, &mut |value| {
             values.push(value.debug_checked_unwrap());
         });
-        values.sort_unstable_by_key(|v| v.component_id);
+        values.sort_unstable_by_key(FragmentingValueBorrowed::component_id);
         FragmentingValuesBorrowed { values }
     }
 
@@ -231,14 +238,14 @@ impl<'a> FragmentingValuesBorrowed<'a> {
             .filter_map(|(id, data)| {
                 let info = components.get_info_unchecked(id);
                 info.value_component_vtable()
-                    .map(|vtable| FragmentingValueV2Borrowed {
+                    .map(|vtable| FragmentingValueBorrowed {
                         component_id: id,
                         data,
                         data_hash: (vtable.hash)(data),
                     })
             })
             .collect();
-        values.sort_unstable_by_key(|v| v.component_id);
+        values.sort_unstable_by_key(FragmentingValueBorrowed::component_id);
         FragmentingValuesBorrowed { values }
     }
 
@@ -246,15 +253,16 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         &self,
         components: &Components,
         storage: &mut FragmentingValueComponentsStorage,
-    ) -> FragmentingValuesOwned {
+    ) -> FragmentingValues {
         let values = self
             .values
             .iter()
             .map(|v| unsafe { v.to_owned(components, storage) })
             .collect();
-        FragmentingValuesOwned { values }
+        FragmentingValues { values }
     }
 
+    #[inline]
     pub unsafe fn as_key(&self) -> &FragmentingValuesBorrowedKey {
         &*(self as *const FragmentingValuesBorrowed as *const FragmentingValuesBorrowedKey)
     }
@@ -262,24 +270,26 @@ impl<'a> FragmentingValuesBorrowed<'a> {
 
 #[repr(transparent)]
 #[derive(Hash)]
-pub struct FragmentingValueBorrowedKey<'a>(FragmentingValueV2Borrowed<'a>);
+pub struct FragmentingValueBorrowedKey<'a>(FragmentingValueBorrowed<'a>);
 
 impl<'a> Deref for FragmentingValueBorrowedKey<'a> {
-    type Target = FragmentingValueV2Borrowed<'a>;
+    type Target = FragmentingValueBorrowed<'a>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<'a> Equivalent<FragmentingValueOwned> for FragmentingValueBorrowedKey<'a> {
-    fn equivalent(&self, key: &FragmentingValueOwned) -> bool {
+impl<'a> Equivalent<FragmentingValue> for FragmentingValueBorrowedKey<'a> {
+    #[inline]
+    fn equivalent(&self, key: &FragmentingValue) -> bool {
         self == key
     }
 }
 
-impl<'a> PartialEq<FragmentingValueOwned> for FragmentingValueBorrowedKey<'a> {
-    fn eq(&self, other: &FragmentingValueOwned) -> bool {
+impl<'a> PartialEq<FragmentingValue> for FragmentingValueBorrowedKey<'a> {
+    #[inline]
+    fn eq(&self, other: &FragmentingValue) -> bool {
         self.component_id() == other.component_id()
             && unsafe { (other.inner.data_eq)(self.data, other.component_data()) }
     }
@@ -297,9 +307,9 @@ impl<'a> Deref for FragmentingValuesBorrowedKey<'a> {
     }
 }
 
-impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowedKey<'a> {
+impl<'a> Equivalent<FragmentingValues> for FragmentingValuesBorrowedKey<'a> {
     #[inline]
-    fn equivalent(&self, key: &FragmentingValuesOwned) -> bool {
+    fn equivalent(&self, key: &FragmentingValues) -> bool {
         {
             self.values.len() == key.values.len()
                 && self
@@ -312,7 +322,7 @@ impl<'a> Equivalent<FragmentingValuesOwned> for FragmentingValuesBorrowedKey<'a>
 }
 
 #[derive(Hash, Eq, PartialEq)]
-pub(crate) struct FragmentingValueTupleKey(pub BundleId, pub FragmentingValuesOwned);
+pub(crate) struct FragmentingValueTupleKey(pub BundleId, pub FragmentingValues);
 
 impl<'a> Equivalent<FragmentingValueTupleKey> for (BundleId, &FragmentingValuesBorrowedKey<'a>) {
     #[inline]
@@ -321,7 +331,7 @@ impl<'a> Equivalent<FragmentingValueTupleKey> for (BundleId, &FragmentingValuesB
     }
 }
 
-struct DynamicFragmentingValueInner {
+struct FragmentingValueInner {
     component_id: ComponentId,
     data_hash: u64,
     data_eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
@@ -329,11 +339,11 @@ struct DynamicFragmentingValueInner {
     data: NonNull<u8>,
 }
 
-unsafe impl Sync for DynamicFragmentingValueInner {}
+unsafe impl Sync for FragmentingValueInner {}
 
-unsafe impl Send for DynamicFragmentingValueInner {}
+unsafe impl Send for FragmentingValueInner {}
 
-impl Drop for DynamicFragmentingValueInner {
+impl Drop for FragmentingValueInner {
     fn drop(&mut self) {
         if let Some(drop) = self.data_drop {
             unsafe { drop(OwningPtr::new(self.data)) }
@@ -407,6 +417,13 @@ mod tests {
     )]
     struct Fragmenting(u32);
 
+    #[derive(Component, Clone, Eq, PartialEq, Hash)]
+    #[component(
+            key=Self,
+            immutable,
+        )]
+    struct FragmentingN<const N: usize>(u32);
+
     #[derive(Component)]
     struct NonFragmenting;
 
@@ -420,6 +437,20 @@ mod tests {
         let [id1, id2, id3] = world.entity([e1, e2, e3]).map(|e| e.archetype().id());
         assert_eq!(id1, id3);
         assert_ne!(id2, id1);
+    }
+
+    #[test]
+    fn fragment_on_spawn_order_does_not_matter() {
+        let mut world = World::default();
+        let e1 = world
+            .spawn((NonFragmenting, FragmentingN::<1>(1), FragmentingN::<2>(1)))
+            .id();
+        let e2 = world
+            .spawn((NonFragmenting, FragmentingN::<2>(1), FragmentingN::<1>(1)))
+            .id();
+
+        let [id1, id2] = world.entity([e1, e2]).map(|e| e.archetype().id());
+        assert_eq!(id1, id2);
     }
 
     #[test]
