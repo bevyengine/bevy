@@ -2141,7 +2141,7 @@ impl World {
             let value = R::from_world(self);
             self.insert_resource_with_caller(value, caller);
         }
-        // SAFETY: The resouce either exists or we've just created it.
+        // SAFETY: The resource either exists or we've just created it.
         unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() }
     }
 
