@@ -38,7 +38,9 @@ pub mod prelude {
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
 use bevy_ecs::{
-    event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
+    message::{
+        message_update_system, signal_message_update_system, MessageRegistry, ShouldUpdateMessages,
+    },
     prelude::*,
 };
 use bevy_platform::time::Instant;
@@ -83,18 +85,18 @@ impl Plugin for TimePlugin {
             First,
             time_system
                 .in_set(TimeSystems)
-                .ambiguous_with(event_update_system),
+                .ambiguous_with(message_update_system),
         )
         .add_systems(
             RunFixedMainLoop,
             run_fixed_main_schedule.in_set(RunFixedMainLoopSystems::FixedMainLoop),
         );
 
-        // Ensure the events are not dropped until `FixedMain` systems can observe them
-        app.add_systems(FixedPostUpdate, signal_event_update_system);
-        let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
-        // We need to start in a waiting state so that the events are not updated until the first fixed update
-        event_registry.should_update = ShouldUpdateEvents::Waiting;
+        // Ensure the messages are not dropped until `FixedMain` systems can observe them
+        app.add_systems(FixedPostUpdate, signal_message_update_system);
+        let mut message_registry = app.world_mut().resource_mut::<MessageRegistry>();
+        // We need to start in a waiting state so that the messages are not updated until the first fixed update
+        message_registry.should_update = ShouldUpdateMessages::Waiting;
     }
 }
 
@@ -184,8 +186,8 @@ mod tests {
     use crate::{Fixed, Time, TimePlugin, TimeUpdateStrategy, Virtual};
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
-        event::{
-            BufferedEvent, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents,
+        message::{
+            Message, MessageReader, MessageRegistry, MessageWriter, Messages, ShouldUpdateMessages,
         },
         resource::Resource,
         system::{Local, Res, ResMut},
@@ -194,12 +196,12 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    #[derive(BufferedEvent)]
-    struct TestEvent<T: Default> {
+    #[derive(Message)]
+    struct TestMessage<T: Default> {
         sender: std::sync::mpsc::Sender<T>,
     }
 
-    impl<T: Default> Drop for TestEvent<T> {
+    impl<T: Default> Drop for TestMessage<T> {
         fn drop(&mut self) {
             self.sender
                 .send(T::default())
@@ -207,8 +209,8 @@ mod tests {
         }
     }
 
-    #[derive(BufferedEvent)]
-    struct DummyEvent;
+    #[derive(Message)]
+    struct DummyMessage;
 
     #[derive(Resource, Default)]
     struct FixedUpdateCounter(u8);
@@ -298,25 +300,26 @@ mod tests {
         let (tx2, rx2) = std::sync::mpsc::channel();
         let mut app = App::new();
         app.add_plugins(TimePlugin)
-            .add_event::<TestEvent<i32>>()
-            .add_event::<TestEvent<()>>()
-            .add_systems(Startup, move |mut ev2: EventWriter<TestEvent<()>>| {
-                ev2.write(TestEvent {
+            .add_message::<TestMessage<i32>>()
+            .add_message::<TestMessage<()>>()
+            .add_systems(Startup, move |mut ev2: MessageWriter<TestMessage<()>>| {
+                ev2.write(TestMessage {
                     sender: tx2.clone(),
                 });
             })
-            .add_systems(Update, move |mut ev1: EventWriter<TestEvent<i32>>| {
+            .add_systems(Update, move |mut ev1: MessageWriter<TestMessage<i32>>| {
                 // Keep adding events so this event type is processed every update
-                ev1.write(TestEvent {
+                ev1.write(TestMessage {
                     sender: tx1.clone(),
                 });
             })
             .add_systems(
                 Update,
-                |mut ev1: EventReader<TestEvent<i32>>, mut ev2: EventReader<TestEvent<()>>| {
+                |mut m1: MessageReader<TestMessage<i32>>,
+                 mut m2: MessageReader<TestMessage<()>>| {
                     // Read events so they can be dropped
-                    for _ in ev1.read() {}
-                    for _ in ev2.read() {}
+                    for _ in m1.read() {}
+                    for _ in m2.read() {}
                 },
             )
             .insert_resource(TimeUpdateStrategy::ManualDuration(
@@ -341,64 +344,64 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        fn write_event(mut events: ResMut<Events<DummyEvent>>) {
-            events.write(DummyEvent);
+        fn write_message(mut messages: ResMut<Messages<DummyMessage>>) {
+            messages.write(DummyMessage);
         }
 
         let mut app = App::new();
         app.add_plugins(TimePlugin)
-            .add_event::<DummyEvent>()
+            .add_message::<DummyMessage>()
             .init_resource::<FixedUpdateCounter>()
-            .add_systems(Startup, write_event)
+            .add_systems(Startup, write_message)
             .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 
         for frame in 0..10 {
             app.update();
             let fixed_updates_seen = app.world().resource::<FixedUpdateCounter>().0;
-            let events = app.world().resource::<Events<DummyEvent>>();
-            let n_total_events = events.len();
-            let n_current_events = events.iter_current_update_events().count();
-            let event_registry = app.world().resource::<EventRegistry>();
-            let should_update = event_registry.should_update;
+            let messages = app.world().resource::<Messages<DummyMessage>>();
+            let n_total_messages = messages.len();
+            let n_current_messages = messages.iter_current_update_messages().count();
+            let message_registry = app.world().resource::<MessageRegistry>();
+            let should_update = message_registry.should_update;
 
             println!("Frame {frame}, {fixed_updates_seen} fixed updates seen. Should update: {should_update:?}");
-            println!("Total events: {n_total_events} | Current events: {n_current_events}",);
+            println!("Total messages: {n_total_messages} | Current messages: {n_current_messages}",);
 
             match frame {
                 0 | 1 => {
                     assert_eq!(fixed_updates_seen, 0);
-                    assert_eq!(n_total_events, 1);
-                    assert_eq!(n_current_events, 1);
-                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                    assert_eq!(n_total_messages, 1);
+                    assert_eq!(n_current_messages, 1);
+                    assert_eq!(should_update, ShouldUpdateMessages::Waiting);
                 }
                 2 => {
                     assert_eq!(fixed_updates_seen, 1); // Time to trigger event updates
-                    assert_eq!(n_total_events, 1);
-                    assert_eq!(n_current_events, 1);
-                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping first update
+                    assert_eq!(n_total_messages, 1);
+                    assert_eq!(n_current_messages, 1);
+                    assert_eq!(should_update, ShouldUpdateMessages::Ready); // Prepping first update
                 }
                 3 => {
                     assert_eq!(fixed_updates_seen, 1);
-                    assert_eq!(n_total_events, 1);
-                    assert_eq!(n_current_events, 0); // First update has occurred
-                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                    assert_eq!(n_total_messages, 1);
+                    assert_eq!(n_current_messages, 0); // First update has occurred
+                    assert_eq!(should_update, ShouldUpdateMessages::Waiting);
                 }
                 4 => {
                     assert_eq!(fixed_updates_seen, 2); // Time to trigger the second update
-                    assert_eq!(n_total_events, 1);
-                    assert_eq!(n_current_events, 0);
-                    assert_eq!(should_update, ShouldUpdateEvents::Ready); // Prepping second update
+                    assert_eq!(n_total_messages, 1);
+                    assert_eq!(n_current_messages, 0);
+                    assert_eq!(should_update, ShouldUpdateMessages::Ready); // Prepping second update
                 }
                 5 => {
                     assert_eq!(fixed_updates_seen, 2);
-                    assert_eq!(n_total_events, 0); // Second update has occurred
-                    assert_eq!(n_current_events, 0);
-                    assert_eq!(should_update, ShouldUpdateEvents::Waiting);
+                    assert_eq!(n_total_messages, 0); // Second update has occurred
+                    assert_eq!(n_current_messages, 0);
+                    assert_eq!(should_update, ShouldUpdateMessages::Waiting);
                 }
                 _ => {
-                    assert_eq!(n_total_events, 0); // No more events are sent
-                    assert_eq!(n_current_events, 0);
+                    assert_eq!(n_total_messages, 0); // No more events are sent
+                    assert_eq!(n_current_messages, 0);
                 }
             }
         }

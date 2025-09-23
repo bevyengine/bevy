@@ -198,11 +198,11 @@ fn drag_drop_image(
     image_mat: Query<&MeshMaterial3d<StandardMaterial>, With<HDRViewer>>,
     text: Query<Entity, (With<Text>, With<SceneNumber>)>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut drop_events: EventReader<FileDragAndDrop>,
+    mut drag_and_drop_reader: MessageReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    let Some(new_image) = drop_events.read().find_map(|e| match e {
+    let Some(new_image) = drag_and_drop_reader.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
             Some(asset_server.load(path_buf.to_string_lossy().to_string()))
         }
@@ -228,9 +228,9 @@ fn resize_image(
     materials: Res<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     images: Res<Assets<Image>>,
-    mut image_events: EventReader<AssetEvent<Image>>,
+    mut image_event_reader: MessageReader<AssetEvent<Image>>,
 ) {
-    for event in image_events.read() {
+    for event in image_event_reader.read() {
         let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
             continue;
         };
@@ -502,23 +502,23 @@ fn update_ui(
     if selected_parameter.value == 0 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Exposure: {}\n", color_grading.global.exposure));
+    text.push_str(&format!("Exposure: {:.2}\n", color_grading.global.exposure));
     if selected_parameter.value == 1 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Gamma: {}\n", color_grading.shadows.gamma));
+    text.push_str(&format!("Gamma: {:.2}\n", color_grading.shadows.gamma));
     if selected_parameter.value == 2 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PreSaturation: {}\n",
+        "PreSaturation: {:.2}\n",
         color_grading.shadows.saturation
     ));
     if selected_parameter.value == 3 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PostSaturation: {}\n",
+        "PostSaturation: {:.2}\n",
         color_grading.global.post_saturation
     ));
     text.push_str("(Space) Reset all to default\n");

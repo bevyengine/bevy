@@ -1,5 +1,5 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
-use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
+use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
@@ -31,7 +31,7 @@ impl FontAtlasSets {
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_events: EventReader<AssetEvent<Font>>,
+    mut font_events: MessageReader<AssetEvent<Font>>,
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {

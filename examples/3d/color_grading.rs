@@ -6,7 +6,6 @@ use std::{
 };
 
 use bevy::{
-    ecs::system::EntityCommands,
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
@@ -136,159 +135,152 @@ fn setup(
 
 /// Adds all the buttons on the bottom of the scene.
 fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
-    // Spawn the parent node that contains all the buttons.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        // Spawn the parent node that contains all the buttons.
+        Node {
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
             row_gap: px(6),
             left: px(12),
             bottom: px(12),
             ..default()
-        })
-        .with_children(|parent| {
+        },
+        children![
             // Create the first row, which contains the global controls.
-            add_buttons_for_global_controls(parent, color_grading, font);
-
+            buttons_for_global_controls(color_grading, font),
             // Create the rows for individual controls.
-            for section in [
-                SelectedColorGradingSection::Highlights,
-                SelectedColorGradingSection::Midtones,
-                SelectedColorGradingSection::Shadows,
-            ] {
-                add_buttons_for_section(parent, section, color_grading, font);
-            }
-        });
+            buttons_for_section(SelectedColorGradingSection::Highlights, color_grading, font),
+            buttons_for_section(SelectedColorGradingSection::Midtones, color_grading, font),
+            buttons_for_section(SelectedColorGradingSection::Shadows, color_grading, font),
+        ],
+    ));
 }
 
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
-fn add_buttons_for_global_controls(
-    parent: &mut ChildSpawnerCommands,
-    color_grading: &ColorGrading,
-    font: &Handle<Font>,
-) {
-    // Add the parent node for the row.
-    parent.spawn(Node::default()).with_children(|parent| {
-        // Add some placeholder text to fill this column.
-        parent.spawn(Node {
-            width: px(125),
-            ..default()
-        });
+fn buttons_for_global_controls(color_grading: &ColorGrading, font: &Handle<Font>) -> impl Bundle {
+    let make_button = |option: SelectedGlobalColorGradingOption| {
+        button_for_value(
+            SelectedColorGradingOption::Global(option),
+            color_grading,
+            font,
+        )
+    };
 
-        // Add each global color grading option button.
-        for option in [
-            SelectedGlobalColorGradingOption::Exposure,
-            SelectedGlobalColorGradingOption::Temperature,
-            SelectedGlobalColorGradingOption::Tint,
-            SelectedGlobalColorGradingOption::Hue,
-        ] {
-            add_button_for_value(
-                parent,
-                SelectedColorGradingOption::Global(option),
-                color_grading,
-                font,
-            );
-        }
-    });
+    // Add the parent node for the row.
+    (
+        Node::default(),
+        children![
+            Node {
+                width: px(125),
+                ..default()
+            },
+            make_button(SelectedGlobalColorGradingOption::Exposure),
+            make_button(SelectedGlobalColorGradingOption::Temperature),
+            make_button(SelectedGlobalColorGradingOption::Tint),
+            make_button(SelectedGlobalColorGradingOption::Hue),
+        ],
+    )
 }
 
 /// Adds the buttons that control color grading for individual sections
 /// (highlights, midtones, shadows).
-fn add_buttons_for_section(
-    parent: &mut ChildSpawnerCommands,
+fn buttons_for_section(
     section: SelectedColorGradingSection,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
-) {
+) -> impl Bundle {
+    let make_button = |option| {
+        button_for_value(
+            SelectedColorGradingOption::Section(section, option),
+            color_grading,
+            font,
+        )
+    };
+
     // Spawn the row container.
-    parent
-        .spawn(Node {
+    (
+        Node {
             align_items: AlignItems::Center,
             ..default()
-        })
-        .with_children(|parent| {
+        },
+        children![
             // Spawn the label ("Highlights", etc.)
-            add_text(parent, &section.to_string(), font, Color::WHITE).insert(Node {
-                width: px(125),
-                ..default()
-            });
-
+            (
+                text(&section.to_string(), font, Color::WHITE),
+                Node {
+                    width: px(125),
+                    ..default()
+                }
+            ),
             // Spawn the buttons.
-            for option in [
-                SelectedSectionColorGradingOption::Saturation,
-                SelectedSectionColorGradingOption::Contrast,
-                SelectedSectionColorGradingOption::Gamma,
-                SelectedSectionColorGradingOption::Gain,
-                SelectedSectionColorGradingOption::Lift,
-            ] {
-                add_button_for_value(
-                    parent,
-                    SelectedColorGradingOption::Section(section, option),
-                    color_grading,
-                    font,
-                );
-            }
-        });
+            make_button(SelectedSectionColorGradingOption::Saturation),
+            make_button(SelectedSectionColorGradingOption::Contrast),
+            make_button(SelectedSectionColorGradingOption::Gamma),
+            make_button(SelectedSectionColorGradingOption::Gain),
+            make_button(SelectedSectionColorGradingOption::Lift),
+        ],
+    )
 }
 
 /// Adds a button that controls one of the color grading values.
-fn add_button_for_value(
-    parent: &mut ChildSpawnerCommands,
+fn button_for_value(
     option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
-) {
+) -> impl Bundle {
+    let label = match option {
+        SelectedColorGradingOption::Global(option) => option.to_string(),
+        SelectedColorGradingOption::Section(_, option) => option.to_string(),
+    };
+
     // Add the button node.
-    parent
-        .spawn((
-            Button,
-            Node {
-                border: UiRect::all(px(1)),
-                width: px(200),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::axes(px(12), px(6)),
-                margin: UiRect::right(px(12)),
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BorderRadius::MAX,
-            BackgroundColor(Color::BLACK),
-        ))
-        .insert(ColorGradingOptionWidget {
+    (
+        Button,
+        Node {
+            border: UiRect::all(px(1)),
+            width: px(200),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(px(12), px(6)),
+            margin: UiRect::right(px(12)),
+            ..default()
+        },
+        BorderColor::all(Color::WHITE),
+        BorderRadius::MAX,
+        BackgroundColor(Color::BLACK),
+        ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,
             option,
-        })
-        .with_children(|parent| {
+        },
+        children![
             // Add the button label.
-            let label = match option {
-                SelectedColorGradingOption::Global(option) => option.to_string(),
-                SelectedColorGradingOption::Section(_, option) => option.to_string(),
-            };
-            add_text(parent, &label, font, Color::WHITE).insert(ColorGradingOptionWidget {
-                widget_type: ColorGradingOptionWidgetType::Label,
-                option,
-            });
-
+            (
+                text(&label, font, Color::WHITE),
+                ColorGradingOptionWidget {
+                    widget_type: ColorGradingOptionWidgetType::Label,
+                    option,
+                },
+            ),
             // Add a spacer.
-            parent.spawn(Node {
+            Node {
                 flex_grow: 1.0,
                 ..default()
-            });
-
+            },
             // Add the value text.
-            add_text(
-                parent,
-                &format!("{:.3}", option.get(color_grading)),
-                font,
-                Color::WHITE,
-            )
-            .insert(ColorGradingOptionWidget {
-                widget_type: ColorGradingOptionWidgetType::Value,
-                option,
-            });
-        });
+            (
+                text(
+                    &format!("{:.3}", option.get(color_grading)),
+                    font,
+                    Color::WHITE,
+                ),
+                ColorGradingOptionWidget {
+                    widget_type: ColorGradingOptionWidgetType::Value,
+                    option,
+                },
+            ),
+        ],
+    )
 }
 
 /// Creates the help text at the top of the screen.
@@ -314,13 +306,8 @@ fn add_help_text(
 }
 
 /// Adds some text to the scene.
-fn add_text<'a>(
-    parent: &'a mut ChildSpawnerCommands,
-    label: &str,
-    font: &Handle<Font>,
-    color: Color,
-) -> EntityCommands<'a> {
-    parent.spawn((
+fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
+    (
         Text::new(label),
         TextFont {
             font: font.clone(),
@@ -328,7 +315,7 @@ fn add_text<'a>(
             ..default()
         },
         TextColor(color),
-    ))
+    )
 }
 
 fn add_camera(commands: &mut Commands, asset_server: &AssetServer, color_grading: ColorGrading) {
