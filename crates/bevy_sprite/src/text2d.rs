@@ -309,7 +309,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, update_text_styles, TextIterScratch};
 
     use super::*;
 
@@ -329,6 +329,7 @@ mod tests {
             .add_systems(
                 Update,
                 (
+                    update_text_styles,
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
