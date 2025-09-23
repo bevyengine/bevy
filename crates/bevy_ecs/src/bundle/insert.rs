@@ -464,6 +464,9 @@ impl BundleInfo {
         {
             return (archetype_after_insert_id, false);
         }
+        let value_components =
+            value_components.to_owned(components, &mut storages.fragmenting_values);
+
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
         let mut new_value_components = HashMap::new();
@@ -510,7 +513,7 @@ impl BundleInfo {
             let component_id = value.component_id();
             if current_archetype
                 .get_value_component(component_id)
-                .is_none_or(|old_value| unsafe { value.as_key() } != old_value)
+                .is_none_or(|old_value| value != old_value)
             {
                 new_value_components.insert(component_id, value);
             }
@@ -520,6 +523,8 @@ impl BundleInfo {
             && new_sparse_set_components.is_empty()
             && new_value_components.is_empty()
         {
+            drop(new_value_components);
+
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
@@ -529,14 +534,14 @@ impl BundleInfo {
                 added_required_components,
                 added,
                 existing,
-                value_components.to_owned(components, &mut storages.fragmenting_values),
+                value_components,
             );
             (archetype_id, false)
         } else {
             let table_id;
             let table_components;
             let sparse_set_components;
-            let value_components: FragmentingValuesOwned;
+            let archetype_value_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -567,24 +572,24 @@ impl BundleInfo {
                     new_sparse_set_components
                 };
 
-                value_components = if new_value_components.is_empty() {
-                    current_archetype
-                        .components_with_fragmenting_values()
-                        .cloned()
-                        .collect()
+                archetype_value_components = if new_value_components.is_empty() {
+                    FragmentingValues::from_sorted(
+                        current_archetype
+                            .components_with_fragmenting_values()
+                            .cloned(),
+                    )
                 } else {
                     current_archetype
                         .components_with_fragmenting_values()
                         .filter(|value| !new_value_components.contains_key(&value.component_id()))
                         .cloned()
-                        .chain(
-                            new_value_components
-                                .values()
-                                .map(|v| v.to_owned(components, &mut storages.fragmenting_values)),
-                        )
+                        .chain(new_value_components.values().map(|v| (*v).clone()))
                         .collect()
                 };
+
+                drop(new_value_components);
             };
+
             // SAFETY: ids in self must be valid
             let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
                 components,
@@ -592,7 +597,7 @@ impl BundleInfo {
                 table_id,
                 table_components,
                 sparse_set_components,
-                value_components.clone(),
+                archetype_value_components,
             );
 
             // Add an edge from the old archetype to the new archetype.
