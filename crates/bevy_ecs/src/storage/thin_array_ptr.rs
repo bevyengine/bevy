@@ -16,6 +16,7 @@ use core::{
 /// memory leaks, [`drop`](Self::drop) must be called when no longer in use.
 ///
 /// [`Vec<T>`]: alloc::vec::Vec
+#[derive(Debug)]
 pub struct ThinArrayPtr<T> {
     data: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -48,6 +49,10 @@ impl<T> ThinArrayPtr<T> {
     }
 
     /// Create a new [`ThinArrayPtr`] with a given capacity. If the `capacity` is 0, this will no allocate any memory.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     #[inline]
     pub fn with_capacity(capacity: usize) -> Self {
         let mut arr = Self::empty();
@@ -61,6 +66,10 @@ impl<T> ThinArrayPtr<T> {
 
     /// Allocate memory for the array, this should only be used if not previous allocation has been made (capacity = 0)
     /// The caller should update their saved `capacity` value to reflect the fact that it was changed
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `usize`
@@ -80,7 +89,8 @@ impl<T> ThinArrayPtr<T> {
     /// Reallocate memory for the array, this should only be used if a previous allocation for this array has been made (capacity > 0).
     ///
     /// # Panics
-    /// - Panics if the new capacity overflows `usize`
+    /// - Panics if the new capacity overflows `isize::MAX` bytes
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Safety
     /// - The current capacity is indeed greater than 0
