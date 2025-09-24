@@ -75,3 +75,28 @@ impl core::ops::Add for BorderRect {
         }
     }
 }
+
+impl core::ops::Sub for BorderRect {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            left: self.left - rhs.left,
+            right: self.right - rhs.right,
+            top: self.top - rhs.top,
+            bottom: self.bottom - rhs.bottom,
+        }
+    }
+}
+
+impl core::ops::Mul<f32> for BorderRect {
+    type Output = Self;
+
+    fn mul(mut self, rhs: f32) -> Self::Output {
+        self.left *= rhs;
+        self.right *= rhs;
+        self.top *= rhs;
+        self.bottom *= rhs;
+        self
+    }
+}
