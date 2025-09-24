@@ -39,6 +39,8 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
+pub use info::AssetServerStats;
+
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
 ///
@@ -515,9 +517,11 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        infos: RwLockWriteGuard<AssetInfos>,
+        mut infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
+        infos.stats.started_load_tasks += 1;
+
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
@@ -552,6 +556,8 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
+        self.data.infos.write().stats.started_load_tasks += 1;
+
         let path: AssetPath = path.into();
         self.load_internal(None, path, false, None)
             .await
@@ -577,14 +583,16 @@ impl AssetServer {
             meta_transform,
         );
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
-
         if !should_load {
             return handle;
         }
         let id = handle.id().untyped();
+
+        infos.stats.started_load_tasks += 1;
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -603,7 +611,7 @@ impl AssetServer {
                         error: err,
                     });
                 }
-            }
+            };
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
@@ -840,6 +848,8 @@ impl AssetServer {
                     .collect::<Vec<_>>();
 
                 for result in requests {
+                    // Count each reload as a started load.
+                    server.data.infos.write().stats.started_load_tasks += 1;
                     match result.await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -848,7 +858,10 @@ impl AssetServer {
 
                 if !reloaded
                     && server.data.infos.read().should_reload(&path)
-                    && let Err(err) = server.load_internal(None, path, true, None).await
+                    && let Err(err) = {
+                        server.data.infos.write().stats.started_load_tasks += 1;
+                        server.load_internal(None, path, true, None).await
+                    }
                 {
                     error!("{}", err);
                 }
@@ -1022,6 +1035,8 @@ impl AssetServer {
             }
             Ok(())
         }
+
+        self.data.infos.write().stats.started_load_tasks += 1;
 
         let path = path.into_owned();
         let server = self.clone();
@@ -1634,6 +1649,11 @@ impl AssetServer {
             .await?;
 
         Ok(())
+    }
+
+    /// Gets the current stats of the asset server.
+    pub fn stats(&self) -> AssetServerStats {
+        self.data.infos.read().stats.clone()
     }
 }
 

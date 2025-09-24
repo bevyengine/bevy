@@ -68,6 +68,26 @@ impl AssetInfo {
     }
 }
 
+/// Tracks statistics of the asset server.
+///
+/// This allows users (and tests) to know about various metrics related to the [`AssetServer`]. This
+/// can be accessed using [`AssetServer::stats`].
+///
+/// [`AssetServer`]: crate::AssetServer
+/// [`AssetServer::stats`]: crate::AssetServer::stats
+#[derive(Default, Clone, PartialEq, Eq)]
+pub struct AssetServerStats {
+    /// The number of load tasks that have been started.
+    pub(crate) started_load_tasks: usize,
+}
+
+impl AssetServerStats {
+    /// Returns the number of load tasks that have been started.
+    pub fn started_load_tasks(&self) -> usize {
+        self.started_load_tasks
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct AssetInfos {
     path_to_id: HashMap<AssetPath<'static>, TypeIdMap<UntypedAssetId>>,
@@ -86,6 +106,8 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, UntypedAssetId, AssetPath<'static>, AssetLoadError)>,
     pub(crate) pending_tasks: HashMap<UntypedAssetId, Task<()>>,
+    /// The stats that have collected during usage of the asset server.
+    pub(crate) stats: AssetServerStats,
 }
 
 impl core::fmt::Debug for AssetInfos {
