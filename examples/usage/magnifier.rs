@@ -1,6 +1,9 @@
 //! Demonstrates zooming part of the screen with SubCameraView
 use bevy::{
-    camera::Viewport, input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow,
+    camera::{SubCameraView, SubViewSourceProjection, Viewport},
+    input::mouse::AccumulatedMouseScroll,
+    prelude::*,
+    window::PrimaryWindow,
 };
 
 #[derive(Component)]
@@ -54,7 +57,9 @@ fn setup(
     let transform = Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Main Camera
-    commands.spawn((Camera3d::default(), IsDefaultUiCamera, transform));
+    let main_camera = commands
+        .spawn((Camera3d::default(), IsDefaultUiCamera, transform))
+        .id();
 
     // Magnifier Camera
     let physical_size = UVec2::new(200, 200);
@@ -68,6 +73,7 @@ fn setup(
             order: 1,
             ..default()
         },
+        SubViewSourceProjection(main_camera),
         ViewportSize(physical_size),
         Magnification(0.25),
         transform,
@@ -117,16 +123,6 @@ fn update_sub_view(
         return;
     };
 
-    // Ensure that the full view of the magnifier camera has the same aspect ratio as the background camera.
-    // This is necessary to ensure that the part of the image covered by the viewport is the same as
-    // the part of the image covered by the sub view.
-    // The viewport covers the part of the image displayed by the background camera at that position in the window,
-    // while the sub view covers the part of the image at the given offset within the camera's full projection.
-    // If the aspect ratios differed, the parts of the image at the same relative (horizontal) offset would be different.
-    if let Some(size) = background_camera.logical_viewport_size() {
-        projection.update(size.x, size.y);
-    }
-
     let viewport = camera.viewport.as_mut().unwrap();
     // Bevy can automatically resize the viewport if the window is shrunk such that the viewport goes offscreen,
     // so we set the viewport size every frame to recover from this possibly happening
@@ -167,13 +163,7 @@ fn update_sub_view(
     let half_size = size / 2.0;
     offset -= half_size;
 
-    // Retrieve and mutate the sub view instead of directly updating its value, so that Bevy's `camera_system`
-    // can manage the aspect ratio parameter for us.
-    let sub_view = camera.sub_camera_view.get_or_insert_default();
-    sub_view.scale = scale;
-    sub_view.offset = offset;
-    // Set the sub view's aspect ratio to Some, so we can manually control the full projection's aspect ratio
-    sub_view.aspect_ratio.get_or_insert_default();
+    camera.sub_camera_view = Some(SubCameraView { scale, offset });
 }
 
 fn update_debug_text(
