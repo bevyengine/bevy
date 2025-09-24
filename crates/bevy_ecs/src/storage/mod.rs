@@ -22,19 +22,18 @@
 
 mod blob_array;
 mod blob_vec;
+mod fragmenting_value;
 mod resource;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
+pub use fragmenting_value::*;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-use crate::{
-    component::{ComponentInfo, StorageType},
-    fragmenting_value::FragmentingValueComponentsStorage,
-};
+use crate::component::{ComponentInfo, StorageType};
 
 /// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]

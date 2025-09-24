@@ -72,8 +72,9 @@ pub use info::*;
 pub use bevy_ecs_macros::Bundle;
 
 use crate::{
-    component::{ComponentId, Components, ComponentsRegistrator, StorageType},
-    fragmenting_value::FragmentingValueBorrowed,
+    component::{
+        ComponentId, Components, ComponentsRegistrator, FragmentingValueBorrowed, StorageType,
+    },
     world::EntityWorldMut,
 };
 use bevy_ptr::OwningPtr;

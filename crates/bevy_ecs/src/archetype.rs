@@ -22,14 +22,11 @@
 use crate::{
     bundle::BundleId,
     component::{
-        ComponentId, Components, FragmentingValueTupleKey, RequiredComponentConstructor,
-        StorageType,
+        ComponentId, Components, FragmentingValue, FragmentingValueBorrowed, FragmentingValues,
+        FragmentingValuesBorrowed, RequiredComponentConstructor, StorageType, TupleKey,
     },
     entity::{Entity, EntityLocation},
     event::Event,
-    fragmenting_value::{
-        FragmentingValue, FragmentingValueBorrowed, FragmentingValues, FragmentingValuesBorrowed,
-    },
     observer::Observers,
     query::DebugCheckedUnwrap,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
@@ -228,7 +225,8 @@ pub struct Edges {
     /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
     /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
     /// point to the same archetype after transition.
-    pub(crate) insert_bundle_fragmenting_components: HashMap<FragmentingValueTupleKey, ArchetypeId>,
+    pub(crate) insert_bundle_fragmenting_components:
+        HashMap<TupleKey<BundleId, FragmentingValues>, ArchetypeId>,
 }
 
 impl Edges {
@@ -247,7 +245,7 @@ impl Edges {
             .and_then(|bundle| bundle.archetype_id)
             .or_else(|| {
                 self.insert_bundle_fragmenting_components
-                    .get(&(bundle_id, unsafe { value_components.as_key() }))
+                    .get(&(bundle_id, unsafe { value_components.as_equivalent() }))
                     .copied()
             })
     }
@@ -286,10 +284,8 @@ impl Edges {
             inserted: added.into(),
         };
         if bundle.archetype_id.is_none() {
-            self.insert_bundle_fragmenting_components.insert(
-                FragmentingValueTupleKey(bundle_id, value_components),
-                archetype_id,
-            );
+            self.insert_bundle_fragmenting_components
+                .insert(TupleKey(bundle_id, value_components), archetype_id);
         }
         self.insert_bundle.insert(bundle_id, bundle);
     }

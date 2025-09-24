@@ -1,13 +1,14 @@
 //! Types for declaring and storing [`Component`]s.
 
 mod clone;
+mod fragmenting_value;
 mod info;
 mod register;
 mod required;
 mod tick;
 
-pub use crate::fragmenting_value::*;
 pub use clone::*;
+pub use fragmenting_value::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;

@@ -6,8 +6,10 @@ use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
-    fragmenting_value::FragmentingValueBorrowed,
+    component::{
+        Component, ComponentId, Components, ComponentsRegistrator, FragmentingValueBorrowed,
+        StorageType,
+    },
     world::EntityWorldMut,
 };
 

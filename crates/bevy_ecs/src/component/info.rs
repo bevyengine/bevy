@@ -15,10 +15,9 @@ use indexmap::IndexSet;
 use crate::{
     archetype::ArchetypeFlags,
     component::{
-        Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
-        RequiredComponents, StorageType,
+        Component, ComponentCloneBehavior, ComponentMutability, FragmentingValueVtable,
+        QueuedComponents, RequiredComponents, StorageType,
     },
-    fragmenting_value::FragmentingValueVtable,
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     resource::Resource,

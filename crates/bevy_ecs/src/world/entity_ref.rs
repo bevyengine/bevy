@@ -4,13 +4,15 @@ use crate::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, FragmentingValuesBorrowed, Mutable,
+        StorageType, Tick,
+    },
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
-    fragmenting_value::FragmentingValuesBorrowed,
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},

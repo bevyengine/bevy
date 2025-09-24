@@ -7,7 +7,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use bevy_ecs::component::Component;
-use bevy_platform::{collections::HashSet, hash::FixedHasher};
+use bevy_platform::hash::FixedHasher;
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     any::TypeId,
@@ -18,51 +18,11 @@ use core::{
 use indexmap::Equivalent;
 
 use crate::{
-    bundle::{Bundle, BundleId},
-    component::{CheckChangeTicks, ComponentId, Components, Immutable},
+    bundle::Bundle,
+    component::{ComponentId, Components, Immutable},
     query::DebugCheckedUnwrap,
+    storage::FragmentingValueComponentsStorage,
 };
-
-#[derive(Default)]
-pub struct FragmentingValueComponentsStorage {
-    existing_values: HashSet<FragmentingValue>,
-}
-
-impl FragmentingValueComponentsStorage {
-    pub fn check_change_ticks(&mut self, _check: CheckChangeTicks) {}
-}
-
-#[derive(Clone)]
-pub struct FragmentingValue {
-    inner: Arc<FragmentingValueInner>,
-}
-
-impl Hash for FragmentingValue {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.component_id().hash(state);
-        state.write_u64(self.inner.data_hash);
-    }
-}
-
-impl PartialEq for FragmentingValue {
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.inner, &other.inner)
-    }
-}
-
-impl Eq for FragmentingValue {}
-
-impl FragmentingValue {
-    #[inline]
-    pub fn component_id(&self) -> ComponentId {
-        self.inner.component_id
-    }
-
-    #[inline]
-    pub fn component_data(&self) -> Ptr<'_> {
-        unsafe { Ptr::new(self.inner.data) }
-    }
-}
 
 pub trait FragmentingValueComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {
     #[inline]
@@ -81,6 +41,58 @@ impl<C> FragmentingValueComponent for C where
 #[derive(Component, PartialEq, Eq, Hash, Clone)]
 #[component(immutable)]
 pub enum NoKey {}
+
+#[derive(Clone)]
+pub struct FragmentingValue {
+    inner: Arc<FragmentingValueInner>,
+}
+
+impl FragmentingValue {
+    #[inline]
+    pub fn component_id(&self) -> ComponentId {
+        self.inner.component_id
+    }
+
+    #[inline]
+    pub fn component_data(&self) -> Ptr<'_> {
+        unsafe { Ptr::new(self.inner.data) }
+    }
+}
+
+impl Hash for FragmentingValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.component_id().hash(state);
+        state.write_u64(self.inner.data_hash);
+    }
+}
+
+impl PartialEq for FragmentingValue {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+struct FragmentingValueInner {
+    component_id: ComponentId,
+    data_hash: u64,
+    data_eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
+    data_drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    data: NonNull<u8>,
+}
+
+unsafe impl Sync for FragmentingValueInner {}
+
+unsafe impl Send for FragmentingValueInner {}
+
+impl Drop for FragmentingValueInner {
+    fn drop(&mut self) {
+        if let Some(drop) = self.data_drop {
+            unsafe { drop(OwningPtr::new(self.data)) }
+        }
+    }
+}
+
+impl Eq for FragmentingValue {}
 
 /// A collection of fragmenting component values and ids.
 /// This collection is sorted internally to allow for order-independent comparison.
@@ -168,10 +180,11 @@ impl<'a> FragmentingValueBorrowed<'a> {
         components: &Components,
         storage: &mut FragmentingValueComponentsStorage,
     ) -> FragmentingValue {
+        let key = unsafe { self.as_equivalent() };
         storage
             .existing_values
-            .get_or_insert_with(unsafe { self.as_key() }, |v| {
-                let info = unsafe { components.get_info_unchecked(v.component_id) };
+            .get_or_insert_with(&key, |_| {
+                let info = unsafe { components.get_info_unchecked(self.component_id()) };
                 let vtable = unsafe { info.value_component_vtable().debug_checked_unwrap() };
                 let layout = info.layout();
                 let data = if layout.size() == 0 {
@@ -179,11 +192,11 @@ impl<'a> FragmentingValueBorrowed<'a> {
                 } else {
                     unsafe { NonNull::new(alloc::alloc::alloc(info.layout())).unwrap() }
                 };
-                (vtable.clone)(v.data, data);
+                (vtable.clone)(self.data, data);
                 FragmentingValue {
                     inner: Arc::new(FragmentingValueInner {
-                        component_id: v.component_id,
-                        data_hash: v.data_hash,
+                        component_id: self.component_id,
+                        data_hash: self.data_hash,
                         data,
                         data_drop: info.drop(),
                         data_eq: vtable.eq,
@@ -194,8 +207,19 @@ impl<'a> FragmentingValueBorrowed<'a> {
     }
 
     #[inline]
-    pub unsafe fn as_key(&self) -> &FragmentingValueBorrowedKey {
-        &*(self as *const FragmentingValueBorrowed as *const FragmentingValueBorrowedKey)
+    pub unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValue> {
+        #[derive(Hash)]
+        pub struct FragmentingValueBorrowedKey<'a>(&'a FragmentingValueBorrowed<'a>);
+
+        impl<'a> Equivalent<FragmentingValue> for FragmentingValueBorrowedKey<'a> {
+            #[inline]
+            fn equivalent(&self, key: &FragmentingValue) -> bool {
+                self.0.component_id() == key.component_id()
+                    && unsafe { (key.inner.data_eq)(self.0.data, key.component_data()) }
+            }
+        }
+
+        FragmentingValueBorrowedKey(self)
     }
 }
 
@@ -263,91 +287,49 @@ impl<'a> FragmentingValuesBorrowed<'a> {
     }
 
     #[inline]
-    pub unsafe fn as_key(&self) -> &FragmentingValuesBorrowedKey {
-        &*(self as *const FragmentingValuesBorrowed as *const FragmentingValuesBorrowedKey)
-    }
-}
+    pub unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValues> {
+        #[derive(Hash)]
+        pub struct FragmentingValuesBorrowedKey<'a>(&'a FragmentingValuesBorrowed<'a>);
 
-#[repr(transparent)]
-#[derive(Hash)]
-pub struct FragmentingValueBorrowedKey<'a>(FragmentingValueBorrowed<'a>);
-
-impl<'a> Deref for FragmentingValueBorrowedKey<'a> {
-    type Target = FragmentingValueBorrowed<'a>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a> Equivalent<FragmentingValue> for FragmentingValueBorrowedKey<'a> {
-    #[inline]
-    fn equivalent(&self, key: &FragmentingValue) -> bool {
-        self == key
-    }
-}
-
-impl<'a> PartialEq<FragmentingValue> for FragmentingValueBorrowedKey<'a> {
-    #[inline]
-    fn eq(&self, other: &FragmentingValue) -> bool {
-        self.component_id() == other.component_id()
-            && unsafe { (other.inner.data_eq)(self.data, other.component_data()) }
-    }
-}
-
-#[repr(transparent)]
-#[derive(Hash)]
-pub struct FragmentingValuesBorrowedKey<'a>(FragmentingValuesBorrowed<'a>);
-
-impl<'a> Deref for FragmentingValuesBorrowedKey<'a> {
-    type Target = FragmentingValuesBorrowed<'a>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<'a> Equivalent<FragmentingValues> for FragmentingValuesBorrowedKey<'a> {
-    #[inline]
-    fn equivalent(&self, key: &FragmentingValues) -> bool {
-        {
-            self.values.len() == key.values.len()
-                && self
-                    .values
-                    .iter()
-                    .zip(key.values.iter())
-                    .all(|(v1, v2)| unsafe { v1.as_key() == v2 })
+        impl<'a> Equivalent<FragmentingValues> for FragmentingValuesBorrowedKey<'a> {
+            #[inline]
+            fn equivalent(&self, key: &FragmentingValues) -> bool {
+                {
+                    self.0.values.len() == key.values.len()
+                        && self
+                            .0
+                            .values
+                            .iter()
+                            .zip(key.values.iter())
+                            .all(|(v1, v2)| unsafe { v1.as_equivalent().equivalent(v2) })
+                }
+            }
         }
+
+        FragmentingValuesBorrowedKey(self)
     }
+}
+
+pub trait AsEquivalent<T: ?Sized>: Hash + Equivalent<T> {}
+
+impl<Q, K> AsEquivalent<K> for Q
+where
+    Q: Hash + Equivalent<K>,
+    K: ?Sized,
+{
 }
 
 #[derive(Hash, Eq, PartialEq)]
-pub(crate) struct FragmentingValueTupleKey(pub BundleId, pub FragmentingValues);
+pub(crate) struct TupleKey<K1, K2>(pub K1, pub K2);
 
-impl<'a> Equivalent<FragmentingValueTupleKey> for (BundleId, &FragmentingValuesBorrowedKey<'a>) {
+impl<Q1, Q2, K1, K2> Equivalent<TupleKey<K1, K2>> for (Q1, Q2)
+where
+    Q1: Equivalent<K1>,
+    Q2: Equivalent<K2>,
+{
     #[inline]
-    fn equivalent(&self, key: &FragmentingValueTupleKey) -> bool {
-        self.0 == key.0 && self.1.equivalent(&key.1)
-    }
-}
-
-struct FragmentingValueInner {
-    component_id: ComponentId,
-    data_hash: u64,
-    data_eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
-    data_drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
-    data: NonNull<u8>,
-}
-
-unsafe impl Sync for FragmentingValueInner {}
-
-unsafe impl Send for FragmentingValueInner {}
-
-impl Drop for FragmentingValueInner {
-    fn drop(&mut self) {
-        if let Some(drop) = self.data_drop {
-            unsafe { drop(OwningPtr::new(self.data)) }
-        }
+    fn equivalent(&self, key: &TupleKey<K1, K2>) -> bool {
+        self.0.equivalent(&key.0) && self.1.equivalent(&key.1)
     }
 }
 
@@ -400,9 +382,11 @@ mod tests {
 
     use crate::{
         archetype::ArchetypeId,
-        component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
+        component::{
+            Component, ComponentCloneBehavior, ComponentDescriptor, FragmentingValueVtable,
+            StorageType,
+        },
         entity::Entity,
-        fragmenting_value::FragmentingValueVtable,
         world::World,
     };
     use alloc::vec::Vec;
