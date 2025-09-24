@@ -66,26 +66,24 @@ impl From<[f32; 4]> for BorderRect {
 impl core::ops::Add for BorderRect {
     type Output = Self;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            left: self.left + rhs.left,
-            right: self.right + rhs.right,
-            top: self.top + rhs.top,
-            bottom: self.bottom + rhs.bottom,
-        }
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self.left += rhs.left;
+        self.right += rhs.right;
+        self.top += rhs.top;
+        self.bottom += rhs.bottom;
+        self
     }
 }
 
 impl core::ops::Sub for BorderRect {
     type Output = Self;
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            left: self.left - rhs.left,
-            right: self.right - rhs.right,
-            top: self.top - rhs.top,
-            bottom: self.bottom - rhs.bottom,
-        }
+    fn sub(mut self, rhs: Self) -> Self::Output {
+        self.left -= rhs.left;
+        self.right -= rhs.right;
+        self.top -= rhs.top;
+        self.bottom -= rhs.bottom;
+        self
     }
 }
 
