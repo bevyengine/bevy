@@ -98,3 +98,15 @@ impl core::ops::Mul<f32> for BorderRect {
         self
     }
 }
+
+impl core::ops::Div<f32> for BorderRect {
+    type Output = Self;
+
+    fn div(mut self, rhs: f32) -> Self::Output {
+        self.left /= rhs;
+        self.right /= rhs;
+        self.top /= rhs;
+        self.bottom /= rhs;
+        self
+    }
+}
