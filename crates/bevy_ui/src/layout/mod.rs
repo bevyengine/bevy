@@ -378,6 +378,7 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
+    use bevy_text::DefaultTextStyle;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -402,6 +403,7 @@ mod tests {
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::CosmicFontSystem>();
         app.init_resource::<bevy_text::SwashCache>();
+        app.init_resource::<DefaultTextStyle>();
 
         app.add_systems(
             PostUpdate,
@@ -1091,11 +1093,9 @@ mod tests {
         let world = app.world_mut();
         world.init_resource::<UiScale>();
         world.init_resource::<UiSurface>();
-
+        world.init_resource::<DefaultTextStyle>();
         world.init_resource::<bevy_text::TextPipeline>();
-
         world.init_resource::<bevy_text::CosmicFontSystem>();
-
         world.init_resource::<bevy_text::SwashCache>();
 
         let ui_root = world
