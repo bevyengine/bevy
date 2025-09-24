@@ -1,12 +1,16 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
-use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
+use bevy_ecs::{
+    message::MessageReader,
+    resource::Resource,
+    system::{Query, ResMut},
+};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::TypePath;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
+use crate::{error::TextError, ComputedTextStyle, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
@@ -250,5 +254,29 @@ impl FontAtlasSet {
             ),
             IVec2::new(left, top),
         ))
+    }
+}
+
+#[derive(Resource)]
+pub struct FontManager {
+    pub max_count: u32,
+    pub least_recently_used: Vec<(AssetId<Font>, FontAtlasKey, u32)>,
+}
+
+pub fn free_unused_font_atlases(
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_manager: ResMut<FontManager>,
+    active_font_query: Query<&ComputedTextStyle>,
+) {
+    let mut active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)> = HashSet::default();
+
+    for style in active_font_query.iter() {
+        active_fonts.insert((
+            style.font.font.id(),
+            FontAtlasKey(
+                (style.font.font_size * style.scale_factor).to_bits(),
+                style.font.font_smoothing,
+            ),
+        ));
     }
 }
