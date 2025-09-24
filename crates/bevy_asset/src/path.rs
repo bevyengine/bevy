@@ -129,7 +129,7 @@ impl<'a> AssetPath<'a> {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
                 None => AssetSourceId::Default,
             },
-            path: CowArc::Borrowed(path).normalize_cow_path(),
+            path: maybe_normalize_path::<'a, _>(CowArc::Borrowed(path)),
             label: label.map(CowArc::Borrowed),
         })
     }
@@ -227,7 +227,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::<'_, Path>::Owned(path_buf.into()).normalize_cow_path(),
+            path: maybe_normalize_path(CowArc::<'_, Path>::Owned(path_buf.into())),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -237,7 +237,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
-            path: CowArc::Borrowed(path).normalize_cow_path(),
+            path: maybe_normalize_path(CowArc::Borrowed(path)),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -346,7 +346,7 @@ impl<'a> AssetPath<'a> {
     pub fn normalized(self) -> AssetPath<'a> {
         AssetPath {
             source: self.source,
-            path: self.path.normalize_cow_path(),
+            path: maybe_normalize_path(self.path),
             label: self.label,
         }
     }
@@ -556,7 +556,7 @@ impl From<&'static str> for AssetPath<'static> {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
             source: source.into(),
-            path: CowArc::Static(path).normalize_cow_path(),
+            path: maybe_normalize_path(CowArc::Static(path)),
             label: label.map(CowArc::Static),
         }
     }
@@ -581,7 +581,7 @@ impl From<&'static Path> for AssetPath<'static> {
     fn from(path: &'static Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Static(path).normalize_cow_path(),
+            path: maybe_normalize_path(CowArc::Static(path)),
             label: None,
         }
     }
@@ -593,7 +593,7 @@ impl From<PathBuf> for AssetPath<'static> {
         let path: CowArc<'_, Path> = path.into();
         Self {
             source: AssetSourceId::Default,
-            path: path.normalize_cow_path(),
+            path: maybe_normalize_path(path),
             label: None,
         }
     }
@@ -705,19 +705,9 @@ pub(crate) fn maybe_normalize_path<'a, P: AsRef<Path> + Into<CowArc<'a, Path>> +
     }
 }
 
-trait NormalizeCowPath {
-    fn normalize_cow_path(self) -> Self;
-}
-
-impl NormalizeCowPath for CowArc<'_, Path> {
-    fn normalize_cow_path(self) -> Self {
-        maybe_normalize_path(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{path::NormalizeCowPath, AssetPath};
+    use crate::{path::maybe_normalize_path, AssetPath};
     use alloc::string::ToString;
     use atomicow::CowArc;
     use std::path::Path;
@@ -727,12 +717,12 @@ mod tests {
         let path: CowArc<Path> = "a/../a/b".into();
 
         assert_eq!(
-            path.normalize_cow_path(),
+            maybe_normalize_path(path),
             CowArc::Owned(Path::new("a/b").into())
         );
 
         let path: CowArc<Path> = "a/b".into();
-        assert_eq!(path.normalize_cow_path(), CowArc::Static(Path::new("a/b")));
+        assert_eq!(maybe_normalize_path(path), CowArc::Static(Path::new("a/b")));
 
         let path = "a/b";
         let donor = 3;
@@ -741,7 +731,7 @@ mod tests {
         }
         let path = CowArc::<Path>::Borrowed(steal_lifetime(&donor, Path::new(path)));
         assert_eq!(
-            path.normalize_cow_path(),
+            maybe_normalize_path(path),
             CowArc::Borrowed(Path::new("a/b"))
         );
     }
