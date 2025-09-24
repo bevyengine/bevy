@@ -1251,8 +1251,7 @@ where
         // !(`a` || `b`)
         match a(input, data) {
             Ok(true) => Ok(false),
-            // a is `(Ok(false) | Err(_))`
-            a => match (a, b(input, data)) {
+            a @ (Ok(false) | Err(_)) => match (a, b(input, data)) {
                 (_, Ok(false) | Err(_)) => Ok(true),
                 // propagate error
                 (Err(e), _) => Err(e),
@@ -1364,7 +1363,7 @@ mod tests {
         message::Message,
         query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::{IntoSystem, Local, Res, System},
+        system::{IntoSystem, Local, System},
         world::World,
     };
     use bevy_ecs_macros::{Resource, SystemSet};
@@ -1504,14 +1503,14 @@ mod tests {
         #[track_caller]
         fn assert_system<Marker>(
             world: &mut World,
-            system: impl crate::system::IntoSystem<(), bool, Marker>,
+            system: impl IntoSystem<(), bool, Marker>,
             equivalent_to: impl FnOnce(&Counter) -> bool,
         ) {
             use crate::system::System;
 
             *world.resource::<Counter>().0.lock().unwrap() = 1;
 
-            let system = crate::system::IntoSystem::into_system(system);
+            let system = IntoSystem::into_system(system);
             let name = system.name();
 
             let out = RunSystemOnce::run_system_once(&mut *world, system).unwrap_or(false);
