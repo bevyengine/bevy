@@ -472,8 +472,8 @@ pub fn validate_parent_has_component<C: Component>(
                 |s| format!("The {s} entity")
             ),
             parent_name = parent_name.map_or_else(
-                || format!("Entity {entity}"),
-                |s| format!("The {s} entity")
+                || format!("{parent} entity"),
+                |s| format!("the {s} entity")
             ),
         );
     }
