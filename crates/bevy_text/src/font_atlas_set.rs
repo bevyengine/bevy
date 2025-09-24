@@ -2,7 +2,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
     message::MessageReader,
     resource::Resource,
-    system::{Query, ResMut},
+    system::{Local, Query, ResMut},
 };
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
@@ -56,7 +56,7 @@ pub fn remove_dropped_font_atlas_sets(
 /// Identifies a font size and smoothing method in a [`FontAtlasSet`].
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 
 /// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.
@@ -69,7 +69,7 @@ pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 /// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
 #[derive(Debug, TypePath)]
 pub struct FontAtlasSet {
-    font_atlases: HashMap<FontAtlasKey, Vec<FontAtlas>>,
+    pub(crate) font_atlases: HashMap<FontAtlasKey, Vec<FontAtlas>>,
 }
 
 impl Default for FontAtlasSet {
@@ -268,17 +268,21 @@ impl FontAtlasSet {
 
 /// manage
 #[derive(Resource)]
-pub struct FontManager {
-    pub max_count: u32,
-    pub least_recently_used: Vec<(AssetId<Font>, FontAtlasKey, u32)>,
+pub struct MaxFonts(usize);
+
+impl Default for MaxFonts {
+    fn default() -> Self {
+        Self(20)
+    }
 }
 
 /// free
 pub fn free_unused_font_atlases(
-    mut last_active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)>,
-    mut active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)>,
+    mut least_recently_used: Local<Vec<(AssetId<Font>, FontAtlasKey)>>,
+    mut last_active_fonts: Local<HashSet<(AssetId<Font>, FontAtlasKey)>>,
+    mut active_fonts: Local<HashSet<(AssetId<Font>, FontAtlasKey)>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_manager: ResMut<FontManager>,
+    max_fonts: ResMut<MaxFonts>,
     active_font_query: Query<&ComputedTextStyle>,
 ) {
     active_fonts.clear();
@@ -293,7 +297,21 @@ pub fn free_unused_font_atlases(
         ));
     }
 
-    let activated = active_fonts.difference(&last_active_fonts);
+    least_recently_used.retain(|font| !active_fonts.contains(font));
 
-    let deactivated = last_active_fonts.difference(&active_fonts);
+    for unused_font in last_active_fonts.difference(&active_fonts) {
+        least_recently_used.push(unused_font.clone());
+    }
+
+    let count = font_atlas_sets.count_fonts();
+    if max_fonts.0 < count {
+        let d = count - max_fonts.0;
+        for (font, key) in least_recently_used.drain(0..d) {
+            if let Some(font_atlas_set) = font_atlas_sets.get_mut(font) {
+                font_atlas_set.font_atlases.remove(&key);
+            }
+        }
+    }
+
+    core::mem::swap(&mut *last_active_fonts, &mut *active_fonts);
 }

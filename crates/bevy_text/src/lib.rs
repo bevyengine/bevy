@@ -99,11 +99,12 @@ impl Plugin for TextPlugin {
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .init_resource::<DefaultTextStyle>()
+            .init_resource::<MaxFonts>()
             .add_systems(
                 PostUpdate,
                 remove_dropped_font_atlas_sets.before(AssetEventSystems),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(Last, (trim_cosmic_cache, free_unused_font_atlases));
 
         #[cfg(feature = "default_font")]
         {
