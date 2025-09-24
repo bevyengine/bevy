@@ -15,6 +15,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
 /// * `px`: logical pixels
 /// * `%`: percentage
+/// * `rem`: relative to the root node's font size
 /// * `vw`: percentage of the viewport width
 /// * `vh`: percentage of the viewport height
 /// * `vmin`: percentage of the viewport's smaller dimension
@@ -46,7 +47,7 @@ pub enum Val {
     /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent node's width.
     /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
     Percent(f32),
-    /// Value relative to the font size of the root element
+    /// Value relative to the font size of the root UI node, or, if not present, the font size of the [`DefaultTextStyle`](`bevy_text::DefaultTextStyle`)
     Rem(f32),
     /// Set this value in percent of the viewport width
     Vw(f32),
@@ -108,6 +109,8 @@ impl core::str::FromStr for Val {
             Ok(Val::Px(value))
         } else if unit.eq_ignore_ascii_case("%") {
             Ok(Val::Percent(value))
+        } else if unit.eq_ignore_ascii_case("rem") {
+            Ok(Val::Rem(value))
         } else if unit.eq_ignore_ascii_case("vw") {
             Ok(Val::Vw(value))
         } else if unit.eq_ignore_ascii_case("vh") {
