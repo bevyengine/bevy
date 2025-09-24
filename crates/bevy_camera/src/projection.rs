@@ -293,7 +293,7 @@ pub struct PerspectiveProjection {
     /// The aspect ratio (width divided by height) of the viewing frustum.
     ///
     /// Bevy's `camera_system` automatically updates this value when the aspect ratio
-    /// of the associated window changes, unless the camera has a sub view set.
+    /// of the associated window changes.
     ///
     /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
