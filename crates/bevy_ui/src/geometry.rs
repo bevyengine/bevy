@@ -1293,7 +1293,7 @@ mod tests {
     }
 
     #[test]
-    fn test_val_constructors_return_correct_variant() {
+    fn val_constructor_fns_return_correct_val_variant() {
         assert_eq!(auto(), Val::Auto);
         assert_eq!(px(0.0), Val::Px(0.0));
         assert_eq!(percent(0.0), Val::Percent(0.0));
