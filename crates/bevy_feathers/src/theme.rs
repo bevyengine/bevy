@@ -1,5 +1,4 @@
 //! A framework for theming.
-use bevy_app::{Propagate, PropagateOver};
 use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -105,7 +104,7 @@ pub struct ThemeBorderColor(pub ThemeToken);
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-#[require(ThemedText, PropagateOver::<TextColor>::default())]
+#[require(ThemedText)]
 pub struct ThemeFontColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
@@ -167,8 +166,6 @@ pub(crate) fn on_changed_font_color(
 ) {
     if let Ok(token) = font_color.get(insert.entity) {
         let color = theme.color(&token.0);
-        commands
-            .entity(insert.entity)
-            .insert(Propagate(TextColor(color)));
+        commands.entity(insert.entity).insert(TextColor(color));
     }
 }

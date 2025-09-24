@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{style::ComputedTextStyle, Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -172,7 +172,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(ComputedTextStyle)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -459,12 +459,12 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<Root>,
-                Changed<TextFont>,
+                Changed<ComputedTextStyle>,
                 Changed<TextLayout>,
                 Changed<Children>,
             )>,
             With<Root>,
-            With<TextFont>,
+            With<ComputedTextStyle>,
             With<TextLayout>,
         ),
     >,
@@ -473,13 +473,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         (
             Or<(
                 Changed<TextSpan>,
-                Changed<TextFont>,
+                Changed<ComputedTextStyle>,
                 Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
-            With<TextFont>,
+            With<ComputedTextStyle>,
         ),
     >,
     mut computed: Query<(

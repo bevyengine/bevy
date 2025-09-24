@@ -19,10 +19,11 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::ComputedTextStyle;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -81,12 +82,11 @@ use core::any::TypeId;
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
-    TextFont,
-    TextColor,
     TextBounds,
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedTextStyle,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -309,7 +309,9 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{
+        detect_text_needs_rerender, update_text_styles, DefaultTextStyle, TextIterScratch,
+    };
 
     use super::*;
 
@@ -326,9 +328,11 @@ mod tests {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 Update,
                 (
+                    update_text_styles,
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,

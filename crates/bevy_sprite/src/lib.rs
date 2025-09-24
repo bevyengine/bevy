@@ -44,6 +44,8 @@ use bevy_camera::{
     visibility::VisibilitySystems,
 };
 use bevy_mesh::{Mesh, Mesh2d};
+#[cfg(feature = "bevy_text")]
+use bevy_text::update_text_styles;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use sprite::*;
@@ -87,6 +89,7 @@ impl Plugin for SpritePlugin {
                 bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
+                    .after(update_text_styles)
                     .after(bevy_text::remove_dropped_font_atlas_sets),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
