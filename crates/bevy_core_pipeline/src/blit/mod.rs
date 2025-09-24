@@ -91,9 +91,34 @@ impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        // TODO: link this to above `BindGroupLayoutEntries` build in `init_blit_pipeline`
+
+        let blit_layout_descriptor : BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
+            label: Some("blit".to_string().into()),
+            entries: vec![
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2, // TODO: Check
+                        multisampled: true, // TODO: Check
+                    },
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+        };
+
+
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: vec![self.layout.clone()],
+            layout: vec![blit_layout_descriptor],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
