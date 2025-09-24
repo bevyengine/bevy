@@ -221,13 +221,8 @@ impl ComputedNode {
 
     /// Returns the combined inset on each edge including both padding and border thickness in physical pixels.
     #[inline]
-    pub const fn content_inset(&self) -> BorderRect {
-        BorderRect {
-            left: self.border.left + self.padding.left,
-            right: self.border.right + self.padding.right,
-            top: self.border.top + self.padding.top,
-            bottom: self.border.bottom + self.padding.bottom,
-        }
+    pub fn content_inset(&self) -> BorderRect {
+        self.border + self.padding
     }
 
     /// Returns the inverse of the scale factor for this node.
