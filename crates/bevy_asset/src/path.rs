@@ -11,10 +11,7 @@ use core::{
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
-use std::{
-    borrow::Cow,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
@@ -668,10 +665,10 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
     not(feature = "file_watcher"),
     expect(dead_code, reason = "used in file_watcher feature")
 )]
-pub(crate) fn normalize_path(path: &Path) -> Cow<'_, Path> {
+pub(crate) fn normalize_path(path: &Path) -> alloc::borrow::Cow<'_, Path> {
     match maybe_normalize_path(path) {
-        Some(pathbuf) => Cow::Owned(pathbuf),
-        None => Cow::Borrowed(path),
+        Some(pathbuf) => alloc::borrow::Cow::Owned(pathbuf),
+        None => alloc::borrow::Cow::Borrowed(path),
     }
 }
 
