@@ -11,7 +11,10 @@ use core::{
     ops::Deref,
 };
 use serde::{de::Visitor, Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    borrow::Cow,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 /// Represents a path to an asset in a "virtual filesystem".
@@ -129,7 +132,7 @@ impl<'a> AssetPath<'a> {
                 Some(source) => AssetSourceId::Name(CowArc::Borrowed(source)),
                 None => AssetSourceId::Default,
             },
-            path: maybe_normalize_path::<'a, _>(CowArc::Borrowed(path)),
+            path: normalize_atomicow_path(CowArc::Borrowed(path)),
             label: label.map(CowArc::Borrowed),
         })
     }
@@ -227,7 +230,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
         AssetPath {
-            path: maybe_normalize_path(CowArc::<'_, Path>::Owned(path_buf.into())),
+            path: normalize_atomicow_path(CowArc::Owned(path_buf.into())),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -237,7 +240,7 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
         AssetPath {
-            path: maybe_normalize_path(CowArc::Borrowed(path)),
+            path: normalize_atomicow_path(CowArc::Borrowed(path)),
             source: AssetSourceId::Default,
             label: None,
         }
@@ -346,7 +349,7 @@ impl<'a> AssetPath<'a> {
     pub fn normalized(self) -> AssetPath<'a> {
         AssetPath {
             source: self.source,
-            path: maybe_normalize_path(self.path),
+            path: normalize_atomicow_path(self.path),
             label: self.label,
         }
     }
@@ -460,14 +463,20 @@ impl<'a> AssetPath<'a> {
                 PathBuf::new()
             };
             result_path.push(rpath);
-            result_path = normalize_path(result_path.as_path());
+
+            // Boxing the result_path into a CowArc<Path> after normalization to
+            // avoid a potential unnecessary allocation.
+            let path: CowArc<Path> = maybe_normalize_path(&result_path).map_or_else(
+                || CowArc::Owned(result_path.into()),
+                |path| CowArc::Owned(path.into()),
+            );
 
             Ok(AssetPath {
                 source: match source {
                     Some(source) => AssetSourceId::Name(CowArc::Owned(source.into())),
                     None => self.source.clone_owned(),
                 },
-                path: CowArc::Owned(result_path.into()),
+                path,
                 label: rlabel.map(|l| CowArc::Owned(l.into())),
             })
         }
@@ -556,7 +565,7 @@ impl From<&'static str> for AssetPath<'static> {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
         AssetPath {
             source: source.into(),
-            path: maybe_normalize_path(CowArc::Static(path)),
+            path: normalize_atomicow_path(CowArc::Static(path)),
             label: label.map(CowArc::Static),
         }
     }
@@ -581,7 +590,7 @@ impl From<&'static Path> for AssetPath<'static> {
     fn from(path: &'static Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: maybe_normalize_path(CowArc::Static(path)),
+            path: normalize_atomicow_path(CowArc::Static(path)),
             label: None,
         }
     }
@@ -593,7 +602,7 @@ impl From<PathBuf> for AssetPath<'static> {
         let path: CowArc<'_, Path> = path.into();
         Self {
             source: AssetSourceId::Default,
-            path: maybe_normalize_path(path),
+            path: normalize_atomicow_path(path),
             label: None,
         }
     }
@@ -655,29 +664,17 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-pub(crate) fn normalize_path(path: &Path) -> PathBuf {
-    let mut result_path = PathBuf::new();
-    for elt in path.iter() {
-        if elt == "." {
-            // Skip
-        } else if elt == ".." {
-            if !result_path.pop() {
-                // Preserve ".." if insufficient matches (per RFC 1808).
-                result_path.push(elt);
-            }
-        } else {
-            result_path.push(elt);
-        }
+pub(crate) fn normalize_path(path: &Path) -> Cow<'_, Path> {
+    match maybe_normalize_path(path) {
+        Some(pathbuf) => Cow::Owned(pathbuf),
+        None => Cow::Borrowed(path),
     }
-    result_path
 }
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
-/// Returns a borrowed path if no normalization was necessary, otherwise returns an owned normalized path.
-pub(crate) fn maybe_normalize_path<'a, P: AsRef<Path> + Into<CowArc<'a, Path>> + 'a>(
-    as_path: P,
-) -> CowArc<'a, Path> {
+/// Returns `None` if no normalization was performed, otherwise returns a normalized `PathBuf`.
+pub(crate) fn maybe_normalize_path<'a, P: AsRef<Path> + 'a>(as_path: P) -> Option<PathBuf> {
     let path = as_path.as_ref();
     let mut result_path: core::cell::OnceCell<PathBuf> = core::cell::OnceCell::new();
     let init = |i: usize| -> PathBuf { path.iter().take(i).collect() };
@@ -699,30 +696,37 @@ pub(crate) fn maybe_normalize_path<'a, P: AsRef<Path> + Into<CowArc<'a, Path>> +
         }
     }
 
-    match result_path.into_inner() {
-        Some(path_buf) => CowArc::Owned(path_buf.into()),
-        None => as_path.into(),
+    result_path.into_inner()
+}
+
+pub(crate) fn normalize_atomicow_path<'a>(path: CowArc<'a, Path>) -> CowArc<'a, Path> {
+    match maybe_normalize_path(&path) {
+        Some(normalized) => CowArc::Owned(normalized.into()),
+        None => path,
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{path::maybe_normalize_path, AssetPath};
+    use crate::{normalize_atomicow_path, AssetPath};
     use alloc::string::ToString;
     use atomicow::CowArc;
     use std::path::Path;
 
     #[test]
     fn normalize_cow_paths() {
-        let path: CowArc<Path> = "a/../a/b".into();
+        let path: CowArc<Path> = Path::new("a/../a/b").into();
 
         assert_eq!(
-            maybe_normalize_path(path),
-            CowArc::Owned(Path::new("a/b").into())
+            normalize_atomicow_path(path),
+            CowArc::<Path>::Owned(Path::new("a/b").into())
         );
 
-        let path: CowArc<Path> = "a/b".into();
-        assert_eq!(maybe_normalize_path(path), CowArc::Static(Path::new("a/b")));
+        let path: CowArc<Path> = Path::new("a/b").into();
+        assert_eq!(
+            normalize_atomicow_path(path),
+            CowArc::Static(Path::new("a/b"))
+        );
 
         let path = "a/b";
         let donor = 3;
@@ -731,7 +735,7 @@ mod tests {
         }
         let path = CowArc::<Path>::Borrowed(steal_lifetime(&donor, Path::new(path)));
         assert_eq!(
-            maybe_normalize_path(path),
+            normalize_atomicow_path(path),
             CowArc::Borrowed(Path::new("a/b"))
         );
     }
