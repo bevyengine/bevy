@@ -3,6 +3,6 @@ title: "`rem` units support"
 authors: ["@Ickshonpe"]
 pull_requests: [21187]
 ---
-The UI now supports `rem` units. `Val::Rem` values are relative to the root UI Node's fontsize, or the default font size, if none is set.
+The UI now supports `rem` units. `Val::Rem` values are relative to the root UI Node's fontsize, or, if none is set, the default font size.
 
 Includes a `rem(val: f32)` helper function.
