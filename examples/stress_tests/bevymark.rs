@@ -14,7 +14,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite_render::AlphaMode2d,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -142,10 +142,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -259,7 +256,7 @@ fn setup(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+                padding: UiRect::all(px(5)),
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),

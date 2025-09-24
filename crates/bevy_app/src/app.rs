@@ -11,8 +11,9 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{event_update_system, EventCursor},
+    event::Event,
     intern::Interned,
+    message::{message_update_system, MessageCursor},
     prelude::*,
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
@@ -76,6 +77,7 @@ pub(crate) enum AppError {
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use]
 pub struct App {
     pub(crate) sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
@@ -119,11 +121,11 @@ impl Default for App {
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
             First,
-            event_update_system
-                .in_set(bevy_ecs::event::EventUpdateSystems)
-                .run_if(bevy_ecs::event::event_update_condition),
+            message_update_system
+                .in_set(bevy_ecs::message::MessageUpdateSystems)
+                .run_if(bevy_ecs::message::message_update_condition),
         );
-        app.add_event::<AppExit>();
+        app.add_message::<AppExit>();
 
         app
     }
@@ -255,11 +257,16 @@ impl App {
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
+        #[cfg(feature = "trace")]
+        let _finish_span = info_span!("plugin finish").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             hokeypokey.finish(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -270,11 +277,16 @@ impl App {
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        #[cfg(feature = "trace")]
+        let _cleanup_span = info_span!("plugin cleanup").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             hokeypokey.cleanup(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -344,10 +356,10 @@ impl App {
         self
     }
 
-    /// Initializes [`BufferedEvent`] handling for `T` by inserting an event queue resource ([`Events::<T>`])
-    /// and scheduling an [`event_update_system`] in [`First`].
+    /// Initializes [`Message`] handling for `T` by inserting an event queue resource ([`Messages::<T>`])
+    /// and scheduling an [`message_update_system`] in [`First`].
     ///
-    /// See [`Events`] for information on how to define events.
+    /// See [`Messages`] for information on how to define events.
     ///
     /// # Examples
     ///
@@ -355,17 +367,39 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(BufferedEvent)]
-    /// # struct MyEvent;
+    /// # #[derive(Message)]
+    /// # struct MyMessage;
     /// # let mut app = App::new();
     /// #
-    /// app.add_event::<MyEvent>();
+    /// app.add_event::<MyMessage>();
     /// ```
+    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        self.main_mut().add_event::<T>();
+        self.add_message::<T>()
+    }
+
+    /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
+    /// and scheduling an [`message_update_system`] in [`First`].
+    ///
+    /// See [`Messages`] for information on how to define messages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Message)]
+    /// # struct MyMessage;
+    /// # let mut app = App::new();
+    /// #
+    /// app.add_message::<MyMessage>();
+    /// ```
+    pub fn add_message<M: Message>(&mut self) -> &mut Self {
+        self.main_mut().add_message::<M>();
         self
     }
 
@@ -480,6 +514,9 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
@@ -1290,14 +1327,14 @@ impl App {
     /// This should be called after every [`update()`](App::update) otherwise you risk
     /// dropping possible [`AppExit`] events.
     pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = EventCursor::default();
+        let mut reader = MessageCursor::default();
 
-        let events = self.world().get_resource::<Events<AppExit>>()?;
-        let mut events = reader.read(events);
+        let messages = self.world().get_resource::<Messages<AppExit>>()?;
+        let mut messages = reader.read(messages);
 
-        if events.len() != 0 {
+        if messages.len() != 0 {
             return Some(
-                events
+                messages
                     .find(|exit| exit.is_error())
                     .cloned()
                     .unwrap_or(AppExit::Success),
@@ -1326,7 +1363,9 @@ impl App {
     /// # };
     /// #
     /// # #[derive(EntityEvent)]
-    /// # struct Invite;
+    /// # struct Invite {
+    /// #    entity: Entity,
+    /// # }
     /// #
     /// # #[derive(Component)]
     /// # struct Friend;
@@ -1334,8 +1373,8 @@ impl App {
     ///
     /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if event.friends_allowed {
-    ///         for friend in friends.iter() {
-    ///             commands.trigger_targets(Invite, friend);
+    ///         for entity in friends.iter() {
+    ///             commands.trigger(Invite { entity } );
     ///         }
     ///     }
     /// });
@@ -1413,17 +1452,17 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// A [`BufferedEvent`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// A [`Message`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
-/// This event can be used to detect when an exit is requested. Make sure that systems listening
-/// for this event run before the current update ends.
+/// This message can be used to detect when an exit is requested. Make sure that systems listening
+/// for this message run before the current update ends.
 ///
 /// # Portability
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1491,8 +1530,8 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, EventWriter, Events},
         lifecycle::RemovedComponents,
+        message::{Message, MessageWriter, Messages},
         query::With,
         resource::Resource,
         schedule::{IntoScheduleConfigs, ScheduleLabel},
@@ -1835,7 +1874,7 @@ mod tests {
 
     #[test]
     fn runner_returns_correct_exit_code() {
-        fn raise_exits(mut exits: EventWriter<AppExit>) {
+        fn raise_exits(mut exits: MessageWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
             exits.write(AppExit::Success);
@@ -1933,38 +1972,38 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(BufferedEvent, Clone)]
-        struct TestEvent;
+        #[derive(Message, Clone)]
+        struct TestMessage;
 
         let mut app = App::new();
-        app.add_event::<TestEvent>();
+        app.add_message::<TestMessage>();
 
         // Starts empty
-        let test_events = app.world().resource::<Events<TestEvent>>();
-        assert_eq!(test_events.len(), 0);
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        let test_messages = app.world().resource::<Messages<TestMessage>>();
+        assert_eq!(test_messages.len(), 0);
+        assert_eq!(test_messages.iter_current_update_messages().count(), 0);
         app.update();
 
         // Sending one event
-        app.world_mut().write_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 1);
-        assert_eq!(test_events.iter_current_update_events().count(), 1);
+        assert_eq!(test_events.iter_current_update_messages().count(), 1);
         app.update();
 
         // Sending two events on the next frame
-        app.world_mut().write_event(TestEvent);
-        app.world_mut().write_event(TestEvent);
+        app.world_mut().write_message(TestMessage);
+        app.world_mut().write_message(TestMessage);
 
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 3); // Events are double-buffered, so we see 1 + 2 = 3
-        assert_eq!(test_events.iter_current_update_events().count(), 2);
+        assert_eq!(test_events.iter_current_update_messages().count(), 2);
         app.update();
 
         // Sending zero events
-        let test_events = app.world().resource::<Events<TestEvent>>();
+        let test_events = app.world().resource::<Messages<TestMessage>>();
         assert_eq!(test_events.len(), 2); // Events are double-buffered, so we see 2 + 0 = 2
-        assert_eq!(test_events.iter_current_update_events().count(), 0);
+        assert_eq!(test_events.iter_current_update_messages().count(), 0);
     }
 }
