@@ -204,7 +204,8 @@ impl Plugin for UiRenderPlugin {
         load_shader_library!(app, "ui.wgsl");
 
         #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
+        app.init_resource::<UiDebugOptions>()
+            .register_type::<UiDebugOptions>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
