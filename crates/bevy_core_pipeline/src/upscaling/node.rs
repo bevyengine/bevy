@@ -1,6 +1,7 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_platform::sync::Mutex;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -9,7 +10,6 @@ use bevy_render::{
     renderer::RenderContext,
     view::ViewTarget,
 };
-use std::sync::Mutex;
 
 #[derive(Default)]
 pub struct UpscalingNode {
@@ -53,7 +53,7 @@ impl ViewNode for UpscalingNode {
         // texture to be upscaled to the output texture
         let main_texture_view = target.main_texture_view();
 
-        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
+        let mut cached_bind_group = self.cached_texture_bind_group.lock();
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {

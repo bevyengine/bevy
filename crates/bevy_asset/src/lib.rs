@@ -727,7 +727,10 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_platform::{
+        collections::{HashMap, HashSet},
+        sync::Mutex,
+    };
     use bevy_reflect::TypePath;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
@@ -823,7 +826,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
+        pub attempt_counters: Arc<Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -858,7 +861,7 @@ mod tests {
         }
         async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
-                let mut attempt_counters = self.attempt_counters.lock().unwrap();
+                let mut attempt_counters = self.attempt_counters.lock();
                 if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing

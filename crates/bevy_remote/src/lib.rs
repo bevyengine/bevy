@@ -526,6 +526,8 @@
 
 extern crate alloc;
 
+use core::mem;
+
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
@@ -536,11 +538,10 @@ use bevy_ecs::{
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, sync::Mutex};
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::RwLock;
 
 pub mod builtin_methods;
 #[cfg(feature = "http")]
@@ -557,7 +558,7 @@ const CHANNEL_SIZE: usize = 16;
 /// [crate-level documentation]: crate
 pub struct RemotePlugin {
     /// The verbs that the server will recognize and respond to.
-    methods: RwLock<Vec<(String, RemoteMethodHandler)>>,
+    methods: Mutex<Vec<(String, RemoteMethodHandler)>>,
 }
 
 impl RemotePlugin {
@@ -565,7 +566,7 @@ impl RemotePlugin {
     /// any associated methods.
     fn empty() -> Self {
         Self {
-            methods: RwLock::new(vec![]),
+            methods: Mutex::new(Vec::new()),
         }
     }
 
@@ -576,7 +577,7 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.methods.get_mut().push((
             name.into(),
             RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
         ));
@@ -590,7 +591,7 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
+        self.methods.get_mut().push((
             name.into(),
             RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
         ));
@@ -680,8 +681,8 @@ impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_methods = RemoteMethods::new();
 
-        let plugin_methods = &mut *self.methods.write().unwrap();
-        for (name, handler) in plugin_methods.drain(..) {
+        // Take the Vec to ensure it's properly deallocated after this function ends.
+        for (name, handler) in mem::take(&mut *self.methods.lock()) {
             remote_methods.insert(
                 name,
                 match handler {

@@ -5,11 +5,7 @@
 //! and make comparisons for any type as fast as integers.
 
 use alloc::{borrow::ToOwned, boxed::Box};
-use bevy_platform::{
-    collections::HashSet,
-    hash::FixedHasher,
-    sync::{PoisonError, RwLock},
-};
+use bevy_platform::{collections::HashSet, hash::FixedHasher, sync::RwLock};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
@@ -140,7 +136,7 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
         {
-            let set = self.0.read().unwrap_or_else(PoisonError::into_inner);
+            let set = self.0.read();
 
             if let Some(value) = set.get(value) {
                 return Interned(*value);
@@ -148,7 +144,7 @@ impl<T: Internable + ?Sized> Interner<T> {
         }
 
         {
-            let mut set = self.0.write().unwrap_or_else(PoisonError::into_inner);
+            let mut set = self.0.write();
 
             if let Some(value) = set.get(value) {
                 Interned(*value)

@@ -1,8 +1,7 @@
-use std::sync::Mutex;
-
 use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
 
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_platform::sync::Mutex;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_asset::RenderAssets,
@@ -67,7 +66,7 @@ impl ViewNode for TonemappingNode {
         let source = post_process.source;
         let destination = post_process.destination;
 
-        let mut last_tonemapping = self.last_tonemapping.lock().unwrap();
+        let mut last_tonemapping = self.last_tonemapping.lock();
 
         let tonemapping_changed = if let Some(last_tonemapping) = &*last_tonemapping {
             tonemapping != last_tonemapping
@@ -78,7 +77,7 @@ impl ViewNode for TonemappingNode {
             *last_tonemapping = Some(*tonemapping);
         }
 
-        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
+        let mut cached_bind_group = self.cached_bind_group.lock();
         let bind_group = match &mut *cached_bind_group {
             Some((buffer_id, texture_id, lut_id, bind_group))
                 if view_uniforms_id == *buffer_id

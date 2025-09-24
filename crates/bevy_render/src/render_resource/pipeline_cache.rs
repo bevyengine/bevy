@@ -11,6 +11,7 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::sync::Mutex;
 use bevy_shader::{
     CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
@@ -18,7 +19,6 @@ use bevy_shader::{
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};
-use std::sync::{Mutex, PoisonError};
 use tracing::error;
 use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
 
@@ -408,10 +408,7 @@ impl PipelineCache {
         &self,
         descriptor: RenderPipelineDescriptor,
     ) -> CachedRenderPipelineId {
-        let mut new_pipelines = self
-            .new_pipelines
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut new_pipelines = self.new_pipelines.lock();
         let id = CachedRenderPipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::RenderPipelineDescriptor(Box::new(descriptor)),
@@ -437,10 +434,7 @@ impl PipelineCache {
         &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
-        let mut new_pipelines = self
-            .new_pipelines
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
+        let mut new_pipelines = self.new_pipelines.lock();
         let id = CachedComputePipelineId(self.pipelines.len() + new_pipelines.len());
         new_pipelines.push(CachedPipeline {
             descriptor: PipelineDescriptor::ComputePipelineDescriptor(Box::new(descriptor)),
@@ -450,7 +444,7 @@ impl PipelineCache {
     }
 
     fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
-        let mut shader_cache = self.shader_cache.lock().unwrap();
+        let mut shader_cache = self.shader_cache.lock();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -459,7 +453,7 @@ impl PipelineCache {
     }
 
     fn remove_shader(&mut self, shader: AssetId<Shader>) {
-        let mut shader_cache = self.shader_cache.lock().unwrap();
+        let mut shader_cache = self.shader_cache.lock();
         let pipelines_to_queue = shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -478,8 +472,8 @@ impl PipelineCache {
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let mut shader_cache = shader_cache.lock();
+                let mut layout_cache = layout_cache.lock();
 
                 let vertex_module = match shader_cache.get(
                     &device,
@@ -589,8 +583,8 @@ impl PipelineCache {
 
         create_pipeline_task(
             async move {
-                let mut shader_cache = shader_cache.lock().unwrap();
-                let mut layout_cache = layout_cache.lock().unwrap();
+                let mut shader_cache = shader_cache.lock();
+                let mut layout_cache = layout_cache.lock();
 
                 let compute_module = match shader_cache.get(
                     &device,
@@ -648,10 +642,7 @@ impl PipelineCache {
         let mut pipelines = mem::take(&mut self.pipelines);
 
         {
-            let mut new_pipelines = self
-                .new_pipelines
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner);
+            let mut new_pipelines = self.new_pipelines.lock();
             for new_pipeline in new_pipelines.drain(..) {
                 let id = pipelines.len();
                 pipelines.push(new_pipeline);
@@ -697,8 +688,7 @@ impl PipelineCache {
 
                 // Shader could not be processed ... retrying won't help
                 PipelineCacheError::ProcessShaderError(err) => {
-                    let error_detail =
-                        err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
+                    let error_detail = err.emit_to_string(&self.shader_cache.lock().composer);
                     if std::env::var("VERBOSE_SHADER_ERROR")
                         .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
