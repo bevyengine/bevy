@@ -11,12 +11,15 @@ use super::ComputedNode;
 use bevy_app::Propagate;
 use bevy_camera::Camera;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     entity::Entity,
+    hierarchy::ChildOf,
     query::Has,
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
 use bevy_sprite::BorderRect;
+use bevy_text::{ComputedTextStyle, DefaultTextStyle, TextColor, TextFont};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -172,6 +175,41 @@ pub fn propagate_ui_target_cameras(
                 scale_factor,
                 physical_size,
             }));
+    }
+}
+
+/// Update the `ComputedTextStyle` for each text node from the
+/// `TextFont`s and `TextColor`s of its nearest ancestors, or from [`DefaultTextStyle`] if none are found.
+pub fn resolve_ui_computed_text_styles(
+    default_text_style: Res<DefaultTextStyle>,
+    mut computed_text_query: Query<(Entity, &mut ComputedTextStyle, &ComputedUiRenderTargetInfo)>,
+    parent_query: Query<&ChildOf>,
+    font_query: Query<(Option<&TextFont>, Option<&TextColor>)>,
+) {
+    for (start, mut style, target_info) in computed_text_query.iter_mut() {
+        let (mut font, mut color) = font_query.get(start).unwrap();
+        let mut ancestors = parent_query.iter_ancestors(start);
+
+        while (font.is_none() || color.is_none())
+            && let Some(ancestor) = ancestors.next()
+        {
+            let (next_font, next_color) = font_query.get(ancestor).unwrap();
+            font = font.or(next_font);
+            color = color.or(next_color);
+        }
+
+        let new_style = ComputedTextStyle {
+            font: font.unwrap_or(&default_text_style.font).clone(),
+            color: color.map(|t| t.0).unwrap_or(default_text_style.color),
+            scale_factor: target_info.scale_factor,
+        };
+
+        if new_style.font != style.font || new_style.scale_factor != style.scale_factor {
+            *style = new_style;
+        } else {
+            // bypass change detection, we don't need to do any updates if only the text color has changed
+            style.bypass_change_detection().color = new_style.color;
+        }
     }
 }
 

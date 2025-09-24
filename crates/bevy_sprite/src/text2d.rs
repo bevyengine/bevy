@@ -7,7 +7,10 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::hierarchy::ChildOf;
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -19,13 +22,13 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::ComputedTextStyle;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextWriter,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
-use bevy_transform::components::Transform;
+use bevy_text::{ComputedTextStyle, DefaultTextStyle};
+use bevy_transform::components::{GlobalTransform, Transform};
 use core::any::TypeId;
 
 /// The top-level 2D text component.
@@ -158,67 +161,27 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &ComputedTextStyle,
     )>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    target_scale_factors.clear();
-    target_scale_factors.extend(
-        camera_query
-            .iter()
-            .filter(|(_, visible_entities, _)| {
-                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
-            })
-            .filter_map(|(camera, _, maybe_camera_mask)| {
-                camera.target_scaling_factor().map(|scale_factor| {
-                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
-                })
-            }),
-    );
-
-    let mut previous_scale_factor = 0.;
-    let mut previous_mask = &RenderLayers::none();
-
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
-    {
-        let entity_mask = maybe_entity_mask.unwrap_or_default();
-
-        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
-            previous_scale_factor
-        } else {
-            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
-            // render targets with different scale factors, then we use the maximum of the scale factors.
-            let Some((scale_factor, mask)) = target_scale_factors
-                .iter()
-                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
-                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
-            else {
-                continue;
-            };
-            previous_scale_factor = *scale_factor;
-            previous_mask = mask;
-            *scale_factor
-        };
-
-        if scale_factor != text_layout_info.scale_factor
+    for (entity, block, bounds, text_layout_info, mut computed, style) in &mut text_query {
+        if style.scale_factor != text_layout_info.scale_factor
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
@@ -227,9 +190,9 @@ pub fn update_text2d_layout(
                 width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
-                    bounds.width.map(|width| width * scale_factor)
+                    bounds.width.map(|width| width * style.scale_factor)
                 },
-                height: bounds.height.map(|height| height * scale_factor),
+                height: bounds.height.map(|height| height * style.scale_factor),
             };
 
             let text_layout_info = text_layout_info.into_inner();
@@ -237,7 +200,7 @@ pub fn update_text2d_layout(
                 text_layout_info,
                 &fonts,
                 text_reader.iter(entity),
-                scale_factor as f64,
+                style.scale_factor as f64,
                 &block,
                 text_bounds,
                 &mut font_atlas_sets,
@@ -256,8 +219,8 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor;
-                    text_layout_info.size *= scale_factor.recip();
+                    text_layout_info.scale_factor = style.scale_factor;
+                    text_layout_info.size *= style.scale_factor.recip();
                 }
             }
         }
@@ -301,6 +264,82 @@ pub fn calculate_bounds_text2d(
     }
 }
 
+/// Update the `ComputedTextStyle` for each `Text2d` entity from the
+/// `TextFont`s and `TextColor`s of its nearest ancestors, or from [`DefaultTextStyle`] if none are found.
+pub fn resolve_2d_computed_text_styles(
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
+    default_text_style: Res<DefaultTextStyle>,
+    mut computed_text_query: Query<
+        (Entity, &mut ComputedTextStyle, Option<&RenderLayers>),
+        With<GlobalTransform>,
+    >,
+    parent_query: Query<&ChildOf>,
+    font_query: Query<(Option<&TextFont>, Option<&TextColor>)>,
+    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
+) {
+    target_scale_factors.clear();
+    target_scale_factors.extend(
+        camera_query
+            .iter()
+            .filter(|(_, visible_entities, _)| {
+                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
+            })
+            .filter_map(|(camera, _, maybe_camera_mask)| {
+                camera.target_scaling_factor().map(|scale_factor| {
+                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
+                })
+            }),
+    );
+
+    let mut previous_scale_factor = 0.;
+    let mut previous_mask = &RenderLayers::none();
+
+    for (start, mut style, maybe_entity_mask) in computed_text_query.iter_mut() {
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
+
+        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
+            previous_scale_factor
+        } else {
+            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+            // render targets with different scale factors, then we use the maximum of the scale factors.
+            let Some((scale_factor, mask)) = target_scale_factors
+                .iter()
+                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
+                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
+            else {
+                continue;
+            };
+            previous_scale_factor = *scale_factor;
+            previous_mask = mask;
+            *scale_factor
+        };
+
+        let (mut font, mut color) = font_query.get(start).unwrap();
+        let mut ancestors = parent_query.iter_ancestors(start);
+
+        while (font.is_none() || color.is_none())
+            && let Some(ancestor) = ancestors.next()
+        {
+            let (next_font, next_color) = font_query.get(ancestor).unwrap();
+            font = font.or(next_font);
+            color = color.or(next_color);
+        }
+
+        let new_style = ComputedTextStyle {
+            font: font.unwrap_or(&default_text_style.font).clone(),
+            color: color.map(|t| t.0).unwrap_or(default_text_style.color),
+            scale_factor,
+        };
+
+        if new_style.font != style.font || new_style.scale_factor != style.scale_factor {
+            *style = new_style;
+        } else {
+            // bypass change detection, we don't need to do any updates if only the text color has changed
+            style.bypass_change_detection().color = new_style.color;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -309,9 +348,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{
-        detect_text_needs_rerender, update_text_styles, DefaultTextStyle, TextIterScratch,
-    };
+    use bevy_text::{detect_text_needs_rerender, DefaultTextStyle, TextIterScratch};
 
     use super::*;
 
@@ -332,7 +369,7 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    update_text_styles,
+                    resolve_2d_computed_text_styles,
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,

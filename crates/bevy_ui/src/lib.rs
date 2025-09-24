@@ -34,7 +34,6 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_text::update_text_styles;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -78,6 +77,8 @@ use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
+
+use crate::update::resolve_ui_computed_text_styles;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -231,6 +232,7 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             (
+                resolve_ui_computed_text_styles,
                 bevy_text::detect_text_needs_rerender::<Text>,
                 widget::measure_text_system,
             )
@@ -253,8 +255,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
-        )
-            .after(update_text_styles),
+        ),
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);
