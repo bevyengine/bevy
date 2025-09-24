@@ -257,18 +257,22 @@ impl FontAtlasSet {
     }
 }
 
+/// manage
 #[derive(Resource)]
 pub struct FontManager {
     pub max_count: u32,
     pub least_recently_used: Vec<(AssetId<Font>, FontAtlasKey, u32)>,
 }
 
+/// free
 pub fn free_unused_font_atlases(
+    mut last_active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)>,
+    mut active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut font_manager: ResMut<FontManager>,
     active_font_query: Query<&ComputedTextStyle>,
 ) {
-    let mut active_fonts: HashSet<(AssetId<Font>, FontAtlasKey)> = HashSet::default();
+    active_fonts.clear();
 
     for style in active_font_query.iter() {
         active_fonts.insert((
@@ -279,4 +283,8 @@ pub fn free_unused_font_atlases(
             ),
         ));
     }
+
+    let activated = active_fonts.difference(&last_active_fonts);
+
+    let deactivated = last_active_fonts.difference(&active_fonts);
 }
