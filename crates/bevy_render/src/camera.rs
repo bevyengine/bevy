@@ -21,7 +21,8 @@ use bevy_camera::{
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
     ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, MsaaWriteback,
-    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, Viewport,
+    NormalizedRenderTarget, Projection, RenderTarget, RenderTargetInfo, SubViewSourceProjection,
+    SubViewsUsingThisProjection, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -40,7 +41,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, AspectRatio, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -312,7 +313,14 @@ pub fn camera_system(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &RenderTarget, &mut Projection)>,
+    mut cameras: Query<(
+        Entity,
+        &mut Camera,
+        &RenderTarget,
+        &mut Projection,
+        Option<&SubViewsUsingThisProjection>,
+        Option<&SubViewSourceProjection>,
+    )>,
 ) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
@@ -333,7 +341,13 @@ pub fn camera_system(
         })
         .collect();
 
-    for (mut camera, render_target, mut camera_projection) in &mut cameras {
+    // This is only used to call `.contains(_)`, but a vec is fine instead of a hashset because the number of cameras will be
+    // very small
+    let mut has_sub_view_source = Vec::new();
+
+    for (entity, mut camera, render_target, mut camera_projection, sub_views, has_source) in
+        &mut cameras
+    {
         let mut viewport_size = camera
             .viewport
             .as_ref()
@@ -381,20 +395,26 @@ pub fn camera_system(
                 && size.x != 0.0
                 && size.y != 0.0
             {
-                camera.computed.clip_from_view = match &mut camera.sub_camera_view {
-                    Some(sub_view) => {
-                        if sub_view.aspect_ratio.is_some() {
-                            sub_view.update_aspect_ratio(size.x, size.y);
-                        } else {
-                            camera_projection.update(size.x, size.y);
+                camera_projection.update(size.x, size.y);
+                if has_source.is_none() {
+                    // This camera is using its own projection
+                    camera.computed.clip_from_view = match &mut camera.sub_camera_view {
+                        Some(sub_view) => {
+                            camera_projection.get_clip_from_view_for_sub(sub_view, None)
                         }
-                        camera_projection.get_clip_from_view_for_sub(sub_view)
-                    }
-                    None => {
-                        camera_projection.update(size.x, size.y);
-                        camera_projection.get_clip_from_view()
+                        None => camera_projection.get_clip_from_view(),
                     }
                 }
+            }
+
+            if let Some(sub_views) = sub_views {
+                // This camera changed, queue dependent cameras to be updated as well
+                has_sub_view_source.extend(sub_views.get_entities());
+            }
+
+            if has_source.is_some() {
+                // This is a dependent camera, queue it to be updated
+                has_sub_view_source.push(entity);
             }
         }
 
@@ -406,6 +426,49 @@ pub fn camera_system(
             camera.computed.old_sub_camera_view = camera.sub_camera_view;
         }
     }
+
+    let mut calculated_things = HashMap::new();
+
+    // Update dependent cameras in a second loop, so that all the cameras that are depended on have already been updated
+    // Doing it like this is also necessary for borrow checker reasons
+    for entity in has_sub_view_source {
+        let Ok((
+            entity,
+            mut camera,
+            render_target,
+            mut camera_projection,
+            sub_views,
+            Some(sub_view_source),
+        )) = cameras.get(entity)
+        else {
+            continue;
+        };
+
+        let Ok((_, _, _, source_projection, Some(_), _)) = cameras.get(sub_view_source.0) else {
+            continue;
+        };
+
+        let Some(sub_view) = &camera.sub_camera_view else {
+            continue;
+        };
+
+        if let Some(size) = camera.logical_viewport_size()
+            && size.x != 0.0
+            && size.y != 0.0
+        {
+            let aspect_ratio = AspectRatio::try_new(size.x, size.y)
+            .expect("Failed to update CameraSubView: width and height must be positive, non-zero values")
+            .ratio();
+            let thing = source_projection.get_clip_from_view_for_sub(sub_view, Some(aspect_ratio));
+            calculated_things.insert(entity, thing);
+        }
+    }
+
+    for (entity, thing) in calculated_things {
+        let (_, mut camera, _, _, _, _) = cameras.get_mut(entity).unwrap();
+        camera.computed.clip_from_view = thing;
+    }
+
     Ok(())
 }
 

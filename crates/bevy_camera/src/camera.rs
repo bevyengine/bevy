@@ -1,4 +1,4 @@
-use crate::primitives::Frustum;
+use crate::{primitives::Frustum, Projection};
 
 use super::{
     visibility::{Visibility, VisibleEntities},
@@ -110,65 +110,45 @@ impl Viewport {
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
-/// Settings to define a camera sub view.
+/// Settings to define a camera sub view. Also called a "sheared frustum".
 ///
-/// When [`Camera::sub_camera_view`] is `Some`, only the sub-section of the
-/// image defined by `size` and `offset` (relative to the `full_size` of the
-/// whole image) is projected to the cameras viewport.
-///
-/// If the aspect ratio of the sub view is different from the aspect ratio of the camera's viewport, the image will be distorted.
-///
-/// Take the example of the following multi-monitor setup:
-/// ```css
-/// ┌───┬───┐
-/// │ A │ B │
-/// ├───┼───┤
-/// │ C │ D │
-/// └───┴───┘
-/// ```
-/// If each monitor is 1920x1080, the whole image will have a resolution of
-/// 3840x2160. For each monitor we can use a single camera with a viewport of
-/// the same size as the monitor it corresponds to. To ensure that the image is
-/// cohesive, we can use a different sub view on each camera:
-/// - Camera A: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,0
-/// - Camera B: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 1920,0
-/// - Camera C: `full_size` = 3840x2160, `size` = 1920x1080, `offset` = 0,1080
-/// - Camera D: `full_size` = 3840x2160, `size` = 1920x1080, `offset` =
-///   1920,1080
-///
-/// However since only the ratio between the values is important, they could all
-/// be divided by 120 and still produce the same image. Camera D would for
-/// example have the following values:
-/// `full_size` = 32x18, `size` = 16x9, `offset` = 16,9
+/// The [`Projection`] component defines a view frustum. This type, when set on a camera, modifies that view frustum.
+/// By default, the projection used is the one on the same entity as the camera. It's possible to use a different projection
+/// as the source for the sub view, by inserting a [`SubViewSourceProjection`] component, which is useful for some more advanced
+/// cases.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
     /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the full view
     pub scale: f32,
-    /// Aspect ratio of the sub view. Automatically updated by Bevy's `camera_system`.
-    /// The width of the sub view will be aspect_ratio * the height of the sub view.
-    /// If `None`, the aspect ratio of the camera's full projection will be used and automatically updated instead.
-    pub aspect_ratio: Option<f32>,
     /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,
-}
-
-impl SubCameraView {
-    pub fn update_aspect_ratio(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = Some(
-             AspectRatio::try_new(width, height)
-            .expect("Failed to update SubCameraView: width and height must be positive, non-zero values")
-            .ratio());
-    }
 }
 
 impl Default for SubCameraView {
     fn default() -> Self {
         Self {
             scale: 1.0,
-            aspect_ratio: None,
             offset: Vec2::ZERO,
         }
+    }
+}
+
+/// Points to an entity with a [`Projection`] component, which will be used to calculate the camera sub view on this entity.
+/// An entity with a sub view, but without this component, will use its own projection.
+#[derive(Component)]
+#[relationship(relationship_target = SubViewsUsingThisProjection)]
+pub struct SubViewSourceProjection(pub Entity);
+
+/// List of all entities with camera sub views, that are calculated from this entity's [`Projection`].
+#[derive(Component)]
+#[require(Projection)]
+#[relationship_target(relationship = SubViewSourceProjection)]
+pub struct SubViewsUsingThisProjection(Vec<Entity>);
+
+impl SubViewsUsingThisProjection {
+    pub fn get_entities(&self) -> impl Iterator<Item = Entity> {
+        self.0.iter().copied()
     }
 }
 

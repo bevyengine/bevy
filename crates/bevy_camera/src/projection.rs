@@ -45,7 +45,11 @@ pub trait CameraProjection {
     fn get_clip_from_view(&self) -> Mat4;
 
     /// Generate the projection matrix for a [`SubCameraView`](super::SubCameraView).
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4;
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4;
 
     /// When the area this camera renders to changes dimensions, this method will be automatically
     /// called. Use this to update any projection properties that depend on the aspect ratio or
@@ -341,7 +345,11 @@ impl CameraProjection for PerspectiveProjection {
         matrix
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4 {
         // let full_width = sub_view.full_size.x as f32;
         // let full_height = sub_view.full_size.y as f32;
         // let sub_width = sub_view.size.x as f32;
@@ -372,9 +380,7 @@ impl CameraProjection for PerspectiveProjection {
         // That is the sub view's aspect ratio if it's set, otherwise the projection's aspect ratio.
         // The rest of the calculations unconditionally use the projection's aspect ratio,
         // to allow manually setting it separately from the viewport's aspect ratio.
-        let sub_width = sub_view
-            .aspect_ratio
-            .map_or(width, |aspect_ratio| height * aspect_ratio);
+        let sub_width = sub_view_aspect_ratio.map_or(width, |aspect_ratio| height * aspect_ratio);
 
         // Calculate the new frustum parameters
         // These are the edges of the near plane rect of the sub view in world units
@@ -659,7 +665,11 @@ impl CameraProjection for OrthographicProjection {
         )
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &super::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4 {
         // let full_width = sub_view.full_size.x as f32;
         // let full_height = sub_view.full_size.y as f32;
         // let offset_x = sub_view.offset.x;
@@ -692,9 +702,8 @@ impl CameraProjection for OrthographicProjection {
         // let scale_w = (right - left) / full_width;
         // let scale_h = (top - bottom) / full_height;
 
-        let sub_width = sub_view
-            .aspect_ratio
-            .map_or(ortho_width, |aspect_ratio| ortho_height * aspect_ratio);
+        let sub_width =
+            sub_view_aspect_ratio.map_or(ortho_width, |aspect_ratio| ortho_height * aspect_ratio);
 
         // Calculate the new orthographic bounds
         let top_prime = top - (ortho_height * offset_y);
