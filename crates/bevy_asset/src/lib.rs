@@ -1609,7 +1609,7 @@ mod tests {
     }
 
     #[test]
-    fn uuid_asset_strong_handle() {
+    fn get_strong_handle_for_uuid_asset() {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
 
