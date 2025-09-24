@@ -311,7 +311,7 @@ mod tests {
             ComputedUiRenderTargetInfo {
                 physical_size,
                 scale_factor,
-                rem
+                rem: rem * scale_factor
             }
         );
     }
@@ -386,11 +386,11 @@ mod tests {
         let world = app.world_mut();
 
         for (uinode, camera, scale_factor, physical_size, rem) in [
-            (uinode1a, camera1, scale1, size1, rem1),
-            (uinode1b, camera1, scale1, size1, rem1),
-            (uinode2a, camera2, scale2, size2, rem2),
-            (uinode2b, camera2, scale2, size2, rem1),
-            (uinode2c, camera2, scale2, size2, rem2),
+            (uinode1a, camera1, scale1, size1, rem1 * scale1),
+            (uinode1b, camera1, scale1, size1, rem1 * scale1),
+            (uinode2a, camera2, scale2, size2, rem2 * scale2),
+            (uinode2b, camera2, scale2, size2, rem1 * scale2),
+            (uinode2c, camera2, scale2, size2, rem2 * scale2),
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
