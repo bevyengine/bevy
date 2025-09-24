@@ -1571,6 +1571,18 @@ category = "Animation"
 wasm = true
 
 [[example]]
+name = "animated_mesh_fbx"
+path = "examples/animation/animated_mesh_fbx.rs"
+required-features = ["fbx"]
+doc-scrape-examples = true
+
+[package.metadata.example.animated_mesh_fbx]
+name = "Animated Mesh FBX"
+description = "Plays an animation on an FBX model of an animated cube"
+category = "Animation"
+wasm = false
+
+[[example]]
 name = "animated_mesh_control"
 path = "examples/animation/animated_mesh_control.rs"
 doc-scrape-examples = true

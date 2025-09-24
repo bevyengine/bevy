@@ -13,6 +13,8 @@ pub enum FbxAssetLabel {
     Material(usize),
     /// `Animation{}`: FBX animation as a Bevy [`AnimationClip`](bevy_animation::AnimationClip)
     Animation(usize),
+    /// `AnimationGraph{}`: Animation graph containing animation clips
+    AnimationGraph(usize),
     /// `AnimationStack{}`: FBX animation stack with multiple layers
     AnimationStack(usize),
     /// `Skeleton{}`: FBX skeleton for skeletal animation
@@ -42,6 +44,7 @@ impl core::fmt::Display for FbxAssetLabel {
             FbxAssetLabel::Mesh(index) => f.write_str(&format!("Mesh{index}")),
             FbxAssetLabel::Material(index) => f.write_str(&format!("Material{index}")),
             FbxAssetLabel::Animation(index) => f.write_str(&format!("Animation{index}")),
+            FbxAssetLabel::AnimationGraph(index) => f.write_str(&format!("AnimationGraph{index}")),
             FbxAssetLabel::AnimationStack(index) => f.write_str(&format!("AnimationStack{index}")),
             FbxAssetLabel::Skeleton(index) => f.write_str(&format!("Skeleton{index}")),
             FbxAssetLabel::Node(index) => f.write_str(&format!("Node{index}")),

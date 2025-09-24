@@ -15,13 +15,14 @@ use bevy_asset::{
     io::Reader, Asset, AssetApp, AssetLoader, Handle, LoadContext, RenderAssetUsages,
 };
 use bevy_ecs::prelude::*;
+use bevy_ecs::prelude::Name;
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_mesh::{Indices, Mesh,Mesh3d, PrimitiveTopology, VertexAttributeValues};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
-use bevy_camera::visibility::Visibility;
+use bevy_camera::{visibility::Visibility, Camera, Camera3d, PerspectiveProjection, Projection};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 use bevy_utils::default;
@@ -32,10 +33,11 @@ use bevy_animation::{
     animated_field,
     animation_curves::{AnimatableCurve, AnimatableKeyframeCurve},
     prelude::AnimatedField,
-    AnimationClip, AnimationTargetId,
+    AnimationClip, AnimationTarget, AnimationTargetId, AnimationPlayer,
+    graph::{AnimationGraph, AnimationGraphHandle},
 };
 use bevy_color::Color;
-use bevy_image::Image;
+use bevy_image::{Image, ImageSamplerDescriptor, ImageSampler, ImageType, CompressedImageFormats, ImageAddressMode};
 use bevy_math::{Affine2, Mat4, Quat, Vec2, Vec3};
 use bevy_render::alpha::AlphaMode;
 use bevy_transform::prelude::*;
@@ -43,68 +45,15 @@ use tracing::info;
 
 mod label;
 pub use label::FbxAssetLabel;
+mod convert_coordinates;
+use convert_coordinates::ConvertCoordinates;
 
 pub mod prelude {
     //! Commonly used items.
     pub use crate::{Fbx, FbxAssetLabel, FbxPlugin};
 }
 
-/// Type of relationship between two objects in the FBX hierarchy.
-#[derive(Debug, Clone)]
-pub enum FbxConnKind {
-    /// Standard parent-child connection.
-    Parent,
-    /// Connection from an object to one of its properties.
-    ObjectProperty,
-    /// Constraint relationship.
-    Constraint,
-}
 
-/// Simplified connection entry extracted from the FBX file.
-#[derive(Debug, Clone)]
-pub struct FbxConnection {
-    /// Source object identifier.
-    pub src: String,
-    /// Destination object identifier.
-    pub dst: String,
-    /// The type of this connection.
-    pub kind: FbxConnKind,
-}
-
-/// Handedness of a coordinate system.
-#[derive(Debug, Clone, Copy)]
-pub enum Handedness {
-    /// Right handed coordinate system.
-    Right,
-    /// Left handed coordinate system.
-    Left,
-}
-
-/// Coordinate axes definition stored in an FBX file.
-#[derive(Debug, Clone, Copy)]
-pub struct FbxAxisSystem {
-    /// Up axis.
-    pub up: Vec3,
-    /// Forward axis.
-    pub front: Vec3,
-    /// Coordinate system handedness.
-    pub handedness: Handedness,
-}
-
-/// Metadata found in the FBX header.
-#[derive(Debug, Clone)]
-pub struct FbxMeta {
-    /// Creator string.
-    pub creator: Option<String>,
-    /// Timestamp when the file was created.
-    pub creation_time: Option<String>,
-    /// Original application that generated the file.
-    pub original_application: Option<String>,
-}
-
-/// Placeholder type for skeleton data.
-#[derive(Asset, Debug, Clone, TypePath)]
-pub struct Skeleton;
 
 /// Types of textures supported in FBX materials.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -125,32 +74,26 @@ pub enum FbxTextureType {
     Height,
 }
 
-/// Texture wrapping modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FbxWrapMode {
-    /// Repeat the texture.
-    Repeat,
-    /// Clamp to edge.
-    Clamp,
+/// Convert FBX wrap mode to Bevy's ImageAddressMode
+fn convert_wrap_mode(wrap: ufbx::WrapMode) -> ImageAddressMode {
+    match wrap {
+        ufbx::WrapMode::Repeat => ImageAddressMode::Repeat,
+        ufbx::WrapMode::Clamp => ImageAddressMode::ClampToEdge,
+    }
 }
 
-/// Texture information from FBX.
-#[derive(Debug, Clone)]
-pub struct FbxTexture {
-    /// Texture name.
-    pub name: String,
-    /// Relative filename.
-    pub filename: String,
-    /// Absolute filename if available.
-    pub absolute_filename: String,
-    /// UV set name.
-    pub uv_set: String,
-    /// UV transformation matrix.
-    pub uv_transform: Affine2,
-    /// U-axis wrapping mode.
-    pub wrap_u: FbxWrapMode,
-    /// V-axis wrapping mode.
-    pub wrap_v: FbxWrapMode,
+/// Create sampler descriptor from FBX texture, using default as base
+fn create_sampler_from_texture(texture: &ufbx::Texture, default: &ImageSamplerDescriptor) -> ImageSamplerDescriptor {
+    let mut sampler = default.clone();
+    
+    // Apply FBX wrap modes
+    sampler.address_mode_u = convert_wrap_mode(texture.wrap_u);
+    sampler.address_mode_v = convert_wrap_mode(texture.wrap_v);
+    
+    // Note: FBX doesn't directly specify filter modes like GLTF does,
+    // so we keep the default filter settings
+    
+    sampler
 }
 
 /// Convert ufbx texture UV transform to Bevy Affine2
@@ -177,92 +120,8 @@ fn convert_texture_uv_transform(texture: &ufbx::Texture) -> Affine2 {
     Affine2::from_scale_angle_translation(scale, rotation_z, translation)
 }
 
-/// Enhanced material representation from FBX.
-#[derive(Debug, Clone)]
-pub struct FbxMaterial {
-    /// Material name.
-    pub name: String,
-    /// Base color (albedo).
-    pub base_color: Color,
-    /// Metallic factor.
-    pub metallic: f32,
-    /// Roughness factor.
-    pub roughness: f32,
-    /// Emission color.
-    pub emission: Color,
-    /// Normal map scale.
-    pub normal_scale: f32,
-    /// Alpha value.
-    pub alpha: f32,
-    /// Alpha cutoff threshold for alpha testing.
-    pub alpha_cutoff: f32,
-    /// Whether this material should be rendered double-sided.
-    pub double_sided: bool,
-    /// Associated textures.
-    pub textures: HashMap<FbxTextureType, FbxTexture>,
-}
-
-/// Types of lights supported in FBX.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FbxLightType {
-    /// Directional light.
-    Directional,
-    /// Point light.
-    Point,
-    /// Spot light with cone.
-    Spot,
-    /// Area light.
-    Area,
-    /// Volume light.
-    Volume,
-}
-
-/// Light definition from FBX.
-#[derive(Debug, Clone)]
-pub struct FbxLight {
-    /// Light name.
-    pub name: String,
-    /// Light type.
-    pub light_type: FbxLightType,
-    /// Light color.
-    pub color: Color,
-    /// Light intensity.
-    pub intensity: f32,
-    /// Whether the light casts shadows.
-    pub cast_shadows: bool,
-    /// Inner cone angle for spot lights (degrees).
-    pub inner_angle: Option<f32>,
-    /// Outer cone angle for spot lights (degrees).
-    pub outer_angle: Option<f32>,
-}
-
-/// Camera projection modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FbxProjectionMode {
-    /// Perspective projection.
-    Perspective,
-    /// Orthographic projection.
-    Orthographic,
-}
-
-/// Camera definition from FBX.
-#[derive(Debug, Clone)]
-pub struct FbxCamera {
-    /// Camera name.
-    pub name: String,
-    /// Projection mode.
-    pub projection_mode: FbxProjectionMode,
-    /// Field of view in degrees.
-    pub field_of_view_deg: f32,
-    /// Aspect ratio.
-    pub aspect_ratio: f32,
-    /// Near clipping plane.
-    pub near_plane: f32,
-    /// Far clipping plane.
-    pub far_plane: f32,
-    /// Focal length in millimeters.
-    pub focal_length_mm: f32,
-}
+// Note: Following bevy_gltf pattern, cameras are converted directly to Bevy's Camera3d components
+// without intermediate FbxCamera structures.
 
 /// An FBX node with all of its child nodes, its mesh, transform, and optional skin.
 #[derive(Asset, Debug, Clone, TypePath)]
@@ -296,65 +155,6 @@ pub struct FbxSkin {
     pub inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
 }
 
-/// Animation stack representing a timeline.
-#[derive(Debug, Clone)]
-pub struct FbxAnimStack {
-    /// Animation stack name.
-    pub name: String,
-    /// Start time in seconds.
-    pub time_begin: f64,
-    /// End time in seconds.
-    pub time_end: f64,
-    /// Animation layers in this stack.
-    pub layers: Vec<FbxAnimLayer>,
-}
-
-/// Animation layer within a stack.
-#[derive(Debug, Clone)]
-pub struct FbxAnimLayer {
-    /// Layer name.
-    pub name: String,
-    /// Layer weight.
-    pub weight: f32,
-    /// Whether this layer is additive.
-    pub additive: bool,
-    /// Property animations in this layer.
-    pub property_animations: Vec<FbxPropertyAnim>,
-}
-
-/// Property animation data.
-#[derive(Debug, Clone)]
-pub struct FbxPropertyAnim {
-    /// Target node ID.
-    pub node_id: u32,
-    /// Property name (e.g., "Lcl Translation", "Lcl Rotation").
-    pub property: String,
-    /// Animation curves for each component.
-    pub curves: Vec<FbxAnimCurve>,
-}
-
-/// Animation curve data.
-#[derive(Debug, Clone)]
-pub struct FbxAnimCurve {
-    /// Keyframe times.
-    pub times: Vec<f64>,
-    /// Keyframe values.
-    pub values: Vec<f32>,
-    /// Interpolation mode.
-    pub interpolation: FbxInterpolation,
-}
-
-/// Animation interpolation modes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FbxInterpolation {
-    /// Constant interpolation.
-    Constant,
-    /// Linear interpolation.
-    Linear,
-    /// Cubic interpolation.
-    Cubic,
-}
-
 /// Representation of a loaded FBX file.
 #[derive(Asset, Debug, TypePath)]
 pub struct Fbx {
@@ -384,12 +184,8 @@ pub struct Fbx {
     pub animations: Vec<Handle<AnimationClip>>,
     /// Named animations loaded from the FBX file.
     pub named_animations: HashMap<Box<str>, Handle<AnimationClip>>,
-    /// Original axis system of the file.
-    pub axis_system: FbxAxisSystem,
-    /// Conversion factor from the original unit to meters.
-    pub unit_scale: f32,
-    /// Copyright, creator and tool information.
-    pub metadata: FbxMeta,
+    // Note: Unlike GLTF, ufbx::Scene is not thread-safe and cannot be stored in an asset.
+    // The include_source setting is kept for API compatibility but has no effect.
 }
 
 /// Errors that may occur while loading an FBX asset.
@@ -449,8 +245,14 @@ pub struct FbxLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for FBX light nodes.
     pub load_lights: bool,
-    /// If true, the loader will include the root of the FBX root node.
+    /// Kept for API compatibility with GltfLoaderSettings. Has no effect as ufbx::Scene is not thread-safe.
     pub include_source: bool,
+    /// Overrides the default sampler for textures. Data from FBX sampler node is added on top of that.
+    ///
+    /// If None, uses linear sampling by default.
+    pub default_sampler: Option<ImageSamplerDescriptor>,
+    /// If true, the loader will ignore sampler data from FBX and use the default sampler.
+    pub override_sampler: bool,
     /// If true, the loader will convert FBX coordinates to Bevy's coordinate system.
     /// - FBX:
     ///   - forward: Z (typically)
@@ -471,6 +273,8 @@ impl Default for FbxLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            default_sampler: None,
+            override_sampler: false,
             convert_coordinates: false,
         }
     }
@@ -479,6 +283,8 @@ impl Default for FbxLoaderSettings {
 /// Loader implementation for FBX files.
 #[derive(Default)]
 pub struct FbxLoader;
+
+impl FbxLoader {}
 
 impl AssetLoader for FbxLoader {
     type Asset = Fbx;
@@ -528,10 +334,13 @@ impl AssetLoader for FbxLoader {
         let mut meshes = Vec::new();
         let mut named_meshes = HashMap::new();
         let mut transforms = Vec::new();
-        let mut scratch: Vec<u32> = Vec::new();
+        let _scratch: Vec<u32> = Vec::new();
         let mut mesh_material_info = Vec::new(); // Store material info for each mesh
+        let mut mesh_node_names = Vec::new(); // Store node names for each mesh to use as animation targets
 
-        for (index, node) in scene.nodes.as_ref().iter().enumerate() {
+        // Only process meshes if settings allow it
+        if !settings.load_meshes.is_empty() {
+            for (index, node) in scene.nodes.as_ref().iter().enumerate() {
             let Some(mesh_ref) = node.mesh.as_ref() else {
                 tracing::info!("Node {} has no mesh", index);
                 continue;
@@ -568,11 +377,19 @@ impl AssetLoader for FbxLoader {
                         "Mesh {} has 0 materials, creating default material group",
                         index
                     );
-                    // For 0-material meshes, create a simple triangle list
+                    // For 0-material meshes, triangulate all faces and put them in default group
                     let mut default_indices = Vec::new();
-                    for i in 0..mesh.num_vertices.min(mesh.vertex_indices.len()) {
-                        default_indices.push(mesh.vertex_indices[i]);
+                    for &face in mesh.faces.as_ref().iter() {
+                        temp_scratch.clear();
+                        ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
+                        for &idx in &temp_scratch {
+                            if (idx as usize) < mesh.vertex_indices.len() {
+                                let v = mesh.vertex_indices[idx as usize];
+                                default_indices.push(v);
+                            }
+                        }
                     }
+                    tracing::info!("Generated {} triangles for default material group", default_indices.len() / 3);
                     temp_material_groups.insert(0, default_indices);
                     return temp_material_groups;
                 }
@@ -643,7 +460,14 @@ impl AssetLoader for FbxLoader {
                             .values
                             .as_ref()
                             .iter()
-                            .map(|v| [v.x as f32, v.y as f32, v.z as f32])
+                            .map(|v| {
+                                let pos = [v.x as f32, v.y as f32, v.z as f32];
+                                if settings.convert_coordinates {
+                                    pos.convert_coordinates()
+                                } else {
+                                    pos
+                                }
+                            })
                             .collect();
 
                         let mut bevy_mesh =
@@ -657,7 +481,12 @@ impl AssetLoader for FbxLoader {
                             let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
                                 .map(|i| {
                                     let n = mesh.vertex_normal[i];
-                                    [n.x as f32, n.y as f32, n.z as f32]
+                                    let normal = [n.x as f32, n.y as f32, n.z as f32];
+                                    if settings.convert_coordinates {
+                                        normal.convert_coordinates()
+                                    } else {
+                                        normal
+                                    }
                                 })
                                 .collect();
                             bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
@@ -759,6 +588,7 @@ impl AssetLoader for FbxLoader {
                     }
                     meshes.push(sub_mesh_handle.clone());
                     transforms.push(node.geometry_to_world);
+                    mesh_node_names.push(node.element.name.to_string());
 
                     // Store material information for this specific sub-mesh
                     let material_name = if *material_idx < mesh.materials.len() {
@@ -779,7 +609,14 @@ impl AssetLoader for FbxLoader {
                             .values
                             .as_ref()
                             .iter()
-                            .map(|v| [v.x as f32, v.y as f32, v.z as f32])
+                            .map(|v| {
+                                let pos = [v.x as f32, v.y as f32, v.z as f32];
+                                if settings.convert_coordinates {
+                                    pos.convert_coordinates()
+                                } else {
+                                    pos
+                                }
+                            })
                             .collect();
 
                         let mut bevy_mesh =
@@ -790,7 +627,12 @@ impl AssetLoader for FbxLoader {
                             let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
                                 .map(|i| {
                                     let n = mesh.vertex_normal[i];
-                                    [n.x as f32, n.y as f32, n.z as f32]
+                                    let normal = [n.x as f32, n.y as f32, n.z as f32];
+                                    if settings.convert_coordinates {
+                                        normal.convert_coordinates()
+                                    } else {
+                                        normal
+                                    }
                                 })
                                 .collect();
                             bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
@@ -819,32 +661,24 @@ impl AssetLoader for FbxLoader {
                 meshes.push(fallback_handle);
                 transforms.push(node.geometry_to_world);
                 mesh_material_info.push(vec!["default".to_string()]);
+                mesh_node_names.push(node.element.name.to_string());
             }
+            } // End of mesh loading check
+        } else {
+            tracing::info!("Skipping mesh loading as load_meshes is empty");
         }
 
         // Process textures and materials
-        let mut fbx_textures = Vec::new();
         let mut texture_handles = HashMap::new();
+
+        // Determine the sampler to use
+        let default_sampler = settings.default_sampler.clone()
+            .unwrap_or_else(|| ImageSamplerDescriptor::linear());
 
         // First pass: collect all textures
         for texture in scene.textures.as_ref().iter() {
-            let fbx_texture = FbxTexture {
-                name: texture.element.name.to_string(),
-                filename: texture.filename.to_string(),
-                absolute_filename: texture.absolute_filename.to_string(),
-                uv_set: texture.uv_set.to_string(),
-                uv_transform: convert_texture_uv_transform(texture),
-                wrap_u: match texture.wrap_u {
-                    ufbx::WrapMode::Repeat => FbxWrapMode::Repeat,
-                    ufbx::WrapMode::Clamp => FbxWrapMode::Clamp,
-                    _ => FbxWrapMode::Clamp,
-                },
-                wrap_v: match texture.wrap_v {
-                    ufbx::WrapMode::Repeat => FbxWrapMode::Repeat,
-                    ufbx::WrapMode::Clamp => FbxWrapMode::Clamp,
-                    _ => FbxWrapMode::Clamp,
-                },
-            };
+            // Following bevy_gltf pattern, we only store texture handles.
+            // Texture metadata like UV transforms are applied directly when creating materials.
 
             // Try to load the texture file
             if !texture.filename.is_empty() {
@@ -862,18 +696,68 @@ impl AssetLoader for FbxLoader {
                         .to_string()
                 };
 
-                // Load texture as Image asset
-                let image_handle: Handle<Image> = load_context.load(texture_path);
+                // Determine sampler for this texture
+                let sampler = if settings.override_sampler {
+                    // Use default sampler, ignoring FBX sampler data
+                    default_sampler.clone()
+                } else {
+                    // Create sampler from FBX texture data with default as base
+                    create_sampler_from_texture(texture, &default_sampler)
+                };
+
+                // Try to load texture file data directly to control sampler
+                let image_handle = if let Ok(data) = std::fs::read(&texture_path) {
+                    // Determine image type from extension
+                    let extension = std::path::Path::new(&texture_path)
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .unwrap_or("");
+                    
+                    let image_type = match extension.to_lowercase().as_str() {
+                        "png" => ImageType::Extension("png"),
+                        "jpg" | "jpeg" => ImageType::Extension("jpg"),
+                        "tga" => ImageType::Extension("tga"),
+                        "bmp" => ImageType::Extension("bmp"),
+                        "dds" => ImageType::Extension("dds"),
+                        "webp" => ImageType::Extension("webp"),
+                        _ => ImageType::Extension(extension),
+                    };
+
+                    // Create image with sampler settings
+                    match Image::from_buffer(
+                        &data,
+                        image_type,
+                        CompressedImageFormats::NONE,
+                        true, // is_srgb for color textures
+                        ImageSampler::Descriptor(sampler),
+                        settings.load_materials,
+                    ) {
+                        Ok(image) => {
+                            // Add as labeled asset
+                            load_context.add_labeled_asset(
+                                format!("Texture{}", texture.element.element_id),
+                                image,
+                            )
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to load texture '{}' with sampler: {}", texture_path, e);
+                            // Fallback to regular loading
+                            load_context.load(texture_path)
+                        }
+                    }
+                } else {
+                    tracing::warn!("Failed to read texture file '{}', using default loader", texture_path);
+                    // Fallback to regular loading
+                    load_context.load(texture_path)
+                };
+                
                 texture_handles.insert(texture.element.element_id, image_handle);
             }
-
-            fbx_textures.push(fbx_texture);
         }
 
         // Convert materials with enhanced PBR support (only if enabled in settings)
         let mut materials = Vec::new();
         let mut named_materials = HashMap::new();
-        let mut fbx_materials = Vec::new();
 
         // Only process materials if settings allow it
         if !settings.load_materials.is_empty() {
@@ -888,7 +772,6 @@ impl AssetLoader for FbxLoader {
                 let mut metallic = 0.0f32;
                 let mut roughness = 0.5f32;
                 let mut emission = Color::BLACK;
-                let mut normal_scale = 1.0f32;
                 let mut alpha = 1.0f32;
                 let mut material_textures = HashMap::new();
 
@@ -906,11 +789,13 @@ impl AssetLoader for FbxLoader {
                 if let Ok(diffuse_color) =
                     std::panic::catch_unwind(|| ufbx_material.fbx.diffuse_color.value_vec4)
                 {
-                    base_color = Color::srgb(
+                    let color = Color::srgb(
                         diffuse_color.x as f32,
                         diffuse_color.y as f32,
                         diffuse_color.z as f32,
                     );
+                    
+                    base_color = color;
                     tracing::info!("Material {} diffuse color: {:?}", index, base_color);
                 } else {
                     tracing::warn!(
@@ -1035,73 +920,31 @@ impl AssetLoader for FbxLoader {
                     }
                 }
 
-                let fbx_material = FbxMaterial {
-                    name: ufbx_material.element.name.to_string(),
-                    base_color,
-                    metallic,
-                    roughness,
-                    emission,
-                    normal_scale,
-                    alpha,
-                    alpha_cutoff,
-                    double_sided,
-                    textures: {
-                        // Convert image handles to FbxTexture structures
-                        let mut fbx_texture_map = HashMap::new();
-                        for (tex_type, image_handle) in material_textures.iter() {
-                            // Find the corresponding FBX texture data for this texture type
-                            for (tex_index, fbx_texture) in fbx_textures.iter().enumerate() {
-                                // Match texture type with FBX texture based on the texture reference
-                                for texture_ref in &ufbx_material.textures {
-                                    let ref_tex_type = match texture_ref.material_prop.as_ref() {
-                                        "DiffuseColor" | "BaseColor" => {
-                                            Some(FbxTextureType::BaseColor)
-                                        }
-                                        "NormalMap" => Some(FbxTextureType::Normal),
-                                        "Metallic" => Some(FbxTextureType::Metallic),
-                                        "Roughness" => Some(FbxTextureType::Roughness),
-                                        "EmissiveColor" => Some(FbxTextureType::Emission),
-                                        "AmbientOcclusion" => {
-                                            Some(FbxTextureType::AmbientOcclusion)
-                                        }
-                                        _ => None,
-                                    };
-
-                                    if ref_tex_type == Some(*tex_type)
-                                        && texture_ref.texture.element.element_id
-                                            == scene.textures[tex_index].element.element_id
-                                    {
-                                        fbx_texture_map.insert(*tex_type, fbx_texture.clone());
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        fbx_texture_map
-                    },
-                };
+                // Note: Following bevy_gltf pattern, we directly create StandardMaterial
+                // without an intermediate FbxMaterial struct.
+                // The unused image_handle loop has been removed as material_textures is used directly below.
 
                 // Create StandardMaterial with enhanced properties
                 let mut standard_material = StandardMaterial {
-                    base_color: fbx_material.base_color,
-                    metallic: fbx_material.metallic,
-                    perceptual_roughness: fbx_material.roughness,
-                    emissive: fbx_material.emission.into(),
-                    alpha_mode: if fbx_material.alpha < 1.0 {
-                        if fbx_material.alpha_cutoff > 0.0 && fbx_material.alpha_cutoff < 1.0 {
-                            AlphaMode::Mask(fbx_material.alpha_cutoff)
+                    base_color,
+                    metallic,
+                    perceptual_roughness: roughness,
+                    emissive: emission.into(),
+                    alpha_mode: if alpha < 1.0 {
+                        if alpha_cutoff > 0.0 && alpha_cutoff < 1.0 {
+                            AlphaMode::Mask(alpha_cutoff)
                         } else {
                             AlphaMode::Blend
                         }
                     } else {
                         AlphaMode::Opaque
                     },
-                    cull_mode: if fbx_material.double_sided {
+                    cull_mode: if double_sided {
                         None // No culling for double-sided materials
                     } else {
                         Some(Face::Back) // Default back-face culling
                     },
-                    double_sided: fbx_material.double_sided,
+                    double_sided,
                     ..Default::default()
                 };
 
@@ -1199,7 +1042,6 @@ impl AssetLoader for FbxLoader {
                     );
                 }
 
-                fbx_materials.push(fbx_material);
                 materials.push(handle);
             }
         } // End of materials loading check
@@ -1386,7 +1228,7 @@ impl AssetLoader for FbxLoader {
 
             // Update the parent node with its children
             if !child_handles.is_empty() {
-                if let Some(parent_handle) = node_map.get(&parent_node.element.element_id) {
+                if let Some(_parent_handle) = node_map.get(&parent_node.element.element_id) {
                     // For now, we store the children info but don't update the actual FbxNode
                     // This will be completed when we have a safer way to modify the assets
                     tracing::info!(
@@ -1434,47 +1276,20 @@ impl AssetLoader for FbxLoader {
         let mut lights_processed = 0;
         if settings.load_lights {
             for light in scene.lights.as_ref().iter() {
-                let light_type = match light.type_ {
-                    ufbx::LightType::Directional => FbxLightType::Directional,
-                    ufbx::LightType::Point => FbxLightType::Point,
-                    ufbx::LightType::Spot => FbxLightType::Spot,
-                    ufbx::LightType::Area => FbxLightType::Area,
-                    ufbx::LightType::Volume => FbxLightType::Volume,
-                };
-
-                let fbx_light = FbxLight {
-                    name: light.element.name.to_string(),
-                    light_type,
-                    color: Color::srgb(
-                        light.color.x as f32,
-                        light.color.y as f32,
-                        light.color.z as f32,
-                    ),
-                    intensity: light.intensity as f32,
-                    cast_shadows: light.cast_shadows,
-                    inner_angle: if light_type == FbxLightType::Spot {
-                        Some(light.inner_angle as f32)
-                    } else {
-                        None
-                    },
-                    outer_angle: if light_type == FbxLightType::Spot {
-                        Some(light.outer_angle as f32)
-                    } else {
-                        None
-                    },
+                // Log light information directly without creating intermediate struct
+                let light_type_str = match light.type_ {
+                    ufbx::LightType::Directional => "directional",
+                    ufbx::LightType::Point => "point",
+                    ufbx::LightType::Spot => "spot",
+                    ufbx::LightType::Area => "area",
+                    ufbx::LightType::Volume => "volume",
                 };
 
                 tracing::info!(
                     "FBX Loader: Found {} light '{}' with intensity {}",
-                    match light_type {
-                        FbxLightType::Directional => "directional",
-                        FbxLightType::Point => "point",
-                        FbxLightType::Spot => "spot",
-                        FbxLightType::Area => "area",
-                        FbxLightType::Volume => "volume",
-                    },
-                    fbx_light.name,
-                    fbx_light.intensity
+                    light_type_str,
+                    light.element.name,
+                    light.intensity
                 );
 
                 lights_processed += 1;
@@ -1515,69 +1330,83 @@ impl AssetLoader for FbxLoader {
                     layer.anim_values.as_ref().len()
                 );
 
-                // Collect animation data by node and property
+                // Process animation curves in this layer using a more robust approach
                 let mut node_animations: HashMap<u32, HashMap<String, Vec<(f32, f32)>>> =
                     HashMap::new();
 
-                for anim_value in layer.anim_values.as_ref().iter() {
-                    // Find the target node for this animation value
-                    if let Some(target_node) = scene
-                        .nodes
-                        .as_ref()
-                        .iter()
-                        .find(|node| node.element.element_id == anim_value.element.element_id)
-                    {
-                        let target_name = if target_node.element.name.is_empty() {
-                            format!("Node_{}", target_node.element.element_id)
+                // Process animation curves using the available ufbx API
+                tracing::info!("FBX Loader: Processing animation curves in layer '{}'", layer.element.name);
+
+                // Fallback: try the original method if no curve nodes were found
+                if node_animations.is_empty() {
+                    tracing::info!("FBX Loader: No animation curve nodes found, trying fallback method");
+                    tracing::info!("FBX Loader: Layer has {} anim_values", layer.anim_values.as_ref().len());
+                    
+                    // Debug: list all scene nodes
+                    for (node_index, node) in scene.nodes.as_ref().iter().enumerate() {
+                        tracing::info!("FBX Loader: Scene node {}: element_id={}, name='{}'", 
+                                       node_index, node.element.element_id, node.element.name);
+                    }
+                    
+                    for (anim_value_index, anim_value) in layer.anim_values.as_ref().iter().enumerate() {
+                        tracing::info!("FBX Loader: Processing anim_value {}: element_id={}, name='{}', curves={}",
+                                       anim_value_index, anim_value.element.element_id, anim_value.element.name, anim_value.curves.as_ref().len());
+                        // For FBX, we need to find which scene node these animation properties belong to
+                        // Since the animation properties don't directly match node IDs, we'll associate them
+                        // with all mesh nodes (nodes that have a mesh attached)
+                        let matching_node = if scene.meshes.as_ref().len() > 0 {
+                            // For now, associate all animation properties with the first mesh node
+                            // This is a simplified approach - in a full implementation, we'd parse FBX connections
+                            scene.nodes.as_ref().iter().find(|node| !node.element.name.is_empty())
                         } else {
-                            target_node.element.name.to_string()
+                            // Fallback to exact element ID match
+                            scene.nodes.as_ref().iter().find(|node| node.element.element_id == anim_value.element.element_id)
                         };
+                        
+                        if let Some(target_node) = matching_node {
+                            tracing::info!("FBX Loader: Found matching node '{}' (element_id={}) for animation property '{}'", 
+                                           target_node.element.name, target_node.element.element_id, anim_value.element.name);
+                            for (curve_index, anim_curve_opt) in
+                                anim_value.curves.as_ref().iter().enumerate()
+                            {
+                                if let Some(anim_curve) = anim_curve_opt.as_ref() {
+                                    if !anim_curve.keyframes.as_ref().is_empty() {
+                                        let keyframes: Vec<(f32, f32)> = anim_curve
+                                            .keyframes
+                                            .as_ref()
+                                            .iter()
+                                            .map(|keyframe| {
+                                                (keyframe.time as f32, keyframe.value as f32)
+                                            })
+                                            .collect();
 
-                        tracing::info!(
-                            "FBX Loader: Found animation value '{}' for node '{}'",
-                            anim_value.element.name,
-                            target_name
-                        );
-
-                        // Process animation curves for this value
-                        for (curve_index, anim_curve_opt) in
-                            anim_value.curves.as_ref().iter().enumerate()
-                        {
-                            if let Some(anim_curve) = anim_curve_opt.as_ref() {
-                                if anim_curve.keyframes.as_ref().len() >= 2 {
-                                    // Extract keyframes from the curve
-                                    let keyframes: Vec<(f32, f32)> = anim_curve
-                                        .keyframes
-                                        .as_ref()
-                                        .iter()
-                                        .map(|keyframe| {
-                                            // Convert time from FBX time units to seconds
-                                            let time_seconds = keyframe.time as f32;
-                                            let value = keyframe.value as f32;
-                                            (time_seconds, value)
-                                        })
-                                        .collect();
-
-                                    tracing::info!(
-                                        "FBX Loader: Animation curve {} for value '{}' has {} keyframes",
-                                        curve_index,
-                                        anim_value.element.name,
-                                        keyframes.len()
-                                    );
-
-                                    // Store keyframes by property and component
-                                    let property_key =
-                                        format!("{}_{}", anim_value.element.name, curve_index);
-                                    node_animations
-                                        .entry(target_node.element.element_id)
-                                        .or_insert_with(HashMap::new)
-                                        .insert(property_key, keyframes);
+                                        if keyframes.len() >= 2 {
+                                            let property_key =
+                                                format!("{}_{}", anim_value.element.name, curve_index);
+                                            tracing::info!("FBX Loader: Adding animation curve '{}' with {} keyframes to node {}", 
+                                                           property_key, keyframes.len(), target_node.element.element_id);
+                                            node_animations
+                                                .entry(target_node.element.element_id)
+                                                .or_insert_with(HashMap::new)
+                                                .insert(property_key, keyframes);
+                                        }
+                                    }
                                 }
                             }
+                        } else {
+                            tracing::info!("FBX Loader: No matching node found for animation property '{}' (element_id={})", 
+                                           anim_value.element.name, anim_value.element.element_id);
                         }
                     }
                 }
 
+                // Debug: log the number of animated nodes found
+                tracing::info!("FBX Loader: Found {} animated nodes with curves", node_animations.len());
+                for (node_id, properties) in node_animations.iter() {
+                    tracing::info!("FBX Loader: Node {} has {} animated properties: {:?}", 
+                                   node_id, properties.len(), properties.keys().collect::<Vec<_>>());
+                }
+                
                 // Create animation curves for each animated node
                 for (node_id, properties) in node_animations {
                     if let Some(target_node) = scene
@@ -1586,10 +1415,20 @@ impl AssetLoader for FbxLoader {
                         .iter()
                         .find(|node| node.element.element_id == node_id)
                     {
-                        let target_name = if target_node.element.name.is_empty() {
-                            format!("Node_{}", target_node.element.element_id)
+                        // Find the corresponding mesh index for this node
+                        let target_name = if let Some(mesh_index) = scene
+                            .nodes
+                            .as_ref()
+                            .iter()
+                            .position(|n| n.element.element_id == node_id)
+                        {
+                            if !target_node.element.name.is_empty() {
+                                target_node.element.name.to_string()
+                            } else {
+                                format!("Mesh_{}", mesh_index)
+                            }
                         } else {
-                            target_node.element.name.to_string()
+                            format!("Node_{}", node_id)
                         };
 
                         let node_name = Name::new(target_name.clone());
@@ -1744,11 +1583,57 @@ impl AssetLoader for FbxLoader {
         // Build a scene with all meshes (simplified approach)
         let mut world = World::new();
         let default_material = materials.get(0).cloned().unwrap_or_else(|| {
+            // Create a bright, easily visible default material
+            let mut default_mat = StandardMaterial::default();
+            default_mat.base_color = Color::srgb(0.8, 0.2, 0.2); // Bright red
+            default_mat.metallic = 0.0;
+            default_mat.perceptual_roughness = 0.8;
+            default_mat.cull_mode = None; // Disable backface culling for easier debugging
+            
+            tracing::info!("FBX Loader: Created bright red default material for better visibility");
+            
             load_context.add_labeled_asset(
                 FbxAssetLabel::DefaultMaterial.to_string(),
-                StandardMaterial::default(),
+                default_mat,
             )
         });
+
+        // Create animation player and graph if there are animations
+        let animation_player = if !animations.is_empty() {
+            // Create animation graph with all clips
+            let mut animation_indices = Vec::new();
+            let mut graph = AnimationGraph::new();
+            
+            // Add each animation clip to the graph
+            for (i, animation_handle) in animations.iter().enumerate() {
+                let node_index = graph.add_clip(animation_handle.clone(), 1.0, graph.root);
+                animation_indices.push(node_index);
+                tracing::info!("Added animation {} to graph with index {:?}", i, node_index);
+            }
+            
+            // Store the animation graph as an asset
+            let graph_handle = load_context.add_labeled_asset(
+                FbxAssetLabel::AnimationGraph(0).to_string(),
+                graph,
+            );
+            
+            let mut player = AnimationPlayer::default();
+            // Auto-play the first animation
+            if let Some(&first_node_index) = animation_indices.first() {
+                player.play(first_node_index).repeat();
+                tracing::info!("Auto-playing first animation with node index {:?}", first_node_index);
+            }
+            
+            let player_entity = world.spawn((
+                player,
+                AnimationGraphHandle(graph_handle.clone()),
+            )).id();
+            
+            tracing::info!("FBX Loader: Created animation player for {} animations", animations.len());
+            Some(player_entity)
+        } else {
+            None
+        };
 
         tracing::info!(
             "FBX Loader: Found {} meshes, {} nodes",
@@ -1757,10 +1642,11 @@ impl AssetLoader for FbxLoader {
         );
 
         // Spawn all meshes with their original transforms and correct materials
-        for (mesh_index, ((mesh_handle, transform_matrix), mesh_mat_names)) in meshes
+        for (mesh_index, (((mesh_handle, transform_matrix), mesh_mat_names), node_name)) in meshes
             .iter()
             .zip(transforms.iter())
             .zip(mesh_material_info.iter())
+            .zip(mesh_node_names.iter())
             .enumerate()
         {
             let transform = Transform::from_matrix(Mat4::from_cols_array(&[
@@ -1781,6 +1667,8 @@ impl AssetLoader for FbxLoader {
                 transform_matrix.m23 as f32,
                 1.0,
             ]));
+
+            // Keep original scale - no automatic scaling
 
             // Find the appropriate material for this mesh using stored material info
             tracing::info!(
@@ -1842,13 +1730,40 @@ impl AssetLoader for FbxLoader {
                 transform
             );
 
-            world.spawn((
+            // Create a name for this mesh entity that animation can target
+            let mesh_name = if !node_name.is_empty() {
+                node_name.clone()
+            } else {
+                format!("Mesh_{}", mesh_index)
+            };
+
+            let mut entity = world.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_to_use),
                 transform,
                 GlobalTransform::default(),
                 Visibility::default(),
+                Name::new(mesh_name.clone()),
             ));
+
+            // Log detailed spawn information for debugging
+            tracing::info!(
+                "FBX Loader: Spawned entity with position {:?}, rotation {:?}, scale {:?}",
+                transform.translation,
+                transform.rotation,
+                transform.scale
+            );
+
+            // Add animation target if there are animations and an animation player
+            if !animations.is_empty() && animation_player.is_some() {
+                // Use the node name as the animation target - this must match what's used in animation curves
+                let name_component = Name::new(mesh_name.clone());
+                entity.insert(AnimationTarget {
+                    id: AnimationTargetId::from_names(std::iter::once(&name_component)),
+                    player: animation_player.unwrap(),
+                });
+                tracing::info!("FBX Loader: Added animation target '{}' (id from names: ['{}']) to mesh {}", mesh_name, mesh_name, mesh_index);
+            }
         }
 
         // Spawn lights from the FBX scene (only if enabled in settings)
@@ -1971,6 +1886,85 @@ impl AssetLoader for FbxLoader {
             tracing::info!("FBX Loader: Spawned {} lights in scene", lights_spawned);
         } // End of lights spawning check
 
+        // Spawn cameras from the FBX scene (only if enabled in settings)
+        let mut cameras_spawned = 0;
+        if settings.load_cameras {
+            for camera in scene.cameras.as_ref().iter() {
+                // Find the node that contains this camera
+                if let Some(camera_node) = scene.nodes.as_ref().iter().find(|node| {
+                    node.camera.is_some()
+                        && node.camera.as_ref().unwrap().element.element_id
+                            == camera.element.element_id
+                }) {
+                    let transform = Transform::from_matrix(Mat4::from_cols_array(&[
+                        camera_node.node_to_world.m00 as f32,
+                        camera_node.node_to_world.m10 as f32,
+                        camera_node.node_to_world.m20 as f32,
+                        0.0,
+                        camera_node.node_to_world.m01 as f32,
+                        camera_node.node_to_world.m11 as f32,
+                        camera_node.node_to_world.m21 as f32,
+                        0.0,
+                        camera_node.node_to_world.m02 as f32,
+                        camera_node.node_to_world.m12 as f32,
+                        camera_node.node_to_world.m22 as f32,
+                        0.0,
+                        camera_node.node_to_world.m03 as f32,
+                        camera_node.node_to_world.m13 as f32,
+                        camera_node.node_to_world.m23 as f32,
+                        1.0,
+                    ]));
+
+                    // Create projection based on camera type
+                    let projection = match camera.projection_mode {
+                        ufbx::ProjectionMode::Perspective => {
+                            let mut perspective = PerspectiveProjection::default();
+                            // Use Y field of view (in degrees) and convert to radians
+                            perspective.fov = camera.field_of_view_deg.y.to_radians() as f32;
+                            perspective.near = camera.near_plane as f32;
+                            perspective.far = camera.far_plane as f32;
+                            if camera.aspect_ratio > 0.0 {
+                                perspective.aspect_ratio = camera.aspect_ratio as f32;
+                            }
+                            Projection::Perspective(perspective)
+                        }
+                        ufbx::ProjectionMode::Orthographic => {
+                            // For orthographic, we need OrthographicProjection
+                            // But we'll use perspective for now as OrthographicProjection needs different setup
+                            let mut perspective = PerspectiveProjection::default();
+                            perspective.near = camera.near_plane as f32;
+                            perspective.far = camera.far_plane as f32;
+                            Projection::Perspective(perspective)
+                        }
+                    };
+
+                    tracing::info!(
+                        "FBX Loader: Spawning camera '{}' ({})",
+                        camera.element.name,
+                        match camera.projection_mode {
+                            ufbx::ProjectionMode::Perspective => "perspective",
+                            ufbx::ProjectionMode::Orthographic => "orthographic (using perspective fallback)",
+                        }
+                    );
+
+                    world.spawn((
+                        Camera3d::default(),
+                        projection,
+                        transform,
+                        GlobalTransform::default(),
+                        Camera {
+                            is_active: cameras_spawned == 0, // First camera is active
+                            ..Default::default()
+                        },
+                        Visibility::default(),
+                    ));
+                    cameras_spawned += 1;
+                }
+            }
+
+            tracing::info!("FBX Loader: Spawned {} cameras in scene", cameras_spawned);
+        } // End of cameras spawning check
+
         let scene_handle =
             load_context.add_labeled_asset(FbxAssetLabel::Scene(0).to_string(), Scene::new(world));
         scenes.push(scene_handle.clone());
@@ -1989,20 +1983,6 @@ impl AssetLoader for FbxLoader {
             default_scene: Some(scene_handle),
             animations,
             named_animations,
-            // Note: Using default axis system (matches Bevy's coordinate system)
-            axis_system: FbxAxisSystem {
-                up: Vec3::Y,
-                front: Vec3::Z,
-                handedness: Handedness::Right,
-            },
-            // Note: Unit scale is handled by ufbx target_unit_meters setting
-            unit_scale: 1.0,
-            // Note: Metadata extraction not implemented yet
-            metadata: FbxMeta {
-                creator: None,
-                creation_time: None,
-                original_application: None,
-            },
         })
     }
 
@@ -2010,14 +1990,6 @@ impl AssetLoader for FbxLoader {
         &["fbx"]
     }
 }
-
-// Animation functions temporarily removed due to ufbx API compatibility issues
-// TODO: Re-implement animation processing with correct ufbx API usage
-
-// Animation processing functions removed temporarily
-// TODO: Re-implement with correct ufbx API usage
-
-// Animation curve creation functions removed temporarily
 
 /// Plugin adding the FBX loader to an [`App`].
 #[derive(Default)]
@@ -2028,7 +2000,6 @@ impl Plugin for FbxPlugin {
         app.init_asset::<Fbx>()
             .init_asset::<FbxNode>()
             .init_asset::<FbxSkin>()
-            .init_asset::<Skeleton>()
             .register_asset_loader(FbxLoader::default());
     }
 }

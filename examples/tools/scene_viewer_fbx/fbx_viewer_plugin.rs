@@ -3,7 +3,7 @@
 //! - Copy the code for the `FbxViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `FbxSceneHandle` resource into your App's `AssetServer`.
 
-use bevy::{fbx::Fbx, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId};
+use bevy::{fbx::Fbx, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId, animation::{AnimationPlayer, graph::AnimationNodeIndex}};
 
 use std::{f32::consts::*, fmt};
 
@@ -15,6 +15,7 @@ pub struct FbxSceneHandle {
     instance_id: Option<InstanceId>,
     pub is_loaded: bool,
     pub has_light: bool,
+    pub animation_player: Option<Entity>,
 }
 
 impl FbxSceneHandle {
@@ -24,6 +25,7 @@ impl FbxSceneHandle {
             instance_id: None,
             is_loaded: false,
             has_light: false,
+            animation_player: None,
         }
     }
 }
@@ -36,6 +38,9 @@ FBX Scene Controls:
     C           - cycle through the camera controller and any cameras loaded from the scene
     M           - toggle material debug info
     I           - print FBX asset information
+    P           - show animation information
+    N           - cycle through animations
+    R           - show named animations
 "#;
 
 impl fmt::Display for FbxSceneHandle {
@@ -59,6 +64,7 @@ impl Plugin for FbxViewerPlugin {
                     toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
                     toggle_material_debug.run_if(input_just_pressed(KeyCode::KeyM)),
                     print_fbx_info.run_if(input_just_pressed(KeyCode::KeyI)),
+                    handle_animation_controls,
                 ),
             );
     }
@@ -295,5 +301,80 @@ fn camera_tracker(
             "Switched to camera {}",
             camera_tracker.active_index.unwrap_or(0)
         );
+    }
+}
+
+#[derive(Resource, Default)]
+struct AnimationState {
+    current_animation: usize,
+    is_playing: bool,
+}
+
+fn handle_animation_controls(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    scene_handle: Res<FbxSceneHandle>,
+    fbx_assets: Res<Assets<Fbx>>,
+    mut animation_state: Local<AnimationState>,
+    mut animation_players: Query<&mut AnimationPlayer>,
+) {
+    if let Some(fbx) = fbx_assets.get(&scene_handle.fbx_handle) {
+        // Find the animation player in the scene
+        let animation_player = animation_players.iter_mut().next();
+
+        // Play/Pause animation
+        if keyboard_input.just_pressed(KeyCode::KeyP) {
+            if !fbx.animations.is_empty() {
+                if let Some(mut player) = animation_player {
+                    if animation_state.is_playing {
+                        player.pause_all();
+                        animation_state.is_playing = false;
+                        info!("Animation paused");
+                    } else {
+                        // Start the current animation using the new API
+                        if animation_state.current_animation < fbx.animations.len() {
+                            // Get the first node index if available
+                            let first_node_opt = player.playing_animations().next().map(|(&node, _)| node);
+                            if let Some(first_node) = first_node_opt {
+                                player.stop(first_node);
+                            }
+                            // Play first animation - this is a simplified implementation
+                            // Real implementation should store proper AnimationNodeIndex from graph
+                            info!("Playing animation {} - simplified implementation", animation_state.current_animation);
+                            animation_state.is_playing = true;
+                        }
+                    }
+                } else {
+                    info!("FBX contains {} animations but no animation player found in scene", fbx.animations.len());
+                    for (i, animation_handle) in fbx.animations.iter().enumerate() {
+                        info!("  Animation {}: {:?}", i, animation_handle.id());
+                    }
+                }
+            } else {
+                info!("No animations found in FBX file");
+            }
+        }
+
+        // Cycle through animation information
+        if keyboard_input.just_pressed(KeyCode::KeyN) && !fbx.animations.is_empty() {
+            animation_state.current_animation = (animation_state.current_animation + 1) % fbx.animations.len();
+            info!(
+                "Current animation: {}/{} (Handle: {:?})", 
+                animation_state.current_animation + 1, 
+                fbx.animations.len(),
+                fbx.animations[animation_state.current_animation].id()
+            );
+        }
+
+        // List named animations
+        if keyboard_input.just_pressed(KeyCode::KeyR) {
+            if !fbx.named_animations.is_empty() {
+                info!("Named animations:");
+                for (name, handle) in &fbx.named_animations {
+                    info!("  '{}': {:?}", name, handle.id());
+                }
+            } else {
+                info!("No named animations found");
+            }
+        }
     }
 }

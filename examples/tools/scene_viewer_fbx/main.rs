@@ -103,6 +103,30 @@ fn setup_scene_after_load(
         *setup = true;
         // Find an approximate bounding box of the scene from its meshes
         if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
+            // Fallback: Create a camera at a reasonable distance from the origin
+            info!("Some meshes don't have Aabb, using fallback camera position");
+            
+            let mut projection = PerspectiveProjection::default();
+            projection.far = 1000.0;
+
+            let camera_controller = CameraController {
+                walk_speed: 10.0,
+                run_speed: 30.0,
+                ..default()
+            };
+
+            info!("Spawning fallback controllable 3D perspective camera");
+            info!("{}", camera_controller);
+            info!("{}", *scene_handle);
+
+            commands.spawn((
+                Camera3d::default(),
+                Projection::from(projection),
+                Transform::from_translation(Vec3::new(10.0, 10.0, 10.0))
+                    .looking_at(Vec3::ZERO, Vec3::Y),
+                camera_controller,
+            ));
+            
             return;
         }
 
