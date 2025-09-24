@@ -664,6 +664,10 @@ impl<'de> Visitor<'de> for AssetPathVisitor {
 
 /// Normalizes the path by collapsing all occurrences of '.' and '..' dot-segments where possible
 /// as per [RFC 1808](https://datatracker.ietf.org/doc/html/rfc1808)
+#[cfg_attr(
+    not(feature = "file_watcher"),
+    expect(dead_code, reason = "used in file_watcher feature")
+)]
 pub(crate) fn normalize_path(path: &Path) -> Cow<'_, Path> {
     match maybe_normalize_path(path) {
         Some(pathbuf) => Cow::Owned(pathbuf),
