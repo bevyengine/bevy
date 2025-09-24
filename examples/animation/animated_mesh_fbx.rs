@@ -2,10 +2,12 @@
 
 use std::f32::consts::PI;
 
-use bevy::{light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady, fbx::FbxAssetLabel};
+use bevy::{
+    fbx::FbxAssetLabel, light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady,
+};
 
 // An example FBX asset that contains a mesh and animation.
-const FBX_PATH: &str = "models/animated/cube_anim.fbx";
+const FBX_PATH: &str = "models/cube_anim.fbx";
 
 fn main() {
     App::new()
@@ -17,7 +19,6 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
-        .add_systems(Update, debug_animation_status)
         .run();
 }
 
@@ -56,8 +57,13 @@ fn setup_mesh_and_animation(
 
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.
+    // Spawn the scene root and scale it up so it is clearly visible
     commands
-        .spawn((animation_to_play, mesh_scene))
+        .spawn((
+            animation_to_play,
+            mesh_scene,
+            Transform::from_scale(Vec3::splat(12.0)),
+        ))
         .observe(play_animation_when_ready);
 }
 
@@ -70,12 +76,12 @@ fn play_animation_when_ready(
 ) {
     // The entity we spawned in `setup_mesh_and_animation` is the trigger's target.
     // Start by finding the AnimationToPlay component we added to that entity.
-    if let Ok(animation_to_play) = animations_to_play.get(event.entity()) {
+    if let Ok(animation_to_play) = animations_to_play.get(event.entity) {
         // The SceneRoot component will have spawned the scene as a hierarchy
         // of entities parented to our entity. Since the FBX contained a mesh
         // and animations, it should have spawned an animation player component.
         // Search our entity's descendants to find the animation player.
-        for child in children.iter_descendants(event.entity()) {
+        for child in children.iter_descendants(event.entity) {
             if let Ok(mut player) = players.get_mut(child) {
                 // Tell the animation player to start the animation and keep
                 // repeating it.
@@ -91,39 +97,16 @@ fn play_animation_when_ready(
     }
 }
 
-fn debug_animation_status(
-    time: Res<Time>,
-    players: Query<(&AnimationPlayer, Entity, Option<&Name>)>,
-    meshes: Query<(&Transform, Entity, Option<&Name>), With<Mesh3d>>,
-) {
-    // Print status every second after 1 second has passed
-    if time.elapsed_secs() > 1.0 && time.elapsed_secs() as u32 % 1 == 0 && time.delta_secs() < 0.1 {
-        info!("=== ANIMATION DEBUG at t={:.1}s ===", time.elapsed_secs());
-        
-        for (player, entity, name) in players.iter() {
-            let name_str = name.map(|n| n.as_str()).unwrap_or("unnamed");
-            info!("AnimationPlayer at {:?} ({}): paused={}", 
-                  entity, name_str, player.all_paused());
-        }
-        
-        for (transform, entity, name) in meshes.iter() {
-            let name_str = name.map(|n| n.as_str()).unwrap_or("unnamed");
-            info!("Mesh at {:?} ({}): pos={:?}, rot={:?}, scale={:?}", 
-                  entity, name_str, transform.translation, transform.rotation, transform.scale);
-        }
-    }
-}
-
 // Spawn a camera and a simple environment with a ground plane and light.
 fn setup_camera_and_environment(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Camera - positioned to view the animated FBX cube
+    // Camera — point towards origin where the scene spawns
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-50.0, 20.0, 50.0).looking_at(Vec3::new(-50.0, 0.0, 0.0), Vec3::Y),
+        Transform::from_xyz(1.0, 1.0, 1.6).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Ground plane

@@ -15,6 +15,7 @@ use bevy_asset::{
     io::Reader, Asset, AssetApp, AssetLoader, Handle, LoadContext, RenderAssetUsages,
 };
 use bevy_ecs::prelude::*;
+use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Name;
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
 use bevy_mesh::{Indices, Mesh,Mesh3d, PrimitiveTopology, VertexAttributeValues};
@@ -22,7 +23,10 @@ use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
-use bevy_camera::{visibility::Visibility, Camera, Camera3d, PerspectiveProjection, Projection};
+use bevy_camera::{
+    visibility::Visibility, Camera, Camera3d, PerspectiveProjection, Projection,
+    OrthographicProjection, ScalingMode,
+};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 use bevy_utils::default;
@@ -100,24 +104,19 @@ fn create_sampler_from_texture(texture: &ufbx::Texture, default: &ImageSamplerDe
 /// This function properly handles UV coordinate transformations including
 /// scale, rotation, and translation operations commonly found in FBX files.
 fn convert_texture_uv_transform(texture: &ufbx::Texture) -> Affine2 {
-    // Extract UV transformation parameters from ufbx texture
-    let translation = Vec2::new(
-        texture.uv_transform.translation.x as f32,
-        texture.uv_transform.translation.y as f32,
-    );
+    // Prefer using the precomputed UV->Texture matrix from ufbx to match DCC behavior.
+    // `uv_to_texture` maps mesh UVs into texture sampling UVs, which is exactly what Bevy expects
+    // for `StandardMaterial::uv_transform` (multiplied on the left side in shader).
+    let m = &texture.uv_to_texture;
 
-    let scale = Vec2::new(
-        texture.uv_transform.scale.x as f32,
-        texture.uv_transform.scale.y as f32,
-    );
+    // Build a 2D affine from the 3x4 matrix: take the upper-left 2x2 and XY translation
+    let mat2 = bevy_math::Mat2::from_cols_array(&[
+        m.m00 as f32, m.m10 as f32,
+        m.m01 as f32, m.m11 as f32,
+    ]);
+    let translation = Vec2::new(m.m03 as f32, m.m13 as f32);
 
-    // Extract rotation around Z axis for UV coordinates
-    let rotation_z = texture.uv_transform.rotation.z as f32;
-
-    // Create 2D affine transform for UV coordinates
-    // Note: UV coordinates in graphics typically range from 0 to 1
-    // The transformation order in FBX is: Scale -> Rotate -> Translate
-    Affine2::from_scale_angle_translation(scale, rotation_z, translation)
+    Affine2::from_mat2_translation(mat2, translation)
 }
 
 // Note: Following bevy_gltf pattern, cameras are converted directly to Bevy's Camera3d components
@@ -337,6 +336,8 @@ impl AssetLoader for FbxLoader {
         let _scratch: Vec<u32> = Vec::new();
         let mut mesh_material_info = Vec::new(); // Store material info for each mesh
         let mut mesh_node_names = Vec::new(); // Store node names for each mesh to use as animation targets
+        // Map from node element id -> list of (sub-mesh handle, material name(s)) for hierarchical spawning
+        let mut node_meshes: HashMap<u32, Vec<(Handle<Mesh>, Vec<String>)>> = HashMap::new();
 
         // Only process meshes if settings allow it
         if !settings.load_meshes.is_empty() {
@@ -514,32 +515,21 @@ impl AssetLoader for FbxLoader {
                                 let mut weight_count = 0;
                                 let mut total_weight = 0.0f32;
 
-                                for (cluster_index, cluster) in
-                                    skin_deformer.clusters.iter().enumerate()
-                                {
+                                for (cluster_index, cluster) in skin_deformer.clusters.iter().enumerate() {
                                     if weight_count >= 4 {
                                         break;
                                     }
 
-                                    // Find weight for this vertex in this cluster
-                                    for &weight_vertex in cluster.vertices.iter() {
-                                        if weight_vertex as usize == vertex_index {
-                                            if let Some(weight_index) = cluster
-                                                .vertices
-                                                .iter()
-                                                .position(|&v| v as usize == vertex_index)
-                                            {
-                                                if weight_index < cluster.weights.len() {
-                                                    let weight =
-                                                        cluster.weights[weight_index] as f32;
-                                                    if weight > 0.0 {
-                                                        joint_indices[vertex_index][weight_count] =
-                                                            cluster_index as u16;
-                                                        joint_weights[vertex_index][weight_count] =
-                                                            weight;
-                                                        total_weight += weight;
-                                                        weight_count += 1;
-                                                    }
+                                    // Find weight for this vertex in this cluster (single pass)
+                                    for (i, &vert_idx) in cluster.vertices.iter().enumerate() {
+                                        if vert_idx as usize == vertex_index {
+                                            if i < cluster.weights.len() {
+                                                let weight = cluster.weights[i] as f32;
+                                                if weight > 0.0 {
+                                                    joint_indices[vertex_index][weight_count] = cluster_index as u16;
+                                                    joint_weights[vertex_index][weight_count] = weight;
+                                                    total_weight += weight;
+                                                    weight_count += 1;
                                                 }
                                             }
                                             break;
@@ -596,7 +586,13 @@ impl AssetLoader for FbxLoader {
                     } else {
                         "default".to_string()
                     };
-                    mesh_material_info.push(vec![material_name]);
+                    mesh_material_info.push(vec![material_name.clone()]);
+
+                    // Record per-node association for proper hierarchy spawning later
+                    node_meshes
+                        .entry(node.element.element_id)
+                        .or_default()
+                        .push((sub_mesh_handle.clone(), vec![material_name]));
                 }
             } else {
                 // Fallback: create a simple mesh with no indices if material processing failed
@@ -860,33 +856,17 @@ impl AssetLoader for FbxLoader {
                     roughness = roughness_value.x as f32;
                 }
 
-                // Extract alpha cutoff from material properties
-                let mut alpha_cutoff = 0.5f32;
-                let mut double_sided = false;
+                // Enhanced: alpha handling & double sided
+                let alpha_cutoff = 0.5f32;
+                let double_sided = ufbx_material.features.double_sided.enabled;
 
-                // Check for transparency and double-sided properties
-                if ufbx_material.pbr.opacity.value_vec4.x < 1.0 {
-                    alpha = ufbx_material.pbr.opacity.value_vec4.x as f32;
-                }
+                // Opacity value / texture
+                let has_opacity_value = ufbx_material.pbr.opacity.has_value;
+                let opacity_value = ufbx_material.pbr.opacity.value_vec4.x as f32;
+                let has_opacity_texture = ufbx_material.pbr.opacity.texture.is_some();
 
-                // Extract double-sided property from material
-                // FBX materials can specify if they should be rendered on both sides
-                if let Ok(double_sided_value) = std::panic::catch_unwind(|| {
-                    // Try to access double-sided property if available in the material
-                    // This is a common material property in many DCC applications
-                    false // Default to single-sided until we can safely access the property
-                }) {
-                    double_sided = double_sided_value;
-                }
-
-                // Extract alpha cutoff threshold if available in material properties
-                // Alpha cutoff is used for alpha testing - pixels below this threshold are discarded
-                if let Ok(cutoff_value) = std::panic::catch_unwind(|| {
-                    // Try to access alpha cutoff property if available
-                    // Many materials use values between 0.1 and 0.9 for alpha testing
-                    0.5f32 // Default cutoff value
-                }) {
-                    alpha_cutoff = cutoff_value.clamp(0.0, 1.0);
+                if has_opacity_value {
+                    alpha = opacity_value;
                 }
 
                 // Process material textures and map them to appropriate texture types
@@ -930,20 +910,15 @@ impl AssetLoader for FbxLoader {
                     metallic,
                     perceptual_roughness: roughness,
                     emissive: emission.into(),
-                    alpha_mode: if alpha < 1.0 {
-                        if alpha_cutoff > 0.0 && alpha_cutoff < 1.0 {
-                            AlphaMode::Mask(alpha_cutoff)
-                        } else {
-                            AlphaMode::Blend
-                        }
+                    alpha_mode: if has_opacity_texture {
+                        // Prefer cutoff for authored opacity textures (common for foliage, decals)
+                        AlphaMode::Mask(alpha_cutoff)
+                    } else if alpha < 1.0 {
+                        AlphaMode::Blend
                     } else {
                         AlphaMode::Opaque
                     },
-                    cull_mode: if double_sided {
-                        None // No culling for double-sided materials
-                    } else {
-                        Some(Face::Back) // Default back-face culling
-                    },
+                    cull_mode: if double_sided { None } else { Some(Face::Back) },
                     double_sided,
                     ..Default::default()
                 };
@@ -1158,25 +1133,17 @@ impl AssetLoader for FbxLoader {
                 None
             };
 
-            // Convert transform
-            let transform = Transform {
-                translation: Vec3::new(
-                    ufbx_node.local_transform.translation.x as f32,
-                    ufbx_node.local_transform.translation.y as f32,
-                    ufbx_node.local_transform.translation.z as f32,
-                ),
-                rotation: Quat::from_xyzw(
-                    ufbx_node.local_transform.rotation.x as f32,
-                    ufbx_node.local_transform.rotation.y as f32,
-                    ufbx_node.local_transform.rotation.z as f32,
-                    ufbx_node.local_transform.rotation.w as f32,
-                ),
-                scale: Vec3::new(
-                    ufbx_node.local_transform.scale.x as f32,
-                    ufbx_node.local_transform.scale.y as f32,
-                    ufbx_node.local_transform.scale.z as f32,
-                ),
-            };
+            // Convert transform: prefer `node_to_parent` matrix which includes FBX adjust transforms
+            let ntp = &ufbx_node.node_to_parent;
+            let mut transform = Transform::from_matrix(Mat4::from_cols_array(&[
+                ntp.m00 as f32, ntp.m10 as f32, ntp.m20 as f32, 0.0,
+                ntp.m01 as f32, ntp.m11 as f32, ntp.m21 as f32, 0.0,
+                ntp.m02 as f32, ntp.m12 as f32, ntp.m22 as f32, 0.0,
+                ntp.m03 as f32, ntp.m13 as f32, ntp.m23 as f32, 1.0,
+            ]));
+            if settings.convert_coordinates {
+                transform = transform.convert_coordinates();
+            }
 
             let fbx_node = FbxNode {
                 index,
@@ -1435,11 +1402,18 @@ impl AssetLoader for FbxLoader {
                         let animation_target_id = AnimationTargetId::from_name(&node_name);
 
                         // Try to create translation animation from X, Y, Z components
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
-                            properties.get("Lcl Translation_0"),
-                            properties.get("Lcl Translation_1"),
-                            properties.get("Lcl Translation_2"),
-                        ) {
+                        // Support both long FBX names and short aliases (T/R/S)
+                        let tx = properties
+                            .get("Lcl Translation_0")
+                            .or_else(|| properties.get("T_0"));
+                        let ty = properties
+                            .get("Lcl Translation_1")
+                            .or_else(|| properties.get("T_1"));
+                        let tz = properties
+                            .get("Lcl Translation_2")
+                            .or_else(|| properties.get("T_2"));
+
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (tx, ty, tz) {
                             // Create Vec3 keyframes by combining X, Y, Z
                             let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
                                 .iter()
@@ -1469,11 +1443,17 @@ impl AssetLoader for FbxLoader {
                         }
 
                         // Try to create rotation animation from X, Y, Z Euler angles
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
-                            properties.get("Lcl Rotation_0"),
-                            properties.get("Lcl Rotation_1"),
-                            properties.get("Lcl Rotation_2"),
-                        ) {
+                        let rx = properties
+                            .get("Lcl Rotation_0")
+                            .or_else(|| properties.get("R_0"));
+                        let ry = properties
+                            .get("Lcl Rotation_1")
+                            .or_else(|| properties.get("R_1"));
+                        let rz = properties
+                            .get("Lcl Rotation_2")
+                            .or_else(|| properties.get("R_2"));
+
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (rx, ry, rz) {
                             // Convert Euler angles (degrees) to quaternions
                             let combined_keyframes: Vec<(f32, Quat)> = x_keyframes
                                 .iter()
@@ -1512,11 +1492,17 @@ impl AssetLoader for FbxLoader {
                         }
 
                         // Try to create scale animation from X, Y, Z components
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (
-                            properties.get("Lcl Scaling_0"),
-                            properties.get("Lcl Scaling_1"),
-                            properties.get("Lcl Scaling_2"),
-                        ) {
+                        let sx = properties
+                            .get("Lcl Scaling_0")
+                            .or_else(|| properties.get("S_0"));
+                        let sy = properties
+                            .get("Lcl Scaling_1")
+                            .or_else(|| properties.get("S_1"));
+                        let sz = properties
+                            .get("Lcl Scaling_2")
+                            .or_else(|| properties.get("S_2"));
+
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (sx, sy, sz) {
                             // Create Vec3 keyframes by combining X, Y, Z
                             let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
                                 .iter()
@@ -1641,128 +1627,211 @@ impl AssetLoader for FbxLoader {
             scene.nodes.len()
         );
 
-        // Spawn all meshes with their original transforms and correct materials
-        for (mesh_index, (((mesh_handle, transform_matrix), mesh_mat_names), node_name)) in meshes
-            .iter()
-            .zip(transforms.iter())
-            .zip(mesh_material_info.iter())
-            .zip(mesh_node_names.iter())
-            .enumerate()
-        {
-            let transform = Transform::from_matrix(Mat4::from_cols_array(&[
-                transform_matrix.m00 as f32,
-                transform_matrix.m10 as f32,
-                transform_matrix.m20 as f32,
-                0.0,
-                transform_matrix.m01 as f32,
-                transform_matrix.m11 as f32,
-                transform_matrix.m21 as f32,
-                0.0,
-                transform_matrix.m02 as f32,
-                transform_matrix.m12 as f32,
-                transform_matrix.m22 as f32,
-                0.0,
-                transform_matrix.m03 as f32,
-                transform_matrix.m13 as f32,
-                transform_matrix.m23 as f32,
-                1.0,
-            ]));
+        // Spawn hierarchy: first spawn all nodes with local transforms
+        let mut node_entities: Vec<Option<Entity>> = vec![None; scene.nodes.len()];
+        // Map from ufbx element_id -> spawned Entity for quick lookup (used by skinning)
+        let mut element_to_entity: HashMap<u32, Entity> = HashMap::new();
 
-            // Keep original scale - no automatic scaling
-
-            // Find the appropriate material for this mesh using stored material info
-            tracing::info!(
-                "Mesh {} uses {} materials: {:?}",
-                mesh_index,
-                mesh_mat_names.len(),
-                mesh_mat_names
-            );
-
-            let material_to_use = if !mesh_mat_names.is_empty() {
-                // Try to find the first material that exists in our processed materials
-                let mut best_material_handle = None;
-
-                for material_name in mesh_mat_names {
-                    if let Some(material_handle) = named_materials.get(material_name as &str) {
-                        tracing::info!(
-                            "Using material '{}' for mesh {}",
-                            material_name,
-                            mesh_index
-                        );
-                        best_material_handle = Some(material_handle.clone());
-                        break;
-                    }
-                }
-
-                // If we found a matching material, use it
-                if let Some(material_handle) = best_material_handle {
-                    material_handle
-                } else {
-                    // Fall back to index-based selection
-                    if materials.len() > 0 {
-                        let material_index = mesh_index.min(materials.len() - 1);
-                        tracing::info!(
-                            "Using fallback material index {} for mesh {} (materials: {:?})",
-                            material_index,
-                            mesh_index,
-                            mesh_mat_names
-                        );
-                        materials[material_index].clone()
-                    } else {
-                        tracing::warn!(
-                            "No materials available for mesh {}, using default",
-                            mesh_index
-                        );
-                        default_material.clone()
-                    }
-                }
-            } else {
-                tracing::info!(
-                    "No materials assigned to mesh {}, using default",
-                    mesh_index
-                );
-                default_material.clone()
+        // Helper to convert ufbx::Transform -> bevy Transform
+        let to_bevy_transform = |t: &ufbx::Transform| -> Transform {
+            let mut tr = Transform {
+                translation: Vec3::new(t.translation.x as f32, t.translation.y as f32, t.translation.z as f32),
+                rotation: Quat::from_xyzw(t.rotation.x as f32, t.rotation.y as f32, t.rotation.z as f32, t.rotation.w as f32),
+                scale: Vec3::new(t.scale.x as f32, t.scale.y as f32, t.scale.z as f32),
             };
+            if settings.convert_coordinates {
+                tr = tr.convert_coordinates();
+            }
+            tr
+        };
 
-            tracing::info!(
-                "FBX Loader: Spawning mesh {} with transform: {:?}",
-                mesh_index,
-                transform
-            );
-
-            // Create a name for this mesh entity that animation can target
-            let mesh_name = if !node_name.is_empty() {
-                node_name.clone()
+        for (i, u_node) in scene.nodes.as_ref().iter().enumerate() {
+            let name = if u_node.element.name.is_empty() {
+                format!("Node_{}", i)
             } else {
-                format!("Mesh_{}", mesh_index)
+                u_node.element.name.to_string()
             };
-
-            let mut entity = world.spawn((
-                Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(material_to_use),
-                transform,
+            let mut e = world.spawn((
+                to_bevy_transform(&u_node.local_transform),
                 GlobalTransform::default(),
                 Visibility::default(),
-                Name::new(mesh_name.clone()),
+                Name::new(name.clone()),
             ));
 
-            // Log detailed spawn information for debugging
-            tracing::info!(
-                "FBX Loader: Spawned entity with position {:?}, rotation {:?}, scale {:?}",
-                transform.translation,
-                transform.rotation,
-                transform.scale
-            );
-
-            // Add animation target if there are animations and an animation player
-            if !animations.is_empty() && animation_player.is_some() {
-                // Use the node name as the animation target - this must match what's used in animation curves
-                let name_component = Name::new(mesh_name.clone());
-                entity.insert(AnimationTarget {
-                    id: AnimationTargetId::from_names(std::iter::once(&name_component)),
+            // If we have animations, attach targets to node entities (targets identified by name)
+            if !animations.is_empty() {
+                let target = AnimationTarget {
+                    id: AnimationTargetId::from_names(std::iter::once(&Name::new(name.clone()))),
                     player: animation_player.unwrap(),
-                });
-                tracing::info!("FBX Loader: Added animation target '{}' (id from names: ['{}']) to mesh {}", mesh_name, mesh_name, mesh_index);
+                };
+                e.insert(target);
+            }
+
+            // Attach lights/cameras directly on node (if requested)
+            if settings.load_lights {
+                if let Some(light_ref) = &u_node.light {
+                    let light = light_ref.as_ref();
+                    match light.type_ {
+                        ufbx::LightType::Directional => {
+                            e.insert(DirectionalLight {
+                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                illuminance: light.intensity as f32,
+                                shadows_enabled: light.cast_shadows,
+                                ..Default::default()
+                            });
+                        }
+                        ufbx::LightType::Point => {
+                            e.insert(PointLight {
+                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                intensity: light.intensity as f32 * core::f32::consts::PI * 4.0,
+                                ..Default::default()
+                            });
+                        }
+                        ufbx::LightType::Spot => {
+                            e.insert(SpotLight {
+                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                intensity: light.intensity as f32 * core::f32::consts::PI * 4.0,
+                                inner_angle: (light.inner_angle as f32).to_radians(),
+                                outer_angle: (light.outer_angle as f32).to_radians(),
+                                ..Default::default()
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            if settings.load_cameras {
+                if let Some(cam_ref) = &u_node.camera {
+                    let cam = cam_ref.as_ref();
+                    let projection = match cam.projection_mode {
+                        ufbx::ProjectionMode::Perspective => {
+                            let mut perspective = PerspectiveProjection::default();
+                            perspective.fov = cam.field_of_view_deg.y.to_radians() as f32;
+                            perspective.near = cam.near_plane as f32;
+                            perspective.far = cam.far_plane as f32;
+                            if cam.aspect_ratio > 0.0 { perspective.aspect_ratio = cam.aspect_ratio as f32; }
+                            Projection::Perspective(perspective)
+                        }
+                        ufbx::ProjectionMode::Orthographic => {
+                            // Preserve orthographic cameras: map ufbx `orthographic_size`
+                            // (full width/height in world units) to Bevy's OrthographicProjection.
+                            let ortho = OrthographicProjection {
+                                near: cam.near_plane as f32,
+                                far: cam.far_plane as f32,
+                                scaling_mode: ScalingMode::Fixed {
+                                    width: cam.orthographic_size.x as f32,
+                                    height: cam.orthographic_size.y as f32,
+                                },
+                                ..OrthographicProjection::default_3d()
+                            };
+                            // Keep default `viewport_origin` and `scale`.
+                            Projection::Orthographic(ortho)
+                        }
+                    };
+                    e.insert((Camera3d::default(), projection, Camera { is_active: false, ..Default::default() }));
+                }
+            }
+
+            let id = e.id();
+            node_entities[i] = Some(id);
+            element_to_entity.insert(u_node.element.element_id, id);
+        }
+
+        // Parenting pass
+        for (i, u_node) in scene.nodes.as_ref().iter().enumerate() {
+            if let Some(parent_ref) = &u_node.parent {
+                let parent = parent_ref.as_ref();
+                // Find parent index via element_id
+                if let Some((p_idx, _)) = scene
+                    .nodes
+                    .as_ref()
+                    .iter()
+                    .enumerate()
+                    .find(|(_, n)| n.element.element_id == parent.element.element_id)
+                {
+                    if let (Some(parent_entity), Some(child_entity)) =
+                        (node_entities[p_idx], node_entities[i])
+                    {
+                        world.entity_mut(parent_entity).add_child(child_entity);
+                    }
+                }
+            }
+        }
+
+        // Mesh pass: attach submeshes as children under their node
+        // Keep track of spawned mesh child entities per node for skinning hookup
+        let mut node_mesh_entities: HashMap<u32, Vec<Entity>> = HashMap::new();
+
+        for (i, u_node) in scene.nodes.as_ref().iter().enumerate() {
+            let node_entity = match node_entities[i] { Some(e) => e, None => continue };
+            if let Some(entries) = node_meshes.get(&u_node.element.element_id) {
+                for (sub_mesh_handle, mat_names) in entries {
+                    // Resolve a material handle
+                    let material_to_use = mat_names
+                        .iter()
+                        .find_map(|name| named_materials.get(name.as_str()).cloned())
+                        .or_else(|| materials.get(0).cloned())
+                        .unwrap_or_else(|| default_material.clone());
+
+                    // Set mesh local transform from FBX geometry_to_node so geometry matches DCC
+                    let gtn = &u_node.geometry_to_node;
+                    let child_local = Transform::from_matrix(Mat4::from_cols_array(&[
+                        gtn.m00 as f32, gtn.m10 as f32, gtn.m20 as f32, 0.0,
+                        gtn.m01 as f32, gtn.m11 as f32, gtn.m21 as f32, 0.0,
+                        gtn.m02 as f32, gtn.m12 as f32, gtn.m22 as f32, 0.0,
+                        gtn.m03 as f32, gtn.m13 as f32, gtn.m23 as f32, 1.0,
+                    ]));
+
+                    let child = world.spawn((
+                        Mesh3d(sub_mesh_handle.clone()),
+                        MeshMaterial3d(material_to_use),
+                        child_local,
+                        GlobalTransform::default(),
+                        Visibility::default(),
+                    ));
+                    let child_id = child.id();
+                    world.entity_mut(node_entity).add_child(child_id);
+                    node_mesh_entities
+                        .entry(u_node.element.element_id)
+                        .or_default()
+                        .push(child_id);
+                }
+            }
+        }
+
+        // Hook up SkinnedMesh components for nodes that have skin deformers
+        // using the previously created `skin_map` and the per-node mesh entities.
+        for (mesh_node_id, (inverse_bindposes_handle, joint_node_ids, _skin_name, _skin_index)) in
+            skin_map.iter()
+        {
+            // Resolve joints to entities
+            let mut joint_entities: Vec<Entity> = Vec::new();
+            for joint_id in joint_node_ids.iter() {
+                if let Some(&ent) = element_to_entity.get(joint_id) {
+                    joint_entities.push(ent);
+                }
+            }
+
+            if let Some(mesh_entities) = node_mesh_entities.get(mesh_node_id) {
+                for &mesh_ent in mesh_entities {
+                    world.entity_mut(mesh_ent).insert(bevy_mesh::skinning::SkinnedMesh {
+                        inverse_bindposes: inverse_bindposes_handle.clone(),
+                        joints: joint_entities.clone(),
+                    });
+                }
+            }
+        }
+
+        // Activate first camera if any were created
+        if settings.load_cameras {
+            let mut activated = false;
+            for ent in node_entities.iter().filter_map(|e| *e) {
+                if let Some(mut cam) = world.entity_mut(ent).get_mut::<Camera>() {
+                    if !activated {
+                        cam.is_active = true;
+                        activated = true;
+                    }
+                }
             }
         }
 
@@ -1929,12 +1998,17 @@ impl AssetLoader for FbxLoader {
                             Projection::Perspective(perspective)
                         }
                         ufbx::ProjectionMode::Orthographic => {
-                            // For orthographic, we need OrthographicProjection
-                            // But we'll use perspective for now as OrthographicProjection needs different setup
-                            let mut perspective = PerspectiveProjection::default();
-                            perspective.near = camera.near_plane as f32;
-                            perspective.far = camera.far_plane as f32;
-                            Projection::Perspective(perspective)
+                            // Preserve orthographic cameras: use fixed width/height from ufbx
+                            let ortho = OrthographicProjection {
+                                near: camera.near_plane as f32,
+                                far: camera.far_plane as f32,
+                                scaling_mode: ScalingMode::Fixed {
+                                    width: camera.orthographic_size.x as f32,
+                                    height: camera.orthographic_size.y as f32,
+                                },
+                                ..OrthographicProjection::default_3d()
+                            };
+                            Projection::Orthographic(ortho)
                         }
                     };
 
@@ -1943,7 +2017,7 @@ impl AssetLoader for FbxLoader {
                         camera.element.name,
                         match camera.projection_mode {
                             ufbx::ProjectionMode::Perspective => "perspective",
-                            ufbx::ProjectionMode::Orthographic => "orthographic (using perspective fallback)",
+                            ufbx::ProjectionMode::Orthographic => "orthographic",
                         }
                     );
 
