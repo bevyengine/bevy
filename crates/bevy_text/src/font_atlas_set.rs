@@ -30,6 +30,15 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
     }
+
+    /// Returns the total number of fonts in all sets
+    pub fn count_fonts(&self) -> usize {
+        let mut count = 0;
+        for (_, set) in self.sets.iter() {
+            count += set.len()
+        }
+        count
+    }
 }
 
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
