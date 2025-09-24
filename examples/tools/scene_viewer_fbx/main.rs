@@ -64,7 +64,8 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                // Use compile-time crate root to find assets reliably when running examples
+                file_path: env!("CARGO_MANIFEST_DIR").to_string(),
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()
@@ -102,10 +103,19 @@ fn setup_scene_after_load(
     if scene_handle.is_loaded && !*setup {
         *setup = true;
         // Find an approximate bounding box of the scene from its meshes
-        if meshes.iter().any(|(_, maybe_aabb)| maybe_aabb.is_none()) {
+        let mut has_any_mesh = false;
+        let mut any_missing_aabb = false;
+        for (_, maybe_aabb) in &meshes {
+            has_any_mesh = true;
+            if maybe_aabb.is_none() {
+                any_missing_aabb = true;
+                break;
+            }
+        }
+        if !has_any_mesh || any_missing_aabb {
             // Fallback: Create a camera at a reasonable distance from the origin
             info!("Some meshes don't have Aabb, using fallback camera position");
-            
+
             let mut projection = PerspectiveProjection::default();
             projection.far = 1000.0;
 
@@ -126,7 +136,7 @@ fn setup_scene_after_load(
                     .looking_at(Vec3::ZERO, Vec3::Y),
                 camera_controller,
             ));
-            
+
             return;
         }
 

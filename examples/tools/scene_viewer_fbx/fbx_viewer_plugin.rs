@@ -3,7 +3,13 @@
 //! - Copy the code for the `FbxViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `FbxSceneHandle` resource into your App's `AssetServer`.
 
-use bevy::{fbx::Fbx, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId, animation::{AnimationPlayer, graph::AnimationNodeIndex}};
+use bevy::{
+    animation::{graph::AnimationNodeIndex, AnimationPlayer},
+    fbx::Fbx,
+    input::common_conditions::input_just_pressed,
+    prelude::*,
+    scene::InstanceId,
+};
 
 use std::{f32::consts::*, fmt};
 
@@ -139,11 +145,14 @@ fn print_fbx_info(
 }
 
 fn fbx_load_check(
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut scenes: ResMut<Assets<Scene>>,
     fbx_assets: Res<Assets<Fbx>>,
     mut scene_handle: ResMut<FbxSceneHandle>,
     mut scene_spawner: ResMut<SceneSpawner>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     match scene_handle.instance_id {
         None => {
@@ -174,8 +183,6 @@ fn fbx_load_check(
                     );
 
                     scene_handle.instance_id = Some(scene_spawner.spawn(scene_handle_ref.clone()));
-
-                    info!("Spawning FBX scene...");
                 } else {
                     warn!("FBX file contains no scenes!");
                 }
@@ -333,18 +340,25 @@ fn handle_animation_controls(
                         // Start the current animation using the new API
                         if animation_state.current_animation < fbx.animations.len() {
                             // Get the first node index if available
-                            let first_node_opt = player.playing_animations().next().map(|(&node, _)| node);
+                            let first_node_opt =
+                                player.playing_animations().next().map(|(&node, _)| node);
                             if let Some(first_node) = first_node_opt {
                                 player.stop(first_node);
                             }
                             // Play first animation - this is a simplified implementation
                             // Real implementation should store proper AnimationNodeIndex from graph
-                            info!("Playing animation {} - simplified implementation", animation_state.current_animation);
+                            info!(
+                                "Playing animation {} - simplified implementation",
+                                animation_state.current_animation
+                            );
                             animation_state.is_playing = true;
                         }
                     }
                 } else {
-                    info!("FBX contains {} animations but no animation player found in scene", fbx.animations.len());
+                    info!(
+                        "FBX contains {} animations but no animation player found in scene",
+                        fbx.animations.len()
+                    );
                     for (i, animation_handle) in fbx.animations.iter().enumerate() {
                         info!("  Animation {}: {:?}", i, animation_handle.id());
                     }
@@ -356,10 +370,11 @@ fn handle_animation_controls(
 
         // Cycle through animation information
         if keyboard_input.just_pressed(KeyCode::KeyN) && !fbx.animations.is_empty() {
-            animation_state.current_animation = (animation_state.current_animation + 1) % fbx.animations.len();
+            animation_state.current_animation =
+                (animation_state.current_animation + 1) % fbx.animations.len();
             info!(
-                "Current animation: {}/{} (Handle: {:?})", 
-                animation_state.current_animation + 1, 
+                "Current animation: {}/{} (Handle: {:?})",
+                animation_state.current_animation + 1,
                 fbx.animations.len(),
                 fbx.animations[animation_state.current_animation].id()
             );

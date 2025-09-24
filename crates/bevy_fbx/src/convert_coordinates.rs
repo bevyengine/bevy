@@ -1,10 +1,10 @@
-use bevy_math::{Vec3, Quat};
+use bevy_math::{Quat, Vec3};
 use bevy_transform::components::Transform;
 
 /// Trait for converting FBX coordinates to Bevy's coordinate system.
 pub(crate) trait ConvertCoordinates {
     /// Converts FBX coordinates to Bevy's coordinate system.
-    /// 
+    ///
     /// FBX default coordinate system (can vary):
     /// - forward: +Z
     /// - up: +Y  

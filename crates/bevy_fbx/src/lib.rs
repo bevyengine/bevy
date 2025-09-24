@@ -14,34 +14,37 @@ use bevy_app::prelude::*;
 use bevy_asset::{
     io::Reader, Asset, AssetApp, AssetLoader, Handle, LoadContext, RenderAssetUsages,
 };
-use bevy_ecs::prelude::*;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::Name;
+use bevy_ecs::prelude::*;
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-use bevy_mesh::{Indices, Mesh,Mesh3d, PrimitiveTopology, VertexAttributeValues};
+use bevy_mesh::{Indices, Mesh, Mesh3d, PrimitiveTopology, VertexAttributeValues};
 use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 
+use bevy_camera::{
+    visibility::Visibility, Camera, Camera3d, OrthographicProjection, PerspectiveProjection,
+    Projection, ScalingMode,
+};
+use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
-use bevy_camera::{
-    visibility::Visibility, Camera, Camera3d, PerspectiveProjection, Projection,
-    OrthographicProjection, ScalingMode,
-};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 use bevy_utils::default;
-use bevy_light::{DirectionalLight, SpotLight, PointLight};
 use serde::{Deserialize, Serialize};
 
 use bevy_animation::{
     animated_field,
     animation_curves::{AnimatableCurve, AnimatableKeyframeCurve},
-    prelude::AnimatedField,
-    AnimationClip, AnimationTarget, AnimationTargetId, AnimationPlayer,
     graph::{AnimationGraph, AnimationGraphHandle},
+    prelude::AnimatedField,
+    AnimationClip, AnimationPlayer, AnimationTarget, AnimationTargetId,
 };
 use bevy_color::Color;
-use bevy_image::{Image, ImageSamplerDescriptor, ImageSampler, ImageType, CompressedImageFormats, ImageAddressMode};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageAddressMode, ImageSampler, ImageSamplerDescriptor,
+    ImageType,
+};
 use bevy_math::{Affine2, Mat4, Quat, Vec2, Vec3};
 use bevy_render::alpha::AlphaMode;
 use bevy_transform::prelude::*;
@@ -56,8 +59,6 @@ pub mod prelude {
     //! Commonly used items.
     pub use crate::{Fbx, FbxAssetLabel, FbxPlugin};
 }
-
-
 
 /// Types of textures supported in FBX materials.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -87,16 +88,19 @@ fn convert_wrap_mode(wrap: ufbx::WrapMode) -> ImageAddressMode {
 }
 
 /// Create sampler descriptor from FBX texture, using default as base
-fn create_sampler_from_texture(texture: &ufbx::Texture, default: &ImageSamplerDescriptor) -> ImageSamplerDescriptor {
+fn create_sampler_from_texture(
+    texture: &ufbx::Texture,
+    default: &ImageSamplerDescriptor,
+) -> ImageSamplerDescriptor {
     let mut sampler = default.clone();
-    
+
     // Apply FBX wrap modes
     sampler.address_mode_u = convert_wrap_mode(texture.wrap_u);
     sampler.address_mode_v = convert_wrap_mode(texture.wrap_v);
-    
+
     // Note: FBX doesn't directly specify filter modes like GLTF does,
     // so we keep the default filter settings
-    
+
     sampler
 }
 
@@ -110,10 +114,8 @@ fn convert_texture_uv_transform(texture: &ufbx::Texture) -> Affine2 {
     let m = &texture.uv_to_texture;
 
     // Build a 2D affine from the 3x4 matrix: take the upper-left 2x2 and XY translation
-    let mat2 = bevy_math::Mat2::from_cols_array(&[
-        m.m00 as f32, m.m10 as f32,
-        m.m01 as f32, m.m11 as f32,
-    ]);
+    let mat2 =
+        bevy_math::Mat2::from_cols_array(&[m.m00 as f32, m.m10 as f32, m.m01 as f32, m.m11 as f32]);
     let translation = Vec2::new(m.m03 as f32, m.m13 as f32);
 
     Affine2::from_mat2_translation(mat2, translation)
@@ -336,329 +338,338 @@ impl AssetLoader for FbxLoader {
         let _scratch: Vec<u32> = Vec::new();
         let mut mesh_material_info = Vec::new(); // Store material info for each mesh
         let mut mesh_node_names = Vec::new(); // Store node names for each mesh to use as animation targets
-        // Map from node element id -> list of (sub-mesh handle, material name(s)) for hierarchical spawning
+                                              // Map from node element id -> list of (sub-mesh handle, material name(s)) for hierarchical spawning
         let mut node_meshes: HashMap<u32, Vec<(Handle<Mesh>, Vec<String>)>> = HashMap::new();
 
         // Only process meshes if settings allow it
         if !settings.load_meshes.is_empty() {
             for (index, node) in scene.nodes.as_ref().iter().enumerate() {
-            let Some(mesh_ref) = node.mesh.as_ref() else {
-                tracing::info!("Node {} has no mesh", index);
-                continue;
-            };
-            let mesh = mesh_ref.as_ref();
+                let Some(mesh_ref) = node.mesh.as_ref() else {
+                    tracing::info!("Node {} has no mesh", index);
+                    continue;
+                };
+                let mesh = mesh_ref.as_ref();
 
-            tracing::info!(
-                "Node {} has mesh with {} vertices and {} faces",
-                index,
-                mesh.num_vertices,
-                mesh.faces.as_ref().len()
-            );
+                tracing::info!(
+                    "Node {} has mesh with {} vertices and {} faces",
+                    index,
+                    mesh.num_vertices,
+                    mesh.faces.as_ref().len()
+                );
 
-            // Basic mesh validation
-            if mesh.num_vertices == 0 || mesh.faces.as_ref().is_empty() {
-                tracing::info!("Skipping mesh {} due to validation failure", index);
-                continue;
-            }
-
-            // Log material information for debugging
-            tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
-
-            // Group faces by material to support multi-material meshes
-            let mut material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
-
-            // Safely process faces with material assignment
-            let faces_result = std::panic::catch_unwind(|| {
-                let mut temp_material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
-                let mut temp_scratch: Vec<u32> = Vec::new();
-
-                // Special handling for meshes with 0 materials
-                if mesh.materials.is_empty() {
-                    tracing::info!(
-                        "Mesh {} has 0 materials, creating default material group",
-                        index
-                    );
-                    // For 0-material meshes, triangulate all faces and put them in default group
-                    let mut default_indices = Vec::new();
-                    for &face in mesh.faces.as_ref().iter() {
-                        temp_scratch.clear();
-                        ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
-                        for &idx in &temp_scratch {
-                            if (idx as usize) < mesh.vertex_indices.len() {
-                                let v = mesh.vertex_indices[idx as usize];
-                                default_indices.push(v);
-                            }
-                        }
-                    }
-                    tracing::info!("Generated {} triangles for default material group", default_indices.len() / 3);
-                    temp_material_groups.insert(0, default_indices);
-                    return temp_material_groups;
+                // Basic mesh validation
+                if mesh.num_vertices == 0 || mesh.faces.as_ref().is_empty() {
+                    tracing::info!("Skipping mesh {} due to validation failure", index);
+                    continue;
                 }
 
-                for (face_idx, &face) in mesh.faces.as_ref().iter().enumerate() {
-                    // Get material index for this face
-                    let material_idx =
-                        if !mesh.face_material.is_empty() && mesh.face_material.len() > face_idx {
+                // Log material information for debugging
+                tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
+
+                // Group faces by material to support multi-material meshes
+                let mut material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
+
+                // Safely process faces with material assignment
+                let faces_result = std::panic::catch_unwind(|| {
+                    let mut temp_material_groups: HashMap<usize, Vec<u32>> = HashMap::new();
+                    let mut temp_scratch: Vec<u32> = Vec::new();
+
+                    // Special handling for meshes with 0 materials
+                    if mesh.materials.is_empty() {
+                        tracing::info!(
+                            "Mesh {} has 0 materials, creating default material group",
+                            index
+                        );
+                        // For 0-material meshes, triangulate all faces and put them in default group
+                        let mut default_indices = Vec::new();
+                        for &face in mesh.faces.as_ref().iter() {
+                            temp_scratch.clear();
+                            ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
+                            for &idx in &temp_scratch {
+                                if (idx as usize) < mesh.vertex_indices.len() {
+                                    let v = mesh.vertex_indices[idx as usize];
+                                    default_indices.push(v);
+                                }
+                            }
+                        }
+                        tracing::info!(
+                            "Generated {} triangles for default material group",
+                            default_indices.len() / 3
+                        );
+                        temp_material_groups.insert(0, default_indices);
+                        return temp_material_groups;
+                    }
+
+                    for (face_idx, &face) in mesh.faces.as_ref().iter().enumerate() {
+                        // Get material index for this face
+                        let material_idx = if !mesh.face_material.is_empty()
+                            && mesh.face_material.len() > face_idx
+                        {
                             mesh.face_material[face_idx] as usize
                         } else {
                             0 // Default to first material if no face material info
                         };
 
-                    temp_scratch.clear();
-                    ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
+                        temp_scratch.clear();
+                        ufbx::triangulate_face_vec(&mut temp_scratch, mesh, face);
 
-                    let indices = temp_material_groups
-                        .entry(material_idx)
-                        .or_insert_with(Vec::new);
-                    for idx in &temp_scratch {
-                        if (*idx as usize) < mesh.vertex_indices.len() {
-                            let v = mesh.vertex_indices[*idx as usize];
-                            indices.push(v);
+                        let indices = temp_material_groups
+                            .entry(material_idx)
+                            .or_insert_with(Vec::new);
+                        for idx in &temp_scratch {
+                            if (*idx as usize) < mesh.vertex_indices.len() {
+                                let v = mesh.vertex_indices[*idx as usize];
+                                indices.push(v);
+                            }
                         }
                     }
+                    temp_material_groups
+                });
+
+                if let Ok(groups) = faces_result {
+                    material_groups = groups;
+                } else {
+                    tracing::warn!(
+                        "Failed to process faces for mesh {}, using default material",
+                        index
+                    );
+                    // Create a default group with all indices - this will use material index 0 (default)
+                    let mut all_indices = Vec::new();
+                    for i in 0..mesh.num_vertices {
+                        all_indices.push(i as u32);
+                    }
+                    material_groups.insert(0, all_indices);
                 }
-                temp_material_groups
-            });
 
-            if let Ok(groups) = faces_result {
-                material_groups = groups;
-            } else {
-                tracing::warn!(
-                    "Failed to process faces for mesh {}, using default material",
-                    index
-                );
-                // Create a default group with all indices - this will use material index 0 (default)
-                let mut all_indices = Vec::new();
-                for i in 0..mesh.num_vertices {
-                    all_indices.push(i as u32);
-                }
-                material_groups.insert(0, all_indices);
-            }
-
-            tracing::info!(
-                "Mesh {} has {} material groups: {:?}",
-                index,
-                material_groups.len(),
-                material_groups.keys().collect::<Vec<_>>()
-            );
-
-            // Create separate mesh for each material group
-            let mut mesh_handles = Vec::new();
-            let mut material_indices = Vec::new();
-
-            for (material_idx, indices) in material_groups.iter() {
                 tracing::info!(
-                    "Material group {}: {} triangles",
-                    material_idx,
-                    indices.len() / 3
+                    "Mesh {} has {} material groups: {:?}",
+                    index,
+                    material_groups.len(),
+                    material_groups.keys().collect::<Vec<_>>()
                 );
 
-                let sub_mesh_handle = load_context.labeled_asset_scope::<_, FbxError>(
-                    FbxAssetLabel::Mesh(index * 1000 + material_idx).to_string(),
-                    |_lc| {
-                        let positions: Vec<[f32; 3]> = mesh
-                            .vertex_position
-                            .values
-                            .as_ref()
-                            .iter()
-                            .map(|v| {
-                                let pos = [v.x as f32, v.y as f32, v.z as f32];
-                                if settings.convert_coordinates {
-                                    pos.convert_coordinates()
-                                } else {
-                                    pos
-                                }
-                            })
-                            .collect();
+                // Create separate mesh for each material group
+                let mut mesh_handles = Vec::new();
+                let mut material_indices = Vec::new();
 
-                        let mut bevy_mesh =
-                            Mesh::new(PrimitiveTopology::TriangleList, settings.load_meshes);
-                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+                for (material_idx, indices) in material_groups.iter() {
+                    tracing::info!(
+                        "Material group {}: {} triangles",
+                        material_idx,
+                        indices.len() / 3
+                    );
 
-                        // Log material information for debugging
-                        tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
-
-                        if mesh.vertex_normal.exists {
-                            let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
-                                .map(|i| {
-                                    let n = mesh.vertex_normal[i];
-                                    let normal = [n.x as f32, n.y as f32, n.z as f32];
+                    let sub_mesh_handle = load_context.labeled_asset_scope::<_, FbxError>(
+                        FbxAssetLabel::Mesh(index * 1000 + material_idx).to_string(),
+                        |_lc| {
+                            let positions: Vec<[f32; 3]> = mesh
+                                .vertex_position
+                                .values
+                                .as_ref()
+                                .iter()
+                                .map(|v| {
+                                    let pos = [v.x as f32, v.y as f32, v.z as f32];
                                     if settings.convert_coordinates {
-                                        normal.convert_coordinates()
+                                        pos.convert_coordinates()
                                     } else {
-                                        normal
+                                        pos
                                     }
                                 })
                                 .collect();
-                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-                        }
 
-                        if mesh.vertex_uv.exists {
-                            let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
-                                .map(|i| {
-                                    let uv = mesh.vertex_uv[i];
-                                    [uv.x as f32, uv.y as f32]
-                                })
-                                .collect();
-                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                        }
+                            let mut bevy_mesh =
+                                Mesh::new(PrimitiveTopology::TriangleList, settings.load_meshes);
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
-                        // Process skinning data if available
-                        if mesh.skin_deformers.len() > 0 {
-                            let skin_deformer = &mesh.skin_deformers[0];
+                            // Log material information for debugging
+                            tracing::info!("Mesh {} has {} materials", index, mesh.materials.len());
 
-                            // Extract joint indices and weights
-                            let mut joint_indices = vec![[0u16; 4]; mesh.num_vertices];
-                            let mut joint_weights = vec![[0.0f32; 4]; mesh.num_vertices];
+                            if mesh.vertex_normal.exists {
+                                let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
+                                    .map(|i| {
+                                        let n = mesh.vertex_normal[i];
+                                        let normal = [n.x as f32, n.y as f32, n.z as f32];
+                                        if settings.convert_coordinates {
+                                            normal.convert_coordinates()
+                                        } else {
+                                            normal
+                                        }
+                                    })
+                                    .collect();
+                                bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                            }
 
-                            for vertex_index in 0..mesh.num_vertices {
-                                let mut weight_count = 0;
-                                let mut total_weight = 0.0f32;
+                            if mesh.vertex_uv.exists {
+                                let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
+                                    .map(|i| {
+                                        let uv = mesh.vertex_uv[i];
+                                        [uv.x as f32, uv.y as f32]
+                                    })
+                                    .collect();
+                                bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                            }
 
-                                for (cluster_index, cluster) in skin_deformer.clusters.iter().enumerate() {
-                                    if weight_count >= 4 {
-                                        break;
-                                    }
+                            // Process skinning data if available
+                            if mesh.skin_deformers.len() > 0 {
+                                let skin_deformer = &mesh.skin_deformers[0];
 
-                                    // Find weight for this vertex in this cluster (single pass)
-                                    for (i, &vert_idx) in cluster.vertices.iter().enumerate() {
-                                        if vert_idx as usize == vertex_index {
-                                            if i < cluster.weights.len() {
-                                                let weight = cluster.weights[i] as f32;
-                                                if weight > 0.0 {
-                                                    joint_indices[vertex_index][weight_count] = cluster_index as u16;
-                                                    joint_weights[vertex_index][weight_count] = weight;
-                                                    total_weight += weight;
-                                                    weight_count += 1;
-                                                }
-                                            }
+                                // Extract joint indices and weights
+                                let mut joint_indices = vec![[0u16; 4]; mesh.num_vertices];
+                                let mut joint_weights = vec![[0.0f32; 4]; mesh.num_vertices];
+
+                                for vertex_index in 0..mesh.num_vertices {
+                                    let mut weight_count = 0;
+                                    let mut total_weight = 0.0f32;
+
+                                    for (cluster_index, cluster) in
+                                        skin_deformer.clusters.iter().enumerate()
+                                    {
+                                        if weight_count >= 4 {
                                             break;
+                                        }
+
+                                        // Find weight for this vertex in this cluster (single pass)
+                                        for (i, &vert_idx) in cluster.vertices.iter().enumerate() {
+                                            if vert_idx as usize == vertex_index {
+                                                if i < cluster.weights.len() {
+                                                    let weight = cluster.weights[i] as f32;
+                                                    if weight > 0.0 {
+                                                        joint_indices[vertex_index][weight_count] =
+                                                            cluster_index as u16;
+                                                        joint_weights[vertex_index][weight_count] =
+                                                            weight;
+                                                        total_weight += weight;
+                                                        weight_count += 1;
+                                                    }
+                                                }
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    // Normalize weights to sum to 1.0
+                                    if total_weight > 0.0 {
+                                        for i in 0..weight_count {
+                                            joint_weights[vertex_index][i] /= total_weight;
                                         }
                                     }
                                 }
 
-                                // Normalize weights to sum to 1.0
-                                if total_weight > 0.0 {
-                                    for i in 0..weight_count {
-                                        joint_weights[vertex_index][i] /= total_weight;
-                                    }
-                                }
+                                bevy_mesh.insert_attribute(
+                                    Mesh::ATTRIBUTE_JOINT_INDEX,
+                                    VertexAttributeValues::Uint16x4(joint_indices),
+                                );
+                                bevy_mesh
+                                    .insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
                             }
 
-                            bevy_mesh.insert_attribute(
-                                Mesh::ATTRIBUTE_JOINT_INDEX,
-                                VertexAttributeValues::Uint16x4(joint_indices),
-                            );
-                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT, joint_weights);
-                        }
+                            // Set indices for this material group
+                            bevy_mesh.insert_indices(Indices::U32(indices.clone()));
 
-                        // Set indices for this material group
-                        bevy_mesh.insert_indices(Indices::U32(indices.clone()));
+                            Ok(bevy_mesh)
+                        },
+                    )?;
 
-                        Ok(bevy_mesh)
-                    },
-                )?;
-
-                mesh_handles.push(sub_mesh_handle);
-                material_indices.push(*material_idx);
-            }
-
-            // Store all mesh handles for multi-material support
-            if !mesh_handles.is_empty() {
-                // Store each material group as a separate mesh entry
-                for (sub_mesh_handle, material_idx) in
-                    mesh_handles.iter().zip(material_indices.iter())
-                {
-                    if !node.element.name.is_empty() && material_idx == &0 {
-                        // Only store the first sub-mesh in named_meshes for backward compatibility
-                        named_meshes.insert(
-                            Box::from(node.element.name.as_ref()),
-                            sub_mesh_handle.clone(),
-                        );
-                    }
-                    meshes.push(sub_mesh_handle.clone());
-                    transforms.push(node.geometry_to_world);
-                    mesh_node_names.push(node.element.name.to_string());
-
-                    // Store material information for this specific sub-mesh
-                    let material_name = if *material_idx < mesh.materials.len() {
-                        mesh.materials[*material_idx].element.name.to_string()
-                    } else {
-                        "default".to_string()
-                    };
-                    mesh_material_info.push(vec![material_name.clone()]);
-
-                    // Record per-node association for proper hierarchy spawning later
-                    node_meshes
-                        .entry(node.element.element_id)
-                        .or_default()
-                        .push((sub_mesh_handle.clone(), vec![material_name]));
+                    mesh_handles.push(sub_mesh_handle);
+                    material_indices.push(*material_idx);
                 }
-            } else {
-                // Fallback: create a simple mesh with no indices if material processing failed
-                tracing::warn!("Creating fallback mesh for mesh {}", index);
-                let fallback_handle = load_context.labeled_asset_scope::<_, FbxError>(
-                    FbxAssetLabel::Mesh(index).to_string(),
-                    |_lc| {
-                        let positions: Vec<[f32; 3]> = mesh
-                            .vertex_position
-                            .values
-                            .as_ref()
-                            .iter()
-                            .map(|v| {
-                                let pos = [v.x as f32, v.y as f32, v.z as f32];
-                                if settings.convert_coordinates {
-                                    pos.convert_coordinates()
-                                } else {
-                                    pos
-                                }
-                            })
-                            .collect();
 
-                        let mut bevy_mesh =
-                            Mesh::new(PrimitiveTopology::TriangleList, settings.load_meshes);
-                        bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+                // Store all mesh handles for multi-material support
+                if !mesh_handles.is_empty() {
+                    // Store each material group as a separate mesh entry
+                    for (sub_mesh_handle, material_idx) in
+                        mesh_handles.iter().zip(material_indices.iter())
+                    {
+                        if !node.element.name.is_empty() && material_idx == &0 {
+                            // Only store the first sub-mesh in named_meshes for backward compatibility
+                            named_meshes.insert(
+                                Box::from(node.element.name.as_ref()),
+                                sub_mesh_handle.clone(),
+                            );
+                        }
+                        meshes.push(sub_mesh_handle.clone());
+                        transforms.push(node.geometry_to_world);
+                        mesh_node_names.push(node.element.name.to_string());
 
-                        if mesh.vertex_normal.exists {
-                            let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
-                                .map(|i| {
-                                    let n = mesh.vertex_normal[i];
-                                    let normal = [n.x as f32, n.y as f32, n.z as f32];
+                        // Store material information for this specific sub-mesh
+                        let material_name = if *material_idx < mesh.materials.len() {
+                            mesh.materials[*material_idx].element.name.to_string()
+                        } else {
+                            "default".to_string()
+                        };
+                        mesh_material_info.push(vec![material_name.clone()]);
+
+                        // Record per-node association for proper hierarchy spawning later
+                        node_meshes
+                            .entry(node.element.element_id)
+                            .or_default()
+                            .push((sub_mesh_handle.clone(), vec![material_name]));
+                    }
+                } else {
+                    // Fallback: create a simple mesh with no indices if material processing failed
+                    tracing::warn!("Creating fallback mesh for mesh {}", index);
+                    let fallback_handle = load_context.labeled_asset_scope::<_, FbxError>(
+                        FbxAssetLabel::Mesh(index).to_string(),
+                        |_lc| {
+                            let positions: Vec<[f32; 3]> = mesh
+                                .vertex_position
+                                .values
+                                .as_ref()
+                                .iter()
+                                .map(|v| {
+                                    let pos = [v.x as f32, v.y as f32, v.z as f32];
                                     if settings.convert_coordinates {
-                                        normal.convert_coordinates()
+                                        pos.convert_coordinates()
                                     } else {
-                                        normal
+                                        pos
                                     }
                                 })
                                 .collect();
-                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-                        }
 
-                        if mesh.vertex_uv.exists {
-                            let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
-                                .map(|i| {
-                                    let uv = mesh.vertex_uv[i];
-                                    [uv.x as f32, uv.y as f32]
-                                })
-                                .collect();
-                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                        }
+                            let mut bevy_mesh =
+                                Mesh::new(PrimitiveTopology::TriangleList, settings.load_meshes);
+                            bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
 
-                        Ok(bevy_mesh)
-                    },
-                )?;
+                            if mesh.vertex_normal.exists {
+                                let normals: Vec<[f32; 3]> = (0..mesh.num_vertices)
+                                    .map(|i| {
+                                        let n = mesh.vertex_normal[i];
+                                        let normal = [n.x as f32, n.y as f32, n.z as f32];
+                                        if settings.convert_coordinates {
+                                            normal.convert_coordinates()
+                                        } else {
+                                            normal
+                                        }
+                                    })
+                                    .collect();
+                                bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+                            }
 
-                if !node.element.name.is_empty() {
-                    named_meshes.insert(
-                        Box::from(node.element.name.as_ref()),
-                        fallback_handle.clone(),
-                    );
+                            if mesh.vertex_uv.exists {
+                                let uvs: Vec<[f32; 2]> = (0..mesh.num_vertices)
+                                    .map(|i| {
+                                        let uv = mesh.vertex_uv[i];
+                                        [uv.x as f32, uv.y as f32]
+                                    })
+                                    .collect();
+                                bevy_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                            }
+
+                            Ok(bevy_mesh)
+                        },
+                    )?;
+
+                    if !node.element.name.is_empty() {
+                        named_meshes.insert(
+                            Box::from(node.element.name.as_ref()),
+                            fallback_handle.clone(),
+                        );
+                    }
+                    meshes.push(fallback_handle);
+                    transforms.push(node.geometry_to_world);
+                    mesh_material_info.push(vec!["default".to_string()]);
+                    mesh_node_names.push(node.element.name.to_string());
                 }
-                meshes.push(fallback_handle);
-                transforms.push(node.geometry_to_world);
-                mesh_material_info.push(vec!["default".to_string()]);
-                mesh_node_names.push(node.element.name.to_string());
-            }
             } // End of mesh loading check
         } else {
             tracing::info!("Skipping mesh loading as load_meshes is empty");
@@ -668,7 +679,9 @@ impl AssetLoader for FbxLoader {
         let mut texture_handles = HashMap::new();
 
         // Determine the sampler to use
-        let default_sampler = settings.default_sampler.clone()
+        let default_sampler = settings
+            .default_sampler
+            .clone()
             .unwrap_or_else(|| ImageSamplerDescriptor::linear());
 
         // First pass: collect all textures
@@ -708,7 +721,7 @@ impl AssetLoader for FbxLoader {
                         .extension()
                         .and_then(|ext| ext.to_str())
                         .unwrap_or("");
-                    
+
                     let image_type = match extension.to_lowercase().as_str() {
                         "png" => ImageType::Extension("png"),
                         "jpg" | "jpeg" => ImageType::Extension("jpg"),
@@ -736,17 +749,24 @@ impl AssetLoader for FbxLoader {
                             )
                         }
                         Err(e) => {
-                            tracing::warn!("Failed to load texture '{}' with sampler: {}", texture_path, e);
+                            tracing::warn!(
+                                "Failed to load texture '{}' with sampler: {}",
+                                texture_path,
+                                e
+                            );
                             // Fallback to regular loading
                             load_context.load(texture_path)
                         }
                     }
                 } else {
-                    tracing::warn!("Failed to read texture file '{}', using default loader", texture_path);
+                    tracing::warn!(
+                        "Failed to read texture file '{}', using default loader",
+                        texture_path
+                    );
                     // Fallback to regular loading
                     load_context.load(texture_path)
                 };
-                
+
                 texture_handles.insert(texture.element.element_id, image_handle);
             }
         }
@@ -790,7 +810,7 @@ impl AssetLoader for FbxLoader {
                         diffuse_color.y as f32,
                         diffuse_color.z as f32,
                     );
-                    
+
                     base_color = color;
                     tracing::info!("Material {} diffuse color: {:?}", index, base_color);
                 } else {
@@ -1136,10 +1156,22 @@ impl AssetLoader for FbxLoader {
             // Convert transform: prefer `node_to_parent` matrix which includes FBX adjust transforms
             let ntp = &ufbx_node.node_to_parent;
             let mut transform = Transform::from_matrix(Mat4::from_cols_array(&[
-                ntp.m00 as f32, ntp.m10 as f32, ntp.m20 as f32, 0.0,
-                ntp.m01 as f32, ntp.m11 as f32, ntp.m21 as f32, 0.0,
-                ntp.m02 as f32, ntp.m12 as f32, ntp.m22 as f32, 0.0,
-                ntp.m03 as f32, ntp.m13 as f32, ntp.m23 as f32, 1.0,
+                ntp.m00 as f32,
+                ntp.m10 as f32,
+                ntp.m20 as f32,
+                0.0,
+                ntp.m01 as f32,
+                ntp.m11 as f32,
+                ntp.m21 as f32,
+                0.0,
+                ntp.m02 as f32,
+                ntp.m12 as f32,
+                ntp.m22 as f32,
+                0.0,
+                ntp.m03 as f32,
+                ntp.m13 as f32,
+                ntp.m23 as f32,
+                1.0,
             ]));
             if settings.convert_coordinates {
                 transform = transform.convert_coordinates();
@@ -1302,20 +1334,34 @@ impl AssetLoader for FbxLoader {
                     HashMap::new();
 
                 // Process animation curves using the available ufbx API
-                tracing::info!("FBX Loader: Processing animation curves in layer '{}'", layer.element.name);
+                tracing::info!(
+                    "FBX Loader: Processing animation curves in layer '{}'",
+                    layer.element.name
+                );
 
                 // Fallback: try the original method if no curve nodes were found
                 if node_animations.is_empty() {
-                    tracing::info!("FBX Loader: No animation curve nodes found, trying fallback method");
-                    tracing::info!("FBX Loader: Layer has {} anim_values", layer.anim_values.as_ref().len());
-                    
+                    tracing::info!(
+                        "FBX Loader: No animation curve nodes found, trying fallback method"
+                    );
+                    tracing::info!(
+                        "FBX Loader: Layer has {} anim_values",
+                        layer.anim_values.as_ref().len()
+                    );
+
                     // Debug: list all scene nodes
                     for (node_index, node) in scene.nodes.as_ref().iter().enumerate() {
-                        tracing::info!("FBX Loader: Scene node {}: element_id={}, name='{}'", 
-                                       node_index, node.element.element_id, node.element.name);
+                        tracing::info!(
+                            "FBX Loader: Scene node {}: element_id={}, name='{}'",
+                            node_index,
+                            node.element.element_id,
+                            node.element.name
+                        );
                     }
-                    
-                    for (anim_value_index, anim_value) in layer.anim_values.as_ref().iter().enumerate() {
+
+                    for (anim_value_index, anim_value) in
+                        layer.anim_values.as_ref().iter().enumerate()
+                    {
                         tracing::info!("FBX Loader: Processing anim_value {}: element_id={}, name='{}', curves={}",
                                        anim_value_index, anim_value.element.element_id, anim_value.element.name, anim_value.curves.as_ref().len());
                         // For FBX, we need to find which scene node these animation properties belong to
@@ -1324,12 +1370,18 @@ impl AssetLoader for FbxLoader {
                         let matching_node = if scene.meshes.as_ref().len() > 0 {
                             // For now, associate all animation properties with the first mesh node
                             // This is a simplified approach - in a full implementation, we'd parse FBX connections
-                            scene.nodes.as_ref().iter().find(|node| !node.element.name.is_empty())
+                            scene
+                                .nodes
+                                .as_ref()
+                                .iter()
+                                .find(|node| !node.element.name.is_empty())
                         } else {
                             // Fallback to exact element ID match
-                            scene.nodes.as_ref().iter().find(|node| node.element.element_id == anim_value.element.element_id)
+                            scene.nodes.as_ref().iter().find(|node| {
+                                node.element.element_id == anim_value.element.element_id
+                            })
                         };
-                        
+
                         if let Some(target_node) = matching_node {
                             tracing::info!("FBX Loader: Found matching node '{}' (element_id={}) for animation property '{}'", 
                                            target_node.element.name, target_node.element.element_id, anim_value.element.name);
@@ -1348,8 +1400,10 @@ impl AssetLoader for FbxLoader {
                                             .collect();
 
                                         if keyframes.len() >= 2 {
-                                            let property_key =
-                                                format!("{}_{}", anim_value.element.name, curve_index);
+                                            let property_key = format!(
+                                                "{}_{}",
+                                                anim_value.element.name, curve_index
+                                            );
                                             tracing::info!("FBX Loader: Adding animation curve '{}' with {} keyframes to node {}", 
                                                            property_key, keyframes.len(), target_node.element.element_id);
                                             node_animations
@@ -1368,12 +1422,19 @@ impl AssetLoader for FbxLoader {
                 }
 
                 // Debug: log the number of animated nodes found
-                tracing::info!("FBX Loader: Found {} animated nodes with curves", node_animations.len());
+                tracing::info!(
+                    "FBX Loader: Found {} animated nodes with curves",
+                    node_animations.len()
+                );
                 for (node_id, properties) in node_animations.iter() {
-                    tracing::info!("FBX Loader: Node {} has {} animated properties: {:?}", 
-                                   node_id, properties.len(), properties.keys().collect::<Vec<_>>());
+                    tracing::info!(
+                        "FBX Loader: Node {} has {} animated properties: {:?}",
+                        node_id,
+                        properties.len(),
+                        properties.keys().collect::<Vec<_>>()
+                    );
                 }
-                
+
                 // Create animation curves for each animated node
                 for (node_id, properties) in node_animations {
                     if let Some(target_node) = scene
@@ -1413,7 +1474,9 @@ impl AssetLoader for FbxLoader {
                             .get("Lcl Translation_2")
                             .or_else(|| properties.get("T_2"));
 
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (tx, ty, tz) {
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) =
+                            (tx, ty, tz)
+                        {
                             // Create Vec3 keyframes by combining X, Y, Z
                             let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
                                 .iter()
@@ -1453,7 +1516,9 @@ impl AssetLoader for FbxLoader {
                             .get("Lcl Rotation_2")
                             .or_else(|| properties.get("R_2"));
 
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (rx, ry, rz) {
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) =
+                            (rx, ry, rz)
+                        {
                             // Convert Euler angles (degrees) to quaternions
                             let combined_keyframes: Vec<(f32, Quat)> = x_keyframes
                                 .iter()
@@ -1502,7 +1567,9 @@ impl AssetLoader for FbxLoader {
                             .get("Lcl Scaling_2")
                             .or_else(|| properties.get("S_2"));
 
-                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) = (sx, sy, sz) {
+                        if let (Some(x_keyframes), Some(y_keyframes), Some(z_keyframes)) =
+                            (sx, sy, sz)
+                        {
                             // Create Vec3 keyframes by combining X, Y, Z
                             let combined_keyframes: Vec<(f32, Vec3)> = x_keyframes
                                 .iter()
@@ -1575,13 +1642,10 @@ impl AssetLoader for FbxLoader {
             default_mat.metallic = 0.0;
             default_mat.perceptual_roughness = 0.8;
             default_mat.cull_mode = None; // Disable backface culling for easier debugging
-            
+
             tracing::info!("FBX Loader: Created bright red default material for better visibility");
-            
-            load_context.add_labeled_asset(
-                FbxAssetLabel::DefaultMaterial.to_string(),
-                default_mat,
-            )
+
+            load_context.add_labeled_asset(FbxAssetLabel::DefaultMaterial.to_string(), default_mat)
         });
 
         // Create animation player and graph if there are animations
@@ -1589,33 +1653,36 @@ impl AssetLoader for FbxLoader {
             // Create animation graph with all clips
             let mut animation_indices = Vec::new();
             let mut graph = AnimationGraph::new();
-            
+
             // Add each animation clip to the graph
             for (i, animation_handle) in animations.iter().enumerate() {
                 let node_index = graph.add_clip(animation_handle.clone(), 1.0, graph.root);
                 animation_indices.push(node_index);
                 tracing::info!("Added animation {} to graph with index {:?}", i, node_index);
             }
-            
+
             // Store the animation graph as an asset
-            let graph_handle = load_context.add_labeled_asset(
-                FbxAssetLabel::AnimationGraph(0).to_string(),
-                graph,
-            );
-            
+            let graph_handle =
+                load_context.add_labeled_asset(FbxAssetLabel::AnimationGraph(0).to_string(), graph);
+
             let mut player = AnimationPlayer::default();
             // Auto-play the first animation
             if let Some(&first_node_index) = animation_indices.first() {
                 player.play(first_node_index).repeat();
-                tracing::info!("Auto-playing first animation with node index {:?}", first_node_index);
+                tracing::info!(
+                    "Auto-playing first animation with node index {:?}",
+                    first_node_index
+                );
             }
-            
-            let player_entity = world.spawn((
-                player,
-                AnimationGraphHandle(graph_handle.clone()),
-            )).id();
-            
-            tracing::info!("FBX Loader: Created animation player for {} animations", animations.len());
+
+            let player_entity = world
+                .spawn((player, AnimationGraphHandle(graph_handle.clone())))
+                .id();
+
+            tracing::info!(
+                "FBX Loader: Created animation player for {} animations",
+                animations.len()
+            );
             Some(player_entity)
         } else {
             None
@@ -1635,8 +1702,17 @@ impl AssetLoader for FbxLoader {
         // Helper to convert ufbx::Transform -> bevy Transform
         let to_bevy_transform = |t: &ufbx::Transform| -> Transform {
             let mut tr = Transform {
-                translation: Vec3::new(t.translation.x as f32, t.translation.y as f32, t.translation.z as f32),
-                rotation: Quat::from_xyzw(t.rotation.x as f32, t.rotation.y as f32, t.rotation.z as f32, t.rotation.w as f32),
+                translation: Vec3::new(
+                    t.translation.x as f32,
+                    t.translation.y as f32,
+                    t.translation.z as f32,
+                ),
+                rotation: Quat::from_xyzw(
+                    t.rotation.x as f32,
+                    t.rotation.y as f32,
+                    t.rotation.z as f32,
+                    t.rotation.w as f32,
+                ),
                 scale: Vec3::new(t.scale.x as f32, t.scale.y as f32, t.scale.z as f32),
             };
             if settings.convert_coordinates {
@@ -1674,7 +1750,11 @@ impl AssetLoader for FbxLoader {
                     match light.type_ {
                         ufbx::LightType::Directional => {
                             e.insert(DirectionalLight {
-                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
                                 illuminance: light.intensity as f32,
                                 shadows_enabled: light.cast_shadows,
                                 ..Default::default()
@@ -1682,14 +1762,22 @@ impl AssetLoader for FbxLoader {
                         }
                         ufbx::LightType::Point => {
                             e.insert(PointLight {
-                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
                                 intensity: light.intensity as f32 * core::f32::consts::PI * 4.0,
                                 ..Default::default()
                             });
                         }
                         ufbx::LightType::Spot => {
                             e.insert(SpotLight {
-                                color: Color::srgb(light.color.x as f32, light.color.y as f32, light.color.z as f32),
+                                color: Color::srgb(
+                                    light.color.x as f32,
+                                    light.color.y as f32,
+                                    light.color.z as f32,
+                                ),
                                 intensity: light.intensity as f32 * core::f32::consts::PI * 4.0,
                                 inner_angle: (light.inner_angle as f32).to_radians(),
                                 outer_angle: (light.outer_angle as f32).to_radians(),
@@ -1709,7 +1797,9 @@ impl AssetLoader for FbxLoader {
                             perspective.fov = cam.field_of_view_deg.y.to_radians() as f32;
                             perspective.near = cam.near_plane as f32;
                             perspective.far = cam.far_plane as f32;
-                            if cam.aspect_ratio > 0.0 { perspective.aspect_ratio = cam.aspect_ratio as f32; }
+                            if cam.aspect_ratio > 0.0 {
+                                perspective.aspect_ratio = cam.aspect_ratio as f32;
+                            }
                             Projection::Perspective(perspective)
                         }
                         ufbx::ProjectionMode::Orthographic => {
@@ -1728,7 +1818,14 @@ impl AssetLoader for FbxLoader {
                             Projection::Orthographic(ortho)
                         }
                     };
-                    e.insert((Camera3d::default(), projection, Camera { is_active: false, ..Default::default() }));
+                    e.insert((
+                        Camera3d::default(),
+                        projection,
+                        Camera {
+                            is_active: false,
+                            ..Default::default()
+                        },
+                    ));
                 }
             }
 
@@ -1763,7 +1860,10 @@ impl AssetLoader for FbxLoader {
         let mut node_mesh_entities: HashMap<u32, Vec<Entity>> = HashMap::new();
 
         for (i, u_node) in scene.nodes.as_ref().iter().enumerate() {
-            let node_entity = match node_entities[i] { Some(e) => e, None => continue };
+            let node_entity = match node_entities[i] {
+                Some(e) => e,
+                None => continue,
+            };
             if let Some(entries) = node_meshes.get(&u_node.element.element_id) {
                 for (sub_mesh_handle, mat_names) in entries {
                     // Resolve a material handle
@@ -1776,10 +1876,22 @@ impl AssetLoader for FbxLoader {
                     // Set mesh local transform from FBX geometry_to_node so geometry matches DCC
                     let gtn = &u_node.geometry_to_node;
                     let child_local = Transform::from_matrix(Mat4::from_cols_array(&[
-                        gtn.m00 as f32, gtn.m10 as f32, gtn.m20 as f32, 0.0,
-                        gtn.m01 as f32, gtn.m11 as f32, gtn.m21 as f32, 0.0,
-                        gtn.m02 as f32, gtn.m12 as f32, gtn.m22 as f32, 0.0,
-                        gtn.m03 as f32, gtn.m13 as f32, gtn.m23 as f32, 1.0,
+                        gtn.m00 as f32,
+                        gtn.m10 as f32,
+                        gtn.m20 as f32,
+                        0.0,
+                        gtn.m01 as f32,
+                        gtn.m11 as f32,
+                        gtn.m21 as f32,
+                        0.0,
+                        gtn.m02 as f32,
+                        gtn.m12 as f32,
+                        gtn.m22 as f32,
+                        0.0,
+                        gtn.m03 as f32,
+                        gtn.m13 as f32,
+                        gtn.m23 as f32,
+                        1.0,
                     ]));
 
                     let child = world.spawn((
@@ -1814,10 +1926,12 @@ impl AssetLoader for FbxLoader {
 
             if let Some(mesh_entities) = node_mesh_entities.get(mesh_node_id) {
                 for &mesh_ent in mesh_entities {
-                    world.entity_mut(mesh_ent).insert(bevy_mesh::skinning::SkinnedMesh {
-                        inverse_bindposes: inverse_bindposes_handle.clone(),
-                        joints: joint_entities.clone(),
-                    });
+                    world
+                        .entity_mut(mesh_ent)
+                        .insert(bevy_mesh::skinning::SkinnedMesh {
+                            inverse_bindposes: inverse_bindposes_handle.clone(),
+                            joints: joint_entities.clone(),
+                        });
                 }
             }
         }
