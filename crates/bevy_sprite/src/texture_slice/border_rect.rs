@@ -62,3 +62,16 @@ impl From<[f32; 4]> for BorderRect {
         }
     }
 }
+
+impl core::ops::Add for BorderRect {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            left: self.left + rhs.left,
+            right: self.right + rhs.right,
+            top: self.top + rhs.top,
+            bottom: self.bottom + rhs.bottom,
+        }
+    }
+}
