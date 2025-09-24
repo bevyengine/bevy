@@ -233,6 +233,7 @@ mod tests {
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
+    use bevy_text::DefaultTextStyle;
     use bevy_text::TextFont;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
@@ -244,6 +245,7 @@ mod tests {
         let mut app = App::new();
 
         app.init_resource::<UiScale>();
+        app.init_resource::<DefaultTextStyle>();
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
