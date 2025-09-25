@@ -60,7 +60,16 @@ use bevy_render::{
         NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
-        binding_types::{sampler, texture_2d, uniform_buffer}, AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilOperation, StencilState, StoreOp, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView, VertexState
+        binding_types::{sampler, texture_2d, uniform_buffer},
+        AddressMode, BindGroup, BindGroupEntries, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        CompareFunction, DepthStencilState, DynamicUniformBuffer, FilterMode, FragmentState,
+        LoadOp, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipeline,
+        RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, StencilFaceState, StencilOperation,
+        StencilState, StoreOp, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureSampleType, TextureUsages, TextureView, VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
@@ -347,10 +356,7 @@ impl Plugin for SmaaPlugin {
     }
 }
 
-pub fn init_smaa_pipelines(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn init_smaa_pipelines(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create the postprocess bind group layout (all passes, bind group 0).
     let postprocess_bind_group_layout = BindGroupLayoutDescriptor::new(
         "SMAA postprocess bind group layout",
@@ -745,16 +751,22 @@ fn prepare_smaa_bind_groups(
         commands.entity(entity).insert(SmaaBindGroups {
             edge_detection_bind_group: render_device.create_bind_group(
                 Some("SMAA edge detection bind group"),
-                &pipeline_cache.get_bind_group_layout(smaa_pipelines
-                    .edge_detection
-                    .edge_detection_bind_group_layout.clone()),
+                &pipeline_cache.get_bind_group_layout(
+                    smaa_pipelines
+                        .edge_detection
+                        .edge_detection_bind_group_layout
+                        .clone(),
+                ),
                 &BindGroupEntries::sequential((&sampler,)),
             ),
             blending_weight_calculation_bind_group: render_device.create_bind_group(
                 Some("SMAA blending weight calculation bind group"),
-                &pipeline_cache.get_bind_group_layout(smaa_pipelines
-                    .blending_weight_calculation
-                    .blending_weight_calculation_bind_group_layout.clone()),
+                &pipeline_cache.get_bind_group_layout(
+                    smaa_pipelines
+                        .blending_weight_calculation
+                        .blending_weight_calculation_bind_group_layout
+                        .clone(),
+                ),
                 &BindGroupEntries::sequential((
                     &smaa_textures.edge_detection_color_texture.default_view,
                     &sampler,
@@ -764,9 +776,12 @@ fn prepare_smaa_bind_groups(
             ),
             neighborhood_blending_bind_group: render_device.create_bind_group(
                 Some("SMAA neighborhood blending bind group"),
-                &pipeline_cache.get_bind_group_layout(smaa_pipelines
-                    .neighborhood_blending
-                    .neighborhood_blending_bind_group_layout.clone()),
+                &pipeline_cache.get_bind_group_layout(
+                    smaa_pipelines
+                        .neighborhood_blending
+                        .neighborhood_blending_bind_group_layout
+                        .clone(),
+                ),
                 &BindGroupEntries::sequential((
                     &smaa_textures.blend_texture.default_view,
                     &sampler,
@@ -891,7 +906,12 @@ fn perform_edge_detection(
     // Create the edge detection bind group.
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(smaa_pipelines.edge_detection.postprocess_bind_group_layout.clone()),
+        &pipeline_cache.get_bind_group_layout(
+            smaa_pipelines
+                .edge_detection
+                .postprocess_bind_group_layout
+                .clone(),
+        ),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );
 
@@ -946,9 +966,12 @@ fn perform_blending_weight_calculation(
     // Create the blending weight calculation bind group.
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(smaa_pipelines
-            .blending_weight_calculation
-            .postprocess_bind_group_layout.clone()),
+        &pipeline_cache.get_bind_group_layout(
+            smaa_pipelines
+                .blending_weight_calculation
+                .postprocess_bind_group_layout
+                .clone(),
+        ),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );
 
@@ -1005,9 +1028,12 @@ fn perform_neighborhood_blending(
 ) {
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(smaa_pipelines
-            .neighborhood_blending
-            .postprocess_bind_group_layout.clone()),
+        &pipeline_cache.get_bind_group_layout(
+            smaa_pipelines
+                .neighborhood_blending
+                .postprocess_bind_group_layout
+                .clone(),
+        ),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );
 
