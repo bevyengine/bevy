@@ -306,6 +306,12 @@ impl RaytracingSceneBindings {
     }
 }
 
+impl Default for RaytracingSceneBindings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 struct CachedBindingArray<T, I: Eq + Hash> {
     map: HashMap<I, u32>,
     vec: Vec<T>,
