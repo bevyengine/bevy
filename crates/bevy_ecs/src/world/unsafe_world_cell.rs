@@ -890,7 +890,7 @@ impl<'w> UnsafeEntityCell<'w> {
     }
 
     /// Get the [`MaybeLocation`] for a [`Component`].
-    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///
     /// # Safety
@@ -1328,7 +1328,7 @@ unsafe fn get_ticks(
 }
 
 /// Get the [`MaybeLocation`] for a [`Component`] on a particular [`Entity`].
-/// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+/// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`

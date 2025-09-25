@@ -755,7 +755,7 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
 // SAFETY: ResMut component access is tied to the singleton components under
-// QueryState<Ref<T>, With<Internal>>, which guarentees safety.
+// QueryState<Ref<T>, With<Internal>>, which guarantees safety.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = (ComponentId, QueryState<Ref<'static, T>, With<Internal>>);
     type Item<'w, 's> = Res<'w, T>;
@@ -837,7 +837,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 }
 
 // SAFETY: ResMut component access is tied to the singleton components under
-// QueryState<Mut<T>, With<Internal>>, which guarentees safety.
+// QueryState<Mut<T>, With<Internal>>, which guarantees safety.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = (ComponentId, QueryState<Mut<'static, T>, With<Internal>>);
     type Item<'w, 's> = ResMut<'w, T>;

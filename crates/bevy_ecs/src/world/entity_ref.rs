@@ -147,7 +147,7 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Get the [`MaybeLocation`] for a [`Component`].
-    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     #[inline]
     pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
@@ -1752,7 +1752,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Get the [`MaybeLocation`] for a [`Component`].
-    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///
     /// # Panics
