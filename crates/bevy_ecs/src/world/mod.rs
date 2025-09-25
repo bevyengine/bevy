@@ -85,8 +85,9 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 /// ## Resources
 ///
 /// Worlds can also store [`Resource`]s,
-/// which are unique instances of a given type that don't belong to a specific Entity.
+/// which are unique instances of a given type that belong to a specific unique Entity.
 /// There are also *non send resources*, which can only be accessed on the main thread.
+/// These are stored outside of the ECS.
 /// See [`Resource`] for usage.
 pub struct World {
     id: WorldId,
@@ -96,8 +97,10 @@ pub struct World {
     /// A lookup for the entities on which resources are stored.
     /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
     /// A resource exists if all of the below is true:
-    /// 1. resource_entities has an entry for the [`ComponentId`] associated with the resource.
-    /// 2. The entity associated with the resource has three components: the resource (as a component), [`IsResource`], and [`Internal`].
+    /// 1. `resource_entities` has an entry for the [`ComponentId`] associated with the resource.
+    /// 2. The entity associated with the resource has three components:
+    ///    the resource (as a component), [`IsResource`], and [`Internal`].
+    ///
     /// If the resource does not exists, none of the above must be true, any inbetween state is invalid.
     pub resource_entities: HashMap<ComponentId, Entity>,
     pub(crate) archetypes: Archetypes,

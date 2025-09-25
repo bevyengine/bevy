@@ -828,11 +828,11 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
                 .1
                 .query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        return Res::from(
+        Res::from(
             query
                 .single_inner()
                 .expect("The query was expected to contain exactly one matching entity."),
-        );
+        )
     }
 }
 
@@ -912,11 +912,11 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
                 .1
                 .query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        return ResMut::from(
+        ResMut::from(
             query
                 .single_inner()
                 .expect("The query was expected to contain exactly one matching entity."),
-        );
+        )
     }
 }
 
