@@ -37,7 +37,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, In, IntoSystem, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -62,10 +62,16 @@ impl Plugin for CameraPlugin {
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
             ))
-            .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
+            .add_systems(
+                PostStartup,
+                camera_system
+                    .pipe(camera_sub_view_system)
+                    .in_set(CameraUpdateSystems),
+            )
             .add_systems(
                 PostUpdate,
                 camera_system
+                    .pipe(camera_sub_view_system)
                     .in_set(CameraUpdateSystems)
                     .before(AssetEventSystems)
                     .before(visibility::update_frusta),
@@ -319,9 +325,9 @@ pub fn camera_system(
         &RenderTarget,
         &mut Projection,
         Option<&SubViewsUsingThisProjection>,
-        Option<&SubViewSourceProjection>,
+        Has<SubViewSourceProjection>,
     )>,
-) -> Result<(), BevyError> {
+) -> Result<Vec<Entity>, BevyError> {
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = <HashSet<_>>::default();
@@ -341,9 +347,11 @@ pub fn camera_system(
         })
         .collect();
 
-    // This is only used to call `.contains(_)`, but a vec is fine instead of a hashset because the number of cameras will be
-    // very small
-    let mut has_sub_view_source = Vec::new();
+    // Cameras with a `SubViewSourceProjection`, that will have their `clip_from_view` recalculated later in a second loop.
+    // This is necessary because these cameras depend on the projection of another camera, which may be updated in this
+    // first loop. Therefore, to avoid potentially using an old incorrect projection value for the `clip_from_view` calculation,
+    // those calculations must be done in a second loop, after this one.
+    let mut has_dependent_sub_view = Vec::new();
 
     for (entity, mut camera, render_target, mut camera_projection, sub_views, has_source) in
         &mut cameras
@@ -396,7 +404,7 @@ pub fn camera_system(
                 && size.y != 0.0
             {
                 camera_projection.update(size.x, size.y);
-                if has_source.is_none() {
+                if !has_source {
                     // This camera is using its own projection
                     camera.computed.clip_from_view = match &mut camera.sub_camera_view {
                         Some(sub_view) => {
@@ -409,12 +417,14 @@ pub fn camera_system(
 
             if let Some(sub_views) = sub_views {
                 // This camera changed, queue dependent cameras to be updated as well
-                has_sub_view_source.extend(sub_views.get_entities());
+                // (The dependent cameras may have already been iterated over previously in this loop)
+                has_dependent_sub_view.extend(sub_views.get_entities());
             }
 
-            if has_source.is_some() {
-                // This is a dependent camera, queue it to be updated
-                has_sub_view_source.push(entity);
+            if has_source {
+                // This is a dependent camera, queue it to be updated later
+                // (The camera this one depends on may have its projection updated later in this loop)
+                has_dependent_sub_view.push(entity);
             }
         }
 
@@ -427,24 +437,21 @@ pub fn camera_system(
         }
     }
 
-    let mut calculated_things = HashMap::new();
+    Ok(has_dependent_sub_view)
+}
 
+fn camera_sub_view_system(
+    camera_entities: In<Vec<Entity>>,
+    mut cameras: Query<(&mut Camera, &Projection, &SubViewSourceProjection)>,
+) {
     // Update dependent cameras in a second loop, so that all the cameras that are depended on have already been updated
     // Doing it like this is also necessary for borrow checker reasons
-    for entity in has_sub_view_source {
-        let Ok((
-            entity,
-            mut camera,
-            render_target,
-            mut camera_projection,
-            sub_views,
-            Some(sub_view_source),
-        )) = cameras.get(entity)
-        else {
+    for entity in camera_entities.0 {
+        let Ok((camera, _, projection_entity)) = cameras.get(entity) else {
             continue;
         };
 
-        let Ok((_, _, _, source_projection, Some(_), _)) = cameras.get(sub_view_source.0) else {
+        let Ok((_, projection, _)) = cameras.get(projection_entity.0) else {
             continue;
         };
 
@@ -457,19 +464,21 @@ pub fn camera_system(
             && size.y != 0.0
         {
             let aspect_ratio = AspectRatio::try_new(size.x, size.y)
-            .expect("Failed to update CameraSubView: width and height must be positive, non-zero values")
+            .expect("Failed to update CameraSubView: viewport size must be a positive, non-zero value")
             .ratio();
-            let thing = source_projection.get_clip_from_view_for_sub(sub_view, Some(aspect_ratio));
-            calculated_things.insert(entity, thing);
+
+            // This method call requires a shared borrow on two different entities, thus the mutable re-query below
+            let clip_from_view =
+                projection.get_clip_from_view_for_sub(sub_view, Some(aspect_ratio));
+
+            // Re-get the camera, but mutably (exclusively) this time, now that the calculation has been done and the
+            // two simultaneous shared borrows can be dropped
+            let Ok((mut camera, _, _)) = cameras.get_mut(entity) else {
+                continue;
+            };
+            camera.computed.clip_from_view = clip_from_view;
         }
     }
-
-    for (entity, thing) in calculated_things {
-        let (_, mut camera, _, _, _, _) = cameras.get_mut(entity).unwrap();
-        camera.computed.clip_from_view = thing;
-    }
-
-    Ok(())
 }
 
 #[derive(Component, Debug)]
