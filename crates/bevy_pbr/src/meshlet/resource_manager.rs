@@ -142,12 +142,12 @@ impl ResourceManager {
                 ),
             ),
             clear_visibility_buffer_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
-                    "meshlet_clear_visibility_buffer_shadow_view_bind_group_layout",
-                    &BindGroupLayoutEntries::single(
-                        ShaderStages::COMPUTE,
-                        texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
-                    ),
+                "meshlet_clear_visibility_buffer_shadow_view_bind_group_layout",
+                &BindGroupLayoutEntries::single(
+                    ShaderStages::COMPUTE,
+                    texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                 ),
+            ),
             first_instance_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_first_instance_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
@@ -348,25 +348,22 @@ impl ResourceManager {
                 ),
             ),
             visibility_buffer_raster_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
-                    "meshlet_visibility_buffer_raster_shadow_view_bind_group_layout",
-                    &BindGroupLayoutEntries::sequential(
-                        ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
-                        (
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            storage_buffer_read_only_sized(false, None),
-                            texture_storage_2d(
-                                TextureFormat::R32Uint,
-                                StorageTextureAccess::Atomic,
-                            ),
-                            uniform_buffer::<ViewUniform>(true),
-                        ),
+                "meshlet_visibility_buffer_raster_shadow_view_bind_group_layout",
+                &BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
+                    (
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
+                        texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::Atomic),
+                        uniform_buffer::<ViewUniform>(true),
                     ),
                 ),
+            ),
             resolve_depth_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_resolve_depth_bind_group_layout",
                 &BindGroupLayoutEntries::single(
@@ -827,7 +824,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_instance_cull = render_device.create_bind_group(
             "meshlet_first_instance_cull_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.first_instance_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.first_instance_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -851,7 +849,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_instance_cull = render_device.create_bind_group(
             "meshlet_second_instance_cull_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.second_instance_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.second_instance_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -874,7 +873,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_bvh_cull_ping = render_device.create_bind_group(
             "meshlet_first_bvh_cull_ping_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -910,7 +910,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_bvh_cull_pong = render_device.create_bind_group(
             "meshlet_first_bvh_cull_pong_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -946,7 +947,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_bvh_cull_ping = render_device.create_bind_group(
             "meshlet_second_bvh_cull_ping_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -977,7 +979,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_bvh_cull_pong = render_device.create_bind_group(
             "meshlet_second_bvh_cull_pong_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1008,7 +1011,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_meshlet_cull = render_device.create_bind_group(
             "meshlet_first_meshlet_cull_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.first_meshlet_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.first_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1038,7 +1042,8 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_meshlet_cull = render_device.create_bind_group(
             "meshlet_second_meshlet_cull_bind_group",
-            &pipeline_cache.get_bind_group_layout(&resource_manager.second_meshlet_cull_bind_group_layout),
+            &pipeline_cache
+                .get_bind_group_layout(&resource_manager.second_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1113,7 +1118,9 @@ pub fn prepare_meshlet_view_bind_groups(
         let resolve_material_depth = view_resources.material_depth.as_ref().map(|_| {
             render_device.create_bind_group(
                 "meshlet_resolve_material_depth_bind_group",
-                &pipeline_cache.get_bind_group_layout(&resource_manager.resolve_material_depth_bind_group_layout),
+                &pipeline_cache.get_bind_group_layout(
+                    &resource_manager.resolve_material_depth_bind_group_layout,
+                ),
                 &BindGroupEntries::sequential((
                     &view_resources.visibility_buffer.default_view,
                     resource_manager
@@ -1127,7 +1134,8 @@ pub fn prepare_meshlet_view_bind_groups(
         let material_shade = view_resources.material_depth.as_ref().map(|_| {
             render_device.create_bind_group(
                 "meshlet_mesh_material_shade_bind_group",
-                &pipeline_cache.get_bind_group_layout(&resource_manager.material_shade_bind_group_layout),
+                &pipeline_cache
+                    .get_bind_group_layout(&resource_manager.material_shade_bind_group_layout),
                 &BindGroupEntries::sequential((
                     &view_resources.visibility_buffer.default_view,
                     resource_manager
@@ -1167,7 +1175,8 @@ pub fn prepare_meshlet_view_bind_groups(
         {
             render_device.create_bind_group(
                 "meshlet_fill_counts_bind_group",
-                &pipeline_cache.get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
+                &pipeline_cache
+                    .get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_resources
                         .visibility_buffer_software_raster_indirect_args
@@ -1186,7 +1195,8 @@ pub fn prepare_meshlet_view_bind_groups(
         } else {
             render_device.create_bind_group(
                 "meshlet_fill_counts_bind_group",
-                &pipeline_cache.get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
+                &pipeline_cache
+                    .get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_resources
                         .visibility_buffer_software_raster_indirect_args
