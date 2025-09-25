@@ -281,8 +281,8 @@ pub fn extract_mesh2d(
 
 #[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
-    pub view_layout: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub mesh_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
@@ -297,7 +297,7 @@ pub fn init_mesh_2d_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "mesh2d_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -310,7 +310,7 @@ pub fn init_mesh_2d_pipeline(
         ),
     );
 
-    let mesh_layout = render_device.create_bind_group_layout(
+    let mesh_layout = BindGroupLayoutDescriptor::new(
         "mesh2d_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -710,13 +710,14 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
-                &mesh2d_pipeline.mesh_layout,
+                &pipeline_cache.get_bind_group_layout(mesh2d_pipeline.mesh_layout.clone()),
                 &BindGroupEntries::single(binding),
             ),
         });
@@ -731,6 +732,7 @@ pub struct Mesh2dViewBindGroup {
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
@@ -751,7 +753,7 @@ pub fn prepare_mesh2d_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &mesh2d_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(mesh2d_pipeline.view_layout.clone()),
             &BindGroupEntries::sequential((
                 view_binding.clone(),
                 globals.clone(),

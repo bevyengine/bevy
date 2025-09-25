@@ -1,5 +1,5 @@
-use crate::renderer::WgpuWrapper;
 use crate::define_atomic_id;
+use crate::renderer::WgpuWrapper;
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_mesh::VertexBufferLayout;

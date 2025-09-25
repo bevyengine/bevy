@@ -47,8 +47,8 @@ use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
 pub struct SpritePipeline {
-    view_layout: BindGroupLayout,
-    material_layout: BindGroupLayout,
+    view_layout: BindGroupLayoutDescriptor,
+    material_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
     pub dummy_white_gpu_image: GpuImage,
 }
@@ -61,7 +61,7 @@ pub fn init_sprite_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "sprite_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -73,7 +73,7 @@ pub fn init_sprite_pipeline(
         ),
     );
 
-    let material_layout = render_device.create_bind_group_layout(
+    let material_layout = BindGroupLayoutDescriptor::new(
         "sprite_material_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -603,6 +603,7 @@ pub fn queue_sprites(
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
@@ -619,7 +620,7 @@ pub fn prepare_sprite_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &sprite_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(sprite_pipeline.view_layout.clone()),
             &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
@@ -632,6 +633,7 @@ pub fn prepare_sprite_view_bind_groups(
 pub fn prepare_sprite_image_bind_groups(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut sprite_meta: ResMut<SpriteMeta>,
     sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
@@ -701,7 +703,8 @@ pub fn prepare_sprite_image_bind_groups(
                     .or_insert_with(|| {
                         render_device.create_bind_group(
                             "sprite_material_bind_group",
-                            &sprite_pipeline.material_layout,
+                            &pipeline_cache
+                                .get_bind_group_layout(sprite_pipeline.material_layout.clone()),
                             &BindGroupEntries::sequential((
                                 &gpu_image.texture_view,
                                 &gpu_image.sampler,
