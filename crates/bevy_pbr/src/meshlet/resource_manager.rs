@@ -50,24 +50,24 @@ pub struct ResourceManager {
     previous_depth_pyramids: EntityHashMap<TextureView>,
 
     // Bind group layouts
-    pub clear_visibility_buffer_bind_group_layout: BindGroupLayout,
-    pub clear_visibility_buffer_shadow_view_bind_group_layout: BindGroupLayout,
-    pub first_instance_cull_bind_group_layout: BindGroupLayout,
-    pub second_instance_cull_bind_group_layout: BindGroupLayout,
-    pub first_bvh_cull_bind_group_layout: BindGroupLayout,
-    pub second_bvh_cull_bind_group_layout: BindGroupLayout,
-    pub first_meshlet_cull_bind_group_layout: BindGroupLayout,
-    pub second_meshlet_cull_bind_group_layout: BindGroupLayout,
-    pub visibility_buffer_raster_bind_group_layout: BindGroupLayout,
-    pub visibility_buffer_raster_shadow_view_bind_group_layout: BindGroupLayout,
-    pub downsample_depth_bind_group_layout: BindGroupLayout,
-    pub downsample_depth_shadow_view_bind_group_layout: BindGroupLayout,
-    pub resolve_depth_bind_group_layout: BindGroupLayout,
-    pub resolve_depth_shadow_view_bind_group_layout: BindGroupLayout,
-    pub resolve_material_depth_bind_group_layout: BindGroupLayout,
-    pub material_shade_bind_group_layout: BindGroupLayout,
-    pub fill_counts_bind_group_layout: BindGroupLayout,
-    pub remap_1d_to_2d_dispatch_bind_group_layout: Option<BindGroupLayout>,
+    pub clear_visibility_buffer_bind_group_layout: BindGroupLayoutDescriptor,
+    pub clear_visibility_buffer_shadow_view_bind_group_layout: BindGroupLayoutDescriptor,
+    pub first_instance_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub second_instance_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub first_bvh_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub second_bvh_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub first_meshlet_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub second_meshlet_cull_bind_group_layout: BindGroupLayoutDescriptor,
+    pub visibility_buffer_raster_bind_group_layout: BindGroupLayoutDescriptor,
+    pub visibility_buffer_raster_shadow_view_bind_group_layout: BindGroupLayoutDescriptor,
+    pub downsample_depth_bind_group_layout: BindGroupLayoutDescriptor,
+    pub downsample_depth_shadow_view_bind_group_layout: BindGroupLayoutDescriptor,
+    pub resolve_depth_bind_group_layout: BindGroupLayoutDescriptor,
+    pub resolve_depth_shadow_view_bind_group_layout: BindGroupLayoutDescriptor,
+    pub resolve_material_depth_bind_group_layout: BindGroupLayoutDescriptor,
+    pub material_shade_bind_group_layout: BindGroupLayoutDescriptor,
+    pub fill_counts_bind_group_layout: BindGroupLayoutDescriptor,
+    pub remap_1d_to_2d_dispatch_bind_group_layout: Option<BindGroupLayoutDescriptor>,
 }
 
 impl ResourceManager {
@@ -141,8 +141,7 @@ impl ResourceManager {
                     texture_storage_2d(TextureFormat::R64Uint, StorageTextureAccess::WriteOnly),
                 ),
             ),
-            clear_visibility_buffer_shadow_view_bind_group_layout: render_device
-                .create_bind_group_layout(
+            clear_visibility_buffer_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
                     "meshlet_clear_visibility_buffer_shadow_view_bind_group_layout",
                     &BindGroupLayoutEntries::single(
                         ShaderStages::COMPUTE,
@@ -348,8 +347,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            visibility_buffer_raster_shadow_view_bind_group_layout: render_device
-                .create_bind_group_layout(
+            visibility_buffer_raster_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
                     "meshlet_visibility_buffer_raster_shadow_view_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
                         ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
@@ -805,6 +803,7 @@ pub fn prepare_meshlet_view_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
     let (Some(view_uniforms), Some(previous_view_uniforms)) = (
@@ -818,17 +817,17 @@ pub fn prepare_meshlet_view_bind_groups(
     for (view_entity, view_resources) in &views {
         let clear_visibility_buffer = render_device.create_bind_group(
             "meshlet_clear_visibility_buffer_bind_group",
-            if view_resources.not_shadow_view {
+            &pipeline_cache.get_bind_group_layout(if view_resources.not_shadow_view {
                 &resource_manager.clear_visibility_buffer_bind_group_layout
             } else {
                 &resource_manager.clear_visibility_buffer_shadow_view_bind_group_layout
-            },
+            }),
             &BindGroupEntries::single(&view_resources.visibility_buffer.default_view),
         );
 
         let first_instance_cull = render_device.create_bind_group(
             "meshlet_first_instance_cull_bind_group",
-            &resource_manager.first_instance_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.first_instance_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -852,7 +851,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_instance_cull = render_device.create_bind_group(
             "meshlet_second_instance_cull_bind_group",
-            &resource_manager.second_instance_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.second_instance_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -875,7 +874,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_bvh_cull_ping = render_device.create_bind_group(
             "meshlet_first_bvh_cull_ping_bind_group",
-            &resource_manager.first_bvh_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -911,7 +910,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_bvh_cull_pong = render_device.create_bind_group(
             "meshlet_first_bvh_cull_pong_bind_group",
-            &resource_manager.first_bvh_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -947,7 +946,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_bvh_cull_ping = render_device.create_bind_group(
             "meshlet_second_bvh_cull_ping_bind_group",
-            &resource_manager.second_bvh_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -978,7 +977,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_bvh_cull_pong = render_device.create_bind_group(
             "meshlet_second_bvh_cull_pong_bind_group",
-            &resource_manager.second_bvh_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.second_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1009,7 +1008,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_meshlet_cull = render_device.create_bind_group(
             "meshlet_first_meshlet_cull_bind_group",
-            &resource_manager.first_meshlet_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.first_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1039,7 +1038,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_meshlet_cull = render_device.create_bind_group(
             "meshlet_second_meshlet_cull_bind_group",
-            &resource_manager.second_meshlet_cull_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resource_manager.second_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
                 view_uniforms.clone(),
@@ -1066,22 +1065,22 @@ pub fn prepare_meshlet_view_bind_groups(
         let downsample_depth = view_resources.depth_pyramid.create_bind_group(
             &render_device,
             "meshlet_downsample_depth_bind_group",
-            if view_resources.not_shadow_view {
+            &pipeline_cache.get_bind_group_layout(if view_resources.not_shadow_view {
                 &resource_manager.downsample_depth_bind_group_layout
             } else {
                 &resource_manager.downsample_depth_shadow_view_bind_group_layout
-            },
+            }),
             &view_resources.visibility_buffer.default_view,
             &resource_manager.depth_pyramid_sampler,
         );
 
         let visibility_buffer_raster = render_device.create_bind_group(
             "meshlet_visibility_raster_buffer_bind_group",
-            if view_resources.not_shadow_view {
+            &pipeline_cache.get_bind_group_layout(if view_resources.not_shadow_view {
                 &resource_manager.visibility_buffer_raster_bind_group_layout
             } else {
                 &resource_manager.visibility_buffer_raster_shadow_view_bind_group_layout
-            },
+            }),
             &BindGroupEntries::sequential((
                 resource_manager
                     .visibility_buffer_raster_clusters
@@ -1103,18 +1102,18 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let resolve_depth = render_device.create_bind_group(
             "meshlet_resolve_depth_bind_group",
-            if view_resources.not_shadow_view {
+            &pipeline_cache.get_bind_group_layout(if view_resources.not_shadow_view {
                 &resource_manager.resolve_depth_bind_group_layout
             } else {
                 &resource_manager.resolve_depth_shadow_view_bind_group_layout
-            },
+            }),
             &BindGroupEntries::single(&view_resources.visibility_buffer.default_view),
         );
 
         let resolve_material_depth = view_resources.material_depth.as_ref().map(|_| {
             render_device.create_bind_group(
                 "meshlet_resolve_material_depth_bind_group",
-                &resource_manager.resolve_material_depth_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&resource_manager.resolve_material_depth_bind_group_layout),
                 &BindGroupEntries::sequential((
                     &view_resources.visibility_buffer.default_view,
                     resource_manager
@@ -1128,7 +1127,7 @@ pub fn prepare_meshlet_view_bind_groups(
         let material_shade = view_resources.material_depth.as_ref().map(|_| {
             render_device.create_bind_group(
                 "meshlet_mesh_material_shade_bind_group",
-                &resource_manager.material_shade_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&resource_manager.material_shade_bind_group_layout),
                 &BindGroupEntries::sequential((
                     &view_resources.visibility_buffer.default_view,
                     resource_manager
@@ -1150,7 +1149,7 @@ pub fn prepare_meshlet_view_bind_groups(
             .map(|layout| {
                 render_device.create_bind_group(
                     "meshlet_remap_1d_to_2d_dispatch_bind_group",
-                    layout,
+                    &pipeline_cache.get_bind_group_layout(layout),
                     &BindGroupEntries::sequential((
                         view_resources
                             .visibility_buffer_software_raster_indirect_args
@@ -1168,7 +1167,7 @@ pub fn prepare_meshlet_view_bind_groups(
         {
             render_device.create_bind_group(
                 "meshlet_fill_counts_bind_group",
-                &resource_manager.fill_counts_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_resources
                         .visibility_buffer_software_raster_indirect_args
@@ -1187,7 +1186,7 @@ pub fn prepare_meshlet_view_bind_groups(
         } else {
             render_device.create_bind_group(
                 "meshlet_fill_counts_bind_group",
-                &resource_manager.fill_counts_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&resource_manager.fill_counts_bind_group_layout),
                 &BindGroupEntries::sequential((
                     view_resources
                         .visibility_buffer_software_raster_indirect_args
