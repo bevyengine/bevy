@@ -765,12 +765,11 @@ fn prepare_downsample_depth_view_bind_groups(
                         "downsample depth bind group"
                     },
                     &pipeline_cache.get_bind_group_layout(if is_multisampled {
-                        downsample_depth_pipelines
+                        &downsample_depth_pipelines
                             .first_multisample
                             .bind_group_layout
-                            .clone()
                     } else {
-                        downsample_depth_pipelines.first.bind_group_layout.clone()
+                        &downsample_depth_pipelines.first.bind_group_layout
                     }),
                     match (view_depth_texture, shadow_occlusion_culling) {
                         (Some(view_depth_texture), _) => view_depth_texture.view(),

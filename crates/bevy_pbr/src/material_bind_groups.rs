@@ -1273,7 +1273,7 @@ impl MaterialBindlessSlab {
 
         self.bind_group = Some(render_device.create_bind_group(
             label,
-            &pipeline_cache.get_bind_group_layout(bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&bind_group_layout),
             &bind_group_entries,
         ));
     }
@@ -1920,7 +1920,7 @@ impl MaterialBindGroupNonBindlessAllocator {
             // Create the bind group.
             let bind_group = render_device.create_bind_group(
                 self.label,
-                &pipeline_cache.get_bind_group_layout(bind_group_layout.clone()),
+                &pipeline_cache.get_bind_group_layout(&bind_group_layout),
                 &bind_group_entries,
             );
 

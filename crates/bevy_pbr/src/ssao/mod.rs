@@ -656,7 +656,7 @@ fn prepare_ssao_bind_groups(
     for (entity, ssao_resources, prepass_textures) in &views {
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
-            &pipeline_cache.get_bind_group_layout(pipelines.common_bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&pipelines.common_bind_group_layout),
             &BindGroupEntries::sequential((
                 &pipelines.point_clamp_sampler,
                 &pipelines.linear_clamp_sampler,
@@ -680,8 +680,7 @@ fn prepare_ssao_bind_groups(
 
         let preprocess_depth_bind_group = render_device.create_bind_group(
             "ssao_preprocess_depth_bind_group",
-            &pipeline_cache
-                .get_bind_group_layout(pipelines.preprocess_depth_bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
             &BindGroupEntries::sequential((
                 prepass_textures.depth_view().unwrap(),
                 &create_depth_view(0),
@@ -694,7 +693,7 @@ fn prepare_ssao_bind_groups(
 
         let ssao_bind_group = render_device.create_bind_group(
             "ssao_ssao_bind_group",
-            &pipeline_cache.get_bind_group_layout(pipelines.ssao_bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&pipelines.ssao_bind_group_layout),
             &BindGroupEntries::sequential((
                 &ssao_resources.preprocessed_depth_texture.default_view,
                 prepass_textures.normal_view().unwrap(),
@@ -708,8 +707,7 @@ fn prepare_ssao_bind_groups(
 
         let spatial_denoise_bind_group = render_device.create_bind_group(
             "ssao_spatial_denoise_bind_group",
-            &pipeline_cache
-                .get_bind_group_layout(pipelines.spatial_denoise_bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
             &BindGroupEntries::sequential((
                 &ssao_resources.ssao_noisy_texture.default_view,
                 &ssao_resources.depth_differences_texture.default_view,
