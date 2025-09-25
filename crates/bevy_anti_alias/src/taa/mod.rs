@@ -23,13 +23,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
-        binding_types::{sampler, texture_2d, texture_depth_2d},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages,
+        binding_types::{sampler, texture_2d, texture_depth_2d}, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -186,7 +180,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
         let taa_bind_group = render_context.render_device().create_bind_group(
             "taa_bind_group",
-            &pipelines.taa_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(pipelines.taa_bind_group_layout.clone()),
             &BindGroupEntries::sequential((
                 view_target.source,
                 &taa_history_textures.read.default_view,
@@ -236,7 +230,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
 #[derive(Resource)]
 struct TaaPipeline {
-    taa_bind_group_layout: BindGroupLayout,
+    taa_bind_group_layout: BindGroupLayoutDescriptor,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
     fullscreen_shader: FullscreenShader,
@@ -262,7 +256,7 @@ fn init_taa_pipeline(
         ..SamplerDescriptor::default()
     });
 
-    let taa_bind_group_layout = render_device.create_bind_group_layout(
+    let taa_bind_group_layout = BindGroupLayoutDescriptor::new(
         "taa_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
