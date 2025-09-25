@@ -95,6 +95,10 @@ pub struct World {
     pub(crate) component_ids: ComponentIds,
     /// A lookup for the entities on which resources are stored.
     /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
+    /// A resource exists if all of the below is true:
+    /// 1. resource_entities has an entry for the [`ComponentId`] associated with the resource.
+    /// 2. The entity associated with the resource has three components: the resource (as a component), [`IsResource`], and [`Internal`].
+    /// If the resource does not exists, none of the above must be true, any inbetween state is invalid.
     pub resource_entities: HashMap<ComponentId, Entity>,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
@@ -1748,7 +1752,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert((IsResource, Internal))
+                .insert(IsResource)
                 .id();
             self.resource_entities.insert(component_id, entity);
         } else {
@@ -1869,7 +1873,9 @@ impl World {
         if let Some(entity) = self.resource_entities.get(&component_id)
             && let Ok(entity_ref) = self.get_entity(*entity)
         {
-            return entity_ref.contains_id(component_id);
+            return entity_ref.contains_id(component_id)
+                && entity_ref.contains::<IsResource>()
+                && entity_ref.contains::<Internal>();
         }
         false
     }
@@ -2602,17 +2608,19 @@ impl World {
             changed_by: caller.as_mut(),
         };
 
-        // SAFETY: We 'assume' that the function doesn't move the resource entity around.
-        let world = unsafe { entity_mut.world_mut() };
+        // to fully remove the resource, we remove the entity and the resource_entities entry
+        entity_mut.despawn();
+        self.resource_entities.remove(&component_id);
 
-        let result = f(world, value_mut);
-        assert!(!world.contains_resource::<R>(),
+        let result = f(self, value_mut);
+        assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             DebugName::type_name::<R>());
 
         move_as_ptr!(value);
 
+        let mut entity_mut = self.spawn(IsResource);
         entity_mut.insert_with_caller(
             value,
             InsertMode::Replace,
@@ -2623,6 +2631,9 @@ impl World {
         // Update ticks
         entity_mut.get_mut::<R>()?.set_last_added(ticks.added);
         entity_mut.get_mut::<R>()?.set_last_changed(ticks.changed);
+
+        let entity = entity_mut.id();
+        self.resource_entities.insert(component_id, entity);
 
         Some(result)
     }
