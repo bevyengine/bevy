@@ -92,6 +92,8 @@ use bevy_ecs::{
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_render")]
 use bevy_render::render_resource::PipelineCache;
+#[cfg(feature = "bevy_render")]
+use bevy_render::render_resource::BindGroupLayoutDescriptor;
 
 #[cfg(all(
     feature = "bevy_render",
@@ -121,7 +123,6 @@ use {
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
             binding_types::uniform_buffer, BindGroup, BindGroupEntries,
-            BindGroupLayoutDescriptor,
             BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
             ShaderType, VertexFormat,
         },
@@ -399,9 +400,7 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
 }
 
 #[cfg(feature = "bevy_render")]
-fn init_line_gizmo_uniform_bind_group_layout(
-    mut commands: Commands,
-) {
+fn init_line_gizmo_uniform_bind_group_layout(mut commands: Commands) {
     let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
         &BindGroupLayoutEntries::single(
