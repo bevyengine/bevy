@@ -90,6 +90,8 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_reflect::TypePath;
+#[cfg(feature = "bevy_render")]
+use bevy_render::render_resource::PipelineCache;
 
 #[cfg(all(
     feature = "bevy_render",
@@ -118,7 +120,8 @@ use {
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries,
+            BindGroupLayoutDescriptor,
             BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
             ShaderType, VertexFormat,
         },
@@ -398,7 +401,6 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
 #[cfg(feature = "bevy_render")]
 fn init_line_gizmo_uniform_bind_group_layout(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
 ) {
     let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
@@ -592,7 +594,7 @@ impl RenderAsset for GpuLineGizmo {
 #[cfg(feature = "bevy_render")]
 #[derive(Resource)]
 struct LineGizmoUniformBindgroupLayout {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
 }
 
 #[cfg(feature = "bevy_render")]
@@ -606,13 +608,14 @@ fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
-                &line_gizmo_uniform_layout.layout,
+                &pipeline_cache.get_bind_group_layout(line_gizmo_uniform_layout.layout.clone()),
                 &BindGroupEntries::single(binding),
             ),
         });

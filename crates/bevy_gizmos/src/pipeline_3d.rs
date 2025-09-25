@@ -70,7 +70,7 @@ impl Plugin for LineGizmo3dPlugin {
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
     mesh_pipeline: MeshPipeline,
-    uniform_layout: BindGroupLayout,
+    uniform_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
 }
 
@@ -170,7 +170,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 #[derive(Clone, Resource)]
 struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
-    uniform_layout: BindGroupLayout,
+    uniform_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
 }
 
