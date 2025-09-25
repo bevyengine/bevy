@@ -81,9 +81,6 @@ pub use bevy_ecs_macros::Resource;
 pub trait Resource: Component<Mutability = Mutable> {}
 
 /// A marker component for entities which store resources.
-///
-/// By contrast, the [`ResourceEntity<R>`] component is used to find the entity that stores a particular resource.
-/// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

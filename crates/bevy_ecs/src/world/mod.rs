@@ -1748,7 +1748,7 @@ impl World {
 
             let entity = self
                 .spawn_with_caller(value, caller)
-                .insert(IsResource)
+                .insert((IsResource, Internal))
                 .id();
             self.resource_entities.insert(component_id, entity);
         } else {
@@ -3330,21 +3330,26 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
-        self.resource_entities
+        let unsafe_world = self.as_unsafe_world_cell();
+        let resource_entities = unsafe_world.resource_entities();
+        let components = unsafe_world.components();
+
+        resource_entities
             .iter()
             .map(|(component_id, entity)| (*component_id, *entity))
-            .filter_map(|(component_id, entity)| {
+            .filter_map(move |(component_id, entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
-                let component_info = unsafe {
-                    self.components
-                        .get_info(component_id)
-                        .debug_checked_unwrap()
-                };
+                let component_info =
+                    unsafe { components.get_info(component_id).debug_checked_unwrap() };
 
-                let world = self.as_unsafe_world_cell_readonly();
-                let entity_cell = world.get_entity(entity).ok()?;
+                let entity_cell = unsafe_world.get_entity(entity).ok()?;
 
-                // SAFETY: We have exclusive world access and we don't iterate any entity twice
+                // SAFETY:
+                // - We have exclusive world access
+                // - `UnsafeEntityCell::get_mut_by_id` doesn't access components
+                // or resource_entities mutably
+                // - `resource_entities` doesn't contain duplicate entities, so
+                // no duplicate references are created
                 let mut_untyped = unsafe { entity_cell.get_mut_by_id(component_id).ok()? };
 
                 Some((component_info, mut_untyped))
