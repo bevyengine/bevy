@@ -32,7 +32,7 @@ impl FontAtlasSets {
     }
 
     /// Returns the total number of fonts in all sets
-    pub fn count_fonts(&self) -> usize {
+    pub fn font_count(&self) -> usize {
         let mut count = 0;
         for (_, set) in self.sets.iter() {
             count += set.len()
@@ -266,7 +266,7 @@ impl FontAtlasSet {
     }
 }
 
-/// manage
+/// Maximum number of fonts
 #[derive(Resource)]
 pub struct MaxFonts(usize);
 
@@ -276,42 +276,51 @@ impl Default for MaxFonts {
     }
 }
 
-/// free
+/// Automatically frees unused fonts when the total number of fonts
+/// is greater than the [`MaxFonts`] value. Doesn't free in use fonts
+/// even if the number of in use fonts is greater than [`MaxFonts`].
 pub fn free_unused_font_atlases(
+    // list of unused fonts in order from least to most recently used
     mut least_recently_used: Local<Vec<(AssetId<Font>, FontAtlasKey)>>,
-    mut last_active_fonts: Local<HashSet<(AssetId<Font>, FontAtlasKey)>>,
+    // fonts that were in use the previous frame
+    mut previous_active_fonts: Local<HashSet<(AssetId<Font>, FontAtlasKey)>>,
     mut active_fonts: Local<HashSet<(AssetId<Font>, FontAtlasKey)>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     max_fonts: ResMut<MaxFonts>,
     active_font_query: Query<&ComputedTextStyle>,
 ) {
-    active_fonts.clear();
-
-    for style in active_font_query.iter() {
-        active_fonts.insert((
+    // collect keys for all fonts currently in use by a text entity
+    active_fonts.extend(active_font_query.iter().map(|style| {
+        (
             style.font.font.id(),
             FontAtlasKey(
                 (style.font.font_size * style.scale_factor).to_bits(),
                 style.font.font_smoothing,
             ),
-        ));
-    }
+        )
+    }));
 
+    // remove any keys for fonts in use from the least recently used list
     least_recently_used.retain(|font| !active_fonts.contains(font));
 
-    for unused_font in last_active_fonts.difference(&active_fonts) {
-        least_recently_used.push(unused_font.clone());
-    }
+    // push keys for any fonts no longer in use onto the least recently used list
+    least_recently_used.extend(
+        previous_active_fonts
+            .difference(&active_fonts)
+            .into_iter()
+            .cloned(),
+    );
 
-    let count = font_atlas_sets.count_fonts();
-    if max_fonts.0 < count {
-        let d = count - max_fonts.0;
-        for (font, key) in least_recently_used.drain(0..d) {
-            if let Some(font_atlas_set) = font_atlas_sets.get_mut(font) {
-                font_atlas_set.font_atlases.remove(&key);
-            }
+    // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
+    // until the total is lower than max_fonts or the least recently used list is empty.
+    for (font, key) in
+        least_recently_used.drain(0..font_atlas_sets.font_count().saturating_sub(max_fonts.0))
+    {
+        if let Some(font_atlas_set) = font_atlas_sets.get_mut(font) {
+            font_atlas_set.font_atlases.remove(&key);
         }
     }
 
-    core::mem::swap(&mut *last_active_fonts, &mut *active_fonts);
+    previous_active_fonts.clear();
+    core::mem::swap(&mut *previous_active_fonts, &mut *active_fonts);
 }
