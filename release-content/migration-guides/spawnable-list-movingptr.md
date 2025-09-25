@@ -8,8 +8,15 @@ In order to reduce the stack size taken up by spawning and inserting large bundl
 ```rust
 // 0.16
 fn spawn(self, world: &mut World, entity: Entity);
+
+let list = Spawn(my_bundle);
+list.spawn(world, entity);
 // 0.17
 fn spawn(self: MovingPtr<'_, Self>, world: &mut World, entity: Entity);
+
+let list = Spawn(my_bundle);
+move_as_ptr!(list);
+SpawnableList::spawn(list, world, entity);
 ```
 
 This change also means that `SpawnableList` must now also be `Sized`!
@@ -35,6 +42,17 @@ Similar to `Box::into_inner`, `MovingPtr<T>` also has a method `MovingPtr::read`
 let a: u32 = a_ptr.read();
 let b: String = b_ptr.read();
 ```
+
+To create a `MovingPtr<T>` from a value, you can use the `move_as_ptr!` macro:
+
+```rust
+let my_value = MySpawnableList { a: 42u32, b: "Hello".to_string() };
+move_as_ptr!(my_value);
+let _: MovingPtr = my_value;
+```
+
+This macro works by shadowing the original variable name with the newly created `MovingPtr<T>`.
+`MovingPtr<T>` can also be created manually with the `unsafe` method `MovingPtr::from_value`, which takes a `&mut` to an initialized `MaybeUninit<T>`, which the `MovingPtr<T>` takes ownership of: the `MaybeUninit<T>` should be treated as uninitialized after the `MovingPtr<T>` has been used!
 
 To migrate your implementations of `SpawnableList` to the new API, you will want to read the `this` parameter to spawn or insert any bundles stored within:
 
