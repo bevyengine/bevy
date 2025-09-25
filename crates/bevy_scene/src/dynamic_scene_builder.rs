@@ -26,7 +26,7 @@ use bevy_utils::default;
 ///
 /// # Resource Extraction
 ///
-/// By default, all resources registered with [`ReflectResource`] type data in a world's [`AppTypeRegistry`] will be extracted.
+/// By default, all resources are extracted identically to entities. The resources must first be gegistered in a world's [`AppTypeRegistry`] will be extracted.
 /// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute).
 /// This can be changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
 /// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
