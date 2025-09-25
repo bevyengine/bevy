@@ -2178,7 +2178,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "blocked on https://github.com/bevyengine/bevy/pull/21183"]
     fn added_asset_reloads_previously_missing_asset() {
         let (mut app, dir, source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
