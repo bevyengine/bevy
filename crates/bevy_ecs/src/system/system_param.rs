@@ -1,4 +1,4 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+pub use crate::change_detection::{NonSendMut, Res, ResCopy, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
@@ -904,6 +904,54 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             },
             changed_by: value.changed_by,
         }
+    }
+}
+
+// SAFETY: ResCopy delegates all of its SystemParam behavior to Res.
+unsafe impl<T: Resource + Clone> ReadOnlySystemParam for ResCopy<T> {}
+
+// SAFETY: ResCopy delegates all of its SystemParam behavior to Res.
+unsafe impl<T: Resource + Clone> SystemParam for ResCopy<T> {
+    type State = <Res<'static, T> as SystemParam>::State;
+    type Item<'w, 's> = Self;
+
+    fn init_state(world: &mut World) -> Self::State {
+        <Res<'static, T> as SystemParam>::init_state(world)
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        <Res<'static, T> as SystemParam>::init_access(
+            state,
+            system_meta,
+            component_access_set,
+            world,
+        );
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        <Res<'static, T> as SystemParam>::validate_param(state, system_meta, world)
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        let res: Res<'w, T> =
+            <Res<'static, T> as SystemParam>::get_param(state, system_meta, world, change_tick);
+        ResCopy(res.into_inner().clone())
     }
 }
 
@@ -3102,6 +3150,20 @@ mod tests {
         let _query: Query<()> = p.downcast_mut().unwrap();
         let _query: Query<()> = p.downcast_mut_inner().unwrap();
         let _query: Query<()> = p.downcast().unwrap();
+    }
+
+    #[test]
+    fn res_copy() {
+        #[derive(Clone, Copy, Resource)]
+        struct A(usize);
+
+        fn my_system(r: ResCopy<A>) -> A {
+            *r
+        }
+
+        let mut world = World::new();
+        world.insert_resource(A(42));
+        assert_eq!(world.run_system_cached(my_system).unwrap().0, 42);
     }
 
     #[test]

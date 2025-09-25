@@ -759,6 +759,57 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
     }
 }
 
+/// A copy of a [`Resource`].
+///
+/// When used as a [`SystemParam`], this allows accessing a resource similar to [`Res`], but
+/// it does not allow access to change detection information, and implements [`Copy`].
+/// It is primarily useful as a field in a struct with `#[derive(SystemParam)]`,
+/// allowing that struct to contain a copy of the resource and implement [`Copy`] itself.
+///
+/// Note that while it is possible to mutate the `T` inside `ResCopy<T>`, doing so will not
+/// modify the original `T` resource.
+///
+/// [`ResCopy`] can also be used with resources that are [`Clone`] but not [`Copy`],
+/// but there is little advantage to doing so.
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::{ResCopy, SystemParam};
+///
+/// #[derive(Clone, Copy, Resource)]
+/// struct Paused(bool);
+///
+/// #[derive(Clone, Copy, Resource)]
+/// struct TutorialActive(bool);
+///
+/// // Without using `ResCopy` or unsafe code, it would be impossible for this to
+/// // implement both `Copy` and `SystemParam`.
+/// #[derive(Clone, Copy, SystemParam)]
+/// struct UiStates {
+///     paused: ResCopy<Paused>,
+///     tutorial_active: ResCopy<TutorialActive>,
+/// }
+///
+/// fn some_ui_system(states: UiStates) {
+///    // UiStates can be passed around by copy inside the logic of this.
+/// }
+/// # bevy_ecs::system::assert_is_system(some_ui_system);
+/// ```
+///
+/// [`SystemParam`]: crate::system::SystemParam
+#[derive(Clone, Copy)]
+pub struct ResCopy<T>(pub T);
+
+impl<T> Deref for ResCopy<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 /// Unique borrow of a non-[`Send`] resource.
 ///
 /// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
