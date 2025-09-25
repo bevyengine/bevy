@@ -457,8 +457,10 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     let parent = child_of.parent();
-    let parent_ref = world.entity(parent);
-    if !world.get_entity(parent).is_ok_and(|e| e.contains::<C>()) {
+    let maybe_parent_ref = world.get_entity(parent);
+    if let Ok(parent_ref) = maybe_parent_ref
+        && !parent_ref.contains::<C>()
+    {
         let name = entity_ref.get::<Name>();
         let debug_name = DebugName::type_name::<C>();
         let parent_name = parent_ref.get::<Name>();
