@@ -1944,9 +1944,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         Some(PhasePreprocessBindGroups::Direct(
             self.render_device.create_bind_group(
                 "preprocess_direct_bind_group",
-                &self.pipeline_cache.get_bind_group_layout(
-                    self.pipelines.direct_preprocess.bind_group_layout.clone(),
-                ),
+                &self
+                    .pipeline_cache
+                    .get_bind_group_layout(&self.pipelines.direct_preprocess.bind_group_layout),
                 &BindGroupEntries::with_indices((
                     (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
@@ -2056,10 +2056,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_early_indexed_gpu_occlusion_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .early_gpu_occlusion_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2156,10 +2156,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_early_non_indexed_gpu_occlusion_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .early_gpu_occlusion_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2253,10 +2253,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_late_indexed_gpu_occlusion_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .late_gpu_occlusion_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2342,10 +2342,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_late_non_indexed_gpu_occlusion_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .late_gpu_occlusion_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2442,10 +2442,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_gpu_indexed_frustum_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .gpu_frustum_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2507,10 +2507,10 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                     self.render_device.create_bind_group(
                         "preprocess_gpu_non_indexed_frustum_culling_bind_group",
                         &self.pipeline_cache.get_bind_group_layout(
-                            self.pipelines
+                            &self
+                                .pipelines
                                 .gpu_frustum_culling_preprocess
-                                .bind_group_layout
-                                .clone(),
+                                .bind_group_layout,
                         ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
@@ -2564,11 +2564,10 @@ fn create_build_indirect_parameters_bind_groups(
                             // The early bind group is good for the main phase and late
                             // phase too. They bind the same buffers.
                             &pipeline_cache.get_bind_group_layout(
-                                pipelines
+                                &pipelines
                                     .early_phase
                                     .reset_indirect_batch_sets
-                                    .bind_group_layout
-                                    .clone(),
+                                    .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
                                 indexed_batch_sets_buffer.as_entire_binding(),
@@ -2588,11 +2587,10 @@ fn create_build_indirect_parameters_bind_groups(
                             // The early bind group is good for the main phase and late
                             // phase too. They bind the same buffers.
                             &pipeline_cache.get_bind_group_layout(
-                                pipelines
+                                &pipelines
                                     .early_phase
                                     .reset_indirect_batch_sets
-                                    .bind_group_layout
-                                    .clone(),
+                                    .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
                                 non_indexed_batch_sets_buffer.as_entire_binding(),
@@ -2623,10 +2621,9 @@ fn create_build_indirect_parameters_bind_groups(
                             // The frustum culling bind group is good for occlusion culling
                             // too. They bind the same buffers.
                             &pipeline_cache.get_bind_group_layout(
-                                pipelines
+                                &pipelines
                                     .gpu_frustum_culling_build_indexed_indirect_params
-                                    .bind_group_layout
-                                    .clone(),
+                                    .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
                                 current_input_buffer.as_entire_binding(),
@@ -2681,10 +2678,9 @@ fn create_build_indirect_parameters_bind_groups(
                             // The frustum culling bind group is good for occlusion culling
                             // too. They bind the same buffers.
                             &pipeline_cache.get_bind_group_layout(
-                                pipelines
+                                &pipelines
                                     .gpu_frustum_culling_build_non_indexed_indirect_params
-                                    .bind_group_layout
-                                    .clone(),
+                                    .bind_group_layout,
                             ),
                             &BindGroupEntries::sequential((
                                 current_input_buffer.as_entire_binding(),

@@ -222,6 +222,7 @@ impl BindGroupLayoutCache {
             .entry(descriptor)
             .or_insert_with_key(|descriptor| {
                 render_device.create_bind_group_layout(
+                    #[expect(clippy::redundant_closure_for_method_calls, reason = "TODO")]
                     descriptor.label.as_ref().map(|s| s.as_ref()),
                     &descriptor.entries,
                 )
@@ -476,7 +477,7 @@ impl PipelineCache {
 
     pub fn get_bind_group_layout(
         &self,
-        bind_group_layout_descriptor: BindGroupLayoutDescriptor,
+        bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
     ) -> BindGroupLayout {
         self.bindgroup_layout_cache
             .lock()

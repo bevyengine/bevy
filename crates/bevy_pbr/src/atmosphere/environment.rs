@@ -109,7 +109,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     for (entity, textures) in &probes {
         let environment = render_device.create_bind_group(
             "environment_bind_group",
-            &pipeline_cache.get_bind_group_layout(layouts.environment.clone()),
+            &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::sequential((
                 atmosphere_uniforms.binding().unwrap(),
                 settings_uniforms.binding().unwrap(),

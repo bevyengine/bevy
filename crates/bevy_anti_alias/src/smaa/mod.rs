@@ -752,20 +752,18 @@ fn prepare_smaa_bind_groups(
             edge_detection_bind_group: render_device.create_bind_group(
                 Some("SMAA edge detection bind group"),
                 &pipeline_cache.get_bind_group_layout(
-                    smaa_pipelines
+                    &smaa_pipelines
                         .edge_detection
-                        .edge_detection_bind_group_layout
-                        .clone(),
+                        .edge_detection_bind_group_layout,
                 ),
                 &BindGroupEntries::sequential((&sampler,)),
             ),
             blending_weight_calculation_bind_group: render_device.create_bind_group(
                 Some("SMAA blending weight calculation bind group"),
                 &pipeline_cache.get_bind_group_layout(
-                    smaa_pipelines
+                    &smaa_pipelines
                         .blending_weight_calculation
-                        .blending_weight_calculation_bind_group_layout
-                        .clone(),
+                        .blending_weight_calculation_bind_group_layout,
                 ),
                 &BindGroupEntries::sequential((
                     &smaa_textures.edge_detection_color_texture.default_view,
@@ -777,10 +775,9 @@ fn prepare_smaa_bind_groups(
             neighborhood_blending_bind_group: render_device.create_bind_group(
                 Some("SMAA neighborhood blending bind group"),
                 &pipeline_cache.get_bind_group_layout(
-                    smaa_pipelines
+                    &smaa_pipelines
                         .neighborhood_blending
-                        .neighborhood_blending_bind_group_layout
-                        .clone(),
+                        .neighborhood_blending_bind_group_layout,
                 ),
                 &BindGroupEntries::sequential((
                     &smaa_textures.blend_texture.default_view,
@@ -906,12 +903,8 @@ fn perform_edge_detection(
     // Create the edge detection bind group.
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
-        &pipeline_cache.get_bind_group_layout(
-            smaa_pipelines
-                .edge_detection
-                .postprocess_bind_group_layout
-                .clone(),
-        ),
+        &pipeline_cache
+            .get_bind_group_layout(&smaa_pipelines.edge_detection.postprocess_bind_group_layout),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );
 
@@ -967,10 +960,9 @@ fn perform_blending_weight_calculation(
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
         &pipeline_cache.get_bind_group_layout(
-            smaa_pipelines
+            &smaa_pipelines
                 .blending_weight_calculation
-                .postprocess_bind_group_layout
-                .clone(),
+                .postprocess_bind_group_layout,
         ),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );
@@ -1029,10 +1021,9 @@ fn perform_neighborhood_blending(
     let postprocess_bind_group = render_context.render_device().create_bind_group(
         None,
         &pipeline_cache.get_bind_group_layout(
-            smaa_pipelines
+            &smaa_pipelines
                 .neighborhood_blending
-                .postprocess_bind_group_layout
-                .clone(),
+                .postprocess_bind_group_layout,
         ),
         &BindGroupEntries::sequential((source, &**smaa_info_uniform_buffer)),
     );

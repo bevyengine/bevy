@@ -536,7 +536,7 @@ pub trait AsBindGroup {
         pipeline_cache: &PipelineCache,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
-        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor.clone());
+        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
 
         let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
@@ -591,7 +591,7 @@ pub trait AsBindGroup {
     }
 
     /// Creates the bind group layout descriptor matching all bind groups returned by
-    /// [`AsBindGroup::as_bind_group_descriptor`]
+    /// [`AsBindGroup::as_bind_group`]
     fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor
     where
         Self: Sized,
