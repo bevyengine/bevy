@@ -26,24 +26,23 @@ use super::{Atmosphere, GpuAtmosphereSettings};
 
 #[derive(Resource)]
 pub(crate) struct AtmosphereBindGroupLayouts {
-    pub transmittance_lut: BindGroupLayout,
-    pub multiscattering_lut: BindGroupLayout,
-    pub sky_view_lut: BindGroupLayout,
-    pub aerial_view_lut: BindGroupLayout,
+    pub transmittance_lut: BindGroupLayoutDescriptor,
+    pub multiscattering_lut: BindGroupLayoutDescriptor,
+    pub sky_view_lut: BindGroupLayoutDescriptor,
+    pub aerial_view_lut: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
 pub(crate) struct RenderSkyBindGroupLayouts {
-    pub render_sky: BindGroupLayout,
-    pub render_sky_msaa: BindGroupLayout,
+    pub render_sky: BindGroupLayoutDescriptor,
+    pub render_sky_msaa: BindGroupLayoutDescriptor,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for AtmosphereBindGroupLayouts {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let transmittance_lut = render_device.create_bind_group_layout(
+impl AtmosphereBindGroupLayouts {
+    pub fn new() -> Self {
+        let transmittance_lut = BindGroupLayoutDescriptor::new(
             "transmittance_lut_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
@@ -62,7 +61,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
-        let multiscattering_lut = render_device.create_bind_group_layout(
+        let multiscattering_lut = BindGroupLayoutDescriptor::new(
             "multiscattering_lut_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
@@ -83,7 +82,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
-        let sky_view_lut = render_device.create_bind_group_layout(
+        let sky_view_lut = BindGroupLayoutDescriptor::new(
             "sky_view_lut_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
@@ -108,7 +107,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
             ),
         );
 
-        let aerial_view_lut = render_device.create_bind_group_layout(
+        let aerial_view_lut = BindGroupLayoutDescriptor::new(
             "aerial_view_lut_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::COMPUTE,
@@ -144,8 +143,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
 
 impl FromWorld for RenderSkyBindGroupLayouts {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_sky = render_device.create_bind_group_layout(
+        let render_sky = BindGroupLayoutDescriptor::new(
             "render_sky_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
@@ -176,7 +174,7 @@ impl FromWorld for RenderSkyBindGroupLayouts {
             ),
         );
 
-        let render_sky_msaa = render_device.create_bind_group_layout(
+        let render_sky_msaa = BindGroupLayoutDescriptor::new(
             "render_sky_msaa_bind_group_layout",
             &BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
@@ -578,7 +576,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
-
+    pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
     if views.iter().len() == 0 {
@@ -611,7 +609,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     for (entity, textures, view_depth_texture, msaa) in &views {
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
-            &layouts.transmittance_lut,
+            &pipeline_cache.get_bind_group_layout(layouts.transmittance_lut.clone()),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
@@ -621,7 +619,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let multiscattering_lut = render_device.create_bind_group(
             "multiscattering_lut_bind_group",
-            &layouts.multiscattering_lut,
+            &pipeline_cache.get_bind_group_layout(layouts.multiscattering_lut.clone()),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
@@ -633,7 +631,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let sky_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
-            &layouts.sky_view_lut,
+            &pipeline_cache.get_bind_group_layout(layouts.sky_view_lut.clone()),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
@@ -650,7 +648,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let aerial_view_lut = render_device.create_bind_group(
             "sky_view_lut_bind_group",
-            &layouts.aerial_view_lut,
+            &pipeline_cache.get_bind_group_layout(layouts.aerial_view_lut.clone()),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
@@ -666,11 +664,11 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
         let render_sky = render_device.create_bind_group(
             "render_sky_bind_group",
-            if *msaa == Msaa::Off {
-                &render_sky_layouts.render_sky
+            &pipeline_cache.get_bind_group_layout(if *msaa == Msaa::Off {
+                render_sky_layouts.render_sky.clone()
             } else {
-                &render_sky_layouts.render_sky_msaa
-            },
+                render_sky_layouts.render_sky_msaa.clone()
+            }),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),

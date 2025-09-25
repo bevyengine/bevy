@@ -31,12 +31,12 @@ use bevy_render::{
         NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
     },
     render_resource::{
-        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
-        FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
-        TextureSampleType,
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DynamicUniformBuffer, FilterMode, FragmentState, Operations, PipelineCache,
+        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
@@ -156,7 +156,7 @@ pub struct ScreenSpaceReflectionsPipeline {
     color_sampler: Sampler,
     depth_linear_sampler: Sampler,
     depth_nearest_sampler: Sampler,
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     binding_arrays_are_usable: bool,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -292,7 +292,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let ssr_pipeline = world.resource::<ScreenSpaceReflectionsPipeline>();
         let ssr_bind_group = render_context.render_device().create_bind_group(
             "SSR bind group",
-            &ssr_pipeline.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(ssr_pipeline.bind_group_layout.clone()),
             &BindGroupEntries::sequential((
                 postprocess.source,
                 &ssr_pipeline.color_sampler,
@@ -351,7 +351,7 @@ pub fn init_screen_space_reflections_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     // Create the bind group layout.
-    let bind_group_layout = render_device.create_bind_group_layout(
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "SSR bind group layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
