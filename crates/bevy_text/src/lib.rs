@@ -39,6 +39,7 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod pipeline;
+mod style;
 mod text;
 
 pub use bounds::*;
@@ -49,6 +50,7 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
+pub use style::*;
 pub use text::*;
 
 /// The text prelude.
@@ -56,7 +58,9 @@ pub use text::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout};
+    pub use crate::{
+        ComputedTextStyle, Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -90,9 +94,13 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 PostUpdate,
-                remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                (
+                    update_text_styles,
+                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                ),
             )
             .add_systems(Last, trim_cosmic_cache);
 

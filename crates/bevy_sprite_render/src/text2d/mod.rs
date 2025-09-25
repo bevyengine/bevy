@@ -14,7 +14,8 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
+    ComputedTextBlock, ComputedTextStyle, PositionedGlyph, TextBackgroundColor, TextBounds,
+    TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -37,7 +38,7 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_colors: Extract<Query<&TextColor>>,
+    text_colors: Extract<Query<&ComputedTextStyle>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
@@ -170,7 +171,7 @@ pub fn extract_text2d_sprite(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .map(|style| LinearRgba::from(style.color()))
                     .unwrap_or_default();
                 current_span = *span_index;
             }

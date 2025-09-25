@@ -116,9 +116,21 @@ mod text {
             },
             DespawnOnExit(super::Scene::Text),
             children![
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
+                (
+                    TextSpan::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
+                (
+                    TextSpan::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
@@ -151,9 +163,21 @@ mod text {
                         ..default()
                     }
                 ),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
+                (
+                    TextSpan::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
+                (
+                    TextSpan::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
@@ -189,14 +213,30 @@ mod text {
                     }
                 ),
                 TextSpan::new(""),
-                (TextSpan::new("red "), TextColor(RED.into()),),
+                (
+                    TextSpan::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
                 TextSpan::new(""),
                 TextSpan::new(""),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (
+                    TextSpan::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
                 (TextSpan::new(""), TextColor(YELLOW.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
                 TextSpan::new(""),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (
+                    TextSpan::new(""),
+                    TextColor(YELLOW.into()),
+                    TextFont::default()
+                ),
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),

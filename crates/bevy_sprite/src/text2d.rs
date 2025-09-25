@@ -19,9 +19,10 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::ComputedTextStyle;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
+    TextError, TextLayout, TextLayoutInfo, TextPipeline,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -80,12 +81,11 @@ use core::any::TypeId;
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
-    TextFont,
-    TextColor,
     TextBounds,
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedTextStyle,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -136,7 +136,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    text_query: Query<(&Text2d, &ComputedT>,
+    text_query: Query<(&Text2d, &ComputedTextStyle)>,
     mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
@@ -278,6 +278,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
+    use bevy_text::{update_text_styles, DefaultTextStyle};
 
     use super::*;
 
@@ -293,9 +294,15 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 Update,
-                (update_text2d_layout, calculate_bounds_text2d).chain(),
+                (
+                    update_text_styles,
+                    update_text2d_layout,
+                    calculate_bounds_text2d,
+                )
+                    .chain(),
             );
 
         let mut visible_entities = VisibleEntities::default();
