@@ -161,7 +161,7 @@ impl ViewNode for SolariLightingNode {
         let s = solari_lighting_resources;
         let bind_group = render_context.render_device().create_bind_group(
             "solari_lighting_bind_group",
-            &pipeline_cache.get_bind_group_layout(self.bind_group_layout.clone()),
+            &pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
             &BindGroupEntries::sequential((
                 view_target.view,
                 s.light_tile_samples.as_entire_binding(),
