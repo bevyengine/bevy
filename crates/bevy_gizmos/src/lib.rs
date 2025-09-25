@@ -400,7 +400,7 @@ fn init_line_gizmo_uniform_bind_group_layout(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
 ) {
-    let line_layout = render_device.create_bind_group_layout(
+    let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX,
