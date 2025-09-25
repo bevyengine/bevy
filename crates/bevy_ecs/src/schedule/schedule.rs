@@ -969,7 +969,7 @@ impl ScheduleGraph {
             .ok_or(ScheduleError::SetNotFound)?;
         self.set_systems
             .get(&system_set_id)
-            .map(|vec| vec.as_slice())
+            .map(Vec::as_slice)
             .ok_or(ScheduleError::SetNotFound)
     }
 
