@@ -173,7 +173,7 @@ where
                 system.run_unsafe(input, world.0)
             })() {
                 Err(RunSystemError::Failed(err)) => {
-                    // let the default error handler deal with the error if `Failed(_)`
+                    // let the world's default error handler handle the error if `Failed(_)`
                     (world.0.default_error_handler())(
                         err,
                         ErrorContext::System {
