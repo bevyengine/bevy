@@ -102,8 +102,9 @@ impl AsBindGroup for BindlessMaterial {
 
     fn as_bind_group(
         &self,
-        layout: &BindGroupLayout,
+        layout: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         (image_assets, fallback_image): &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
         // retrieve the render resources from handles
@@ -129,7 +130,7 @@ impl AsBindGroup for BindlessMaterial {
 
         let bind_group = render_device.create_bind_group(
             "bindless_material_bind_group",
-            layout,
+            &pipeline_cache.get_bind_group_layout(layout),
             &BindGroupEntries::sequential((&textures[..], &fallback_image.sampler)),
         );
 
