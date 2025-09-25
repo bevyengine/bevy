@@ -106,7 +106,7 @@ impl ViewNode for MsaaWritebackNode {
         let bind_group = blit_pipeline.create_bind_group(
             render_context.render_device(),
             post_process.source,
-            &pipeline_cache,
+            pipeline_cache,
         );
 
         let mut render_pass = render_context

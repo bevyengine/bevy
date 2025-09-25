@@ -388,7 +388,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 render_context.render_device().create_bind_group(
                     Some(pipeline_render_info.view_bind_group_label),
-                    &pipeline_cache.get_bind_group_layout(&dual_input_bind_group_layout),
+                    &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                     &BindGroupEntries::sequential((
                         view_uniforms_binding,
                         view_depth_texture.view(),

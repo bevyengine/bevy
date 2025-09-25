@@ -60,7 +60,7 @@ impl ViewNode for UpscalingNode {
                 let bind_group = blit_pipeline.create_bind_group(
                     render_context.render_device(),
                     main_texture_view,
-                    &pipeline_cache,
+                    pipeline_cache,
                 );
 
                 let (_, bind_group) =
