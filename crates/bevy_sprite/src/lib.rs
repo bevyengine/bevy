@@ -28,7 +28,7 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
-    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter};
+    pub use crate::text2d::Text2d;
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -84,7 +84,6 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (
-                bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
                     .after(bevy_text::remove_dropped_font_atlas_sets),
