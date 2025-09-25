@@ -1194,7 +1194,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input, data)? && b(input, data)?)
+        Ok(a(input, data).unwrap_or(false) && b(input, data).unwrap_or(false))
     }
 }
 
@@ -1216,15 +1216,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        match a(input, data) {
-            // short circuit because `a` && `b` short circuits if `a` is false
-            Ok(false) | Err(_) => Ok(true),
-            Ok(true) => match b(input, data) {
-                Ok(b) => Ok(!b),
-                // if `b` fails, we yield `true`
-                Err(_) => Ok(true),
-            },
-        }
+        Ok(!(a(input, data).unwrap_or(false) && b(input, data).unwrap_or(false)))
     }
 }
 
@@ -1246,18 +1238,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        // `a` might fail to validate against the current world, but if it
-        // fails, we still want to try running `b`.
-        // !(`a` || `b`)
-        match a(input, data) {
-            Ok(true) => Ok(false),
-            a @ (Ok(false) | Err(_)) => match (a, b(input, data)) {
-                (_, Ok(false) | Err(_)) => Ok(true),
-                // propagate error
-                (Err(e), _) => Err(e),
-                (_, Ok(true)) => Ok(false),
-            },
-        }
+        Ok(!(a(input, data).unwrap_or(false) || b(input, data).unwrap_or(false)))
     }
 }
 
@@ -1279,13 +1260,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        // `a` might fail to validate against the current world, but if it
-        // fails, we still want to try running `b`.
-        match a(input, data) {
-            // short circuit if `a` is true
-            Ok(true) => Ok(true),
-            _ => b(input, data),
-        }
+        Ok(a(input, data).unwrap_or(false) || b(input, data).unwrap_or(false))
     }
 }
 
@@ -1307,20 +1282,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        // even if `a` fails to validate, `b` might succeed
-        match (a(input, data), b(input, data)) {
-            (Err(_), Err(_)) => Ok(true),
-            (Err(e), Ok(v)) | (Ok(v), Err(e)) => {
-                if !v {
-                    // !(`false` ^ `false`) == true
-                    Ok(true)
-                } else {
-                    // !(`false` ^ `true`) == `false`, but yield error
-                    Err(e)
-                }
-            }
-            (Ok(a), Ok(b)) => Ok(!(a ^ b)),
-        }
+        Ok(!(a(input, data).unwrap_or(false) ^ b(input, data).unwrap_or(false)))
     }
 }
 
@@ -1342,14 +1304,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        // even if `a` fails to validate, `b` might succeed, in which case XOR
-        // ought to return true.
-        match (a(input, data), b(input, data)) {
-            // arbitrarily return the first error because `a` failed first.
-            (Err(a), Err(_)) => Err(a),
-            (Err(_), Ok(v)) | (Ok(v), Err(_)) => Ok(v),
-            (Ok(a), Ok(b)) => Ok(a ^ b),
-        }
+        Ok(a(input, data).unwrap_or(false) ^ b(input, data).unwrap_or(false))
     }
 }
 
