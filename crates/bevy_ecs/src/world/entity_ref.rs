@@ -4043,7 +4043,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// # let mut world = World::default();
     /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
     ///
-    /// // This gives the `FilteredEntityMut` access to `&mut A` and `&mut B`.
+    /// // This gives the `FilteredEntityMut` access to `&mut X` and `&mut Y`.
     /// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
     ///     .data::<(&mut X, &mut Y)>()
     ///     .build();
