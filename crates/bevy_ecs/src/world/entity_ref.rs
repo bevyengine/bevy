@@ -4077,7 +4077,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access and we promise to not create other references to the same component
+            // SAFETY: Caller ensures there are no other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
     }
