@@ -134,7 +134,7 @@ impl ResourceManager {
             previous_depth_pyramids: EntityHashMap::default(),
 
             // TODO: Buffer min sizes
-            clear_visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
+            clear_visibility_buffer_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_clear_visibility_buffer_bind_group_layout",
                 &BindGroupLayoutEntries::single(
                     ShaderStages::COMPUTE,
@@ -149,7 +149,7 @@ impl ResourceManager {
                         texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     ),
                 ),
-            first_instance_cull_bind_group_layout: render_device.create_bind_group_layout(
+            first_instance_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_first_instance_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -170,7 +170,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            second_instance_cull_bind_group_layout: render_device.create_bind_group_layout(
+            second_instance_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_second_instance_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -190,7 +190,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            first_bvh_cull_bind_group_layout: render_device.create_bind_group_layout(
+            first_bvh_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_first_bvh_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -215,7 +215,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            second_bvh_cull_bind_group_layout: render_device.create_bind_group_layout(
+            second_bvh_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_second_bvh_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -237,7 +237,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            first_meshlet_cull_bind_group_layout: render_device.create_bind_group_layout(
+            first_meshlet_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_first_meshlet_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -258,7 +258,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            second_meshlet_cull_bind_group_layout: render_device.create_bind_group_layout(
+            second_meshlet_cull_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_second_meshlet_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -277,7 +277,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            downsample_depth_bind_group_layout: render_device.create_bind_group_layout(
+            downsample_depth_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_downsample_depth_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, {
                     let write_only_r32float = || {
@@ -304,7 +304,7 @@ impl ResourceManager {
                     )
                 }),
             ),
-            downsample_depth_shadow_view_bind_group_layout: render_device.create_bind_group_layout(
+            downsample_depth_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_downsample_depth_shadow_view_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, {
                     let write_only_r32float = || {
@@ -331,7 +331,7 @@ impl ResourceManager {
                     )
                 }),
             ),
-            visibility_buffer_raster_bind_group_layout: render_device.create_bind_group_layout(
+            visibility_buffer_raster_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_visibility_buffer_raster_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT | ShaderStages::VERTEX | ShaderStages::COMPUTE,
@@ -369,21 +369,21 @@ impl ResourceManager {
                         ),
                     ),
                 ),
-            resolve_depth_bind_group_layout: render_device.create_bind_group_layout(
+            resolve_depth_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_resolve_depth_bind_group_layout",
                 &BindGroupLayoutEntries::single(
                     ShaderStages::FRAGMENT,
                     texture_storage_2d(TextureFormat::R64Uint, StorageTextureAccess::ReadOnly),
                 ),
             ),
-            resolve_depth_shadow_view_bind_group_layout: render_device.create_bind_group_layout(
+            resolve_depth_shadow_view_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_resolve_depth_shadow_view_bind_group_layout",
                 &BindGroupLayoutEntries::single(
                     ShaderStages::FRAGMENT,
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::ReadOnly),
                 ),
             ),
-            resolve_material_depth_bind_group_layout: render_device.create_bind_group_layout(
+            resolve_material_depth_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_resolve_material_depth_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
@@ -394,7 +394,7 @@ impl ResourceManager {
                     ),
                 ),
             ),
-            material_shade_bind_group_layout: render_device.create_bind_group_layout(
+            material_shade_bind_group_layout: BindGroupLayoutDescriptor::new(
                 "meshlet_mesh_material_shade_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
@@ -411,7 +411,7 @@ impl ResourceManager {
                 ),
             ),
             fill_counts_bind_group_layout: if needs_dispatch_remap {
-                render_device.create_bind_group_layout(
+                BindGroupLayoutDescriptor::new(
                     "meshlet_fill_counts_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
                         ShaderStages::COMPUTE,
@@ -424,7 +424,7 @@ impl ResourceManager {
                     ),
                 )
             } else {
-                render_device.create_bind_group_layout(
+                BindGroupLayoutDescriptor::new(
                     "meshlet_fill_counts_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
                         ShaderStages::COMPUTE,
@@ -437,7 +437,7 @@ impl ResourceManager {
                 )
             },
             remap_1d_to_2d_dispatch_bind_group_layout: needs_dispatch_remap.then(|| {
-                render_device.create_bind_group_layout(
+                BindGroupLayoutDescriptor::new(
                     "meshlet_remap_1d_to_2d_dispatch_bind_group_layout",
                     &BindGroupLayoutEntries::sequential(
                         ShaderStages::COMPUTE,

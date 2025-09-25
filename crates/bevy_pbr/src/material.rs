@@ -408,7 +408,7 @@ fn add_material_bind_group_allocator<M: Material>(
             material_uses_bindless_resources::<M>(&render_device)
                 .then(|| M::bindless_descriptor())
                 .flatten(),
-            M::bind_group_layout(&render_device),
+            M::bind_group_layout_descriptor(),
             M::bindless_slot_count(),
         ),
     );
@@ -1405,7 +1405,7 @@ pub struct MaterialProperties {
     /// rendering to take place in a separate [`Transmissive3d`] pass.
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
-    pub material_layout: Option<BindGroupLayout>,
+    pub material_layout: Option<BindGroupLayoutDescriptor>,
     /// Backing array is a size of 4 because the `StandardMaterial` needs 4 draw functions by default
     pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 4]>,
     /// Backing array is a size of 3 because the `StandardMaterial` has 3 custom shaders (`frag`, `prepass_frag`, `deferred_frag`) which is the
@@ -1494,6 +1494,7 @@ where
 
     type Param = (
         SRes<RenderDevice>,
+        SRes<PipelineCache>,
         SRes<DefaultOpaqueRendererMethod>,
         SResMut<MaterialBindGroupAllocators>,
         SResMut<RenderMaterialBindings>,
@@ -1515,6 +1516,7 @@ where
         material_id: AssetId<Self::SourceAsset>,
         (
             render_device,
+            pipeline_cache,
             default_opaque_render_method,
             bind_group_allocators,
             render_material_bindings,
@@ -1531,7 +1533,7 @@ where
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
-        let material_layout = M::bind_group_layout(render_device);
+        let material_layout = M::bind_group_layout_descriptor();
 
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
@@ -1666,8 +1668,14 @@ where
             )
         }
 
-        match material.unprepared_bind_group(&material_layout, render_device, material_param, false)
-        {
+        let actual_material_layout = pipeline_cache.get_bind_group_layout(material_layout.clone());
+
+        match material.unprepared_bind_group(
+            &actual_material_layout,
+            render_device,
+            material_param,
+            false,
+        ) {
             Ok(unprepared) => {
                 let bind_group_allocator =
                     bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
@@ -1719,7 +1727,12 @@ where
                 // and is requesting a fully-custom bind group. Invoke
                 // `as_bind_group` as requested, and store the resulting bind
                 // group in the slot.
-                match material.as_bind_group(&material_layout, render_device, material_param) {
+                match material.as_bind_group(
+                    &material_layout,
+                    render_device,
+                    pipeline_cache,
+                    material_param,
+                ) {
                     Ok(prepared_bind_group) => {
                         let bind_group_allocator =
                             bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
@@ -1763,7 +1776,7 @@ where
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (_, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
+        (_, _, _, bind_group_allocators, render_material_bindings, ..): &mut SystemParamItem<
             Self::Param,
         >,
     ) {
@@ -1781,11 +1794,17 @@ where
 pub fn prepare_material_bind_groups(
     mut allocators: ResMut<MaterialBindGroupAllocators>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     fallback_image: Res<FallbackImage>,
     fallback_resources: Res<FallbackBindlessResources>,
 ) {
     for (_, allocator) in allocators.iter_mut() {
-        allocator.prepare_bind_groups(&render_device, &fallback_resources, &fallback_image);
+        allocator.prepare_bind_groups(
+            &render_device,
+            &pipeline_cache,
+            &fallback_resources,
+            &fallback_image,
+        );
     }
 }
 

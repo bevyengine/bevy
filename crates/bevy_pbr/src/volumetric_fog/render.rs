@@ -30,10 +30,10 @@ use bevy_render::{
         binding_types::{
             sampler, texture_3d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
         },
-        BindGroupLayout, BindGroupLayoutEntries, BindingResource, BlendComponent, BlendFactor,
-        BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-        DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
-        PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntries, BindingResource, BlendComponent,
+        BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState,
+        ColorWrites, DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp,
+        Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
@@ -105,7 +105,8 @@ pub struct VolumetricFogPipeline {
     /// All bind group layouts.
     ///
     /// Since there aren't too many of these, we precompile them all.
-    volumetric_view_bind_group_layouts: [BindGroupLayout; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
+    volumetric_view_bind_group_layouts:
+        [BindGroupLayoutDescriptor; VOLUMETRIC_FOG_BIND_GROUP_LAYOUT_COUNT],
 
     // The shader asset handle.
     shader: Handle<Shader>,
@@ -204,7 +205,6 @@ pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUnif
 
 pub fn init_volumetric_fog_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh_view_layouts: Res<MeshPipelineViewLayouts>,
     asset_server: Res<AssetServer>,
 ) {
@@ -249,7 +249,7 @@ pub fn init_volumetric_fog_pipeline(
 
         // Create the bind group layout.
         let description = flags.bind_group_layout_description();
-        render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
+        BindGroupLayoutDescriptor::new(description, &bind_group_layout_entries)
     });
 
     commands.insert_resource(VolumetricFogPipeline {
@@ -431,7 +431,7 @@ impl ViewNode for VolumetricFogNode {
 
             let volumetric_view_bind_group = render_context.render_device().create_bind_group(
                 None,
-                volumetric_view_bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(volumetric_view_bind_group_layout.clone()),
                 &bind_group_entries,
             );
 
