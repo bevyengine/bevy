@@ -1528,11 +1528,11 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta.set_non_send();
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_component_write(component_id) {
+        if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_component_read(component_id) {
+        } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
@@ -2872,6 +2872,22 @@ mod tests {
     use super::*;
     use crate::system::assert_is_system;
     use core::cell::RefCell;
+
+    #[test]
+    #[should_panic]
+    fn non_send_alias() {
+        #[derive(Resource)]
+        struct A(usize);
+        fn my_system(mut res0: NonSendMut<A>, mut res1: NonSendMut<A>) {
+            res0.0 += 1;
+            res1.0 += 1;
+        }
+        let mut world = World::new();
+        world.insert_non_send_resource(A(42));
+        let mut schedule = crate::schedule::Schedule::default();
+        schedule.add_systems(my_system);
+        schedule.run(&mut world);
+    }
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
     #[test]
