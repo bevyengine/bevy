@@ -959,7 +959,7 @@ impl ScheduleGraph {
     pub fn systems_in_set(
         &self,
         system_set: InternedSystemSet,
-    ) -> Result<Vec<SystemKey>, ScheduleError> {
+    ) -> Result<&[SystemKey], ScheduleError> {
         if self.changed {
             return Err(ScheduleError::Uninitialized);
         }
@@ -969,7 +969,7 @@ impl ScheduleGraph {
             .ok_or(ScheduleError::SetNotFound)?;
         self.set_systems
             .get(&system_set_id)
-            .cloned()
+            .map(|vec| vec.as_slice())
             .ok_or(ScheduleError::SetNotFound)
     }
 
@@ -1017,7 +1017,8 @@ impl ScheduleGraph {
     ) -> Result<usize, ScheduleError> {
         let set = system_set.into_system_set();
         let interned = set.intern();
-        let keys = self.systems_in_set(interned)?;
+        // clone the keys out of the schedule as the systems are getting removed from self
+        let keys = self.systems_in_set(interned)?.to_vec();
 
         self.changed = true;
 
@@ -1065,7 +1066,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn remove_systems_by_keys(&mut self, keys: &Vec<SystemKey>) {
+    fn remove_systems_by_keys(&mut self, keys: &[SystemKey]) {
         for &key in keys {
             self.systems.remove(key);
 
