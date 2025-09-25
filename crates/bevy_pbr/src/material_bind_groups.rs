@@ -1273,7 +1273,7 @@ impl MaterialBindlessSlab {
 
         self.bind_group = Some(render_device.create_bind_group(
             label,
-            &pipeline_cache.get_bind_group_layout(&bind_group_layout),
+            &pipeline_cache.get_bind_group_layout(bind_group_layout),
             &bind_group_entries,
         ));
     }

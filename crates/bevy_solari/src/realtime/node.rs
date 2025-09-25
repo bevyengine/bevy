@@ -190,8 +190,7 @@ impl ViewNode for SolariLightingNode {
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_world_cache_active_cells_dispatch",
                 &pipeline_cache.get_bind_group_layout(
-                    self.bind_group_layout_world_cache_active_cells_dispatch
-                        .clone(),
+                    &self.bind_group_layout_world_cache_active_cells_dispatch,
                 ),
                 &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
             );
