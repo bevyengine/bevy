@@ -33,7 +33,7 @@ impl Plugin for BlitPlugin {
 
 #[derive(Resource)]
 pub struct BlitPipeline {
-    pub layout: BindGroupLayout,
+    pub layout: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
     pub fullscreen_shader: FullscreenShader,
     pub fragment_shader: Handle<Shader>,
@@ -45,7 +45,7 @@ pub fn init_blit_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "blit_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -71,10 +71,11 @@ impl BlitPipeline {
         &self,
         render_device: &RenderDevice,
         src_texture: &TextureView,
+        pipeline_cache: &PipelineCache,
     ) -> BindGroup {
         render_device.create_bind_group(
             None,
-            &self.layout,
+            &pipeline_cache.get_bind_group_layout(self.layout.clone()),
             &BindGroupEntries::sequential((src_texture, &self.sampler)),
         )
     }
@@ -91,34 +92,9 @@ impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        // TODO: link this to above `BindGroupLayoutEntries` build in `init_blit_pipeline`
-
-        let blit_layout_descriptor : BindGroupLayoutDescriptor = BindGroupLayoutDescriptor {
-            label: Some("blit".to_string().into()),
-            entries: vec![
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        sample_type: TextureSampleType::Float { filterable: false },
-                        view_dimension: TextureViewDimension::D2, // TODO: Check
-                        multisampled: true, // TODO: Check
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                    count: None,
-                },
-            ],
-        };
-
-
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
-            layout: vec![blit_layout_descriptor],
+            layout: vec![self.layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
