@@ -1763,6 +1763,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
+        // Drop the lock on `AssetInfos` before spawning a task that may block on it in
+        // single-threaded.
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         for path in paths_to_reload {
             info!("Reloading {path} because it has changed");
             server.reload(path);
