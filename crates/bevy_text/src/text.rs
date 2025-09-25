@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo};
+use crate::{ComputedTextStyle, Font, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -404,4 +404,40 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
+}
+
+/// Text root
+#[derive(Component)]
+pub struct TextRoot(pub Vec<Entity>);
+
+/// Update text roots
+pub fn update_text_roots(
+    mut commands: Commands,
+    text_node_query: Query<(Entity, Option<&ChildOf>), With<ComputedTextStyle>>,
+    children_query: Query<&Children>,
+) {
+    let mut roots = vec![];
+
+    for (entity, maybe_child_of) in text_node_query.iter() {
+        let Some(parent) = maybe_child_of else {
+            roots.push(entity);
+            continue;
+        };
+
+        if !text_node_query.contains(parent.0) {
+            roots.push(entity);
+        }
+
+        commands.entity(entity).remove::<TextRoot>();
+    }
+
+    for root_entity in roots {
+        let mut entities = vec![];
+        for entity in children_query.iter_descendants_depth_first(root_entity) {
+            if text_node_query.contains(entity) {
+                entities.push(entity);
+            }
+        }
+        commands.entity(root_entity).insert(TextRoot(entities));
+    }
 }

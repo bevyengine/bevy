@@ -19,11 +19,11 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::ComputedTextStyle;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextError, TextLayout, TextLayoutInfo, TextPipeline,
 };
+use bevy_text::{ComputedTextStyle, TextRoot};
 use bevy_transform::components::Transform;
 use core::any::TypeId;
 
@@ -144,6 +144,7 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &TextRoot,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -165,7 +166,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, text_root) in
         &mut text_root_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -201,11 +202,18 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
+
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                text_reader.iter(entity),
+                spans,
                 scale_factor as f64,
                 &block,
                 text_bounds,
