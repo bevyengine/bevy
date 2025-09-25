@@ -146,11 +146,13 @@ impl<'w> EntityRef<'w> {
         unsafe { self.cell.get_change_ticks::<T>() }
     }
 
-    /// Retrieves the caller information for the given component.
+    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     #[inline]
-    pub fn get_caller<T: Component>(&self) -> Option<MaybeLocation> {
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get_caller::<T>() }
+        unsafe { self.cell.get_changed_by::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -1749,14 +1751,16 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_change_ticks::<T>()
     }
 
-    /// Retrieves the caller information for the given component.
+    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_caller<T: Component>(&self) -> Option<MaybeLocation> {
-        self.as_readonly().get_caller::<T>()
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_changed_by::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change

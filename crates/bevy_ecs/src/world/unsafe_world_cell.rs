@@ -889,21 +889,23 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Retrieves the caller information for the given component.
+    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_caller<T: Component>(self) -> Option<MaybeLocation> {
+    pub unsafe fn get_changed_by<T: Component>(self) -> Option<MaybeLocation> {
         let component_id = self.world.components().get_valid_id(TypeId::of::<T>())?;
 
         // SAFETY:
         // - entity location is valid
         // - proper world access is promised by caller
         unsafe {
-            get_caller(
+            get_changed_by(
                 self.world,
                 component_id,
                 T::STORAGE_TYPE,
@@ -936,34 +938,6 @@ impl<'w> UnsafeEntityCell<'w> {
         // - the storage type provided is correct for T
         unsafe {
             get_ticks(
-                self.world,
-                component_id,
-                info.storage_type(),
-                self.entity,
-                self.location,
-            )
-        }
-    }
-
-    /// Retrieves the caller information for the given [`ComponentId`].
-    ///
-    /// **You should prefer to use the typed API [`UnsafeEntityCell::get_change_ticks`] where possible and only
-    /// use this in cases where the actual component types are not known at
-    /// compile time.**
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that
-    /// - the [`UnsafeEntityCell`] has permission to access the component
-    /// - no other mutable references to the component exist at the same time
-    #[inline]
-    pub unsafe fn get_caller_by_id(&self, component_id: ComponentId) -> Option<MaybeLocation> {
-        let info = self.world.components().get_info(component_id)?;
-        // SAFETY:
-        // - entity location and entity is valid
-        // - world access is immutable, lifetime tied to `&self`
-        // - the storage type provided is correct for T
-        unsafe {
-            get_caller(
                 self.world,
                 component_id,
                 info.storage_type(),
@@ -1353,7 +1327,8 @@ unsafe fn get_ticks(
     }
 }
 
-/// Get the caller information for a [`Component`] on a particular [`Entity`]
+/// Get the [`MaybeLocation`] for a [`Component`] on a particular [`Entity`].
+/// This contains information regarding the last place (in code) that changed this component and can be usefull for debugging.
 ///
 /// # Safety
 /// - `location` must refer to an archetype that contains `entity`
@@ -1362,7 +1337,7 @@ unsafe fn get_ticks(
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 /// - the caller must ensure that no aliasing rules are violated
 #[inline]
-unsafe fn get_caller(
+unsafe fn get_changed_by(
     world: UnsafeWorldCell<'_>,
     component_id: ComponentId,
     storage_type: StorageType,

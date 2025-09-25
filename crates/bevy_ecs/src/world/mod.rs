@@ -2594,7 +2594,7 @@ impl World {
         let mut entity_mut = self.get_entity_mut(*entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut caller = entity_mut.get_caller::<R>()?;
+        let mut caller = entity_mut.get_changed_by::<R>()?;
         let mut value = entity_mut.take::<R>()?;
 
         let value_mut = Mut {
