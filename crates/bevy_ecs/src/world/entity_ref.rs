@@ -3898,6 +3898,8 @@ impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 /// ```
+///
+/// Also see [`UnsafeFilteredEntityMut`] for a way to bypass borrow-checker restrictions.
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
@@ -4012,16 +4014,9 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// the access does not include write access to `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        let id = self
-            .entity
-            .world()
-            .components()
-            .get_valid_id(TypeId::of::<T>())?;
-        self.access
-            .has_component_write(id)
-            // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut() })
-            .flatten()
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_unchecked() }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -4077,7 +4072,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: Caller ensures there are no other references to the same component
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
     }
@@ -4157,11 +4153,9 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        self.access
-            .has_component_write(component_id)
-            // SAFETY: We have write access
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
-            .flatten()
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_by_id_unchecked() }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
@@ -4183,13 +4177,14 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     ///
     /// - [`get_mut_by_id`](Self::get_mut_by_id) for the safe version.
     #[inline]
-    pub unsafe fn get_mut_unchecked_by_id(
+    pub unsafe fn get_mut_by_id_unchecked(
         &self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
         self.access
             .has_component_write(component_id)
-            // SAFETY: We have write access and we promise to not create other references to the same component
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
