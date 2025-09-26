@@ -26,6 +26,7 @@ hdr = ["image/hdr"]
 ktx2 = ["dep:ktx2"]
 ico = ["image/ico"]
 jpeg = ["image/jpeg"]
+pcx = ["image/pcx"]
 png = ["image/png"]
 pnm = ["image/pnm"]
 qoi = ["image/qoi"]
@@ -65,7 +66,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # rendering
-image = { version = "0.25.2", default-features = false }
+image = { version = "*", git = "https://github.com/image-rs/image.git", default-features = false }
 
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
