@@ -29,7 +29,7 @@ use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
-use crossbeam_channel::{Receiver, Sender};
+use concurrent_queue::ConcurrentQueue;
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
@@ -63,8 +63,7 @@ pub struct AssetServer {
 pub(crate) struct AssetServerData {
     pub(crate) infos: RwLock<AssetInfos>,
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
-    asset_event_sender: Sender<InternalAssetEvent>,
-    asset_event_receiver: Receiver<InternalAssetEvent>,
+    asset_event_queue: ConcurrentQueue<InternalAssetEvent>,
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
@@ -126,7 +125,6 @@ impl AssetServer {
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
     ) -> Self {
-        let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
         infos.watching_for_changes = watching_for_changes;
         Self {
@@ -134,8 +132,7 @@ impl AssetServer {
                 sources,
                 mode,
                 meta_check,
-                asset_event_sender,
-                asset_event_receiver,
+                asset_event_queue: ConcurrentQueue::unbounded(),
                 loaders,
                 infos: RwLock::new(infos),
                 unapproved_path_mode,
@@ -928,28 +925,30 @@ impl AssetServer {
 
         let id = handle.id();
 
-        let event_sender = self.data.asset_event_sender.clone();
+        let server = self.data.clone();
 
         let task = IoTaskPool::get().spawn(async move {
             match future.await {
                 Ok(asset) => {
                     let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
-                    event_sender
-                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
-                        .unwrap();
+                    server
+                        .asset_event_queue
+                        .push(InternalAssetEvent::Loaded { id, loaded_asset })
+                        .unwrap_or_else(|_| panic!("internal asset event queue full"));
                 }
                 Err(error) => {
                     let error = AddAsyncError {
                         error: Arc::new(error),
                     };
                     error!("{error}");
-                    event_sender
-                        .send(InternalAssetEvent::Failed {
+                    server
+                        .asset_event_queue
+                        .push(InternalAssetEvent::Failed {
                             id,
                             path: Default::default(),
                             error: AssetLoadError::AddAsyncError(error),
                         })
-                        .unwrap();
+                        .unwrap_or_else(|_| panic!("internal asset event queue full"));
                 }
             }
         });
@@ -1076,7 +1075,10 @@ impl AssetServer {
     }
 
     fn send_asset_event(&self, event: InternalAssetEvent) {
-        self.data.asset_event_sender.send(event).unwrap();
+        self.data
+            .asset_event_queue
+            .push(event)
+            .unwrap_or_else(|_| panic!("Failed to push internal asset event."));
     }
 
     /// Retrieves all loads states for the given asset id.
@@ -1651,14 +1653,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
         let mut infos = server.data.infos.write();
         let var_name = vec![];
         let mut untyped_failures = var_name;
-        for event in server.data.asset_event_receiver.try_iter() {
+        for event in server.data.asset_event_queue.try_iter() {
             match event {
                 InternalAssetEvent::Loaded { id, loaded_asset } => {
                     infos.process_asset_load(
                         id,
                         loaded_asset,
                         world,
-                        &server.data.asset_event_sender,
+                        &server.data.asset_event_queue,
                     );
                 }
                 InternalAssetEvent::LoadedWithDependencies { id } => {

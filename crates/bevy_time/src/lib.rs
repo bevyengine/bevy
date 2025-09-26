@@ -43,14 +43,10 @@ use bevy_ecs::{
     },
     prelude::*,
 };
-use bevy_platform::time::Instant;
+use concurrent_queue::ConcurrentQueue;
+pub use concurrent_queue::PushError;
+use bevy_platform::{time::Instant, sync::Arc};
 use core::time::Duration;
-
-#[cfg(feature = "std")]
-pub use crossbeam_channel::TrySendError;
-
-#[cfg(feature = "std")]
-use crossbeam_channel::{Receiver, Sender};
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -120,23 +116,17 @@ pub enum TimeUpdateStrategy {
     ManualDuration(Duration),
 }
 
-/// Channel resource used to receive time from the render world.
+/// Queue resource used to receive time from the render world.
 #[cfg(feature = "std")]
-#[derive(Resource)]
-pub struct TimeReceiver(pub Receiver<Instant>);
-
-/// Channel resource used to send time from the render world.
-#[cfg(feature = "std")]
-#[derive(Resource)]
-pub struct TimeSender(pub Sender<Instant>);
+#[derive(Resource, Clone)]
+pub struct TimeEventQueue(pub Arc<ConcurrentQueue<Instant>>);
 
 /// Creates channels used for sending time between the render world and the main world.
 #[cfg(feature = "std")]
-pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
+pub fn create_time_event_queue() -> TimeEventQueue {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
-    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
-    (TimeSender(s), TimeReceiver(r))
+    TimeEventQueue(Arc::new(ConcurrentQueue::bounded(2)))
 }
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is
@@ -146,12 +136,12 @@ pub fn time_system(
     mut virtual_time: ResMut<Time<Virtual>>,
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
-    #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
+    #[cfg(feature = "std")] time_event_queue: Option<Res<TimeEventQueue>>,
     #[cfg(feature = "std")] mut has_received_time: Local<bool>,
 ) {
     #[cfg(feature = "std")]
-    // TODO: Figure out how to handle this when using pipelined rendering.
-    let sent_time = match time_recv.map(|res| res.0.try_recv()) {
+    let sent_time = match time_event_queue.map(|res| res.0.pop()) {
+        // TODO: Figure out how to handle this when using pipelined rendering.
         Some(Ok(new_time)) => {
             *has_received_time = true;
             Some(new_time)
