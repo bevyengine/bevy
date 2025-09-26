@@ -10,10 +10,7 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{
-        Components, FragmentingValueBorrowed, FragmentingValues, FragmentingValuesBorrowed,
-        StorageType, Tick,
-    },
+    component::{Components, FragmentingValues, FragmentingValuesBorrowed, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
@@ -44,9 +41,7 @@ impl<'w> BundleInserter<'w> {
         bundle: &T,
     ) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
-
-        let value_components =
-            unsafe { FragmentingValuesBorrowed::from_bundle(world.components(), bundle) };
+        let value_components = FragmentingValuesBorrowed::from_bundle(world.components(), bundle);
 
         // SAFETY: We just ensured this bundle exists
         unsafe {
@@ -450,7 +445,8 @@ impl BundleInfo {
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
     /// # Safety
-    /// `components` must be the same components as passed in [`Self::new`]
+    /// - `components` must be the same components as passed in [`Self::new`]
+    /// - `value_components` must be created using `components`
     pub(crate) unsafe fn insert_bundle_into_archetype(
         &self,
         archetypes: &mut Archetypes,

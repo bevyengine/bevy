@@ -22,8 +22,8 @@
 use crate::{
     bundle::BundleId,
     component::{
-        ComponentId, Components, FragmentingValue, FragmentingValueBorrowed, FragmentingValues,
-        FragmentingValuesBorrowed, RequiredComponentConstructor, StorageType, TupleKey,
+        ComponentId, Components, FragmentingValue, FragmentingValues, FragmentingValuesBorrowed,
+        RequiredComponentConstructor, StorageType, TupleKey,
     },
     entity::{Entity, EntityLocation},
     event::Event,
@@ -235,6 +235,9 @@ impl Edges {
     ///
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
+    ///
+    /// # Safety
+    /// `value_components` must be from the same world as `self`.
     #[inline]
     pub unsafe fn get_archetype_after_bundle_insert(
         &self,
@@ -245,6 +248,7 @@ impl Edges {
             .and_then(|bundle| bundle.archetype_id)
             .or_else(|| {
                 self.insert_bundle_fragmenting_components
+                    // Safety: `value_components` will be compared with values from the same world.
                     .get(&(bundle_id, unsafe { value_components.as_equivalent() }))
                     .copied()
             })

@@ -194,6 +194,7 @@ use bevy_ptr::OwningPtr;
 // bundle, in the _exact_ order that [`DynamicBundle::get_components`] is called.
 // - [`Bundle::from_components`] must call `func` exactly once for each [`ComponentId`] returned by
 //   [`Bundle::component_ids`].
+// - [`Bundle::get_fragmenting_value`] must return [`FragmentingValueBorrowed`] created using only the passed in [`Components`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Bundle`",
     label = "invalid `Bundle`",
@@ -207,13 +208,20 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 
+    /// Gets all [`FragmentingValue`]s of this bundle. `values` will be called at most [`Bundle::count_fragmenting_values`] times,
+    /// but won't run for unregistered but otherwise valid fragmenting components.
+    ///
+    /// [`FragmentingValue`]: crate::component::FragmentingValue
     #[doc(hidden)]
     fn get_fragmenting_values<'a>(
         &'a self,
         components: &Components,
-        values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>),
+        values: &mut impl FnMut(FragmentingValueBorrowed<'a>),
     );
 
+    /// Returns the exact number of [`FragmentingValueComponent`]s in this bundle.
+    ///
+    /// [`FragmentingValueComponent`]: crate::component::FragmentingValueComponent
     #[doc(hidden)]
     fn count_fragmenting_values() -> usize;
 }

@@ -28,8 +28,7 @@ impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: &T) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
-        let value_components =
-            unsafe { FragmentingValuesBorrowed::from_bundle(world.components(), bundle) };
+        let value_components = FragmentingValuesBorrowed::from_bundle(world.components(), bundle);
 
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick, value_components) }
@@ -218,6 +217,8 @@ impl<'w> BundleSpawner<'w> {
 
     #[inline]
     pub(crate) fn replace<T: Bundle>(&mut self, bundle: &T) {
-        *self = BundleSpawner::new(unsafe { self.world.world_mut() }, self.change_tick, bundle)
+        // Safety: There can't exist any other mutable references to world since current
+        // BundleSpawner requires `&mut World` to create.
+        *self = BundleSpawner::new(unsafe { self.world.world_mut() }, self.change_tick, bundle);
     }
 }

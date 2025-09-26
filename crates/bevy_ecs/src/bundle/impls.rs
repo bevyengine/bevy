@@ -1,4 +1,4 @@
-use core::any::{Any, TypeId};
+use core::any::TypeId;
 
 use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
@@ -16,6 +16,7 @@ use crate::{
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+// - `Bundle::get_fragmenting_values` uses only the passed in `Components` to create `FragmentingValueBorrowed`
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
@@ -29,12 +30,10 @@ unsafe impl<C: Component> Bundle for C {
     fn get_fragmenting_values<'a>(
         &'a self,
         components: &Components,
-        values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>),
+        values: &mut impl FnMut(FragmentingValueBorrowed<'a>),
     ) {
-        if let Some(component) = (self as &dyn Any).downcast_ref::<C::Key>() {
-            values(FragmentingValueBorrowed::from_component(
-                components, component,
-            ));
+        if let Some(component) = FragmentingValueBorrowed::from_component(components, self) {
+            values(component);
         }
     }
 
@@ -104,7 +103,7 @@ macro_rules! tuple_impl {
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(Option<FragmentingValueBorrowed<'a>>)) {
+            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(FragmentingValueBorrowed<'a>)) {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."

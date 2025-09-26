@@ -315,7 +315,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     fn get_fragmenting_values<'a>(
         &'a self,
         _components: &crate::component::Components,
-        _values: &mut impl FnMut(Option<crate::component::FragmentingValueBorrowed<'a>>),
+        _values: &mut impl FnMut(crate::component::FragmentingValueBorrowed<'a>),
     ) {
         // RelationshipTargets can't fragment by value since they're mutable
     }
@@ -419,7 +419,7 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn get_fragmenting_values<'a>(
         &'a self,
         _components: &crate::component::Components,
-        _values: &mut impl FnMut(Option<crate::component::FragmentingValueBorrowed<'a>>),
+        _values: &mut impl FnMut(crate::component::FragmentingValueBorrowed<'a>),
     ) {
         // RelationshipTargets can't fragment by value since they're mutable
     }

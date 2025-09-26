@@ -10,7 +10,7 @@ use bevy_ecs::component::Component;
 use bevy_platform::hash::FixedHasher;
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
-    any::TypeId,
+    any::{Any, TypeId},
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
     ptr::NonNull,
@@ -24,12 +24,14 @@ use crate::{
     storage::FragmentingValueComponentsStorage,
 };
 
-pub trait FragmentingValueComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {
+/// Trait defining a [`Component`] that fragments archetypes by it's value.
+pub trait FragmentingValueComponent:
+    Component<Mutability = Immutable> + Eq + Hash + Clone + private::Seal
+{
+    /// Returns hash of this [`Component`] as a `u64`.
     #[inline]
     fn hash_data(&self) -> u64 {
-        let mut hasher = FixedHasher.build_hasher();
-        self.hash(&mut hasher);
-        hasher.finish()
+        FixedHasher.hash_one(self)
     }
 }
 
@@ -38,10 +40,21 @@ impl<C> FragmentingValueComponent for C where
 {
 }
 
+impl<C> private::Seal for C where C: Component<Mutability = Immutable> + Eq + Hash + Clone {}
+
+mod private {
+    pub trait Seal {}
+}
+
+/// A [`FragmentingValueComponent`] that is used to mark components as **non**-fragmenting by value.
+/// See [`Component::Key`] for more detail.
 #[derive(Component, PartialEq, Eq, Hash, Clone)]
 #[component(immutable)]
 pub enum NoKey {}
 
+/// A type-erased version of [`FragmentingValueComponent`].
+///
+/// Each combination of component type + value is unique and is stored exactly once in [`FragmentingValueComponentsStorage`].
 #[derive(Clone)]
 pub struct FragmentingValue {
     inner: Arc<FragmentingValueInner>,
@@ -49,18 +62,22 @@ pub struct FragmentingValue {
 
 impl FragmentingValue {
     #[inline]
+    /// Returns [`ComponentId`] of this fragmenting value component.
     pub fn component_id(&self) -> ComponentId {
         self.inner.component_id
     }
 
     #[inline]
+    /// Returns pointer to data of this fragmenting value component.
     pub fn component_data(&self) -> Ptr<'_> {
+        // Safety: data points to properly-aligned, valid value of the type this component id is registered for.
         unsafe { Ptr::new(self.inner.data) }
     }
 }
 
 impl Hash for FragmentingValue {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // This must be implemented exactly the same way as Hash for FragmentingValueBorrowed!
         self.component_id().hash(state);
         state.write_u64(self.inner.data_hash);
     }
@@ -80,13 +97,18 @@ struct FragmentingValueInner {
     data: NonNull<u8>,
 }
 
+// Safety: data points to a type that is Sync, all other field are Sync
 unsafe impl Sync for FragmentingValueInner {}
 
+// Safety: data points to a type that is Send, all other field are Send
 unsafe impl Send for FragmentingValueInner {}
 
 impl Drop for FragmentingValueInner {
     fn drop(&mut self) {
         if let Some(drop) = self.data_drop {
+            // Safety:
+            // - `data` points to properly-aligned, valid value of the type this component id is registered for.
+            // - `drop` is valid to call for data with the type of of this component.
             unsafe { drop(OwningPtr::new(self.data)) }
         }
     }
@@ -94,12 +116,12 @@ impl Drop for FragmentingValueInner {
 
 impl Eq for FragmentingValue {}
 
-/// A collection of fragmenting component values and ids.
-/// This collection is sorted internally to allow for order-independent comparison.
+/// A collection of [`FragmentingValue`].
 ///
-/// Owned version can be used as a key in maps. [`FragmentingValuesBorrowed`] is a version that doesn't require cloning the values.
+/// This collection is sorted internally to allow for order-independent comparison and can be used as a key in maps.
+/// Can be created from [`FragmentingValuesBorrowed`].
 #[derive(Hash, PartialEq, Eq, Default, Clone)]
-pub struct FragmentingValues {
+pub(crate) struct FragmentingValues {
     values: Box<[FragmentingValue]>,
 }
 
@@ -120,13 +142,14 @@ impl FromIterator<FragmentingValue> for FragmentingValues {
 }
 
 impl FragmentingValues {
-    pub fn from_sorted<T: IntoIterator<Item = FragmentingValue>>(iter: T) -> Self {
+    pub(crate) fn from_sorted<T: IntoIterator<Item = FragmentingValue>>(iter: T) -> Self {
         Self {
             values: iter.into_iter().collect(),
         }
     }
 }
 
+/// Type representing a [`FragmentingValueComponent`] borrowed from a bundle.
 pub struct FragmentingValueBorrowed<'a> {
     component_id: ComponentId,
     data_hash: u64,
@@ -134,6 +157,15 @@ pub struct FragmentingValueBorrowed<'a> {
 }
 
 impl<'a> FragmentingValueBorrowed<'a> {
+    /// Create a new [`FragmentingValueBorrowed`] from raw component data.
+    ///
+    /// This will return `None` if:
+    /// - Component isn't registered in the `components`.
+    /// - Component isn't a [`FragmentingValueComponent`].
+    ///
+    /// # Safety
+    /// Data behind `component_data` pointer must match the component registered with this `component_id` in `components`.
+    #[inline]
     pub unsafe fn new(
         components: &Components,
         component_id: ComponentId,
@@ -143,6 +175,7 @@ impl<'a> FragmentingValueBorrowed<'a> {
             .get_info(component_id)
             .and_then(|info| info.value_component_vtable())
             .map(|vtable| {
+                // Safety: component_data is a valid data of type represented by this ComponentId.
                 let data_hash = unsafe { (vtable.hash)(component_data) };
                 Self {
                     component_id,
@@ -152,44 +185,63 @@ impl<'a> FragmentingValueBorrowed<'a> {
             })
     }
 
-    pub fn from_component<C: FragmentingValueComponent>(
-        components: &Components,
-        component: &'a C,
-    ) -> Option<Self> {
-        components
-            .get_id(TypeId::of::<C>())
-            .map(|component_id| Self {
-                component_id,
-                data_hash: component.hash_data(),
-                data: Ptr::from(component),
+    /// Create a new [`FragmentingValueBorrowed`] from a [`Component`].
+    ///
+    /// This will return `None` if:
+    /// - `C` isn't registered in `components`.
+    /// - `C` isn't a [`FragmentingValueComponent`].
+    #[inline]
+    pub fn from_component<C: Component>(components: &Components, component: &'a C) -> Option<Self> {
+        (component as &dyn Any)
+            .downcast_ref::<C::Key>()
+            .and_then(|component| {
+                components
+                    .get_id(TypeId::of::<C>())
+                    .map(|component_id| Self {
+                        component_id,
+                        data_hash: component.hash_data(),
+                        data: Ptr::from(component),
+                    })
             })
     }
 
+    /// Return [`ComponentId`] of this borrowed [`FragmentingValueComponent`].
     #[inline]
     pub fn component_id(&self) -> ComponentId {
         self.component_id
     }
 
+    /// Return pointer to data of this borrowed [`FragmentingValueComponent`].
     #[inline]
     pub fn component_data(&self) -> Ptr<'a> {
         self.data
     }
 
-    pub unsafe fn to_owned(
+    /// Create [`FragmentingValue`] by cloning data pointed to by this [`FragmentingValueBorrowed`] or getting existing one from [`FragmentingValueComponentsStorage`].
+    ///
+    /// # Safety
+    /// - `components` must be the same one as the one used to create `self`.
+    /// - `storage` and `components` must be from the same world.
+    pub(crate) unsafe fn to_owned(
         &self,
         components: &Components,
         storage: &mut FragmentingValueComponentsStorage,
     ) -> FragmentingValue {
+        // Safety: `self` was created using same `Components` as the ones we will be comparing with
+        // since `components` and `storage` are from the same world.
         let key = unsafe { self.as_equivalent() };
         storage
             .existing_values
             .get_or_insert_with(&key, |_| {
+                // Safety: id is a valid and registered component.
                 let info = unsafe { components.get_info_unchecked(self.component_id()) };
+                // Safety: component is fragmenting since `FragmentingValueBorrowed` can only be created for valid fragmenting components.
                 let vtable = unsafe { info.value_component_vtable().debug_checked_unwrap() };
                 let layout = info.layout();
                 let data = if layout.size() == 0 {
                     NonNull::dangling()
                 } else {
+                    // Safety: layout.size() != 0
                     unsafe { NonNull::new(alloc::alloc::alloc(info.layout())).unwrap() }
                 };
                 (vtable.clone)(self.data, data);
@@ -206,8 +258,12 @@ impl<'a> FragmentingValueBorrowed<'a> {
             .clone()
     }
 
+    /// Get a value that can be used to compare with and query maps containing [`FragmentingValue`]s as the key.
+    ///
+    /// # Safety
+    /// Caller must ensure that [`FragmentingValue`] this will compare with was created using the same [`Components`] as `self`.
     #[inline]
-    pub unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValue> {
+    pub(crate) unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValue> {
         #[derive(Hash)]
         pub struct FragmentingValueBorrowedKey<'a>(&'a FragmentingValueBorrowed<'a>);
 
@@ -215,6 +271,8 @@ impl<'a> FragmentingValueBorrowed<'a> {
             #[inline]
             fn equivalent(&self, key: &FragmentingValue) -> bool {
                 self.0.component_id() == key.component_id()
+                    // Safety: `self` and `key` point to the same component type since `self.component_id` and `key.component_id` are equal
+                    // and were created using the same `Components` instance.
                     && unsafe { (key.inner.data_eq)(self.0.data, key.component_data()) }
             }
         }
@@ -225,11 +283,17 @@ impl<'a> FragmentingValueBorrowed<'a> {
 
 impl<'a> Hash for FragmentingValueBorrowed<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
+        // This must be implemented exactly the same way as Hash for FragmentingValue!
         self.component_id.hash(state);
         state.write_u64(self.data_hash);
     }
 }
 
+/// A collection of [`FragmentingValueBorrowed`].
+///
+/// This collection is sorted internally to allow for order-independent comparison.
+///
+/// Can be compared with [`FragmentingValues`] using [`FragmentingValuesBorrowed::as_equivalent`].
 #[derive(Hash)]
 pub struct FragmentingValuesBorrowed<'a> {
     values: Vec<FragmentingValueBorrowed<'a>>,
@@ -244,36 +308,41 @@ impl<'a> Deref for FragmentingValuesBorrowed<'a> {
 }
 
 impl<'a> FragmentingValuesBorrowed<'a> {
-    pub unsafe fn from_bundle<B: Bundle>(components: &Components, bundle: &'a B) -> Self {
+    /// Create a new [`FragmentingValuesBorrowed`] from a [`Bundle`].
+    ///
+    /// NOTE: If any of the components in the bundle weren't registered, this might return incorrect result!
+    pub fn from_bundle<B: Bundle>(components: &Components, bundle: &'a B) -> Self {
         let mut values = Vec::with_capacity(B::count_fragmenting_values());
         bundle.get_fragmenting_values(components, &mut |value| {
-            values.push(value.debug_checked_unwrap());
+            values.push(value);
         });
         values.sort_unstable_by_key(FragmentingValueBorrowed::component_id);
         FragmentingValuesBorrowed { values }
     }
 
+    /// Create a new [`FragmentingValuesBorrowed`] from a raw component data + their [`ComponentId`].
+    ///
+    /// NOTE: If any of the components in the bundle weren't registered, this might return incorrect result!
+    ///
+    /// # Safety
+    /// Pointer to data for the corresponding [`ComponentId`] must point to a valid component data represented by the id.
     pub unsafe fn from_components(
         components: &Components,
         iter: impl IntoIterator<Item = (ComponentId, Ptr<'a>)>,
     ) -> Self {
         let mut values: Vec<_> = iter
             .into_iter()
-            .filter_map(|(id, data)| {
-                let info = components.get_info_unchecked(id);
-                info.value_component_vtable()
-                    .map(|vtable| FragmentingValueBorrowed {
-                        component_id: id,
-                        data,
-                        data_hash: (vtable.hash)(data),
-                    })
-            })
+            .filter_map(|(id, data)| FragmentingValueBorrowed::new(components, id, data))
             .collect();
         values.sort_unstable_by_key(FragmentingValueBorrowed::component_id);
         FragmentingValuesBorrowed { values }
     }
 
-    pub unsafe fn to_owned(
+    /// Create [`FragmentingValues`] by cloning data pointed to by this [`FragmentingValuesBorrowed`] or getting existing ones from [`FragmentingValueComponentsStorage`].
+    ///
+    /// # Safety
+    /// `components` must be the same one as the one used to create `self`.
+    pub(crate) unsafe fn to_owned(
         &self,
         components: &Components,
         storage: &mut FragmentingValueComponentsStorage,
@@ -281,13 +350,18 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         let values = self
             .values
             .iter()
+            // Safety: v was created using `components`
             .map(|v| unsafe { v.to_owned(components, storage) })
             .collect();
         FragmentingValues { values }
     }
 
+    /// Get a value that can be used to compare with and query maps containing [`FragmentingValues`]s as the key.
+    ///
+    /// # Safety
+    /// Caller must ensure that [`FragmentingValues`] this will compare with was created using the same [`Components`] as `self`.
     #[inline]
-    pub unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValues> {
+    pub(crate) unsafe fn as_equivalent(&self) -> impl AsEquivalent<FragmentingValues> {
         #[derive(Hash)]
         pub struct FragmentingValuesBorrowedKey<'a>(&'a FragmentingValuesBorrowed<'a>);
 
@@ -301,6 +375,7 @@ impl<'a> FragmentingValuesBorrowed<'a> {
                             .values
                             .iter()
                             .zip(key.values.iter())
+                            // Safety: v1 was created using the same Component as v2
                             .all(|(v1, v2)| unsafe { v1.as_equivalent().equivalent(v2) })
                 }
             }
@@ -310,6 +385,7 @@ impl<'a> FragmentingValuesBorrowed<'a> {
     }
 }
 
+/// [`Hash`] + [`Equivalent`] supertrait for hashmap queries.
 pub trait AsEquivalent<T: ?Sized>: Hash + Equivalent<T> {}
 
 impl<Q, K> AsEquivalent<K> for Q
@@ -319,6 +395,7 @@ where
 {
 }
 
+/// Workaround to allow querying hashmaps using tuples of [`Equivalent`] types.
 #[derive(Hash, Eq, PartialEq)]
 pub(crate) struct TupleKey<K1, K2>(pub K1, pub K2);
 
@@ -333,22 +410,30 @@ where
     }
 }
 
-/// Dynamic vtable for [`FragmentingValue`].
-/// This is used by [`crate::component::ComponentDescriptor`] to work with dynamic fragmenting components.
+/// Dynamic vtable for [`FragmentingValueComponent`].
+/// This stores the functions required to compare, hash and store fragmenting values on [`crate::component::ComponentDescriptor`].
 #[derive(Clone, Copy, Debug)]
 pub struct FragmentingValueVtable {
+    // Safety: This functions must be safe to call with pointers to the data of the component's type this vtable registered for.
     eq: for<'a> unsafe fn(Ptr<'a>, Ptr<'a>) -> bool,
+    // Safety: This functions must be safe to call with pointer to the data of the component's type this vtable registered for.
     hash: for<'a> unsafe fn(Ptr<'a>) -> u64,
+    // Safety: This functions must be safe to call with pointers to the data of the component's type this vtable registered for.
     clone: for<'a> unsafe fn(Ptr<'a>, NonNull<u8>),
 }
 
 impl FragmentingValueVtable {
     /// Create a new vtable from raw functions.
     ///
-    /// Also see [`from_fragmenting_value`](FragmentingValueVtable::from_fragmenting_value) and
-    /// [`from_component`](FragmentingValueVtable::from_component) for more convenient constructors.
+    /// All pointers passed to the functions will point to the data of the component for which this vtable will be registered for.
+    /// - `eq`: `(self: *const C, other: *const C)`
+    /// - `hash`: `(self: *const C)`
+    /// - `clone`: `(self: *const C, target: *mut C)`
+    ///
+    /// # Safety
+    /// `clone` must initialize data behind `target` pointer to valid value of the same type as the one this vtable is registered for on call.
     #[inline]
-    pub fn new(
+    pub unsafe fn new(
         eq: unsafe fn(Ptr<'_>, Ptr<'_>) -> bool,
         hash: unsafe fn(Ptr<'_>) -> u64,
         clone: unsafe fn(Ptr<'_>, NonNull<u8>),
@@ -365,8 +450,11 @@ impl FragmentingValueVtable {
             return None;
         }
         Some(FragmentingValueVtable {
+            // Safety: `this` and `other` are of type T, and T::Key == T
             eq: |this, other| unsafe { this.deref::<T::Key>() == other.deref::<T::Key>() },
+            // Safety: `this` is of type T and T::Key == T
             hash: |this| unsafe { this.deref::<T::Key>().hash_data() },
+            // Safety: `this` and `target` are of type T, and T::Key == T
             clone: |this, target| unsafe {
                 target
                     .cast::<T::Key>()
@@ -571,11 +659,12 @@ mod tests {
         unsafe fn clone(this: Ptr<'_>, target: NonNull<u8>) {
             target
                 .cast::<DynamicComponent>()
-                .write(this.deref::<DynamicComponent>().clone())
+                .write(this.deref::<DynamicComponent>().clone());
         }
 
         let layout = Layout::new::<DynamicComponent>();
-        let vtable = FragmentingValueVtable::new(eq, hash, clone);
+        // Safety: `clone` properly initializes value of type `DynamicComponent`
+        let vtable = unsafe { FragmentingValueVtable::new(eq, hash, clone) };
 
         // SAFETY:
         // - No drop command is required

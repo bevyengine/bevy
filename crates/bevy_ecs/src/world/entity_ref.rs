@@ -2118,6 +2118,8 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        // Safety: pointers are valid references to data represented by the corresponding
+        // `ComponentId`
         let value_components = unsafe {
             FragmentingValuesBorrowed::from_components(
                 &self.world.components,
