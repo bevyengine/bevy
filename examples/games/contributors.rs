@@ -157,7 +157,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         ))
         .with_child((
-            TextSpan::default(),
+            Text::default(),
             TextFont {
                 font_size: 30.,
                 ..text_style

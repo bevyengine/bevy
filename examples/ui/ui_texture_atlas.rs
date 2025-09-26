@@ -57,11 +57,11 @@ fn setup(
             parent
                 .spawn((Text::new("press "), text_font.clone()))
                 .with_child((
-                    TextSpan::new("space"),
+                    Text::new("space"),
                     TextColor(YELLOW.into()),
                     text_font.clone(),
                 ))
-                .with_child((TextSpan::new(" to advance frames"), text_font));
+                .with_child((Text::new(" to advance frames"), text_font));
         });
 }
 

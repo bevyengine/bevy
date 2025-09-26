@@ -265,29 +265,29 @@ fn setup(
         .with_children(|p| {
             p.spawn((Text::default(), StatsText)).with_children(|p| {
                 p.spawn((
-                    TextSpan::new("Bird Count: "),
+                    Text::new("Bird Count: "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
                 p.spawn((
-                    TextSpan::new("\nFPS (raw): "),
+                    Text::new("\nFPS (raw): "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
                 p.spawn((
-                    TextSpan::new("\nFPS (SMA): "),
+                    Text::new("\nFPS (SMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
                 p.spawn((
-                    TextSpan::new("\nFPS (EMA): "),
+                    Text::new("\nFPS (EMA): "),
                     font.clone(),
                     TextColor(LIME.into()),
                 ));
-                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
             });
         });
 
