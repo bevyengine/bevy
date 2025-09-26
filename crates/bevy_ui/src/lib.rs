@@ -78,6 +78,8 @@ use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
 
+use crate::update::resolve_ui_computed_text_styles;
+
 /// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;
@@ -230,6 +232,7 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         (
             (
+                resolve_ui_computed_text_styles,
                 bevy_text::detect_text_needs_rerender::<Text>,
                 widget::measure_text_system,
             )
