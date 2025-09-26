@@ -5,7 +5,7 @@ use crate::{
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
@@ -346,6 +346,44 @@ impl From<Vec2> for ScrollPosition {
         Self(value)
     }
 }
+/// The aspect ratio of the node (defined as `width / height`)
+///
+/// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
+#[derive(
+    Component, Debug, Clone, Copy, Default, Deref, DerefMut, Reflect, PartialEq, PartialOrd,
+)]
+#[reflect(Component, Default, Clone)]
+pub struct AspectRatio(pub Option<f32>);
+
+impl AspectRatio {
+    pub const DEFAULT: Self = Self(None);
+}
+
+impl From<Option<f32>> for AspectRatio {
+    fn from(value: Option<f32>) -> Self {
+        Self(value)
+    }
+}
+
+#[derive(QueryData, Clone, Copy)]
+#[query_data(derive(Clone, Copy))]
+pub struct StyleQuery {
+    pub aspect_ratio: &'static AspectRatio,
+}
+impl Default for StyleQueryItem<'_, '_> {
+    fn default() -> Self {
+        Self {
+            aspect_ratio: &AspectRatio::DEFAULT,
+        }
+    }
+}
+impl Default for StyleQuery {
+    fn default() -> Self {
+        Self {
+            aspect_ratio: &AspectRatio::DEFAULT,
+        }
+    }
+}
 
 /// The base component for UI entities. It describes UI layout and style properties.
 ///
@@ -384,6 +422,7 @@ impl From<Vec2> for ScrollPosition {
     FocusPolicy,
     ScrollPosition,
     Visibility,
+    AspectRatio,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug, Clone)]
@@ -487,11 +526,6 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/max-height>
     pub max_height: Val,
-
-    /// The aspect ratio of the node (defined as `width / height`)
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
-    pub aspect_ratio: Option<f32>,
 
     /// Used to control how each individual item is aligned by default within the space they're given.
     /// - For Flexbox containers, sets default cross axis alignment of the child items.
@@ -706,7 +740,6 @@ impl Node {
         min_height: Val::Auto,
         max_width: Val::Auto,
         max_height: Val::Auto,
-        aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
         scrollbar_width: 0.,

@@ -69,7 +69,6 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         height: percent(100),
                         // Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
                         // As the height is set explicitly, this means the width will adjust to match the height
-                        aspect_ratio: Some(1.0),
                         // Use grid layout for this node
                         display: Display::Grid,
                         // Add 24px of padding around the grid
@@ -85,6 +84,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: px(12),
                         ..default()
                     },
+                    AspectRatio(Some(1.0)),
                     BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                 ))
                 .with_children(|builder| {

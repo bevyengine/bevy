@@ -4,7 +4,7 @@ use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
     MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
-    RepeatedGridTrack, UiRect, Val,
+    RepeatedGridTrack, StyleQueryItem, UiRect, Val,
 };
 
 use super::LayoutContext;
@@ -63,7 +63,12 @@ impl UiRect {
     }
 }
 
-pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
+pub fn from_node(
+    node: &Node,
+    style: StyleQueryItem<'_, '_>,
+    context: &LayoutContext,
+    ignore_border: bool,
+) -> taffy::style::Style {
     taffy::style::Style {
         display: node.display.into(),
         box_sizing: node.box_sizing.into(),
@@ -118,7 +123,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
             width: node.max_width.into_dimension(context),
             height: node.max_height.into_dimension(context),
         },
-        aspect_ratio: node.aspect_ratio,
+        aspect_ratio: style.aspect_ratio.0,
         gap: taffy::Size {
             width: node.column_gap.into_length_percentage(context),
             height: node.row_gap.into_length_percentage(context),
@@ -500,7 +505,6 @@ mod tests {
             min_height: Val::ZERO,
             max_width: Val::Auto,
             max_height: Val::ZERO,
-            aspect_ratio: None,
             overflow: crate::Overflow::clip(),
             overflow_clip_margin: crate::OverflowClipMargin::default(),
             scrollbar_width: 7.,
@@ -527,7 +531,8 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, Vec2::new(800., 600.));
-        let taffy_style = from_node(&node, &viewport_values, false);
+        let style = StyleQueryItem::default();
+        let taffy_style = from_node(&node, style, &viewport_values, false);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
         assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);

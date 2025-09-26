@@ -10,7 +10,10 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
+    StyleQueryItem,
+};
 use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -74,6 +77,7 @@ impl UiSurface {
         layout_context: &LayoutContext,
         entity: Entity,
         node: &Node,
+        style: StyleQueryItem<'_, '_>,
         mut new_node_context: Option<NodeMeasure>,
     ) {
         let taffy = &mut self.taffy;
@@ -93,18 +97,18 @@ impl UiSurface {
                 taffy
                     .set_style(
                         taffy_node.id,
-                        convert::from_node(node, layout_context, has_measure),
+                        convert::from_node(node, style, layout_context, has_measure),
                     )
                     .unwrap();
             }
             Entry::Vacant(entry) => {
                 let taffy_node = if let Some(measure) = new_node_context.take() {
                     taffy.new_leaf_with_context(
-                        convert::from_node(node, layout_context, true),
+                        convert::from_node(node, style, layout_context, true),
                         measure,
                     )
                 } else {
-                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                    taffy.new_leaf(convert::from_node(node, style, layout_context, false))
                 };
                 entry.insert(taffy_node.unwrap().into());
             }
@@ -320,16 +324,29 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
         let node = Node::default();
+        let style = StyleQueryItem::default();
 
         // standard upsert
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
 
         // should be inserted into taffy
         assert_eq!(ui_surface.taffy.total_node_count(), 1);
         assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
 
         // test duplicate insert 1
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
 
         // node count should not have increased
         assert_eq!(ui_surface.taffy.total_node_count(), 1);
@@ -341,7 +358,13 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
 
         // test duplicate insert 2
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
 
         // node count should not have increased
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
@@ -352,8 +375,15 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
         let node = Node::default();
+        let style = StyleQueryItem::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
 
         ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
 
@@ -368,8 +398,15 @@ mod tests {
         let mut ui_surface = UiSurface::default();
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
         let node = Node::default();
+        let style = StyleQueryItem::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
         let mut content_size = ContentSize::default();
         content_size.set(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE }));
         let measure_func = content_size.measure.take().unwrap();
@@ -384,9 +421,22 @@ mod tests {
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
         let child_entity = Entity::from_raw_u32(2).unwrap();
         let node = Node::default();
+        let style = StyleQueryItem::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            child_entity,
+            &node,
+            style,
+            None,
+        );
 
         ui_surface.update_children(root_node_entity, vec![child_entity].into_iter());
 
@@ -405,9 +455,22 @@ mod tests {
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
         let child_entity = Entity::from_raw_u32(2).unwrap();
         let node = Node::default();
+        let style = StyleQueryItem::default();
 
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            root_node_entity,
+            &node,
+            style,
+            None,
+        );
+        ui_surface.upsert_node(
+            &LayoutContext::TEST_CONTEXT,
+            child_entity,
+            &node,
+            style,
+            None,
+        );
 
         let root_taffy_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_taffy = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
