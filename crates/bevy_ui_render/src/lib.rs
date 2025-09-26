@@ -8,15 +8,13 @@
 //! Provides rendering functionality for `bevy_ui`.
 
 pub mod box_shadow;
+pub mod debug_overlay;
 mod gradient;
 mod pipeline;
 mod render_pass;
 pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
-
-#[cfg(feature = "bevy_ui_debug")]
-mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d};
@@ -54,7 +52,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_debug")]
+
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
 
@@ -86,7 +84,6 @@ pub mod graph {
 }
 
 pub mod prelude {
-    #[cfg(feature = "bevy_ui_debug")]
     pub use crate::debug_overlay::UiDebugOptions;
 
     pub use crate::{
@@ -203,9 +200,6 @@ impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "ui.wgsl");
 
-        #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
-
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -247,7 +241,6 @@ impl Plugin for UiRenderPlugin {
                     extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
-                    #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
             )

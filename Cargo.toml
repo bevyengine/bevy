@@ -192,9 +192,6 @@ bevy_sprite_picking_backend = ["bevy_internal/bevy_sprite_picking_backend"]
 # Provides an implementation for picking UI
 bevy_ui_picking_backend = ["bevy_internal/bevy_ui_picking_backend"]
 
-# Provides a debug overlay for bevy UI
-bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
-
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
