@@ -4155,7 +4155,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
         // another component
-        unsafe { self.get_mut_by_id_unchecked() }
+        unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
