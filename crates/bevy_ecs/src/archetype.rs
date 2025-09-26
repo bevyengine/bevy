@@ -222,7 +222,7 @@ pub struct Edges {
     take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
 
     /// Maps archetype to other component-identical archetypes based on [`FragmentingValue`]s of components.
-    /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValuesOwned`], otherwise they're identical.
+    /// All [`Archetype`]s this maps to differ only by their identity due to different [`FragmentingValues`], otherwise they're identical.
     /// We need this map only when inserting bundles since when removing a fragmenting component all versions of the archetype will
     /// point to the same archetype after transition.
     pub(crate) insert_bundle_fragmenting_components:
@@ -408,7 +408,7 @@ bitflags::bitflags! {
         const ON_REPLACE_OBSERVER = (1 << 7);
         const ON_REMOVE_OBSERVER = (1 << 8);
         const ON_DESPAWN_OBSERVER = (1 << 9);
-        const HAS_VALUE_COMPONENTS = (1 << 10);
+        const FRAGMENTING_VALUE_COMPONENTS = (1 << 10);
     }
 }
 
@@ -486,7 +486,7 @@ impl Archetype {
             if let Some(info) = archetype_components.get_mut(value.component_id()) {
                 info.fragmenting_value = Some(value.clone());
             }
-            flags.insert(ArchetypeFlags::HAS_VALUE_COMPONENTS);
+            flags.insert(ArchetypeFlags::FRAGMENTING_VALUE_COMPONENTS);
         }
 
         Self {
@@ -594,9 +594,9 @@ impl Archetype {
         self.components.len()
     }
 
-    pub(crate) fn components_with_fragmenting_values(
-        &self,
-    ) -> impl Iterator<Item = &FragmentingValue> {
+    /// Gets an iterator of all of the components that fragment archetypes by value.
+    #[inline]
+    pub fn fragmenting_value_components(&self) -> impl Iterator<Item = &FragmentingValue> {
         self.components
             .values()
             .filter_map(|info| info.fragmenting_value.as_ref())
@@ -723,15 +723,19 @@ impl Archetype {
     /// Returns [`FragmentingValue`] for this archetype of the requested `component_id`.
     ///
     /// This will return `None` if requested component isn't a part of this archetype or isn't fragmenting.
-    pub fn get_value_component(&self, component_id: ComponentId) -> Option<&FragmentingValue> {
+    pub fn get_fragmenting_value_component(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<&FragmentingValue> {
         self.components
             .get(component_id)
             .and_then(|info| info.fragmenting_value.as_ref())
     }
 
     /// Returns `true` if this archetype contains any components that fragment by value.
-    pub fn has_fragmenting_values(&self) -> bool {
-        self.flags().contains(ArchetypeFlags::HAS_VALUE_COMPONENTS)
+    pub fn has_fragmenting_value_components(&self) -> bool {
+        self.flags()
+            .contains(ArchetypeFlags::FRAGMENTING_VALUE_COMPONENTS)
     }
 
     /// Clears all entities from the archetype.

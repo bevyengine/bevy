@@ -2193,6 +2193,8 @@ impl<'w> EntityWorldMut<'w> {
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
         let mut components = Vec::with_capacity(component_ids.len());
         components.extend(iter_components);
+        // Safety: pointers are valid references to data represented by the corresponding
+        // `ComponentId`
         let value_components = unsafe {
             FragmentingValuesBorrowed::from_components(
                 &self.world.components,

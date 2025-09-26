@@ -498,6 +498,15 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
+    /// A component which value will be used to fragment the final archetype an entity
+    /// with this component will belong to.
+    /// Each unique value of Key component (as determined by [`PartialEq`] and [`Hash`] implementation)
+    /// will be stored separately.
+    ///
+    /// Setting this to `Self` will mark this component as fragmenting, while [`NoKey`] is the
+    /// default `Key` type for non-value fragmenting components.
+    /// Using any other components here is currently equivalent to [`NoKey`], but might do
+    /// something different in the future.
     type Key: FragmentingValueComponent;
 
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.

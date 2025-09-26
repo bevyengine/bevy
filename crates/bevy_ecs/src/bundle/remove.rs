@@ -392,7 +392,7 @@ impl BundleInfo {
                 };
 
                 next_value_components = current_archetype
-                    .components_with_fragmenting_values()
+                    .fragmenting_value_components()
                     .filter(|v| {
                         removed_sparse_set_components
                             .binary_search(&v.component_id())

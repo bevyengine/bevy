@@ -21,7 +21,7 @@ use crate::{
     bundle::Bundle,
     component::{ComponentId, Components, Immutable},
     query::DebugCheckedUnwrap,
-    storage::FragmentingValueComponentsStorage,
+    storage::FragmentingValuesStorage,
 };
 
 /// Trait defining a [`Component`] that fragments archetypes by it's value.
@@ -54,7 +54,7 @@ pub enum NoKey {}
 
 /// A type-erased version of [`FragmentingValueComponent`].
 ///
-/// Each combination of component type + value is unique and is stored exactly once in [`FragmentingValueComponentsStorage`].
+/// Each combination of component type + value is unique and is stored exactly once in [`FragmentingValuesStorage`].
 #[derive(Clone)]
 pub struct FragmentingValue {
     inner: Arc<FragmentingValueInner>,
@@ -217,7 +217,7 @@ impl<'a> FragmentingValueBorrowed<'a> {
         self.data
     }
 
-    /// Create [`FragmentingValue`] by cloning data pointed to by this [`FragmentingValueBorrowed`] or getting existing one from [`FragmentingValueComponentsStorage`].
+    /// Create [`FragmentingValue`] by cloning data pointed to by this [`FragmentingValueBorrowed`] or getting existing one from [`FragmentingValuesStorage`].
     ///
     /// # Safety
     /// - `components` must be the same one as the one used to create `self`.
@@ -225,7 +225,7 @@ impl<'a> FragmentingValueBorrowed<'a> {
     pub(crate) unsafe fn to_owned(
         &self,
         components: &Components,
-        storage: &mut FragmentingValueComponentsStorage,
+        storage: &mut FragmentingValuesStorage,
     ) -> FragmentingValue {
         // Safety: `self` was created using same `Components` as the ones we will be comparing with
         // since `components` and `storage` are from the same world.
@@ -292,8 +292,6 @@ impl<'a> Hash for FragmentingValueBorrowed<'a> {
 /// A collection of [`FragmentingValueBorrowed`].
 ///
 /// This collection is sorted internally to allow for order-independent comparison.
-///
-/// Can be compared with [`FragmentingValues`] using [`FragmentingValuesBorrowed::as_equivalent`].
 #[derive(Hash)]
 pub struct FragmentingValuesBorrowed<'a> {
     values: Vec<FragmentingValueBorrowed<'a>>,
@@ -338,14 +336,14 @@ impl<'a> FragmentingValuesBorrowed<'a> {
         FragmentingValuesBorrowed { values }
     }
 
-    /// Create [`FragmentingValues`] by cloning data pointed to by this [`FragmentingValuesBorrowed`] or getting existing ones from [`FragmentingValueComponentsStorage`].
+    /// Create [`FragmentingValues`] by cloning data pointed to by this [`FragmentingValuesBorrowed`] or getting existing ones from [`FragmentingValuesStorage`].
     ///
     /// # Safety
     /// `components` must be the same one as the one used to create `self`.
     pub(crate) unsafe fn to_owned(
         &self,
         components: &Components,
-        storage: &mut FragmentingValueComponentsStorage,
+        storage: &mut FragmentingValuesStorage,
     ) -> FragmentingValues {
         let values = self
             .values

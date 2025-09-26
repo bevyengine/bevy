@@ -47,8 +47,8 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
-
-    pub fragmenting_values: FragmentingValueComponentsStorage,
+    /// Backing storage for fragmenting value components.
+    pub fragmenting_values: FragmentingValuesStorage,
 }
 
 impl Storages {

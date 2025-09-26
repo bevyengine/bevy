@@ -510,7 +510,7 @@ impl BundleInfo {
         for value in value_components.iter() {
             let component_id = value.component_id();
             if current_archetype
-                .get_value_component(component_id)
+                .get_fragmenting_value_component(component_id)
                 .is_none_or(|old_value| value != old_value)
             {
                 new_value_components.insert(component_id, value);
@@ -572,13 +572,11 @@ impl BundleInfo {
 
                 archetype_value_components = if new_value_components.is_empty() {
                     FragmentingValues::from_sorted(
-                        current_archetype
-                            .components_with_fragmenting_values()
-                            .cloned(),
+                        current_archetype.fragmenting_value_components().cloned(),
                     )
                 } else {
                     current_archetype
-                        .components_with_fragmenting_values()
+                        .fragmenting_value_components()
                         .filter(|value| !new_value_components.contains_key(&value.component_id()))
                         .cloned()
                         .chain(new_value_components.values().map(|v| (*v).clone()))

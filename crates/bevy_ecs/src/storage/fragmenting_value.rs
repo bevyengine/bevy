@@ -8,10 +8,10 @@ use crate::component::{CheckChangeTicks, FragmentingValue};
 /// [`FragmentingValueComponent`]: crate::component::FragmentingValueComponent
 // TODO: make this more useful and add a public api.
 #[derive(Default)]
-pub struct FragmentingValueComponentsStorage {
+pub struct FragmentingValuesStorage {
     pub(crate) existing_values: HashSet<FragmentingValue>,
 }
 
-impl FragmentingValueComponentsStorage {
+impl FragmentingValuesStorage {
     pub(crate) fn check_change_ticks(&mut self, _check: CheckChangeTicks) {}
 }
