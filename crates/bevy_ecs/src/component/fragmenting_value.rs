@@ -4,10 +4,9 @@
 //! other ecs functions to fragment archetypes.
 
 use alloc::boxed::Box;
-use alloc::sync::Arc;
 use alloc::vec::Vec;
 use bevy_ecs::component::Component;
-use bevy_platform::hash::FixedHasher;
+use bevy_platform::{hash::FixedHasher, sync::Arc};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     any::{Any, TypeId},
