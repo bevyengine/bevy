@@ -407,13 +407,14 @@ pub enum FontSmoothing {
 }
 
 /// Text root
-#[derive(Component)]
+#[derive(Component, PartialEq)]
 pub struct TextRoot(pub Vec<Entity>);
 
 /// Update text roots
 pub fn update_text_roots(
     mut commands: Commands,
     text_node_query: Query<(Entity, Option<&ChildOf>), With<ComputedTextStyle>>,
+    mut text_root_query: Query<&mut TextRoot>,
     children_query: Query<&Children>,
 ) {
     let mut roots = vec![];
@@ -426,9 +427,12 @@ pub fn update_text_roots(
 
         if !text_node_query.contains(parent.0) {
             roots.push(entity);
+            continue;
         }
 
-        commands.entity(entity).remove::<TextRoot>();
+        if text_root_query.contains(entity) {
+            commands.entity(entity).remove::<TextRoot>();
+        }
     }
 
     for root_entity in roots {
@@ -438,7 +442,11 @@ pub fn update_text_roots(
                 entities.push(entity);
             }
         }
-        commands.entity(root_entity).insert(TextRoot(entities));
+        if let Ok(mut text_root) = text_root_query.get_mut(root_entity) {
+            text_root.set_if_neq(TextRoot(entities));
+        } else {
+            commands.entity(root_entity).insert(TextRoot(entities));
+        }
     }
 }
 
