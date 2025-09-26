@@ -13,6 +13,7 @@ use core::{
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
+    ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
 
@@ -104,7 +105,9 @@ impl IsAligned for Aligned {
         //  - The caller is required to ensure that `ptr` points must be valid for dropping.
         //  - The caller is required to ensure that the value `ptr` points must not be used after this function
         //    call.
-        unsafe { ptr::drop_in_place(ptr) };
+        unsafe {
+            ptr::drop_in_place(ptr);
+        }
     }
 }
 
@@ -144,7 +147,9 @@ impl IsAligned for Unaligned {
         //  - The caller is required to ensure that `ptr` points must be valid for dropping.
         //  - The caller is required to ensure that the value `ptr` points must not be used after this function
         //    call.
-        unsafe { drop(ptr.read_unaligned()) }
+        unsafe {
+            drop(ptr.read_unaligned());
+        }
     }
 }
 
@@ -444,15 +449,9 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
         value
     }
 
-    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
-    #[inline]
-    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
-        let mut val = MaybeUninit::new(val);
-        // SAFETY: The value behind the pointer will not get dropped or observed later.
-        f(unsafe { MovingPtr::from_value(&mut val) })
-    }
-
     /// Creates a [`MovingPtr`] from a provided value of type `T`.
+    ///
+    /// For a safer alternative, it is strongly advised to use [`move_as_ptr`] where possible.
     ///
     /// # Safety
     /// - `value` must store a properly initialized value of type `T`.
@@ -467,8 +466,10 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
     }
 }
 
-impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
+impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// Creates a new instance from a raw pointer.
+    ///
+    /// For a safer alternative, it is strongly advised to use [`move_as_ptr`] where possible.
     ///
     /// # Safety
     /// - `inner` must point to valid value of `T`.
@@ -485,25 +486,20 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
 
     /// Partially moves out some fields inside of `self`.
     ///
-    /// The partially returned value is returned back pointing to `MaybeUninit<T>`.
+    /// The partially returned value is returned back pointing to [`MaybeUninit<T>`].
     ///
-    /// # Safety
-    ///  - The call into `f` must not complete having dropped the provided pointer.
-    ///  - The fields moved out of in `f` must not be accessed or dropped after this function returns.
-    ///
-    /// As a result, it is strongly recommended to call [`forget`] on the provided pointer once the
-    /// partial deconstruction has completed.
+    /// While calling this function is safe, care must be taken with the returned `MovingPtr` as it
+    /// points to a value that may no longer be completely valid.
     ///
     /// # Example
     ///
     /// ```
-    /// use core::mem::{offset_of, MaybeUninit};
-    /// use bevy_ptr::MovingPtr;
-    /// # use bevy_ptr::Unaligned;
+    /// use core::mem::{offset_of, MaybeUninit, forget};
+    /// use bevy_ptr::{MovingPtr, move_as_ptr};
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
     /// # struct FieldCType(usize);
-    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T>) {}
     ///
     /// struct Parent {
     ///   field_a: FieldAType,
@@ -517,33 +513,46 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// #   field_c: FieldCType(0),
     /// # };
     ///
-    /// MovingPtr::make(parent, |parent_ptr| unsafe {
-    ///    // SAFETY:
-    ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
-    ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
-    ///    let partial_parent = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
-    ///       bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
-    ///         field_a: FieldAType => { insert(field_a) },
-    ///         field_b: FieldBType => { insert(field_b) },
-    ///       });
-    ///    });
+    /// // Converts `parent` into a `MovingPtr`
+    /// move_as_ptr!(parent);
     ///
-    ///    // Move the rest of fields out of the parent.
-    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent, Parent {
-    ///       field_c: FieldBType => { insert(field_c) },
-    ///    });
+    /// // SAFETY:
+    /// // - `field_a` and `field_b` are both unique.
+    /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| unsafe {
+    ///   bevy_ptr::deconstruct_moving_ptr!({
+    ///     let Parent { field_a, field_b, field_c } = parent_ptr;
+    ///   });
+    ///   
+    ///   insert(field_a);
+    ///   insert(field_b);
+    ///   forget(field_c);
     /// });
+    ///
+    /// // Move the rest of fields out of the parent.
+    /// // SAFETY:
+    /// // - `field_c` is by itself unique and does not conflict with the previous accesses
+    /// //   inside `partial_move`.
+    /// unsafe {
+    ///   bevy_ptr::deconstruct_moving_ptr!({
+    ///     let MaybeUninit::<Parent> { field_a: _, field_b: _, field_c } = partial_parent;
+    ///   });
+    ///
+    ///   insert(field_c);
+    /// }
     /// ```
     ///
     /// [`forget`]: core::mem::forget
     #[inline]
-    pub unsafe fn partial_move(
-        ptr: MovingPtr<'a, T, A>,
-        f: impl FnOnce(MovingPtr<'a, T, A>),
-    ) -> MovingPtr<'a, MaybeUninit<T>, A> {
-        let partial_ptr = ptr.0;
-        f(ptr);
-        MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData)
+    pub fn partial_move<R>(
+        self,
+        f: impl FnOnce(MovingPtr<'_, T, A>) -> R,
+    ) -> (MovingPtr<'a, MaybeUninit<T>, A>, R) {
+        let partial_ptr = self.0;
+        let ret = f(self);
+        (
+            MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData),
+            ret,
+        )
     }
 
     /// Reads the value pointed to by this pointer.
@@ -600,19 +609,16 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
         }
     }
 
-    /// Creates a [`MovingPtr`] for a specific field within `self`. This is a building block for
-    /// [`deconstruct_moving_ptr`] and should generally not be accessed directly.
+    /// Creates a [`MovingPtr`] for a specific field within `self`.
     ///
     /// This function is explicitly made for deconstructive moves.
     ///
     /// The correct `byte_offset` for a field can be obtained via [`core::mem::offset_of`].
     ///
-    /// The returned value will always be considered unaligned as `repr(packed)` types may result in
-    /// unaligned fields. The pointer is convertible back into an aligned one using the [`TryFrom`] impl.
-    ///
     /// # Safety
-    ///  - `U` must be the correct type for the field at `byte_offset` within `self`.
-    ///  - `self` should not be accessed or dropped as if it were a complete value.
+    ///  - `f` must return a non-null pointer to a valid field inside `T`
+    ///  - If `A` is [`Aligned`], then `T` must not be `repr(packed)`
+    ///  - `self` should not be accessed or dropped as if it were a complete value after this function returns.
     ///    Other fields that have not been moved out of may still be accessed or dropped separately.
     ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
     ///    for the same field, without first calling [`forget`] on it first.
@@ -625,12 +631,11 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// ```
     /// use core::mem::offset_of;
-    /// use bevy_ptr::MovingPtr;
-    /// # use bevy_ptr::Unaligned;
+    /// use bevy_ptr::{MovingPtr, move_as_ptr};
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
     /// # struct FieldCType(usize);
-    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T>) {}
     ///
     /// struct Parent {
     ///   field_a: FieldAType,
@@ -638,35 +643,69 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///   field_c: FieldCType,
     /// }
     ///
-    /// # let parent = Parent {
-    /// #   field_a: FieldAType(0),
-    /// #   field_b: FieldBType(0),
-    /// #   field_c: FieldCType(0),
-    /// # };
+    /// let parent = Parent {
+    ///    field_a: FieldAType(0),
+    ///    field_b: FieldBType(0),
+    ///    field_c: FieldCType(0),
+    /// };
     ///
-    /// MovingPtr::make(parent, |parent_ptr| unsafe {
-    ///    let field_a = parent_ptr.move_field::<FieldAType>(offset_of!(Parent, field_a));
-    ///    let field_b = parent_ptr.move_field::<FieldBType>(offset_of!(Parent, field_b));
-    ///    let field_c = parent_ptr.move_field::<FieldCType>(offset_of!(Parent, field_c));
+    /// // Converts `parent` into a `MovingPtr`.
+    /// move_as_ptr!(parent);
+    ///
+    /// unsafe {
+    ///    let field_a = parent.move_field(|ptr| &raw mut (*ptr).field_a);
+    ///    let field_b = parent.move_field(|ptr| &raw mut (*ptr).field_b);
+    ///    let field_c = parent.move_field(|ptr| &raw mut (*ptr).field_c);
     ///    // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
     ///    // calling them!
-    ///    core::mem::forget(parent_ptr);
+    ///    core::mem::forget(parent);
     ///    insert(field_a);
     ///    insert(field_b);
     ///    insert(field_c);
-    /// });
+    /// }
     /// ```
     ///
     /// [`forget`]: core::mem::forget
     /// [`move_field`]: Self::move_field
-    #[inline]
-    #[doc(hidden)]
-    pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
+    #[inline(always)]
+    pub unsafe fn move_field<U>(&self, f: impl Fn(*mut T) -> *mut U) -> MovingPtr<'a, U, A> {
         MovingPtr(
             // SAFETY: The caller must ensure that `U` is the correct type for the field at `byte_offset`.
-            unsafe { self.0.byte_add(byte_offset) }.cast::<U>(),
+            unsafe { NonNull::new_unchecked(f(self.0.as_ptr())) },
             PhantomData,
         )
+    }
+}
+
+impl<'a, T, A: IsAligned> MovingPtr<'a, MaybeUninit<T>, A> {
+    /// Creates a [`MovingPtr`] for a specific field within `self`.
+    ///
+    /// This function is explicitly made for deconstructive moves.
+    ///
+    /// The correct `byte_offset` for a field can be obtained via [`core::mem::offset_of`].
+    ///
+    /// # Safety
+    ///  - `f` must return a non-null pointer to a valid field inside `T`
+    ///  - If `A` is [`Aligned`], then `T` must not be `repr(packed)`
+    ///  - `self` should not be accessed or dropped as if it were a complete value after this function returns.
+    ///    Other fields that have not been moved out of may still be accessed or dropped separately.
+    ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
+    ///    for the same field, without first calling [`forget`] on it first.
+    ///
+    /// [`forget`]: core::mem::forget
+    /// [`move_field`]: Self::move_field
+    #[inline(always)]
+    pub unsafe fn move_maybe_uninit_field<U>(
+        &self,
+        f: impl Fn(*mut T) -> *mut U,
+    ) -> MovingPtr<'a, MaybeUninit<U>, A> {
+        let self_ptr = self.0.as_ptr().cast::<T>();
+        // SAFETY:
+        // - The caller must ensure that `U` is the correct type for the field at `byte_offset` and thus
+        //   cannot be null.
+        // - `MaybeUninit<T>` is `repr(transparent)` and thus must have the same memory layout as `T``
+        let field_ptr = unsafe { NonNull::new_unchecked(f(self_ptr)) };
+        MovingPtr(field_ptr.cast::<MaybeUninit<U>>(), PhantomData)
     }
 }
 
@@ -697,14 +736,14 @@ impl<T, A: IsAligned> Pointer for MovingPtr<'_, T, A> {
 impl<T> Debug for MovingPtr<'_, T, Aligned> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
+        write!(f, "MovingPtr<Aligned>({:?})", self.0)
     }
 }
 
 impl<T> Debug for MovingPtr<'_, T, Unaligned> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+        write!(f, "MovingPtr<Unaligned>({:?})", self.0)
     }
 }
 
@@ -729,10 +768,30 @@ impl<'a, T> TryFrom<MovingPtr<'a, T, Unaligned>> for MovingPtr<'a, T, Aligned> {
     fn try_from(value: MovingPtr<'a, T, Unaligned>) -> Result<Self, Self::Error> {
         let ptr = value.0;
         if ptr.as_ptr().is_aligned() {
+            mem::forget(value);
             Ok(MovingPtr(ptr, PhantomData))
         } else {
             Err(value)
         }
+    }
+}
+
+impl<T> Deref for MovingPtr<'_, T, Aligned> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        let ptr = self.0.as_ptr().debug_ensure_aligned();
+        // SAFETY: This type owns the value it points to and the generic type parameter is `A` so this pointer must be aligned.
+        unsafe { &*ptr }
+    }
+}
+
+impl<T> DerefMut for MovingPtr<'_, T, Aligned> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        let ptr = self.0.as_ptr().debug_ensure_aligned();
+        // SAFETY: This type owns the value it points to and the generic type parameter is `A` so this pointer must be aligned.
+        unsafe { &mut *ptr }
     }
 }
 
@@ -1139,36 +1198,69 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     }
 }
 
+/// Safely converts a owned value into a [`MovingPtr`] while minimizing the number of stack copies.
+///
+/// This cannot be used as expression and must be used as a statement. Internally this macro works via variable shadowing.
+#[macro_export]
+macro_rules! move_as_ptr {
+    ($value: ident) => {
+        let mut $value = core::mem::MaybeUninit::new($value);
+        // SAFETY:
+        // - This macro shadows a MaybeUninit value that took ownership of the original value.
+        //   it is impossible to refer to the original value, preventing further access after
+        //   the `MovingPtr` has been used. `MaybeUninit` also prevents the compiler from
+        //   dropping the original value.
+        let $value = unsafe { $crate::MovingPtr::from_value(&mut $value) };
+    };
+}
+
+/// Helper macro used by [`deconstruct_moving_ptr`] to to extract
+/// the pattern from `field: pattern` or `field` shorthand.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! get_pattern {
+    ($field_index:tt) => {
+        $field_index
+    };
+    ($field_index:tt: $pattern:pat) => {
+        $pattern
+    };
+}
+
 /// Deconstructs a [`MovingPtr`] into its individual fields.
 ///
 /// This consumes the [`MovingPtr`] and hands out [`MovingPtr`] wrappers around
 /// pointers to each of its fields. The value will *not* be dropped.
 ///
-/// The field move expressions will be executed in the order they're provided to the macro.
-/// In the example below, the call to [`assign_to`] for `field_a` will always run before the
-/// calls for `field_b` and `field_c`.
+/// The macro should wrap a `let` expression with a struct pattern.
+/// It does not support matching tuples by position,
+/// so for tuple structs you should use `0: pat` syntax.
 ///
-/// # Safety
-/// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
-///  - The provided type must match the type of the value pointed to by the [`MovingPtr`].
-///  - The type and name of the fields must match the type's definition. For tuples and tuple structs,
-///    this would be the tuple indices.
+/// For tuples themselves, pass the identifier `tuple` instead of the struct name,
+/// like `let tuple { 0: pat0, 1: pat1 } = value`.
 ///
-/// # Example
+/// This can also project into `MaybeUninit`.
+/// Wrap the type name or `tuple` with `MaybeUninit::<_>`,
+/// and the macro will deconstruct a `MovingPtr<MaybeUninit<ParentType>>`
+/// into `MovingPtr<MaybeUninit<FieldType>>` values.
+///
+/// # Examples
+///
+/// ## Structs
 ///
 /// ```
 /// use core::mem::{offset_of, MaybeUninit};
-/// use bevy_ptr::MovingPtr;
+/// use bevy_ptr::{MovingPtr, move_as_ptr};
 /// # use bevy_ptr::Unaligned;
 /// # struct FieldAType(usize);
 /// # struct FieldBType(usize);
 /// # struct FieldCType(usize);
 ///
-/// pub struct Parent {
-///   pub field_a: FieldAType,
-///   pub field_b: FieldBType,
-///   pub field_c: FieldCType,
-/// }
+/// # pub struct Parent {
+/// #  pub field_a: FieldAType,
+/// #  pub field_b: FieldBType,
+/// #  pub field_c: FieldCType,
+/// # }
 ///
 /// let parent = Parent {
 ///   field_a: FieldAType(11),
@@ -1180,29 +1272,209 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 /// let mut target_b = FieldBType(102);
 /// let mut target_c = FieldCType(103);
 ///
-/// MovingPtr::make(parent, |parent_ptr| unsafe {
-///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
-///      // The field name and type must match the name used in the type definition.
-///      // Each one will be a `MovingPtr` of the supplied type
-///      field_a: FieldAType => { field_a.assign_to(&mut target_a) },
-///      field_b: FieldBType => { field_b.assign_to(&mut target_b) },
-///      field_c: FieldCType => { field_c.assign_to(&mut target_c) },
-///   });
+/// // Converts `parent` into a `MovingPtr`
+/// move_as_ptr!(parent);
+///
+/// // The field names must match the name used in the type definition.
+/// // Each one will be a `MovingPtr` of the field's type.
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let Parent { field_a, field_b, field_c } = parent;
 /// });
+///
+/// field_a.assign_to(&mut target_a);
+/// field_b.assign_to(&mut target_b);
+/// field_c.assign_to(&mut target_c);
 ///
 /// assert_eq!(target_a.0, 11);
 /// assert_eq!(target_b.0, 22);
 /// assert_eq!(target_c.0, 33);
 /// ```
 ///
+/// ## Tuples
+///
+/// ```
+/// use core::mem::{offset_of, MaybeUninit};
+/// use bevy_ptr::{MovingPtr, move_as_ptr};
+/// # use bevy_ptr::Unaligned;
+/// # struct FieldAType(usize);
+/// # struct FieldBType(usize);
+/// # struct FieldCType(usize);
+///
+/// # pub struct Parent {
+/// #   pub field_a: FieldAType,
+/// #  pub field_b: FieldBType,
+/// #  pub field_c: FieldCType,
+/// # }
+///
+/// let parent = (
+///   FieldAType(11),
+///   FieldBType(22),
+///   FieldCType(33),
+/// );
+///
+/// let mut target_a = FieldAType(101);
+/// let mut target_b = FieldBType(102);
+/// let mut target_c = FieldCType(103);
+///
+/// // Converts `parent` into a `MovingPtr`
+/// move_as_ptr!(parent);
+///
+/// // The field names must match the name used in the type definition.
+/// // Each one will be a `MovingPtr` of the field's type.
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let tuple { 0: field_a, 1: field_b, 2: field_c } = parent;
+/// });
+///
+/// field_a.assign_to(&mut target_a);
+/// field_b.assign_to(&mut target_b);
+/// field_c.assign_to(&mut target_c);
+///
+/// assert_eq!(target_a.0, 11);
+/// assert_eq!(target_b.0, 22);
+/// assert_eq!(target_c.0, 33);
+/// ```
+///
+/// ## `MaybeUninit`
+///
+/// ```
+/// use core::mem::{offset_of, MaybeUninit};
+/// use bevy_ptr::{MovingPtr, move_as_ptr};
+/// # use bevy_ptr::Unaligned;
+/// # struct FieldAType(usize);
+/// # struct FieldBType(usize);
+/// # struct FieldCType(usize);
+///
+/// # pub struct Parent {
+/// #  pub field_a: FieldAType,
+/// #  pub field_b: FieldBType,
+/// #  pub field_c: FieldCType,
+/// # }
+///
+/// let parent = MaybeUninit::new(Parent {
+///   field_a: FieldAType(11),
+///   field_b: FieldBType(22),
+///   field_c: FieldCType(33),
+/// });
+///
+/// let mut target_a = MaybeUninit::new(FieldAType(101));
+/// let mut target_b = MaybeUninit::new(FieldBType(102));
+/// let mut target_c = MaybeUninit::new(FieldCType(103));
+///
+/// // Converts `parent` into a `MovingPtr`
+/// move_as_ptr!(parent);
+///
+/// // The field names must match the name used in the type definition.
+/// // Each one will be a `MovingPtr` of the field's type.
+/// bevy_ptr::deconstruct_moving_ptr!({
+///   let MaybeUninit::<Parent> { field_a, field_b, field_c } = parent;
+/// });
+///
+/// field_a.assign_to(&mut target_a);
+/// field_b.assign_to(&mut target_b);
+/// field_c.assign_to(&mut target_c);
+///
+/// unsafe {
+///   assert_eq!(target_a.assume_init().0, 11);
+///   assert_eq!(target_b.assume_init().0, 22);
+///   assert_eq!(target_c.assume_init().0, 33);
+/// }
+/// ```
+///
 /// [`assign_to`]: MovingPtr::assign_to
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
-    ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
-        $(let $field_name = $ptr.move_field::<$field_type>(core::mem::offset_of!($self_type, $field_name));)*
-        // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
-        // calling them!
-        core::mem::forget($ptr);
-        $($field_block)*
+    ({ let tuple { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
+        // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
+        let mut ptr: $crate::MovingPtr<_, _> = $ptr;
+        let _ = || {
+            let value = &mut *ptr;
+            // Ensure that each field index exists and is mentioned only once
+            // Ensure that the struct is not `repr(packed)` and that we may take references to fields
+            core::hint::black_box(($(&mut value.$field_index,)*));
+            // Ensure that `ptr` is a tuple and not something that derefs to it
+            // Ensure that the number of patterns matches the number of fields
+            fn unreachable<T>(_index: usize) -> T {
+                unreachable!()
+            }
+            *value = ($(unreachable($field_index),)*);
+        };
+        // SAFETY:
+        // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
+        // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
+        // - `mem::forget` is called on `self` immediately after these calls
+        // - Each field is distinct, since otherwise the block of code above would fail compilation
+        $(let $pattern = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        core::mem::forget(ptr);
+    };
+    ({ let MaybeUninit::<tuple> { $($field_index:tt: $pattern:pat),* $(,)? } = $ptr:expr ;}) => {
+        // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
+        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let _ = || {
+            // SAFETY: This closure is never called
+            let value = unsafe { ptr.assume_init_mut() };
+            // Ensure that each field index exists and is mentioned only once
+            // Ensure that the struct is not `repr(packed)` and that we may take references to fields
+            core::hint::black_box(($(&mut value.$field_index,)*));
+            // Ensure that `ptr` is a tuple and not something that derefs to it
+            // Ensure that the number of patterns matches the number of fields
+            fn unreachable<T>(_index: usize) -> T {
+                unreachable!()
+            }
+            *value = ($(unreachable($field_index),)*);
+        };
+        // SAFETY:
+        // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
+        // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
+        // - `mem::forget` is called on `self` immediately after these calls
+        // - Each field is distinct, since otherwise the block of code above would fail compilation
+        $(let $pattern = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        core::mem::forget(ptr);
+    };
+    ({ let $struct_name:ident { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
+        // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
+        let mut ptr: $crate::MovingPtr<_, _> = $ptr;
+        let _ = || {
+            let value = &mut *ptr;
+            // Ensure that each field index exists is mentioned only once
+            // Ensure that each field is on the struct and not accessed using autoref
+            let $struct_name { $($field_index: _),* } = value;
+            // Ensure that the struct is not `repr(packed)` and that we may take references to fields
+            core::hint::black_box(($(&mut value.$field_index),*));
+            // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
+            let value: *mut _ = value;
+            // SAFETY: This closure is never called
+            $struct_name { ..unsafe { value.read() } };
+        };
+        // SAFETY:
+        // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
+        // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
+        // - `mem::forget` is called on `self` immediately after these calls
+        // - Each field is distinct, since otherwise the block of code above would fail compilation
+        $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_field(|f| &raw mut (*f).$field_index) };)*
+        core::mem::forget(ptr);
+    };
+    ({ let MaybeUninit::<$struct_name:ident> { $($field_index:tt$(: $pattern:pat)?),* $(,)? } = $ptr:expr ;}) => {
+        // Specify the type to make sure the `mem::forget` doesn't forget a mere `&mut MovingPtr`
+        let mut ptr: $crate::MovingPtr<core::mem::MaybeUninit<_>, _> = $ptr;
+        let _ = || {
+            // SAFETY: This closure is never called
+            let value = unsafe { ptr.assume_init_mut() };
+            // Ensure that each field index exists is mentioned only once
+            // Ensure that each field is on the struct and not accessed using autoref
+            let $struct_name { $($field_index: _),* } = value;
+            // Ensure that the struct is not `repr(packed)` and that we may take references to fields
+            core::hint::black_box(($(&mut value.$field_index),*));
+            // Ensure that `ptr` is a `$struct_name` and not just something that derefs to it
+            let value: *mut _ = value;
+            // SAFETY: This closure is never called
+            $struct_name { ..unsafe { value.read() } };
+        };
+        // SAFETY:
+        // - `f` does a raw pointer offset, which always returns a non-null pointer to a field inside `T`
+        // - The struct is not `repr(packed)`, since otherwise the block of code above would fail compilation
+        // - `mem::forget` is called on `self` immediately after these calls
+        // - Each field is distinct, since otherwise the block of code above would fail compilation
+        $(let $crate::get_pattern!($field_index$(: $pattern)?) = unsafe { ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index) };)*
+        core::mem::forget(ptr);
     };
 }

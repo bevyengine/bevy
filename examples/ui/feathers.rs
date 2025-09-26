@@ -11,17 +11,14 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        tokens, FeathersPlugins,
     },
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::TabGroup,
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         Activate, Callback, RadioButton, RadioGroup, SliderPrecision, SliderStep, SliderValue,
-        ValueChange, WidgetBehaviorPlugins,
+        ValueChange,
     },
 };
 
@@ -38,15 +35,12 @@ enum SwatchType {
     Hsl,
 }
 
+#[derive(Component, Clone, Copy)]
+struct DemoDisabledButton;
+
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            WidgetBehaviorPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
@@ -177,7 +171,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 )),
                                 ..default()
                             },
-                            InteractionDisabled,
+                            (InteractionDisabled, DemoDisabledButton),
                             Spawn((Text::new("Disabled"), ThemedText))
                         ),
                         button(
@@ -258,7 +252,25 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 checkbox(
                     CheckboxProps {
-                        on_change: Callback::Ignore,
+                        on_change: Callback::System(commands.register_system(
+                            |change: In<ValueChange<bool>>,
+                             query: Query<Entity, With<DemoDisabledButton>>,
+                             mut commands: Commands| {
+                                info!("Checkbox clicked!");
+                                let mut button = commands.entity(query.single().unwrap());
+                                if change.value {
+                                    button.insert(InteractionDisabled);
+                                } else {
+                                    button.remove::<InteractionDisabled>();
+                                }
+                                let mut checkbox = commands.entity(change.source);
+                                if change.value {
+                                    checkbox.insert(Checked);
+                                } else {
+                                    checkbox.remove::<Checked>();
+                                }
+                            }
+                        )),
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))

@@ -7,6 +7,7 @@ use bevy::{
     math::ops::{cos, sin},
     prelude::*,
     window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 
 fn main() {
@@ -19,6 +20,7 @@ fn main() {
             }),
             ..default()
         }))
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cameras)
         .run();

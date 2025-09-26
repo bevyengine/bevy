@@ -2,7 +2,15 @@
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.
 //!
-//! # State Management
+//! ## Warning: Experimental
+//!
+//! This crate is currently experimental and under active development.
+//! The API is likely to change substantially: be prepared to migrate your code.
+//!
+//! We are actively seeking feedback on the design and implementation of this crate, so please
+//! file issues or create PRs if you have any comments or suggestions.
+//!
+//! ## State Management
 //!
 //! Most of the widgets use external state management: this means that the widgets do not
 //! automatically update their own internal state, but instead rely on the app to update the widget
@@ -29,9 +37,9 @@ use bevy_ecs::entity::Entity;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
-pub struct WidgetBehaviorPlugins;
+pub struct UiWidgetsPlugins;
 
-impl PluginGroup for WidgetBehaviorPlugins {
+impl PluginGroup for UiWidgetsPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonPlugin)

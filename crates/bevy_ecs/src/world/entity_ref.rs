@@ -1,8 +1,7 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
@@ -22,7 +21,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -299,8 +298,8 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -1066,8 +1065,8 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -1968,6 +1967,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
@@ -1996,6 +1996,7 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
@@ -2014,6 +2015,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Keep,
@@ -2022,12 +2024,11 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
+    /// Adds a [`Bundle`] of components to the entity.
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2036,8 +2037,15 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) = unsafe {
+        // SAFETY:
+        // - `location` matches current entity and thus must currently exist in the source
+        //   archetype for this inserter and its location within the archetype.
+        // - `T` matches the type used to create the `BundleInserter`.
+        // - `apply_effect` is called exactly once after this function.
+        // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+        //   and the caller ensures that the value is not accessed or dropped after this function
+        //   returns.
+        let (bundle, location) = bundle.partial_move(|bundle| unsafe {
             bundle_inserter.insert(
                 self.entity,
                 location,
@@ -2046,11 +2054,14 @@ impl<'w> EntityWorldMut<'w> {
                 caller,
                 relationship_hook_mode,
             )
-        };
+        });
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        after_effect.apply(self);
+        // SAFETY:
+        // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+        // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
+        unsafe { T::apply_effect(bundle, self) };
         self
     }
 
@@ -2852,8 +2863,9 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.world
-            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+        let bundle = Observer::new(observer).with_entity(self.entity);
+        move_as_ptr!(bundle);
+        self.world.spawn_with_caller(bundle, caller);
         self.world.flush();
         self.update_location();
         self
@@ -3120,7 +3132,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has last been spawned.
-    pub fn spawned_at(&self) -> Tick {
+    pub fn spawn_tick(&self) -> Tick {
         self.assert_not_despawned();
 
         // SAFETY: entity being alive was asserted
@@ -3146,6 +3158,20 @@ impl<'w> EntityWorldMut<'w> {
                 location,
             })
         })
+    }
+
+    /// Deprecated. Use [`World::trigger`] instead.
+    #[track_caller]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use World::trigger with an EntityEvent instead."
+    )]
+    pub fn trigger<'t>(&mut self, event: impl EntityEvent<Trigger<'t>: Default>) -> &mut Self {
+        log::warn!("EntityWorldMut::trigger is deprecated and no longer triggers the event for the current EntityWorldMut entity. Use World::trigger instead with an EntityEvent.");
+        self.world_scope(|world| {
+            world.trigger(event);
+        });
+        self
     }
 }
 
@@ -3667,8 +3693,8 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4029,8 +4055,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4213,8 +4239,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4468,8 +4494,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -4624,8 +4650,17 @@ unsafe fn insert_dynamic_bundle<
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
-        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-            self.components.for_each(|(t, ptr)| func(t, ptr));
+        unsafe fn get_components(
+            mut ptr: MovingPtr<'_, Self>,
+            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        ) {
+            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr));
+        }
+
+        unsafe fn apply_effect(
+            _ptr: MovingPtr<'_, MaybeUninit<Self>>,
+            _entity: &mut EntityWorldMut,
+        ) {
         }
     }
 
@@ -4633,18 +4668,23 @@ unsafe fn insert_dynamic_bundle<
         components: storage_types.zip(components),
     };
 
-    // SAFETY: location matches current entity.
+    move_as_ptr!(bundle);
+
+    // SAFETY:
+    // - `location` matches `entity`.  and thus must currently exist in the source
+    //   archetype for this inserter and its location within the archetype.
+    // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
+    // - `apply_effect` is never called on this bundle.
+    // - `bundle` is not used or dropped after this point.
     unsafe {
-        bundle_inserter
-            .insert(
-                entity,
-                location,
-                bundle,
-                mode,
-                caller,
-                relationship_hook_insert_mode,
-            )
-            .0
+        bundle_inserter.insert(
+            entity,
+            location,
+            bundle,
+            mode,
+            caller,
+            relationship_hook_insert_mode,
+        )
     }
 }
 
@@ -6373,7 +6413,7 @@ mod tests {
                     .map(|l| l.unwrap());
                 let at = world
                     .entities
-                    .entity_get_spawned_or_despawned_at(entity)
+                    .entity_get_spawn_or_despawn_tick(entity)
                     .unwrap();
                 (by, at)
             });
@@ -6413,7 +6453,7 @@ mod tests {
             despawn_tick,
             world
                 .entities()
-                .entity_get_spawned_or_despawned_at(entity)
+                .entity_get_spawn_or_despawn_tick(entity)
                 .unwrap()
         );
     }

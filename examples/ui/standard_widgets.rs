@@ -1,4 +1,10 @@
-//! This example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
+//! This experimental example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
+//!
+//! These widgets have no inherent styling, so this example also shows how to implement custom styles.
+//!
+//! The patterns shown here are likely to change substantially as the `bevy_ui_widgets` crate
+//! matures, so please exercise caution if you are using this as a reference for your own code,
+//! and note that there are still "user experience" issues with this API.
 
 use bevy::{
     color::palettes::basic::*,
@@ -11,7 +17,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         Activate, Button, Callback, Checkbox, CoreSliderDragState, RadioButton, RadioGroup, Slider,
-        SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange, WidgetBehaviorPlugins,
+        SliderRange, SliderThumb, SliderValue, TrackClick, UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -19,7 +25,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            WidgetBehaviorPlugins,
+            UiWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
