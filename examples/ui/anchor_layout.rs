@@ -47,7 +47,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (
                         "center/top",
                         Node {
-                            margin: UiRect::horizontal(Val::Auto),
+                            margin: auto().horizontal(),
                             top: px(10),
                             ..default()
                         },
