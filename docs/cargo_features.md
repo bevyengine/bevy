@@ -22,6 +22,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
+|bevy_dev_tools|Provides a collection of developer tools|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -76,7 +77,6 @@ The default feature set enables most of the expected features of a game engine, 
 |basis-universal|Basis Universal compressed texture support|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
-|bevy_dev_tools|Provides a collection of developer tools|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_solari|Provides raytraced lighting (experimental)|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
