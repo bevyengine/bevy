@@ -27,7 +27,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: percent(100),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(MARGIN),
+                padding: MARGIN.all(),
                 row_gap: MARGIN,
                 ..default()
             },
