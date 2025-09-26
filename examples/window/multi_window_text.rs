@@ -47,11 +47,8 @@ fn setup_scene(mut commands: Commands) {
             Camera2d,
             // This camera will only render entities belonging to render layer `1`.
             RenderLayers::layer(1),
-            Camera {
-                // Without an explicit render target, this camera would also target the primary window.
-                target: RenderTarget::Window(WindowRef::Entity(secondary_window)),
-                ..default()
-            },
+            // Without an explicit render target, this camera would also target the primary window.
+            RenderTarget::Window(WindowRef::Entity(secondary_window)),
         ))
         .id();
 
