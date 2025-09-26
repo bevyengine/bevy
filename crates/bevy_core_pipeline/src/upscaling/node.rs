@@ -57,8 +57,11 @@ impl ViewNode for UpscalingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {
-                let bind_group = blit_pipeline
-                    .create_bind_group(render_context.render_device(), main_texture_view);
+                let bind_group = blit_pipeline.create_bind_group(
+                    render_context.render_device(),
+                    main_texture_view,
+                    pipeline_cache,
+                );
 
                 let (_, bind_group) =
                     cached_bind_group.insert((main_texture_view.id(), bind_group));

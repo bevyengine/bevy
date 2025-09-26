@@ -60,7 +60,7 @@ impl Plugin for RaytracingScenePlugin {
         render_app
             .init_resource::<BlasManager>()
             .init_resource::<StandardMaterialAssets>()
-            .init_resource::<RaytracingSceneBindings>()
+            .insert_resource(RaytracingSceneBindings::new())
             .add_systems(ExtractSchedule, extract_raytracing_scene)
             .add_systems(
                 Render,

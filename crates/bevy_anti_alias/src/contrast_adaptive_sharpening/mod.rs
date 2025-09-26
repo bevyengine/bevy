@@ -157,7 +157,7 @@ impl Plugin for CasPlugin {
 
 #[derive(Resource)]
 pub struct CasPipeline {
-    texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -169,7 +169,7 @@ pub fn init_cas_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture_bind_group = render_device.create_bind_group_layout(
+    let texture_bind_group = BindGroupLayoutDescriptor::new(
         "sharpening_texture_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,

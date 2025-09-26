@@ -105,16 +105,12 @@ impl Default for BoxShadowMeta {
 
 #[derive(Resource)]
 pub struct BoxShadowPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_box_shadow_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "box_shadow_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -360,6 +356,7 @@ pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<BoxShadowMeta>,
     mut extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
@@ -374,7 +371,7 @@ pub fn prepare_shadows(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "box_shadow_view_bind_group",
-            &box_shadow_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&box_shadow_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 

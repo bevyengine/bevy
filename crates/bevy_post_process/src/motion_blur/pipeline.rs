@@ -15,10 +15,10 @@ use bevy_render::{
             sampler, texture_2d, texture_2d_multisampled, texture_depth_2d,
             texture_depth_2d_multisampled, uniform_buffer_sized,
         },
-        BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
-        ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor,
+        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
@@ -31,8 +31,8 @@ use super::MotionBlurUniform;
 #[derive(Resource)]
 pub struct MotionBlurPipeline {
     pub(crate) sampler: Sampler,
-    pub(crate) layout: BindGroupLayout,
-    pub(crate) layout_msaa: BindGroupLayout,
+    pub(crate) layout: BindGroupLayoutDescriptor,
+    pub(crate) layout_msaa: BindGroupLayoutDescriptor,
     pub(crate) fullscreen_shader: FullscreenShader,
     pub(crate) fragment_shader: Handle<Shader>,
 }
@@ -80,9 +80,8 @@ impl MotionBlurPipeline {
         );
 
         let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-        let layout = render_device.create_bind_group_layout("motion_blur_layout", mb_layout);
-        let layout_msaa =
-            render_device.create_bind_group_layout("motion_blur_layout_msaa", mb_layout_msaa);
+        let layout = BindGroupLayoutDescriptor::new("motion_blur_layout", mb_layout);
+        let layout_msaa = BindGroupLayoutDescriptor::new("motion_blur_layout_msaa", mb_layout_msaa);
 
         Self {
             sampler,
