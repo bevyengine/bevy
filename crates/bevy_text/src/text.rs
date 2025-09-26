@@ -453,7 +453,7 @@ pub fn update_text_roots(
 /// Detect changes
 pub fn detect_text_needs_rerender<T: Component>(
     mut root_query: Query<(Ref<TextRoot>, &mut ComputedTextBlock), With<T>>,
-    text_query: Query<(), (Changed<T>, Changed<ComputedTextStyle>)>,
+    text_query: Query<(), Or<(Changed<T>, Changed<ComputedTextStyle>)>>,
 ) {
     for (text_root, mut block) in root_query.iter_mut() {
         if text_root.is_changed() {
