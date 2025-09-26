@@ -103,6 +103,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
+                //children![Text::new("x"),]
             )]
         )],
     )

@@ -6,7 +6,7 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    ui::widget::TextUiWriter,
+    text::TextRoot,
     window::PresentMode,
 };
 
@@ -250,8 +250,8 @@ fn change_text_system(
     mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
-    query: Query<Entity, With<TextChanges>>,
-    mut writer: TextUiWriter,
+    query: Query<(Entity, &TextRoot), With<TextChanges>>,
+    mut text_query: Query<&mut Text>,
 ) {
     time_history.push_front(time.elapsed());
     time_history.truncate(120);
@@ -264,7 +264,7 @@ fn change_text_system(
     fps_history.truncate(120);
     let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
 
-    for entity in &query {
+    for (_entity, text_root) in &query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
             && let Some(fps_smoothed) = fps_diagnostic.smoothed()
@@ -280,16 +280,16 @@ fn change_text_system(
             frame_time = frame_time_smoothed;
         }
 
-        *writer.text(entity, 0) =
+        text_query.get_mut(text_root.0[0]).unwrap().0 =
             format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
 
-        *writer.text(entity, 1) = format!(
+        text_query.get_mut(text_root.0[1]).unwrap().0 = format!(
             "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        *writer.text(entity, 4) = format!("{fps:.1}");
+        text_query.get_mut(text_root.0[4]).unwrap().0 = format!("{fps:.1}");
 
-        *writer.text(entity, 6) = format!("{frame_time:.3}");
+        text_query.get_mut(text_root.0[6]).unwrap().0 = format!("{fps:.1}");
     }
 }
 

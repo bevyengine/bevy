@@ -24,7 +24,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_text::ComputedTextStyle;
+use bevy_text::{ComputedTextStyle, TextRoot};
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -1086,15 +1086,18 @@ pub fn extract_text_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
-        Query<(
-            Entity,
-            &ComputedNode,
-            &UiGlobalTransform,
-            &InheritedVisibility,
-            Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
-            &TextLayoutInfo,
-        )>,
+        Query<
+            (
+                Entity,
+                &ComputedNode,
+                &UiGlobalTransform,
+                &InheritedVisibility,
+                Option<&CalculatedClip>,
+                &ComputedUiTargetCamera,
+                &TextLayoutInfo,
+            ),
+            With<TextRoot>,
+        >,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
     camera_map: Extract<UiCameraMap>,
