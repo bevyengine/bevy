@@ -825,6 +825,10 @@ impl AssetServer {
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
     pub fn reload<'a>(&self, path: impl Into<AssetPath<'a>>) {
+        self.reload_internal(path, false);
+    }
+
+    fn reload_internal<'a>(&self, path: impl Into<AssetPath<'a>>, log: bool) {
         let server = self.clone();
         let path = path.into().into_owned();
         IoTaskPool::get()
@@ -846,11 +850,15 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded
-                    && server.data.infos.read().should_reload(&path)
-                    && let Err(err) = server.load_internal(None, path, true, None).await
-                {
-                    error!("{}", err);
+                if !reloaded && server.data.infos.read().should_reload(&path) {
+                    match server.load_internal(None, path.clone(), true, None).await {
+                        Ok(_) => reloaded = true,
+                        Err(err) => error!("{}", err),
+                    }
+                }
+
+                if log && reloaded {
+                    info!("Reloaded {}", path);
                 }
             })
             .detach();
@@ -1769,8 +1777,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         drop(infos);
 
         for path in paths_to_reload {
-            info!("Reloading {path} because it has changed");
-            server.reload(path);
+            server.reload_internal(path, true);
         }
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
