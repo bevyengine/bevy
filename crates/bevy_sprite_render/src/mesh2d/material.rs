@@ -480,9 +480,10 @@ where
 pub fn init_material_2d_pipeline<M: Material2d>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
     mesh_2d_pipeline: Res<Mesh2dPipeline>,
 ) {
-    let material2d_layout = M::bind_group_layout_descriptor();
+    let material2d_layout = M::bind_group_layout_descriptor(&render_device);
 
     commands.insert_resource(Material2dPipeline::<M> {
         mesh2d_pipeline: mesh_2d_pipeline.clone(),

@@ -412,7 +412,7 @@ fn add_material_bind_group_allocator<M: Material>(
             material_uses_bindless_resources::<M>(&render_device)
                 .then(|| M::bindless_descriptor())
                 .flatten(),
-            M::bind_group_layout_descriptor(),
+            M::bind_group_layout_descriptor(&render_device),
             M::bindless_slot_count(),
         ),
     );
@@ -1541,7 +1541,6 @@ where
             (shadows_enabled, prepass_enabled, material_param),
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
-        let material_layout = M::bind_group_layout_descriptor();
 
         let shadows_enabled = shadows_enabled.is_some();
         let prepass_enabled = prepass_enabled.is_some();
@@ -1676,6 +1675,7 @@ where
             )
         }
 
+        let material_layout = M::bind_group_layout_descriptor(render_device);
         let actual_material_layout = pipeline_cache.get_bind_group_layout(&material_layout);
 
         match material.unprepared_bind_group(
