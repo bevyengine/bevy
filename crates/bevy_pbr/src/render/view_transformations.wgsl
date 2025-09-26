@@ -118,9 +118,9 @@ fn position_world_to_prev_ndc(world_pos: vec3<f32>) -> vec3<f32> {
 // -----------------
 
 /// Convert a world space position to clip space
+/// DEPRECATED: use bevy_render::view::position_world_to_clip instead
 fn position_world_to_clip(world_pos: vec3<f32>) -> vec4<f32> {
-    let clip_pos = view_bindings::view.clip_from_world * vec4(world_pos, 1.0);
-    return clip_pos;
+    return view::position_world_to_clip(world_pos, view_bindings::view.clip_from_world);
 }
 
 /// Convert a view space position to clip space
