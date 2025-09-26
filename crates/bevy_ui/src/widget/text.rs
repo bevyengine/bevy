@@ -376,7 +376,6 @@ pub fn text_system(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_root_query: Query<(
-        Entity,
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
@@ -388,8 +387,7 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed, text_root) in
-        &mut text_root_query
+    for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
     {
         if node.is_changed() || text_flags.needs_recompute {
             let spans = text_root.0.iter().cloned().filter_map(|entity| {

@@ -45,7 +45,7 @@ use bevy_camera::{
 };
 use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
-use bevy_text::update_text_styles;
+use bevy_text::{detect_text_needs_rerender, update_text_roots, update_text_styles};
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use sprite::*;
@@ -86,6 +86,9 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (
+                detect_text_needs_rerender::<Text2d>
+                    .after(update_text_styles)
+                    .after(update_text_roots),
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
                     .after(update_text_styles)

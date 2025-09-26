@@ -441,3 +441,22 @@ pub fn update_text_roots(
         commands.entity(root_entity).insert(TextRoot(entities));
     }
 }
+
+/// Detect changes
+pub fn detect_text_needs_rerender<T: Component>(
+    mut root_query: Query<(Ref<TextRoot>, &mut ComputedTextBlock), With<T>>,
+    text_query: Query<(), (Changed<T>, Changed<ComputedTextStyle>)>,
+) {
+    for (text_root, mut block) in root_query.iter_mut() {
+        if text_root.is_changed() {
+            block.needs_rerender = true;
+        } else {
+            for &text_entity in text_root.0.iter() {
+                if text_query.contains(text_entity) {
+                    block.needs_rerender = true;
+                    break;
+                }
+            }
+        }
+    }
+}

@@ -6,7 +6,6 @@ use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
-    entity::Entity,
     prelude::Local,
     query::{With, Without},
     resource::Resource,
@@ -15,12 +14,9 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_text::{Font, TextColor, TextFont};
 use bevy_time::Time;
-use bevy_ui::{
-    widget::{Text, TextUiWriter},
-    FlexDirection, GlobalZIndex, Node, PositionType, Val,
-};
+use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 
@@ -147,6 +143,9 @@ impl Default for FrameTimeGraphConfig {
 struct FpsText;
 
 #[derive(Component)]
+struct FpsCounter;
+
+#[derive(Component)]
 struct FrameTimeGraph;
 
 fn setup(
@@ -172,10 +171,10 @@ fn setup(
                 Text::new("FPS: "),
                 overlay_config.text_config.clone(),
                 TextColor(overlay_config.text_color),
-                FpsText,
                 Pickable::IGNORE,
+                FpsText,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .with_child((Text::default(), FpsCounter));
 
             let font_size = overlay_config.text_config.font_size;
             p.spawn((
@@ -211,8 +210,7 @@ fn setup(
 
 fn update_text(
     diagnostic: Res<DiagnosticsStore>,
-    query: Query<Entity, With<FpsText>>,
-    mut writer: TextUiWriter,
+    mut query: Query<&mut Text, With<FpsText>>,
     time: Res<Time>,
     config: Res<FpsOverlayConfig>,
     mut time_since_rerender: Local<Duration>,
@@ -220,11 +218,11 @@ fn update_text(
     *time_since_rerender += time.delta();
     if *time_since_rerender >= config.refresh_interval {
         *time_since_rerender = Duration::ZERO;
-        for entity in &query {
+        for mut text in &mut query {
             if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
                 && let Some(value) = fps.smoothed()
             {
-                *writer.text(entity, 1) = format!("{value:.2}");
+                text.0 = format!("{value:.2}");
             }
         }
     }
@@ -232,14 +230,11 @@ fn update_text(
 
 fn customize_overlay(
     overlay_config: Res<FpsOverlayConfig>,
-    query: Query<Entity, With<FpsText>>,
-    mut writer: TextUiWriter,
+    mut query: Query<(&mut TextFont, &mut TextColor), With<FpsText>>,
 ) {
-    for entity in &query {
-        writer.for_each_font(entity, |mut font| {
-            *font = overlay_config.text_config.clone();
-        });
-        writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
+    for (mut font, mut color) in &mut query {
+        *font = overlay_config.text_config.clone();
+        color.0 = overlay_config.text_color;
     }
 }
 
