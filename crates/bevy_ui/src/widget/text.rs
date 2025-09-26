@@ -9,9 +9,9 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
@@ -415,5 +415,21 @@ pub fn text_system(
                 spans,
             );
         }
+    }
+}
+
+pub fn sync_ui_text_components(
+    mut commands: Commands,
+    add_query: Query<Entity, (With<TextRoot>, Without<Node>)>,
+    rem_query: Query<Entity, (With<Text>, Without<TextRoot>, With<Node>)>,
+) {
+    for entity in add_query.iter() {
+        commands
+            .entity(entity)
+            .insert((Node::default(), ComputedNode::default()));
+    }
+
+    for entity in rem_query.iter() {
+        commands.entity(entity).remove::<(Node, ComputedNode)>();
     }
 }
