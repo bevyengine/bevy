@@ -180,8 +180,9 @@ where
 pub fn init_ui_material_pipeline<M: UiMaterial>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
+    render_device: Res<RenderDevice>,
 ) {
-    let ui_layout = M::bind_group_layout_descriptor();
+    let ui_layout = M::bind_group_layout_descriptor(&render_device);
 
     let view_layout = BindGroupLayoutDescriptor::new(
         "ui_view_layout",

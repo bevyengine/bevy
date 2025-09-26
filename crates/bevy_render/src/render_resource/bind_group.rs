@@ -592,11 +592,15 @@ pub trait AsBindGroup {
 
     /// Creates the bind group layout descriptor matching all bind groups returned by
     /// [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout_descriptor() -> BindGroupLayoutDescriptor
+    /// TODO: we only need `RenderDevice` to determine if bindless is supported
+    fn bind_group_layout_descriptor(render_device: &RenderDevice) -> BindGroupLayoutDescriptor
     where
         Self: Sized,
     {
-        todo!();
+        BindGroupLayoutDescriptor {
+            label: Self::label().map_or(None, |f| Some(f.into())),
+            entries: Self::bind_group_layout_entries(render_device, false),
+        }
     }
 
     /// Returns a vec of bind group layout entries.
