@@ -99,7 +99,9 @@ impl Plugin for TextPlugin {
                 PostUpdate,
                 remove_dropped_font_atlas_sets.before(AssetEventSystems),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(Last, trim_cosmic_cache)
+            .add_observer(enable_text_node_needs_rerender_detection::<TextSpan>)
+            .add_observer(enable_text_node_needs_rerender_detection::<Text2d>);
 
         #[cfg(feature = "default_font")]
         {
