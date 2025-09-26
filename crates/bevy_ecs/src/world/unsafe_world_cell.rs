@@ -889,7 +889,7 @@ impl<'w> UnsafeEntityCell<'w> {
         }
     }
 
-    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
     /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///

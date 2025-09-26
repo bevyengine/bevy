@@ -146,7 +146,7 @@ impl<'w> EntityRef<'w> {
         unsafe { self.cell.get_change_ticks::<T>() }
     }
 
-    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
     /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     #[inline]
@@ -1751,7 +1751,7 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_change_ticks::<T>()
     }
 
-    /// Get the [`MaybeLocation`] for a [`Component`].
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
     /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
     /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
     ///

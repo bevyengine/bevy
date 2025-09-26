@@ -754,8 +754,9 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
-// SAFETY: ResMut component access is tied to the singleton components under
-// QueryState<Ref<T>, With<Internal>>, which guarantees safety.
+// SAFETY:
+// - We register both the necessary component access and the resource access.
+// - World accesses follow the registered accesses.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = (ComponentId, QueryState<Ref<'static, T>, With<Internal>>);
     type Item<'w, 's> = Res<'w, T>;
@@ -763,43 +764,42 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     fn init_state(world: &mut World) -> Self::State {
         (
             world.components_registrator().register_resource::<T>(),
-            QueryState::<Ref<'static, T>, With<Internal>>::from_world(world),
+            Query::<Ref<'static, T>, With<Internal>>::init_state(world),
         )
     }
 
     fn init_access(
-        state: &Self::State,
+        (component_id, query_state): &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        Query::init_access(&state.1, system_meta, component_access_set, world);
-        let component_id = state.0;
+        Query::init_access(&query_state, system_meta, component_access_set, world);
 
         let combined_access = component_access_set.combined_access();
         assert!(
-            !combined_access.has_resource_write(component_id),
+            !combined_access.has_resource_write(*component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
             system_meta.name,
         );
 
-        component_access_set.add_unfiltered_resource_read(component_id);
+        component_access_set.add_unfiltered_resource_read(*component_id);
     }
 
     // TODO: Defer this to Single<_> in some way.
     #[inline]
     unsafe fn validate_param(
-        state: &mut Self::State,
+        (_, query_state): &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        state.1.update_archetypes_unsafe_world_cell(world);
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        // The caller ensures the world matches the one used in init_state.
+        query_state.update_archetypes_unsafe_world_cell(world);
+        // SAFETY:
+        // - This is not a mutable query.
+        // - This state is genererated by the same world, so the world ids are the same.
         let query = unsafe {
-            state.1.query_unchecked_manual_with_ticks(
+            query_state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
@@ -815,29 +815,31 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        (_, query_state): &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        state.1.update_archetypes_unsafe_world_cell(world);
+        query_state.update_archetypes_unsafe_world_cell(world);
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
         // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
-            state
-                .1
-                .query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+            query_state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        Res::from(
-            query
-                .single_inner()
-                .expect("The query was expected to contain exactly one matching entity."),
-        )
+        let result = query
+            .single_inner()
+            .expect("The query was expected to contain exactly one matching entity.");
+        Res {
+            value: result.value,
+            ticks: result.ticks,
+            changed_by: result.changed_by,
+        }
     }
 }
 
-// SAFETY: ResMut component access is tied to the singleton components under
-// QueryState<Mut<T>, With<Internal>>, which guarantees safety.
+// SAFETY:
+// - We register both the necessary component access and the resource access.
+// - World accesses follow the registered accesses.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = (ComponentId, QueryState<Mut<'static, T>, With<Internal>>);
     type Item<'w, 's> = ResMut<'w, T>;
@@ -845,45 +847,44 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     fn init_state(world: &mut World) -> Self::State {
         (
             world.components_registrator().register_resource::<T>(),
-            QueryState::<Mut<'static, T>, With<Internal>>::from_world(world),
+            Query::<Mut<'static, T>, With<Internal>>::init_state(world),
         )
     }
 
     fn init_access(
-        state: &Self::State,
+        (component_id, query_state): &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        Query::init_access(&state.1, system_meta, component_access_set, world);
-        let component_id = state.0;
+        Query::init_access(&query_state, system_meta, component_access_set, world);
 
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(component_id) {
+        if combined_access.has_resource_write(*component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(component_id) {
+        } else if combined_access.has_resource_read(*component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
-        component_access_set.add_unfiltered_resource_write(component_id);
+        component_access_set.add_unfiltered_resource_write(*component_id);
     }
 
     // TODO: Defer this to Single<_> in some way.
     #[inline]
     unsafe fn validate_param(
-        state: &mut Self::State,
+        (_, query_state): &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        state.1.update_archetypes_unsafe_world_cell(world);
-        // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
-        // and the query is read only.
-        // The caller ensures the world matches the one used in init_state.
+        query_state.update_archetypes_unsafe_world_cell(world);
+        // SAFETY:
+        // - We have unique mutable access to the resource.
+        // - This state is genererated by the same world, so the world ids are the same.
         let query = unsafe {
-            state.1.query_unchecked_manual_with_ticks(
+            query_state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
@@ -899,24 +900,25 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        (_, query_state): &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        state.1.update_archetypes_unsafe_world_cell(world);
+        query_state.update_archetypes_unsafe_world_cell(world);
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
         // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
-            state
-                .1
-                .query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+            query_state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
-        ResMut::from(
-            query
-                .single_inner()
-                .expect("The query was expected to contain exactly one matching entity."),
-        )
+        let result = query
+            .single_inner()
+            .expect("The query was expected to contain exactly one matching entity.");
+        ResMut {
+            value: result.value,
+            ticks: result.ticks,
+            changed_by: result.changed_by,
+        }
     }
 }
 

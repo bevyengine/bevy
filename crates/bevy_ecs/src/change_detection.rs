@@ -675,16 +675,6 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     }
 }
 
-impl<'w, T: Resource> From<Ref<'w, T>> for Res<'w, T> {
-    fn from(item: Ref<'w, T>) -> Res<'w, T> {
-        Res {
-            value: item.value,
-            ticks: item.ticks,
-            changed_by: item.changed_by,
-        }
-    }
-}
-
 impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
     /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
     /// while losing the specificity of `Res` for resources.
@@ -756,16 +746,6 @@ change_detection_impl!(ResMut<'w, T>, T, Resource);
 change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
 impl_methods!(ResMut<'w, T>, T, Resource);
 impl_debug!(ResMut<'w, T>, Resource);
-
-impl<'w, T: Resource> From<Mut<'w, T>> for ResMut<'w, T> {
-    fn from(item: Mut<'w, T>) -> ResMut<'w, T> {
-        ResMut {
-            value: item.value,
-            ticks: item.ticks,
-            changed_by: item.changed_by,
-        }
-    }
-}
 
 impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
     /// Convert this `ResMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`

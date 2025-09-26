@@ -1751,12 +1751,11 @@ impl World {
         let component_id = self.components_registrator().register_resource::<R>();
 
         if !self.resource_entities.contains_key(&component_id) {
-            move_as_ptr!(value);
+            // the resource doesn't exist, so we make a new one.
+            let resource_bundle = (value, IsResource);
+            move_as_ptr!(resource_bundle);
 
-            let entity = self
-                .spawn_with_caller(value, caller)
-                .insert(IsResource)
-                .id();
+            let entity = self.spawn_with_caller(resource_bundle, caller).id();
             self.resource_entities.insert(component_id, entity);
         } else {
             let entity = self.resource_entities.get(&component_id).unwrap();
@@ -1767,6 +1766,11 @@ impl World {
                     InsertMode::Replace,
                     caller,
                     RelationshipHookMode::Run,
+                );
+            } else {
+                panic!(
+                    "Resource {} is registered in `resource_entities` but the associated entity does not exist.",
+                    DebugName::type_name::<R>()
                 );
             }
         }
@@ -2597,7 +2601,7 @@ impl World {
         let mut entity_mut = self.get_entity_mut(*entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
-        let mut caller = entity_mut.get_changed_by::<R>()?;
+        let mut changed_by = entity_mut.get_changed_by::<R>()?;
         let mut value = entity_mut.take::<R>()?;
 
         let value_mut = Mut {
@@ -2608,7 +2612,7 @@ impl World {
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            changed_by: caller.as_mut(),
+            changed_by: changed_by.as_mut(),
         };
 
         // to fully remove the resource, we remove the entity and the resource_entities entry
@@ -2621,13 +2625,14 @@ impl World {
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             DebugName::type_name::<R>());
 
-        move_as_ptr!(value);
+        let mut entity_mut = self.spawn_empty();
+        let resource_bundle = (value, IsResource);
+        move_as_ptr!(resource_bundle);
 
-        let mut entity_mut = self.spawn(IsResource);
         entity_mut.insert_with_caller(
-            value,
+            resource_bundle,
             InsertMode::Replace,
-            caller,
+            changed_by,
             RelationshipHookMode::Skip,
         );
 
