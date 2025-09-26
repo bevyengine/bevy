@@ -31,6 +31,7 @@ meshlet_processor = [
   "dep:itertools",
   "dep:bitvec",
 ]
+tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 
 [dependencies]
 # bevy
