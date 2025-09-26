@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use bevy_platform::collections::HashMap;
 use bevy_ptr::{ConstNonNull, MovingPtr};
 use core::ptr::NonNull;
 
@@ -9,7 +10,7 @@ use crate::{
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{Components, StorageType, Tick},
+    component::{Components, FragmentingValues, FragmentingValuesBorrowed, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
@@ -37,11 +38,21 @@ impl<'w> BundleInserter<'w> {
         world: &'w mut World,
         archetype_id: ArchetypeId,
         change_tick: Tick,
+        bundle: &T,
     ) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
+        let value_components = FragmentingValuesBorrowed::from_bundle(world.components(), bundle);
 
         // SAFETY: We just ensured this bundle exists
-        unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
+        unsafe {
+            Self::new_with_id(
+                world,
+                archetype_id,
+                bundle_id,
+                change_tick,
+                &value_components,
+            )
+        }
     }
 
     /// Creates a new [`BundleInserter`].
@@ -54,6 +65,7 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         bundle_id: BundleId,
         change_tick: Tick,
+        value_components: &FragmentingValuesBorrowed,
     ) -> Self {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
@@ -64,6 +76,7 @@ impl<'w> BundleInserter<'w> {
             &world.components,
             &world.observers,
             archetype_id,
+            value_components,
         );
 
         let inserter = if new_archetype_id == archetype_id {
@@ -432,7 +445,8 @@ impl BundleInfo {
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
     /// # Safety
-    /// `components` must be the same components as passed in [`Self::new`]
+    /// - `components` must be the same components as passed in [`Self::new`]
+    /// - `value_components` must be created using `components`
     pub(crate) unsafe fn insert_bundle_into_archetype(
         &self,
         archetypes: &mut Archetypes,
@@ -440,15 +454,20 @@ impl BundleInfo {
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
+        value_components: &FragmentingValuesBorrowed,
     ) -> (ArchetypeId, bool) {
         if let Some(archetype_after_insert_id) = archetypes[archetype_id]
             .edges()
-            .get_archetype_after_bundle_insert(self.id)
+            .get_archetype_after_bundle_insert(self.id, value_components)
         {
             return (archetype_after_insert_id, false);
         }
+        let value_components =
+            value_components.to_owned(components, &mut storages.fragmenting_values);
+
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
+        let mut new_value_components = HashMap::new();
         let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
@@ -488,7 +507,22 @@ impl BundleInfo {
             }
         }
 
-        if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
+        for value in value_components.iter() {
+            let component_id = value.component_id();
+            if current_archetype
+                .get_fragmenting_value_component(component_id)
+                .is_none_or(|old_value| value != old_value)
+            {
+                new_value_components.insert(component_id, value);
+            }
+        }
+
+        if new_table_components.is_empty()
+            && new_sparse_set_components.is_empty()
+            && new_value_components.is_empty()
+        {
+            drop(new_value_components);
+
             let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
@@ -498,12 +532,14 @@ impl BundleInfo {
                 added_required_components,
                 added,
                 existing,
+                value_components,
             );
             (archetype_id, false)
         } else {
             let table_id;
             let table_components;
             let sparse_set_components;
+            let archetype_value_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
@@ -533,7 +569,23 @@ impl BundleInfo {
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
+
+                archetype_value_components = if new_value_components.is_empty() {
+                    FragmentingValues::from_sorted(
+                        current_archetype.fragmenting_value_components().cloned(),
+                    )
+                } else {
+                    current_archetype
+                        .fragmenting_value_components()
+                        .filter(|value| !new_value_components.contains_key(&value.component_id()))
+                        .cloned()
+                        .chain(new_value_components.values().map(|v| (*v).clone()))
+                        .collect()
+                };
+
+                drop(new_value_components);
             };
+
             // SAFETY: ids in self must be valid
             let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
                 components,
@@ -541,6 +593,7 @@ impl BundleInfo {
                 table_id,
                 table_components,
                 sparse_set_components,
+                archetype_value_components,
             );
 
             // Add an edge from the old archetype to the new archetype.
@@ -553,6 +606,7 @@ impl BundleInfo {
                     added_required_components,
                     added,
                     existing,
+                    value_components,
                 );
             (new_archetype_id, is_new_created)
         }
