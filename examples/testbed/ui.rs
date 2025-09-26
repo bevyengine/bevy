@@ -116,11 +116,23 @@ mod text {
             },
             DespawnOnExit(super::Scene::Text),
             children![
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -145,17 +157,29 @@ mod text {
             DespawnOnExit(super::Scene::Text),
             children![
                 (
-                    TextSpan::new("white "),
+                    Text::new("white "),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         ..default()
                     }
                 ),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -179,26 +203,38 @@ mod text {
             },
             DespawnOnExit(super::Scene::Text),
             children![
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                TextSpan::new(""),
+                (Text::new(""), TextColor(YELLOW.into()),),
+                Text::new(""),
                 (
-                    TextSpan::new("white "),
+                    Text::new("white "),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         ..default()
                     }
                 ),
-                TextSpan::new(""),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                TextSpan::new(""),
-                TextSpan::new(""),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
-                TextSpan::new(""),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                Text::new(""),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    TextFont::default()
+                ),
+                Text::new(""),
+                Text::new(""),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    TextFont::default()
+                ),
+                (Text::new(""), TextColor(YELLOW.into()),),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    TextFont::default()
+                ),
+                Text::new(""),
+                (Text::new(""), TextColor(YELLOW.into()), TextFont::default()),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
                     TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -206,7 +242,7 @@ mod text {
                     },
                     TextBackgroundColor(Color::WHITE)
                 ),
-                TextSpan::new(""),
+                Text::new(""),
             ],
         ));
     }

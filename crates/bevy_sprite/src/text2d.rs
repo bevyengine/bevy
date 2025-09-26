@@ -21,9 +21,9 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    TextError, TextLayout, TextLayoutInfo, TextPipeline,
 };
+use bevy_text::{ComputedTextStyle, TextRoot};
 use bevy_transform::components::Transform;
 use core::any::TypeId;
 
@@ -81,12 +81,11 @@ use core::any::TypeId;
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
-    TextFont,
-    TextColor,
     TextBounds,
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedTextStyle,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -98,36 +97,6 @@ impl Text2d {
         Self(text.into())
     }
 }
-
-impl TextRoot for Text2d {}
-
-impl TextSpanAccess for Text2d {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for Text2d {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for Text2d {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-/// 2d alias for [`TextReader`].
-pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
-
-/// 2d alias for [`TextWriter`].
-pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
-
 /// Adds a shadow behind `Text2d` text
 ///
 /// Use `TextShadow` for text drawn with `bevy_ui`
@@ -167,15 +136,16 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
+    text_query: Query<(&Text2d, &ComputedTextStyle)>,
+    mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &TextRoot,
     )>,
-    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -196,8 +166,8 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, text_root) in
+        &mut text_root_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -232,11 +202,18 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
+
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                text_reader.iter(entity),
+                spans,
                 scale_factor as f64,
                 &block,
                 text_bounds,
@@ -309,7 +286,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{update_text_styles, DefaultTextStyle};
 
     use super::*;
 
@@ -325,11 +302,11 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d>,
+                    update_text_styles,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

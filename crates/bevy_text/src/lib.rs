@@ -39,8 +39,8 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod pipeline;
+mod style;
 mod text;
-mod text_access;
 
 pub use bounds::*;
 pub use error::*;
@@ -50,8 +50,8 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
+pub use style::*;
 pub use text::*;
-pub use text_access::*;
 
 /// The text prelude.
 ///
@@ -59,7 +59,7 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        ComputedTextStyle, Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout,
     };
 }
 
@@ -94,10 +94,14 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 PostUpdate,
-                remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                (
+                    update_text_roots,
+                    update_text_styles,
+                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                ),
             )
             .add_systems(Last, trim_cosmic_cache);
 

@@ -100,10 +100,10 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         },
         children![
-            (TextSpan::new("Press A or B to trigger a one-shot system\n")),
-            (TextSpan::new("Last Triggered: ")),
+            (Text::new("Press A or B to trigger a one-shot system\n")),
+            (Text::new("Last Triggered: ")),
             (
-                TextSpan::new("-"),
+                Text::new("-"),
                 TextColor(bevy::color::palettes::css::ORANGE.into()),
             )
         ],

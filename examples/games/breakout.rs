@@ -223,7 +223,7 @@ fn setup(
             ..default()
         },
         children![(
-            TextSpan::default(),
+            Text::default(),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 ..default()
