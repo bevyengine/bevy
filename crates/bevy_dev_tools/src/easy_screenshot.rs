@@ -43,26 +43,24 @@ impl Plugin for EasyScreenshotPlugin {
         let format = self.format;
         app.add_systems(
             Update,
-            (|| {
-                move |mut commands: Commands, window: Single<&Window, With<PrimaryWindow>>| {
-                    let since_the_epoch = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .expect("time should go forward");
+            (move |mut commands: Commands, window: Single<&Window, With<PrimaryWindow>>| {
+                let since_the_epoch = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("time should go forward");
 
-                    commands
-                        .spawn(Screenshot::primary_window())
-                        .observe(save_to_disk(format!(
-                            "{}-{}.{}",
-                            window.title,
-                            since_the_epoch.as_millis(),
-                            match format {
-                                ScreenshotFormat::Jpeg => "jpg",
-                                ScreenshotFormat::Png => "png",
-                                ScreenshotFormat::Bmp => "bmp",
-                            }
-                        )));
-                }
-            })()
+                commands
+                    .spawn(Screenshot::primary_window())
+                    .observe(save_to_disk(format!(
+                        "{}-{}.{}",
+                        window.title,
+                        since_the_epoch.as_millis(),
+                        match format {
+                            ScreenshotFormat::Jpeg => "jpg",
+                            ScreenshotFormat::Png => "png",
+                            ScreenshotFormat::Bmp => "bmp",
+                        }
+                    )));
+            })
             .run_if(input_just_pressed(self.trigger)),
         );
     }
