@@ -98,6 +98,7 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    update_text_roots,
                     update_text_styles,
                     remove_dropped_font_atlas_sets.before(AssetEventSystems),
                 ),

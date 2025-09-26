@@ -432,8 +432,8 @@ pub fn update_text_roots(
     }
 
     for root_entity in roots {
-        let mut entities = vec![];
-        for entity in children_query.iter_descendants_depth_first(root_entity) {
+        let mut entities = vec![root_entity];
+        for entity in children_query.iter_descendants(root_entity) {
             if text_node_query.contains(entity) {
                 entities.push(entity);
             }

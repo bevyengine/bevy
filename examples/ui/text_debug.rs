@@ -167,7 +167,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ))
                 .with_children(|p| {
                     p.spawn((
-                        TextSpan::new("\nThis text changes in the bottom right"),
+                        Text::new("\nThis text changes in the bottom right"),
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
@@ -175,7 +175,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         },
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has zero font size"),
+                        Text::new(" this text has zero font size"),
                         TextFont {
                             font: font.clone(),
                             font_size: 0.0,
@@ -184,7 +184,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
-                        TextSpan::new("\nThis text changes in the bottom right - "),
+                        Text::new("\nThis text changes in the bottom right - "),
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
@@ -193,7 +193,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(RED.into()),
                     ));
                     p.spawn((
-                        TextSpan::default(),
+                        Text::default(),
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
@@ -202,7 +202,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(ORANGE_RED.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" fps, "),
+                        Text::new(" fps, "),
                         TextFont {
                             font: font.clone(),
                             font_size: 10.0,
@@ -211,7 +211,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(YELLOW.into()),
                     ));
                     p.spawn((
-                        TextSpan::default(),
+                        Text::default(),
                         TextFont {
                             font: font.clone(),
                             font_size: 21.0,
@@ -220,7 +220,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(LIME.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" ms/frame"),
+                        Text::new(" ms/frame"),
                         TextFont {
                             font: font.clone(),
                             font_size: 42.0,
@@ -229,7 +229,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has negative font size"),
+                        Text::new(" this text has negative font size"),
                         TextFont {
                             font: font.clone(),
                             font_size: -42.0,
