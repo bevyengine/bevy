@@ -1629,6 +1629,17 @@ category = "Application"
 wasm = true
 
 [[example]]
+name = "exclusive_hook"
+path = "examples/app/exclusive_hook.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.exclusive_hook]
+name = "Exclusive App Hooks"
+description = "A plugin that allows to access subapps during runtime."
+category = "Application"
+wasm = true
+
+[[example]]
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
