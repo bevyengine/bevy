@@ -2619,18 +2619,26 @@ impl World {
         entity_mut.despawn();
         self.resource_entities.remove(&component_id);
 
+        // There may be commands that are registered by the closure, which interact with the resource.
+        // In make sure that the resource is available, we avoid flushing untill the resource is fully inserted back.
+        // Since spawn calls flush, we do it before calling the closure, and check afterwards that it was not removed.
+        // world.flush() is now called at the end of `insert_with_caller()`.
+        let entity = self.spawn(IsResource).id();
+
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             DebugName::type_name::<R>());
 
-        let mut entity_mut = self.spawn_empty();
-        let resource_bundle = (value, IsResource);
-        move_as_ptr!(resource_bundle);
+        let mut entity_mut = self
+            .get_entity_mut(entity)
+            .expect("Reserved resource entity was destroyed.");
+
+        move_as_ptr!(value);
 
         entity_mut.insert_with_caller(
-            resource_bundle,
+            value,
             InsertMode::Replace,
             changed_by,
             RelationshipHookMode::Skip,
@@ -3692,6 +3700,7 @@ mod tests {
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled, Internal},
+        prelude::{Event, Mut, On, Res},
         ptr::OwningPtr,
         resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
@@ -4432,6 +4441,24 @@ mod tests {
         world.flush();
 
         assert!(world.get_entity(eid).is_err());
+    }
+
+    #[test]
+    fn resource_query_after_resource_scope() {
+        #[derive(Event)]
+        struct EventA;
+
+        #[derive(Resource)]
+        struct ResourceA;
+
+        let mut world = World::default();
+
+        world.insert_resource(ResourceA);
+        world.add_observer(move |_event: On<EventA>, _res: Res<ResourceA>| {});
+        world.resource_scope(|world, _res: Mut<ResourceA>| {
+            // since we use commands, this should trigger outside of the resource_scope, so the observer should work.
+            world.commands().trigger(EventA);
+        });
     }
 
     #[test]
