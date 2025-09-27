@@ -1531,17 +1531,16 @@ fn gates_asset_path_on_process() {
 
     impl<P: Process> Process for GatedProcess<P> {
         type Settings = P::Settings;
-        type OutputLoader = P::OutputLoader;
 
         async fn process(
             &self,
             context: &mut super::ProcessContext<'_>,
             meta: AssetMeta<(), Self>,
-            writer: &mut crate::io::Writer,
-        ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, super::ProcessError> {
+            writer_context: super::WriterContext<'_>,
+        ) -> Result<(), super::ProcessError> {
             let _guard = self.0.lock().await;
             self.1
-                .process(context, AssetMeta::new(meta.asset), writer)
+                .process(context, AssetMeta::new(meta.asset), writer_context)
                 .await
         }
     }
