@@ -84,7 +84,7 @@ pub struct FrametimeGraphMaterial {
 }
 
 impl UiMaterial for FrametimeGraphMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         FRAME_TIME_GRAPH_SHADER_HANDLE.into()
     }
 }
