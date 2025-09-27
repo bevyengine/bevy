@@ -125,6 +125,16 @@ impl EntityRow {
         Self(index)
     }
 
+    /// Equivalent to [`new`](Self::new) except that it takes a `u32` instead of a `NonMaxU32`.
+    ///
+    /// Returns `None` if the index is `u32::MAX`.
+    pub const fn from_raw_u32(index: u32) -> Option<Self> {
+        match NonMaxU32::new(index) {
+            Some(index) => Some(Self(index)),
+            None => None,
+        }
+    }
+
     /// Gets the index of the entity.
     #[inline(always)]
     pub const fn index(self) -> u32 {
@@ -1320,11 +1330,11 @@ mod tests {
 
     #[test]
     fn entity_bits_roundtrip() {
-        let r = EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap());
+        let r = EntityRow::from_raw_u32(0xDEADBEEF).unwrap();
         assert_eq!(EntityRow::from_bits(r.to_bits()), r);
 
         let e = Entity::from_raw_and_generation(
-            EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap()),
+            EntityRow::from_raw_u32(0xDEADBEEF).unwrap(),
             EntityGeneration::from_bits(0x5AADF00D),
         );
         assert_eq!(Entity::from_bits(e.to_bits()), e);
@@ -1363,7 +1373,7 @@ mod tests {
 
     #[test]
     fn entity_const() {
-        const C1: Entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        const C1: Entity = Entity::from_raw(EntityRow::from_raw_u32(42).unwrap());
         assert_eq!(42, C1.index());
         assert_eq!(0, C1.generation().to_bits());
 
@@ -1371,7 +1381,7 @@ mod tests {
         assert_eq!(!0x0000_00cc, C2.index());
         assert_eq!(0x0000_00ff, C2.generation().to_bits());
 
-        const C3: u32 = Entity::from_raw(EntityRow::new(NonMaxU32::new(33).unwrap())).index();
+        const C3: u32 = Entity::from_raw(EntityRow::from_raw_u32(33).unwrap()).index();
         assert_eq!(33, C3);
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_1111_1111)
@@ -1416,41 +1426,41 @@ mod tests {
     fn entity_comparison() {
         assert_eq!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             ),
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             )
         );
         assert_ne!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(456).unwrap()),
+                EntityRow::from_raw_u32(456).unwrap(),
                 EntityGeneration::from_bits(123)
             )
         );
@@ -1459,93 +1469,93 @@ mod tests {
 
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert!(
             !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
         assert!(
             !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
 
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
+                EntityRow::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
             ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
             )
         );
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
             ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
+                EntityRow::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
 
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(1)
             ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(1)
             ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
             ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
         assert!(
             Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
             ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
@@ -1559,15 +1569,12 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
-        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-            NonMaxU32::new(first_id).unwrap(),
-        )));
+        let first_hash =
+            hash.hash_one(Entity::from_raw(EntityRow::from_raw_u32(first_id).unwrap()));
 
         for i in 1..=255 {
             let id = first_id + i;
-            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-                NonMaxU32::new(id).unwrap(),
-            )));
+            let hash = hash.hash_one(Entity::from_raw(EntityRow::from_raw_u32(id).unwrap()));
             assert_eq!(first_hash.wrapping_sub(hash) as u32, i);
         }
     }
@@ -1579,15 +1586,12 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE;
-        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-            NonMaxU32::new(first_id).unwrap(),
-        ))) >> 57;
+        let first_hash =
+            hash.hash_one(Entity::from_raw(EntityRow::from_raw_u32(first_id).unwrap())) >> 57;
 
         for bit in 0..u32::BITS {
             let id = first_id ^ (1 << bit);
-            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-                NonMaxU32::new(id).unwrap(),
-            ))) >> 57;
+            let hash = hash.hash_one(Entity::from_raw(EntityRow::from_raw_u32(id).unwrap())) >> 57;
             assert_ne!(hash, first_hash);
         }
     }
@@ -1612,7 +1616,7 @@ mod tests {
 
     #[test]
     fn entity_debug() {
-        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        let entity = Entity::from_raw(EntityRow::from_raw_u32(42).unwrap());
         let string = format!("{entity:?}");
         assert_eq!(string, "42v0");
 
@@ -1623,7 +1627,7 @@ mod tests {
 
     #[test]
     fn entity_display() {
-        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        let entity = Entity::from_raw(EntityRow::from_raw_u32(42).unwrap());
         let string = format!("{entity}");
         assert_eq!(string, "42v0");
 
