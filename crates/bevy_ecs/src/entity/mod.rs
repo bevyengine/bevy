@@ -445,13 +445,9 @@ impl Hash for Entity {
 }
 
 impl Entity {
-    /// Construct an [`Entity`] from a raw `row` value and a non-zero `generation` value.
-    /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
+    /// Constructs an [`Entity`] from a raw `row` value and a non-zero `generation` value.
     #[inline(always)]
-    pub(crate) const fn from_raw_and_generation(
-        row: EntityRow,
-        generation: EntityGeneration,
-    ) -> Entity {
+    pub const fn from_raw_and_generation(row: EntityRow, generation: EntityGeneration) -> Entity {
         Self { row, generation }
     }
 
@@ -1327,7 +1323,6 @@ mod tests {
         let r = EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap());
         assert_eq!(EntityRow::from_bits(r.to_bits()), r);
 
-        // Generation cannot be greater than 0x7FFF_FFFF else it will be an invalid Entity id
         let e = Entity::from_raw_and_generation(
             EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap()),
             EntityGeneration::from_bits(0x5AADF00D),
