@@ -243,97 +243,44 @@ impl From<Justify> for cosmic_text::Align {
     }
 }
 
-/// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
-/// the font face, the font size, the line height, and the antialiasing method.
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+/// The specific font face to use, as a `Handle` to a [`Font`] asset.
+///
+/// If the `font` is not specified, then
+/// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+///   `FiraMono-subset.ttf` compiled into the library is used.
+/// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+///   handle.
+#[derive(Default, Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct TextFont {
-    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
-    ///
-    /// If the `font` is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    pub font: Handle<Font>,
-    /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
-    ///
-    /// A new font atlas is generated for every combination of font handle and scaled font size
-    /// which can have a strong performance impact.
-    pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
-    /// The antialiasing method to use when rendering text.
-    pub font_smoothing: FontSmoothing,
-}
-
-impl TextFont {
-    /// Returns a new [`TextFont`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
-        Self::default().with_font_size(font_size)
-    }
-
-    /// Returns this [`TextFont`] with the specified font face handle.
-    pub fn with_font(mut self, font: Handle<Font>) -> Self {
-        self.font = font;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.font_size = font_size;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.font_smoothing = font_smoothing;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
-}
+pub struct TextFont(pub Handle<Font>);
 
 impl From<Handle<Font>> for TextFont {
     fn from(font: Handle<Font>) -> Self {
-        Self { font, ..default() }
+        Self(font)
     }
 }
 
-impl From<LineHeight> for TextFont {
-    fn from(line_height: LineHeight) -> Self {
-        Self {
-            line_height,
-            ..default()
-        }
-    }
-}
+/// The vertical height of rasterized glyphs in the font atlas in pixels.
+///
+/// This is multiplied by the window scale factor and `UiScale`, but not the text entity
+/// transform or camera projection.
+///
+/// A new font atlas is generated for every combination of font handle and scaled font size
+/// which can have a strong performance impact.
+#[derive(Component, Copy, Clone, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct FontSize(pub f32);
 
-impl Default for TextFont {
+impl Default for FontSize {
     fn default() -> Self {
-        Self {
-            font: Default::default(),
-            font_size: 20.0,
-            line_height: LineHeight::default(),
-            font_smoothing: Default::default(),
-        }
+        Self(20.)
     }
 }
 
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, Component)]
 #[reflect(Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
@@ -429,7 +376,9 @@ pub enum LineBreak {
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
 /// **Note:** Subpixel antialiasing is not currently supported.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize,
+)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 #[doc(alias = "antialiasing")]
 #[doc(alias = "pixelated")]
