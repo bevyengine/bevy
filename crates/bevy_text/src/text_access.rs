@@ -5,7 +5,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 
-use crate::{TextColor, TextFont, TextSpan};
+use crate::{style::ComputedTextStyle, TextColor, TextFont, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component<Mutability = Mutable> {
@@ -56,8 +56,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
         's,
         (
             &'static R,
-            &'static TextFont,
-            &'static TextColor,
+            &'static ComputedTextStyle,
             Option<&'static Children>,
         ),
     >,
@@ -66,8 +65,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
         's,
         (
             &'static TextSpan,
-            &'static TextFont,
-            &'static TextColor,
+            &'static ComputedTextStyle,
             Option<&'static Children>,
         ),
     >,
@@ -92,24 +90,25 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
         &mut self,
         root_entity: Entity,
         index: usize,
-    ) -> Option<(Entity, usize, &str, &TextFont, Color)> {
+    ) -> Option<(Entity, usize, &str, &ComputedTextStyle)> {
         self.iter(root_entity).nth(index)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
     pub fn get_text(&mut self, root_entity: Entity, index: usize) -> Option<&str> {
-        self.get(root_entity, index).map(|(_, _, text, _, _)| text)
+        self.get(root_entity, index).map(|(_, _, text, _)| text)
     }
 
     /// Gets the [`TextFont`] of a text span within a text block at a specific index in the flattened span list.
     pub fn get_font(&mut self, root_entity: Entity, index: usize) -> Option<&TextFont> {
-        self.get(root_entity, index).map(|(_, _, _, font, _)| font)
+        self.get(root_entity, index)
+            .map(|(_, _, _, style)| &style.font)
     }
 
     /// Gets the [`TextColor`] of a text span within a text block at a specific index in the flattened span list.
     pub fn get_color(&mut self, root_entity: Entity, index: usize) -> Option<Color> {
         self.get(root_entity, index)
-            .map(|(_, _, _, _, color)| color)
+            .map(|(_, _, _, style)| style.color)
     }
 
     /// Gets the text value of a text span within a text block at a specific index in the flattened span list.
@@ -149,8 +148,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
         'a,
         (
             &'static R,
-            &'static TextFont,
-            &'static TextColor,
+            &'static ComputedTextStyle,
             Option<&'static Children>,
         ),
     >,
@@ -159,8 +157,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
         'a,
         (
             &'static TextSpan,
-            &'static TextFont,
-            &'static TextColor,
+            &'static ComputedTextStyle,
             Option<&'static Children>,
         ),
     >,
@@ -168,15 +165,15 @@ pub struct TextSpanIter<'a, R: TextRoot> {
 
 impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
-    type Item = (Entity, usize, &'a str, &'a TextFont, Color);
+    type Item = (Entity, usize, &'a str, &'a ComputedTextStyle);
     fn next(&mut self) -> Option<Self::Item> {
         // Root
         if let Some(root_entity) = self.root_entity.take() {
-            if let Ok((text, text_font, color, maybe_children)) = self.roots.get(root_entity) {
+            if let Ok((text, style, maybe_children)) = self.roots.get(root_entity) {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((root_entity, 0, text.read_span(), text_font, color.0));
+                return Some((root_entity, 0, text.read_span(), style));
             }
             return None;
         }
@@ -194,7 +191,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 *idx += 1;
 
                 let entity = *child;
-                let Ok((span, text_font, color, maybe_children)) = self.spans.get(entity) else {
+                let Ok((span, style, maybe_children)) = self.spans.get(entity) else {
                     continue;
                 };
 
@@ -202,7 +199,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
                 if let Some(children) = maybe_children {
                     self.stack.push((children, 0));
                 }
-                return Some((entity, depth, span.read_span(), text_font, color.0));
+                return Some((entity, depth, span.read_span(), style));
             }
 
             // All children at this stack entry have been iterated.
