@@ -12,7 +12,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use downcast_rs::{impl_downcast, Downcast};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 /// A registry of [reflected] types.
 ///
@@ -780,6 +780,14 @@ impl ReflectSerialize {
     /// Turn the value into a serializable representation
     pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
         (self.get_serializable)(value)
+    }
+
+    /// Serializes a reflected value.
+    pub fn serialize<S>(&self, value: &dyn Reflect, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        (self.get_serializable)(value).serialize(serializer)
     }
 }
 

@@ -479,6 +479,11 @@ impl<'w> EntityMut<'w> {
         EntityRef::from(self)
     }
 
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.cell
+    }
+
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
@@ -3873,6 +3878,11 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         FilteredEntityRef::from(self)
     }
 
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
+    }
+
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
@@ -4444,6 +4454,11 @@ where
     #[inline]
     pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
         EntityRefExcept::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Gets access to the component of type `C` for the current entity. Returns
