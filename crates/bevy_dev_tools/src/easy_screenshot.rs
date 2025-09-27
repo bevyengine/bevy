@@ -1,10 +1,18 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    fs::File,
+    io::Write,
+    sync::mpsc::channel,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
-use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode};
-use bevy_render::view::screenshot::{save_to_disk, Screenshot};
+use bevy_image::Image;
+use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode, ButtonInput};
+use bevy_render::view::screenshot::{save_to_disk, Screenshot, ScreenshotCaptured};
+use bevy_time::Time;
 use bevy_window::{PrimaryWindow, Window};
+use x264::{Colorspace, Encoder};
 
 /// File format the screenshot will be saved in
 #[derive(Clone, Copy)]
@@ -62,6 +70,156 @@ impl Plugin for EasyScreenshotPlugin {
                     )));
             })
             .run_if(input_just_pressed(self.trigger)),
+        );
+    }
+}
+
+/// Add this plugin to your app to enable easy screen recording.
+pub struct EasyScreenRecordPlugin {
+    /// The key to toggle recording.
+    pub toggle: KeyCode,
+}
+
+impl Default for EasyScreenRecordPlugin {
+    fn default() -> Self {
+        EasyScreenRecordPlugin {
+            toggle: KeyCode::Space,
+        }
+    }
+}
+
+#[expect(
+    clippy::large_enum_variant,
+    reason = "Large variant happens a lot more often than the others"
+)]
+enum RecordCommand {
+    Start(String),
+    Stop,
+    Frame(Image, f64),
+}
+
+impl Plugin for EasyScreenRecordPlugin {
+    fn build(&self, app: &mut App) {
+        let (tx, rx) = channel::<RecordCommand>();
+
+        std::thread::spawn(move || {
+            let mut encoder: Option<Encoder> = None;
+            let mut file: Option<File> = None;
+            let mut started = false;
+            let mut first_frame_time = None;
+            loop {
+                let Ok(next) = rx.recv() else {
+                    break;
+                };
+                match next {
+                    RecordCommand::Start(name) => {
+                        started = true;
+                        file = Some(File::create(name).unwrap());
+                        first_frame_time = None;
+                    }
+                    RecordCommand::Stop => {
+                        if let Some(encoder) = encoder.take() {
+                            let mut flush = encoder.flush();
+                            let mut file = file.take().unwrap();
+                            while let Some(result) = flush.next() {
+                                let (data, _) = result.unwrap();
+                                file.write_all(data.entirety()).unwrap();
+                            }
+                        }
+                        started = false;
+                    }
+                    RecordCommand::Frame(image, frame_time) => {
+                        if first_frame_time.is_none() {
+                            first_frame_time = Some(frame_time);
+                            continue;
+                        }
+                        if started && encoder.is_none() {
+                            let mut new_encoder = Encoder::builder()
+                                .fps((1.0 / (frame_time - first_frame_time.unwrap())) as u32, 1)
+                                .build(Colorspace::RGB, image.width() as i32, image.height() as i32)
+                                .unwrap();
+
+                            {
+                                let headers = new_encoder.headers().unwrap();
+                                file.as_mut()
+                                    .unwrap()
+                                    .write_all(headers.entirety())
+                                    .unwrap();
+                            }
+
+                            encoder = Some(new_encoder);
+                        }
+                        if let Some(encoder) = encoder.as_mut() {
+                            let (data, _) = encoder
+                                .encode(
+                                    ((frame_time - first_frame_time.unwrap()) * 1000.0) as i64,
+                                    x264::Image::rgb(
+                                        image.width() as i32,
+                                        image.height() as i32,
+                                        &image.try_into_dynamic().unwrap().to_rgb8(),
+                                    ),
+                                )
+                                .unwrap();
+                            file.as_mut().unwrap().write_all(data.entirety()).unwrap();
+                        }
+                    }
+                }
+            }
+        });
+
+        app.add_systems(
+            Update,
+            (
+                {
+                    let tx = tx.clone();
+                    move |window: Single<&Window, With<PrimaryWindow>>,
+                          mut recording: Local<bool>| {
+                        if *recording {
+                            tx.send(RecordCommand::Stop).unwrap();
+                        } else {
+                            let since_the_epoch = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .expect("time should go forward");
+
+                            let filename =
+                                format!("{}-{}.h264", window.title, since_the_epoch.as_millis(),);
+                            tx.send(RecordCommand::Start(filename)).unwrap();
+                        }
+                        *recording = !*recording;
+                    }
+                }
+                .run_if(input_just_pressed(self.toggle)),
+                {
+                    let tx = tx.clone();
+                    let toggle = self.toggle;
+                    move |mut commands: Commands,
+                          mut recording: Local<bool>,
+                          mut frame_count: Local<i32>,
+                          input: Res<ButtonInput<KeyCode>>| {
+                        if input.just_pressed(toggle) && !*recording {
+                            *recording = true;
+                            *frame_count = 0;
+                        } else if input.just_pressed(toggle) {
+                            *recording = false;
+                        }
+                        if *recording {
+                            *frame_count += 1;
+                            let tx = tx.clone();
+                            commands.spawn(Screenshot::primary_window()).observe(
+                                move |screenshot_captured: On<ScreenshotCaptured>,
+                                      time: Res<Time>| {
+                                    let img = screenshot_captured.image.clone();
+                                    tx.send(RecordCommand::Frame(
+                                        img,
+                                        time.elapsed().as_secs_f64(),
+                                    ))
+                                    .unwrap();
+                                },
+                            );
+                        }
+                    }
+                },
+            ),
         );
     }
 }
