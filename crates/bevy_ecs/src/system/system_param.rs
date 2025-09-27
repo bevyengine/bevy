@@ -774,7 +774,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        Query::init_access(&query_state, system_meta, component_access_set, world);
+        Query::init_access(query_state, system_meta, component_access_set, world);
 
         let combined_access = component_access_set.combined_access();
         assert!(
@@ -857,7 +857,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        Query::init_access(&query_state, system_meta, component_access_set, world);
+        Query::init_access(query_state, system_meta, component_access_set, world);
 
         let combined_access = component_access_set.combined_access();
         if combined_access.has_resource_write(*component_id) {
