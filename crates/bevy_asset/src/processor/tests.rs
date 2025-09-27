@@ -31,6 +31,7 @@ use crate::{
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
         ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
+        WriterContext,
     },
     saver::AssetSaver,
     tests::{
@@ -47,14 +48,13 @@ use crate::{
 struct MyProcessor<T>(PhantomData<fn() -> T>);
 
 impl<T: TypePath + 'static> Process for MyProcessor<T> {
-    type OutputLoader = ();
     type Settings = ();
 
     async fn process(
         &self,
         _context: &mut ProcessContext<'_>,
         _settings: &Self::Settings,
-        _writer: &mut crate::io::Writer,
+        _writer: WriterContext<'_>,
     ) -> Result<(), ProcessError> {
         Ok(())
     }
@@ -1835,16 +1835,15 @@ fn gates_asset_path_on_process() {
 
     impl<P: Process> Process for GatedProcess<P> {
         type Settings = P::Settings;
-        type OutputLoader = P::OutputLoader;
 
         async fn process(
             &self,
             context: &mut ProcessContext<'_>,
             settings: &Self::Settings,
-            writer: &mut crate::io::Writer,
-        ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
             let _guard = self.0.lock().await;
-            self.1.process(context, settings, writer).await
+            self.1.process(context, settings, writer_context).await
         }
     }
 

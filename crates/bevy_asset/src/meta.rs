@@ -70,6 +70,10 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
         processor: String,
         settings: ProcessSettings,
     },
+    /// This asset should fail to load, since the original unprocessed asset was decomposed into
+    /// multiple files. This provides a better error message rather than just saying the file is
+    /// missing.
+    Decomposed,
     /// Do nothing with the asset
     Ignore,
 }
@@ -113,6 +117,7 @@ pub struct AssetMetaMinimal {
 pub enum AssetActionMinimal {
     Load { loader: String },
     Process { processor: String },
+    Decomposed,
     Ignore,
 }
 
@@ -194,13 +199,12 @@ impl_downcast!(Settings);
 /// The () processor should never be called. This implementation exists to make the meta format nicer to work with.
 impl Process for () {
     type Settings = ();
-    type OutputLoader = ();
 
     async fn process(
         &self,
         _context: &mut bevy_asset::processor::ProcessContext<'_>,
         _settings: &Self::Settings,
-        _writer: &mut bevy_asset::io::Writer,
+        _writer_context: bevy_asset::processor::WriterContext<'_>,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }

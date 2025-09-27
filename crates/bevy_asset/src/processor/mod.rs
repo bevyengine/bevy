@@ -64,8 +64,9 @@ use bevy_platform::{
     sync::{PoisonError, RwLock},
 };
 use bevy_tasks::IoTaskPool;
+use core::sync::atomic::AtomicU32;
 use futures_io::ErrorKind;
-use futures_lite::{AsyncWriteExt, StreamExt};
+use futures_lite::StreamExt;
 use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
@@ -1067,7 +1068,7 @@ impl AssetProcessor {
                         let meta = processor.deserialize_meta(&meta_bytes)?;
                         (meta, Some(processor))
                     }
-                    AssetActionMinimal::Ignore => {
+                    AssetActionMinimal::Ignore | AssetActionMinimal::Decomposed => {
                         return Ok(ProcessResult::Ignored);
                     }
                 };
@@ -1183,15 +1184,27 @@ impl AssetProcessor {
                 .await
                 .map_err(reader_err)?;
 
-            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            let mut processed_meta = {
+            let mut started_writes = 0;
+            let mut finished_writes = AtomicU32::new(0);
+            let mut single_meta = None;
+            {
                 let mut context = ProcessContext::new(
                     self,
                     asset_path,
                     reader_for_process,
                     &mut new_processed_info,
                 );
-                let process = processor.process(&mut context, settings, &mut *writer);
+                let process = processor.process(
+                    &mut context,
+                    settings,
+                    WriterContext::new(
+                        processed_writer,
+                        &mut started_writes,
+                        &mut finished_writes,
+                        &mut single_meta,
+                        asset_path,
+                    ),
+                );
                 #[cfg(feature = "trace")]
                 let process = {
                     let span = info_span!(
@@ -1201,17 +1214,15 @@ impl AssetProcessor {
                     );
                     process.instrument(span)
                 };
-                process.await?
-            };
+                process.await?;
+            }
 
-            writer
-                .flush()
-                .await
-                .map_err(|e| ProcessError::AssetWriterError {
-                    path: asset_path.clone(),
-                    err: AssetWriterError::Io(e),
-                })?;
-
+            if started_writes == 0 {
+                return Err(InvalidProcessOutput::NoWriter.into());
+            }
+            if started_writes != finished_writes.into_inner() {
+                return Err(InvalidProcessOutput::UnfinishedWriter.into());
+            }
             let full_hash = get_full_asset_hash(
                 new_hash,
                 new_processed_info
@@ -1219,6 +1230,9 @@ impl AssetProcessor {
                     .iter()
                     .map(|i| i.full_hash),
             );
+            let mut processed_meta = single_meta
+                .unwrap_or_else(|| Box::new(AssetMeta::<(), ()>::new(AssetAction::Decomposed)));
+
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
