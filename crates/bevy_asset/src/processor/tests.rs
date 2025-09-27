@@ -1,6 +1,7 @@
 use alloc::{
     boxed::Box,
     collections::BTreeMap,
+    format,
     string::{String, ToString},
     sync::Arc,
     vec,
@@ -733,6 +734,7 @@ fn asset_processor_transforms_asset_with_short_path_meta() {
 #[derive(Asset, TypePath, Serialize, Deserialize)]
 struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
+    gltf_meshes: Vec<String>,
 }
 
 #[derive(TypePath)]
@@ -904,7 +906,8 @@ fn asset_processor_loading_can_read_processed_assets() {
     gltf_nodes: {
         "name": "thing",
         "position": "123",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
     let bsn_path = Path::new("def.bsn");
@@ -1062,7 +1065,8 @@ fn asset_processor_loading_can_read_source_assets() {
     gltf_nodes: {
         "name": "thing",
         "position": "123",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
     let gltf_path_2 = Path::new("def.gltf");
@@ -1072,7 +1076,8 @@ fn asset_processor_loading_can_read_source_assets() {
     gltf_nodes: {
         "velocity": "456",
         "color": "red",
-    }
+    },
+    gltf_meshes: [],
 )"#,
     );
 
@@ -1910,5 +1915,160 @@ fn gates_asset_path_on_process() {
             .unwrap()
             .text,
         "abc processed"
+    );
+}
+
+/// A processor for [`FakeGltf`] that splits each mesh into its own [`FakeGltf`] file, and its nodes
+/// into a [`FakeBsn`] file.
+#[derive(TypePath)]
+struct FakeGltfSplitProcessor;
+
+impl Process for FakeGltfSplitProcessor {
+    type Settings = ();
+
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
+        _settings: &Self::Settings,
+        writer_context: WriterContext<'_>,
+    ) -> Result<(), ProcessError> {
+        use ron::ser::PrettyConfig;
+
+        use crate::io::AssetWriterError;
+
+        let gltf = context.load_source_asset::<FakeGltfLoader>(&()).await?;
+        let Ok(gltf) = gltf.downcast::<FakeGltf>() else {
+            panic!("It should be impossible to downcast to the wrong type here")
+        };
+
+        let root_path = context.path().clone_owned();
+
+        let gltf = gltf.take();
+        let pretty_config = PrettyConfig::new().new_line("\n");
+        for (index, buffer) in gltf.gltf_meshes.into_iter().enumerate() {
+            let mut writer = writer_context
+                .write_multiple(Path::new(&format!("Mesh{index}.mesh")))
+                .await?;
+            let mesh_data = ron::ser::to_string_pretty(
+                &FakeGltf {
+                    gltf_meshes: vec![buffer],
+                    gltf_nodes: Default::default(),
+                },
+                pretty_config.clone(),
+            )
+            .expect("Conversion is safe");
+            writer
+                .write_all(mesh_data.as_bytes())
+                .await
+                .map_err(|err| ProcessError::AssetWriterError {
+                    path: root_path.clone_owned(),
+                    err: AssetWriterError::Io(err),
+                })?;
+            writer.finish::<FakeGltfLoader>(()).await?;
+        }
+
+        let mut writer = writer_context
+            .write_multiple(Path::new("Scene0.bsn"))
+            .await?;
+        let scene_data = ron::ser::to_string_pretty(
+            &FakeBsn {
+                parent_bsn: None,
+                nodes: gltf.gltf_nodes,
+            },
+            pretty_config.clone(),
+        )
+        .expect("Conversion is safe");
+        writer
+            .write_all(scene_data.as_bytes())
+            .await
+            .map_err(|err| ProcessError::AssetWriterError {
+                path: root_path.clone_owned(),
+                err: AssetWriterError::Io(err),
+            })?;
+        writer.finish::<FakeBsnLoader>(()).await?;
+        Ok(())
+    }
+}
+
+#[test]
+fn asset_processor_can_write_multiple_files() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    app.register_asset_loader(FakeGltfLoader)
+        .register_asset_loader(FakeBsnLoader)
+        .register_asset_processor(FakeGltfSplitProcessor)
+        .set_default_asset_processor::<FakeGltfSplitProcessor>("gltf");
+
+    let guard = source_gate.write_blocking();
+
+    let gltf_path = Path::new("abc.gltf");
+    source_dir.insert_asset_text(
+        gltf_path,
+        r#"(
+    gltf_nodes: {
+        "name": "thing",
+        "position": "123",
+    },
+    gltf_meshes: ["buffer1", "buffer2", "buffer3"],
+)"#,
+    );
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let path_to_data = |path| {
+        let data = processed_dir.get_asset(Path::new(path)).unwrap();
+        let data = str::from_utf8(data.value()).unwrap();
+        data.to_string()
+    };
+
+    // All the meshes were decomposed into separate asset files.
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh0.mesh"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer1",
+    ],
+)"#
+    );
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh1.mesh"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer2",
+    ],
+)"#
+    );
+    assert_eq!(
+        path_to_data("abc.gltf/Mesh2.mesh"),
+        r#"(
+    gltf_nodes: {},
+    gltf_meshes: [
+        "buffer3",
+    ],
+)"#
+    );
+
+    // The nodes should have been written to the scene file.
+    assert_eq!(
+        path_to_data("abc.gltf/Scene0.bsn"),
+        r#"(
+    parent_bsn: None,
+    nodes: {
+        "name": "thing",
+        "position": "123",
+    },
+)"#
     );
 }
