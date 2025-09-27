@@ -63,8 +63,9 @@ use bevy_platform::{
     sync::{PoisonError, RwLock},
 };
 use bevy_tasks::IoTaskPool;
+use core::sync::atomic::AtomicU32;
 use futures_io::ErrorKind;
-use futures_lite::{AsyncWriteExt, StreamExt};
+use futures_lite::StreamExt;
 use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
@@ -994,7 +995,7 @@ impl AssetProcessor {
                         let meta = processor.deserialize_meta(&meta_bytes)?;
                         (meta, Some(processor))
                     }
-                    AssetActionMinimal::Ignore => {
+                    AssetActionMinimal::Ignore | AssetActionMinimal::Decomposed => {
                         return Ok(ProcessResult::Ignored);
                     }
                 };
@@ -1097,27 +1098,34 @@ impl AssetProcessor {
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
         if let Some(processor) = processor {
-            let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            let mut processed_meta = {
-                let mut context = ProcessContext::new(
-                    self,
-                    asset_path,
-                    reader_for_process,
-                    &mut new_processed_info,
-                );
-                processor
-                    .process(&mut context, source_meta, &mut *writer)
-                    .await?
-            };
+            let mut started_writes = 0;
+            let mut finished_writes = AtomicU32::new(0);
+            let mut single_meta = None;
+            processor
+                .process(
+                    &mut ProcessContext::new(
+                        self,
+                        asset_path,
+                        reader_for_process,
+                        &mut new_processed_info,
+                    ),
+                    source_meta,
+                    WriterContext::new(
+                        processed_writer,
+                        &mut started_writes,
+                        &mut finished_writes,
+                        &mut single_meta,
+                        asset_path,
+                    ),
+                )
+                .await?;
 
-            writer
-                .flush()
-                .await
-                .map_err(|e| ProcessError::AssetWriterError {
-                    path: asset_path.clone(),
-                    err: AssetWriterError::Io(e),
-                })?;
-
+            if started_writes == 0 {
+                return Err(InvalidProcessOutput::NoWriter.into());
+            }
+            if started_writes != finished_writes.into_inner() {
+                return Err(InvalidProcessOutput::UnfinishedWriter.into());
+            }
             let full_hash = get_full_asset_hash(
                 new_hash,
                 new_processed_info
@@ -1125,6 +1133,9 @@ impl AssetProcessor {
                     .iter()
                     .map(|i| i.full_hash),
             );
+            let mut processed_meta = single_meta
+                .unwrap_or_else(|| Box::new(AssetMeta::<(), ()>::new(AssetAction::Decomposed)));
+
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
@@ -1416,16 +1427,13 @@ struct InstrumentedAssetProcessor<T>(T);
 #[cfg(feature = "trace")]
 impl<T: Process> Process for InstrumentedAssetProcessor<T> {
     type Settings = T::Settings;
-    type OutputLoader = T::OutputLoader;
 
     fn process(
         &self,
         context: &mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &mut crate::io::Writer,
-    ) -> impl ConditionalSendFuture<
-        Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
-    > {
+        writer_context: WriterContext<'_>,
+    ) -> impl ConditionalSendFuture<Output = Result<(), ProcessError>> {
         // Change the processor type for the `AssetMeta`, which works because we share the `Settings` type.
         let meta = AssetMeta {
             meta_format_version: meta.meta_format_version,
@@ -1437,7 +1445,9 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
             processor = core::any::type_name::<T>(),
             asset = context.path().to_string(),
         );
-        self.0.process(context, meta, writer).instrument(span)
+        self.0
+            .process(context, meta, writer_context)
+            .instrument(span)
     }
 }
 
