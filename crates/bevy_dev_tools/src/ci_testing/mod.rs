@@ -3,7 +3,9 @@
 mod config;
 mod systems;
 
-use crate::{EasyCameraMovementPlugin, EasyScreenRecordPlugin};
+use crate::EasyCameraMovementPlugin;
+#[cfg(feature = "screenrecording")]
+use crate::EasyScreenRecordPlugin;
 
 pub use self::config::*;
 
