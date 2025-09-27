@@ -2620,7 +2620,7 @@ impl World {
         self.resource_entities.remove(&component_id);
 
         // There may be commands that are registered by the closure, which interact with the resource.
-        // In make sure that the resource is available, we avoid flushing untill the resource is fully inserted back.
+        // In make sure that the resource is available, we avoid flushing until the resource is fully inserted back.
         // Since spawn calls flush, we do it before calling the closure, and check afterwards that it was not removed.
         // world.flush() is now called at the end of `insert_with_caller()`.
         let entity = self.spawn(IsResource).id();
