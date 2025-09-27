@@ -622,7 +622,7 @@ mod tests {
         entity::Entities,
         error::Result,
         prelude::{Component, Query},
-        reflect::ReflectResource,
+        reflect::{ReflectComponent, ReflectResource},
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;

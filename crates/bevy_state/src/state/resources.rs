@@ -10,7 +10,7 @@ use bevy_ecs::{
 use super::{freely_mutable_state::FreelyMutableState, states::States};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_ecs::prelude::ReflectResource;
+use bevy_ecs::prelude::{ReflectComponent, ReflectResource};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::ReflectDefault;

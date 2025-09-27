@@ -49,7 +49,14 @@ pub mod prelude {
 use bevy_app::prelude::*;
 
 #[cfg(feature = "serialize")]
-use {bevy_asset::AssetApp, bevy_ecs::schedule::IntoScheduleConfigs};
+use {
+    bevy_asset::AssetApp,
+    bevy_ecs::schedule::IntoScheduleConfigs,
+    bevy_ecs::{
+        entity_disabling::{DefaultQueryFilters, Internal},
+        resource::IsResource,
+    },
+};
 
 /// Plugin that provides scene functionality to an [`App`].
 #[derive(Default)]
@@ -62,6 +69,11 @@ impl Plugin for ScenePlugin {
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
+            .register_type::<SceneRoot>()
+            .register_type::<DynamicSceneRoot>()
+            .register_type::<IsResource>()
+            .register_type::<Internal>()
+            .register_type::<DefaultQueryFilters>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicSceneRoot
@@ -120,9 +132,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
-        query::Allow,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -161,6 +171,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -287,6 +299,8 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
+            .register_type::<ChildOf>()
+            .register_type::<Children>()
             .register_type::<Circle>()
             .register_type::<Rectangle>()
             .register_type::<Triangle>()
@@ -309,11 +323,7 @@ mod tests {
             scene
                 .world
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
-            let entities: Vec<Entity> = scene
-                .world
-                .query_filtered::<Entity, Allow<Internal>>()
-                .iter(&scene.world)
-                .collect();
+            let entities: Vec<Entity> = scene.world.query::<Entity>().iter(&scene.world).collect();
             DynamicSceneBuilder::from_world(&scene.world)
                 .extract_entities(entities.into_iter())
                 .build()
