@@ -5,15 +5,17 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs::File, io::Write, sync::mpsc::channel};
 
 use bevy_app::{App, Plugin, Update};
+use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 #[cfg(feature = "screenrecording")]
 use bevy_image::Image;
 use bevy_input::{common_conditions::input_just_pressed, keyboard::KeyCode};
+use bevy_math::{Quat, StableInterpolate, Vec3};
 #[cfg(feature = "screenrecording")]
 use bevy_render::view::screenshot::ScreenshotCaptured;
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
-#[cfg(feature = "screenrecording")]
 use bevy_time::Time;
+use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
 #[cfg(feature = "screenrecording")]
 use tracing::info;
@@ -254,6 +256,49 @@ impl Plugin for EasyScreenRecordPlugin {
                 },
             )
                 .chain(),
+        );
+    }
+}
+
+/// Plugin to move the camera smoothly according to the current time
+pub struct EasyCameraMovementPlugin {
+    /// Decay rate for the camera movement
+    pub decay_rate: f32,
+}
+
+impl Default for EasyCameraMovementPlugin {
+    fn default() -> Self {
+        Self { decay_rate: 1.0 }
+    }
+}
+
+/// Move the camera to the given position
+#[derive(Component)]
+pub struct CameraMovement {
+    /// Target position for the camera movement
+    pub translation: Vec3,
+    /// Target rotation for the camera movement
+    pub rotation: Quat,
+}
+
+impl Plugin for EasyCameraMovementPlugin {
+    fn build(&self, app: &mut App) {
+        let decay_rate = self.decay_rate;
+        app.add_systems(
+            Update,
+            move |mut query: Single<(&mut Transform, &CameraMovement), With<Camera>>,
+                  time: Res<Time>| {
+                let target = query.1;
+                query.0.translation.smooth_nudge(
+                    &target.translation,
+                    decay_rate,
+                    time.delta_secs(),
+                );
+                query
+                    .0
+                    .rotation
+                    .smooth_nudge(&target.rotation, decay_rate, time.delta_secs());
+            },
         );
     }
 }
