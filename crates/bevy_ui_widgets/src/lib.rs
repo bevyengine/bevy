@@ -33,7 +33,7 @@ pub use scrollbar::*;
 pub use slider::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{entity::Entity, event::EntityEvent};
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
@@ -51,13 +51,14 @@ impl PluginGroup for UiWidgetsPlugins {
 }
 
 /// Notification sent by a button or menu item.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
 pub struct Activate(pub Entity);
 
 /// Notification sent by a widget that edits a scalar value.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
 pub struct ValueChange<T> {
     /// The id of the widget that produced this value.
+    #[event_target]
     pub source: Entity,
     /// The new value.
     pub value: T,
