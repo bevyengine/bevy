@@ -888,7 +888,7 @@ mod tests {
             .add_column(components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
-            .map(|index| Entity::from_raw(EntityRow::from_raw_u32(index).unwrap()))
+            .map(|index| Entity::from_row(EntityRow::from_raw_u32(index).unwrap()))
             .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
