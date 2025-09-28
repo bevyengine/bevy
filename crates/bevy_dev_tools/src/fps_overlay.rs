@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{TextColor, TextFont, TextSpan, TextStyle};
+use bevy_text::{TextColor, TextFont, TextStyle};
 use bevy_time::Time;
 use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
