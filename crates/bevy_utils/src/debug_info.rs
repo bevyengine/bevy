@@ -132,6 +132,20 @@ cfg::alloc! {
             Self::owned(value)
         }
     }
+
+    impl From<DebugName> for Cow<'static, str> {
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
+        fn from(value: DebugName) -> Self {
+            #[cfg(feature = "debug")]
+            value.name
+        }
+    }
 }
 
 impl From<&'static str> for DebugName {
