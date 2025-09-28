@@ -172,6 +172,20 @@ impl Srgba {
         }
     }
 
+    /// New `Srgba` from a u32 literal.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_color::Srgba;
+    /// let color = Srgba::literal(0xFF00FFFF); // fuchsia
+    /// let color = Srgba::literal(0xFF00FF7F); // partially transparent fuchsia
+    /// ```
+    pub fn literal(hex: u32) -> Self {
+        let rgba = hex.to_be_bytes();
+        Self::rgba_u8(rgba[0], rgba[1], rgba[2], rgba[3])
+    }
+
     /// Convert this color to CSS-style hexadecimal notation.
     #[cfg(feature = "alloc")]
     pub fn to_hex(&self) -> String {
@@ -517,5 +531,17 @@ mod tests {
 
         assert!(matches!(Srgba::hex("yyy"), Err(HexColorError::Parse(_))));
         assert!(matches!(Srgba::hex("##fff"), Err(HexColorError::Parse(_))));
+    }
+
+    #[test]
+    fn literal_color() {
+        assert_eq!(Srgba::literal(0xFFFFFFFF), Srgba::WHITE);
+        assert_eq!(Srgba::literal(0x000000FF), Srgba::BLACK);
+        assert_eq!(Srgba::literal(0x03a9f4FF), Srgba::rgb_u8(3, 169, 244));
+        assert_eq!(Srgba::literal(0xFF22AAFF), Srgba::rgb_u8(255, 34, 170));
+        assert_eq!(Srgba::literal(0xE23030FF), Srgba::rgb_u8(226, 48, 48));
+        assert_eq!(Srgba::literal(0x11223344), Srgba::rgba_u8(17, 34, 51, 68));
+        assert_eq!(Srgba::literal(0x12345678), Srgba::rgba_u8(18, 52, 86, 120));
+        assert_eq!(Srgba::literal(0x44332211), Srgba::rgba_u8(68, 51, 34, 17));
     }
 }
