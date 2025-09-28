@@ -143,7 +143,13 @@ cfg::alloc! {
         )]
         fn from(value: DebugName) -> Self {
             #[cfg(feature = "debug")]
-            value.name
+            {
+                value.name
+            }
+            #[cfg(not(feature = "debug"))]
+            {
+                Cow::Borrowed(FEATURE_DISABLED)
+            }
         }
     }
 }
