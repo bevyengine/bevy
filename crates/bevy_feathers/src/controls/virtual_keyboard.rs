@@ -2,15 +2,16 @@ use bevy_ecs::{
     bundle::Bundle,
     component::Component,
     hierarchy::{ChildOf, Children},
+    observer::On,
     relationship::RelatedSpawner,
     spawn::{Spawn, SpawnRelated, SpawnWith},
-    system::{In, SystemId},
+    system::{Commands, In, SystemId},
 };
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_ui::Node;
 use bevy_ui::Val;
 use bevy_ui::{widget::Text, FlexDirection};
-use bevy_ui_widgets::{Activate, Callback};
+use bevy_ui_widgets::{observe, Activate};
 
 use crate::controls::{button, ButtonProps};
 
@@ -39,13 +40,12 @@ where
                     },
                     Children::spawn(SpawnWith(move |parent: &mut RelatedSpawner<ChildOf>| {
                         for (label, key_id) in row.into_iter() {
-                            parent.spawn(button(
-                                ButtonProps {
-                                    on_click: Callback::System(on_key_press),
-                                    ..Default::default()
-                                },
-                                (key_id,),
-                                Spawn(Text::new(label)),
+                            parent.spawn((
+                                button(ButtonProps::default(), (key_id,), Spawn(Text::new(label))),
+                                observe(move |activate: On<Activate>, mut commands: Commands| {
+                                    // TODO: Turn this into an event as well, or use event forwarding.
+                                    commands.run_system_with(on_key_press, *activate);
+                                }),
                             ));
                         }
                     })),

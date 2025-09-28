@@ -16,8 +16,9 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, Button, Callback, Checkbox, CoreSliderDragState, RadioButton, RadioGroup, Slider,
-        SliderRange, SliderThumb, SliderValue, TrackClick, UiWidgetsPlugins, ValueChange,
+        checkbox_self_update, observe, Activate, Button, Checkbox, CoreSliderDragState,
+        RadioButton, RadioGroup, Slider, SliderRange, SliderThumb, SliderValue, TrackClick,
+        UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -121,46 +122,12 @@ fn update_widget_values(
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|_: In<Activate>| {
-        info!("Button clicked!");
-    });
-
-    // System to update a resource when the slider value changes. Note that we could have
-    // updated the slider value directly, but we want to demonstrate externalizing the state.
-    let on_change_value = commands.register_system(
-        |value: In<ValueChange<f32>>, mut widget_states: ResMut<DemoWidgetStates>| {
-            widget_states.slider_value = value.0.value;
-        },
-    );
-
-    // System to update a resource when the radio group changes.
-    let on_change_radio = commands.register_system(
-        |value: In<Activate>,
-         mut widget_states: ResMut<DemoWidgetStates>,
-         q_radios: Query<&DemoRadio>| {
-            if let Ok(radio) = q_radios.get(value.0 .0) {
-                widget_states.slider_click = radio.0;
-            }
-        },
-    );
-
     // ui camera
     commands.spawn(Camera2d);
-    commands.spawn(demo_root(
-        &assets,
-        Callback::System(on_click),
-        Callback::System(on_change_value),
-        Callback::System(on_change_radio),
-    ));
+    commands.spawn(demo_root(&assets));
 }
 
-fn demo_root(
-    asset_server: &AssetServer,
-    on_click: Callback<In<Activate>>,
-    on_change_value: Callback<In<ValueChange<f32>>>,
-    on_change_radio: Callback<In<Activate>>,
-) -> impl Bundle {
+fn demo_root(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: percent(100),
@@ -174,16 +141,43 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, on_change_value),
-            checkbox(asset_server, "Checkbox", Callback::Ignore),
-            radio_group(asset_server, on_change_radio),
+            (
+                button(asset_server),
+                observe(|_activate: On<Activate>| {
+                    info!("Button clicked!");
+                }),
+            ),
+            (
+                slider(0.0, 100.0, 50.0),
+                observe(
+                    |value_change: On<ValueChange<f32>>,
+                     mut widget_states: ResMut<DemoWidgetStates>| {
+                        widget_states.slider_value = value_change.value;
+                    },
+                )
+            ),
+            (
+                checkbox(asset_server, "Checkbox"),
+                observe(checkbox_self_update)
+            ),
+            (
+                radio_group(asset_server),
+                observe(
+                    |value_change: On<ValueChange<Entity>>,
+                     mut widget_states: ResMut<DemoWidgetStates>,
+                     q_radios: Query<&DemoRadio>| {
+                        if let Ok(radio) = q_radios.get(value_change.value) {
+                            widget_states.slider_click = radio.0;
+                        }
+                    },
+                )
+            ),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
+fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: px(150),
@@ -194,9 +188,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             ..default()
         },
         DemoButton,
-        Button {
-            on_activate: on_click,
-        },
+        Button,
         Hovered::default(),
         TabIndex(0),
         BorderColor::all(Color::BLACK),
@@ -326,12 +318,7 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(
-    min: f32,
-    max: f32,
-    value: f32,
-    on_change: Callback<In<ValueChange<f32>>>,
-) -> impl Bundle {
+fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -348,8 +335,8 @@ fn slider(
         Hovered::default(),
         DemoSlider,
         Slider {
-            on_change,
             track_click: TrackClick::Snap,
+            ..default()
         },
         SliderValue(value),
         SliderRange::new(min, max),
@@ -473,11 +460,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 }
 
 /// Create a demo checkbox
-fn checkbox(
-    asset_server: &AssetServer,
-    caption: &str,
-    on_change: Callback<In<ValueChange<bool>>>,
-) -> impl Bundle {
+fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -491,7 +474,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        Checkbox { on_change },
+        Checkbox,
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -669,7 +652,7 @@ fn set_checkbox_or_radio_style(
 }
 
 /// Create a demo radio group
-fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) -> impl Bundle {
+fn radio_group(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -679,7 +662,7 @@ fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) ->
             ..default()
         },
         Name::new("RadioGroup"),
-        RadioGroup { on_change },
+        RadioGroup,
         TabIndex::default(),
         children![
             (radio(asset_server, TrackClick::Drag, "Slider Drag"),),

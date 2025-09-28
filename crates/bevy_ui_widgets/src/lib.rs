@@ -19,15 +19,15 @@
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
 mod button;
-mod callback;
 mod checkbox;
+mod observe;
 mod radio;
 mod scrollbar;
 mod slider;
 
 pub use button::*;
-pub use callback::*;
 pub use checkbox::*;
+pub use observe::*;
 pub use radio::*;
 pub use scrollbar::*;
 pub use slider::*;

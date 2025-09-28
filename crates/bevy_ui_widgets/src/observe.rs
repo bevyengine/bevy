@@ -1,3 +1,5 @@
+// TODO: This probably doesn't belong in bevy_ui_widgets, but I am not sure where it should go.
+// It is certainly a useful thing to have.
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 
 use core::marker::PhantomData;
@@ -57,6 +59,7 @@ impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
         ptr: bevy_ecs::ptr::MovingPtr<'_, core::mem::MaybeUninit<Self>>,
         entity: &mut bevy_ecs::world::EntityWorldMut,
     ) {
+        // SAFETY: `get_components` does nothing, value was not moved.
         let add_observer = unsafe { ptr.assume_init() };
         let add_observer = add_observer.read();
         entity.observe(add_observer.observer);
