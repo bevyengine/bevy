@@ -20,7 +20,7 @@ use bevy_mesh::*;
 use wgpu::IndexFormat;
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
-/// Does *not* add the [`Mesh`] as an asset. Use [bevy_mesh::MeshPlugin] for that.
+/// Does *not* add the [`Mesh`] as an asset. Use [`bevy_mesh::MeshPlugin`] for that.
 pub(crate) struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
