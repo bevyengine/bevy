@@ -525,7 +525,7 @@ fn slider_on_set_value(
 }
 
 /// Observer function which updates the slider value in response to a [`ValueChange`] event.
-/// This can be used to make the slider automatically update its own staqte when dragged,
+/// This can be used to make the slider automatically update its own state when dragged,
 /// as opposed to managing the slider state externally.
 pub fn slider_self_update(value_change: On<ValueChange<f32>>, mut commands: Commands) {
     commands
