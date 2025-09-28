@@ -51,30 +51,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Text with multiple sections
-    let mut entity_commands = commands.spawn((
-        // Create a Text with multiple child spans.
-        Text::new("FPS: "),
-        // This font is loaded and will be used instead of the default font.
-        TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
-        FontSize(42.0),
-    ));
-
-    if cfg!(feature = "default_font") {
-        entity_commands.insert((
-            // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-            FontSize(33.),
-            TextColor(GOLD.into()),
-            FpsText,
-        ));
-    } else {
-        entity_commands.insert((
-            // "default_font" feature is unavailable, load a font to use instead.
-            TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
-            FontSize(33.),
-            TextColor(GOLD.into()),
-            FpsText,
-        ));
-    };
+    let mut entity_commands = commands
+        .spawn((
+            // Create a Text with multiple child spans.
+            Text::new("FPS: "),
+            // This font is loaded and will be used instead of the default font.
+            TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize(42.0),
+        ))
+        .with_children(|parent| {
+            let mut entity_commands = parent.spawn((Text::new("0"), FpsText));
+            if cfg!(feature = "default_font") {
+                entity_commands.insert((
+                    // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+                    FontSize(33.),
+                    TextColor(GOLD.into()),
+                    FpsText,
+                ));
+            } else {
+                entity_commands.insert((
+                    // "default_font" feature is unavailable, load a font to use instead.
+                    TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+                    FontSize(33.),
+                    TextColor(GOLD.into()),
+                    FpsText,
+                ));
+            };
+        });
 
     #[cfg(feature = "default_font")]
     commands.spawn((
