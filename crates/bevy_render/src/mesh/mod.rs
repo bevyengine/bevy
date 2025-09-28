@@ -19,8 +19,9 @@ use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
+/// Makes sure that they are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [bevy_mesh::MeshPlugin] for that.
+pub(crate) struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
