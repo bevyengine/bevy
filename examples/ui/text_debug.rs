@@ -6,7 +6,6 @@ use bevy::{
     color::palettes::css::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    ui::widget::TextUiWriter,
     window::PresentMode,
 };
 
@@ -55,22 +54,16 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         }).with_children(|builder| {
         builder.spawn((
             Text::new("This is\ntext with\nline breaks\nin the top left."),
-            TextFont {
-                font: font.clone(),
-                font_size: 25.0,
-                ..default()
-            },
+            TextFont(font.clone()),
+            FontSize(25.0),                
             BackgroundColor(background_color)
         ));
         builder.spawn((
             Text::new(
                 "This text is right-justified. The `Justify` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
             ),
-            TextFont {
-                font: font.clone(),
-                font_size: 25.0,
-                ..default()
-            },
+            TextFont ( font.clone()),
+            FontSize(25.0),
             TextColor(YELLOW.into()),
             TextLayout::new_with_justify(Justify::Right),
             Node {
@@ -82,11 +75,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         builder.spawn((
             Text::new(
                 "This\ntext has\nline breaks and also a set width in the bottom left."),
-            TextFont {
-                font: font.clone(),
-                font_size: 25.0,
-                ..default()
-            },
+            TextFont(font.clone()),
+            FontSize(25.0),
             Node {
                 max_width: px(300),
                 ..default()
@@ -108,11 +98,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn((
                 Text::new("This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 33.0,
-                    ..default()
-                },
+                TextFont(font.clone()),
+                FontSize(33.0),
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
                 TextLayout::new_with_justify(Justify::Center),
                 Node {
@@ -124,11 +111,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder.spawn((
                 Text::new("This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 29.0,
-                    ..default()
-                },
+                TextFont(font.clone()),
+                FontSize(29.0),
                 TextColor(YELLOW.into()),
                 TextLayout::new_with_justify(Justify::Left),
                 Node {
@@ -140,11 +124,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder.spawn((
                 Text::new("This text is fully justified and is positioned in the same way."),
-                TextFont {
-                    font: font.clone(),
-                    font_size: 29.0,
-                    ..default()
-                },
+                TextFont(font.clone()),
+                FontSize(29.0),
                 TextLayout::new_with_justify(Justify::Justified),
                 TextColor(GREEN_YELLOW.into()),
                 Node {
@@ -157,84 +138,57 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn((
                     Text::default(),
-                    TextFont {
-                        font: font.clone(),
-                        font_size: 21.0,
-                        ..default()
-                    },
+                    TextFont(font.clone()),
+                FontSize(21.0),
                     TextChanges,
                     BackgroundColor(background_color),
                 ))
                 .with_children(|p| {
                     p.spawn((
-                        TextSpan::new("\nThis text changes in the bottom right"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 21.0,
-                            ..default()
-                        },
+                        Text::new("\nThis text changes in the bottom right"),
+                        TextFont(font.clone()),
+                FontSize(21.0),
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has zero font size"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 0.0,
-                            ..default()
-                        },
+                        Text::new(" this text has zero font size"),
+                        TextFont(font.clone()),
+                FontSize(0.0),
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
-                        TextSpan::new("\nThis text changes in the bottom right - "),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 21.0,
-                            ..default()
-                        },
+                        Text::new("\nThis text changes in the bottom right - "),
+                        TextFont(font.clone()),
+                FontSize(21.0),
                         TextColor(RED.into()),
                     ));
                     p.spawn((
-                        TextSpan::default(),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 21.0,
-                            ..default()
-                        },
+                        Text::default(),
+                        TextFont(font.clone()),
+                FontSize(21.0),
                         TextColor(ORANGE_RED.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" fps, "),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 10.0,
-                            ..default()
-                        },
+                        Text::new(" fps, "),
+                        TextFont(font.clone()),
+                FontSize(21.0),
                         TextColor(YELLOW.into()),
                     ));
                     p.spawn((
-                        TextSpan::default(),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 21.0,
-                            ..default()
-                        },
+                        Text::default(),
+                        TextFont(font.clone()),
+                FontSize(21.0),
                         TextColor(LIME.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" ms/frame"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: 42.0,
-                            ..default()
-                        },
+                        Text::new(" ms/frame"),
+                        TextFont(font.clone()),
+                FontSize(42.0),
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
-                        TextSpan::new(" this text has negative font size"),
-                        TextFont {
-                            font: font.clone(),
-                            font_size: -42.0,
-                            ..default()
-                        },
+                        Text::new(" this text has negative font size"),
+                        TextFont(font.clone()),
+                FontSize(-42.0),
                         TextColor(BLUE.into()),
                     ));
                 });
@@ -250,8 +204,9 @@ fn change_text_system(
     mut time_history: Local<VecDeque<Duration>>,
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
-    query: Query<Entity, With<TextChanges>>,
-    mut writer: TextUiWriter,
+    mut query: Query<Entity, With<TextChanges>>,
+    children_query: Query<&Children>,
+    mut text_query: Query<&mut Text>,
 ) {
     time_history.push_front(time.elapsed());
     time_history.truncate(120);
@@ -264,7 +219,7 @@ fn change_text_system(
     fps_history.truncate(120);
     let fps_variance = std_deviation(fps_history.make_contiguous()).unwrap_or_default();
 
-    for entity in &query {
+    for entity in &mut query {
         let mut fps = 0.0;
         if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
             && let Some(fps_smoothed) = fps_diagnostic.smoothed()
@@ -279,17 +234,17 @@ fn change_text_system(
         {
             frame_time = frame_time_smoothed;
         }
+        text_query.get_mut(entity).unwrap().0 = format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
 
-        *writer.text(entity, 0) =
-            format!("{avg_fps:.1} avg fps, {fps_variance:.1} frametime variance",);
-
-        *writer.text(entity, 1) = format!(
-            "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
+        let children: Vec<Entity> = children_query.iter_descendants(entity).collect();
+         
+        text_query.get_mut(children[0]).unwrap().0 = format!(
+             "\nThis text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
-        *writer.text(entity, 4) = format!("{fps:.1}");
+        text_query.get_mut(children[3]).unwrap().0 = format!("{fps:.1}");
 
-        *writer.text(entity, 6) = format!("{frame_time:.3}");
+        text_query.get_mut(children[5]).unwrap().0 = format!("{frame_time:.3}");
     }
 }
 
