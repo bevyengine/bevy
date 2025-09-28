@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::FontSize,
 };
 
 fn main() {
@@ -32,12 +33,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 67.0,
-            ..default()
-        },
+        // This font is loaded and will be used instead of the default font.
+        TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize(67.0),
         TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
@@ -53,41 +51,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Text with multiple sections
-    commands
-        .spawn((
-            // Create a Text with multiple child spans.
-            Text::new("FPS: "),
-            TextFont {
-                // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 42.0,
-                ..default()
-            },
-        ))
-        .with_child((
-            TextSpan::default(),
-            if cfg!(feature = "default_font") {
-                (
-                    TextFont {
-                        font_size: 33.0,
-                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            } else {
-                (
-                    // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 33.0,
-                        ..Default::default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            },
+    let mut entity_commands = commands.spawn((
+        // Create a Text with multiple child spans.
+        Text::new("FPS: "),
+        // This font is loaded and will be used instead of the default font.
+        TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize(42.0),
+    ));
+
+    if cfg!(feature = "default_font") {
+        entity_commands.insert((
+            // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+            FontSize(33.),
+            TextColor(GOLD.into()),
             FpsText,
         ));
+    } else {
+        entity_commands.insert((
+            // "default_font" feature is unavailable, load a font to use instead.
+            TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+            FontSize(33.),
+            TextColor(GOLD.into()),
+            FpsText,
+        ));
+    };
 
     #[cfg(feature = "default_font")]
     commands.spawn((
@@ -105,10 +92,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
         Text::new("Default font disabled"),
-        TextFont {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            ..default()
-        },
+        TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(5),
