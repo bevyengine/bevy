@@ -22,6 +22,8 @@ use bevy_ecs::entity::Entity;
 /// state of the checkbox. The widget will emit a [`ValueChange<bool>`] event when clicked, or when
 /// the `Enter` or `Space` key is pressed while the checkbox is focused.
 ///
+/// Add the [`checkbox_self_update`] observer watching the entity with this component to automatically add and remove the [`Checked`] component.
+///
 /// # Toggle switches
 ///
 /// The [`Checkbox`] component can be used to implement other kinds of toggle widgets. If you
