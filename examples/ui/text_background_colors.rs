@@ -50,7 +50,7 @@ fn setup(mut commands: Commands) {
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
                         commands.spawn((
-                            TextSpan::new(*section_str),
+                            Text::new(*section_str),
                             TextColor::BLACK,
                             TextFont {
                                 font_size: 100.,

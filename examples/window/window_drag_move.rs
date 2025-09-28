@@ -71,16 +71,14 @@ fn setup(mut commands: Commands) {
         children![(
             Text::default(),
             children![
-                TextSpan::new(
-                    "Demonstrate drag move and drag resize without window decorations.\n\n",
-                ),
-                TextSpan::new("Controls:\n"),
-                TextSpan::new("A - change left click action ["),
-                TextSpan::new("Move"),
-                TextSpan::new("]\n"),
-                TextSpan::new("S / D - change resize direction ["),
-                TextSpan::new("NorthWest"),
-                TextSpan::new("]\n"),
+                Text::new("Demonstrate drag move and drag resize without window decorations.\n\n",),
+                Text::new("Controls:\n"),
+                Text::new("A - change left click action ["),
+                Text::new("Move"),
+                Text::new("]\n"),
+                Text::new("S / D - change resize direction ["),
+                Text::new("NorthWest"),
+                Text::new("]\n"),
             ]
         )],
     ));

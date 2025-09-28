@@ -184,7 +184,7 @@ mod game {
                                 TextColor(BLUE.into()),
                             ),
                             (
-                                TextSpan::new(" - "),
+                                Text::new(" - "),
                                 TextFont {
                                     font_size: 50.0,
                                     ..default()
