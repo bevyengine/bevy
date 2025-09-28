@@ -1,3 +1,4 @@
+use bevy_reflect::prelude::ReflectDefault;
 use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
@@ -19,15 +20,9 @@ use bevy_transform::prelude::GlobalTransform;
 use offset_allocator::{Allocation, Allocator};
 use smallvec::SmallVec;
 use tracing::error;
-
-/// Maximum number of joints supported for skinned meshes.
-///
-/// It is used to allocate buffers.
-/// The correctness of the value depends on the GPU/platform.
-/// The current value is chosen because it is guaranteed to work everywhere.
-/// To allow for bigger values, a check must be made for the limits
-/// of the GPU at runtime, which would mean not using consts anymore.
-pub const MAX_JOINTS: usize = 256;
+use bevy_mesh::morph::MorphWeights;
+use bevy_reflect::Reflect;
+use bevy_render::extract_resource::ExtractResource;
 
 /// The total number of joints we support.
 ///
@@ -117,6 +112,7 @@ pub struct SkinUniforms {
 
 impl FromWorld for SkinUniforms {
     fn from_world(world: &mut World) -> Self {
+        let skinned_mesh_settings = world.get_resource_or_init::<GlobalSkinnedMeshSettings>().to_owned();
         let device = world.resource::<RenderDevice>();
         let buffer_usages = (if skins_use_uniform_buffers(device) {
             BufferUsages::UNIFORM
@@ -129,13 +125,13 @@ impl FromWorld for SkinUniforms {
         // These will be swapped every frame.
         let current_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+            size: skinned_mesh_settings.max_joints as u64 * size_of::<Mat4>() as u64,
             usage: buffer_usages,
             mapped_at_creation: false,
         });
         let prev_buffer = device.create_buffer(&BufferDescriptor {
             label: Some("skin uniform buffer"),
-            size: MAX_JOINTS as u64 * size_of::<Mat4>() as u64,
+            size: skinned_mesh_settings.max_joints as u64 * size_of::<Mat4>() as u64,
             usage: buffer_usages,
             mapped_at_creation: false,
         });
@@ -188,6 +184,28 @@ impl SkinUniformInfo {
     }
 }
 
+#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
+#[reflect(Resource, Default, Debug, Clone)]
+pub struct GlobalSkinnedMeshSettings {
+    /// Maximum number of joints supported for skinned meshes.
+    ///
+    /// It is used to allocate buffers.
+    /// The correctness of the value depends on the GPU/platform.
+    /// The default value of `256` is chosen because it is guaranteed to work everywhere (source needed).
+    pub max_joints: usize,
+    /// Max target count available for [morph targets](MorphWeights).
+    pub max_morph_weights: usize,
+}
+
+impl Default for GlobalSkinnedMeshSettings {
+    fn default() -> Self {
+        Self {
+            max_joints: 256,
+            max_morph_weights: 64,
+        }
+    }
+}
+
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
 pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
@@ -200,6 +218,7 @@ pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
 pub fn prepare_skins(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    skinned_mesh_settings: Res<GlobalSkinnedMeshSettings>,
     uniform: ResMut<SkinUniforms>,
 ) {
     let uniform = uniform.into_inner();
@@ -211,10 +230,10 @@ pub fn prepare_skins(
     // Swap current and previous buffers.
     mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
 
-    // Resize the buffers if necessary. Include extra space equal to `MAX_JOINTS`
+    // Resize the buffers if necessary. Include extra space equal to `max_joints`
     // because we need to be able to bind a full uniform buffer's worth of data
     // if skins use uniform buffers on this platform.
-    let needed_size = (uniform.current_staging_buffer.len() as u64 + MAX_JOINTS as u64)
+    let needed_size = (uniform.current_staging_buffer.len() as u64 + skinned_mesh_settings.max_joints as u64)
         * size_of::<Mat4>() as u64;
     if uniform.current_buffer.size() < needed_size {
         let mut new_size = uniform.current_buffer.size();

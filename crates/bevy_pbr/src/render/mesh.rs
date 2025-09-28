@@ -88,6 +88,7 @@ use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
+use crate::render::skin::GlobalSkinnedMeshSettings;
 
 /// Provides support for rendering 3D meshes.
 pub struct MeshRenderPlugin {
@@ -154,6 +155,8 @@ impl Plugin for MeshRenderPlugin {
             PostUpdate,
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
+        .add_plugins(ExtractResourcePlugin::<GlobalSkinnedMeshSettings>::default())
+        .init_resource::<GlobalSkinnedMeshSettings>()
         .add_plugins((
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
             BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::new(self.debug_flags),
@@ -1806,6 +1809,7 @@ impl FromWorld for MeshPipeline {
             Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
+        let skinned_mesh_settings = world.resource::<GlobalSkinnedMeshSettings>().to_owned();
         let (render_device, render_adapter, default_sampler, render_queue, view_layouts) =
             system_state.get_mut(world);
 
@@ -1851,7 +1855,7 @@ impl FromWorld for MeshPipeline {
             view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
-            mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
+            mesh_layouts: MeshLayouts::new(&render_device, &render_adapter, skinned_mesh_settings),
             shader,
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
@@ -2731,6 +2735,7 @@ pub fn prepare_mesh_bind_groups(
     skins_uniform: Res<SkinUniforms>,
     weights_uniform: Res<MorphUniforms>,
     mut render_lightmaps: ResMut<RenderLightmaps>,
+    skinned_mesh_settings: Res<GlobalSkinnedMeshSettings>,
 ) {
     // CPU mesh preprocessing path.
     if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
@@ -2747,6 +2752,7 @@ pub fn prepare_mesh_bind_groups(
             &skins_uniform,
             &weights_uniform,
             &mut render_lightmaps,
+            skinned_mesh_settings.clone(),
         );
 
         commands.insert_resource(MeshBindGroups::CpuPreprocessing(
@@ -2777,6 +2783,7 @@ pub fn prepare_mesh_bind_groups(
                 &skins_uniform,
                 &weights_uniform,
                 &mut render_lightmaps,
+                skinned_mesh_settings.clone(),
             );
 
             gpu_preprocessing_mesh_bind_groups.insert(*phase_type_id, mesh_phase_bind_groups);
@@ -2797,6 +2804,7 @@ fn prepare_mesh_bind_groups_for_phase(
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     render_lightmaps: &mut RenderLightmaps,
+    skinned_mesh_settings: GlobalSkinnedMeshSettings
 ) -> MeshPhaseBindGroups {
     let layouts = &mesh_pipeline.mesh_layouts;
 
@@ -2810,8 +2818,8 @@ fn prepare_mesh_bind_groups_for_phase(
     // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
-        no_motion_vectors: layouts.skinned(render_device, &model, skin),
+        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin, skinned_mesh_settings.max_joints),
+        no_motion_vectors: layouts.skinned(render_device, &model, skin, skinned_mesh_settings.max_joints),
     });
 
     // Create the morphed bind groups just like we did for the skinned bind
@@ -2831,6 +2839,7 @@ fn prepare_mesh_bind_groups_for_phase(
                             targets,
                             prev_skin,
                             prev_weights,
+                            skinned_mesh_settings.clone(),
                         ),
                         no_motion_vectors: layouts.morphed_skinned(
                             render_device,
@@ -2838,6 +2847,7 @@ fn prepare_mesh_bind_groups_for_phase(
                             skin,
                             weights,
                             targets,
+                            skinned_mesh_settings.clone(),
                         ),
                     }
                 } else {
@@ -2848,8 +2858,9 @@ fn prepare_mesh_bind_groups_for_phase(
                             weights,
                             targets,
                             prev_weights,
+                            skinned_mesh_settings.max_morph_weights
                         ),
-                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
+                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets, skinned_mesh_settings.max_morph_weights),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
