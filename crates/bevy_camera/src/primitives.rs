@@ -131,7 +131,8 @@ impl Aabb {
         signed_distance > r
     }
 
-    /// The math simplifies when the AABB is already in world space, improving performance.
+    /// Optimized version of `is_in_half_space` when the AABB is already in world space.
+    /// Use this when `world_from_local` would be the identity transform.
     #[inline]
     pub fn is_in_half_space_identity(&self, half_space: &HalfSpace) -> bool {
         let p_normal = half_space.normal();
