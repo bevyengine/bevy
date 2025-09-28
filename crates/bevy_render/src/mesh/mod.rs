@@ -19,7 +19,7 @@ use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Makes sure that they are extracted and prepared for the GPU.
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
 /// Does *not* add the [`Mesh`] as an asset. Use [bevy_mesh::MeshPlugin] for that.
 pub(crate) struct MeshPlugin;
 

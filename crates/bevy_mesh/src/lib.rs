@@ -45,6 +45,7 @@ bitflags! {
     }
 }
 
+/// Adds [`Mesh`] as an asset.
 #[derive(Default)]
 pub struct MeshPlugin;
 
