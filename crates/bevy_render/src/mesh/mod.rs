@@ -21,7 +21,7 @@ use wgpu::IndexFormat;
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
 /// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
-pub(crate) struct MeshRenderAssetPlugin;
+pub struct MeshRenderAssetPlugin;
 
 impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
