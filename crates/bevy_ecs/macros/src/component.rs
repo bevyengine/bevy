@@ -1,3 +1,4 @@
+use bevy_macro_utils::{as_member, fq_std::FQOption};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
@@ -268,13 +269,10 @@ pub(crate) fn map_entities(
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    let field_member = field
-                        .ident
-                        .clone()
-                        .map_or(Member::from(index), Member::Named);
-
-                    map.push(quote!(#self_ident.#field_member.map_entities(mapper);));
+                    let member = as_member(field.ident.as_ref(), index);
+                    map.push(quote!(#self_ident.#member.map_entities(mapper);));
                 });
+
             if map.is_empty() {
                 return None;
             };
@@ -291,12 +289,7 @@ pub(crate) fn map_entities(
                     .iter()
                     .enumerate()
                     .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
-                    .map(|(index, field)| {
-                        field
-                            .ident
-                            .clone()
-                            .map_or(Member::from(index), Member::Named)
-                    })
+                    .map(|(index, field)| as_member(field.ident.as_ref(), index))
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;
@@ -660,8 +653,8 @@ fn hook_register_function_call(
 ) -> Option<TokenStream2> {
     function.map(|meta| {
         quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::lifecycle::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+            fn #hook() -> #FQOption<#bevy_ecs_path::component::ComponentHook> {
+                #FQOption::Some(#meta)
             }
         }
     })
