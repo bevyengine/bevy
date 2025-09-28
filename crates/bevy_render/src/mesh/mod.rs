@@ -25,7 +25,7 @@ pub(crate) struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<skinning::SkinnedMeshInverseBindposes>()
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin);
