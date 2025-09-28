@@ -121,7 +121,7 @@ fn demo_root(asset_server: &AssetServer) -> impl Bundle {
             ),
             (
                 checkbox(asset_server, "Checkbox"),
-                observe(checkbox_self_update)
+                observe(checkbox_self_update),
             ),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
