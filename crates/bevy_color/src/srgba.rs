@@ -537,7 +537,7 @@ mod tests {
     fn literal_color() {
         assert_eq!(Srgba::literal(0xFFFFFFFF), Srgba::WHITE);
         assert_eq!(Srgba::literal(0x000000FF), Srgba::BLACK);
-        assert_eq!(Srgba::literal(0x03a9f4FF), Srgba::rgb_u8(3, 169, 244));
+        assert_eq!(Srgba::literal(0x03A9F4FF), Srgba::rgb_u8(3, 169, 244));
         assert_eq!(Srgba::literal(0xFF22AAFF), Srgba::rgb_u8(255, 34, 170));
         assert_eq!(Srgba::literal(0xE23030FF), Srgba::rgb_u8(226, 48, 48));
         assert_eq!(Srgba::literal(0x11223344), Srgba::rgba_u8(17, 34, 51, 68));
