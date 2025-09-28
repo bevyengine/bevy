@@ -34,6 +34,12 @@ custom_cursor = [
   "bytemuck",
 ]
 
+custom_window_icon = [
+  "bevy_window/custom_window_icon",
+  "bevy_image",
+  "bevy_asset",
+]
+
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.18.0-dev" }
@@ -52,9 +58,9 @@ bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-fea
 ] }
 
 # bevy optional
-## used by custom_cursor
+## used by custom_cursor and custom_window_icon
 bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev", optional = true }
-## used by custom_cursor
+## used by custom_cursor and custom_window_icon
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev", optional = true }
 ## used by custom_cursor
 wgpu-types = { version = "26", optional = true }

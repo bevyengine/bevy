@@ -43,6 +43,9 @@ use crate::{
     winit_monitors::WinitMonitors,
 };
 
+#[cfg(feature = "custom_window_icon")]
+use system::changed_window_icon;
+
 pub mod accessibility;
 mod converters;
 mod cursor;
@@ -142,6 +145,7 @@ impl<T: Message> Plugin for WinitPlugin<T> {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     changed_cursor_options,
+                    #[cfg(feature = "custom_window_icon")] changed_window_icon,
                     despawn_windows,
                     check_keyboard_focus_lost,
                 )

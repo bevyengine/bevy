@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+#[cfg(feature = "custom_window_icon")]
+use bevy_asset::Assets;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -10,7 +12,11 @@ use bevy_ecs::{
     query::QueryFilter,
     system::{Local, NonSendMarker, Query, SystemParamItem},
 };
+#[cfg(feature = "custom_window_icon")]
+use bevy_image::Image;
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
+#[cfg(feature = "custom_window_icon")]
+use bevy_window::WindowIcon;
 use bevy_window::{
     ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
     WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
@@ -614,6 +620,54 @@ pub(crate) fn changed_cursor_options(
                     cache.hit_test = cursor_options.hit_test;
                 }
             }
+        }
+    });
+}
+
+#[cfg(feature = "custom_window_icon")]
+pub(crate) fn changed_window_icon(
+    changed_windows: Query<(Entity, &Window, &WindowIcon), Changed<WindowIcon>>,
+    assets: Res<Assets<Image>>,
+    _non_send_marker: NonSendMarker,
+) {
+    WINIT_WINDOWS.with_borrow(|winit_windows| {
+        for (entity, window, window_icon) in changed_windows {
+            // Identify window
+            let Some(winit_window) = winit_windows.get_window(entity) else {
+                continue;
+            };
+            
+            // Fetch the image asset
+            let Some(image) = assets.get(&window_icon.handle) else {
+                warn!(?window_icon.handle, "Could not set window icon for window {}: image asset not found", window.title);
+                continue;
+            };
+
+            // Acquire pixel data from the image
+            let Some(image_data) = image.data.clone() else {
+                warn!(
+                    ?window_icon.handle,
+                    "Image handle has no data, the window will not have our custom icon",
+                );
+                continue;
+            };
+
+            // Convert between formats
+            let icon = match winit::window::Icon::from_rgba(
+                image_data,
+                image.texture_descriptor.size.width,
+                image.texture_descriptor.size.height,
+            ) {
+                Ok(icon) => icon,
+                Err(e) => {
+                    error!("Failed to construct window icon: {:?}", e);
+                    continue;
+                }
+            };
+
+            // Set the window icon
+            tracing::debug!(image_size = ?image.size(), "Setting window icon");
+            winit_window.set_window_icon(Some(icon));
         }
     });
 }

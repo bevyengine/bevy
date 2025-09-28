@@ -41,7 +41,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             FrameTimeDiagnosticsPlugin::default(),
         ))
-        .add_systems(Startup, init_cursor_icons)
+        .add_systems(Startup, (init_cursor_icons, init_window_icon))
         .add_systems(
             Update,
             (
@@ -77,6 +77,7 @@ fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window
         } else {
             PresentMode::AutoVsync
         };
+        #[cfg(feature="bevy_log")]
         info!("PRESENT_MODE: {:?}", window.present_mode);
     }
 }
@@ -95,6 +96,7 @@ fn switch_level(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window
             WindowLevel::Normal => WindowLevel::AlwaysOnTop,
             WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
         };
+        #[cfg(feature="bevy_log")]
         info!("WINDOW_LEVEL: {:?}", window.window_level);
     }
 }
@@ -172,6 +174,22 @@ fn init_cursor_icons(
         })
         .into(),
     ]));
+}
+
+fn init_window_icon(
+    mut commands: Commands,
+    window: Single<Entity, With<Window>>,
+    #[cfg(feature = "custom_window_icon")] asset_server: Res<AssetServer>,
+) {
+    #[cfg(feature = "custom_window_icon")]
+    {
+        use bevy::window::WindowIcon;
+
+        let icon_handle = asset_server.load("branding/icon.png");
+        commands.entity(*window).insert(WindowIcon {
+            handle: icon_handle,
+        });
+    }
 }
 
 /// This system cycles the cursor's icon through a small set of icons when clicking
