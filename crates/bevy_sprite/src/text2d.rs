@@ -23,7 +23,6 @@ use bevy_text::ComputedTextStyle;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextError, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
-    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -124,9 +123,6 @@ impl From<String> for Text2d {
 
 /// 2d alias for [`TextReader`].
 pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
-
-/// 2d alias for [`TextWriter`].
-pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// Adds a shadow behind `Text2d` text
 ///

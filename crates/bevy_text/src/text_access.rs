@@ -4,7 +4,7 @@ use bevy_ecs::{
     system::{Query, SystemParam},
 };
 
-use crate::{style::ComputedTextStyle, TextColor, TextFont, TextSpan};
+use crate::{style::ComputedTextStyle, TextSpan};
 
 /// Helper trait for using the [`TextReader`] and [`TextWriter`] system params.
 pub trait TextSpanAccess: Component<Mutability = Mutable> {

@@ -12,6 +12,7 @@ use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
 use bevy_text::prelude::*;
+use bevy_text::FontSize;
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::{Debug, Display, Formatter, Result};
@@ -284,7 +285,7 @@ pub fn debug_draw(
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
-                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0))],
+                    children![(Text::new(text.clone()), FontSize(12.0))],
                 ));
         }
     }

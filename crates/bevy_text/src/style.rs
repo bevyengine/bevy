@@ -1,22 +1,40 @@
 use crate::*;
 use bevy_asset::Handle;
 use bevy_color::Color;
+use bevy_derive::Deref;
+use bevy_derive::DerefMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::prelude::*;
 
-/// Fallback text style used if a text entity and all its ancestors lack text styling components.
-#[derive(Resource)]
-pub struct DefaultTextStyle {
+/// Text style
+#[derive(Clone, PartialEq)]
+pub struct TextStyle {
     /// The font used by a text entity when neither it nor any ancestor has a [`TextFont`] component.
-    font: Handle<Font>,
+    pub font: Handle<Font>,
+    /// Default value
+    pub font_size: f32,
     /// The color used by a text entity when neither it nor any ancestor has a [`TextColor`] component.
     pub color: Color,
+    /// Default value
     pub font_smoothing: FontSmoothing,
+    /// Default value
     pub line_height: LineHeight,
-    pub font_size: f32,
 }
 
-impl Default for DefaultTextStyle {
+impl TextStyle {
+    /// Returns the text style as a bundle of components
+    pub fn bundle(&self) -> impl Bundle {
+        (
+            TextFont(self.font.clone()),
+            FontSize(self.font_size),
+            TextColor(self.color),
+            self.font_smoothing,
+            self.line_height,
+        )
+    }
+}
+
+impl Default for TextStyle {
     fn default() -> Self {
         Self {
             font: Default::default(),
@@ -27,6 +45,10 @@ impl Default for DefaultTextStyle {
         }
     }
 }
+
+/// Fallback text style used if a text entity and all its ancestors lack text styling components.
+#[derive(Resource, Default, Clone, Deref, DerefMut)]
+pub struct DefaultTextStyle(pub TextStyle);
 
 /// The resolved text style for a text entity.
 ///
@@ -97,7 +119,11 @@ pub fn update_text_styles(
             font_query.get(start).unwrap();
         let mut ancestors = parent_query.iter_ancestors(start);
 
-        while (font.is_none() || color.is_none())
+        while (font.is_none()
+            || color.is_none()
+            || size.is_none()
+            || line_height.is_none()
+            || smoothing.is_none())
             && let Some(ancestor) = ancestors.next()
         {
             let (next_font, next_color, next_size, next_line_height, next_smoothing) =

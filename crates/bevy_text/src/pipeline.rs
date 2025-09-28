@@ -116,7 +116,7 @@ impl TextPipeline {
                 continue;
             }
             // Return early if a font is not loaded yet.
-            if !fonts.contains(style.font.font.id()) {
+            if !fonts.contains(style.font.id()) {
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -131,20 +131,15 @@ impl TextPipeline {
             }
 
             // Get max font size for use in cosmic Metrics.
-            max_font_size = max_font_size.max(style.font.font_size);
-            max_line_height =
-                max_line_height.max(style.font.line_height.eval(style.font.font_size));
+            max_font_size = max_font_size.max(style.font_size);
+            max_line_height = max_line_height.max(style.line_height.eval(style.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
-            let face_info = load_font_to_fontdb(
-                &style.font,
-                font_system,
-                &mut self.map_handle_to_font_id,
-                fonts,
-            );
+            let face_info =
+                load_font_to_fontdb(&style, font_system, &mut self.map_handle_to_font_id, fonts);
 
             // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || style.font.font_size <= 0.0 {
+            if scale_factor <= 0.0 || style.font_size <= 0.0 {
                 once!(warn!(
                     "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                 ));
@@ -246,7 +241,7 @@ impl TextPipeline {
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, text_style)| {
-            glyph_info.push((text_style.font.font.id(), text_style.font.font_smoothing));
+            glyph_info.push((text_style.font.id(), text_style.font_smoothing));
         });
 
         let update_result = self.update_buffer(
@@ -491,12 +486,12 @@ impl TextMeasureInfo {
 
 /// Add the font to the cosmic text's `FontSystem`'s in-memory font database
 pub fn load_font_to_fontdb(
-    text_font: &TextFont,
+    style: &ComputedTextStyle,
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_handle = text_font.font.clone();
+    let font_handle = style.font.clone();
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())
         .or_insert_with(|| {
@@ -540,8 +535,8 @@ fn get_attrs<'a>(
         .weight(face_info.weight)
         .metrics(
             Metrics {
-                font_size: style.font.font_size,
-                line_height: style.font.line_height.eval(style.font.font_size),
+                font_size: style.font_size,
+                line_height: style.line_height.eval(style.font_size),
             }
             .scale(scale_factor as f32),
         )
