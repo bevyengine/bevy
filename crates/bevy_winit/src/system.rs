@@ -631,42 +631,72 @@ pub(crate) fn changed_window_icon(
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (entity, window, window_icon) in changed_windows {
+        for (window_entity, window, window_icon) in changed_windows {
             // Identify window
-            let Some(winit_window) = winit_windows.get_window(entity) else {
-                continue;
-            };
-            
-            // Fetch the image asset
-            let Some(image) = assets.get(&window_icon.handle) else {
-                warn!(?window_icon.handle, "Could not set window icon for window {}: image asset not found", window.title);
+            let Some(winit_window) = winit_windows.get_window(window_entity) else {
                 continue;
             };
 
-            // Acquire pixel data from the image
-            let Some(image_data) = image.data.clone() else {
+            // Fetch the image asset
+            let Some(image) = assets.get(&window_icon.handle) else {
                 warn!(
-                    ?window_icon.handle,
-                    "Image handle has no data, the window will not have our custom icon",
+                    ?window_entity,
+                    ?window,
+                    ?window_icon,
+                    "Could not set window icon for window: image asset not found"
                 );
                 continue;
             };
 
-            // Convert between formats
+            // Convert to rgba image
+            let rgba_image = match image.clone().try_into_dynamic() {
+                Ok(dynamic_image) => {
+                    // winit icon expects 32bpp RGBA data
+                    dynamic_image.into_rgba8()
+                }
+                Err(error) => {
+                    error!(
+                        ?window_entity,
+                        ?window,
+                        ?window_icon,
+                        ?image,
+                        ?error,
+                        "Could not set window icon for window: failed to convert image to RGBA",
+                    );
+                    continue;
+                }
+            };
+
+            // Convert to winit image
+            let width = rgba_image.width();
+            let height = rgba_image.height();
             let icon = match winit::window::Icon::from_rgba(
-                image_data,
-                image.texture_descriptor.size.width,
-                image.texture_descriptor.size.height,
+                rgba_image.into_raw(),
+                width,
+                height,
             ) {
                 Ok(icon) => icon,
-                Err(e) => {
-                    error!("Failed to construct window icon: {:?}", e);
+                Err(error) => {
+                    error!(
+                        ?window_entity,
+                        ?window,
+                        ?window_icon,
+                        ?image,
+                        ?error,
+                        "Could not set window icon for window: failed to construct winit window icon from RGBA buffer",
+                    );
                     continue;
                 }
             };
 
             // Set the window icon
-            tracing::debug!(image_size = ?image.size(), "Setting window icon");
+            tracing::debug!(
+                ?window_entity,
+                ?window.title,
+                ?window_icon.handle,
+                image_size = ?image.size(),
+                "Setting window icon"
+            );
             winit_window.set_window_icon(Some(icon));
         }
     });
