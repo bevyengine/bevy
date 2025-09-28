@@ -20,10 +20,10 @@ use bevy_mesh::*;
 use wgpu::IndexFormat;
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
-/// Does *not* add the [`Mesh`] as an asset. Use [`bevy_mesh::MeshPlugin`] for that.
-pub(crate) struct MeshPlugin;
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub(crate) struct MeshRenderPlugin;
 
-impl Plugin for MeshPlugin {
+impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut App) {
         app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
