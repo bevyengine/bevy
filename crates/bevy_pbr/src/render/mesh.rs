@@ -101,7 +101,7 @@ pub struct MeshRenderPlugin {
 }
 
 impl MeshRenderPlugin {
-    /// Creates a new [`MeshPbrPlugin`] with the given debug flags.
+    /// Creates a new [`MeshRenderPlugin`] with the given debug flags.
     pub fn new(debug_flags: RenderDebugFlags) -> MeshRenderPlugin {
         MeshRenderPlugin {
             use_gpu_instance_buffer_builder: false,
