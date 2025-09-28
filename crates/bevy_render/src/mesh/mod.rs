@@ -7,7 +7,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
