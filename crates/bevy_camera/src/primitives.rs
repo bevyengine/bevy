@@ -359,7 +359,7 @@ impl Frustum {
         true
     }
 
-    /// contains_aabb is often called with Affine3A::IDENTITY, so we provide an optimized version.
+    /// `contains_aabb` is often called with `Affine3A::IDENTITY`, so we provide an optimized version.
     #[inline]
     pub fn contains_aabb_identity(&self, aabb: &Aabb) -> bool {
         for half_space in &self.half_spaces {
