@@ -20,7 +20,7 @@ use bevy_ecs::entity::Entity;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
 /// state of the checkbox. The widget will emit a [`ValueChange<bool>`] event when clicked, or when
-/// the the `Enter` or `Space` key is pressed while the checkbox is focused.
+/// the `Enter` or `Space` key is pressed while the checkbox is focused.
 ///
 /// # Toggle switches
 ///
@@ -180,7 +180,7 @@ impl Plugin for CheckboxPlugin {
 }
 
 /// Observer function which updates the checkbox value in response to a [`ValueChange`] event.
-/// This can be used to make the checkbox automatically update its own staqte when clicked,
+/// This can be used to make the checkbox automatically update its own state when clicked,
 /// as opposed to managing the checkbox state externally.
 pub fn checkbox_self_update(value_change: On<ValueChange<bool>>, mut commands: Commands) {
     if value_change.value {
