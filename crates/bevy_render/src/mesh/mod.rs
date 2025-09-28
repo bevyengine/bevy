@@ -21,9 +21,9 @@ use wgpu::IndexFormat;
 
 /// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
 /// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
-pub(crate) struct MeshRenderPlugin;
+pub(crate) struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshRenderPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
         app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready

@@ -79,7 +79,7 @@ pub use extract_param::Extract;
 use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshRenderPlugin, MorphPlugin, RenderMesh},
+    mesh::{MeshRenderAssetPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderAdapterInfo},
@@ -366,7 +366,7 @@ impl Plugin for RenderPlugin {
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
-            MeshRenderPlugin,
+            MeshRenderAssetPlugin,
             GlobalsPlugin,
             MorphPlugin,
             TexturePlugin,
