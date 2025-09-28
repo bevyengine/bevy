@@ -27,7 +27,7 @@ use crate::ValueChange;
 /// what, if any, value is associated with each radio button, or what Rust type that value might be.
 /// Instead, the output of the group is a [`ValueChange`] event whose payload is the entity id of
 /// the selected button. This event is emitted whenever a radio button is clicked, or when using
-/// the arrow keys while the radio group is focued. The app can then derive the selected value from
+/// the arrow keys while the radio group is focused. The app can then derive the selected value from
 /// this using app-specific means, such as accessing a component on the individual buttons.
 ///
 /// The [`RadioGroup`] doesn't actually set the [`Checked`] states directly, that is presumed to
