@@ -9,9 +9,9 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
+    query::{With, Without},
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
     SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess,
+    TextRoot,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -105,29 +105,6 @@ impl Text {
     }
 }
 
-impl TextRoot for Text {}
-
-impl TextSpanAccess for Text {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for Text {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for Text {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
 /// Adds a shadow behind text
 ///
 /// Use the `Text2dShadow` component for `Text2d` shadows
@@ -149,9 +126,6 @@ impl Default for TextShadow {
         }
     }
 }
-
-/// UI alias for [`TextReader`].
-pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -267,7 +241,7 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_query: Query<
+    mut text_root_query: Query<
         (
             Entity,
             Ref<TextLayout>,
@@ -276,15 +250,24 @@ pub fn measure_text_system(
             &mut ComputedTextBlock,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
+            &TextRoot,
         ),
         With<Node>,
     >,
-    mut text_reader: TextUiReader,
+    text_query: Query<(&Text, &ComputedTextStyle)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-        &mut text_query
+    for (
+        entity,
+        block,
+        content_size,
+        text_flags,
+        computed,
+        computed_target,
+        computed_node,
+        text_root,
+    ) in &mut text_root_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
@@ -294,11 +277,18 @@ pub fn measure_text_system(
             || text_flags.needs_measure_fn
             || content_size.is_added()
         {
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
+
             create_text_measure(
                 entity,
                 &fonts,
                 computed_target.scale_factor.into(),
-                text_reader.iter(entity),
+                spans,
                 block,
                 &mut text_pipeline,
                 content_size,
@@ -311,8 +301,7 @@ pub fn measure_text_system(
 }
 
 #[inline]
-fn queue_text(
-    entity: Entity,
+fn queue_text<'a>(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
@@ -325,9 +314,9 @@ fn queue_text(
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -346,7 +335,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
-        text_reader.iter(entity),
+        spans,
         scale_factor.into(),
         block,
         physical_node_size,
@@ -386,22 +375,29 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
+    mut text_root_query: Query<(
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
+        &TextRoot,
     )>,
-    mut text_reader: TextUiReader,
+    text_query: Query<(&Text, &ComputedTextStyle)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
+    {
         if node.is_changed() || text_flags.needs_recompute {
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
+
             queue_text(
-                entity,
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_sets,
@@ -414,10 +410,26 @@ pub fn text_system(
                 text_flags,
                 text_layout_info,
                 computed.as_mut(),
-                &mut text_reader,
                 &mut font_system,
                 &mut swash_cache,
+                spans,
             );
         }
+    }
+}
+
+pub fn sync_ui_text_components(
+    mut commands: Commands,
+    add_query: Query<Entity, (With<TextRoot>, Without<Node>)>,
+    rem_query: Query<Entity, (With<Text>, Without<TextRoot>, With<Node>)>,
+) {
+    for entity in add_query.iter() {
+        commands
+            .entity(entity)
+            .insert((Node::default(), ComputedNode::default()));
+    }
+
+    for entity in rem_query.iter() {
+        commands.entity(entity).remove::<(Node, ComputedNode)>();
     }
 }
