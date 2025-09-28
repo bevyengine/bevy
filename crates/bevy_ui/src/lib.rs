@@ -34,7 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_text::update_text_styles;
+use bevy_text::{detect_text_needs_rerender, update_text_roots, update_text_styles};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -52,7 +52,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_ui_picking_backend")]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
     #[doc(hidden)]
-    pub use crate::widget::{Text, TextShadow, TextUiReader};
+    pub use crate::widget::{Text, TextShadow};
     #[doc(hidden)]
     pub use {
         crate::{
@@ -78,6 +78,8 @@ use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
+
+use crate::widget::{sync_ui_text_components, Text};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -185,8 +187,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
+            .ambiguous_with(bevy_sprite::update_text2d_layout);
 
         app.add_systems(
             PostUpdate,
@@ -225,19 +226,21 @@ impl Plugin for UiPlugin {
 }
 
 fn build_text_interop(app: &mut App) {
-    use widget::Text;
-
     app.add_systems(
         PostUpdate,
         (
-            (
-                bevy_text::detect_text_needs_rerender::<Text>,
-                widget::measure_text_system,
-            )
+            sync_ui_text_components
+                .after(update_text_roots)
+                .before(widget::measure_text_system),
+            detect_text_needs_rerender::<Text>
+                .after(update_text_roots)
+                .after(update_text_styles)
+                .before(widget::measure_text_system)
+                .before(widget::text_system),
+            (widget::measure_text_system,)
                 .chain()
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
@@ -250,7 +253,6 @@ fn build_text_interop(app: &mut App) {
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         )
