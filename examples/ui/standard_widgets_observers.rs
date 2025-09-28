@@ -236,7 +236,7 @@ fn slider(min: f32, max: f32, value: f32) -> impl Bundle {
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        Slider { ..default() },
+        Slider::default(),
         SliderValue(value),
         SliderRange::new(min, max),
         TabIndex(0),
