@@ -170,7 +170,6 @@ fn demo_root() -> impl Bundle {
                                 ButtonProps {
                                     variant: ButtonVariant::Primary,
                                     corners: RoundedCorners::Right,
-                                    ..default()
                                 },
                                 (),
                                 Spawn((Text::new("Right"), ThemedText))
