@@ -49,7 +49,7 @@ impl Sphere {
     }
 
     /// Get the diameter of the sphere
-    #[inline(always)]
+    #[inline]
     pub const fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
@@ -429,13 +429,13 @@ impl Segment3d {
     }
 
     /// Get the position of the first endpoint of the line segment.
-    #[inline(always)]
+    #[inline]
     pub const fn point1(&self) -> Vec3 {
         self.vertices[0]
     }
 
     /// Get the position of the second endpoint of the line segment.
-    #[inline(always)]
+    #[inline]
     pub const fn point2(&self) -> Vec3 {
         self.vertices[1]
     }
@@ -695,13 +695,13 @@ impl Default for Cuboid {
 
 impl Cuboid {
     /// Create a new `Cuboid` from a full x, y, and z length
-    #[inline(always)]
+    #[inline]
     pub const fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
 
     /// Create a new `Cuboid` from a given full size
-    #[inline(always)]
+    #[inline]
     pub const fn from_size(size: Vec3) -> Self {
         Self {
             half_size: Vec3::new(size.x / 2.0, size.y / 2.0, size.z / 2.0),
@@ -718,7 +718,7 @@ impl Cuboid {
 
     /// Create a `Cuboid` from a single length.
     /// The resulting `Cuboid` will be the same size in every direction.
-    #[inline(always)]
+    #[inline]
     pub const fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec3::splat(length / 2.0),
@@ -791,7 +791,7 @@ impl Default for Cylinder {
 
 impl Cylinder {
     /// Create a new `Cylinder` from a radius and full height
-    #[inline(always)]
+    #[inline]
     pub const fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
@@ -800,7 +800,7 @@ impl Cylinder {
     }
 
     /// Get the base of the cylinder as a [`Circle`]
-    #[inline(always)]
+    #[inline]
     pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -880,7 +880,7 @@ impl Capsule3d {
 
     /// Get the part connecting the hemispherical ends
     /// of the capsule as a [`Cylinder`]
-    #[inline(always)]
+    #[inline]
     pub const fn to_cylinder(&self) -> Cylinder {
         Cylinder {
             radius: self.radius,
@@ -945,7 +945,7 @@ impl Cone {
         Self { radius, height }
     }
     /// Get the base of the cone as a [`Circle`]
-    #[inline(always)]
+    #[inline]
     pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
@@ -1086,7 +1086,7 @@ impl Torus {
     ///
     /// The inner radius is the radius of the hole, and the outer radius
     /// is the radius of the entire object
-    #[inline(always)]
+    #[inline]
     pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
         let minor_radius = (outer_radius - inner_radius) / 2.0;
         let major_radius = outer_radius - minor_radius;
@@ -1100,7 +1100,7 @@ impl Torus {
     /// Get the inner radius of the torus.
     /// For a ring torus, this corresponds to the radius of the hole,
     /// or `major_radius - minor_radius`
-    #[inline(always)]
+    #[inline]
     pub const fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
@@ -1108,7 +1108,7 @@ impl Torus {
     /// Get the outer radius of the torus.
     /// This corresponds to the overall radius of the entire object,
     /// or `major_radius + minor_radius`
-    #[inline(always)]
+    #[inline]
     pub const fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
@@ -1190,7 +1190,7 @@ impl Default for Triangle3d {
 
 impl Triangle3d {
     /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
-    #[inline(always)]
+    #[inline]
     pub const fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
         Self {
             vertices: [a, b, c],
@@ -1387,7 +1387,7 @@ impl Default for Tetrahedron {
 
 impl Tetrahedron {
     /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
-    #[inline(always)]
+    #[inline]
     pub const fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
         Self {
             vertices: [a, b, c, d],
