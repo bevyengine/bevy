@@ -1,5 +1,5 @@
 //! A framework for theming.
-use bevy_app::Propagate;
+use bevy_app::{Propagate, PropagateOver};
 use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -105,11 +105,12 @@ pub struct ThemeBorderColor(pub ThemeToken);
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
+#[require(ThemedText, PropagateOver::<TextColor>::default())]
 pub struct ThemeFontColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct ThemedText;
 

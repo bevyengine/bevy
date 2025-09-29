@@ -298,8 +298,8 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -477,6 +477,11 @@ impl<'w> EntityMut<'w> {
     /// Gets read-only access to all of the entity's components.
     pub fn as_readonly(&self) -> EntityRef<'_> {
         EntityRef::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.cell
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -1065,8 +1070,8 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -3132,7 +3137,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has last been spawned.
-    pub fn spawned_at(&self) -> Tick {
+    pub fn spawn_tick(&self) -> Tick {
         self.assert_not_despawned();
 
         // SAFETY: entity being alive was asserted
@@ -3158,6 +3163,20 @@ impl<'w> EntityWorldMut<'w> {
                 location,
             })
         })
+    }
+
+    /// Deprecated. Use [`World::trigger`] instead.
+    #[track_caller]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use World::trigger with an EntityEvent instead."
+    )]
+    pub fn trigger<'t>(&mut self, event: impl EntityEvent<Trigger<'t>: Default>) -> &mut Self {
+        log::warn!("EntityWorldMut::trigger is deprecated and no longer triggers the event for the current EntityWorldMut entity. Use World::trigger instead with an EntityEvent.");
+        self.world_scope(|world| {
+            world.trigger(event);
+        });
+        self
     }
 }
 
@@ -3679,8 +3698,8 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -3857,6 +3876,11 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub fn as_readonly(&self) -> FilteredEntityRef<'_, 's> {
         FilteredEntityRef::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -4041,8 +4065,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4225,8 +4249,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4432,6 +4456,11 @@ where
         EntityRefExcept::from(self)
     }
 
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
+    }
+
     /// Gets access to the component of type `C` for the current entity. Returns
     /// `None` if the component doesn't have a component of that type or if the
     /// type is one of the excluded components.
@@ -4480,8 +4509,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -6399,7 +6428,7 @@ mod tests {
                     .map(|l| l.unwrap());
                 let at = world
                     .entities
-                    .entity_get_spawned_or_despawned_at(entity)
+                    .entity_get_spawn_or_despawn_tick(entity)
                     .unwrap();
                 (by, at)
             });
@@ -6439,7 +6468,7 @@ mod tests {
             despawn_tick,
             world
                 .entities()
-                .entity_get_spawned_or_despawned_at(entity)
+                .entity_get_spawn_or_despawn_tick(entity)
                 .unwrap()
         );
     }

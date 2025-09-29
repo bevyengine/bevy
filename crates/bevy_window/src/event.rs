@@ -60,7 +60,7 @@ pub struct RequestRedraw;
 
 /// An event that is sent whenever a new window is created.
 ///
-/// To create a new window, spawn an entity with a [`crate::Window`] on it.
+/// To create a new window, spawn an entity with a [`Window`](`crate::Window`) on it.
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
