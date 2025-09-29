@@ -2259,17 +2259,14 @@ impl<'a> EntityCommands<'a> {
         self.queue(entity_command::move_components::<B>(target))
     }
 
-    /// Deprecated. Use [`Commands::trigger`] instead.
+    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
     #[track_caller]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use Commands::trigger with an EntityEvent instead."
-    )]
-    pub fn trigger<'t, E: EntityEvent>(
+
+    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
         &mut self,
-        event: impl EntityEvent<Trigger<'t>: Default>,
+        event_fn: impl FnOnce(Entity) -> E,
     ) -> &mut Self {
-        log::warn!("EntityCommands::trigger is deprecated and no longer triggers the event for the current EntityCommands entity. Use Commands::trigger instead with an EntityEvent.");
+        let event = (event_fn)(self.entity);
         self.commands.trigger(event);
         self
     }
