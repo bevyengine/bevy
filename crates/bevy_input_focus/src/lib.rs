@@ -246,10 +246,10 @@ pub type InputFocusSet = InputFocusSystems;
 /// If no entity is focused, sets the focus to the primary window, if any.
 pub fn set_initial_focus(
     mut input_focus: ResMut<InputFocus>,
-    window: Single<Entity, With<PrimaryWindow>>,
+    window: If<Single<Entity, With<PrimaryWindow>>>,
 ) {
     if input_focus.0.is_none() {
-        input_focus.0 = Some(*window);
+        input_focus.0 = Some(**window);
     }
 }
 
