@@ -28,34 +28,17 @@ impl PointCloud {
     }
 }
 
-#[inline(never)]
-fn bounding_function(point_clouds: &[PointCloud]) {
-    // For various types of bounds, calculate the bounds of each point cloud
-    // then merge them together.
-
-    let aabb = point_clouds
-        .iter()
-        .map(PointCloud::aabb)
-        .reduce(|l, r| l.merge(&r));
-
-    let sphere = point_clouds
-        .iter()
-        .map(PointCloud::sphere)
-        .reduce(|l, r| l.merge(&r));
-
-    black_box(aabb);
-    black_box(sphere);
-}
-
 fn bounding(c: &mut Criterion) {
+    // Create point clouds of various sizes, then benchmark two different ways
+    // of finding the bounds of each cloud and merging them together.
+
     let mut rng1 = StdRng::seed_from_u64(123);
     let mut rng2 = StdRng::seed_from_u64(456);
 
-    // Create an array of point clouds of various sizes.
-    let point_clouds = Uniform::<usize>::new(3, 30)
+    let point_clouds = Uniform::<usize>::new(black_box(3), black_box(30))
         .unwrap()
         .sample_iter(&mut rng1)
-        .take(1000)
+        .take(black_box(1000))
         .map(|num_points| PointCloud {
             points: StandardUniform
                 .sample_iter(&mut rng2)
@@ -67,7 +50,18 @@ fn bounding(c: &mut Criterion) {
 
     c.bench_function(bench!("bounding"), |b| {
         b.iter(|| {
-            bounding_function(&point_clouds);
+            let aabb = point_clouds
+                .iter()
+                .map(PointCloud::aabb)
+                .reduce(|l, r| l.merge(&r));
+
+            let sphere = point_clouds
+                .iter()
+                .map(PointCloud::sphere)
+                .reduce(|l, r| l.merge(&r));
+
+            black_box(aabb);
+            black_box(sphere);
         });
     });
 }
