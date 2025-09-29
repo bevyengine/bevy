@@ -191,7 +191,7 @@ pub trait Relationship: Component + Sized {
                 target_entity_mut.get_mut::<Self::RelationshipTarget>()
             {
                 relationship_target.collection_mut_risky().remove(entity);
-                if relationship_target.len() == 0 {
+                if !Self::RelationshipTarget::PERSISTED && relationship_target.len() == 0 {
                     let command = |mut entity: EntityWorldMut| {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
@@ -229,6 +229,8 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// To get around this behavior, you can first break the relationship between entities, and *then* despawn or clone.
     /// This defaults to false when derived.
     const LINKED_SPAWN: bool;
+    /// Whether to remove this component from the entity when the relationship is empty.
+    const PERSISTED: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
@@ -502,6 +504,12 @@ mod tests {
         let b = world.spawn(Likes(a)).id();
         let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+        world.despawn(b);
+        world.despawn(c);
+        assert!(
+            !world.entity(a).contains::<LikedBy>(),
+            "relationship was not despawned"
+        );
     }
 
     #[test]
@@ -696,5 +704,29 @@ mod tests {
 
         assert!(world.get::<ChildOf>(child).is_some());
         assert!(world.get::<Children>(parent).is_some());
+    }
+
+    #[test]
+    fn persisted_relationship() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Inventory)]
+        struct InventoryItem(pub Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = InventoryItem, persisted)]
+        struct Inventory(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn(InventoryItem(a)).id();
+        let c = world.spawn(InventoryItem(a)).id();
+        // sanity check
+        assert_eq!(world.entity(a).get::<Inventory>().unwrap().0, &[b, c]);
+        world.despawn(b);
+        world.despawn(c);
+        assert!(
+            world.entity(a).contains::<Inventory>(),
+            "persisted relationship was despawned"
+        );
     }
 }

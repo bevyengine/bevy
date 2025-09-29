@@ -480,6 +480,7 @@ struct Relationship {
 struct RelationshipTarget {
     relationship: Type,
     linked_spawn: bool,
+    persisted: bool,
 }
 
 // values for `storage` attribute
@@ -671,6 +672,7 @@ mod kw {
     syn::custom_keyword!(relationship_target);
     syn::custom_keyword!(relationship);
     syn::custom_keyword!(linked_spawn);
+    syn::custom_keyword!(persisted);
 }
 
 impl Parse for Relationship {
@@ -687,12 +689,16 @@ impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         let mut relationship: Option<Type> = None;
         let mut linked_spawn: bool = false;
+        let mut persisted: bool = false;
 
         while !input.is_empty() {
             let lookahead = input.lookahead1();
             if lookahead.peek(kw::linked_spawn) {
                 input.parse::<kw::linked_spawn>()?;
                 linked_spawn = true;
+            } else if lookahead.peek(kw::persisted) {
+                input.parse::<kw::persisted>()?;
+                persisted = true;
             } else if lookahead.peek(kw::relationship) {
                 input.parse::<kw::relationship>()?;
                 input.parse::<Token![=]>()?;
@@ -709,6 +715,7 @@ impl Parse for RelationshipTarget {
                 syn::Error::new(input.span(), "Missing `relationship = X` attribute")
             })?,
             linked_spawn,
+            persisted,
         })
     }
 }
@@ -805,9 +812,11 @@ fn derive_relationship_target(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let linked_spawn = relationship_target.linked_spawn;
+    let persisted = relationship_target.persisted;
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
             const LINKED_SPAWN: bool = #linked_spawn;
+            const PERSISTED: bool = #persisted;
             type Relationship = #relationship;
             type Collection = #collection;
 
