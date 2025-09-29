@@ -788,11 +788,6 @@ impl Default for CursorOptions {
     derive(Reflect),
     reflect(Component, Debug, Default, Clone)
 )]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Serialize, Deserialize)
-)]
 #[cfg(feature = "custom_window_icon")]
 pub struct WindowIcon {
     /// Handle to the asset to be read into the window icon.
