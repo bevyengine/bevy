@@ -66,7 +66,7 @@ impl Deref for BindGroupLayout {
 
 static EMPTY_BIND_GROUP_LAYOUT: OnceLock<BindGroupLayout> = OnceLock::new();
 
-pub(crate) fn init_empty_bind_group_layout(render_device: Res<RenderDevice>) {
+pub fn init_empty_bind_group_layout(render_device: Res<RenderDevice>) {
     let layout = render_device.create_bind_group_layout(Some("empty_bind_group_layout"), &[]);
     EMPTY_BIND_GROUP_LAYOUT
         .set(layout)
