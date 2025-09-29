@@ -27,7 +27,7 @@ serialize = ["serde", "bevy_ecs/serialize", "bevy_input/serialize"]
 # Enable custom cursor support
 custom_cursor = ["bevy_image", "bevy_asset"]
 
-# Enable custom icon support
+# Enable custom window icon support
 custom_window_icon = ["bevy_image", "bevy_asset"]
 
 # Platform Compatibility

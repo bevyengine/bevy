@@ -564,7 +564,7 @@ reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
-# Enable winit custom cursor support
+# Enable winit custom window icon support
 custom_window_icon = ["bevy_internal/custom_window_icon"]
 
 # Experimental support for nodes that are ignored for UI layouting
