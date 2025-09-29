@@ -45,6 +45,7 @@ cfg::parallel! {
 pub mod prelude {
     pub use crate::debug_info::DebugName;
     pub use crate::default;
+    pub use disqualified::ShortName;
 }
 
 mod debug_info;
