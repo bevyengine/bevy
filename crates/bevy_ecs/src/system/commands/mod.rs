@@ -2261,7 +2261,6 @@ impl<'a> EntityCommands<'a> {
 
     /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
     #[track_caller]
-
     pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
         &mut self,
         event_fn: impl FnOnce(Entity) -> E,
