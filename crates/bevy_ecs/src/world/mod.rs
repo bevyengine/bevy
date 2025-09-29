@@ -23,7 +23,7 @@ pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
     ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
     EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
-    TryFromFilteredError, VacantComponentEntry,
+    TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
