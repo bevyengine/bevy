@@ -3,7 +3,7 @@ use bevy_app::{App, AppExit, PluginsState};
 use bevy_ecs::{
     change_detection::{DetectChanges, Res},
     entity::Entity,
-    event::{EventCursor, EventWriter},
+    message::{MessageCursor, MessageWriter},
     prelude::*,
     system::SystemState,
     world::FromWorld,
@@ -48,7 +48,7 @@ use crate::{
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-pub(crate) struct WinitAppRunnerState<T: BufferedEvent> {
+pub(crate) struct WinitAppRunnerState<T: Message> {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.
@@ -80,10 +80,10 @@ pub(crate) struct WinitAppRunnerState<T: BufferedEvent> {
     raw_winit_events: Vec<RawWinitWindowEvent>,
     _marker: PhantomData<T>,
 
-    event_writer_system_state: SystemState<(
-        EventWriter<'static, WindowResized>,
-        EventWriter<'static, WindowBackendScaleFactorChanged>,
-        EventWriter<'static, WindowScaleFactorChanged>,
+    message_writer_system_state: SystemState<(
+        MessageWriter<'static, WindowResized>,
+        MessageWriter<'static, WindowBackendScaleFactorChanged>,
+        MessageWriter<'static, WindowScaleFactorChanged>,
         Query<
             'static,
             'static,
@@ -96,14 +96,14 @@ pub(crate) struct WinitAppRunnerState<T: BufferedEvent> {
     )>,
 }
 
-impl<T: BufferedEvent> WinitAppRunnerState<T> {
+impl<M: Message> WinitAppRunnerState<M> {
     fn new(mut app: App) -> Self {
-        app.add_event::<T>();
+        app.add_message::<M>();
 
-        let event_writer_system_state: SystemState<(
-            EventWriter<WindowResized>,
-            EventWriter<WindowBackendScaleFactorChanged>,
-            EventWriter<WindowScaleFactorChanged>,
+        let message_writer_system_state: SystemState<(
+            MessageWriter<WindowResized>,
+            MessageWriter<WindowBackendScaleFactorChanged>,
+            MessageWriter<WindowScaleFactorChanged>,
             Query<(&mut Window, &mut CachedWindow, &mut WinitWindowPressedKeys)>,
         )> = SystemState::new(app.world_mut());
 
@@ -124,7 +124,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             bevy_window_events: Vec::new(),
             raw_winit_events: Vec::new(),
             _marker: PhantomData,
-            event_writer_system_state,
+            message_writer_system_state,
         }
     }
 
@@ -143,7 +143,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
     }
 }
 
-impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
+impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if event_loop.exiting() {
             return;
@@ -182,10 +182,10 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
         self.lifecycle = AppLifecycle::WillResume;
     }
 
-    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: T) {
+    fn user_event(&mut self, _event_loop: &ActiveEventLoop, event: M) {
         self.user_event_received = true;
 
-        self.world_mut().write_event(event);
+        self.world_mut().write_message(event);
         self.redraw_requested = true;
     }
 
@@ -210,7 +210,9 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     mut window_backend_scale_factor_changed,
                     mut window_scale_factor_changed,
                     mut windows,
-                ) = self.event_writer_system_state.get_mut(self.app.world_mut());
+                ) = self
+                    .message_writer_system_state
+                    .get_mut(self.app.world_mut());
 
                 let Some(window) = winit_windows.get_window_entity(window_id) else {
                     warn!("Skipped event {event:?} for unknown winit Window Id {window_id:?}");
@@ -224,7 +226,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     return;
                 };
 
-                // Store a copy of the event to send to an EventWriter later.
+                // Store a copy of the event to send to a MessageWriter later.
                 self.raw_winit_events.push(RawWinitWindowEvent {
                     window_id,
                     event: event.clone(),
@@ -497,18 +499,13 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
     }
 }
 
-impl<T: BufferedEvent> WinitAppRunnerState<T> {
+impl<M: Message> WinitAppRunnerState<M> {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
-        let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
+        let mut redraw_message_cursor = MessageCursor::<RequestRedraw>::default();
+        let mut close_message_cursor = MessageCursor::<WindowCloseRequested>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
-
-        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>()
-            && redraw_event_reader.read(app_redraw_events).last().is_some()
-        {
-            self.redraw_requested = true;
-        }
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
@@ -616,6 +613,28 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                 self.update_cursors();
                 self.ran_update_since_last_redraw = true;
             } else {
+                self.redraw_requested = true;
+            }
+
+            // Read RequestRedraw events that may have been sent during the update
+            if let Some(app_redraw_events) = self.world().get_resource::<Messages<RequestRedraw>>()
+                && redraw_message_cursor
+                    .read(app_redraw_events)
+                    .last()
+                    .is_some()
+            {
+                self.redraw_requested = true;
+            }
+
+            // Running the app may have produced WindowCloseRequested events that should be processed
+            if let Some(close_request_messages) = self
+                .world()
+                .get_resource::<Messages<WindowCloseRequested>>()
+                && close_message_cursor
+                    .read(close_request_messages)
+                    .last()
+                    .is_some()
+            {
                 self.redraw_requested = true;
             }
 
@@ -732,105 +751,105 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
 
     fn forward_bevy_events(&mut self) {
         let raw_winit_events = self.raw_winit_events.drain(..).collect::<Vec<_>>();
-        let buffered_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
+        let window_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
         let world = self.world_mut();
 
         if !raw_winit_events.is_empty() {
             world
-                .resource_mut::<Events<RawWinitWindowEvent>>()
+                .resource_mut::<Messages<RawWinitWindowEvent>>()
                 .write_batch(raw_winit_events);
         }
 
-        for winit_event in buffered_events.iter() {
-            match winit_event.clone() {
+        for window_event in window_events.iter() {
+            match window_event.clone() {
                 BevyWindowEvent::AppLifecycle(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::CursorEntered(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::CursorLeft(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::CursorMoved(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::FileDragAndDrop(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::Ime(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::RequestRedraw(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowCloseRequested(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowCreated(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowDestroyed(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowFocused(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowMoved(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowOccluded(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowResized(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowScaleFactorChanged(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::WindowThemeChanged(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::MouseButtonInput(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::MouseMotion(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::MouseWheel(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::PinchGesture(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::RotationGesture(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::DoubleTapGesture(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::PanGesture(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::TouchInput(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::KeyboardInput(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
                 BevyWindowEvent::KeyboardFocusLost(e) => {
-                    world.write_event(e);
+                    world.write_message(e);
                 }
             }
         }
 
-        if !buffered_events.is_empty() {
+        if !window_events.is_empty() {
             world
-                .resource_mut::<Events<BevyWindowEvent>>()
-                .write_batch(buffered_events);
+                .resource_mut::<Messages<BevyWindowEvent>>()
+                .write_batch(window_events);
         }
     }
 }
@@ -839,7 +858,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
+pub fn winit_runner<M: Message>(mut app: App, event_loop: EventLoop<M>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
@@ -875,7 +894,7 @@ pub(crate) fn react_to_resize(
     window_entity: Entity,
     window: &mut Window,
     size: PhysicalSize<u32>,
-    window_resized: &mut EventWriter<WindowResized>,
+    window_resized: &mut MessageWriter<WindowResized>,
 ) {
     window
         .resolution
@@ -892,8 +911,8 @@ pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
     window: &mut Window,
     scale_factor: f64,
-    window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
-    window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,
+    window_backend_scale_factor_changed: &mut MessageWriter<WindowBackendScaleFactorChanged>,
+    window_scale_factor_changed: &mut MessageWriter<WindowScaleFactorChanged>,
 ) {
     let prior_factor = window.resolution.scale_factor();
     window.resolution.set_scale_factor(scale_factor as f32);
@@ -927,36 +946,39 @@ mod tests {
         let window = app.world().get::<Window>(window_entity);
         assert_eq!(window.unwrap().resolution.scale_factor(), 2.0);
 
-        let window_backend_scale_factor_changed_events = app
+        let window_backend_scale_factor_changed_messages = app
             .world()
-            .resource::<Events<WindowBackendScaleFactorChanged>>();
-        assert_eq!(window_backend_scale_factor_changed_events.len(), 1);
+            .resource::<Messages<WindowBackendScaleFactorChanged>>();
+        assert_eq!(window_backend_scale_factor_changed_messages.len(), 1);
 
-        let mut window_backend_scale_factor_changed_events_iter =
-            window_backend_scale_factor_changed_events.iter_current_update_events();
+        let mut window_backend_scale_factor_changed_messages_iter =
+            window_backend_scale_factor_changed_messages.iter_current_update_messages();
         assert_eq!(
-            window_backend_scale_factor_changed_events_iter.next(),
+            window_backend_scale_factor_changed_messages_iter.next(),
             Some(&WindowBackendScaleFactorChanged {
                 window: window_entity,
                 scale_factor: 2.0,
             })
         );
-        assert_eq!(window_backend_scale_factor_changed_events_iter.next(), None);
-
-        let window_scale_factor_changed_events =
-            app.world().resource::<Events<WindowScaleFactorChanged>>();
-        assert_eq!(window_scale_factor_changed_events.len(), 1);
-
-        let mut window_scale_factor_changed_events_iter =
-            window_scale_factor_changed_events.iter_current_update_events();
         assert_eq!(
-            window_scale_factor_changed_events_iter.next(),
+            window_backend_scale_factor_changed_messages_iter.next(),
+            None
+        );
+
+        let window_scale_factor_changed_messages =
+            app.world().resource::<Messages<WindowScaleFactorChanged>>();
+        assert_eq!(window_scale_factor_changed_messages.len(), 1);
+
+        let mut window_scale_factor_changed_messages_iter =
+            window_scale_factor_changed_messages.iter_current_update_messages();
+        assert_eq!(
+            window_scale_factor_changed_messages_iter.next(),
             Some(&WindowScaleFactorChanged {
                 window: window_entity,
                 scale_factor: 2.0,
             })
         );
-        assert_eq!(window_scale_factor_changed_events_iter.next(), None);
+        assert_eq!(window_scale_factor_changed_messages_iter.next(), None);
     }
 
     #[test]
@@ -967,25 +989,28 @@ mod tests {
         let window = app.world().get::<Window>(window_entity);
         assert_eq!(window.unwrap().resolution.scale_factor(), 1.0);
 
-        let window_backend_scale_factor_changed_events = app
+        let window_backend_scale_factor_changed_messages = app
             .world()
-            .resource::<Events<WindowBackendScaleFactorChanged>>();
-        assert_eq!(window_backend_scale_factor_changed_events.len(), 1);
+            .resource::<Messages<WindowBackendScaleFactorChanged>>();
+        assert_eq!(window_backend_scale_factor_changed_messages.len(), 1);
 
-        let mut window_backend_scale_factor_changed_events_iter =
-            window_backend_scale_factor_changed_events.iter_current_update_events();
+        let mut window_backend_scale_factor_changed_messages_iter =
+            window_backend_scale_factor_changed_messages.iter_current_update_messages();
         assert_eq!(
-            window_backend_scale_factor_changed_events_iter.next(),
+            window_backend_scale_factor_changed_messages_iter.next(),
             Some(&WindowBackendScaleFactorChanged {
                 window: window_entity,
                 scale_factor: 1.0,
             })
         );
-        assert_eq!(window_backend_scale_factor_changed_events_iter.next(), None);
+        assert_eq!(
+            window_backend_scale_factor_changed_messages_iter.next(),
+            None
+        );
 
-        let window_scale_factor_changed_events =
-            app.world().resource::<Events<WindowScaleFactorChanged>>();
-        assert!(window_scale_factor_changed_events.is_empty());
+        let window_scale_factor_changed_messages =
+            app.world().resource::<Messages<WindowScaleFactorChanged>>();
+        assert!(window_scale_factor_changed_messages.is_empty());
     }
 
     fn setup_react_to_scale_factor_change_test_app(
@@ -993,15 +1018,15 @@ mod tests {
         changed_scale_factor: f64,
     ) -> (App, Entity) {
         let mut app = App::new();
-        app.add_event::<WindowBackendScaleFactorChanged>();
-        app.add_event::<WindowScaleFactorChanged>();
+        app.add_message::<WindowBackendScaleFactorChanged>();
+        app.add_message::<WindowScaleFactorChanged>();
         app.add_systems(
             Update,
             move |mut window: Single<(Entity, &mut Window)>,
-             mut window_backend_scale_factor_changed: EventWriter<
+             mut window_backend_scale_factor_changed: MessageWriter<
                 WindowBackendScaleFactorChanged,
             >,
-             mut window_scale_factor_changed: EventWriter<WindowScaleFactorChanged>| {
+             mut window_scale_factor_changed: MessageWriter<WindowScaleFactorChanged>| {
                 react_to_scale_factor_change(
                     window.0,
                     &mut window.1,

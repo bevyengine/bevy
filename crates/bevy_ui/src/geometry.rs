@@ -165,6 +165,142 @@ impl PartialEq for Val {
 impl Val {
     pub const DEFAULT: Self = Self::Auto;
     pub const ZERO: Self = Self::Px(0.0);
+
+    /// Returns a [`UiRect`] with its `left` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).left();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn left(self) -> UiRect {
+        UiRect::left(self)
+    }
+
+    /// Returns a [`UiRect`] with its `right` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).right();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn right(self) -> UiRect {
+        UiRect::right(self)
+    }
+
+    /// Returns a [`UiRect`] with its `top` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).top();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn top(self) -> UiRect {
+        UiRect::top(self)
+    }
+
+    /// Returns a [`UiRect`] with its `bottom` equal to this value,
+    /// and all other fields set to `Val::ZERO`.
+    ///
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).bottom();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn bottom(self) -> UiRect {
+        UiRect::bottom(self)
+    }
+
+    /// Returns a [`UiRect`] with all its fields equal to this value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).all();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn all(self) -> UiRect {
+        UiRect::all(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `left` and `right` equal to this value,
+    /// and its `top` and `bottom` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).horizontal();
+    ///
+    /// assert_eq!(ui_rect.left, Val::Px(1.));
+    /// assert_eq!(ui_rect.right, Val::Px(1.));
+    /// assert_eq!(ui_rect.top, Val::ZERO);
+    /// assert_eq!(ui_rect.bottom, Val::ZERO);
+    /// ```
+    pub const fn horizontal(self) -> UiRect {
+        UiRect::horizontal(self)
+    }
+
+    /// Returns a [`UiRect`] with all its `top` and `bottom` equal to this value,
+    /// and its `left` and `right` set to `Val::ZERO`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ui::{UiRect, Val};
+    /// #
+    /// let ui_rect = Val::Px(1.).vertical();
+    ///
+    /// assert_eq!(ui_rect.left, Val::ZERO);
+    /// assert_eq!(ui_rect.right, Val::ZERO);
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
+    /// ```
+    pub const fn vertical(self) -> UiRect {
+        UiRect::vertical(self)
+    }
 }
 
 impl Default for Val {
@@ -1115,5 +1251,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

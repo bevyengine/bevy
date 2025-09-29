@@ -45,17 +45,16 @@ fn setup(mut commands: Commands) {
 //
 // We enable propagation by adding the event attribute and specifying two important pieces of information.
 //
-// - **traversal:**
-// Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
-// from child to parent) so we use the `ChildOf` component for propagation. The component supplied
-// must implement the `Traversal` trait.
+// - **propagate:**
+// Enables the default propagation behavior ("bubbling" up from child to parent using the ChildOf component).
 //
 // - **auto_propagate:**
 // We can also choose whether or not this event will propagate by default when triggered. If this is
 // false, it will only propagate following a call to `On::propagate(true)`.
 #[derive(Clone, Component, EntityEvent)]
-#[entity_event(traversal = &'static ChildOf, auto_propagate)]
+#[entity_event(propagate, auto_propagate)]
 struct Attack {
+    entity: Entity,
     damage: u16,
 }
 
@@ -70,23 +69,22 @@ struct Armor(u16);
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
 fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     let mut rng = rng();
-    if let Some(target) = entities.iter().choose(&mut rng) {
+    if let Some(entity) = entities.iter().choose(&mut rng) {
         let damage = rng.random_range(1..20);
-        commands.trigger_targets(Attack { damage }, target);
+        commands.trigger(Attack { damage, entity });
         info!("⚔️  Attack for {} damage", damage);
     }
 }
 
-fn attack_hits(event: On<Attack>, name: Query<&Name>) {
-    if let Ok(name) = name.get(event.entity()) {
+fn attack_hits(attack: On<Attack>, name: Query<&Name>) {
+    if let Ok(name) = name.get(attack.entity) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut event: On<Attack>, armor: Query<(&Armor, &Name)>) {
-    let (armor, name) = armor.get(event.entity()).unwrap();
-    let attack = event.event_mut();
+fn block_attack(mut attack: On<Attack>, armor: Query<(&Armor, &Name)>) {
+    let (armor, name) = armor.get(attack.entity).unwrap();
     let damage = attack.damage.saturating_sub(**armor);
     if damage > 0 {
         info!("🩸 {} damage passed through {}", damage, name);
@@ -96,7 +94,7 @@ fn block_attack(mut event: On<Attack>, armor: Query<(&Armor, &Name)>) {
     } else {
         info!("🛡️  {} damage blocked by {}", attack.damage, name);
         // Armor stopped the attack, the event stops here.
-        event.propagate(false);
+        attack.propagate(false);
         info!("(propagation halted early)\n");
     }
 }
@@ -104,20 +102,19 @@ fn block_attack(mut event: On<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    event: On<Attack>,
+    attack: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
 ) {
-    let attack = event.event();
-    let (mut hp, name) = hp.get_mut(event.entity()).unwrap();
+    let (mut hp, name) = hp.get_mut(attack.entity).unwrap();
     **hp = hp.saturating_sub(attack.damage);
 
     if **hp > 0 {
         info!("{} has {:.1} HP", name, hp.0);
     } else {
         warn!("💀 {} has died a gruesome death", name);
-        commands.entity(event.entity()).despawn();
+        commands.entity(attack.entity).despawn();
         app_exit.write(AppExit::Success);
     }
 

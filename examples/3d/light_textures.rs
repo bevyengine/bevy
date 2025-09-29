@@ -114,8 +114,8 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
-        .add_event::<WidgetClickEvent<Selection>>()
-        .add_event::<WidgetClickEvent<Visibility>>()
+        .add_message::<WidgetClickEvent<Selection>>()
+        .add_message::<WidgetClickEvent<Visibility>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
@@ -152,7 +152,7 @@ fn setup(
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Light textures aren't usable on this platform.");
-        commands.write_event(AppExit::error());
+        commands.write_message(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
@@ -198,13 +198,11 @@ fn spawn_cubes(
 
 /// Spawns the directional light.
 fn spawn_light(commands: &mut Commands, asset_server: &AssetServer) {
-    commands
-        .spawn((
-            Visibility::Hidden,
-            Transform::from_xyz(8.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-            Selection::DirectionalLight,
-        ))
-        .with_child((
+    commands.spawn((
+        Visibility::Hidden,
+        Transform::from_xyz(8.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Selection::DirectionalLight,
+        children![(
             DirectionalLight {
                 illuminance: AMBIENT_DAYLIGHT,
                 ..default()
@@ -214,7 +212,8 @@ fn spawn_light(commands: &mut Commands, asset_server: &AssetServer) {
                 tiled: true,
             },
             Visibility::Visible,
-        ));
+        )],
+    ));
 }
 
 /// Spawns the camera.
@@ -249,26 +248,22 @@ fn spawn_light_textures(
         Selection::SpotLight,
     ));
 
-    commands
-        .spawn((
-            Visibility::Hidden,
-            Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
-            Selection::PointLight,
-        ))
-        .with_children(|parent| {
-            parent.spawn(SceneRoot(
+    commands.spawn((
+        Visibility::Hidden,
+        Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
+        Selection::PointLight,
+        children![
+            SceneRoot(
                 asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
-            ));
-
-            parent.spawn((
+            ),
+            (
                 Mesh3d(meshes.add(Sphere::new(1.0))),
                 MeshMaterial3d(materials.add(StandardMaterial {
                     emissive: Color::srgb(0.0, 0.0, 300.0).to_linear(),
                     ..default()
                 })),
-            ));
-
-            parent.spawn((
+            ),
+            (
                 PointLight {
                     color: Color::srgb(0.0, 0.0, 1.0),
                     intensity: 1e6,
@@ -279,76 +274,69 @@ fn spawn_light_textures(
                     image: asset_server.load("lightmaps/faces_pointlight_texture_blurred.png"),
                     cubemap_layout: CubemapLayout::CrossVertical,
                 },
-            ));
-        });
+            )
+        ],
+    ));
 }
 
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
-                "Drag to Move",
-                &[
-                    (Selection::Camera, "Camera"),
-                    (Selection::SpotLight, "Spotlight"),
-                    (Selection::PointLight, "Point Light"),
-                    (Selection::DirectionalLight, "Directional Light"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Drag to Move",
+            &[
+                (Selection::Camera, "Camera"),
+                (Selection::SpotLight, "Spotlight"),
+                (Selection::PointLight, "Point Light"),
+                (Selection::DirectionalLight, "Directional Light"),
+            ],
+        )],
+    ));
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
             right: px(10),
             bottom: px(10),
             column_gap: px(6),
             ..default()
-        })
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
+        },
+        children![
+            widgets::option_buttons(
                 "",
                 &[
                     (Visibility::Inherited, "Show"),
                     (Visibility::Hidden, "Hide"),
                 ],
-            );
-            spawn_drag_button(parent, "Scale").insert(DragMode::Scale);
-            spawn_drag_button(parent, "Roll").insert(DragMode::Roll);
-        });
+            ),
+            (drag_button("Scale"), DragMode::Scale),
+            (drag_button("Roll"), DragMode::Roll),
+        ],
+    ));
 }
 
 /// Spawns a button that the user can drag to change a parameter.
-fn spawn_drag_button<'a>(
-    commands: &'a mut ChildSpawnerCommands,
-    label: &str,
-) -> EntityCommands<'a> {
-    let mut kid = commands.spawn(Node {
-        border: BUTTON_BORDER,
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        padding: BUTTON_PADDING,
-        ..default()
-    });
-    kid.insert((
+fn drag_button(label: &str) -> impl Bundle {
+    (
+        Node {
+            border: BUTTON_BORDER,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: BUTTON_PADDING,
+            ..default()
+        },
         Button,
         BackgroundColor(Color::BLACK),
         BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
         BUTTON_BORDER_COLOR,
-    ))
-    .with_children(|parent| {
-        widgets::spawn_ui_text(parent, label, Color::WHITE);
-    });
-    kid
+        children![widgets::ui_text(label, Color::WHITE),],
+    )
 }
 
 /// Spawns the help text at the top of the screen.
@@ -447,7 +435,7 @@ fn update_radio_buttons(
 
 /// Changes the selection when the user clicks a radio button.
 fn handle_selection_change(
-    mut events: EventReader<WidgetClickEvent<Selection>>,
+    mut events: MessageReader<WidgetClickEvent<Selection>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -456,7 +444,7 @@ fn handle_selection_change(
 }
 
 fn toggle_visibility(
-    mut events: EventReader<WidgetClickEvent<Visibility>>,
+    mut events: MessageReader<WidgetClickEvent<Visibility>>,
     app_status: Res<AppStatus>,
     mut visibility: Query<(&mut Visibility, &Selection)>,
 ) {

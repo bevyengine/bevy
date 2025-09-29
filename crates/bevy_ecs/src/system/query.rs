@@ -1952,7 +1952,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    /// - [`single_inner`](Self::single_inner) for the panicking version.
     #[inline]
     pub fn single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError> {
         let mut query = self.into_iter();

@@ -62,14 +62,16 @@ pub fn event_propagation(criterion: &mut Criterion) {
 }
 
 #[derive(EntityEvent, Clone, Component)]
-#[entity_event(traversal = &'static ChildOf, auto_propagate)]
-struct TestEvent<const N: usize> {}
+#[entity_event(propagate, auto_propagate)]
+struct TestEvent<const N: usize> {
+    entity: Entity,
+}
 
 fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
-    let target = leaves.iter().choose(&mut rand::rng()).unwrap();
+    let entity = *leaves.iter().choose(&mut rand::rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
-        world.trigger_targets(TestEvent::<N> {}, *target);
+        world.trigger(TestEvent::<N> { entity });
     });
 }
 

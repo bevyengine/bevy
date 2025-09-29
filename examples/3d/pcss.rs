@@ -121,7 +121,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_event::<WidgetClickEvent<AppSetting>>()
+        .add_message::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
         .add_systems(
@@ -208,20 +208,18 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![
+            widgets::option_buttons(
                 "Light Type",
                 &[
                     (AppSetting::LightType(LightType::Directional), "Directional"),
                     (AppSetting::LightType(LightType::Point), "Point"),
                     (AppSetting::LightType(LightType::Spot), "Spot"),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Shadow Filter",
                 &[
                     (AppSetting::ShadowFilter(ShadowFilter::Temporal), "Temporal"),
@@ -230,16 +228,16 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Non-Temporal",
                     ),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Soft Shadows",
                 &[
                     (AppSetting::SoftShadows(true), "On"),
                     (AppSetting::SoftShadows(false), "Off"),
                 ],
-            );
-        });
+            ),
+        ],
+    ));
 }
 
 /// Updates the style of the radio buttons that enable and disable soft shadows
@@ -277,7 +275,7 @@ fn update_radio_buttons(
 fn handle_light_type_change(
     mut commands: Commands,
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -314,7 +312,7 @@ fn handle_light_type_change(
 fn handle_shadow_filter_change(
     mut commands: Commands,
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -343,7 +341,7 @@ fn handle_shadow_filter_change(
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {

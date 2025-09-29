@@ -2,11 +2,11 @@
 //!
 //! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
-use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy::prelude::*;
 
 /// An event that's sent whenever the user changes one of the settings by
 /// clicking a radio button.
-#[derive(Clone, BufferedEvent, Deref, DerefMut)]
+#[derive(Clone, Message, Deref, DerefMut)]
 pub struct WidgetClickEvent<T>(T);
 
 /// A marker component that we place on all widgets that send
@@ -59,14 +59,14 @@ pub fn main_ui_node() -> Node {
 ///
 /// The type parameter specifies the value that will be packaged up and sent in
 /// a [`WidgetClickEvent`] when the radio button is clicked.
-pub fn spawn_option_button<T>(
-    parent: &mut ChildSpawnerCommands,
+pub fn option_button<T>(
     option_value: T,
     option_name: &str,
     is_selected: bool,
     is_first: bool,
     is_last: bool,
-) where
+) -> impl Bundle
+where
     T: Clone + Send + Sync + 'static,
 {
     let (bg_color, fg_color) = if is_selected {
@@ -76,37 +76,36 @@ pub fn spawn_option_button<T>(
     };
 
     // Add the button node.
-    parent
-        .spawn((
-            Button,
-            Node {
-                border: BUTTON_BORDER.with_left(if is_first { px(1) } else { px(0) }),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: BUTTON_PADDING,
-                ..default()
-            },
-            BUTTON_BORDER_COLOR,
-            BorderRadius::ZERO
-                .with_left(if is_first {
-                    BUTTON_BORDER_RADIUS_SIZE
-                } else {
-                    px(0)
-                })
-                .with_right(if is_last {
-                    BUTTON_BORDER_RADIUS_SIZE
-                } else {
-                    px(0)
-                }),
-            BackgroundColor(bg_color),
-        ))
-        .insert(RadioButton)
-        .insert(WidgetClickSender(option_value.clone()))
-        .with_children(|parent| {
-            spawn_ui_text(parent, option_name, fg_color)
-                .insert(RadioButtonText)
-                .insert(WidgetClickSender(option_value));
-        });
+    (
+        Button,
+        Node {
+            border: BUTTON_BORDER.with_left(if is_first { px(1) } else { px(0) }),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: BUTTON_PADDING,
+            ..default()
+        },
+        BUTTON_BORDER_COLOR,
+        BorderRadius::ZERO
+            .with_left(if is_first {
+                BUTTON_BORDER_RADIUS_SIZE
+            } else {
+                px(0)
+            })
+            .with_right(if is_last {
+                BUTTON_BORDER_RADIUS_SIZE
+            } else {
+                px(0)
+            }),
+        BackgroundColor(bg_color),
+        RadioButton,
+        WidgetClickSender(option_value.clone()),
+        children![(
+            ui_text(option_name, fg_color),
+            RadioButtonText,
+            WidgetClickSender(option_value),
+        )],
+    )
 }
 
 /// Spawns the buttons that allow configuration of a setting.
@@ -114,55 +113,53 @@ pub fn spawn_option_button<T>(
 /// The user may change the setting to any one of the labeled `options`. The
 /// value of the given type parameter will be packaged up and sent as a
 /// [`WidgetClickEvent`] when one of the radio buttons is clicked.
-pub fn spawn_option_buttons<T>(
-    parent: &mut ChildSpawnerCommands,
-    title: &str,
-    options: &[(T, &str)],
-) where
+pub fn option_buttons<T>(title: &str, options: &[(T, &str)]) -> impl Bundle
+where
     T: Clone + Send + Sync + 'static,
 {
+    let buttons = options
+        .iter()
+        .cloned()
+        .enumerate()
+        .map(|(option_index, (option_value, option_name))| {
+            option_button(
+                option_value,
+                option_name,
+                option_index == 0,
+                option_index == 0,
+                option_index == options.len() - 1,
+            )
+        })
+        .collect::<Vec<_>>();
     // Add the parent node for the row.
-    parent
-        .spawn(Node {
+    (
+        Node {
             align_items: AlignItems::Center,
             ..default()
-        })
-        .with_children(|parent| {
-            spawn_ui_text(parent, title, Color::BLACK).insert(Node {
-                width: px(125),
-                ..default()
-            });
-
-            for (option_index, (option_value, option_name)) in options.iter().cloned().enumerate() {
-                spawn_option_button(
-                    parent,
-                    option_value,
-                    option_name,
-                    option_index == 0,
-                    option_index == 0,
-                    option_index == options.len() - 1,
-                );
-            }
-        });
+        },
+        Children::spawn((
+            Spawn((
+                ui_text(title, Color::BLACK),
+                Node {
+                    width: px(125),
+                    ..default()
+                },
+            )),
+            SpawnIter(buttons.into_iter()),
+        )),
+    )
 }
 
-/// Spawns text for the UI.
-///
-/// Returns the `EntityCommands`, which allow further customization of the text
-/// style.
-pub fn spawn_ui_text<'a>(
-    parent: &'a mut ChildSpawnerCommands,
-    label: &str,
-    color: Color,
-) -> EntityCommands<'a> {
-    parent.spawn((
+/// Creates a text bundle for the UI.
+pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
+    (
         Text::new(label),
         TextFont {
             font_size: 18.0,
             ..default()
         },
         TextColor(color),
-    ))
+    )
 }
 
 /// Checks for clicks on the radio buttons and sends `RadioButtonChangeEvent`s
@@ -172,7 +169,7 @@ pub fn handle_ui_interactions<T>(
         (&Interaction, &WidgetClickSender<T>),
         (With<Button>, With<RadioButton>),
     >,
-    mut widget_click_events: EventWriter<WidgetClickEvent<T>>,
+    mut widget_click_events: MessageWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,
 {
