@@ -344,7 +344,7 @@ impl App {
     /// # let mut app = App::new();
     /// # fn system_a() {}
     /// # fn system_b() {}
-    ///
+    /// #
     /// // add the system
     /// app.add_systems(Update, system_a);
     ///
