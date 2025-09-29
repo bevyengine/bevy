@@ -15,8 +15,8 @@ cost of the run condition being checked.
 app.add_systems((system_a, (system_b, system_c).in_set(MySet)));
 
 // remove a system
-app.remove_systems_in_set(system_a);
+schedule.remove_systems_in_set(my_system, ScheduleCleanupPolicy::RemoveSystemsOnly);
 
 // remove systems in a set
-app.remove_systems_in_set(MySet)
+app.remove_systems_in_set(MySet, ScheduleCleanupPolicy::RemoveSetAndSystems);
 ```
