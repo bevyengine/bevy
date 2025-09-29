@@ -4,7 +4,9 @@ use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::component::Component;
+use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
+use bevy_reflect::Reflect;
 
 /// Text style
 #[derive(Clone, PartialEq)]
@@ -49,6 +51,25 @@ impl Default for TextStyle {
 /// Fallback text style used if a text entity and all its ancestors lack text styling components.
 #[derive(Resource, Default, Clone, Deref, DerefMut)]
 pub struct DefaultTextStyle(pub TextStyle);
+
+/// Internal struct for managing propagation
+#[derive(Component, Clone, PartialEq, Reflect)]
+#[reflect(Component, Clone, PartialEq)]
+pub struct InheritedTextStyle {
+    /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
+    /// or from [`DefaultTextStyle`] if none is found.
+    pub(crate) font: Option<Handle<Font>>,
+    /// The vertical height of rasterized glyphs in the font atlas in pixels.
+    pub(crate) font_size: Option<f32>,
+    /// The antialiasing method to use when rendering text.
+    pub(crate) font_smoothing: Option<FontSmoothing>,
+    /// The vertical height of a line of text, from the top of one line to the top of the
+    /// next.
+    pub(crate) line_height: Option<LineHeight>,
+    /// The resolved text color, taken from the nearest ancestor (including self) with a [`TextColor`],
+    /// or from [`DefaultTextStyle`] if none is found.
+    pub(crate) color: Option<Color>,
+}
 
 /// The resolved text style for a text entity.
 ///
