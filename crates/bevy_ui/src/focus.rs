@@ -235,7 +235,7 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let camera_entity = node.target_camera.camera()?;
+            let camera_entity = node.target_camera.get()?;
 
             let cursor_position = camera_cursor_positions.get(&camera_entity);
 

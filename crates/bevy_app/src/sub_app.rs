@@ -1,7 +1,7 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    event::EventRegistry,
+    message::MessageRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{ScheduleSystem, SystemId, SystemInput},
@@ -335,13 +335,22 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_event`].
+    /// See [`App::add_message`].
+    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            EventRegistry::register_event::<T>(self.world_mut());
+        self.add_message::<T>()
+    }
+
+    /// See [`App::add_message`].
+    pub fn add_message<T>(&mut self) -> &mut Self
+    where
+        T: Message,
+    {
+        if !self.world.contains_resource::<Messages<T>>() {
+            MessageRegistry::register_message::<T>(self.world_mut());
         }
 
         self
@@ -405,6 +414,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.finish(app);
             });
@@ -419,6 +431,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.cleanup(app);
             });

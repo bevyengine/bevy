@@ -2,28 +2,18 @@
 
 use bevy::{
     color::palettes::css::NAVY,
-    core_widgets::{Activate, CoreWidgetsPlugins},
     ecs::relationship::RelatedSpawnerCommands,
     feathers::{
-        controls::virtual_keyboard, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugin,
+        controls::virtual_keyboard, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugins,
     },
-    input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
-    winit::WinitSettings,
+    ui_widgets::Activate,
 };
 
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CoreWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }
@@ -65,8 +55,8 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
             ..default()
@@ -76,16 +66,16 @@ fn setup(mut commands: Commands) {
                 .spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        border: Val::Px(5.).into(),
-                        row_gap: Val::Px(5.),
-                        padding: Val::Px(5.).into(),
+                        border: px(5).into(),
+                        row_gap: px(5),
+                        padding: px(5).into(),
                         align_items: AlignItems::Center,
-                        margin: Val::Px(25.).into(),
+                        margin: px(25).into(),
                         ..Default::default()
                     },
                     BackgroundColor(NAVY.into()),
                     BorderColor::all(Color::WHITE),
-                    BorderRadius::all(Val::Px(10.)),
+                    BorderRadius::all(px(10)),
                 ))
                 .with_children(|parent: &mut RelatedSpawnerCommands<ChildOf>| {
                     parent.spawn(Text::new("virtual keyboard"));

@@ -1,7 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -20,6 +19,7 @@ use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
+use bevy_ui_widgets::{Callback, Checkbox, ValueChange};
 
 use crate::{
     constants::size,
@@ -58,7 +58,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
             border: UiRect::all(Val::Px(2.0)),
             ..Default::default()
         },
-        CoreCheckbox {
+        Checkbox {
             on_change: props.on_change,
         },
         ToggleSwitchOutline,
@@ -114,7 +114,7 @@ fn update_switch_styles(
         };
         // Safety: since we just checked the query, should always work.
         let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-        set_switch_colors(
+        set_switch_styles(
             switch_ent,
             slide_ent,
             disabled,
@@ -162,7 +162,7 @@ fn update_switch_styles_remove(
                 };
                 // Safety: since we just checked the query, should always work.
                 let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-                set_switch_colors(
+                set_switch_styles(
                     switch_ent,
                     slide_ent,
                     disabled,
@@ -178,7 +178,7 @@ fn update_switch_styles_remove(
         });
 }
 
-fn set_switch_colors(
+fn set_switch_styles(
     switch_ent: Entity,
     slide_ent: Entity,
     disabled: bool,
@@ -213,6 +213,11 @@ fn set_switch_colors(
         false => Val::Percent(0.),
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -238,6 +243,11 @@ fn set_switch_colors(
     if slide_pos != slide_style.left {
         slide_style.left = slide_pos;
     }
+
+    // Change cursor shape
+    commands
+        .entity(switch_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the toggle switch styles.

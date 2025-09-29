@@ -29,7 +29,7 @@ use bevy_render::{
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_shader::Shader;
-use bevy_sprite::{
+use bevy_sprite_render::{
     init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
 };
 use bevy_utils::default;
@@ -53,9 +53,11 @@ impl Plugin for LineGizmo2dPlugin {
                 Render,
                 GizmoRenderSystems::QueueLineGizmos2d
                     .in_set(RenderSystems::Queue)
-                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(bevy_sprite_render::queue_sprites)
                     .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                        bevy_sprite_render::queue_material2d_meshes::<
+                            bevy_sprite_render::ColorMaterial,
+                        >,
                     ),
             )
             .add_systems(

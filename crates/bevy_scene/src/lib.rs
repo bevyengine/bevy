@@ -122,7 +122,7 @@ mod tests {
         entity::Entity,
         entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
-        query::Allows,
+        query::Allow,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -195,6 +195,10 @@ mod tests {
             .insert(&scene_handle, scene_1)
             .unwrap();
 
+        app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        app.update();
+        app.update();
         app.update();
 
         let child_root = app
@@ -307,7 +311,7 @@ mod tests {
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
             let entities: Vec<Entity> = scene
                 .world
-                .query_filtered::<Entity, Allows<Internal>>()
+                .query_filtered::<Entity, Allow<Internal>>()
                 .iter(&scene.world)
                 .collect();
             DynamicSceneBuilder::from_world(&scene.world)
@@ -335,6 +339,10 @@ mod tests {
             .insert(&scene_handle, scene_1)
             .unwrap();
 
+        app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        app.update();
+        app.update();
         app.update();
 
         let child_root = app

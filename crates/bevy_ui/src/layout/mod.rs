@@ -1,8 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition,
+    BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, LayoutConfig,
+    Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -38,7 +38,8 @@ impl LayoutContext {
         physical_size: Vec2::ZERO,
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
-    fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    #[inline]
+    const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -77,7 +78,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ComputedUiTargetCamera>,
+        Ref<ComputedUiRenderTargetInfo>,
     )>,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
@@ -257,9 +258,12 @@ pub fn ui_layout_system(
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            // Computer the node's new global transform
-            let mut local_transform =
-                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            // Compute the node's new global transform
+            let mut local_transform = transform.compute_affine(
+                inverse_target_scale_factor.recip(),
+                layout_size,
+                target_size,
+            );
             local_transform.translation += local_center;
             inherited_transform *= local_transform;
 
@@ -352,33 +356,25 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use crate::update::update_cameras_test_system;
+    use crate::{
+        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
+        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
+    };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
-    use taffy::TraversePartialTree;
-
-    use bevy_asset::{AssetEvent, Assets};
     use bevy_camera::{Camera, Camera2d};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
-    use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::texture::ManualTextureViews;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
-    use bevy_window::{
-        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
-        WindowScaleFactorChanged,
-    };
-    //use uuid::timestamp::UUID_TICKS_BETWEEN_EPOCHS;
-
-    use crate::{
-        layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_ui_context_system, ContentSize, LayoutContext,
-    };
+    use bevy_window::{PrimaryWindow, Window, WindowResolution};
+    use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: f32 = 1000.;
-    const WINDOW_HEIGHT: f32 = 100.;
+    const WINDOW_WIDTH: u32 = 1000;
+    const WINDOW_HEIGHT: u32 = 100;
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
@@ -386,15 +382,11 @@ mod tests {
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
-        app.init_resource::<Events<WindowScaleFactorChanged>>();
-        app.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        app.init_resource::<Events<WindowCreated>>();
-        app.init_resource::<Events<AssetEvent<Image>>>();
-        app.init_resource::<Assets<Image>>();
-        app.init_resource::<ManualTextureViews>();
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::CosmicFontSystem>();
         app.init_resource::<bevy_text::SwashCache>();
@@ -402,9 +394,8 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system,
-                update_ui_context_system,
+                update_cameras_test_system,
+                propagate_ui_target_cameras,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -417,7 +408,14 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
-                .after(update_ui_context_system)
+                .after(propagate_ui_target_cameras)
+                .before(ui_layout_system),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default()
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
@@ -466,8 +464,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT);
+            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
         }
     }
 
@@ -1064,14 +1062,7 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system,
-                update_ui_context_system,
-                ApplyDeferred,
-                ui_layout_system,
-            )
-                .chain(),
+            (propagate_ui_target_cameras, ApplyDeferred, ui_layout_system).chain(),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
@@ -1081,35 +1072,19 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
-                .after(update_ui_context_system)
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
         let world = app.world_mut();
         world.init_resource::<UiScale>();
         world.init_resource::<UiSurface>();
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        world.init_resource::<Events<WindowCreated>>();
-        world.init_resource::<Events<AssetEvent<Image>>>();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<ManualTextureViews>();
 
         world.init_resource::<bevy_text::TextPipeline>();
 
         world.init_resource::<bevy_text::CosmicFontSystem>();
 
         world.init_resource::<bevy_text::SwashCache>();
-
-        // spawn a dummy primary window and camera
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
-            },
-            PrimaryWindow,
-        ));
 
         let ui_root = world
             .spawn(Node {

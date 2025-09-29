@@ -72,6 +72,12 @@ fn setup(
         meshes.add(ConicalFrustum::default()),
         meshes.add(Sphere::default().mesh().ico(5).unwrap()),
         meshes.add(Sphere::default().mesh().uv(32, 18)),
+        meshes.add(Segment3d::default()),
+        meshes.add(Polyline3d::new(vec![
+            Vec3::new(-0.5, 0.0, 0.0),
+            Vec3::new(0.5, 0.0, 0.0),
+            Vec3::new(0.0, 0.5, 0.0),
+        ])),
     ];
 
     let extrusions = [
@@ -144,8 +150,8 @@ fn setup(
         Text::new("Press space to toggle wireframes"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

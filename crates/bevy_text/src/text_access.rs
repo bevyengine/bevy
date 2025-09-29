@@ -21,8 +21,9 @@ pub trait TextRoot: TextSpanAccess + From<String> {}
 /// Helper trait for the text span components in a text block.
 pub trait TextSpanComponent: TextSpanAccess + From<String> {}
 
+/// Scratch buffer used to store intermediate state when iterating over text spans.
 #[derive(Resource, Default)]
-pub(crate) struct TextIterScratch {
+pub struct TextIterScratch {
     stack: Vec<(&'static Children, usize)>,
 }
 

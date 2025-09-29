@@ -4,6 +4,7 @@ use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
 use bevy_asset::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
+use bevy_math::prelude::Polyline2d;
 use bevy_math::{
     ops,
     primitives::{
@@ -407,31 +408,32 @@ impl From<CircularSegment> for Mesh {
 ///
 /// You must verify that the `vertices` are not concave when constructing this type. You can
 /// guarantee this by creating a [`ConvexPolygon`] first, then calling [`ConvexPolygon::mesh()`].
-#[derive(Clone, Copy, Debug, Reflect)]
+#[derive(Clone, Debug, Reflect)]
 #[reflect(Debug, Clone)]
-pub struct ConvexPolygonMeshBuilder<const N: usize> {
-    pub vertices: [Vec2; N],
+pub struct ConvexPolygonMeshBuilder {
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Meshable for ConvexPolygon<N> {
-    type Output = ConvexPolygonMeshBuilder<N>;
+impl Meshable for ConvexPolygon {
+    type Output = ConvexPolygonMeshBuilder;
 
     fn mesh(&self) -> Self::Output {
         Self::Output {
-            vertices: *self.vertices(),
+            vertices: self.vertices().to_vec(),
         }
     }
 }
 
-impl<const N: usize> MeshBuilder for ConvexPolygonMeshBuilder<N> {
+impl MeshBuilder for ConvexPolygonMeshBuilder {
     fn build(&self) -> Mesh {
-        let mut indices = Vec::with_capacity((N - 2) * 3);
-        let mut positions = Vec::with_capacity(N);
+        let len = self.vertices.len();
+        let mut indices = Vec::with_capacity((len - 2) * 3);
+        let mut positions = Vec::with_capacity(len);
 
-        for vertex in self.vertices {
+        for vertex in &self.vertices {
             positions.push([vertex.x, vertex.y, 0.0]);
         }
-        for i in 2..N as u32 {
+        for i in 2..len as u32 {
             indices.extend_from_slice(&[0, i - 1, i]);
         }
         Mesh::new(
@@ -443,16 +445,16 @@ impl<const N: usize> MeshBuilder for ConvexPolygonMeshBuilder<N> {
     }
 }
 
-impl<const N: usize> Extrudable for ConvexPolygonMeshBuilder<N> {
+impl Extrudable for ConvexPolygonMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
-            indices: (0..N as u32).chain([0]).collect(),
+            indices: (0..self.vertices.len() as u32).chain([0]).collect(),
         }]
     }
 }
 
-impl<const N: usize> From<ConvexPolygon<N>> for Mesh {
-    fn from(polygon: ConvexPolygon<N>) -> Self {
+impl From<ConvexPolygon> for Mesh {
+    fn from(polygon: ConvexPolygon) -> Self {
         polygon.mesh().build()
     }
 }
@@ -673,6 +675,50 @@ impl From<Segment2d> for Mesh {
     /// Converts this segment into a [`Mesh`] using a default [`Segment2dMeshBuilder`].
     fn from(segment: Segment2d) -> Self {
         segment.mesh().build()
+    }
+}
+
+/// A builder used for creating a [`Mesh`] with a [`Polyline2d`] shape.
+#[derive(Clone, Debug, Default, Reflect)]
+#[reflect(Default, Debug, Clone)]
+pub struct Polyline2dMeshBuilder {
+    polyline: Polyline2d,
+}
+
+impl MeshBuilder for Polyline2dMeshBuilder {
+    fn build(&self) -> Mesh {
+        let positions: Vec<_> = self
+            .polyline
+            .vertices
+            .iter()
+            .map(|v| v.extend(0.0))
+            .collect();
+
+        let indices = Indices::U32(
+            (0..self.polyline.vertices.len() as u32 - 1)
+                .flat_map(|i| [i, i + 1])
+                .collect(),
+        );
+
+        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+            .with_inserted_indices(indices)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    }
+}
+
+impl Meshable for Polyline2d {
+    type Output = Polyline2dMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Polyline2dMeshBuilder {
+            polyline: self.clone(),
+        }
+    }
+}
+
+impl From<Polyline2d> for Mesh {
+    fn from(polyline: Polyline2d) -> Self {
+        polyline.mesh().build()
     }
 }
 

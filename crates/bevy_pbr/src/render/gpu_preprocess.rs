@@ -598,7 +598,7 @@ impl Node for EarlyGpuPreprocessNode {
                     label: Some("early_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "early_mesh_preprocessing");
+        let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
         all_views.push(graph.view_entity());
@@ -839,7 +839,7 @@ impl Node for LateGpuPreprocessNode {
                     label: Some("late_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "late_mesh_preprocessing");
+        let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
@@ -1056,7 +1056,7 @@ fn run_build_indirect_parameters_node(
                 label: Some(label),
                 timestamp_writes: None,
             });
-    let pass_span = diagnostics.time_span(&mut compute_pass, label);
+    let pass_span = diagnostics.pass_span(&mut compute_pass, label);
 
     // Fetch the pipeline.
     let (

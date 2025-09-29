@@ -316,22 +316,22 @@ impl TabNavigation<'_, '_> {
 
 /// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
 pub(crate) fn acquire_focus(
-    mut ev: On<AcquireFocus>,
+    mut acquire_focus: On<AcquireFocus>,
     focusable: Query<(), With<TabIndex>>,
     windows: Query<(), With<Window>>,
     mut focus: ResMut<InputFocus>,
 ) {
     // If the entity has a TabIndex
-    if focusable.contains(ev.target()) {
+    if focusable.contains(acquire_focus.focused_entity) {
         // Stop and focus it
-        ev.propagate(false);
+        acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(ev.target()) {
-            focus.0 = Some(ev.target());
+        if focus.0 != Some(acquire_focus.focused_entity) {
+            focus.0 = Some(acquire_focus.focused_entity);
         }
-    } else if windows.contains(ev.target()) {
+    } else if windows.contains(acquire_focus.focused_entity) {
         // Stop and clear focus
-        ev.propagate(false);
+        acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
         if focus.0.is_some() {
             focus.clear();
@@ -357,7 +357,7 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 }
 
 fn click_to_focus(
-    ev: On<Pointer<Press>>,
+    press: On<Pointer<Press>>,
     mut focus_visible: ResMut<InputFocusVisible>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
@@ -366,16 +366,17 @@ fn click_to_focus(
     // for every ancestor, but only for the original entity. Also, users may want to stop
     // propagation on the pointer event at some point along the bubbling chain, so we need our
     // own dedicated event whose propagation we can control.
-    if ev.target() == ev.original_target() {
+    if press.entity == press.original_event_target() {
         // Clicking hides focus
         if focus_visible.0 {
             focus_visible.0 = false;
         }
         // Search for a focusable parent entity, defaulting to window if none.
         if let Ok(window) = windows.single() {
-            commands
-                .entity(ev.target())
-                .trigger(AcquireFocus { window });
+            commands.trigger(AcquireFocus {
+                focused_entity: press.entity,
+                window,
+            });
         }
     }
 }
@@ -387,14 +388,14 @@ fn click_to_focus(
 ///
 /// Any [`TabNavigationError`]s that occur during tab navigation are logged as warnings.
 pub fn handle_tab_navigation(
-    mut trigger: On<FocusedInput<KeyboardInput>>,
+    mut event: On<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     // Tab navigation.
-    let key_event = &trigger.event().input;
+    let key_event = &event.input;
     if key_event.key_code == KeyCode::Tab
         && key_event.state == ButtonState::Pressed
         && !key_event.repeat
@@ -410,7 +411,7 @@ pub fn handle_tab_navigation(
 
         match maybe_next {
             Ok(next) => {
-                trigger.propagate(false);
+                event.propagate(false);
                 focus.set(next);
                 visible.0 = true;
             }
@@ -418,7 +419,7 @@ pub fn handle_tab_navigation(
                 warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
-                    trigger.propagate(false);
+                    event.propagate(false);
                     focus.set(new_focus);
                     visible.0 = true;
                 }

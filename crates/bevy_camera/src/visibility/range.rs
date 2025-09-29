@@ -173,7 +173,7 @@ impl VisibilityRange {
 /// Stores which entities are in within the [`VisibilityRange`]s of views.
 ///
 /// This doesn't store the results of frustum or occlusion culling; use
-/// [`super::ViewVisibility`] for that. Thus entities in this list may not
+/// [`ViewVisibility`](`super::ViewVisibility`) for that. Thus entities in this list may not
 /// actually be visible.
 ///
 /// For efficiency, these tables only store entities that have

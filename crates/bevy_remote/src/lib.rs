@@ -14,7 +14,7 @@
 //!
 //! ```json
 //! {
-//!     "method": world.get_components",
+//!     "method": "world.get_components",
 //!     "id": 0,
 //!     "params": {
 //!         "entity": 4294967298,
@@ -153,7 +153,7 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
-//! ### Example
+//! #### Example
 //! To use the query API and retrieve Transform data for all entities that have a Transform
 //! use this query:
 //!
@@ -454,6 +454,32 @@
 //! List all reflectable registered resource types. This method has no parameters.
 //!
 //! `result`: An array of [fully-qualified type names] of registered resource types.
+//!
+//! ### `registry.schema`
+//!
+//! Retrieve schema information about registered types in the Bevy app's type registry.
+//!
+//! `params` (optional):
+//! - `with_crates`: An array of crate names to include in the results. When empty or omitted, types from all crates will be included.
+//! - `without_crates`: An array of crate names to exclude from the results. When empty or omitted, no crates will be excluded.
+//! - `type_limit`: Additional type constraints:
+//!   - `with`: An array of [fully-qualified type names] that must be present for a type to be included
+//!   - `without`: An array of [fully-qualified type names] that must not be present for a type to be excluded
+//!
+//! `result`: A map associating each type's [fully-qualified type name] to a [`JsonSchemaBevyType`](crate::schemas::json_schema::JsonSchemaBevyType).
+//! This contains schema information about that type, including field definitions, type information, reflect type information, and other metadata
+//! helpful for understanding the structure of the type.
+//!
+//! ### `rpc.discover`
+//!
+//! Discover available remote methods and server information. This follows the [`OpenRPC` specification for service discovery](https://spec.open-rpc.org/#service-discovery-method).
+//!
+//! This method takes no parameters.
+//!
+//! `result`: An `OpenRPC` document containing:
+//! - Information about all available remote methods
+//! - Server connection information (when using HTTP transport)
+//! - `OpenRPC` specification version
 //!
 //! ## Custom methods
 //!

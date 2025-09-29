@@ -135,7 +135,6 @@ pub trait System: Send + Sync + 'static {
         unsafe { self.validate_param_unsafe(world_cell) }?;
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -241,7 +240,6 @@ pub unsafe trait ReadOnlySystem: System {
         unsafe { self.validate_param_unsafe(world) }?;
         // SAFETY:
         // - We have read-only access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }
@@ -533,7 +531,15 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
-        let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert!(result.unwrap_err().to_string().contains(expected));
+
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 }
