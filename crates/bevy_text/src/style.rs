@@ -178,3 +178,30 @@ pub fn update_text_styles(
         }
     }
 }
+
+/// update text style sources
+pub fn update_sources(
+    font_query: Query<
+        (
+            Entity,
+            Option<&TextFont>,
+            Option<&TextColor>,
+            Option<&FontSize>,
+            Option<&LineHeight>,
+            Option<&FontSmoothing>,
+        ),
+        Or<(
+            Changed<TextFont>,
+            Changed<TextColor>,
+            Changed<FontSize>,
+            Changed<LineHeight>,
+            Changed<FontSmoothing>,
+        )>,
+    >,
+    mut removed_font: RemovedComponents<TextFont>,
+    mut removed_size: RemovedComponents<FontSize>,
+    mut removed_color: RemovedComponents<TextColor>,
+    mut removed_line_height: RemovedComponents<LineHeight>,
+    mut removed_font_smoothing: RemovedComponents<FontSmoothing>,
+) {
+}
