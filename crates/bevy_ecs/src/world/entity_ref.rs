@@ -1,8 +1,7 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
@@ -22,7 +21,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -299,8 +298,8 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -478,6 +477,11 @@ impl<'w> EntityMut<'w> {
     /// Gets read-only access to all of the entity's components.
     pub fn as_readonly(&self) -> EntityRef<'_> {
         EntityRef::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.cell
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -1066,8 +1070,8 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -1968,6 +1972,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
@@ -1996,6 +2001,7 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
@@ -2014,6 +2020,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
+        move_as_ptr!(bundle);
         self.insert_with_caller(
             bundle,
             InsertMode::Keep,
@@ -2022,12 +2029,11 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
+    /// Adds a [`Bundle`] of components to the entity.
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2036,8 +2042,15 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) = unsafe {
+        // SAFETY:
+        // - `location` matches current entity and thus must currently exist in the source
+        //   archetype for this inserter and its location within the archetype.
+        // - `T` matches the type used to create the `BundleInserter`.
+        // - `apply_effect` is called exactly once after this function.
+        // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+        //   and the caller ensures that the value is not accessed or dropped after this function
+        //   returns.
+        let (bundle, location) = bundle.partial_move(|bundle| unsafe {
             bundle_inserter.insert(
                 self.entity,
                 location,
@@ -2046,11 +2059,14 @@ impl<'w> EntityWorldMut<'w> {
                 caller,
                 relationship_hook_mode,
             )
-        };
+        });
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        after_effect.apply(self);
+        // SAFETY:
+        // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+        // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
+        unsafe { T::apply_effect(bundle, self) };
         self
     }
 
@@ -2852,8 +2868,9 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.world
-            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+        let bundle = Observer::new(observer).with_entity(self.entity);
+        move_as_ptr!(bundle);
+        self.world.spawn_with_caller(bundle, caller);
         self.world.flush();
         self.update_location();
         self
@@ -3120,7 +3137,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has last been spawned.
-    pub fn spawned_at(&self) -> Tick {
+    pub fn spawn_tick(&self) -> Tick {
         self.assert_not_despawned();
 
         // SAFETY: entity being alive was asserted
@@ -3146,6 +3163,27 @@ impl<'w> EntityWorldMut<'w> {
                 location,
             })
         })
+    }
+
+    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
+    /// See [`EntityCommands::trigger`] for usage examples
+    ///
+    /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
+    #[track_caller]
+    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
+        &mut self,
+        event_fn: impl FnOnce(Entity) -> E,
+    ) -> &mut Self {
+        let mut event = (event_fn)(self.entity);
+        let caller = MaybeLocation::caller();
+        self.world_scope(|world| {
+            world.trigger_ref_with_caller(
+                &mut event,
+                &mut <E::Trigger<'_> as Default>::default(),
+                caller,
+            );
+        });
+        self
     }
 }
 
@@ -3667,8 +3705,8 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -3793,6 +3831,62 @@ impl ContainsEntity for FilteredEntityRef<'_, '_> {
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
 unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 
+/// Variant of [`FilteredEntityMut`] that can be used to create copies of a [`FilteredEntityMut`], as long
+/// as the user ensures that these won't cause aliasing violations.
+///
+/// This can be useful to mutably query multiple components from a single `FilteredEntityMut`.
+///
+/// ### Example Usage
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, world::{FilteredEntityMut, UnsafeFilteredEntityMut}};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// # #[derive(Component)]
+/// # struct B;
+/// #
+/// # let mut world = World::new();
+/// # world.spawn((A, B));
+/// #
+/// // This gives the `FilteredEntityMut` access to `&mut A` and `&mut B`.
+/// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+///     .data::<(&mut A, &mut B)>()
+///     .build();
+///
+/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+/// let unsafe_filtered_entity = UnsafeFilteredEntityMut::new_readonly(&filtered_entity);
+/// // SAFETY: the original FilteredEntityMut accesses `&mut A` and the clone accesses `&mut B`, so no aliasing violations occur.
+/// let mut filtered_entity_clone: FilteredEntityMut = unsafe { unsafe_filtered_entity.into_mut() };
+/// let a: Mut<A> = filtered_entity.get_mut().unwrap();
+/// let b: Mut<B> = filtered_entity_clone.get_mut().unwrap();
+/// ```
+#[derive(Copy, Clone)]
+pub struct UnsafeFilteredEntityMut<'w, 's> {
+    entity: UnsafeEntityCell<'w>,
+    access: &'s Access,
+}
+
+impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
+    /// Creates a [`UnsafeFilteredEntityMut`] that can be used to have multiple concurrent [`FilteredEntityMut`]s.
+    #[inline]
+    pub fn new_readonly(filtered_entity_mut: &FilteredEntityMut<'w, 's>) -> Self {
+        Self {
+            entity: filtered_entity_mut.entity,
+            access: filtered_entity_mut.access,
+        }
+    }
+
+    /// Returns a new instance of [`FilteredEntityMut`].
+    ///
+    /// # Safety
+    /// - The user must ensure that no aliasing violations occur when using the returned `FilteredEntityMut`.
+    #[inline]
+    pub unsafe fn into_mut(self) -> FilteredEntityMut<'w, 's> {
+        FilteredEntityMut::new(self.entity, self.access)
+    }
+}
+
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
 /// To define the access when used as a [`QueryData`](crate::query::QueryData),
@@ -3816,6 +3910,8 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 /// ```
+///
+/// Also see [`UnsafeFilteredEntityMut`] for a way to bypass borrow-checker restrictions.
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
@@ -3845,6 +3941,11 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub fn as_readonly(&self) -> FilteredEntityRef<'_, 's> {
         FilteredEntityRef::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -3926,9 +4027,61 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_unchecked() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    ///
+    /// // This gives the `FilteredEntityMut` access to `&mut X` and `&mut Y`.
+    /// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+    ///     .data::<(&mut X, &mut Y)>()
+    ///     .build();
+    ///
+    /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+    ///
+    /// // Get mutable access to two components at once
+    /// // SAFETY: We don't take any other references to `X` from this entity
+    /// let mut x = unsafe { filtered_entity.get_mut_unchecked::<X>() }.unwrap();
+    /// // SAFETY: We don't take any other references to `Y` from this entity
+    /// let mut y = unsafe { filtered_entity.get_mut_unchecked::<Y>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_unchecked<T: Component<Mutability = Mutable>>(
+        &self,
+    ) -> Option<Mut<'_, T>> {
         let id = self
             .entity
             .world()
@@ -3936,7 +4089,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
     }
@@ -4016,9 +4170,38 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_by_id_unchecked(component_id) }
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut_by_id`](Self::get_mut_by_id) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_by_id_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
         self.access
             .has_component_write(component_id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
@@ -4029,8 +4212,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4213,8 +4396,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4372,7 +4555,7 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, '_, B> {}
 /// *all* components of an entity, while still allowing you to consult other
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
-/// [`crate::query::Without`] filter.
+/// [`Without`](`crate::query::Without`) filter.
 pub struct EntityMutExcept<'w, 's, B>
 where
     B: Bundle,
@@ -4418,6 +4601,11 @@ where
     #[inline]
     pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
         EntityRefExcept::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Gets access to the component of type `C` for the current entity. Returns
@@ -4468,8 +4656,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -4624,8 +4812,17 @@ unsafe fn insert_dynamic_bundle<
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
-        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-            self.components.for_each(|(t, ptr)| func(t, ptr));
+        unsafe fn get_components(
+            mut ptr: MovingPtr<'_, Self>,
+            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        ) {
+            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr));
+        }
+
+        unsafe fn apply_effect(
+            _ptr: MovingPtr<'_, MaybeUninit<Self>>,
+            _entity: &mut EntityWorldMut,
+        ) {
         }
     }
 
@@ -4633,18 +4830,23 @@ unsafe fn insert_dynamic_bundle<
         components: storage_types.zip(components),
     };
 
-    // SAFETY: location matches current entity.
+    move_as_ptr!(bundle);
+
+    // SAFETY:
+    // - `location` matches `entity`.  and thus must currently exist in the source
+    //   archetype for this inserter and its location within the archetype.
+    // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
+    // - `apply_effect` is never called on this bundle.
+    // - `bundle` is not used or dropped after this point.
     unsafe {
-        bundle_inserter
-            .insert(
-                entity,
-                location,
-                bundle,
-                mode,
-                caller,
-                relationship_hook_insert_mode,
-            )
-            .0
+        bundle_inserter.insert(
+            entity,
+            location,
+            bundle,
+            mode,
+            caller,
+            relationship_hook_insert_mode,
+        )
     }
 }
 
@@ -6373,7 +6575,7 @@ mod tests {
                     .map(|l| l.unwrap());
                 let at = world
                     .entities
-                    .entity_get_spawned_or_despawned_at(entity)
+                    .entity_get_spawn_or_despawn_tick(entity)
                     .unwrap();
                 (by, at)
             });
@@ -6413,7 +6615,7 @@ mod tests {
             despawn_tick,
             world
                 .entities()
-                .entity_get_spawned_or_despawned_at(entity)
+                .entity_get_spawn_or_despawn_tick(entity)
                 .unwrap()
         );
     }

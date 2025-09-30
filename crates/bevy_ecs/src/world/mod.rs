@@ -23,7 +23,7 @@ pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
     ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
     EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
-    TryFromFilteredError, VacantComponentEntry,
+    TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -32,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles,
-        InsertMode, NoBundleEffect,
+        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
+        NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -44,8 +44,8 @@ use crate::{
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{BufferedEvent, EventId, Events, WriteBatchIds},
-    lifecycle::{ComponentHooks, RemovedComponentEvents, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
     prelude::{Add, Despawn, Insert, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -63,7 +63,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
@@ -96,7 +96,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
-    pub(crate) removed_components: RemovedComponentEvents,
+    pub(crate) removed_components: RemovedComponentMessages,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -252,9 +252,9 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves this world's [`RemovedComponentEvents`] collection
+    /// Retrieves this world's [`RemovedComponentMessages`] collection
     #[inline]
-    pub fn removed_components(&self) -> &RemovedComponentEvents {
+    pub fn removed_components(&self) -> &RemovedComponentMessages {
         &self.removed_components
     }
 
@@ -1152,21 +1152,29 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
+        move_as_ptr!(bundle);
         self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
     pub(crate) fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: B,
+        bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        let (bundle, entity_location) = bundle.partial_move(|bundle| {
+            // SAFETY:
+            // - `B` matches `bundle_spawner`'s type
+            // -  `entity` is allocated but non-existent
+            // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
+            // - This function ensures that the value pointed to by `bundle` must not be accessed for anything afterwards by consuming
+            //   the `MovingPtr`. The value is otherwise only used to call `apply_effect` within this function, and the safety invariants
+            //   of `DynamicBundle` ensure that only the elements that have not been moved out of by this call are accessed.
+            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
+        });
 
         let mut entity_location = Some(entity_location);
 
@@ -1178,7 +1186,10 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
+        // SAFETY:
+        // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
+        // - `bundle` had it's `get_components` function called exactly once inside `spawn_non_existent`.
+        unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
 
@@ -1656,7 +1667,7 @@ impl World {
     pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
         self.removed_components
             .get(component_id)
-            .map(|removed| removed.iter_current_update_events().cloned())
+            .map(|removed| removed.iter_current_update_messages().cloned())
             .into_iter()
             .flatten()
             .map(Into::into)
@@ -1958,7 +1969,7 @@ impl World {
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -1982,7 +1993,7 @@ impl World {
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -2006,7 +2017,7 @@ impl World {
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -2316,7 +2327,12 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                move_as_ptr!(first_bundle);
+                // SAFETY:
+                // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - `apply_effect` is never called on this bundle.
+                // - `first_bundle` is not be accessed or dropped after this.
                 unsafe {
                     cache.inserter.insert(
                         first_entity,
@@ -2344,7 +2360,12 @@ impl World {
                                 archetype_id: location.archetype_id,
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                        move_as_ptr!(bundle);
+                        // SAFETY:
+                        // - `entity` is valid, `location` matches entity, bundle matches inserter
+                        // - `apply_effect` is never called on this bundle.
+                        // - `bundle` is not be accessed or dropped after this.
                         unsafe {
                             cache.inserter.insert(
                                 entity,
@@ -2461,7 +2482,12 @@ impl World {
                         },
                         archetype_id: first_location.archetype_id,
                     };
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(first_bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2498,7 +2524,12 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             entity,
@@ -2610,68 +2641,68 @@ impl World {
         Some(result)
     }
 
-    /// Writes a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the written `event`,
-    /// or [`None`] if the `event` could not be written.
+    /// Writes a [`Message`].
+    /// This method returns the [`MessageId`] of the written `message`,
+    /// or [`None`] if the `message` could not be written.
     #[inline]
-    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.write_event_batch(core::iter::once(event))?.next()
+    pub fn write_message<M: Message>(&mut self, message: M) -> Option<MessageId<M>> {
+        self.write_message_batch(core::iter::once(message))?.next()
     }
 
-    /// Writes a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes a [`Message`].
+    /// This method returns the [`MessageId`] of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event` instead.")]
-    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.write_event(event)
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message` instead.")]
+    pub fn send_event<E: Message>(&mut self, event: E) -> Option<MessageId<E>> {
+        self.write_message(event)
     }
 
-    /// Writes the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes the default value of the [`Message`] of type `M`.
+    /// This method returns the [`MessageId`] of the written message,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.write_event(E::default())
+    pub fn write_message_default<M: Message + Default>(&mut self) -> Option<MessageId<M>> {
+        self.write_message(M::default())
     }
 
-    /// Writes the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes the default value of the [`Message`] of type `E`.
+    /// This method returns the [`MessageId`] of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event_default` instead.")]
-    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.write_event_default::<E>()
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message_default` instead.")]
+    pub fn send_event_default<E: Message + Default>(&mut self) -> Option<MessageId<E>> {
+        self.write_message_default::<E>()
     }
 
-    /// Writes a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
-    /// or [`None`] if the `event` could not be written.
+    /// Writes a batch of [`Message`]s from an iterator.
+    /// This method returns the [IDs](`MessageId`) of the written `messages`,
+    /// or [`None`] if the `events` could not be written.
     #[inline]
-    pub fn write_event_batch<E: BufferedEvent>(
+    pub fn write_message_batch<M: Message>(
         &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> Option<WriteBatchIds<E>> {
-        let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
+        messages: impl IntoIterator<Item = M>,
+    ) -> Option<WriteBatchIds<M>> {
+        let Some(mut events_resource) = self.get_resource_mut::<Messages<M>>() else {
             log::error!(
-                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                DebugName::type_name::<E>()
+                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_message ",
+                DebugName::type_name::<M>()
             );
             return None;
         };
-        Some(events_resource.write_batch(events))
+        Some(events_resource.write_batch(messages))
     }
 
-    /// Writes a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// Writes a batch of [`Message`]s from an iterator.
+    /// This method returns the [IDs](`MessageId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event_batch` instead.")]
-    pub fn send_event_batch<E: BufferedEvent>(
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message_batch` instead.")]
+    pub fn send_event_batch<E: Message>(
         &mut self,
         events: impl IntoIterator<Item = E>,
     ) -> Option<WriteBatchIds<E>> {
-        self.write_event_batch(events)
+        self.write_message_batch(events)
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -4350,7 +4381,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         world.despawn(entity);
@@ -4359,7 +4390,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
@@ -4369,7 +4400,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
         world.despawn(new);
@@ -4378,7 +4409,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
     }

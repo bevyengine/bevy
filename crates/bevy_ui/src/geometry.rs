@@ -182,7 +182,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn left(self) -> UiRect {
+    pub const fn left(self) -> UiRect {
         UiRect::left(self)
     }
 
@@ -202,7 +202,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn right(self) -> UiRect {
+    pub const fn right(self) -> UiRect {
         UiRect::right(self)
     }
 
@@ -222,7 +222,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn top(self) -> UiRect {
+    pub const fn top(self) -> UiRect {
         UiRect::top(self)
     }
 
@@ -242,7 +242,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub fn bottom(self) -> UiRect {
+    pub const fn bottom(self) -> UiRect {
         UiRect::bottom(self)
     }
 
@@ -260,7 +260,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub fn all(self) -> UiRect {
+    pub const fn all(self) -> UiRect {
         UiRect::all(self)
     }
 
@@ -279,7 +279,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn horizontal(self) -> UiRect {
+    pub const fn horizontal(self) -> UiRect {
         UiRect::horizontal(self)
     }
 
@@ -298,7 +298,7 @@ impl Val {
     /// assert_eq!(ui_rect.top, Val::Px(1.));
     /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
-    pub fn vertical(self) -> UiRect {
+    pub const fn vertical(self) -> UiRect {
         UiRect::vertical(self)
     }
 }
@@ -1251,5 +1251,16 @@ mod tests {
         assert_eq!(r.right, Val::Percent(5.));
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
+    }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
     }
 }

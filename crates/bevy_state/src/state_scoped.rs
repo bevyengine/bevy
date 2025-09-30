@@ -3,7 +3,7 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
+    message::MessageReader,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -63,11 +63,15 @@ where
     }
 }
 
+/// A deprecated alias for [`DespawnOnExit`].
+#[deprecated(since = "0.17.0", note = "use DespawnOnExit instead")]
+pub type StateScoped<S> = DespawnOnExit<S>;
+
 /// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &DespawnOnExit<S>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
@@ -133,7 +137,7 @@ pub struct DespawnOnEnter<S: States>(pub S);
 /// matches the world state.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
-    mut transitions: EventReader<StateTransitionEvent<S>>,
+    mut transitions: MessageReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &DespawnOnEnter<S>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1

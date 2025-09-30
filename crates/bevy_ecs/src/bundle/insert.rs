@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use bevy_ptr::ConstNonNull;
+use bevy_ptr::{ConstNonNull, MovingPtr};
 use core::ptr::NonNull;
 
 use crate::{
@@ -138,18 +138,25 @@ impl<'w> BundleInserter<'w> {
     }
 
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `location`
-    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
+    /// - `entity` must currently exist in the source archetype for this inserter.
+    /// - `location` must be `entity`'s location in the archetype.
+    /// - `T` must match this [`BundleInserter`] type used to create
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must be called at most once on
+    ///   `bundle` after this function before returning to user-space safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub(crate) unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-    ) -> (EntityLocation, T::Effect) {
+    ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
         let archetype = self.archetype.as_ref();
@@ -167,7 +174,7 @@ impl<'w> BundleInserter<'w> {
                         REPLACE,
                         &mut Replace { entity },
                         &mut EntityComponentsTrigger {
-                            components: &archetype_after_insert.existing,
+                            components: archetype_after_insert.existing(),
                         },
                         caller,
                     );
@@ -175,7 +182,7 @@ impl<'w> BundleInserter<'w> {
                 deferred_world.trigger_on_replace(
                     archetype,
                     entity,
-                    archetype_after_insert.iter_existing(),
+                    archetype_after_insert.existing().iter().copied(),
                     caller,
                     relationship_hook_mode,
                 );
@@ -188,7 +195,7 @@ impl<'w> BundleInserter<'w> {
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
-        let (new_archetype, new_location, after_effect) = match &mut self.archetype_move_type {
+        let (new_archetype, new_location) = match &mut self.archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let sparse_sets = {
@@ -196,7 +203,7 @@ impl<'w> BundleInserter<'w> {
                     &mut world.storages.sparse_sets
                 };
 
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     table,
                     sparse_sets,
                     archetype_after_insert,
@@ -209,7 +216,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (archetype, location, after_effect)
+                (archetype, location)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -237,7 +244,7 @@ impl<'w> BundleInserter<'w> {
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.set(entity.index(), Some(new_location));
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     table,
                     sparse_sets,
                     archetype_after_insert,
@@ -250,7 +257,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (new_archetype, new_location, after_effect)
+                (new_archetype, new_location)
             }
             ArchetypeMoveType::NewArchetypeNewTable {
                 new_archetype,
@@ -319,7 +326,7 @@ impl<'w> BundleInserter<'w> {
                     }
                 }
 
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     new_table,
                     sparse_sets,
                     archetype_after_insert,
@@ -332,7 +339,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (new_archetype, new_location, after_effect)
+                (new_archetype, new_location)
             }
         };
 
@@ -346,7 +353,7 @@ impl<'w> BundleInserter<'w> {
             deferred_world.trigger_on_add(
                 new_archetype,
                 entity,
-                archetype_after_insert.iter_added(),
+                archetype_after_insert.added().iter().copied(),
                 caller,
             );
             if new_archetype.has_add_observer() {
@@ -355,7 +362,7 @@ impl<'w> BundleInserter<'w> {
                     ADD,
                     &mut Add { entity },
                     &mut EntityComponentsTrigger {
-                        components: &archetype_after_insert.added,
+                        components: archetype_after_insert.added(),
                     },
                     caller,
                 );
@@ -366,7 +373,7 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        archetype_after_insert.iter_inserted(),
+                        archetype_after_insert.inserted().iter().copied(),
                         caller,
                         relationship_hook_mode,
                     );
@@ -375,12 +382,8 @@ impl<'w> BundleInserter<'w> {
                         deferred_world.trigger_raw(
                             INSERT,
                             &mut Insert { entity },
-                            // PERF: this is not a regression from what we were doing before, but ideally we don't
-                            // need to collect here
                             &mut EntityComponentsTrigger {
-                                components: &archetype_after_insert
-                                    .iter_inserted()
-                                    .collect::<Vec<_>>(),
+                                components: archetype_after_insert.inserted(),
                             },
                             caller,
                         );
@@ -392,7 +395,7 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        archetype_after_insert.iter_added(),
+                        archetype_after_insert.added().iter().copied(),
                         caller,
                         relationship_hook_mode,
                     );
@@ -402,7 +405,7 @@ impl<'w> BundleInserter<'w> {
                             INSERT,
                             &mut Insert { entity },
                             &mut EntityComponentsTrigger {
-                                components: &archetype_after_insert.added,
+                                components: archetype_after_insert.added(),
                             },
                             caller,
                         );
@@ -411,7 +414,7 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        (new_location, after_effect)
+        new_location
     }
 
     #[inline]
