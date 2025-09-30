@@ -39,21 +39,15 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let make_spans = |i| {
         [
             (
-                TextSpan("text".repeat(i)),
-                TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: (4 + i % 10) as f32,
-                    ..Default::default()
-                },
+                Text2d("text".repeat(i)),
+                TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+                FontSize((4 + i % 10) as f32),
                 TextColor(BLUE.into()),
             ),
             (
-                TextSpan("pipeline".repeat(i)),
-                TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: (4 + i % 11) as f32,
-                    ..default()
-                },
+                Text2d("pipeline".repeat(i)),
+                TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                FontSize((4 + i % 11) as f32),
                 TextColor(YELLOW.into()),
             ),
         ]
