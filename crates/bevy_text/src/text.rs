@@ -2,7 +2,7 @@ use crate::{style::ComputedTextStyle, Font, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
 use bevy_reflect::prelude::*;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
@@ -374,14 +374,14 @@ pub fn update_text_roots(
             Option<&mut TextRoot>,
             Has<Children>,
         ),
-        With<ComputedTextStyle>,
+        With<TextSpan>,
     >,
     text_span_query: Query<(), With<TextSpan>>,
     children_query: Query<&Children, With<TextSpan>>,
 ) {
     for (entity, maybe_child_of, maybe_text_root, has_children) in text_node_query.iter_mut() {
-        let Some(parent) = maybe_child_of else {
-            // Orphan, must be a root.
+        if maybe_child_of.is_none_or(|parent| !text_span_query.contains(parent.get())) {
+            // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
             if has_children {
                 parents.push(entity);
             } else {
@@ -392,27 +392,8 @@ pub fn update_text_roots(
                     commands.entity(entity).insert(new_text_root);
                 }
             }
-
-            continue;
-        };
-
-        if !text_span_query.contains(parent.0) {
-            // Parent is not a text entity, must be a root.
-            if has_children {
-                parents.push(entity);
-            } else {
-                let new_text_root = TextRoot(smallvec::smallvec![entity]);
-                if let Some(mut text_root) = maybe_text_root {
-                    text_root.set_if_neq(new_text_root);
-                } else {
-                    commands.entity(entity).insert(new_text_root);
-                }
-            }
-            continue;
-        }
-
-        // Not a root. Remove `TextRoot` component, if present.
-        if maybe_text_root.is_some() {
+        } else if maybe_text_root.is_some() {
+            // Not a root. Remove `TextRoot` component, if present.
             commands.entity(entity).remove::<TextRoot>();
         }
     }
