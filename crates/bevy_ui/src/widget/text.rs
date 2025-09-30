@@ -9,7 +9,6 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
     world::{Mut, Ref},
@@ -241,19 +240,16 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_root_query: Query<
-        (
-            Entity,
-            Ref<TextLayout>,
-            &mut ContentSize,
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
-            &TextRoot,
-        ),
-        With<Node>,
-    >,
+    mut text_root_query: Query<(
+        Entity,
+        Ref<TextLayout>,
+        &mut ContentSize,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
+        Ref<ComputedUiRenderTargetInfo>,
+        &ComputedNode,
+        Ref<TextRoot>,
+    )>,
     text_query: Query<(&Text, &ComputedTextStyle)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -273,6 +269,7 @@ pub fn measure_text_system(
         // 1e-5 epsilon to ignore tiny scale factor float errors
         if 1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            || text_root.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -381,7 +378,7 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        &TextRoot,
+        Ref<TextRoot>,
     )>,
     text_query: Query<(&Text, &ComputedTextStyle)>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -389,7 +386,7 @@ pub fn text_system(
 ) {
     for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
     {
-        if node.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || text_root.is_changed() || text_flags.needs_recompute {
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)

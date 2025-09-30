@@ -145,7 +145,7 @@ pub fn update_text2d_layout(
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
-        &TextRoot,
+        Ref<TextRoot>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -190,6 +190,7 @@ pub fn update_text2d_layout(
         };
 
         if scale_factor != text_layout_info.scale_factor
+            || text_root.is_changed()
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
