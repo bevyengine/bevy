@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, mem};
 
 use bevy_ecs::{
-    event::{BufferedEvent, EventReader, EventWriter},
+    message::{Message, MessageReader, MessageWriter},
     schedule::{IntoScheduleConfigs, Schedule, ScheduleLabel, Schedules, SystemSet},
     system::{Commands, In, ResMut},
     world::World,
@@ -57,11 +57,11 @@ pub struct OnTransition<S: States> {
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StateTransition;
 
-/// A [`BufferedEvent`] sent when any state transition of `S` happens.
+/// A [`Message`] sent when any state transition of `S` happens.
 /// This includes identity transitions, where `exited` and `entered` have the same value.
 ///
 /// If you know exactly what state you want to respond to ahead of time, consider [`OnEnter`], [`OnTransition`], or [`OnExit`]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, BufferedEvent)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Message)]
 pub struct StateTransitionEvent<S: States> {
     /// The state being exited.
     pub exited: Option<S>,
@@ -135,7 +135,7 @@ impl<S: States> Default for ApplyStateTransition<S> {
 /// The `new_state` is an option to allow for removal - `None` will trigger the
 /// removal of the `State<S>` resource from the [`World`].
 pub(crate) fn internal_apply_state_transition<S: States>(
-    mut event: EventWriter<StateTransitionEvent<S>>,
+    mut event: MessageWriter<StateTransitionEvent<S>>,
     mut commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     new_state: Option<S>,
@@ -209,7 +209,7 @@ pub fn setup_state_transitions_in_world(world: &mut World) {
 
 /// Returns the latest state transition event of type `S`, if any are available.
 pub fn last_transition<S: States>(
-    mut reader: EventReader<StateTransitionEvent<S>>,
+    mut reader: MessageReader<StateTransitionEvent<S>>,
 ) -> Option<StateTransitionEvent<S>> {
     reader.read().last().cloned()
 }

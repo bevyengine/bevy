@@ -159,7 +159,7 @@ impl Plugin for MotionBlurPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::MotionBlur,
                     Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),

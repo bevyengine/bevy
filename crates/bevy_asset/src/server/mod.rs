@@ -196,7 +196,7 @@ impl AssetServer {
         self.register_handle_provider(assets.get_handle_provider());
         fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
             world
-                .resource_mut::<Events<AssetEvent<A>>>()
+                .resource_mut::<Messages<AssetEvent<A>>>()
                 .write(AssetEvent::LoadedWithDependencies { id: id.typed() });
         }
         fn failed_sender<A: Asset>(
@@ -206,7 +206,7 @@ impl AssetServer {
             error: AssetLoadError,
         ) {
             world
-                .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
+                .resource_mut::<Messages<AssetLoadFailedEvent<A>>>()
                 .write(AssetLoadFailedEvent {
                     id: id.typed(),
                     path,
@@ -856,6 +856,10 @@ impl AssetServer {
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
     pub fn reload<'a>(&self, path: impl Into<AssetPath<'a>>) {
+        self.reload_internal(path, false);
+    }
+
+    fn reload_internal<'a>(&self, path: impl Into<AssetPath<'a>>, log: bool) {
         let server = self.clone();
         let path = path.into().into_owned();
         IoTaskPool::get()
@@ -875,11 +879,15 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded
-                    && server.read_infos().should_reload(&path)
-                    && let Err(err) = server.load_internal(None, path, true, None).await
-                {
-                    error!("{}", err);
+                if !reloaded && server.read_infos().should_reload(&path) {
+                    match server.load_internal(None, path.clone(), true, None).await {
+                        Ok(_) => reloaded = true,
+                        Err(err) => error!("{}", err),
+                    }
+                }
+
+                if log && reloaded {
+                    info!("Reloaded {}", path);
                 }
             })
             .detach();
@@ -1697,7 +1705,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         if !untyped_failures.is_empty() {
-            world.write_event_batch(untyped_failures);
+            world.write_message_batch(untyped_failures);
         }
 
         fn queue_ancestors(
@@ -1713,12 +1721,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        let reload_parent_folders = |path: PathBuf, source: &AssetSourceId<'static>| {
-            let mut current_folder = path;
-            while let Some(parent) = current_folder.parent() {
-                current_folder = parent.to_path_buf();
+        let reload_parent_folders = |path: &PathBuf, source: &AssetSourceId<'static>| {
+            for parent in path.ancestors().skip(1) {
                 let parent_asset_path =
-                    AssetPath::from(current_folder.clone()).with_source(source.clone());
+                    AssetPath::from(parent.to_path_buf()).with_source(source.clone());
                 for folder_handle in infos.get_path_handles(&parent_asset_path) {
                     info!("Reloading folder {parent_asset_path} because the content has changed");
                     server.load_folder_internal(folder_handle.id(), parent_asset_path.clone());
@@ -1727,24 +1733,31 @@ pub fn handle_internal_asset_events(world: &mut World) {
         };
 
         let mut paths_to_reload = <HashSet<_>>::default();
+        let mut reload_path = |path: PathBuf, source: &AssetSourceId<'static>| {
+            let path = AssetPath::from(path).with_source(source);
+            queue_ancestors(&path, &infos, &mut paths_to_reload);
+            paths_to_reload.insert(path);
+        };
+
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
+                AssetSourceEvent::AddedAsset(path) => {
+                    reload_parent_folders(&path, &source);
+                    reload_path(path, &source);
+                }
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
                 // should be skipped?
                 AssetSourceEvent::ModifiedAsset(path) | AssetSourceEvent::ModifiedMeta(path) => {
-                    let path = AssetPath::from(path).with_source(source);
-                    queue_ancestors(&path, &infos, &mut paths_to_reload);
-                    paths_to_reload.insert(path);
+                    reload_path(path, &source);
                 }
                 AssetSourceEvent::RenamedFolder { old, new } => {
-                    reload_parent_folders(old, &source);
-                    reload_parent_folders(new, &source);
+                    reload_parent_folders(&old, &source);
+                    reload_parent_folders(&new, &source);
                 }
-                AssetSourceEvent::AddedAsset(path)
-                | AssetSourceEvent::RemovedAsset(path)
+                AssetSourceEvent::RemovedAsset(path)
                 | AssetSourceEvent::RemovedFolder(path)
                 | AssetSourceEvent::AddedFolder(path) => {
-                    reload_parent_folders(path, &source);
+                    reload_parent_folders(&path, &source);
                 }
                 _ => {}
             }
@@ -1769,9 +1782,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
+        // Drop the lock on `AssetInfos` before spawning a task that may block on it in
+        // single-threaded.
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         for path in paths_to_reload {
-            info!("Reloading {path} because it has changed");
-            server.reload(path);
+            server.reload_internal(path, true);
         }
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]

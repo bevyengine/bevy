@@ -81,7 +81,7 @@ pub trait CameraProjection {
 mod sealed {
     use super::CameraProjection;
 
-    /// A wrapper trait to make it possible to implement Clone for boxed [`CameraProjection`][`super::CameraProjection`]
+    /// A wrapper trait to make it possible to implement Clone for boxed [`CameraProjection`](`super::CameraProjection`)
     /// trait objects, without breaking object safety rules by making it `Sized`. Additional bounds
     /// are included for downcasting, and fulfilling the trait bounds on `Projection`.
     pub trait DynCameraProjection:

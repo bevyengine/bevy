@@ -600,10 +600,10 @@ fn button_repeat_system(
     mut held: ResMut<HeldButton>,
     mut shadow: ResMut<ShadowSettings>,
     mut shape: ResMut<ShapeSettings>,
-    mut redraw_events: EventWriter<RequestRedraw>,
+    mut request_redraw_writer: MessageWriter<RequestRedraw>,
 ) {
     if held.button.is_some() {
-        redraw_events.write(RequestRedraw);
+        request_redraw_writer.write(RequestRedraw);
     }
     const INITIAL_DELAY: f64 = 0.15;
     const REPEAT_RATE: f64 = 0.08;

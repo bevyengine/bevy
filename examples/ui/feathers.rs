@@ -2,10 +2,6 @@
 
 use bevy::{
     color::palettes,
-    core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep, SliderValue, ValueChange,
-    },
     feathers::{
         controls::{
             button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
@@ -15,14 +11,15 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        tokens, FeathersPlugins,
     },
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::TabGroup,
     prelude::*,
     ui::{Checked, InteractionDisabled},
+    ui_widgets::{
+        Activate, Callback, RadioButton, RadioGroup, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
+    },
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -38,15 +35,12 @@ enum SwatchType {
     Hsl,
 }
 
+#[derive(Component, Clone, Copy)]
+struct DemoDisabledButton;
+
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CoreWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
@@ -67,7 +61,7 @@ fn setup(mut commands: Commands) {
 fn demo_root(commands: &mut Commands) -> impl Bundle {
     // Update radio button states based on notification from radio group.
     let radio_exclusion = commands.register_system(
-        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+        |ent: In<Activate>, q_radio: Query<Entity, With<RadioButton>>, mut commands: Commands| {
             for radio in q_radio.iter() {
                 if radio == ent.0 .0 {
                     commands.entity(radio).insert(Checked);
@@ -177,7 +171,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 )),
                                 ..default()
                             },
-                            InteractionDisabled,
+                            (InteractionDisabled, DemoDisabledButton),
                             Spawn((Text::new("Disabled"), ThemedText))
                         ),
                         button(
@@ -258,7 +252,25 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 checkbox(
                     CheckboxProps {
-                        on_change: Callback::Ignore,
+                        on_change: Callback::System(commands.register_system(
+                            |change: In<ValueChange<bool>>,
+                             query: Query<Entity, With<DemoDisabledButton>>,
+                             mut commands: Commands| {
+                                info!("Checkbox clicked!");
+                                let mut button = commands.entity(query.single().unwrap());
+                                if change.value {
+                                    button.insert(InteractionDisabled);
+                                } else {
+                                    button.remove::<InteractionDisabled>();
+                                }
+                                let mut checkbox = commands.entity(change.source);
+                                if change.value {
+                                    checkbox.insert(Checked);
+                                } else {
+                                    checkbox.remove::<Checked>();
+                                }
+                            }
+                        )),
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))
@@ -284,7 +296,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         row_gap: px(4),
                         ..default()
                     },
-                    CoreRadioGroup {
+                    RadioGroup {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![

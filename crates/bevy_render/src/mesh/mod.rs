@@ -7,7 +7,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -19,12 +19,13 @@ use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<skinning::SkinnedMeshInverseBindposes>()
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin);

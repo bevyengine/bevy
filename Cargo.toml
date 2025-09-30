@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -136,7 +136,6 @@ default = [
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_post_process",
-  "bevy_core_widgets",
   "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
@@ -295,11 +294,14 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Headless widget collection for Bevy UI.
-bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
+# Experimental headless widget collection for Bevy UI.
+experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = ["bevy_internal/bevy_feathers"]
+experimental_bevy_feathers = [
+  "bevy_internal/bevy_feathers",
+  "experimental_bevy_ui_widgets",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -586,12 +588,12 @@ hotpatching = ["bevy_internal/hotpatching"]
 debug = ["bevy_internal/debug"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.18.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.18.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.9.0"
@@ -602,13 +604,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
-bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
-bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.18.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.18.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.18.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.18.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.18.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.18.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -746,17 +749,6 @@ doc-scrape-examples = true
 [package.metadata.example.2d_shapes]
 name = "2D Shapes"
 description = "Renders simple 2D primitive shapes like circles and polygons"
-category = "2D Rendering"
-wasm = true
-
-[[example]]
-name = "custom_gltf_vertex_attribute"
-path = "examples/2d/custom_gltf_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_gltf_vertex_attribute]
-name = "Custom glTF vertex attribute 2D"
-description = "Renders a glTF mesh in 2D with a custom vertex attribute"
 category = "2D Rendering"
 wasm = true
 
@@ -1096,17 +1088,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "edit_material_on_gltf"
-path = "examples/3d/edit_material_on_gltf.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.edit_material_on_gltf]
-name = "Edit Gltf Material"
-description = "Showcases changing materials of a Gltf after Scene spawn"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
@@ -1182,39 +1163,6 @@ doc-scrape-examples = true
 [package.metadata.example.deferred_rendering]
 name = "Deferred Rendering"
 description = "Renders meshes with both forward and deferred pipelines"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "load_gltf"
-path = "examples/3d/load_gltf.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.load_gltf]
-name = "Load glTF"
-description = "Loads and renders a glTF file as a scene"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "load_gltf_extras"
-path = "examples/3d/load_gltf_extras.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.load_gltf_extras]
-name = "Load glTF extras"
-description = "Loads and renders a glTF file as a scene, including the gltf extras"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "query_gltf_primitives"
-path = "examples/3d/query_gltf_primitives.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.query_gltf_primitives]
-name = "Query glTF primitives"
-description = "Query primitives in a glTF scene"
 category = "3D Rendering"
 wasm = true
 
@@ -1419,17 +1367,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "update_gltf_scene"
-path = "examples/3d/update_gltf_scene.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.update_gltf_scene]
-name = "Update glTF Scene"
-description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "vertex_colors"
 path = "examples/3d/vertex_colors.rs"
 doc-scrape-examples = true
@@ -1627,17 +1564,6 @@ doc-scrape-examples = true
 [package.metadata.example.custom_skinned_mesh]
 name = "Custom Skinned Mesh"
 description = "Skinned mesh example with mesh and joints data defined in code"
-category = "Animation"
-wasm = true
-
-[[example]]
-name = "gltf_skinned_mesh"
-path = "examples/animation/gltf_skinned_mesh.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.gltf_skinned_mesh]
-name = "glTF Skinned Mesh"
-description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
 category = "Animation"
 wasm = true
 
@@ -2181,24 +2107,24 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "event"
-path = "examples/ecs/event.rs"
+name = "message"
+path = "examples/ecs/message.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.event]
-name = "Event"
-description = "Illustrates event creation, activation, and reception"
+[package.metadata.example.message]
+name = "Message"
+description = "Illustrates message creation, activation, and reception"
 category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "send_and_receive_events"
-path = "examples/ecs/send_and_receive_events.rs"
+name = "send_and_receive_messages"
+path = "examples/ecs/send_and_receive_messages.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.send_and_receive_events]
-name = "Send and receive events"
-description = "Demonstrates how to send and receive events of the same type in a single system"
+[package.metadata.example.send_and_receive_messages]
+name = "Send and receive messages"
+description = "Demonstrates how to send and receive messages of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2716,6 +2642,17 @@ doc-scrape-examples = true
 [package.metadata.example.reflection]
 name = "Reflection"
 description = "Demonstrates how reflection in Bevy provides a way to dynamically interact with Rust types"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "serialization"
+path = "examples/reflection/serialization.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.serialization]
+name = "Serialization"
+description = "Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits"
 category = "Reflection"
 wasm = false
 
@@ -4051,6 +3988,83 @@ category = "Gizmos"
 wasm = true
 
 [[example]]
+name = "custom_gltf_vertex_attribute"
+path = "examples/gltf/custom_gltf_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_gltf_vertex_attribute]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "edit_material_on_gltf"
+path = "examples/gltf/edit_material_on_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.edit_material_on_gltf]
+name = "Edit glTF Material"
+description = "Showcases changing materials of a glTF after Scene spawn"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "gltf_skinned_mesh"
+path = "examples/gltf/gltf_skinned_mesh.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.gltf_skinned_mesh]
+name = "glTF Skinned Mesh"
+description = "Skinned mesh example with mesh and joints data loaded from a glTF file"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "load_gltf"
+path = "examples/gltf/load_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf]
+name = "Load glTF"
+description = "Loads and renders a glTF file as a scene"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "load_gltf_extras"
+path = "examples/gltf/load_gltf_extras.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_extras]
+name = "Load glTF extras"
+description = "Loads and renders a glTF file as a scene, including the gltf extras"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "query_gltf_primitives"
+path = "examples/gltf/query_gltf_primitives.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.query_gltf_primitives]
+name = "Query glTF primitives"
+description = "Query primitives in a glTF scene"
+category = "glTF"
+wasm = true
+
+[[example]]
+name = "update_gltf_scene"
+path = "examples/gltf/update_gltf_scene.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.update_gltf_scene]
+name = "Update glTF Scene"
+description = "Update a scene from a glTF file, either by spawning the scene as a child of another entity, or by accessing the entities of the scene"
+category = "glTF"
+wasm = true
+
+[[example]]
 name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"
 doc-scrape-examples = true
@@ -4514,6 +4528,7 @@ hidden = true
 name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
@@ -4646,23 +4661,25 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
-name = "core_widgets"
-path = "examples/ui/core_widgets.rs"
+name = "standard_widgets"
+path = "examples/ui/standard_widgets.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
-[package.metadata.example.core_widgets]
-name = "Core Widgets"
+[package.metadata.example.standard_widgets]
+name = "Standard Widgets"
 description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "core_widgets_observers"
-path = "examples/ui/core_widgets_observers.rs"
+name = "standard_widgets_observers"
+path = "examples/ui/standard_widgets_observers.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
-[package.metadata.example.core_widgets_observers]
-name = "Core Widgets (w/Observers)"
+[package.metadata.example.standard_widgets_observers]
+name = "Standard Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
 wasm = true
@@ -4671,6 +4688,7 @@ wasm = true
 name = "scrollbars"
 path = "examples/ui/scrollbars.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.scrollbars]
 name = "Scrollbars"

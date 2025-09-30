@@ -2,7 +2,7 @@ use crate::asset_changed::AssetChanges;
 use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
 use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
-    prelude::EventWriter,
+    message::MessageWriter,
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
@@ -590,12 +590,12 @@ impl<A: Asset> Assets<A> {
         }
     }
 
-    /// A system that applies accumulated asset change events to the [`Events`] resource.
+    /// A system that applies accumulated asset change events to the [`Messages`] resource.
     ///
-    /// [`Events`]: bevy_ecs::event::Events
+    /// [`Messages`]: bevy_ecs::event::Events
     pub(crate) fn asset_events(
         mut assets: ResMut<Self>,
-        mut events: EventWriter<AssetEvent<A>>,
+        mut messages: MessageWriter<AssetEvent<A>>,
         asset_changes: Option<ResMut<AssetChanges<A>>>,
         ticks: SystemChangeTick,
     ) {
@@ -611,7 +611,7 @@ impl<A: Asset> Assets<A> {
                 };
             }
         }
-        events.write_batch(assets.queued_events.drain(..));
+        messages.write_batch(assets.queued_events.drain(..));
     }
 
     /// A run condition for [`asset_events`]. The system will not run if there are no events to
