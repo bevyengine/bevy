@@ -780,7 +780,6 @@ impl Default for CursorOptions {
     }
 }
 
-
 /// Icon data for a [`Window`].
 #[derive(Component, Debug, Clone, Default)]
 #[cfg_attr(
@@ -793,7 +792,6 @@ pub struct WindowIcon {
     /// Handle to the asset to be read into the window icon.
     pub handle: Handle<Image>,
 }
-
 
 /// Defines where a [`Window`] should be placed on the screen.
 #[derive(Default, Debug, Clone, Copy, PartialEq)]

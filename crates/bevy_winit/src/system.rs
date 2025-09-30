@@ -52,7 +52,6 @@ use crate::{
 #[cfg(feature = "custom_window_icon")]
 use crate::winit_window_icon::get_winit_window_icon_from_bevy_image;
 
-
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
 ///
@@ -136,7 +135,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
                 let mut entity_commands = commands.entity(entity);
-                
+
                 entity_commands.insert((
                     CachedWindow(window.clone()),
                     CachedCursorOptions(cursor_options.clone()),
@@ -149,8 +148,6 @@ pub fn create_windows<F: QueryFilter + 'static>(
                         entity_commands.insert(CachedWindowIcon(window_icon.clone()));
                     }
                 }
-
-
 
                 if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
                     entity_commands.insert(handle_wrapper.clone());
@@ -350,7 +347,7 @@ pub(crate) struct CachedWindow(Window);
 pub(crate) struct CachedCursorOptions(CursorOptions);
 
 /// The cached state of the window icon so we can check which properties were changed from within the app.
-/// Changed<WindowIcon> can fire before the window itself is added to [`WINIT_WINDOWS`] so we need to 
+/// Changed<WindowIcon> can fire before the window itself is added to [`WINIT_WINDOWS`] so we need to
 /// apply the icon during window creation as well as when the icon changes.
 /// Otherwise, we would need some kind of retry logic to apply the icon once the window is created, after the
 /// changed message. At that point, it's more appropriate to just do it during creation.
@@ -689,7 +686,10 @@ pub(crate) fn changed_cursor_options(
 #[cfg(feature = "custom_window_icon")]
 pub(crate) fn changed_window_icon(
     mut commands: bevy_ecs::system::Commands,
-    changed_windows: Query<(Entity, &Window, &WindowIcon, Option<&CachedWindowIcon>), Changed<WindowIcon>>,
+    changed_windows: Query<
+        (Entity, &Window, &WindowIcon, Option<&CachedWindowIcon>),
+        Changed<WindowIcon>,
+    >,
     assets: Res<Assets<Image>>,
     _non_send_marker: NonSendMarker,
 ) {
@@ -700,7 +700,7 @@ pub(crate) fn changed_window_icon(
                 && cached_icon.0.handle == window_icon.handle {
                     continue;
             }
-            
+
             // Identify window
             let Some(winit_window) = winit_windows.get_window(window_entity) else {
                 tracing::debug!(
