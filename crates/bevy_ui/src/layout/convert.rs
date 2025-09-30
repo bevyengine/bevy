@@ -1,7 +1,8 @@
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    AlignContent, AlignItems, AlignSelf, BlockContainer, BlockItem, BoxSizing, Display,
+    FlexBoxContainer, FlexBoxItem, FlexDirection, FlexWrap, GridAutoFlow, GridContainer, GridItem,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
     MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
     RepeatedGridTrack, UiRect, Val,
@@ -63,7 +64,19 @@ impl UiRect {
     }
 }
 
-pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
+pub fn from_node(
+    node: &Node,
+    displays: (
+        Option<&BlockItem>,
+        Option<&BlockContainer>,
+        Option<&GridItem>,
+        Option<&GridContainer>,
+        Option<&FlexBoxItem>,
+        Option<&FlexBoxContainer>,
+    ),
+    context: &LayoutContext,
+    ignore_border: bool,
+) -> taffy::style::Style {
     taffy::style::Style {
         display: node.display.into(),
         box_sizing: node.box_sizing.into(),
@@ -75,14 +88,45 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         },
         scrollbar_width: node.scrollbar_width * context.scale_factor,
         position: node.position_type.into(),
-        flex_direction: node.flex_direction.into(),
-        flex_wrap: node.flex_wrap.into(),
-        align_items: node.align_items.into(),
-        justify_items: node.justify_items.into(),
-        align_self: node.align_self.into(),
-        justify_self: node.justify_self.into(),
-        align_content: node.align_content.into(),
-        justify_content: node.justify_content.into(),
+        flex_direction: displays
+            .5
+            .map(|flex| flex.flex_direction.into())
+            .unwrap_or_default(),
+        flex_wrap: displays
+            .5
+            .map(|flex| flex.flex_wrap.into())
+            .unwrap_or_default(),
+        align_items: displays
+            .3
+            .map(|grid| grid.align_items.into())
+            .or(displays.5.map(|flex| flex.align_items.into()))
+            .unwrap_or_default(),
+        justify_items: displays
+            .1
+            .map(|block| block.justify_items.into())
+            .or(displays.3.map(|grid| grid.justify_items.into()))
+            .unwrap_or_default(),
+        align_self: displays
+            .2
+            .map(|block| block.align_self.into())
+            .or(displays.4.map(|flex| flex.align_self.into()))
+            .unwrap_or_default(),
+        justify_self: displays
+            .0
+            .map(|block| block.justify_self.into())
+            .or(displays.2.map(|grid| grid.justify_self.into()))
+            .unwrap_or_default(),
+        align_content: displays
+            .1
+            .map(|grid| grid.align_content.into())
+            .or(displays.3.map(|grid| grid.align_content.into()))
+            .or(displays.5.map(|flex| flex.align_content.into()))
+            .unwrap_or_default(),
+        justify_content: displays
+            .3
+            .map(|grid| grid.justify_content.into())
+            .or(displays.5.map(|flex| flex.justify_content.into()))
+            .unwrap_or_default(),
         inset: taffy::Rect {
             left: node.left.into_length_percentage_auto(context),
             right: node.right.into_length_percentage_auto(context),
@@ -103,9 +147,18 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
             node.border
                 .map_to_taffy_rect(|m| m.into_length_percentage(context))
         },
-        flex_grow: node.flex_grow,
-        flex_shrink: node.flex_shrink,
-        flex_basis: node.flex_basis.into_dimension(context),
+        flex_grow: displays
+            .4
+            .map(|flex| flex.flex_grow.into())
+            .unwrap_or_default(),
+        flex_shrink: displays
+            .4
+            .map(|flex| flex.flex_shrink.into())
+            .unwrap_or_default(),
+        flex_basis: displays
+            .4
+            .map(|flex| flex.flex_basis.into_dimension(context))
+            .unwrap_or(taffy::Dimension::Auto),
         size: taffy::Size {
             width: node.width.into_dimension(context),
             height: node.height.into_dimension(context),
@@ -120,32 +173,71 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         },
         aspect_ratio: node.aspect_ratio,
         gap: taffy::Size {
-            width: node.column_gap.into_length_percentage(context),
-            height: node.row_gap.into_length_percentage(context),
+            width: displays
+                .3
+                .map(|grid| grid.column_gap)
+                .or(displays.5.map(|flex| flex.column_gap))
+                .map(|column_gap| column_gap.into_length_percentage(context))
+                .unwrap_or(taffy::Style::DEFAULT.gap.width),
+            height: displays
+                .3
+                .map(|grid| grid.row_gap)
+                .or(displays.5.map(|flex| flex.row_gap))
+                .map(|column_gap| column_gap.into_length_percentage(context))
+                .unwrap_or(taffy::Style::DEFAULT.gap.height),
         },
-        grid_auto_flow: node.grid_auto_flow.into(),
-        grid_template_rows: node
-            .grid_template_rows
-            .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_template_columns: node
-            .grid_template_columns
-            .iter()
-            .map(|track| track.clone_into_repeated_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_auto_rows: node
-            .grid_auto_rows
-            .iter()
-            .map(|track| track.into_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_auto_columns: node
-            .grid_auto_columns
-            .iter()
-            .map(|track| track.into_taffy_track(context))
-            .collect::<Vec<_>>(),
-        grid_row: node.grid_row.into(),
-        grid_column: node.grid_column.into(),
+        grid_auto_flow: displays
+            .3
+            .map(|grid| grid.grid_auto_flow.into())
+            .unwrap_or_default(),
+
+        grid_template_rows: displays
+            .3
+            .map(|grid| {
+                grid.grid_template_rows
+                    .iter()
+                    .map(|track| track.clone_into_repeated_taffy_track(context))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default(),
+        grid_template_columns: displays
+            .3
+            .map(|grid| {
+                grid.grid_template_columns
+                    .iter()
+                    .map(|track| track.clone_into_repeated_taffy_track(context))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default(),
+        grid_auto_rows: displays
+            .3
+            .map(|grid| {
+                grid.grid_auto_rows
+                    .iter()
+                    .map(|track| track.into_taffy_track(context))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default(),
+        grid_auto_columns: displays
+            .3
+            .map(|grid| {
+                {
+                    grid.grid_auto_columns
+                        .iter()
+                        .map(|track| track.into_taffy_track(context))
+                }
+                .collect::<Vec<_>>()
+            })
+            .unwrap_or_default(),
+        grid_row: displays
+            .2
+            .map(|grid| grid.grid_row.into())
+            .unwrap_or_default(),
+
+        grid_column: displays
+            .2
+            .map(|grid| grid.grid_column.into())
+            .unwrap_or_default(),
     }
 }
 

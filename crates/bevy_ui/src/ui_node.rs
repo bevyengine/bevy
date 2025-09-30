@@ -822,7 +822,7 @@ impl Default for GridContainer {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct FlexContainer {
+pub struct FlexBoxContainer {
     // Setting this to false is equivlant to display: None
     pub display: bool,
     /// Used to control how items are distributed.
@@ -871,7 +871,7 @@ pub struct FlexContainer {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
     pub column_gap: Val,
 }
-impl FlexContainer {
+impl FlexBoxContainer {
     const DEFAULT: Self = Self {
         justify_content: JustifyContent::DEFAULT,
         align_items: AlignItems::DEFAULT,
@@ -883,7 +883,7 @@ impl FlexContainer {
         column_gap: Val::DEFAULT,
     };
 }
-impl Default for FlexContainer {
+impl Default for FlexBoxContainer {
     fn default() -> Self {
         Self::DEFAULT
     }
@@ -897,7 +897,7 @@ impl Default for FlexContainer {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct FlexItem {
+pub struct FlexBoxItem {
     // Setting this to false is equivlant to display: None
     pub display: bool,
     /// Used to control how the specified item is aligned within the space it's given.
@@ -926,7 +926,7 @@ pub struct FlexItem {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
 }
-impl FlexItem {
+impl FlexBoxItem {
     const DEFAULT: Self = Self {
         display: true,
         align_self: AlignSelf::DEFAULT,
@@ -935,7 +935,7 @@ impl FlexItem {
         flex_basis: Val::DEFAULT,
     };
 }
-impl Default for FlexItem {
+impl Default for FlexBoxItem {
     fn default() -> Self {
         Self::DEFAULT
     }
