@@ -150,8 +150,10 @@ impl PointLight {
 }
 
 /// Add to a [`PointLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
+/// A texture mask is applied to the light source to modulate its intensity,
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
+///
+/// Light textures require bindless textures. This means that they presently can’t be used on WebGL 2, WebGPU, macOS, or iOS.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
