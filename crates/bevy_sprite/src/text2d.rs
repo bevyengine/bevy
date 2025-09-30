@@ -8,6 +8,7 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -255,7 +256,11 @@ pub fn calculate_bounds_text2d(
             &TextBounds,
             Option<&mut Aabb>,
         ),
-        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+        (
+            Changed<TextLayoutInfo>,
+            Without<NoFrustumCulling>,
+            With<TextRoot>,
+        ),
     >,
 ) {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
