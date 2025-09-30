@@ -809,4 +809,34 @@ mod tests {
             assert_eq!(general, identity,);
         }
     }
+
+    #[test]
+    fn intersects_obb_identity_matches_standard_true_true() {
+        let frusta = [frustum(), long_frustum(), big_frustum()];
+        let aabbs = [
+            Aabb {
+                center: Vec3A::ZERO,
+                half_extents: Vec3A::new(0.5, 0.5, 0.5),
+            },
+            Aabb {
+                center: Vec3A::new(1.0, 0.0, 0.5),
+                half_extents: Vec3A::new(0.9, 0.9, 0.9),
+            },
+            Aabb {
+                center: Vec3A::new(100.0, 100.0, 100.0),
+                half_extents: Vec3A::new(1.0, 1.0, 1.0),
+            },
+        ];
+        for fr in &frusta {
+            for aabb in &aabbs {
+                let standard = fr.intersects_obb(aabb, &Affine3A::IDENTITY, true, true);
+                let optimized = fr.intersects_obb_identity(aabb);
+                assert_eq!(
+                    standard, optimized,
+                    "Mismatch for frustum {:?} and aabb {:?}: standard={} optimized={}",
+                    fr.half_spaces, aabb, standard, optimized
+                );
+            }
+        }
+    }
 }
