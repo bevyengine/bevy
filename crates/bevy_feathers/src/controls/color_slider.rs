@@ -12,7 +12,7 @@ use bevy_ecs::{
     query::{Changed, Or, With},
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{In, Query},
+    system::Query,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_log::warn_once;
@@ -23,9 +23,7 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{
-    Callback, Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
-};
+use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
@@ -146,8 +144,6 @@ pub struct SliderBaseColor(pub Color);
 pub struct ColorSliderProps {
     /// Slider current value
     pub value: f32,
-    /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
     /// Which color component we're editing
     pub channel: ColorChannel,
 }
@@ -156,7 +152,6 @@ impl Default for ColorSliderProps {
     fn default() -> Self {
         Self {
             value: 0.0,
-            on_change: Callback::Ignore,
             channel: ColorChannel::Alpha,
         }
     }
@@ -195,7 +190,6 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             ..Default::default()
         },
         Slider {
-            on_change: props.on_change,
             track_click: TrackClick::Snap,
         },
         ColorSlider {
