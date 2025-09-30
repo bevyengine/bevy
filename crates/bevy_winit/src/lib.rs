@@ -65,13 +65,13 @@ thread_local! {
 /// replace the existing [`App`] runner with one that constructs an [event loop](EventLoop) to
 /// receive window and input events from the OS.
 ///
-/// The `T` event type can be used to pass custom events to the `winit`'s loop, and handled as events
+/// The `M` message type can be used to pass custom messages to the `winit`'s loop, and handled as messages
 /// in systems.
 ///
 /// When using eg. `MinimalPlugins` you can add this using `WinitPlugin::<WakeUp>::default()`, where
 /// `WakeUp` is the default event that bevy uses.
 #[derive(Default)]
-pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
+pub struct WinitPlugin<M: Message = WakeUp> {
     /// Allows the window (and the event loop) to be created on any thread
     /// instead of only the main thread.
     ///
@@ -82,10 +82,10 @@ pub struct WinitPlugin<T: BufferedEvent = WakeUp> {
     /// Only works on Linux (X11/Wayland) and Windows.
     /// This field is ignored on other platforms.
     pub run_on_any_thread: bool,
-    marker: PhantomData<T>,
+    marker: PhantomData<M>,
 }
 
-impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
+impl<T: Message> Plugin for WinitPlugin<T> {
     fn name(&self) -> &str {
         "bevy_winit::WinitPlugin"
     }
@@ -133,7 +133,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
-            .add_event::<RawWinitWindowEvent>()
+            .add_message::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
@@ -155,7 +155,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, BufferedEvent, Reflect)]
+#[derive(Debug, Default, Clone, Copy, Message, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
@@ -166,7 +166,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, BufferedEvent)]
+#[derive(Debug, Clone, Message)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,
@@ -216,7 +216,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
         ),
         F,
     >,
-    EventWriter<'w, WindowCreated>,
+    MessageWriter<'w, WindowCreated>,
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,

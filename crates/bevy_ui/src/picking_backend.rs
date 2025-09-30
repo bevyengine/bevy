@@ -14,7 +14,6 @@
 //!
 //! ## Implementation Notes
 //!
-//! - `bevy_ui` can only render to the primary window
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
@@ -106,11 +105,11 @@ pub fn ui_picking(
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
-    mut output: EventWriter<PointerHits>,
+    mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
-    // For each camera, the pointer and its position
+    // Map from each camera to its active pointers and their positions in viewport space
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
 
     for (pointer_id, pointer_location) in
@@ -158,59 +157,71 @@ pub fn ui_picking(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    for node_entity in ui_stack
-        .uinodes
+    // Reverse the iterator to traverse the tree from closest slice to furthest
+    for uinodes in ui_stack
+        .partition
         .iter()
-        // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
+        .map(|range| &ui_stack.uinodes[range.clone()])
     {
-        let Ok(node) = node_query.get(*node_entity) else {
+        // Retrieve the first node and resolve its camera target.
+        // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
+        let Ok(uinode) = node_query.get(uinodes[0]) else {
             continue;
         };
 
-        if settings.require_markers && node.pickable.is_none() {
-            continue;
-        }
-
-        // Nodes that are not rendered should not be interactable
-        if node
-            .inherited_visibility
-            .map(|inherited_visibility| inherited_visibility.get())
-            != Some(true)
-        {
-            continue;
-        }
-        let Some(camera_entity) = node.target_camera.get() else {
+        let Some(camera_entity) = uinode.target_camera.get() else {
             continue;
         };
-
-        // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node.node.size() == Vec2::ZERO {
-            continue;
-        }
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // Find the normalized cursor position relative to the node.
-        // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
-        // Coordinates are relative to the entire node, not just the visible region.
-        for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            if node.node.contains_point(*node.transform, *cursor_position)
-                && clip_check_recursive(
-                    *cursor_position,
-                    *node_entity,
-                    &clipping_query,
-                    &child_of_query,
-                )
+        // Reverse the iterator to traverse the tree from closest nodes to furthest
+        for node_entity in uinodes.iter().rev().cloned() {
+            let Ok(node) = node_query.get(node_entity) else {
+                continue;
+            };
+
+            if settings.require_markers && node.pickable.is_none() {
+                continue;
+            }
+
+            // Nodes that are not rendered should not be interactable
+            if node
+                .inherited_visibility
+                .map(|inherited_visibility| inherited_visibility.get())
+                != Some(true)
             {
-                hit_nodes
-                    .entry((camera_entity, *pointer_id))
-                    .or_default()
-                    .push((
-                        *node_entity,
-                        node.transform.inverse().transform_point2(*cursor_position)
-                            / node.node.size(),
-                    ));
+                continue;
+            }
+
+            // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
+            if node.node.size() == Vec2::ZERO {
+                continue;
+            }
+
+            // Find the normalized cursor position relative to the node.
+            // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
+            // Coordinates are relative to the entire node, not just the visible region.
+            for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
+            {
+                if node.node.contains_point(*node.transform, *cursor_position)
+                    && clip_check_recursive(
+                        *cursor_position,
+                        node_entity,
+                        &clipping_query,
+                        &child_of_query,
+                    )
+                {
+                    hit_nodes
+                        .entry((camera_entity, *pointer_id))
+                        .or_default()
+                        .push((
+                            node_entity,
+                            node.transform.inverse().transform_point2(*cursor_position)
+                                / node.node.size(),
+                        ));
+                }
             }
         }
     }

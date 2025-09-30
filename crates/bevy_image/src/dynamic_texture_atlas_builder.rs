@@ -1,4 +1,4 @@
-use crate::{Image, TextureAtlasLayout, TextureFormatPixelInfo as _};
+use crate::{Image, TextureAccessError, TextureAtlasLayout, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
 use guillotiere::{size2, Allocation, AtlasAllocator};
@@ -18,6 +18,9 @@ pub enum DynamicTextureAtlasBuilderError {
     /// Attempted to add an uninitialized texture to an atlas
     #[error("cannot add uninitialized texture to atlas")]
     UninitializedSourceTexture,
+    /// A texture access error occurred
+    #[error("texture access error: {0}")]
+    TextureAccess(#[from] TextureAccessError),
 }
 
 /// Helper utility to update [`TextureAtlasLayout`] on the fly.
@@ -90,7 +93,7 @@ impl DynamicTextureAtlasBuilder {
         rect.max.y -= self.padding as i32;
         let atlas_width = atlas_texture.width() as usize;
         let rect_width = rect.width() as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+        let format_size = atlas_texture.texture_descriptor.format.pixel_size()?;
 
         let Some(ref mut atlas_data) = atlas_texture.data else {
             return Err(DynamicTextureAtlasBuilderError::UninitializedAtlas);

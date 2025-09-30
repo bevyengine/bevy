@@ -1,5 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![forbid(unsafe_code)]
+#![warn(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -14,7 +14,11 @@ pub mod animation_curves;
 pub mod gltf_curves;
 pub mod graph;
 pub mod transition;
+
+mod animation_event;
 mod util;
+
+pub use animation_event::*;
 
 use core::{
     any::TypeId,
@@ -108,17 +112,17 @@ pub struct AnimationClip {
 #[reflect(Clone)]
 struct TimedAnimationEvent {
     time: f32,
-    event: AnimationEvent,
+    event: AnimationEventData,
 }
 
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Clone)]
-struct AnimationEvent {
+struct AnimationEventData {
     #[reflect(ignore, clone)]
     trigger: AnimationEventFn,
 }
 
-impl AnimationEvent {
+impl AnimationEventData {
     fn trigger(&self, commands: &mut Commands, entity: Entity, time: f32, weight: f32) {
         (self.trigger.0)(commands, entity, time, weight);
     }
@@ -317,11 +321,16 @@ impl AnimationClip {
     /// is reached in the animation.
     ///
     /// See also [`add_event_to_target`](Self::add_event_to_target).
-    pub fn add_event(&mut self, time: f32, event: impl EntityEvent + Clone) {
+    pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
         self.add_event_fn(
             time,
             move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+                commands.trigger_with(
+                    event.clone(),
+                    AnimationEventTrigger {
+                        animation_player: entity,
+                    },
+                );
             },
         );
     }
@@ -336,13 +345,18 @@ impl AnimationClip {
         &mut self,
         target_id: AnimationTargetId,
         time: f32,
-        event: impl EntityEvent + Clone,
+        event: impl AnimationEvent,
     ) {
         self.add_event_fn_to_target(
             target_id,
             time,
             move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+                commands.trigger_with(
+                    event.clone(),
+                    AnimationEventTrigger {
+                        animation_player: entity,
+                    },
+                );
             },
         );
     }
@@ -407,7 +421,7 @@ impl AnimationClip {
                 index,
                 TimedAnimationEvent {
                     time,
-                    event: AnimationEvent {
+                    event: AnimationEventData {
                         trigger: AnimationEventFn(Arc::new(trigger_fn)),
                     },
                 },
@@ -858,7 +872,7 @@ impl AnimationPlayer {
             .all(ActiveAnimation::is_paused)
     }
 
-    /// Resume all playing animations.
+    /// Pause all playing animations.
     #[doc(alias = "pause")]
     pub fn pause_all(&mut self) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {
@@ -1512,11 +1526,12 @@ impl<'a> Iterator for TriggeredEventsIter<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate as bevy_animation;
     use bevy_reflect::{DynamicMap, Map};
 
     use super::*;
 
-    #[derive(EntityEvent, Reflect, Clone)]
+    #[derive(AnimationEvent, Reflect, Clone)]
     struct A;
 
     #[track_caller]
