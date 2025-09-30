@@ -3166,6 +3166,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
+    /// See [`EntityCommands::trigger`] for usage examples
     #[track_caller]
     pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
         &mut self,
