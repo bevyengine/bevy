@@ -1,10 +1,9 @@
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     observer::On,
-    relationship::RelatedSpawner,
-    spawn::{Spawn, SpawnRelated, SpawnWith},
+    spawn::{Spawn, SpawnIter, SpawnRelated},
     system::{Commands, In, SystemId},
 };
 use bevy_input_focus::tab_navigation::TabGroup;
@@ -30,27 +29,23 @@ where
             ..Default::default()
         },
         TabGroup::new(0),
-        Children::spawn((SpawnWith(move |parent: &mut RelatedSpawner<ChildOf>| {
-            for row in keys {
-                parent.spawn((
-                    Node {
-                        flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(4.),
-                        ..Default::default()
-                    },
-                    Children::spawn(SpawnWith(move |parent: &mut RelatedSpawner<ChildOf>| {
-                        for (label, key_id) in row.into_iter() {
-                            parent.spawn((
-                                button(ButtonProps::default(), (key_id,), Spawn(Text::new(label))),
-                                observe(move |activate: On<Activate>, mut commands: Commands| {
-                                    // TODO: Turn this into an event as well, or use event forwarding.
-                                    commands.run_system_with(on_key_press, *activate);
-                                }),
-                            ));
-                        }
-                    })),
-                ));
-            }
-        }),)),
+        Children::spawn(SpawnIter(keys.map(move |row| {
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: Val::Px(4.),
+                    ..Default::default()
+                },
+                Children::spawn(SpawnIter(row.into_iter().map(move |(label, key_id)| {
+                    (
+                        button(ButtonProps::default(), (key_id,), Spawn(Text::new(label))),
+                        observe(move |activate: On<Activate>, mut commands: Commands| {
+                            // TODO: Turn this into an event as well, or use event forwarding.
+                            commands.run_system_with(on_key_press, *activate);
+                        }),
+                    )
+                }))),
+            )
+        }))),
     )
 }
