@@ -10,7 +10,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -1946,9 +1946,17 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,

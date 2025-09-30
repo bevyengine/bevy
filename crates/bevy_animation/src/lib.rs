@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -884,7 +884,7 @@ impl AnimationPlayer {
             .all(ActiveAnimation::is_paused)
     }
 
-    /// Resume all playing animations.
+    /// Pause all playing animations.
     #[doc(alias = "pause")]
     pub fn pause_all(&mut self) -> &mut Self {
         for (_, playing_animation) in self.playing_animations_mut() {

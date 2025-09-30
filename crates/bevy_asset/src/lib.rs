@@ -139,7 +139,7 @@
 //! This trait mirrors [`AssetLoader`] in structure, and works in tandem with [`AssetWriter`](io::AssetWriter), which mirrors [`AssetReader`](io::AssetReader).
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -706,7 +706,8 @@ mod tests {
         io::{
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
-            AssetReader, AssetReaderError, AssetSource, AssetSourceId, Reader,
+            AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId,
+            AssetWatcher, Reader,
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
@@ -727,11 +728,15 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_platform::{
+        collections::{HashMap, HashSet},
+        sync::Mutex,
+    };
     use bevy_reflect::TypePath;
     use core::time::Duration;
+    use crossbeam_channel::Sender;
     use serde::{Deserialize, Serialize};
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use thiserror::Error;
 
     #[derive(Asset, TypePath, Debug, Default)]
@@ -823,7 +828,7 @@ mod tests {
     /// A dummy [`CoolText`] asset reader that only succeeds after `failure_count` times it's read from for each asset.
     #[derive(Default, Clone)]
     pub struct UnstableMemoryAssetReader {
-        pub attempt_counters: Arc<std::sync::Mutex<HashMap<Box<Path>, usize>>>,
+        pub attempt_counters: Arc<Mutex<HashMap<Box<Path>, usize>>>,
         pub load_delay: Duration,
         memory_reader: MemoryAssetReader,
         failure_count: usize,
@@ -2063,5 +2068,168 @@ mod tests {
                 .insert(asset_id, TestAsset),
             Err(InvalidGenerationError::Removed { index })
         );
+    }
+
+    // Creates a basic app with the default asset source engineered to get back the asset event
+    // sender.
+    fn create_app_with_source_event_sender() -> (App, Dir, Sender<AssetSourceEvent>) {
+        let mut app = App::new();
+        let dir = Dir::default();
+        let memory_reader = MemoryAssetReader { root: dir.clone() };
+
+        // Create a channel to pass the source event sender back to us.
+        let (sender_sender, sender_receiver) = crossbeam_channel::bounded(1);
+
+        struct FakeWatcher;
+        impl AssetWatcher for FakeWatcher {}
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(memory_reader.clone()))
+                .with_watcher(move |sender| {
+                    sender_sender.send(sender).unwrap();
+                    Some(Box::new(FakeWatcher))
+                }),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                watch_for_changes_override: Some(true),
+                ..Default::default()
+            },
+        ));
+
+        let sender = sender_receiver.try_recv().unwrap();
+
+        (app, dir, sender)
+    }
+
+    fn collect_asset_events<A: Asset>(world: &mut World) -> Vec<AssetEvent<A>> {
+        world
+            .resource_mut::<Messages<AssetEvent<A>>>()
+            .drain()
+            .collect()
+    }
+
+    fn collect_asset_load_failed_events<A: Asset>(
+        world: &mut World,
+    ) -> Vec<AssetLoadFailedEvent<A>> {
+        world
+            .resource_mut::<Messages<AssetLoadFailedEvent<A>>>()
+            .drain()
+            .collect()
+    }
+
+    #[test]
+    fn reloads_asset_after_source_event() {
+        let (mut app, dir, source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(
+            Path::new("abc.cool.ron"),
+            r#"(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+        );
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let handle: Handle<CoolText> = asset_server.load("abc.cool.ron");
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Added { id: handle.id() },
+                ]
+            );
+            Some(())
+        });
+
+        // Sending an asset event should result in the asset being reloaded - resulting in a
+        // "Modified" message.
+        source_events
+            .send(AssetSourceEvent::ModifiedAsset(PathBuf::from(
+                "abc.cool.ron",
+            )))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Modified { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+    }
+
+    #[test]
+    fn added_asset_reloads_previously_missing_asset() {
+        let (mut app, dir, source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .register_asset_loader(CoolTextLoader);
+
+        let handle: Handle<CoolText> = asset_server.load("abc.cool.ron");
+        run_app_until(&mut app, |world| {
+            let failed_ids = collect_asset_load_failed_events(world)
+                .drain(..)
+                .map(|event| event.id)
+                .collect::<Vec<_>>();
+            if failed_ids.is_empty() {
+                return None;
+            }
+            assert_eq!(failed_ids, [handle.id()]);
+            Some(())
+        });
+
+        // The asset has already been considered as failed to load. Now we add the asset data, and
+        // send an AddedAsset event.
+        dir.insert_asset_text(
+            Path::new("abc.cool.ron"),
+            r#"(
+    text: "a",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+        );
+        source_events
+            .send(AssetSourceEvent::AddedAsset(PathBuf::from("abc.cool.ron")))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Added { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
     }
 }

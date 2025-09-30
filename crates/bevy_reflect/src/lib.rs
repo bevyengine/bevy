@@ -5,7 +5,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -1069,6 +1069,11 @@ mod tests {
         expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic() {
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]
         struct Foo {
@@ -1126,12 +1131,24 @@ mod tests {
             }
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Foo<A>(A);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Bar<A, B>(A, B);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz<A, B, C>(A, B, C);
     }
@@ -2751,6 +2768,11 @@ bevy_reflect::tests::Test {
         #[reflect(where U: core::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz {
             a: Foo<i32, i32>,
@@ -3184,6 +3206,11 @@ bevy_reflect::tests::Test {
             pub mod external_crate {
                 use alloc::string::String;
 
+                #[allow(
+                    clippy::allow_attributes,
+                    dead_code,
+                    reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+                )]
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -3195,6 +3222,11 @@ bevy_reflect::tests::Test {
             }
         }
 
+        #[allow(
+            clippy::allow_attributes,
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct ContainerStruct {
             #[reflect(remote = wrapper::MyType)]
