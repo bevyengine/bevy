@@ -2407,10 +2407,6 @@ pub(super) mod tests {
         use bevy_ecs::prelude::ReflectComponent;
         use bevy_reflect::prelude::ReflectDefault;
 
-        #[derive(Reflect, Default, Deserialize, Serialize)]
-        pub struct ThirdStruct {
-            pub map_strings: HashMap<String, i32>,
-        }
         #[derive(Reflect, Default, Deserialize, Serialize, Component)]
         #[reflect(Component, Default)]
         /// A tuple struct with one field.
