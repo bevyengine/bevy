@@ -1,5 +1,5 @@
 ---
-title: `BevyManifest::shared` is now a scope-like API.
+title: "`BevyManifest::shared` is now a scope-like API."
 pull_requests: [20630]
 ---
 
