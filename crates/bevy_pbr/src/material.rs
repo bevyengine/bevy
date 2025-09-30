@@ -181,9 +181,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
-    ///
-    /// When it is enabled, it will automatically add the [`PrepassPlugin`]
-    /// required to make the prepass work on this Material.
     #[inline]
     fn enable_prepass() -> bool {
         true

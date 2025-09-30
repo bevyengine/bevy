@@ -27,12 +27,11 @@ fn main() {
                 ..default()
             }),
             MaterialPlugin::<CustomMaterial>::default(),
-            MaterialPlugin::<PrepassOutputMaterial> {
-                // This material only needs to read the prepass textures,
-                // but the meshes using it should not contribute to the prepass render, so we can disable it.
-                prepass_enabled: false,
-                ..default()
-            },
+            // FIXME: PR #20999 breaks the functionality below:
+            //   This material only needs to read the prepass textures,
+            //   but the meshes using it should not contribute to the prepass render, so we can disable it.
+            // This should be fixed by materials as entities.
+            MaterialPlugin::<PrepassOutputMaterial>::default(),
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, toggle_prepass_view))
