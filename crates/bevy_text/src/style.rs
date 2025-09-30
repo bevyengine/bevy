@@ -60,7 +60,7 @@ pub struct InheritedTextStyle<S: Component + Clone + PartialEq>(pub S);
 /// The resolved text style for a text entity.
 ///
 /// Updated by [`update_computed_text_styles`]
-#[derive(Component, PartialEq, Default)]
+#[derive(Component, PartialEq, Debug, Default)]
 pub struct ComputedTextStyle {
     /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
     /// or from [`DefaultTextStyle`] if none is found.
@@ -305,7 +305,7 @@ mod tests {
     use bevy_app::prelude::*;
 
     #[test]
-    fn test_simple_propagate() {
+    fn test_text_style_propagates_to_children() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
         app.init_resource::<DefaultTextStyle>();
@@ -373,7 +373,7 @@ mod tests {
     }
 
     #[test]
-    fn test_reparented() {
+    fn test_text_styles_update_when_text_reparented() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
         app.init_resource::<DefaultTextStyle>();
@@ -441,5 +441,195 @@ mod tests {
                 .font_size(),
             2.
         );
+    }
+
+    #[test]
+    fn test_text_styles_update_when_default_text_style_changes() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.init_resource::<DefaultTextStyle>();
+        app.add_systems(
+            Update,
+            (
+                update_from_inherited_text_style_sources::<TextFont>,
+                update_reparented_inherited_styles::<TextFont>,
+                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<TextColor>,
+                update_reparented_inherited_styles::<TextColor>,
+                propagate_inherited_styles::<TextColor>,
+                update_from_inherited_text_style_sources::<FontSize>,
+                update_reparented_inherited_styles::<FontSize>,
+                propagate_inherited_styles::<FontSize>,
+                update_from_inherited_text_style_sources::<LineHeight>,
+                update_reparented_inherited_styles::<LineHeight>,
+                propagate_inherited_styles::<LineHeight>,
+                update_from_inherited_text_style_sources::<FontSmoothing>,
+                update_reparented_inherited_styles::<FontSmoothing>,
+                propagate_inherited_styles::<FontSmoothing>,
+                update_computed_text_styles,
+            )
+                .chain(),
+        );
+
+        let target_1 = app.world_mut().spawn(ComputedTextStyle::default()).id();
+
+        let target_2 = app
+            .world_mut()
+            .spawn((FontSize(2.), ComputedTextStyle::default()))
+            .id();
+
+        let root_3 = app.world_mut().spawn_empty().id();
+
+        let target_3 = app
+            .world_mut()
+            .spawn((ComputedTextStyle::default(), ChildOf(root_3)))
+            .id();
+
+        let root_4 = app.world_mut().spawn(FontSize(4.)).id();
+
+        let target_4 = app
+            .world_mut()
+            .spawn((ComputedTextStyle::default(), ChildOf(root_4)))
+            .id();
+
+        let target_5 = app
+            .world_mut()
+            .spawn((FontSize(5.), ComputedTextStyle::default(), ChildOf(root_4)))
+            .id();
+
+        app.update();
+
+        let default_default_text_style = DefaultTextStyle::default();
+        for (target, expected_font_size) in [
+            (target_1, default_default_text_style.font_size),
+            (target_2, 2.),
+            (target_3, default_default_text_style.font_size),
+            (target_4, 4.),
+            (target_5, 5.),
+        ] {
+            assert_eq!(
+                *app.world_mut()
+                    .query::<&ComputedTextStyle>()
+                    .get(app.world(), target)
+                    .unwrap(),
+                ComputedTextStyle {
+                    font_size: expected_font_size,
+                    font: default_default_text_style.font.clone(),
+                    color: default_default_text_style.color,
+                    font_smoothing: default_default_text_style.font_smoothing,
+                    line_height: default_default_text_style.line_height,
+                }
+            );
+        }
+
+        let mut default_text_style = app.world_mut().resource_mut::<DefaultTextStyle>();
+        default_text_style.font_size = 17.;
+        default_text_style.line_height = LineHeight::Px(99.);
+
+        app.update();
+
+        let default_default_text_style = DefaultTextStyle::default();
+        for (target, expected_font_size) in [
+            (target_1, 17.),
+            (target_2, 2.),
+            (target_3, 17.),
+            (target_4, 4.),
+            (target_5, 5.),
+        ] {
+            assert_eq!(
+                *app.world_mut()
+                    .query::<&ComputedTextStyle>()
+                    .get(app.world(), target)
+                    .unwrap(),
+                ComputedTextStyle {
+                    font_size: expected_font_size,
+                    font: default_default_text_style.font.clone(),
+                    color: default_default_text_style.color,
+                    font_smoothing: default_default_text_style.font_smoothing,
+                    line_height: LineHeight::Px(99.),
+                }
+            );
+        }
+    }
+
+    #[test]
+    fn test_override_inherited_text_style() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.init_resource::<DefaultTextStyle>();
+        app.add_systems(
+            Update,
+            (
+                update_from_inherited_text_style_sources::<TextFont>,
+                update_reparented_inherited_styles::<TextFont>,
+                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<TextColor>,
+                update_reparented_inherited_styles::<TextColor>,
+                propagate_inherited_styles::<TextColor>,
+                update_from_inherited_text_style_sources::<FontSize>,
+                update_reparented_inherited_styles::<FontSize>,
+                propagate_inherited_styles::<FontSize>,
+                update_from_inherited_text_style_sources::<LineHeight>,
+                update_reparented_inherited_styles::<LineHeight>,
+                propagate_inherited_styles::<LineHeight>,
+                update_from_inherited_text_style_sources::<FontSmoothing>,
+                update_reparented_inherited_styles::<FontSmoothing>,
+                propagate_inherited_styles::<FontSmoothing>,
+                update_computed_text_styles,
+            )
+                .chain(),
+        );
+
+        let root = app.world_mut().spawn(ComputedTextStyle::default()).id();
+
+        let node_1 = app
+            .world_mut()
+            .spawn_empty()
+            .insert((FontSize(1.), ComputedTextStyle::default(), ChildOf(root)))
+            .id();
+
+        let node_2 = app
+            .world_mut()
+            .spawn_empty()
+            .insert((ComputedTextStyle::default(), ChildOf(node_1)))
+            .id();
+
+        let node_3 = app
+            .world_mut()
+            .spawn_empty()
+            .insert((FontSize(2.), ComputedTextStyle::default(), ChildOf(node_2)))
+            .id();
+
+        let node_4 = app
+            .world_mut()
+            .spawn_empty()
+            .insert((FontSize(3.), ComputedTextStyle::default(), ChildOf(node_3)))
+            .id();
+
+        let node_5 = app
+            .world_mut()
+            .spawn_empty()
+            .insert((ComputedTextStyle::default(), ChildOf(node_4)))
+            .id();
+
+        app.update();
+
+        for (target, expected_font_size) in [
+            (root, DefaultTextStyle::default().font_size),
+            (node_1, 1.),
+            (node_2, 1.),
+            (node_3, 2.),
+            (node_4, 3.),
+            (node_5, 3.),
+        ] {
+            assert_eq!(
+                app.world_mut()
+                    .query::<&ComputedTextStyle>()
+                    .get(app.world(), target)
+                    .unwrap()
+                    .font_size,
+                expected_font_size
+            );
+        }
     }
 }
