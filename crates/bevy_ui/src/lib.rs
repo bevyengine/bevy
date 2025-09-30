@@ -79,7 +79,7 @@ use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
 
-use crate::widget::{sync_ui_text_components, Text};
+use crate::widget::Text;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -229,9 +229,6 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
-            sync_ui_text_components
-                .after(update_text_roots)
-                .before(widget::measure_text_system),
             detect_text_needs_rerender::<Text>
                 .before(widget::measure_text_system)
                 .before(widget::text_system),

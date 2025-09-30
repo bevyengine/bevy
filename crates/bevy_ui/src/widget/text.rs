@@ -417,19 +417,3 @@ pub fn text_system(
         }
     }
 }
-
-pub fn sync_ui_text_components(
-    mut commands: Commands,
-    add_query: Query<Entity, (With<TextRoot>, With<Text>, Without<Node>)>,
-    rem_query: Query<Entity, (With<Text>, Without<TextRoot>, With<Node>)>,
-) {
-    for entity in add_query.iter() {
-        commands
-            .entity(entity)
-            .insert((Node::default(), ComputedNode::default()));
-    }
-
-    for entity in rem_query.iter() {
-        commands.entity(entity).remove::<(Node, ComputedNode)>();
-    }
-}
