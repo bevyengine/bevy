@@ -21,10 +21,18 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
     }
+
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
     pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
+    }
+
+    /// Returns the total number of fonts in all sets
+    pub fn font_count(&self) -> usize {
+        self.sets
+            .iter()
+            .fold(0, |count, (_, set)| count + set.len())
     }
 }
 
