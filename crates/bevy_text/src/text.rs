@@ -356,7 +356,7 @@ pub enum FontSmoothing {
 
 /// Text root
 #[derive(Component, PartialEq)]
-pub struct TextRoot(pub Vec<Entity>);
+pub struct TextRoot(pub SmallVec<[Entity; 1]>);
 
 /// Marker for text entities
 #[derive(Component, Default)]
@@ -364,42 +364,74 @@ pub struct TextSpan;
 
 /// Update text roots
 pub fn update_text_roots(
-    mut roots: Local<Vec<Entity>>,
+    mut parents: Local<Vec<Entity>>,
+    mut spans: Local<Vec<Entity>>,
     mut commands: Commands,
-    text_node_query: Query<(Entity, Option<&ChildOf>), With<ComputedTextStyle>>,
-    mut text_root_query: Query<&mut TextRoot>,
-    children_query: Query<&Children>,
+    mut text_node_query: Query<
+        (
+            Entity,
+            Option<&ChildOf>,
+            Option<&mut TextRoot>,
+            Has<Children>,
+        ),
+        With<ComputedTextStyle>,
+    >,
+    text_span_query: Query<(), With<TextSpan>>,
+    children_query: Query<&Children, With<TextSpan>>,
 ) {
-    for (entity, maybe_child_of) in text_node_query.iter() {
+    for (entity, maybe_child_of, maybe_text_root, has_children) in text_node_query.iter_mut() {
         let Some(parent) = maybe_child_of else {
             // Orphan, must be a root.
-            roots.push(entity);
+            if has_children {
+                parents.push(entity);
+            } else {
+                let new_text_root = TextRoot(smallvec::smallvec![entity]);
+                if let Some(mut text_root) = maybe_text_root {
+                    text_root.set_if_neq(new_text_root);
+                } else {
+                    commands.entity(entity).insert(new_text_root);
+                }
+            }
+
             continue;
         };
 
-        if !text_node_query.contains(parent.0) {
+        if !text_span_query.contains(parent.0) {
             // Parent is not a text entity, must be a root.
-            roots.push(entity);
+            if has_children {
+                parents.push(entity);
+            } else {
+                let new_text_root = TextRoot(smallvec::smallvec![entity]);
+                if let Some(mut text_root) = maybe_text_root {
+                    text_root.set_if_neq(new_text_root);
+                } else {
+                    commands.entity(entity).insert(new_text_root);
+                }
+            }
             continue;
         }
 
         // Not a root. Remove `TextRoot` component, if present.
-        if text_root_query.contains(entity) {
+        if maybe_text_root.is_some() {
             commands.entity(entity).remove::<TextRoot>();
         }
     }
 
-    for root_entity in roots.drain(..) {
-        let mut entities = vec![root_entity];
+    for root_entity in parents.drain(..) {
+        spans.clear();
+        spans.push(root_entity);
         for entity in children_query.iter_descendants(root_entity) {
-            if text_node_query.contains(entity) {
-                entities.push(entity);
-            }
+            spans.push(entity);
         }
-        if let Ok(mut text_root) = text_root_query.get_mut(root_entity) {
-            text_root.set_if_neq(TextRoot(entities));
+        if let Ok((_, _, Some(mut text_root), ..)) = text_node_query.get_mut(root_entity) {
+            if text_root.0.as_slice() != spans.as_slice() {
+                text_root.0.clear();
+                text_root.0.extend(spans.iter().copied());
+            }
         } else {
-            commands.entity(root_entity).insert(TextRoot(entities));
+            commands
+                .entity(root_entity)
+                .insert(TextRoot(SmallVec::from_slice(&spans)));
         }
     }
 }
