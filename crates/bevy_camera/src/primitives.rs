@@ -347,6 +347,21 @@ impl Frustum {
         true
     }
 
+    /// optimized version of [`Frustum::intersects_obb`]
+    /// where the transform is [`Affine3A::IDENTITY`] and both `intersect_near` and `intersect_far` are `true`.
+    #[inline]
+    pub fn intersects_obb_identity(&self, aabb: &Aabb) -> bool {
+        let aabb_center_world = aabb.center.extend(1.0);
+        for (idx, half_space) in self.half_spaces.iter().enumerate() {
+            let p_normal = half_space.normal();
+            let relative_radius = aabb.half_extents.abs().dot(p_normal.abs());
+            if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Check if the frustum contains the entire Axis-Aligned Bounding Box (AABB).
     /// Referenced from: [Frustum Culling](https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling)
     #[inline]
