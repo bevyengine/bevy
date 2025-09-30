@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
     MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
