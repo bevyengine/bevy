@@ -6,6 +6,7 @@ use crate::{
     system::Query,
 };
 use alloc::collections::VecDeque;
+use core::marker::PhantomData;
 use smallvec::SmallVec;
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
@@ -91,7 +92,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
-    /// [`RelationshipTarget`].
+    /// [`RelationshipTarget`] in breadth-first order.
     ///
     /// # Warning
     ///
@@ -142,7 +143,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 }
 
-/// A [`DescendantsTraversal`] of [`Entity`]s over the descendants of an [`Entity`].
+/// An iteration strategy of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
 pub struct BreadthFirst<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
@@ -157,9 +158,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> BreadthFirst<'
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
 {
-    /// Returns a new [`DescendantIter`].
     fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        BreadthFirst {
+        Self {
             children_query,
             vecdeque: children_query
                 .get(entity)
@@ -170,17 +170,17 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantsTraversal
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantsIterator
     for BreadthFirst<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
 {
-    fn next_root(&mut self) -> Option<Entity> {
+    fn next_node(&mut self) -> Option<Entity> {
         self.vecdeque.pop_front()
     }
 
-    fn set_children(&mut self, root: Entity) {
-        let Ok(children) = self.children_query.get(root) else {
+    fn set_children(&mut self, node: Entity) {
+        let Ok(children) = self.children_query.get(node) else {
             return;
         };
 
@@ -188,7 +188,7 @@ where
     }
 }
 
-/// A [`DescendantsTraversal`] of [`Entity`]s over the descendants of an [`Entity`].
+/// An iteration strategy of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy depth-first.
 pub struct DepthFirst<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
@@ -204,9 +204,8 @@ where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
     SourceIter<'w, S>: DoubleEndedIterator,
 {
-    /// Returns a new [`DescendantDepthFirstIter`].
     fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
-        DepthFirst {
+        Self {
             children_query,
             stack: children_query
                 .get(entity)
@@ -215,23 +214,161 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantsTraversal
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantsIterator
     for DepthFirst<'w, 's, D, F, S>
 where
     D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
     SourceIter<'w, S>: DoubleEndedIterator,
 {
-    fn next_root(&mut self) -> Option<Entity> {
+    fn next_node(&mut self) -> Option<Entity> {
         self.stack.pop()
     }
 
-    fn set_children(&mut self, root: Entity) {
-        let Ok(children) = self.children_query.get(root) else {
+    fn set_children(&mut self, node: Entity) {
+        let Ok(children) = self.children_query.get(node) else {
             return;
         };
 
         self.stack.extend(children.iter().rev());
     }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+///
+/// Concrete traversal strategy depends on the `Traversal` type.
+pub struct DescendantIter<Traversal>(Traversal);
+
+impl<Traversal> DescendantIter<Traversal> {
+    /// Creates an iterator which uses a closure to determine if recursive [`RelationshipTarget`]s
+    /// should be yielded.
+    ///
+    /// Once the provided closure returns `false` for an [`Entity`] it and its recursive
+    /// [`RelationshipTarget`]s will not be yielded, effectively skipping the sub hierarchy where
+    /// that [`Entity`] is the root.
+    pub fn filter_hierarchies<F>(self, predicate: F) -> FilterHierarchies<Self, F>
+    where
+        F: FnMut(&Entity) -> bool,
+    {
+        FilterHierarchies {
+            iter: self,
+            predicate,
+        }
+    }
+
+    /// Creates an iterator which uses a closure to both filter and map over recursive
+    /// [`RelationshipTarget`]s.
+    ///
+    /// Once the provided closure returns `None` for an [`Entity`] the mapped values for
+    /// it and its recursive [`RelationshipTarget`]s will not be yielded, effectively skipping the
+    /// sub hierarchy where that [`Entity`] is the root.
+    pub fn filter_map_hierarchies<F, R>(self, map: F) -> FilterMapHierarchies<Self, F, R>
+    where
+        F: FnMut(Entity) -> Option<R>,
+    {
+        FilterMapHierarchies {
+            iter: self,
+            map,
+            _p: PhantomData,
+        }
+    }
+}
+
+impl<Traversal> Iterator for DescendantIter<Traversal>
+where
+    Traversal: DescendantsIterator,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_root = self.0.next_node()?;
+        self.0.set_children(next_root);
+
+        Some(next_root)
+    }
+}
+
+impl<Traversal> DescendantsIterator for DescendantIter<Traversal>
+where
+    Traversal: DescendantsIterator,
+{
+    fn next_node(&mut self) -> Option<Entity> {
+        self.0.next_node()
+    }
+
+    fn set_children(&mut self, node: Entity) {
+        self.0.set_children(node);
+    }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+///
+/// Allows conditional skipping of sub hierarchies.
+pub struct FilterHierarchies<T, F> {
+    iter: T,
+    predicate: F,
+}
+
+impl<T, F> Iterator for FilterHierarchies<T, F>
+where
+    T: DescendantsIterator,
+    F: FnMut(&Entity) -> bool,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut node;
+
+        loop {
+            node = self.iter.next_node()?;
+            if (self.predicate)(&node) {
+                break;
+            }
+        }
+        self.iter.set_children(node);
+
+        Some(node)
+    }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+///
+/// Allows conditional skipping of sub hierarchies.
+pub struct FilterMapHierarchies<T, F, R> {
+    iter: T,
+    map: F,
+    _p: PhantomData<R>,
+}
+
+impl<T, F, R> Iterator for FilterMapHierarchies<T, F, R>
+where
+    T: DescendantsIterator,
+    F: FnMut(Entity) -> Option<R>,
+{
+    type Item = R;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut node;
+        let mut value;
+
+        loop {
+            node = self.iter.next_node()?;
+            value = (self.map)(node);
+            if value.is_some() {
+                break;
+            }
+        }
+        self.iter.set_children(node);
+
+        value
+    }
+}
+
+/// A trait to implement a concrete descendant traversal strategy
+///
+/// Used to streamline breadth-first and depth-first iteration
+trait DescendantsIterator {
+    fn next_node(&mut self) -> Option<Entity>;
+    fn set_children(&mut self, node: Entity);
 }
 
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
@@ -269,91 +406,6 @@ where
     }
 }
 
-/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
-///
-/// Allows conditional skipping of sub hierarchies.
-/// If all sub hierarchies are linear (only one child) then this yields the same as [`MapWhile`](core::iter::MapWhile).
-pub struct FilterHierarchies<T, F> {
-    iter: T,
-    hierarchy_filter: F,
-}
-
-impl<T, F> Iterator for FilterHierarchies<T, F>
-where
-    T: DescendantsTraversal,
-    F: FnMut(&Entity) -> bool,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let mut root = self.iter.next_root()?;
-
-        while !(self.hierarchy_filter)(&root) {
-            root = self.iter.next_root()?;
-        }
-        self.iter.set_children(root);
-
-        Some(root)
-    }
-}
-
-/// A [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
-///
-/// Concrete traversal strategy depends on the `Traversal` type.
-pub struct DescendantIter<Traversal>(Traversal);
-
-impl<Traversal> DescendantIter<Traversal> {
-    /// Creates an iterator which uses a closure to determine if recursive [`RelationshipTarget`]s
-    /// should be yielded.
-    ///
-    /// Once the the provided closure returns `false` for an [`Entity`] it and its recursive
-    /// [`RelationshipTarget`]s will not be yielded, effectively skipping that sub hierarchy.
-    pub fn filter_hierarchies<HF>(self, filter: HF) -> FilterHierarchies<Self, HF>
-    where
-        HF: FnMut(&Entity) -> bool,
-    {
-        FilterHierarchies {
-            iter: self,
-            hierarchy_filter: filter,
-        }
-    }
-}
-
-impl<Traversal> Iterator for DescendantIter<Traversal>
-where
-    Traversal: DescendantsTraversal,
-{
-    type Item = Entity;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let next_root = self.0.next_root()?;
-        self.0.set_children(next_root);
-
-        Some(next_root)
-    }
-}
-
-impl<Traversal> DescendantsTraversal for DescendantIter<Traversal>
-where
-    Traversal: DescendantsTraversal,
-{
-    fn next_root(&mut self) -> Option<Entity> {
-        self.0.next_root()
-    }
-
-    fn set_children(&mut self, root: Entity) {
-        self.0.set_children(root);
-    }
-}
-
-/// A trait to implement a concrete descendant traversal strategy
-///
-/// Used to streamline breadth-first and depth-first iteration
-trait DescendantsTraversal {
-    fn next_root(&mut self) -> Option<Entity>;
-    fn set_children(&mut self, root: Entity);
-}
-
 #[cfg(test)]
 mod test_iter_descendants {
     use crate::{
@@ -376,8 +428,8 @@ mod test_iter_descendants {
             let ba = world.spawn(ChildOf(b)).id();
             let bb = world.spawn(ChildOf(b)).id();
 
-            let descendants = world.run_system_once(move |q: Query<&Children>| {
-                q.iter_descendants(root).collect::<Vec<_>>()
+            let descendants = world.run_system_once(move |c: Query<&Children>| {
+                c.iter_descendants(root).collect::<Vec<_>>()
             })?;
 
             assert_eq!(descendants, vec![a, b, aa, ab, ba, bb]);
@@ -399,8 +451,8 @@ mod test_iter_descendants {
             let ba = world.spawn(ChildOf(b)).id();
             let bb = world.spawn(ChildOf(b)).id();
 
-            let descendants = world.run_system_once(move |q: Query<&Children>| {
-                q.iter_descendants_depth_first(root).collect::<Vec<_>>()
+            let descendants = world.run_system_once(move |c: Query<&Children>| {
+                c.iter_descendants_depth_first(root).collect::<Vec<_>>()
             })?;
 
             assert_eq!(descendants, vec![a, aa, ab, b, ba, bb]);
@@ -421,8 +473,8 @@ mod test_iter_descendants {
                 world.spawn(ChildOf(root)).id(),
             ];
 
-            let descendants = world.run_system_once(move |q: Query<&Children>| {
-                q.iter_descendants(root)
+            let descendants = world.run_system_once(move |c: Query<&Children>| {
+                c.iter_descendants(root)
                     .filter_hierarchies(|_| true)
                     .collect::<Vec<_>>()
             })?;
@@ -439,8 +491,8 @@ mod test_iter_descendants {
             let skip = world.spawn(ChildOf(root)).id();
             let b = world.spawn(ChildOf(root)).id();
 
-            let descendants = world.run_system_once(move |q: Query<&Children>| {
-                q.iter_descendants(root)
+            let descendants = world.run_system_once(move |c: Query<&Children>| {
+                c.iter_descendants(root)
                     .filter_hierarchies(|e| e != &skip)
                     .collect::<Vec<_>>()
             })?;
@@ -457,13 +509,88 @@ mod test_iter_descendants {
             let skip = world.spawn((ChildOf(root), children![(), ()])).id();
             let b = world.spawn(ChildOf(root)).id();
 
-            let descendants = world.run_system_once(move |q: Query<&Children>| {
-                q.iter_descendants(root)
+            let descendants = world.run_system_once(move |c: Query<&Children>| {
+                c.iter_descendants(root)
                     .filter_hierarchies(|e| e != &skip)
                     .collect::<Vec<_>>()
             })?;
 
             assert_eq!(descendants, vec![a, b]);
+            Ok(())
+        }
+    }
+
+    mod map_hierarchies {
+        use super::*;
+
+        #[test]
+        fn iter_all() -> Result<(), RunSystemError> {
+            let mut world = World::new();
+            let root = world
+                .spawn(children![Name::from("a"), Name::from("b"), Name::from("c")])
+                .id();
+
+            let names = world.run_system_once(move |c: Query<&Children>, n: Query<&Name>| {
+                c.iter_descendants(root)
+                    .filter_map_hierarchies(|e| n.get(e).ok().cloned())
+                    .collect::<Vec<_>>()
+            })?;
+
+            assert_eq!(
+                names,
+                vec![Name::from("a"), Name::from("b"), Name::from("c")]
+            );
+            Ok(())
+        }
+
+        #[test]
+        fn skip_entity_when_flat() -> Result<(), RunSystemError> {
+            let mut world = World::new();
+            let root = world
+                .spawn(children![
+                    Name::from("a"),
+                    Name::from("skip"),
+                    Name::from("b"),
+                ])
+                .id();
+
+            let names = world.run_system_once(move |c: Query<&Children>, n: Query<&Name>| {
+                c.iter_descendants(root)
+                    .filter_map_hierarchies(|e| match n.get(e) {
+                        Ok(name) if name.as_str() != "skip" => Some(name.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })?;
+
+            assert_eq!(names, vec![Name::from("a"), Name::from("b")]);
+            Ok(())
+        }
+
+        #[test]
+        fn skip_sub_hierarchy() -> Result<(), RunSystemError> {
+            let mut world = World::new();
+            let root = world
+                .spawn(children![
+                    Name::from("a"),
+                    (
+                        Name::from("skip"),
+                        children![Name::from("skip child a"), Name::from("skip child b")]
+                    ),
+                    Name::from("b"),
+                ])
+                .id();
+
+            let names = world.run_system_once(move |c: Query<&Children>, n: Query<&Name>| {
+                c.iter_descendants(root)
+                    .filter_map_hierarchies(|e| match n.get(e) {
+                        Ok(name) if name.as_str() != "skip" => Some(name.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })?;
+
+            assert_eq!(names, vec![Name::from("a"), Name::from("b")]);
             Ok(())
         }
     }
