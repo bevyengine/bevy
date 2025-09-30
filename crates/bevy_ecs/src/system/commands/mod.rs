@@ -2259,17 +2259,49 @@ impl<'a> EntityCommands<'a> {
         self.queue(entity_command::move_components::<B>(target))
     }
 
-    /// Deprecated. Use [`Commands::trigger`] instead.
+    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
+    ///
+    /// # Example
+    ///
+    /// A surprising number of functions meet the trait bounds for `event_fn`:
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(EntityEvent)]
+    /// struct Explode(Entity);
+    ///
+    /// impl From<Entity> for Explode {
+    ///    fn from(entity: Entity) -> Self {
+    ///       Explode(entity)
+    ///    }
+    /// }
+    ///
+    ///
+    /// fn trigger_via_constructor(mut commands: Commands) {
+    ///     // The fact that `Epxlode` is a single-field tuple struct
+    ///     // ensures that `Explode(entity)` is a function that generates
+    ///     // an EntityEvent, meeting the trait bounds for `event_fn`.
+    ///     commands.spawn_empty().trigger(Explode);
+    ///
+    /// }
+    ///
+    ///
+    /// fn trigger_via_from_trait(mut commands: Commands) {
+    ///     // This variant also works for events like `struct Explode { entity: Entity }`
+    ///     commands.spawn_empty().trigger(Explode::from);
+    /// }
+    ///
+    /// fn trigger_via_closure(mut commands: Commands) {
+    ///     commands.spawn_empty().trigger(|entity| Explode(entity));
+    /// }
+    /// ```
     #[track_caller]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use Commands::trigger with an EntityEvent instead."
-    )]
-    pub fn trigger<'t, E: EntityEvent>(
+    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
         &mut self,
-        event: impl EntityEvent<Trigger<'t>: Default>,
+        event_fn: impl FnOnce(Entity) -> E,
     ) -> &mut Self {
-        log::warn!("EntityCommands::trigger is deprecated and no longer triggers the event for the current EntityCommands entity. Use Commands::trigger instead with an EntityEvent.");
+        let event = (event_fn)(self.entity);
         self.commands.trigger(event);
         self
     }
