@@ -352,7 +352,7 @@ impl Frustum {
     #[inline]
     pub fn intersects_obb_identity(&self, aabb: &Aabb) -> bool {
         let aabb_center_world = aabb.center.extend(1.0);
-        for (idx, half_space) in self.half_spaces.iter().enumerate() {
+        for half_space in self.half_spaces.iter() {
             let p_normal = half_space.normal();
             let relative_radius = aabb.half_extents.abs().dot(p_normal.abs());
             if half_space.normal_d().dot(aabb_center_world) + relative_radius <= 0.0 {
