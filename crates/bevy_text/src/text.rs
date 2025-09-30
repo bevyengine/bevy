@@ -360,30 +360,32 @@ pub struct TextRoot(pub Vec<Entity>);
 
 /// Update text roots
 pub fn update_text_roots(
+    mut roots: Local<Vec<Entity>>,
     mut commands: Commands,
     text_node_query: Query<(Entity, Option<&ChildOf>), With<ComputedTextStyle>>,
     mut text_root_query: Query<&mut TextRoot>,
     children_query: Query<&Children>,
 ) {
-    let mut roots = vec![];
-
     for (entity, maybe_child_of) in text_node_query.iter() {
         let Some(parent) = maybe_child_of else {
+            // Orphan, must be a root.
             roots.push(entity);
             continue;
         };
 
         if !text_node_query.contains(parent.0) {
+            // Parent is not a text entity, must be a root.
             roots.push(entity);
             continue;
         }
 
+        // Not a root. Remove `TextRoot` component, if present.
         if text_root_query.contains(entity) {
             commands.entity(entity).remove::<TextRoot>();
         }
     }
 
-    for root_entity in roots {
+    for root_entity in roots.drain(..) {
         let mut entities = vec![root_entity];
         for entity in children_query.iter_descendants(root_entity) {
             if text_node_query.contains(entity) {
