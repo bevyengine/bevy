@@ -1,6 +1,6 @@
 [package]
 name = "bevy_tasks"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevy.org"
@@ -36,7 +36,7 @@ futures-lite = ["bevy_platform/std", "futures-lite/std"]
 async-io = ["bevy_platform/std", "dep:async-io"]
 
 [dependencies]
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
@@ -59,8 +59,8 @@ concurrent-queue = { version = "2.5", default-features = false }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-async-channel = "2.3.0"
 pin-project-lite = "0.2"
+async-channel = { version = "2.3.0", default-features = false }
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 async-task = { version = "4.4.0", default-features = false, features = [

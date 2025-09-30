@@ -333,20 +333,20 @@ mod ui {
             .spawn((
                 Node {
                     // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     flex_direction: FlexDirection::Column,
-                    row_gap: Val::Px(10.),
+                    row_gap: px(10),
                     ..default()
                 },
                 children![
                     (
                         Button,
                         Node {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
+                            width: px(200),
+                            height: px(65),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
@@ -367,8 +367,8 @@ mod ui {
                     (
                         Button,
                         Node {
-                            width: Val::Px(200.),
-                            height: Val::Px(65.),
+                            width: px(200),
+                            height: px(65),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
@@ -403,7 +403,7 @@ mod ui {
 
     pub fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((
-            DespawnOnExitState(InGame),
+            DespawnOnExit(InGame),
             Sprite::from_image(asset_server.load("branding/icon.png")),
         ));
     }
@@ -443,22 +443,22 @@ mod ui {
     pub fn setup_paused_screen(mut commands: Commands) {
         info!("Printing Pause");
         commands.spawn((
-            DespawnOnExitState(IsPaused::Paused),
+            DespawnOnExit(IsPaused::Paused),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
             children![(
                 Node {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
+                    width: px(400),
+                    height: px(400),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text
@@ -481,15 +481,15 @@ mod ui {
 
     pub fn setup_turbo_text(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(TurboMode),
+            DespawnOnExit(TurboMode),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Start,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
@@ -517,15 +517,15 @@ mod ui {
 
     pub fn movement_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(Tutorial::MovementInstructions),
+            DespawnOnExit(Tutorial::MovementInstructions),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::End,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },
@@ -568,15 +568,15 @@ mod ui {
 
     pub fn pause_instructions(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(Tutorial::PauseInstructions),
+            DespawnOnExit(Tutorial::PauseInstructions),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::End,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 position_type: PositionType::Absolute,
                 ..default()
             },

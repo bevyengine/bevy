@@ -7,8 +7,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
-use bevy_camera::visibility::VisibilitySystems;
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -20,23 +19,16 @@ use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
 
-/// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct MeshPlugin;
+/// Makes sure that [`Mesh`]es are extracted and prepared for the GPU.
+/// Does *not* add the [`Mesh`] as an asset. Use [`MeshPlugin`] for that.
+pub struct MeshRenderAssetPlugin;
 
-impl Plugin for MeshPlugin {
+impl Plugin for MeshRenderAssetPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<Mesh>()
-            .init_asset::<skinning::SkinnedMeshInverseBindposes>()
-            .register_asset_reflect::<Mesh>()
+        app
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin)
-            .add_systems(
-                PostUpdate,
-                mark_3d_meshes_as_changed_if_their_assets_changed
-                    .ambiguous_with(VisibilitySystems::CalculateBounds)
-                    .before(AssetEventSystems),
-            );
+            .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

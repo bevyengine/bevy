@@ -345,7 +345,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
         HeaderNode,
         Node {
             justify_self: JustifySelf::Center,
-            top: Val::Px(5.0),
+            top: px(5),
             ..Default::default()
         },
         UiTargetCamera(active_camera),

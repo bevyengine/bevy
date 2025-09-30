@@ -16,7 +16,7 @@ use super::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    Atmosphere, AtmosphereSettings,
+    Atmosphere, GpuAtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -31,10 +31,10 @@ pub(super) struct AtmosphereLutsNode {}
 
 impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
-        Read<AtmosphereSettings>,
+        Read<GpuAtmosphereSettings>,
         Read<AtmosphereBindGroups>,
         Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
@@ -80,7 +80,7 @@ impl ViewNode for AtmosphereLutsNode {
             label: Some("atmosphere_luts"),
             timestamp_writes: None,
         });
-        let pass_span = diagnostics.time_span(&mut luts_pass, "atmosphere_luts");
+        let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
             const WORKGROUP_SIZE: u32 = 16;
@@ -168,7 +168,7 @@ impl ViewNode for RenderSkyNode {
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
         Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,

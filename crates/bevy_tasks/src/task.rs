@@ -41,7 +41,7 @@ cfg::web! {
                     let value = CatchUnwind {
                         inner: AssertUnwindSafe(future)
                     }.await;
-                    let _ = sender.send(value);
+                    let _ = sender.send(value).await;
                 });
                 Self(receiver)
             }

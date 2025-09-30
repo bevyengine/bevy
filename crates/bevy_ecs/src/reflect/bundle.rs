@@ -3,7 +3,7 @@
 //!
 //! This module exports two types: [`ReflectBundleFns`] and [`ReflectBundle`].
 //!
-//! Same as [`super::component`], but for bundles.
+//! Same as [`component`](`super::component`), but for bundles.
 use alloc::boxed::Box;
 use bevy_utils::prelude::DebugName;
 use core::any::{Any, TypeId};
@@ -30,7 +30,7 @@ pub struct ReflectBundle(ReflectBundleFns);
 
 /// The raw function pointers needed to make up a [`ReflectBundle`].
 ///
-/// The also [`super::component::ReflectComponentFns`].
+/// The also [`ReflectComponentFns`](`super::component::ReflectComponentFns`).
 #[derive(Clone)]
 pub struct ReflectBundleFns {
     /// Function pointer implementing [`ReflectBundle::insert`].

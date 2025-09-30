@@ -13,12 +13,15 @@ use bevy_app::prelude::*;
 #[cfg(feature = "bevy_ci_testing")]
 pub mod ci_testing;
 
+mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
 
 pub mod picking_debug;
 
 pub mod states;
+
+pub use easy_screenshot::*;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`
 /// feature.

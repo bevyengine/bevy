@@ -132,44 +132,44 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2dShadow::default(),
     ));
 
-    commands
-        .spawn((
-            Sprite {
-                color: Color::Srgba(LIGHT_CYAN),
-                custom_size: Some(Vec2::new(10., 10.)),
-                ..Default::default()
-            },
-            Transform::from_translation(250. * Vec3::Y),
-        ))
-        .with_children(|commands| {
-            for (text_anchor, color) in [
-                (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON)),
-                (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN)),
-                (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE)),
-                (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW)),
-            ] {
-                commands
-                    .spawn((
-                        Text2d::new(" Anchor".to_string()),
-                        slightly_smaller_text_font.clone(),
-                        text_anchor,
-                        TextBackgroundColor(Color::WHITE.darker(0.8)),
-                        Transform::from_translation(-1. * Vec3::Z),
-                    ))
-                    .with_child((
-                        TextSpan("::".to_string()),
-                        slightly_smaller_text_font.clone(),
-                        TextColor(LIGHT_GREY.into()),
-                        TextBackgroundColor(DARK_BLUE.into()),
-                    ))
-                    .with_child((
-                        TextSpan(format!("{text_anchor:?} ")),
-                        slightly_smaller_text_font.clone(),
-                        TextColor(color),
-                        TextBackgroundColor(color.darker(0.3)),
-                    ));
-            }
-        });
+    let make_child = move |(text_anchor, color): (Anchor, Color)| {
+        (
+            Text2d::new(" Anchor".to_string()),
+            slightly_smaller_text_font.clone(),
+            text_anchor,
+            TextBackgroundColor(Color::WHITE.darker(0.8)),
+            Transform::from_translation(-1. * Vec3::Z),
+            children![
+                (
+                    TextSpan("::".to_string()),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(LIGHT_GREY.into()),
+                    TextBackgroundColor(DARK_BLUE.into()),
+                ),
+                (
+                    TextSpan(format!("{text_anchor:?} ")),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(color),
+                    TextBackgroundColor(color.darker(0.3)),
+                )
+            ],
+        )
+    };
+
+    commands.spawn((
+        Sprite {
+            color: Color::Srgba(LIGHT_CYAN),
+            custom_size: Some(Vec2::new(10., 10.)),
+            ..Default::default()
+        },
+        Transform::from_translation(250. * Vec3::Y),
+        children![
+            make_child((Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON))),
+            make_child((Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN))),
+            make_child((Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE))),
+            make_child((Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW))),
+        ],
+    ));
 }
 
 fn animate_translation(
