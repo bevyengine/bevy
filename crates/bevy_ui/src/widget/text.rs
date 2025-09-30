@@ -378,7 +378,7 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        Ref<TextRoot>,
+        &TextRoot,
     )>,
     text_query: Query<(&Text, &ComputedTextStyle)>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -386,7 +386,7 @@ pub fn text_system(
 ) {
     for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
     {
-        if node.is_changed() || text_root.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || text_flags.needs_recompute {
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
