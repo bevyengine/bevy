@@ -2277,7 +2277,7 @@ impl<'a> EntityCommands<'a> {
     ///    }
     /// }
     ///
-
+    ///
     /// fn trigger_via_constructor(mut commands: Commands) {
     ///     // The fact that `Epxlode` is a single-field tuple struct
     ///     // ensures that `Explode(entity)` is a function that generates
