@@ -2288,7 +2288,7 @@ impl<'a> EntityCommands<'a> {
     ///
     ///
     /// fn trigger_via_from_trait(mut commands: Commands) {
-    ///     commands.spawn_empty().trigger(Explode::from(entity));
+    ///     commands.spawn_empty().trigger(Explode::from);
     /// }
     ///
 
