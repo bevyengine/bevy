@@ -199,56 +199,102 @@ pub fn propagate_inherited_styles<S: Component + Clone + PartialEq>(
     }
 }
 
+fn update_computed_text_style(
+    default_text_style: &DefaultTextStyle,
+    mut style: Mut<ComputedTextStyle>,
+    maybe_font: Option<&InheritedTextStyle<TextFont>>,
+    maybe_color: Option<&InheritedTextStyle<TextColor>>,
+    maybe_size: Option<&InheritedTextStyle<FontSize>>,
+    maybe_line_height: Option<&InheritedTextStyle<LineHeight>>,
+    maybe_smoothing: Option<&InheritedTextStyle<FontSmoothing>>,
+) {
+    let new_style = ComputedTextStyle {
+        font: maybe_font
+            .map_or(&default_text_style.font, |font| &font.0 .0)
+            .clone(),
+        color: maybe_color
+            .map(|t| t.0 .0)
+            .unwrap_or(default_text_style.color),
+        font_size: maybe_size.map_or(default_text_style.font_size, |size| size.0 .0),
+        font_smoothing: maybe_smoothing
+            .map(|s| s.0)
+            .unwrap_or(default_text_style.font_smoothing),
+        line_height: maybe_line_height
+            .map(|l| l.0)
+            .unwrap_or(default_text_style.line_height),
+    };
+
+    if new_style.font != style.font
+        || new_style.font_size != style.font_size
+        || new_style.font_smoothing != style.font_smoothing
+        || new_style.line_height != style.line_height
+    {
+        *style = new_style;
+    } else {
+        // bypass change detection, we don't need to update the layout if only the text color has changed
+        style.bypass_change_detection().color = new_style.color;
+    }
+}
+
 /// update computed styles
 pub fn update_computed_text_styles(
     default_text_style: Res<DefaultTextStyle>,
-    mut query: Query<
-        (
+    mut param_sets: ParamSet<(
+        Query<(
             &mut ComputedTextStyle,
             Option<&InheritedTextStyle<TextFont>>,
             Option<&InheritedTextStyle<TextColor>>,
             Option<&InheritedTextStyle<FontSize>>,
             Option<&InheritedTextStyle<LineHeight>>,
             Option<&InheritedTextStyle<FontSmoothing>>,
-        ),
-        Or<(
-            Changed<InheritedTextStyle<TextFont>>,
-            Changed<InheritedTextStyle<TextColor>>,
-            Changed<InheritedTextStyle<FontSize>>,
-            Changed<InheritedTextStyle<LineHeight>>,
-            Changed<InheritedTextStyle<FontSmoothing>>,
-            Added<ComputedTextStyle>,
         )>,
-    >,
+        Query<
+            (
+                &mut ComputedTextStyle,
+                Option<&InheritedTextStyle<TextFont>>,
+                Option<&InheritedTextStyle<TextColor>>,
+                Option<&InheritedTextStyle<FontSize>>,
+                Option<&InheritedTextStyle<LineHeight>>,
+                Option<&InheritedTextStyle<FontSmoothing>>,
+            ),
+            Or<(
+                Changed<InheritedTextStyle<TextFont>>,
+                Changed<InheritedTextStyle<TextColor>>,
+                Changed<InheritedTextStyle<FontSize>>,
+                Changed<InheritedTextStyle<LineHeight>>,
+                Changed<InheritedTextStyle<FontSmoothing>>,
+                Added<ComputedTextStyle>,
+            )>,
+        >,
+    )>,
 ) {
-    for (mut style, maybe_font, maybe_color, maybe_size, maybe_line_height, maybe_smoothing) in
-        query.iter_mut()
-    {
-        let new_style = ComputedTextStyle {
-            font: maybe_font
-                .map_or(&default_text_style.font, |font| &font.0 .0)
-                .clone(),
-            color: maybe_color
-                .map(|t| t.0 .0)
-                .unwrap_or(default_text_style.color),
-            font_size: maybe_size.map_or(default_text_style.font_size, |size| size.0 .0),
-            font_smoothing: maybe_smoothing
-                .map(|s| s.0)
-                .unwrap_or(default_text_style.font_smoothing),
-            line_height: maybe_line_height
-                .map(|l| l.0)
-                .unwrap_or(default_text_style.line_height),
-        };
-
-        if new_style.font != style.font
-            || new_style.font_size != style.font_size
-            || new_style.font_smoothing != style.font_smoothing
-            || new_style.line_height != style.line_height
+    if default_text_style.is_changed() {
+        for (style, maybe_font, maybe_color, maybe_size, maybe_line_height, maybe_smoothing) in
+            param_sets.p0().iter_mut()
         {
-            *style = new_style;
-        } else {
-            // bypass change detection, we don't need to do any updates if only the text color has changed
-            style.bypass_change_detection().color = new_style.color;
+            update_computed_text_style(
+                default_text_style.as_ref(),
+                style,
+                maybe_font,
+                maybe_color,
+                maybe_size,
+                maybe_line_height,
+                maybe_smoothing,
+            );
+        }
+    } else {
+        for (style, maybe_font, maybe_color, maybe_size, maybe_line_height, maybe_smoothing) in
+            param_sets.p1().iter_mut()
+        {
+            update_computed_text_style(
+                default_text_style.as_ref(),
+                style,
+                maybe_font,
+                maybe_color,
+                maybe_size,
+                maybe_line_height,
+                maybe_smoothing,
+            );
         }
     }
 }
