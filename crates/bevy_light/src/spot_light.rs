@@ -190,7 +190,7 @@ pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
 }
 
 /// Add to a [`SpotLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,
+/// A texture mask is applied to the light source to modulate its intensity,  
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 ///
 /// Light textures require bindless textures. This means that they presently can’t be used on WebGL 2, WebGPU, macOS, or iOS.
