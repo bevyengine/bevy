@@ -442,12 +442,12 @@ pub fn camera_system(
 
 fn camera_sub_view_system(
     camera_entities: In<Vec<Entity>>,
-    mut cameras: Query<(&mut Camera, &Projection, &SubViewSourceProjection)>,
+    mut cameras: Query<(&mut Camera, &Projection, Option<&SubViewSourceProjection>)>,
 ) {
     // Update dependent cameras in a second loop, so that all the cameras that are depended on have already been updated
     // Doing it like this is also necessary for borrow checker reasons
     for entity in camera_entities.0 {
-        let Ok((camera, _, projection_entity)) = cameras.get(entity) else {
+        let Ok((camera, _, Some(projection_entity))) = cameras.get(entity) else {
             continue;
         };
 
@@ -779,5 +779,142 @@ pub struct MipBias(pub f32);
 impl Default for MipBias {
     fn default() -> Self {
         Self(-1.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::App;
+    use bevy_asset::AssetPlugin;
+    use bevy_camera::{
+        Camera, CameraProjection, Projection, SubCameraView, SubViewSourceProjection,
+    };
+    use bevy_image::ImagePlugin;
+    use bevy_utils::default;
+    use bevy_window::WindowPlugin;
+    use glam::{Mat4, Vec3A, Vec4};
+
+    use crate::texture::TexturePlugin;
+
+    const NO_SUB_VIEW: Mat4 = Mat4::ZERO;
+    const WITH_SUB_VIEW: Mat4 = Mat4::from_diagonal(Vec4::new(1.0, 0.0, 0.0, 0.0));
+    const DEPENDENT_SUB_VIEW: Mat4 = Mat4::from_diagonal(Vec4::new(2.0, 0.0, 0.0, 0.0));
+
+    #[derive(Debug, Clone)]
+    struct TestProjection;
+
+    impl CameraProjection for TestProjection {
+        fn get_clip_from_view(&self) -> Mat4 {
+            NO_SUB_VIEW
+        }
+
+        fn get_clip_from_view_for_sub(
+            &self,
+            sub_view: &SubCameraView,
+            sub_view_aspect_ratio: Option<f32>,
+        ) -> Mat4 {
+            if sub_view_aspect_ratio.is_none() {
+                WITH_SUB_VIEW
+            } else {
+                DEPENDENT_SUB_VIEW
+            }
+        }
+
+        fn update(&mut self, width: f32, height: f32) {}
+
+        fn far(&self) -> f32 {
+            unimplemented!()
+        }
+
+        fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+            unimplemented!()
+        }
+    }
+
+    #[test]
+    fn camera_without_sub_view() {
+        let mut app = App::new();
+        app.add_plugins((
+            WindowPlugin::default(),
+            AssetPlugin::default(),
+            ImagePlugin::default(),
+            TexturePlugin,
+            super::CameraPlugin,
+        ));
+
+        let camera = app
+            .world_mut()
+            .spawn((Camera::default(), Projection::custom(TestProjection)))
+            .id();
+
+        app.update();
+
+        let camera = app.world().get::<Camera>(camera).unwrap();
+
+        assert_eq!(camera.computed.clip_from_view, NO_SUB_VIEW);
+    }
+
+    #[test]
+    fn camera_with_sub_view() {
+        let mut app = App::new();
+        app.add_plugins((
+            WindowPlugin::default(),
+            AssetPlugin::default(),
+            ImagePlugin::default(),
+            TexturePlugin,
+            super::CameraPlugin,
+        ));
+
+        let camera = app
+            .world_mut()
+            .spawn((
+                Camera {
+                    sub_camera_view: Some(SubCameraView::default()),
+                    ..default()
+                },
+                Projection::custom(TestProjection),
+            ))
+            .id();
+
+        app.update();
+
+        let camera = app.world().get::<Camera>(camera).unwrap();
+
+        assert_eq!(camera.computed.clip_from_view, WITH_SUB_VIEW);
+    }
+
+    #[test]
+    fn camera_with_dependent_sub_view() {
+        let mut app = App::new();
+        app.add_plugins((
+            WindowPlugin::default(),
+            AssetPlugin::default(),
+            ImagePlugin::default(),
+            TexturePlugin,
+            super::CameraPlugin,
+        ));
+
+        let source_camera = app
+            .world_mut()
+            .spawn((Camera::default(), Projection::custom(TestProjection)))
+            .id();
+
+        let sub_view_camera = app
+            .world_mut()
+            .spawn((
+                Camera {
+                    sub_camera_view: Some(SubCameraView::default()),
+                    ..default()
+                },
+                Projection::custom(TestProjection),
+                SubViewSourceProjection(source_camera),
+            ))
+            .id();
+
+        app.update();
+
+        let sub_view_camera = app.world().get::<Camera>(sub_view_camera).unwrap();
+
+        assert_eq!(sub_view_camera.computed.clip_from_view, DEPENDENT_SUB_VIEW);
     }
 }
