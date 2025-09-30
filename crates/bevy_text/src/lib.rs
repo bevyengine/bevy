@@ -87,6 +87,10 @@ pub struct Text2dUpdateSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
 pub type Update2dText = Text2dUpdateSystems;
 
+/// System set in [`PostUpdate`] where all text styles are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct ComputedTextStyleUpdateSystems;
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
@@ -99,10 +103,29 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    update_text_roots,
-                    update_text_styles,
-                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
-                ),
+                    update_from_inherited_text_style_sources::<TextFont>,
+                    update_reparented_inherited_styles::<TextFont>,
+                    propagate_inherited_styles::<TextFont>,
+                    update_from_inherited_text_style_sources::<TextColor>,
+                    update_reparented_inherited_styles::<TextColor>,
+                    propagate_inherited_styles::<TextColor>,
+                    update_from_inherited_text_style_sources::<FontSize>,
+                    update_reparented_inherited_styles::<FontSize>,
+                    propagate_inherited_styles::<FontSize>,
+                    update_from_inherited_text_style_sources::<LineHeight>,
+                    update_reparented_inherited_styles::<LineHeight>,
+                    propagate_inherited_styles::<LineHeight>,
+                    update_from_inherited_text_style_sources::<FontSmoothing>,
+                    update_reparented_inherited_styles::<FontSmoothing>,
+                    propagate_inherited_styles::<FontSmoothing>,
+                    update_computed_text_styles,
+                )
+                    .chain()
+                    .in_set(ComputedTextStyleUpdateSystems),
+            )
+            .add_systems(
+                PostUpdate,
+                remove_dropped_font_atlas_sets.before(AssetEventSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
 

@@ -256,7 +256,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         )
-            .after(update_text_styles),
+            .after(bevy_text::ComputedTextStyleUpdateSystems),
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);

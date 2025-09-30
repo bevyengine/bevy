@@ -4,8 +4,8 @@ use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::prelude::*;
+use bevy_ecs::relationship::Relationship;
 use bevy_reflect::Reflect;
 
 /// Text style
@@ -52,28 +52,14 @@ impl Default for TextStyle {
 #[derive(Resource, Default, Clone, Deref, DerefMut)]
 pub struct DefaultTextStyle(pub TextStyle);
 
-/// Internal struct for managing propagation
+/// Wrapper used to differentiate propagated text style compoonents
 #[derive(Component, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, PartialEq)]
-pub struct InheritedTextStyle {
-    /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
-    /// or from [`DefaultTextStyle`] if none is found.
-    pub(crate) font: Option<Handle<Font>>,
-    /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    pub(crate) font_size: Option<f32>,
-    /// The antialiasing method to use when rendering text.
-    pub(crate) font_smoothing: Option<FontSmoothing>,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    pub(crate) line_height: Option<LineHeight>,
-    /// The resolved text color, taken from the nearest ancestor (including self) with a [`TextColor`],
-    /// or from [`DefaultTextStyle`] if none is found.
-    pub(crate) color: Option<Color>,
-}
+pub struct InheritedTextStyle<S: Component + Clone + PartialEq>(pub S);
 
 /// The resolved text style for a text entity.
 ///
-/// Updated by [`update_text_styles`]
+/// Updated by [`update_computed_text_styles`]
 #[derive(Component, PartialEq, Default)]
 pub struct ComputedTextStyle {
     /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
@@ -121,87 +107,148 @@ impl ComputedTextStyle {
     }
 }
 
-/// Update the `ComputedTextStyle` for each text node from the
-/// `TextFont`s and `TextColor`s of its nearest ancestors, or from [`DefaultTextStyle`] if none are found.
-pub fn update_text_styles(
-    default_text_style: Res<DefaultTextStyle>,
-    mut computed_text_query: Query<(Entity, &mut ComputedTextStyle)>,
-    parent_query: Query<&ChildOf>,
-    font_query: Query<(
-        Option<&TextFont>,
-        Option<&TextColor>,
-        Option<&FontSize>,
-        Option<&LineHeight>,
-        Option<&FontSmoothing>,
-    )>,
+/// update text style sources
+pub fn update_from_inherited_text_style_sources<S: Component + Clone + PartialEq>(
+    mut commands: Commands,
+    changed_query: Query<(Entity, &S), Or<(Changed<S>, Without<InheritedTextStyle<S>>)>>,
+    mut removed_styles: RemovedComponents<S>,
 ) {
-    for (start, mut style) in computed_text_query.iter_mut() {
-        let (mut font, mut color, mut size, mut line_height, mut smoothing) =
-            font_query.get(start).unwrap();
-        let mut ancestors = parent_query.iter_ancestors(start);
+    for (entity, source) in &changed_query {
+        commands
+            .entity(entity)
+            .try_insert(InheritedTextStyle(source.clone()));
+    }
 
-        while (font.is_none()
-            || color.is_none()
-            || size.is_none()
-            || line_height.is_none()
-            || smoothing.is_none())
-            && let Some(ancestor) = ancestors.next()
-        {
-            let (next_font, next_color, next_size, next_line_height, next_smoothing) =
-                font_query.get(ancestor).unwrap();
-            font = font.or(next_font);
-            color = color.or(next_color);
-            size = size.or(next_size);
-            line_height = line_height.or(next_line_height);
-            smoothing = smoothing.or(next_smoothing);
+    for removed_style in removed_styles.read() {
+        if let Ok(mut commands) = commands.get_entity(removed_style) {
+            commands.remove::<(InheritedTextStyle<S>, S)>();
+        }
+    }
+}
+
+/// update reparented and orphaned styles
+pub fn update_reparented_inherited_styles<S: Component + Clone + PartialEq>(
+    mut commands: Commands,
+    moved: Query<
+        (Entity, &ChildOf, Option<&InheritedTextStyle<S>>),
+        (Changed<ChildOf>, Without<S>),
+    >,
+    parents: Query<&InheritedTextStyle<S>>,
+    orphaned: Query<Entity, (With<InheritedTextStyle<S>>, Without<S>, Without<ChildOf>)>,
+) {
+    for (entity, parent, maybe_inherited) in &moved {
+        if let Ok(inherited) = parents.get(parent.get()) {
+            commands.entity(entity).try_insert(inherited.clone());
+        } else if maybe_inherited.is_some() {
+            commands.entity(entity).remove::<InheritedTextStyle<S>>();
+        }
+    }
+
+    for orphan in &orphaned {
+        commands.entity(orphan).remove::<InheritedTextStyle<S>>();
+    }
+}
+
+/// propagate inherited styles
+pub fn propagate_inherited_styles<S: Component + Clone + PartialEq>(
+    mut commands: Commands,
+    changed: Query<(&InheritedTextStyle<S>, &Children), Changed<InheritedTextStyle<S>>>,
+    recurse: Query<(Option<&Children>, Option<&InheritedTextStyle<S>>), Without<S>>,
+    mut removed: RemovedComponents<InheritedTextStyle<S>>,
+    mut to_process: Local<Vec<(Entity, Option<InheritedTextStyle<S>>)>>,
+) {
+    // gather changed
+    for (inherited, targets) in &changed {
+        to_process.extend(
+            targets
+                .iter()
+                .map(|target| (target, Some(inherited.clone()))),
+        );
+    }
+
+    // and removed
+    for entity in removed.read() {
+        if let Ok((Some(targets), _)) = recurse.get(entity) {
+            to_process.extend(targets.iter().map(|target| (target, None)));
+        }
+    }
+
+    // propagate
+    while let Some((entity, maybe_inherited)) = (*to_process).pop() {
+        let Ok((maybe_targets, maybe_current)) = recurse.get(entity) else {
+            continue;
+        };
+
+        if maybe_current == maybe_inherited.as_ref() {
+            continue;
         }
 
+        if let Some(targets) = maybe_targets {
+            to_process.extend(
+                targets
+                    .iter()
+                    .map(|target| (target, maybe_inherited.clone())),
+            );
+        }
+
+        if let Some(inherited) = maybe_inherited {
+            commands.entity(entity).try_insert(inherited.clone());
+        } else {
+            commands.entity(entity).remove::<InheritedTextStyle<S>>();
+        }
+    }
+}
+
+/// update computed styles
+pub fn update_computed_text_styles(
+    default_text_style: Res<DefaultTextStyle>,
+    mut query: Query<
+        (
+            &mut ComputedTextStyle,
+            Option<&InheritedTextStyle<TextFont>>,
+            Option<&InheritedTextStyle<TextColor>>,
+            Option<&InheritedTextStyle<FontSize>>,
+            Option<&InheritedTextStyle<LineHeight>>,
+            Option<&InheritedTextStyle<FontSmoothing>>,
+        ),
+        Or<(
+            Changed<InheritedTextStyle<TextFont>>,
+            Changed<InheritedTextStyle<TextColor>>,
+            Changed<InheritedTextStyle<FontSize>>,
+            Changed<InheritedTextStyle<LineHeight>>,
+            Changed<InheritedTextStyle<FontSmoothing>>,
+            Added<ComputedTextStyle>,
+        )>,
+    >,
+) {
+    for (mut style, maybe_font, maybe_color, maybe_size, maybe_line_height, maybe_smoothing) in
+        query.iter_mut()
+    {
         let new_style = ComputedTextStyle {
-            font: font
-                .map_or(&default_text_style.font, |font| &font.0)
+            font: maybe_font
+                .map_or(&default_text_style.font, |font| &font.0 .0)
                 .clone(),
-            color: color.map(|t| t.0).unwrap_or(default_text_style.color),
-            font_size: size.map_or(default_text_style.font_size, |size| size.0),
-            font_smoothing: smoothing
-                .copied()
+            color: maybe_color
+                .map(|t| t.0 .0)
+                .unwrap_or(default_text_style.color),
+            font_size: maybe_size.map_or(default_text_style.font_size, |size| size.0 .0),
+            font_smoothing: maybe_smoothing
+                .map(|s| s.0)
                 .unwrap_or(default_text_style.font_smoothing),
-            line_height: line_height
-                .copied()
+            line_height: maybe_line_height
+                .map(|l| l.0)
                 .unwrap_or(default_text_style.line_height),
         };
 
-        if new_style.font != style.font {
+        if new_style.font != style.font
+            && new_style.font_size != style.font_size
+            && new_style.font_smoothing != style.font_smoothing
+            && new_style.line_height != style.line_height
+        {
             *style = new_style;
         } else {
             // bypass change detection, we don't need to do any updates if only the text color has changed
             style.bypass_change_detection().color = new_style.color;
         }
     }
-}
-
-/// update text style sources
-pub fn update_sources(
-    font_query: Query<
-        (
-            Entity,
-            Option<&TextFont>,
-            Option<&TextColor>,
-            Option<&FontSize>,
-            Option<&LineHeight>,
-            Option<&FontSmoothing>,
-        ),
-        Or<(
-            Changed<TextFont>,
-            Changed<TextColor>,
-            Changed<FontSize>,
-            Changed<LineHeight>,
-            Changed<FontSmoothing>,
-        )>,
-    >,
-    mut removed_font: RemovedComponents<TextFont>,
-    mut removed_size: RemovedComponents<FontSize>,
-    mut removed_color: RemovedComponents<TextColor>,
-    mut removed_line_height: RemovedComponents<LineHeight>,
-    mut removed_font_smoothing: RemovedComponents<FontSmoothing>,
-) {
 }
