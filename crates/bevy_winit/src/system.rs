@@ -89,9 +89,6 @@ pub fn create_windows<F: QueryFilter + 'static>(
                 if winit_windows.get_window(entity).is_some() {
                     continue;
                 }
-                
-                // warn!("Disabling window-icon-on-init for testing.");
-                // let window_icon: Option<&WindowIcon> = None; 
 
                 info!("Creating new window {} ({})", window.title.as_str(), entity);
 
