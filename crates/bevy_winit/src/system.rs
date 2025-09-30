@@ -49,6 +49,10 @@ use crate::{
     CreateMonitorParams, CreateWindowParams, WINIT_WINDOWS,
 };
 
+#[cfg(feature = "custom_window_icon")]
+use crate::winit_window_icon::get_winit_window_icon_from_bevy_image;
+
+
 /// Creates new windows on the [`winit`] backend for each entity with a newly-added
 /// [`Window`] component.
 ///
@@ -94,21 +98,21 @@ pub fn create_windows<F: QueryFilter + 'static>(
 
                 #[cfg(feature = "custom_window_icon")]
                 let winit_window_icon = if let Some(window_icon) = window_icon {
-                    if let Some(image) = assets.get(&window_icon.handle) {
-                        get_winit_window_icon_from_bevy_image(image)
-                    } else {
-                        warn!(
-                            ?entity,
-                            ?window,
-                            ?window_icon,
-                            "Could not set window icon for window: image asset not found"
-                        );
-                        None
+                    match get_winit_window_icon_from_bevy_image(&assets, &window_icon.handle) {
+                        Some(icon) => Some(icon),
+                        None => {
+                            warn!(
+                                ?entity,
+                                ?window,
+                                ?window_icon,
+                                "Could not set window icon for window: failed to acquire winit window icon"
+                            );
+                            None
+                        }
                     }
                 } else {
                     None
                 };
-                
 
                 let winit_window = winit_windows.create_window(
                     event_loop,
@@ -682,39 +686,6 @@ pub(crate) fn changed_cursor_options(
     });
 }
 
-pub(crate) fn get_winit_window_icon_from_bevy_image(image: &Image) -> Option<winit::window::Icon> {
-    // Convert to rgba image
-    let rgba_image = match image.clone().try_into_dynamic() {
-        Ok(dynamic_image) => {
-            // winit icon expects 32bpp RGBA data
-            dynamic_image.into_rgba8()
-        }
-        Err(error) => {
-            error!(
-                ?image,
-                ?error,
-                "Could not get window icon: failed to convert image to RGBA",
-            );
-            return None;
-        }
-    };
-
-    // Convert to winit image
-    let width = rgba_image.width();
-    let height = rgba_image.height();
-    match winit::window::Icon::from_rgba(rgba_image.into_raw(), width, height) {
-        Ok(icon) => Some(icon),
-        Err(error) => {
-            error!(
-                ?image,
-                ?error,
-                "Could not get window icon: failed to construct winit window icon from RGBA buffer",
-            );
-            None
-        }
-    }
-}
-
 #[cfg(feature = "custom_window_icon")]
 pub(crate) fn changed_window_icon(
     mut commands: bevy_ecs::system::Commands,
@@ -741,56 +712,15 @@ pub(crate) fn changed_window_icon(
                 continue;
             };
 
-            // Fetch the image asset
-            let Some(image) = assets.get(&window_icon.handle) else {
+            // Convert to winit icon
+            let Some(icon) = get_winit_window_icon_from_bevy_image(&assets, &window_icon.handle) else {
                 warn!(
                     ?window_entity,
                     ?window,
                     ?window_icon,
-                    "Could not set window icon for window: image asset not found"
+                    "Could not set window icon for window: failed to acquire winit window icon"
                 );
                 continue;
-            };
-
-            // Convert to rgba image
-            let rgba_image = match image.clone().try_into_dynamic() {
-                Ok(dynamic_image) => {
-                    // winit icon expects 32bpp RGBA data
-                    dynamic_image.into_rgba8()
-                }
-                Err(error) => {
-                    error!(
-                        ?window_entity,
-                        ?window,
-                        ?window_icon,
-                        ?image,
-                        ?error,
-                        "Could not set window icon for window: failed to convert image to RGBA",
-                    );
-                    continue;
-                }
-            };
-
-            // Convert to winit image
-            let width = rgba_image.width();
-            let height = rgba_image.height();
-            let icon = match winit::window::Icon::from_rgba(
-                rgba_image.into_raw(),
-                width,
-                height,
-            ) {
-                Ok(icon) => icon,
-                Err(error) => {
-                    error!(
-                        ?window_entity,
-                        ?window,
-                        ?window_icon,
-                        ?image,
-                        ?error,
-                        "Could not set window icon for window: failed to construct winit window icon from RGBA buffer",
-                    );
-                    continue;
-                }
             };
 
             // Set the window icon
@@ -798,7 +728,6 @@ pub(crate) fn changed_window_icon(
                 ?window_entity,
                 ?window.title,
                 ?window_icon.handle,
-                image_size = ?image.size(),
                 "Setting window icon"
             );
             winit_window.set_window_icon(Some(icon));

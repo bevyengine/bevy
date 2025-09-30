@@ -199,7 +199,7 @@ fn init_window_icon(
         handle: icon_handle,
     });
 
-    // // window icon can be different for each window
+    // window icon can be different for each window
     commands.spawn((
         Window {
             title: "I am another window!".into(),

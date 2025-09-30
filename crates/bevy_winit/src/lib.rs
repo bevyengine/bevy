@@ -55,6 +55,9 @@ mod winit_config;
 mod winit_monitors;
 mod winit_windows;
 
+#[cfg(feature = "custom_window_icon")]
+mod winit_window_icon;
+
 thread_local! {
     /// Temporary storage of WinitWindows data to replace usage of `!Send` resources. This will be replaced with proper
     /// storage of `!Send` data after issue #17667 is complete.
