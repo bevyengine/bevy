@@ -1,5 +1,5 @@
 ---
-title: `TrackedRenderPass::set_index_buffer` no longer takes buffer offset
+title: "`TrackedRenderPass::set_index_buffer` no longer takes buffer offset"
 pull_requests: [20468]
 ---
 
