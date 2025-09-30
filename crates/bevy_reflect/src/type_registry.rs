@@ -100,6 +100,7 @@ impl TypeRegistry {
     /// Create a type registry with default registrations for primitive types.
     pub fn new() -> Self {
         let mut registry = Self::empty();
+        registry.register::<()>();
         registry.register::<bool>();
         registry.register::<char>();
         registry.register::<u8>();
