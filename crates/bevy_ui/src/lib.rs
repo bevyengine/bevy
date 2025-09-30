@@ -34,7 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_text::{detect_text_needs_rerender, update_text_roots, update_text_styles};
+use bevy_text::{detect_text_needs_rerender, update_text_roots, ComputedTextStyleUpdateSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -233,8 +233,6 @@ fn build_text_interop(app: &mut App) {
                 .after(update_text_roots)
                 .before(widget::measure_text_system),
             detect_text_needs_rerender::<Text>
-                .after(update_text_roots)
-                .after(update_text_styles)
                 .before(widget::measure_text_system)
                 .before(widget::text_system),
             (widget::measure_text_system,)
@@ -256,7 +254,8 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         )
-            .after(bevy_text::ComputedTextStyleUpdateSystems),
+            .after(bevy_text::ComputedTextStyleUpdateSystems)
+            .after(update_text_roots),
     );
 
     app.add_plugins(accessibility::AccessibilityPlugin);
