@@ -3160,16 +3160,23 @@ impl<'w> EntityWorldMut<'w> {
         })
     }
 
-    /// Deprecated. Use [`World::trigger`] instead.
+    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
+    /// See [`EntityCommands::trigger`] for usage examples
+    ///
+    /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
     #[track_caller]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use World::trigger with an EntityEvent instead."
-    )]
-    pub fn trigger<'t>(&mut self, event: impl EntityEvent<Trigger<'t>: Default>) -> &mut Self {
-        log::warn!("EntityWorldMut::trigger is deprecated and no longer triggers the event for the current EntityWorldMut entity. Use World::trigger instead with an EntityEvent.");
+    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
+        &mut self,
+        event_fn: impl FnOnce(Entity) -> E,
+    ) -> &mut Self {
+        let mut event = (event_fn)(self.entity);
+        let caller = MaybeLocation::caller();
         self.world_scope(|world| {
-            world.trigger(event);
+            world.trigger_ref_with_caller(
+                &mut event,
+                &mut <E::Trigger<'_> as Default>::default(),
+                caller,
+            );
         });
         self
     }
