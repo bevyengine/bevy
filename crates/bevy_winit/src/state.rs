@@ -94,6 +94,8 @@ pub(crate) struct WinitAppRunnerState<T: Message> {
             ),
         >,
     )>,
+    /// time at which next tick is scheduled to run when update_mode is [`UpdateMode::Reactive`]
+    scheduled_tick_start: Option<Instant>,
 }
 
 impl<M: Message> WinitAppRunnerState<M> {
@@ -125,6 +127,7 @@ impl<M: Message> WinitAppRunnerState<M> {
             raw_winit_events: Vec::new(),
             _marker: PhantomData,
             message_writer_system_state,
+            scheduled_tick_start: None,
         }
     }
 
@@ -650,6 +653,8 @@ impl<M: Message> WinitAppRunnerState<M> {
             self.redraw_requested = true;
             // Consider the wait as elapsed since it could have been cancelled by a user event
             self.wait_elapsed = true;
+            // reset the scheduled start time
+            self.scheduled_tick_start = None;
 
             self.update_mode = update_mode;
         }
@@ -690,11 +695,20 @@ impl<M: Message> WinitAppRunnerState<M> {
                 }
             }
             UpdateMode::Reactive { wait, .. } => {
-                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
-                if let Some(next) = begin_frame_time.checked_add(wait)
-                    && self.wait_elapsed
-                {
-                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                // Set the next timeout, starting from the instant we were scheduled to begin
+                if self.wait_elapsed {
+                    let begin_instant = self.scheduled_tick_start.unwrap_or(begin_frame_time);
+                    if let Some(next) = begin_instant.checked_add(wait) {
+                        let now = Instant::now();
+                        if next < now {
+                            // request redraw as soon as possible if we are already past the next scheduled frame start time
+                            event_loop.set_control_flow(ControlFlow::Poll);
+                            self.scheduled_tick_start = Some(now);
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            self.scheduled_tick_start = Some(next);
+                        }
+                    }
                 }
             }
         }
