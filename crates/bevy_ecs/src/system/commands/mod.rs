@@ -2292,7 +2292,6 @@ impl<'a> EntityCommands<'a> {
     ///     commands.spawn_empty().trigger(Explode::from);
     /// }
     ///
-
     /// fn trigger_via_closure(mut commands: Commands) {
     ///     commands.spawn_empty().trigger(|entity| Explode(entity));
     /// }
