@@ -208,6 +208,7 @@ impl AppSendEvent for Vec<WindowEvent> {
 }
 
 /// The parameters of the [`create_windows`] system.
+#[cfg(not(feature = "custom_window_icon"))]
 pub type CreateWindowParams<'w, 's, F = ()> = (
     Commands<'w, 's>,
     Query<
@@ -225,6 +226,29 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
     ResMut<'w, WinitActionRequestHandlers>,
     Res<'w, AccessibilityRequested>,
     Res<'w, WinitMonitors>,
+);
+
+/// The parameters of the [`create_windows`] system.
+#[cfg(feature = "custom_window_icon")]
+pub type CreateWindowParams<'w, 's, F = ()> = (
+    Commands<'w, 's>,
+    Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static mut Window,
+            &'static CursorOptions,
+            Option<&'static bevy_window::WindowIcon>,
+            Option<&'static RawHandleWrapperHolder>,
+        ),
+        F,
+    >,
+    MessageWriter<'w, WindowCreated>,
+    ResMut<'w, WinitActionRequestHandlers>,
+    Res<'w, AccessibilityRequested>,
+    Res<'w, WinitMonitors>,
+    Res<'w, bevy_asset::Assets<bevy_image::Image>>, // qualified path used to avoid unused import warnings
 );
 
 /// The parameters of the [`create_monitors`] system.

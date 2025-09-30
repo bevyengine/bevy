@@ -59,6 +59,7 @@ impl WinitWindows {
         entity: Entity,
         window: &Window,
         cursor_options: &CursorOptions,
+        #[cfg(feature = "custom_window_icon")] window_icon: Option<winit::window::Icon>,
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionRequestHandlers,
         accessibility_requested: &AccessibilityRequested,
@@ -331,6 +332,12 @@ impl WinitWindows {
                 "Could not set cursor hit test for window {}: {}",
                 window.title, err
             );
+        }
+
+        // Set window icon if provided
+        #[cfg(feature = "custom_window_icon")]
+        if let Some(icon) = window_icon {
+            winit_window.set_window_icon(Some(icon));
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());

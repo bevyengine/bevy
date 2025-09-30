@@ -56,29 +56,70 @@ use crate::{
 /// default values.
 pub fn create_windows<F: QueryFilter + 'static>(
     event_loop: &ActiveEventLoop,
-    (
+    params: SystemParamItem<CreateWindowParams<F>>,
+) {
+    #[cfg(feature = "custom_window_icon")]
+    let (
         mut commands,
         mut created_windows,
         mut window_created_events,
         mut handlers,
         accessibility_requested,
         monitors,
-    ): SystemParamItem<CreateWindowParams<F>>,
-) {
+        assets,
+    ) = params;
+    #[cfg(not(feature = "custom_window_icon"))]
+    let (
+        mut commands,
+        mut created_windows,
+        mut window_created_events,
+        mut handlers,
+        accessibility_requested,
+        monitors,
+    ) = params;
+
     WINIT_WINDOWS.with_borrow_mut(|winit_windows| {
         ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
-            for (entity, mut window, cursor_options, handle_holder) in &mut created_windows {
+            for entry in &mut created_windows {
+                #[cfg(feature = "custom_window_icon")]
+                let (entity, mut window, cursor_options, window_icon, handle_holder) = entry;
+                #[cfg(not(feature = "custom_window_icon"))]
+                let (entity, mut window, cursor_options, handle_holder) = entry;
+
                 if winit_windows.get_window(entity).is_some() {
                     continue;
                 }
+                
+                // warn!("Disabling window-icon-on-init for testing.");
+                // let window_icon: Option<&WindowIcon> = None; 
 
                 info!("Creating new window {} ({})", window.title.as_str(), entity);
+
+                #[cfg(feature = "custom_window_icon")]
+                let winit_window_icon = if let Some(window_icon) = window_icon {
+                    if let Some(image) = assets.get(&window_icon.handle) {
+                        get_winit_window_icon_from_bevy_image(image)
+                    } else {
+                        warn!(
+                            ?entity,
+                            ?window,
+                            ?window_icon,
+                            "Could not set window icon for window: image asset not found"
+                        );
+                        None
+                    }
+                } else {
+                    None
+                };
+                
 
                 let winit_window = winit_windows.create_window(
                     event_loop,
                     entity,
                     &window,
                     cursor_options,
+                    #[cfg(feature = "custom_window_icon")]
+                    winit_window_icon,
                     adapters,
                     &mut handlers,
                     &accessibility_requested,
@@ -93,14 +134,25 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     .resolution
                     .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-                commands.entity(entity).insert((
+                let mut entity_commands = commands.entity(entity);
+                
+                entity_commands.insert((
                     CachedWindow(window.clone()),
                     CachedCursorOptions(cursor_options.clone()),
                     WinitWindowPressedKeys::default(),
                 ));
 
+                #[cfg(feature = "custom_window_icon")]
+                {
+                    if let Some(window_icon) = window_icon {
+                        entity_commands.insert(CachedWindowIcon(window_icon.clone()));
+                    }
+                }
+
+
+
                 if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-                    commands.entity(entity).insert(handle_wrapper.clone());
+                    entity_commands.insert(handle_wrapper.clone());
                     if let Some(handle_holder) = handle_holder {
                         *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
                     }
@@ -295,6 +347,15 @@ pub(crate) struct CachedWindow(Window);
 /// The cached state of the window so we can check which properties were changed from within the app.
 #[derive(Debug, Clone, Component, Deref, DerefMut)]
 pub(crate) struct CachedCursorOptions(CursorOptions);
+
+/// The cached state of the window icon so we can check which properties were changed from within the app.
+/// Changed<WindowIcon> can fire before the window itself is added to [`WINIT_WINDOWS`] so we need to 
+/// apply the icon during window creation as well as when the icon changes.
+/// Otherwise, we would need some kind of retry logic to apply the icon once the window is created, after the
+/// changed message. At that point, it's more appropriate to just do it during creation.
+#[cfg(feature = "custom_window_icon")]
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub(crate) struct CachedWindowIcon(WindowIcon);
 
 /// Propagates changes from [`Window`] entities to the [`winit`] backend.
 ///
@@ -624,16 +685,62 @@ pub(crate) fn changed_cursor_options(
     });
 }
 
+pub(crate) fn get_winit_window_icon_from_bevy_image(image: &Image) -> Option<winit::window::Icon> {
+    // Convert to rgba image
+    let rgba_image = match image.clone().try_into_dynamic() {
+        Ok(dynamic_image) => {
+            // winit icon expects 32bpp RGBA data
+            dynamic_image.into_rgba8()
+        }
+        Err(error) => {
+            error!(
+                ?image,
+                ?error,
+                "Could not get window icon: failed to convert image to RGBA",
+            );
+            return None;
+        }
+    };
+
+    // Convert to winit image
+    let width = rgba_image.width();
+    let height = rgba_image.height();
+    match winit::window::Icon::from_rgba(rgba_image.into_raw(), width, height) {
+        Ok(icon) => Some(icon),
+        Err(error) => {
+            error!(
+                ?image,
+                ?error,
+                "Could not get window icon: failed to construct winit window icon from RGBA buffer",
+            );
+            None
+        }
+    }
+}
+
 #[cfg(feature = "custom_window_icon")]
 pub(crate) fn changed_window_icon(
-    changed_windows: Query<(Entity, &Window, &WindowIcon), Changed<WindowIcon>>,
+    mut commands: bevy_ecs::system::Commands,
+    changed_windows: Query<(Entity, &Window, &WindowIcon, Option<&CachedWindowIcon>), Changed<WindowIcon>>,
     assets: Res<Assets<Image>>,
     _non_send_marker: NonSendMarker,
 ) {
     WINIT_WINDOWS.with_borrow(|winit_windows| {
-        for (window_entity, window, window_icon) in changed_windows {
+        for (window_entity, window, window_icon, cached_icon) in changed_windows {
+            // Skip if no work to do
+            if let Some(cached_icon) = cached_icon
+                && cached_icon.0.handle == window_icon.handle {
+                    continue;
+            }
+            
             // Identify window
             let Some(winit_window) = winit_windows.get_window(window_entity) else {
+                tracing::debug!(
+                    ?window_entity,
+                    ?window,
+                    ?window_icon,
+                    "Could not set window icon for window: winit window not found. Assuming that the winit window is not yet created, so the icon will instead be applied during window creation."
+                );
                 continue;
             };
 
@@ -698,6 +805,9 @@ pub(crate) fn changed_window_icon(
                 "Setting window icon"
             );
             winit_window.set_window_icon(Some(icon));
+
+            // Update the cached icon
+            commands.entity(window_entity).insert(CachedWindowIcon(window_icon.clone()));
         }
     });
 }

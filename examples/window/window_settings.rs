@@ -7,8 +7,7 @@ use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{
-        CursorGrabMode, CursorIcon, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel,
-        WindowTheme,
+        CursorGrabMode, CursorIcon, CursorOptions, PresentMode, PrimaryWindow, SystemCursorIcon, WindowLevel, WindowTheme
     },
 };
 
@@ -46,8 +45,8 @@ fn main() {
             (
                 init_cursor_icons,
                 #[cfg(feature = "custom_window_icon")]
-                init_window_icon
-            )
+                init_window_icon,
+            ),
         )
         .add_systems(
             Update,
@@ -67,7 +66,7 @@ fn main() {
         .run();
 }
 
-fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
+fn make_visible(mut window: Single<&mut Window, With<PrimaryWindow>>, frames: Res<FrameCount>) {
     // The delay may be different for your app or system.
     if frames.0 == 3 {
         // At this point the gpu is ready to show the app so we can make the window visible.
@@ -79,7 +78,7 @@ fn make_visible(mut window: Single<&mut Window>, frames: Res<FrameCount>) {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
     if input.just_pressed(KeyCode::KeyV) {
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
             PresentMode::AutoNoVsync
@@ -98,7 +97,7 @@ fn toggle_vsync(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.window_level)
 /// for more details.
-fn switch_level(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn switch_level(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
     if input.just_pressed(KeyCode::KeyT) {
         window.window_level = match window.window_level {
             WindowLevel::AlwaysOnBottom => WindowLevel::Normal,
@@ -115,7 +114,7 @@ fn switch_level(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.Window.html#structfield.enabled_buttons)
 /// for more details.
-fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
+fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window, With<PrimaryWindow>>) {
     let toggle_minimize = input.just_pressed(KeyCode::Digit1);
     let toggle_maximize = input.just_pressed(KeyCode::Digit2);
     let toggle_close = input.just_pressed(KeyCode::Digit3);
@@ -134,7 +133,7 @@ fn toggle_window_controls(input: Res<ButtonInput<KeyCode>>, mut window: Single<&
 }
 
 /// This system will then change the title during execution
-fn change_title(mut window: Single<&mut Window>, time: Res<Time>) {
+fn change_title(mut window: Single<&mut Window, With<PrimaryWindow>>, time: Res<Time>) {
     window.title = format!(
         "Seconds since startup: {}",
         time.elapsed().as_secs_f32().round()
@@ -152,7 +151,7 @@ fn toggle_cursor(mut cursor_options: Single<&mut CursorOptions>, input: Res<Butt
 }
 
 // This system will toggle the color theme used by the window
-fn toggle_theme(mut window: Single<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
+fn toggle_theme(mut window: Single<&mut Window, With<PrimaryWindow>>, input: Res<ButtonInput<KeyCode>>) {
     if input.just_pressed(KeyCode::KeyF)
         && let Some(current_theme) = window.window_theme
     {
@@ -188,7 +187,7 @@ fn init_cursor_icons(
 #[cfg(feature = "custom_window_icon")]
 fn init_window_icon(
     mut commands: Commands,
-    window: Single<Entity, With<Window>>,
+    window: Single<Entity, (With<Window>, With<PrimaryWindow>)>,
     asset_server: Res<AssetServer>,
 ) {
     use bevy::window::WindowIcon;
@@ -199,6 +198,18 @@ fn init_window_icon(
     commands.entity(*window).insert(WindowIcon {
         handle: icon_handle,
     });
+
+    // // window icon can be different for each window
+    commands.spawn((
+        Window {
+            title: "I am another window!".into(),
+            resolution: (300, 200).into(),
+            ..default()
+        },
+        WindowIcon {
+            handle: asset_server.load("textures/rpg/props/generic-rpg-tree02.png"),
+        },
+    ));
 }
 
 #[cfg(all(feature = "bevy_asset", feature = "bevy_log"))]
@@ -211,7 +222,7 @@ fn log_asset_messages(mut asset_messages: MessageReader<AssetEvent<Image>>) {
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
     mut commands: Commands,
-    window: Single<Entity, With<Window>>,
+    window: Single<Entity, (With<Window>, With<PrimaryWindow>)>,
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
     cursor_icons: Res<CursorIcons>,
