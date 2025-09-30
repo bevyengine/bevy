@@ -94,7 +94,7 @@ pub(crate) struct WinitAppRunnerState<T: Message> {
             ),
         >,
     )>,
-    /// time at which next tick is scheduled to run when update_mode is [`UpdateMode::Reactive`]
+    /// time at which next tick is scheduled to run when `update_mode` is [`UpdateMode::Reactive`]
     scheduled_tick_start: Option<Instant>,
 }
 
