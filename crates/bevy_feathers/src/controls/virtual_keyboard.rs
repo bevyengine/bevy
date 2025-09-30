@@ -1,11 +1,4 @@
-use bevy_ecs::{
-    bundle::Bundle,
-    component::Component,
-    hierarchy::Children,
-    observer::On,
-    spawn::{Spawn, SpawnIter, SpawnRelated},
-    system::{Commands, In, SystemId},
-};
+use bevy_ecs::prelude::*;
 use bevy_input_focus::tab_navigation::TabGroup;
 use bevy_ui::Node;
 use bevy_ui::Val;
@@ -14,13 +7,21 @@ use bevy_ui_widgets::{observe, Activate};
 
 use crate::controls::{button, ButtonProps};
 
+/// Fired whenever a virtual key is pressed.
+#[derive(EntityEvent)]
+pub struct VirtualKeyPressed<T> {
+    /// The virtual keyboard entity
+    pub entity: Entity,
+    /// The pressed virtual key
+    pub key: T,
+}
+
 /// Function to spawn a virtual keyboard
 pub fn virtual_keyboard<T>(
-    keys: impl Iterator<Item = Vec<(String, T)>> + Send + Sync + 'static,
-    on_key_press: SystemId<In<Activate>>,
+    keys: impl Iterator<Item = Vec<T>> + Send + Sync + 'static,
 ) -> impl Bundle
 where
-    T: Component,
+    T: AsRef<str> + Clone + Send + Sync + 'static,
 {
     (
         Node {
@@ -36,13 +37,23 @@ where
                     column_gap: Val::Px(4.),
                     ..Default::default()
                 },
-                Children::spawn(SpawnIter(row.into_iter().map(move |(label, key_id)| {
+                Children::spawn(SpawnIter(row.into_iter().map(move |key| {
                     (
-                        button(ButtonProps::default(), (key_id,), Spawn(Text::new(label))),
-                        observe(move |activate: On<Activate>, mut commands: Commands| {
-                            // TODO: Turn this into an event as well, or use event forwarding.
-                            commands.run_system_with(on_key_press, *activate);
-                        }),
+                        button(ButtonProps::default(), (), Spawn(Text::new(key.as_ref()))),
+                        observe(
+                            move |activate: On<Activate>,
+                                  mut commands: Commands,
+                                  query: Query<&ChildOf>|
+                                  -> Result {
+                                let virtual_keyboard =
+                                    query.get(query.get(activate.entity)?.parent())?.parent();
+                                commands.trigger(VirtualKeyPressed {
+                                    entity: virtual_keyboard,
+                                    key: key.clone(),
+                                });
+                                Ok(())
+                            },
+                        ),
                     )
                 }))),
             )

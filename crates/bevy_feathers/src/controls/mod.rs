@@ -19,7 +19,7 @@ pub use color_swatch::{color_swatch, ColorSwatch, ColorSwatchFg};
 pub use radio::{radio, RadioPlugin};
 pub use slider::{slider, SliderPlugin, SliderProps};
 pub use toggle_switch::{toggle_switch, ToggleSwitchPlugin};
-pub use virtual_keyboard::virtual_keyboard;
+pub use virtual_keyboard::{virtual_keyboard, VirtualKeyPressed};
 
 use crate::alpha_pattern::AlphaPatternPlugin;
 
