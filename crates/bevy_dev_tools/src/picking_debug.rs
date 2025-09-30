@@ -11,7 +11,6 @@ use bevy_picking::pointer::{Location, PointerId, PointerInput, PointerLocation, 
 use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
-use bevy_text::prelude::*;
 use bevy_text::FontSize;
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;

@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{TextColor, TextFont, TextStyle};
+use bevy_text::{TextColor, TextFont};
 use bevy_time::Time;
 use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
@@ -72,8 +72,12 @@ impl Plugin for FpsOverlayPlugin {
 /// Configuration options for the FPS overlay.
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
-    /// Configuration of text in the overlay.
-    pub text_style: TextStyle,
+    /// Font face used for the overlay's text.
+    pub font: Handle<Font>,
+    /// Font size used for the overlay's text.
+    pub font_size: f32,
+    /// Color used for the overlay's text.
+    pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
     /// The period after which the FPS overlay re-renders.
@@ -87,11 +91,13 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_style: TextStyle::default(),
+            font_size: 32.,
+            text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
             // TODO set this to display refresh rate if possible
             frame_time_graph_config: FrameTimeGraphConfig::target_fps(60.0),
+            ..Default::default()
         }
     }
 }
@@ -135,6 +141,9 @@ impl Default for FrameTimeGraphConfig {
 struct FpsText;
 
 #[derive(Component)]
+struct FpsCounter;
+
+#[derive(Component)]
 struct FrameTimeGraph;
 
 fn setup(
@@ -162,7 +171,7 @@ fn setup(
                 FpsText,
                 Pickable::IGNORE,
             ))
-            .with_child(TextSpan::default());
+            .with_child((Text::default(), FpsCounter));
 
             let font_size = overlay_config.text_style.font_size;
             p.spawn((
@@ -198,7 +207,7 @@ fn setup(
 
 fn update_text(
     diagnostic: Res<DiagnosticsStore>,
-    mut query: Query<&mut Text, With<FpsText>>,
+    mut fps_counter_text_query: Query<&mut Text, With<FpsCounter>>,
     time: Res<Time>,
     config: Res<FpsOverlayConfig>,
     mut time_since_rerender: Local<Duration>,
@@ -206,11 +215,11 @@ fn update_text(
     *time_since_rerender += time.delta();
     if *time_since_rerender >= config.refresh_interval {
         *time_since_rerender = Duration::ZERO;
-        for mut text in &mut query {
+        for mut fps_counter_text in &mut fps_counter_text_query {
             if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
                 && let Some(value) = fps.smoothed()
             {
-                text.0 = format!("{value:.2}");
+                fps_counter_text.0 = format!("{value:.2}");
             }
         }
     }
