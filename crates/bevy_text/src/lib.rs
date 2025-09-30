@@ -125,10 +125,7 @@ impl Plugin for TextPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (
-                    update_text_roots,
-                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
-                ),
+                (remove_dropped_font_atlas_sets.before(AssetEventSystems),),
             )
             .add_systems(Last, trim_cosmic_cache);
 

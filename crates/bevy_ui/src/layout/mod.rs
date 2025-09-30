@@ -1,6 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
+    widget::Text,
     BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
 };
@@ -19,7 +20,7 @@ use bevy_sprite::BorderRect;
 use thiserror::Error;
 use ui_surface::UiSurface;
 
-use bevy_text::{ComputedTextBlock, TextRoot, TextSpan};
+use bevy_text::{ComputedTextBlock, TextRoot};
 
 use bevy_text::CosmicFontSystem;
 
@@ -81,7 +82,7 @@ pub fn ui_layout_system(
             Option<&mut ContentSize>,
             Ref<ComputedUiRenderTargetInfo>,
         ),
-        Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
+        Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
     >,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<
@@ -95,7 +96,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
         ),
-        Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
+        Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
     >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -209,7 +210,7 @@ pub fn ui_layout_system(
                 Option<&Outline>,
                 Option<&ScrollPosition>,
             ),
-            Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
+            Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
         >,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,

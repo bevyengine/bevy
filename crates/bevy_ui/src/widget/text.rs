@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
     SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextRoot, TextSpan,
+    TextRoot,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -95,14 +95,7 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(
-    Node,
-    TextSpan,
-    TextLayout,
-    ComputedTextStyle,
-    TextNodeFlags,
-    ContentSize
-)]
+#[require(Node, TextLayout, ComputedTextStyle, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {

@@ -23,7 +23,6 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
     SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextPipeline, TextRoot,
-    TextSpan,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -83,7 +82,6 @@ use core::any::TypeId;
 #[require(
     TextLayout,
     TextBounds,
-    TextSpan,
     Anchor,
     Visibility,
     VisibilityClass,
@@ -330,7 +328,7 @@ mod tests {
                     update_reparented_inherited_styles::<FontSmoothing>,
                     propagate_inherited_styles::<FontSmoothing>,
                     update_computed_text_styles,
-                    update_text_roots,
+                    update_text_roots::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

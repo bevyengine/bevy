@@ -358,29 +358,25 @@ pub enum FontSmoothing {
 #[derive(Component, PartialEq)]
 pub struct TextRoot(pub SmallVec<[Entity; 1]>);
 
-/// Marker for text entities
-#[derive(Component, Default)]
-pub struct TextSpan;
-
 /// Update text roots
-pub fn update_text_roots(
+pub fn update_text_roots<T: Component>(
     mut parents: Local<Vec<Entity>>,
     mut spans: Local<Vec<Entity>>,
     mut commands: Commands,
-    mut text_node_query: Query<
-        (
-            Entity,
-            Option<&ChildOf>,
-            Option<&mut TextRoot>,
-            Has<Children>,
-        ),
-        With<TextSpan>,
-    >,
-    text_span_query: Query<(), With<TextSpan>>,
-    children_query: Query<&Children, With<TextSpan>>,
+    mut text_node_query: Query<(
+        Entity,
+        Option<&ChildOf>,
+        Option<&mut TextRoot>,
+        Has<Children>,
+        Ref<T>,
+        Ref<ComputedTextStyle>,
+    )>,
+    children_query: Query<(Option<&Children>, Ref<T>, Ref<ComputedTextStyle>)>,
 ) {
-    for (entity, maybe_child_of, maybe_text_root, has_children) in text_node_query.iter_mut() {
-        if maybe_child_of.is_none_or(|parent| !text_span_query.contains(parent.get())) {
+    for (entity, maybe_child_of, maybe_text_root, has_children, text, style) in
+        text_node_query.iter_mut()
+    {
+        if maybe_child_of.is_none_or(|parent| !children_query.contains(parent.get())) {
             // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
             if has_children {
                 parents.push(entity);
@@ -388,6 +384,9 @@ pub fn update_text_roots(
                 let new_text_root = TextRoot(smallvec::smallvec![entity]);
                 if let Some(mut text_root) = maybe_text_root {
                     text_root.set_if_neq(new_text_root);
+                    if text.is_changed() || style.is_changed() {
+                        text_root.set_changed();
+                    }
                 } else {
                     commands.entity(entity).insert(new_text_root);
                 }
@@ -400,38 +399,39 @@ pub fn update_text_roots(
 
     for root_entity in parents.drain(..) {
         spans.clear();
-        spans.push(root_entity);
-        for entity in children_query.iter_descendants(root_entity) {
-            spans.push(entity);
+
+        fn recur<T: Component>(
+            target: Entity,
+            query: &Query<(Option<&Children>, Ref<T>, Ref<ComputedTextStyle>)>,
+            spans: &mut Vec<Entity>,
+        ) -> bool {
+            spans.push(target);
+            let mut changed = false;
+            if let Ok((children, text, style)) = query.get(target) {
+                changed = changed || text.is_changed() || style.is_changed();
+                if let Some(children) = children {
+                    for child in children {
+                        changed = changed || recur(*child, query, spans);
+                    }
+                }
+            }
+            changed
         }
+
+        let changed = recur(root_entity, &children_query, &mut spans);
+
         if let Ok((_, _, Some(mut text_root), ..)) = text_node_query.get_mut(root_entity) {
             if text_root.0.as_slice() != spans.as_slice() {
                 text_root.0.clear();
                 text_root.0.extend(spans.iter().copied());
             }
+            if changed {
+                text_root.set_changed();
+            }
         } else {
             commands
                 .entity(root_entity)
                 .insert(TextRoot(SmallVec::from_slice(&spans)));
-        }
-    }
-}
-
-/// Detect changes
-pub fn detect_text_needs_rerender<T: Component>(
-    mut root_query: Query<(Ref<TextRoot>, &mut ComputedTextBlock), With<T>>,
-    text_query: Query<(), Or<(Changed<T>, Changed<ComputedTextStyle>)>>,
-) {
-    for (text_root, mut block) in root_query.iter_mut() {
-        if text_root.is_changed() {
-            block.needs_rerender = true;
-        } else {
-            for &text_entity in text_root.0.iter() {
-                if text_query.contains(text_entity) {
-                    block.needs_rerender = true;
-                    break;
-                }
-            }
         }
     }
 }
