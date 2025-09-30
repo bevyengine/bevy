@@ -383,7 +383,7 @@ fn compute_meshlets(
         )
     };
     for meshlet_indices in &indices_per_meshlet {
-        let meshlet = build_meshlets(meshlet_indices, vertices, 255, 128, 0.0);
+        let meshlet = build_meshlets(meshlet_indices, vertices, 256, 128, 0.0);
         for meshlet in meshlet.iter() {
             let (lod_group_sphere, error) = prev_lod_data.unwrap_or_else(|| {
                 let bounds = meshopt::compute_meshlet_bounds(meshlet, vertices);
@@ -617,7 +617,7 @@ fn build_and_compress_per_meshlet_vertex_data(
     let mut max_quantized_position_channels = IVec3::MIN;
 
     // Lossy vertex compression
-    let mut quantized_positions = [IVec3::ZERO; 255];
+    let mut quantized_positions = [IVec3::ZERO; 256];
     for (i, vertex_id) in meshlet_vertex_ids.iter().enumerate() {
         // Load source vertex attributes
         let vertex_id_byte = *vertex_id as usize * vertex_stride;
@@ -668,7 +668,7 @@ fn build_and_compress_per_meshlet_vertex_data(
         start_vertex_position_bit,
         start_vertex_attribute_id,
         start_index_id: meshlet.triangle_offset,
-        vertex_count: meshlet.vertex_count as u8,
+        vertex_count_minus_one: (meshlet.vertex_count - 1) as u8,
         triangle_count: meshlet.triangle_count as u8,
         padding: 0,
         bits_per_vertex_position_channel_x,
