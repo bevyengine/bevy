@@ -347,7 +347,7 @@ impl Frustum {
         true
     }
 
-    /// Check if the frustum contains the Axis-Aligned Bounding Box (AABB).
+    /// Check if the frustum contains the entire Axis-Aligned Bounding Box (AABB).
     /// Referenced from: [Frustum Culling](https://learnopengl.com/Guest-Articles/2021/Scene/Frustum-Culling)
     #[inline]
     pub fn contains_aabb(&self, aabb: &Aabb, world_from_local: &Affine3A) -> bool {
