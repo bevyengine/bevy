@@ -53,7 +53,7 @@ impl Default for TextStyle {
 pub struct DefaultTextStyle(pub TextStyle);
 
 /// Wrapper used to differentiate propagated text style compoonents
-#[derive(Component, Clone, PartialEq, Reflect)]
+#[derive(Debug, Component, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, PartialEq)]
 pub struct InheritedTextStyle<S: Component + Clone + PartialEq>(pub S);
 
@@ -241,14 +241,159 @@ pub fn update_computed_text_styles(
         };
 
         if new_style.font != style.font
-            && new_style.font_size != style.font_size
-            && new_style.font_smoothing != style.font_smoothing
-            && new_style.line_height != style.line_height
+            || new_style.font_size != style.font_size
+            || new_style.font_smoothing != style.font_smoothing
+            || new_style.line_height != style.line_height
         {
             *style = new_style;
         } else {
             // bypass change detection, we don't need to do any updates if only the text color has changed
             style.bypass_change_detection().color = new_style.color;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bevy_app::prelude::*;
+
+    #[test]
+    fn test_simple_propagate() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.init_resource::<DefaultTextStyle>();
+        app.add_systems(
+            Update,
+            (
+                update_from_inherited_text_style_sources::<TextFont>,
+                update_reparented_inherited_styles::<TextFont>,
+                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<TextColor>,
+                update_reparented_inherited_styles::<TextColor>,
+                propagate_inherited_styles::<TextColor>,
+                update_from_inherited_text_style_sources::<FontSize>,
+                update_reparented_inherited_styles::<FontSize>,
+                propagate_inherited_styles::<FontSize>,
+                update_from_inherited_text_style_sources::<LineHeight>,
+                update_reparented_inherited_styles::<LineHeight>,
+                propagate_inherited_styles::<LineHeight>,
+                update_from_inherited_text_style_sources::<FontSmoothing>,
+                update_reparented_inherited_styles::<FontSmoothing>,
+                propagate_inherited_styles::<FontSmoothing>,
+                update_computed_text_styles,
+            )
+                .chain(),
+        );
+
+        let font_size = 99.;
+
+        let propagator = app.world_mut().spawn_empty().id();
+
+        let intermediate = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(propagator))
+            .id();
+        let propagatee = app
+            .world_mut()
+            .spawn_empty()
+            .insert((ComputedTextStyle::default(), ChildOf(intermediate)))
+            .id();
+
+        app.update();
+
+        let style = app
+            .world_mut()
+            .query::<&ComputedTextStyle>()
+            .get(app.world(), propagatee)
+            .unwrap();
+
+        assert_eq!(style.font_size, DefaultTextStyle::default().font_size);
+
+        app.world_mut()
+            .entity_mut(propagator)
+            .insert(FontSize(font_size));
+
+        app.update();
+
+        let style = app
+            .world_mut()
+            .query::<&ComputedTextStyle>()
+            .get(app.world(), propagatee)
+            .unwrap();
+
+        assert_eq!(style.font_size, font_size);
+    }
+
+    #[test]
+    fn test_reparented() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.init_resource::<DefaultTextStyle>();
+        app.add_systems(
+            Update,
+            (
+                update_from_inherited_text_style_sources::<TextFont>,
+                update_reparented_inherited_styles::<TextFont>,
+                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<TextColor>,
+                update_reparented_inherited_styles::<TextColor>,
+                propagate_inherited_styles::<TextColor>,
+                update_from_inherited_text_style_sources::<FontSize>,
+                update_reparented_inherited_styles::<FontSize>,
+                propagate_inherited_styles::<FontSize>,
+                update_from_inherited_text_style_sources::<LineHeight>,
+                update_reparented_inherited_styles::<LineHeight>,
+                propagate_inherited_styles::<LineHeight>,
+                update_from_inherited_text_style_sources::<FontSmoothing>,
+                update_reparented_inherited_styles::<FontSmoothing>,
+                propagate_inherited_styles::<FontSmoothing>,
+                update_computed_text_styles,
+            )
+                .chain(),
+        );
+
+        let source_1 = app.world_mut().spawn(FontSize(1.)).id();
+        let source_2 = app.world_mut().spawn(FontSize(2.)).id();
+
+        let target = app.world_mut().spawn(ComputedTextStyle::default()).id();
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&ComputedTextStyle>()
+                .get(app.world(), target)
+                .unwrap()
+                .font_size(),
+            DefaultTextStyle::default().font_size
+        );
+
+        app.world_mut().entity_mut(target).insert(ChildOf(source_1));
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&ComputedTextStyle>()
+                .get(app.world(), target)
+                .unwrap()
+                .font_size(),
+            1.
+        );
+
+        app.world_mut().entity_mut(target).insert(ChildOf(source_2));
+
+        app.update();
+
+        assert_eq!(
+            app.world_mut()
+                .query::<&ComputedTextStyle>()
+                .get(app.world(), target)
+                .unwrap()
+                .font_size(),
+            2.
+        );
     }
 }
