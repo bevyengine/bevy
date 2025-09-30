@@ -420,7 +420,7 @@ pub fn text_system(
 
 pub fn sync_ui_text_components(
     mut commands: Commands,
-    add_query: Query<Entity, (With<TextRoot>, Without<Node>)>,
+    add_query: Query<Entity, (With<TextRoot>, With<Text>, Without<Node>)>,
     rem_query: Query<Entity, (With<Text>, Without<TextRoot>, With<Node>)>,
 ) {
     for entity in add_query.iter() {
