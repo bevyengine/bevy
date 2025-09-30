@@ -185,6 +185,7 @@ mod path;
 mod reflect;
 mod render_asset;
 mod server;
+mod utils;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
@@ -202,6 +203,7 @@ pub use path::*;
 pub use reflect::*;
 pub use render_asset::*;
 pub use server::*;
+pub use utils::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;

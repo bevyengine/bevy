@@ -34,7 +34,6 @@ std = [
   "bevy_ecs/std",
   "bevy_app/std",
   "bevy_platform/std",
-  "dep:crossbeam-channel",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -54,9 +53,8 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
 
 # other
-crossbeam-channel = { version = "0.5.0", default-features = false, features = [
-  "std",
-], optional = true }
+concurrent-queue = { version = "2.4", default-features = false, features = ["std"] }
+thiserror = "1.0"
 serde = { version = "1", features = [
   "derive",
 ], default-features = false, optional = true }

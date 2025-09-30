@@ -44,8 +44,8 @@ async-broadcast = { version = "0.7.2", default-features = false }
 async-fs = { version = "2.0", default-features = false }
 async-lock = { version = "3.0", default-features = false }
 bitflags = { version = "2.3", default-features = false }
-crossbeam-channel = { version = "0.5", default-features = false, features = [
-  "std",
+concurrent-queue = { version = "2.4", default-features = false, features = [
+  "std"
 ] }
 downcast-rs = { version = "2", default-features = false }
 disqualified = { version = "1.0", default-features = false }

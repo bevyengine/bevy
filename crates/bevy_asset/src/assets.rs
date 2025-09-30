@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
-use crossbeam_channel::{Receiver, Sender};
+use concurrent_queue::ConcurrentQueue;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -45,22 +45,16 @@ impl AssetIndex {
 pub(crate) struct AssetIndexAllocator {
     /// A monotonically increasing index.
     next_index: AtomicU32,
-    recycled_queue_sender: Sender<AssetIndex>,
+    recycled_queue: ConcurrentQueue<AssetIndex>,
     /// This receives every recycled [`AssetIndex`]. It serves as a buffer/queue to store indices ready for reuse.
-    recycled_queue_receiver: Receiver<AssetIndex>,
-    recycled_sender: Sender<AssetIndex>,
-    recycled_receiver: Receiver<AssetIndex>,
+    recycled: ConcurrentQueue<AssetIndex>,
 }
 
 impl Default for AssetIndexAllocator {
     fn default() -> Self {
-        let (recycled_queue_sender, recycled_queue_receiver) = crossbeam_channel::unbounded();
-        let (recycled_sender, recycled_receiver) = crossbeam_channel::unbounded();
         Self {
-            recycled_queue_sender,
-            recycled_queue_receiver,
-            recycled_sender,
-            recycled_receiver,
+            recycled_queue: ConcurrentQueue::unbounded(),
+            recycled: ConcurrentQueue::unbounded(),
             next_index: Default::default(),
         }
     }
@@ -70,9 +64,9 @@ impl AssetIndexAllocator {
     /// Reserves a new [`AssetIndex`], either by reusing a recycled index (with an incremented generation), or by creating a new index
     /// by incrementing the index counter for a given asset type `A`.
     pub fn reserve(&self) -> AssetIndex {
-        if let Ok(mut recycled) = self.recycled_queue_receiver.try_recv() {
+        if let Ok(mut recycled) = self.recycled_queue.pop() {
             recycled.generation += 1;
-            self.recycled_sender.send(recycled).unwrap();
+            self.recycled.push(recycled).unwrap();
             recycled
         } else {
             AssetIndex {
@@ -86,7 +80,7 @@ impl AssetIndexAllocator {
 
     /// Queues the given `index` for reuse. This should only be done if the `index` is no longer being used.
     pub fn recycle(&self, index: AssetIndex) {
-        self.recycled_queue_sender.send(index).unwrap();
+        self.recycled_queue.push(index).unwrap();
     }
 }
 
@@ -239,7 +233,7 @@ impl<A: Asset> DenseAssetStorage<A> {
             value: None,
             generation: 0,
         });
-        while let Ok(recycled) = self.allocator.recycled_receiver.try_recv() {
+        for recycled in self.allocator.recycled.try_iter() {
             let entry = &mut self.storage[recycled.index as usize];
             *entry = Entry::Some {
                 value: None,
@@ -573,7 +567,7 @@ impl<A: Asset> Assets<A> {
         // re-loads are kicked off appropriately. This function must be "transactional" relative
         // to other asset info operations
         let mut infos = asset_server.data.infos.write();
-        while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
+        while let Ok(drop_event) = assets.handle_provider.drop_queue.try_recv() {
             let id = drop_event.id.typed();
 
             if drop_event.asset_server_managed {

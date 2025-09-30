@@ -4,6 +4,7 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
+use concurrent_queue::ConcurrentQueue;
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -15,7 +16,6 @@ use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
-use crossbeam_channel::Sender;
 use either::Either;
 use thiserror::Error;
 use tracing::warn;
@@ -382,7 +382,7 @@ impl AssetInfos {
         loaded_asset_id: UntypedAssetId,
         loaded_asset: ErasedLoadedAsset,
         world: &mut World,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &ConcurrentQueue<InternalAssetEvent>,
     ) {
         // Check whether the handle has been dropped since the asset was loaded.
         if !self.infos.contains_key(&loaded_asset_id) {
@@ -455,10 +455,10 @@ impl AssetInfos {
         let rec_dep_load_state = match (loading_rec_deps.len(), failed_rec_deps.len()) {
             (0, 0) => {
                 sender
-                    .send(InternalAssetEvent::LoadedWithDependencies {
+                    .push(InternalAssetEvent::LoadedWithDependencies {
                         id: loaded_asset_id,
                     })
-                    .unwrap();
+                    .unwrap_or_else(|_| panic!("Failed to push internal asset event."));
                 RecursiveDependencyLoadState::Loaded
             }
             (_loading, 0) => RecursiveDependencyLoadState::Loading,
@@ -547,7 +547,7 @@ impl AssetInfos {
         infos: &mut AssetInfos,
         loaded_id: UntypedAssetId,
         waiting_id: UntypedAssetId,
-        sender: &Sender<InternalAssetEvent>,
+        sender: &ConcurrentQueue<InternalAssetEvent>,
     ) {
         let dependents_waiting_on_rec_load = if let Some(info) = infos.get_mut(waiting_id) {
             info.loading_rec_dependencies.remove(&loaded_id);
@@ -555,8 +555,8 @@ impl AssetInfos {
                 info.rec_dep_load_state = RecursiveDependencyLoadState::Loaded;
                 if info.load_state.is_loaded() {
                     sender
-                        .send(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
-                        .unwrap();
+                        .push(InternalAssetEvent::LoadedWithDependencies { id: waiting_id })
+                        .unwrap_or_else(|_| panic!("Failed to push internal asset event."));
                 }
                 Some(core::mem::take(
                     &mut info.dependents_waiting_on_recursive_dep_load,
@@ -725,7 +725,7 @@ impl AssetInfos {
     /// [`Assets`]: crate::Assets
     pub(crate) fn consume_handle_drop_events(&mut self) {
         for provider in self.handle_providers.values() {
-            while let Ok(drop_event) = provider.drop_receiver.try_recv() {
+            for drop_event in provider.drop_queue.try_iter() {
                 let id = drop_event.id;
                 if drop_event.asset_server_managed {
                     Self::process_handle_drop_internal(
