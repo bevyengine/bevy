@@ -55,7 +55,7 @@ use super::{
 /// change the [`CascadeShadowConfig`] component of the entity with the [`DirectionalLight`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     Cascades,

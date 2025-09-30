@@ -1909,7 +1909,7 @@ mod test {
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-    use bevy_render::mesh::MeshPlugin;
+    use bevy_mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

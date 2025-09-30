@@ -3824,6 +3824,62 @@ impl ContainsEntity for FilteredEntityRef<'_, '_> {
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
 unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 
+/// Variant of [`FilteredEntityMut`] that can be used to create copies of a [`FilteredEntityMut`], as long
+/// as the user ensures that these won't cause aliasing violations.
+///
+/// This can be useful to mutably query multiple components from a single `FilteredEntityMut`.
+///
+/// ### Example Usage
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, world::{FilteredEntityMut, UnsafeFilteredEntityMut}};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// # #[derive(Component)]
+/// # struct B;
+/// #
+/// # let mut world = World::new();
+/// # world.spawn((A, B));
+/// #
+/// // This gives the `FilteredEntityMut` access to `&mut A` and `&mut B`.
+/// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+///     .data::<(&mut A, &mut B)>()
+///     .build();
+///
+/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+/// let unsafe_filtered_entity = UnsafeFilteredEntityMut::new_readonly(&filtered_entity);
+/// // SAFETY: the original FilteredEntityMut accesses `&mut A` and the clone accesses `&mut B`, so no aliasing violations occur.
+/// let mut filtered_entity_clone: FilteredEntityMut = unsafe { unsafe_filtered_entity.into_mut() };
+/// let a: Mut<A> = filtered_entity.get_mut().unwrap();
+/// let b: Mut<B> = filtered_entity_clone.get_mut().unwrap();
+/// ```
+#[derive(Copy, Clone)]
+pub struct UnsafeFilteredEntityMut<'w, 's> {
+    entity: UnsafeEntityCell<'w>,
+    access: &'s Access,
+}
+
+impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
+    /// Creates a [`UnsafeFilteredEntityMut`] that can be used to have multiple concurrent [`FilteredEntityMut`]s.
+    #[inline]
+    pub fn new_readonly(filtered_entity_mut: &FilteredEntityMut<'w, 's>) -> Self {
+        Self {
+            entity: filtered_entity_mut.entity,
+            access: filtered_entity_mut.access,
+        }
+    }
+
+    /// Returns a new instance of [`FilteredEntityMut`].
+    ///
+    /// # Safety
+    /// - The user must ensure that no aliasing violations occur when using the returned `FilteredEntityMut`.
+    #[inline]
+    pub unsafe fn into_mut(self) -> FilteredEntityMut<'w, 's> {
+        FilteredEntityMut::new(self.entity, self.access)
+    }
+}
+
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
 /// To define the access when used as a [`QueryData`](crate::query::QueryData),
@@ -3847,6 +3903,8 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 /// ```
+///
+/// Also see [`UnsafeFilteredEntityMut`] for a way to bypass borrow-checker restrictions.
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
@@ -3962,9 +4020,61 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_unchecked() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    ///
+    /// // This gives the `FilteredEntityMut` access to `&mut X` and `&mut Y`.
+    /// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+    ///     .data::<(&mut X, &mut Y)>()
+    ///     .build();
+    ///
+    /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+    ///
+    /// // Get mutable access to two components at once
+    /// // SAFETY: We don't take any other references to `X` from this entity
+    /// let mut x = unsafe { filtered_entity.get_mut_unchecked::<X>() }.unwrap();
+    /// // SAFETY: We don't take any other references to `Y` from this entity
+    /// let mut y = unsafe { filtered_entity.get_mut_unchecked::<Y>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_unchecked<T: Component<Mutability = Mutable>>(
+        &self,
+    ) -> Option<Mut<'_, T>> {
         let id = self
             .entity
             .world()
@@ -3972,7 +4082,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
     }
@@ -4052,9 +4163,38 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_by_id_unchecked(component_id) }
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut_by_id`](Self::get_mut_by_id) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_by_id_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
         self.access
             .has_component_write(component_id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
