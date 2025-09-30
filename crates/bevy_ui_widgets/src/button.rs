@@ -2,7 +2,6 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
 use bevy_ecs::query::Has;
-use bevy_ecs::system::In;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -16,25 +15,21 @@ use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Cancel, Click, DragEnd, Pointer, Press, Release};
 use bevy_ui::{InteractionDisabled, Pressed};
 
-use crate::{Activate, Callback, Notify};
+use crate::Activate;
 
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
-/// indicate whether the button is currently being pressed by the user. It emits a `ButtonClicked`
+/// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
 #[derive(Component, Default, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
-pub struct Button {
-    /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key
-    /// is pressed while the button is focused.
-    pub on_activate: Callback<In<Activate>>,
-}
+pub struct Button;
 
 fn button_on_key_event(
     mut event: On<FocusedInput<KeyboardInput>>,
-    q_state: Query<(&Button, Has<InteractionDisabled>)>,
+    q_state: Query<Has<InteractionDisabled>, With<Button>>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, disabled)) = q_state.get(event.focused_entity)
+    if let Ok(disabled) = q_state.get(event.focused_entity)
         && !disabled
     {
         let input_event = &event.input;
@@ -43,20 +38,24 @@ fn button_on_key_event(
             && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
         {
             event.propagate(false);
-            commands.notify_with(&bstate.on_activate, Activate(event.focused_entity));
+            commands.trigger(Activate {
+                entity: event.focused_entity,
+            });
         }
     }
 }
 
 fn button_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    mut q_state: Query<(&Button, Has<Pressed>, Has<InteractionDisabled>)>,
+    mut q_state: Query<(Has<Pressed>, Has<InteractionDisabled>), With<Button>>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(click.entity) {
+    if let Ok((pressed, disabled)) = q_state.get_mut(click.entity) {
         click.propagate(false);
         if pressed && !disabled {
-            commands.notify_with(&bstate.on_activate, Activate(click.entity));
+            commands.trigger(Activate {
+                entity: click.entity,
+            });
         }
     }
 }
