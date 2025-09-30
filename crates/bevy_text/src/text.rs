@@ -358,8 +358,8 @@ pub enum FontSmoothing {
 #[derive(Component, PartialEq)]
 pub struct TextRoot(pub Vec<Entity>);
 
-/// Marker for non-root text entities
-#[derive(Component, PartialEq)]
+/// Marker for text entities
+#[derive(Component, Default)]
 pub struct TextSpan;
 
 /// Update text roots
@@ -385,10 +385,7 @@ pub fn update_text_roots(
 
         // Not a root. Remove `TextRoot` component, if present.
         if text_root_query.contains(entity) {
-            commands
-                .entity(entity)
-                .remove::<TextRoot>()
-                .insert(TextSpan);
+            commands.entity(entity).remove::<TextRoot>();
         }
     }
 

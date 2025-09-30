@@ -9,7 +9,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::{Added, Without},
+    query::{Added, Or, With, Without},
     system::{Query, ResMut},
     world::Ref,
 };
@@ -19,7 +19,7 @@ use bevy_sprite::BorderRect;
 use thiserror::Error;
 use ui_surface::UiSurface;
 
-use bevy_text::{ComputedTextBlock, TextSpan};
+use bevy_text::{ComputedTextBlock, TextRoot, TextSpan};
 
 use bevy_text::CosmicFontSystem;
 
@@ -81,7 +81,7 @@ pub fn ui_layout_system(
             Option<&mut ContentSize>,
             Ref<ComputedUiRenderTargetInfo>,
         ),
-        Without<TextSpan>,
+        Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
     >,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<
@@ -95,7 +95,7 @@ pub fn ui_layout_system(
             Option<&Outline>,
             Option<&ScrollPosition>,
         ),
-        Without<TextSpan>,
+        Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
     >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -209,7 +209,7 @@ pub fn ui_layout_system(
                 Option<&Outline>,
                 Option<&ScrollPosition>,
             ),
-            Without<TextSpan>,
+            Or<(Without<TextSpan>, (With<TextSpan>, With<TextRoot>))>,
         >,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,

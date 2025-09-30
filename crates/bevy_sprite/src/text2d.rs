@@ -23,6 +23,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
     SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextPipeline, TextRoot,
+    TextSpan,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -82,6 +83,7 @@ use core::any::TypeId;
 #[require(
     TextLayout,
     TextBounds,
+    TextSpan,
     Anchor,
     Visibility,
     VisibilityClass,
