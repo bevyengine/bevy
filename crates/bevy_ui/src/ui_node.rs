@@ -498,56 +498,6 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/aspect-ratio>
     pub aspect_ratio: Option<f32>,
 
-    /// Used to control how each individual item is aligned by default within the space they're given.
-    /// - For Flexbox containers, sets default cross axis alignment of the child items.
-    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
-    ///
-    /// This value is overridden if [`AlignSelf`] on the child node is set.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
-    pub align_items: AlignItems,
-
-    /// Used to control how each individual item is aligned by default within the space they're given.
-    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
-    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
-    ///
-    /// This value is overridden if [`JustifySelf`] on the child node is set.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
-    pub justify_items: JustifyItems,
-
-    /// Used to control how the specified item is aligned within the space it's given.
-    /// - For Flexbox items, controls cross axis alignment of the item.
-    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
-    ///
-    /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
-    pub align_self: AlignSelf,
-
-    /// Used to control how the specified item is aligned within the space it's given.
-    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
-    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
-    ///
-    /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
-    pub justify_self: JustifySelf,
-
-    /// Used to control how items are distributed.
-    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
-    /// - For CSS Grid containers, controls alignment of grid rows.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
-    pub align_content: AlignContent,
-
-    /// Used to control how items are distributed.
-    /// - For Flexbox containers, controls alignment of items in the main axis.
-    /// - For CSS Grid containers, controls alignment of grid columns.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
-    pub justify_content: JustifyContent,
-
     /// The amount of space around a node outside its border.
     ///
     /// If a percentage value is used, the percentage is calculated based on the width of the parent node.
@@ -600,47 +550,206 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
+}
+impl Node {
+    pub const DEFAULT: Self = Self {
+        aspect_ratio: None,
+        display: Display::DEFAULT,
+        box_sizing: BoxSizing::DEFAULT,
+        position_type: PositionType::DEFAULT,
+        left: Val::Auto,
+        right: Val::Auto,
+        top: Val::Auto,
+        bottom: Val::Auto,
+        margin: UiRect::DEFAULT,
+        padding: UiRect::DEFAULT,
+        border: UiRect::DEFAULT,
+        width: Val::Auto,
+        height: Val::Auto,
+        min_width: Val::Auto,
+        min_height: Val::Auto,
+        max_width: Val::Auto,
+        max_height: Val::Auto,
+        overflow: Overflow::DEFAULT,
+        overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
+    };
+}
 
-    /// Whether a Flexbox container should be a row or a column. This property has no effect on Grid nodes.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
-    pub flex_direction: FlexDirection,
+impl Default for Node {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BlockItem {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
 
-    /// Whether a Flexbox container should wrap its contents onto multiple lines if they overflow. This property has no effect on Grid nodes.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>
-    pub flex_wrap: FlexWrap,
+    /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
+    pub justify_self: JustifySelf,
+}
+impl BlockItem {
+    const DEFAULT: Self = Self {
+        display: true,
+        justify_self: JustifySelf::DEFAULT,
+    };
+}
+impl Default for BlockItem {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct BlockContainer {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
+    pub align_content: AlignContent,
 
-    /// Defines how much a flexbox item should grow if there's space available. Defaults to 0 (don't grow at all).
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-grow>
-    pub flex_grow: f32,
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
+    pub justify_items: JustifyItems,
+}
+impl BlockContainer {
+    const DEFAULT: Self = Self {
+        display: true,
+        align_content: AlignContent::Default,
+        justify_items: JustifyItems::Default,
+    };
+}
+impl Default for BlockContainer {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
-    /// Defines how much a flexbox item should shrink if there's not enough space available. Defaults to 1.
-    ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-shrink>
-    pub flex_shrink: f32,
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GridItem {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
 
-    /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, controls cross axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
     ///
-    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
+    /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
-    pub flex_basis: Val,
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
+    pub align_self: AlignSelf,
 
-    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout.
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, this property has no effect. See `justify_content` for main axis alignment of flex items.
+    /// - For CSS Grid items, controls inline (horizontal) axis alignment of a grid item within its grid area.
     ///
-    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    /// If set to `Auto`, alignment is inherited from the value of [`JustifyItems`] set on the parent node.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
-    pub row_gap: Val,
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-self>
+    pub justify_self: JustifySelf,
+    /// The row in which a grid item starts and how many rows it spans.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-row>
+    pub grid_row: GridPlacement,
 
-    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout.
+    /// The column in which a grid item starts and how many columns it spans.
     ///
-    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
+    pub grid_column: GridPlacement,
+}
+impl GridItem {
+    const DEFAULT: Self = Self {
+        display: true,
+        align_self: AlignSelf::DEFAULT,
+        justify_self: JustifySelf::DEFAULT,
+        grid_row: GridPlacement::DEFAULT,
+        grid_column: GridPlacement::DEFAULT,
+    };
+}
+impl Default for GridItem {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct GridContainer {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
+
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, sets default cross axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
-    pub column_gap: Val,
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
+    pub align_items: AlignItems,
+
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, this property has no effect. See `justify_content` for main axis alignment of flex items.
+    /// - For CSS Grid containers, sets default inline (horizontal) axis alignment of child items within their grid areas.
+    ///
+    /// This value is overridden if [`JustifySelf`] on the child node is set.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-items>
+    pub justify_items: JustifyItems,
+
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
+    pub align_content: AlignContent,
+
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
+    pub justify_content: JustifyContent,
 
     /// Controls whether automatically placed grid items are placed row-wise or column-wise as well as whether the sparse or dense packing algorithm is used.
     /// Only affects Grid layouts.
@@ -670,69 +779,167 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-auto-columns>
     pub grid_auto_columns: Vec<GridTrack>,
-
-    /// The row in which a grid item starts and how many rows it spans.
+    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-row>
-    pub grid_row: GridPlacement,
-
-    /// The column in which a grid item starts and how many columns it spans.
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
     ///
-    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
-    pub grid_column: GridPlacement,
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
+    pub row_gap: Val,
+
+    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout.
+    ///
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
+    pub column_gap: Val,
 }
-
-impl Node {
-    pub const DEFAULT: Self = Self {
-        display: Display::DEFAULT,
-        box_sizing: BoxSizing::DEFAULT,
-        position_type: PositionType::DEFAULT,
-        left: Val::Auto,
-        right: Val::Auto,
-        top: Val::Auto,
-        bottom: Val::Auto,
-        flex_direction: FlexDirection::DEFAULT,
-        flex_wrap: FlexWrap::DEFAULT,
+impl GridContainer {
+    const DEFAULT: GridContainer = Self {
+        display: true,
         align_items: AlignItems::DEFAULT,
         justify_items: JustifyItems::DEFAULT,
-        align_self: AlignSelf::DEFAULT,
-        justify_self: JustifySelf::DEFAULT,
         align_content: AlignContent::DEFAULT,
         justify_content: JustifyContent::DEFAULT,
-        margin: UiRect::DEFAULT,
-        padding: UiRect::DEFAULT,
-        border: UiRect::DEFAULT,
-        flex_grow: 0.0,
-        flex_shrink: 1.0,
-        flex_basis: Val::Auto,
-        width: Val::Auto,
-        height: Val::Auto,
-        min_width: Val::Auto,
-        min_height: Val::Auto,
-        max_width: Val::Auto,
-        max_height: Val::Auto,
-        aspect_ratio: None,
-        overflow: Overflow::DEFAULT,
-        overflow_clip_margin: OverflowClipMargin::DEFAULT,
-        scrollbar_width: 0.,
-        row_gap: Val::ZERO,
-        column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
         grid_template_rows: Vec::new(),
         grid_template_columns: Vec::new(),
         grid_auto_rows: Vec::new(),
         grid_auto_columns: Vec::new(),
-        grid_column: GridPlacement::DEFAULT,
-        grid_row: GridPlacement::DEFAULT,
+        row_gap: Val::DEFAULT,
+        column_gap: Val::DEFAULT,
     };
 }
+impl Default for GridContainer {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct FlexContainer {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of items in the main axis.
+    /// - For CSS Grid containers, controls alignment of grid columns.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/justify-content>
+    pub justify_content: JustifyContent,
 
-impl Default for Node {
+    /// Used to control how each individual item is aligned by default within the space they're given.
+    /// - For Flexbox containers, sets default cross axis alignment of the child items.
+    /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
+    ///
+    /// This value is overridden if [`AlignSelf`] on the child node is set.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-items>
+    pub align_items: AlignItems,
+
+    /// Used to control how items are distributed.
+    /// - For Flexbox containers, controls alignment of lines if `flex_wrap` is set to [`FlexWrap::Wrap`] and there are multiple lines of items.
+    /// - For CSS Grid containers, controls alignment of grid rows.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-content>
+    pub align_content: AlignContent,
+
+    /// Whether a Flexbox container should be a row or a column. This property has no effect on Grid nodes.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
+    pub flex_direction: FlexDirection,
+
+    /// Whether a Flexbox container should wrap its contents onto multiple lines if they overflow. This property has no effect on Grid nodes.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-wrap>
+    pub flex_wrap: FlexWrap,
+    /// The size of the gutters between items in a vertical flexbox layout or between rows in a grid layout.
+    ///
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/row-gap>
+    pub row_gap: Val,
+
+    /// The size of the gutters between items in a horizontal flexbox layout or between column in a grid layout.
+    ///
+    /// Note: Values of `Val::Auto` are not valid and are treated as zero.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/column-gap>
+    pub column_gap: Val,
+}
+impl FlexContainer {
+    const DEFAULT: Self = Self {
+        justify_content: JustifyContent::DEFAULT,
+        align_items: AlignItems::DEFAULT,
+        align_content: AlignContent::DEFAULT,
+        display: true,
+        flex_direction: FlexDirection::DEFAULT,
+        flex_wrap: FlexWrap::DEFAULT,
+        row_gap: Val::DEFAULT,
+        column_gap: Val::DEFAULT,
+    };
+}
+impl Default for FlexContainer {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
+#[derive(Component, Clone, PartialEq, Debug, Reflect)]
+#[require(Node)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct FlexItem {
+    // Setting this to false is equivlant to display: None
+    pub display: bool,
+    /// Used to control how the specified item is aligned within the space it's given.
+    /// - For Flexbox items, controls cross axis alignment of the item.
+    /// - For CSS Grid items, controls block (vertical) axis alignment of a grid item within its grid area.
+    ///
+    /// If set to `Auto`, alignment is inherited from the value of [`AlignItems`] set on the parent node.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/align-self>
+    pub align_self: AlignSelf,
+
+    /// Defines how much a flexbox item should grow if there's space available. Defaults to 0 (don't grow at all).
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-grow>
+    pub flex_grow: f32,
+
+    /// Defines how much a flexbox item should shrink if there's not enough space available. Defaults to 1.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-shrink>
+    pub flex_shrink: f32,
+
+    /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
+    ///
+    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
+    pub flex_basis: Val,
+}
+impl FlexItem {
+    const DEFAULT: Self = Self {
+        display: true,
+        align_self: AlignSelf::DEFAULT,
+        flex_grow: 0.0f32,
+        flex_shrink: 1.0f32,
+        flex_basis: Val::DEFAULT,
+    };
+}
+impl Default for FlexItem {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 /// Used to control how each individual item is aligned by default within the space they're given.
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
