@@ -1,9 +1,6 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
-use bevy_platform::{
-    collections::HashMap,
-    sync::{PoisonError, RwLock},
-};
+use bevy_platform::{collections::HashMap, sync::RwLock};
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
@@ -46,17 +43,13 @@ impl Dir {
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
         }
-        dir.0
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .assets
-            .insert(
-                path.file_name().unwrap().to_string_lossy().into(),
-                Data {
-                    value: value.into(),
-                    path: path.to_owned(),
-                },
-            );
+        dir.0.write().assets.insert(
+            path.file_name().unwrap().to_string_lossy().into(),
+            Data {
+                value: value.into(),
+                path: path.to_owned(),
+            },
+        );
     }
 
     /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise `None`.
@@ -66,11 +59,7 @@ impl Dir {
             dir = self.get_or_insert_dir(parent);
         }
         let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
-        dir.0
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .assets
-            .remove(&key)
+        dir.0.write().assets.remove(&key)
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
@@ -78,17 +67,13 @@ impl Dir {
         if let Some(parent) = path.parent() {
             dir = self.get_or_insert_dir(parent);
         }
-        dir.0
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .metadata
-            .insert(
-                path.file_name().unwrap().to_string_lossy().into(),
-                Data {
-                    value: value.into(),
-                    path: path.to_owned(),
-                },
-            );
+        dir.0.write().metadata.insert(
+            path.file_name().unwrap().to_string_lossy().into(),
+            Data {
+                value: value.into(),
+                path: path.to_owned(),
+            },
+        );
     }
 
     pub fn get_or_insert_dir(&self, path: &Path) -> Dir {
@@ -98,7 +83,7 @@ impl Dir {
             full_path.push(c);
             let name = c.as_os_str().to_string_lossy().into();
             dir = {
-                let dirs = &mut dir.0.write().unwrap_or_else(PoisonError::into_inner).dirs;
+                let dirs = &mut dir.0.write().dirs;
                 dirs.entry(name)
                     .or_insert_with(|| Dir::new(full_path.clone()))
                     .clone()
@@ -112,13 +97,7 @@ impl Dir {
         let mut dir = self.clone();
         for p in path.components() {
             let component = p.as_os_str().to_str().unwrap();
-            let next_dir = dir
-                .0
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .dirs
-                .get(component)?
-                .clone();
+            let next_dir = dir.0.read().dirs.get(component)?.clone();
             dir = next_dir;
         }
         Some(dir)
@@ -130,14 +109,8 @@ impl Dir {
             dir = dir.get_dir(parent)?;
         }
 
-        path.file_name().and_then(|f| {
-            dir.0
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .assets
-                .get(f.to_str().unwrap())
-                .cloned()
-        })
+        path.file_name()
+            .and_then(|f| dir.0.read().assets.get(f.to_str().unwrap()).cloned())
     }
 
     pub fn get_metadata(&self, path: &Path) -> Option<Data> {
@@ -146,22 +119,12 @@ impl Dir {
             dir = dir.get_dir(parent)?;
         }
 
-        path.file_name().and_then(|f| {
-            dir.0
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .metadata
-                .get(f.to_str().unwrap())
-                .cloned()
-        })
+        path.file_name()
+            .and_then(|f| dir.0.read().metadata.get(f.to_str().unwrap()).cloned())
     }
 
     pub fn path(&self) -> PathBuf {
-        self.0
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .path
-            .to_owned()
+        self.0.read().path.to_owned()
     }
 }
 
@@ -189,7 +152,7 @@ impl Stream for DirStream {
         _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
-        let dir = this.dir.0.read().unwrap_or_else(PoisonError::into_inner);
+        let dir = this.dir.0.read();
 
         let dir_index = this.dir_index;
         if let Some(dir_path) = dir
