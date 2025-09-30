@@ -52,7 +52,10 @@ impl PluginGroup for UiWidgetsPlugins {
 
 /// Notification sent by a button or menu item.
 #[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
-pub struct Activate(pub Entity);
+pub struct Activate {
+    /// The activated entity.
+    pub entity: Entity,
+}
 
 /// Notification sent by a widget that edits a scalar value.
 #[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]

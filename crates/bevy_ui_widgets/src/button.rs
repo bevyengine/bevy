@@ -38,7 +38,9 @@ fn button_on_key_event(
             && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
         {
             event.propagate(false);
-            commands.trigger(Activate(event.focused_entity));
+            commands.trigger(Activate {
+                entity: event.focused_entity,
+            });
         }
     }
 }
@@ -51,7 +53,9 @@ fn button_on_pointer_click(
     if let Ok((pressed, disabled)) = q_state.get_mut(click.entity) {
         click.propagate(false);
         if pressed && !disabled {
-            commands.trigger(Activate(click.entity));
+            commands.trigger(Activate {
+                entity: click.entity,
+            });
         }
     }
 }
