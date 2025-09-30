@@ -831,11 +831,7 @@ mod tests {
             for aabb in &aabbs {
                 let standard = fr.intersects_obb(aabb, &Affine3A::IDENTITY, true, true);
                 let optimized = fr.intersects_obb_identity(aabb);
-                assert_eq!(
-                    standard, optimized,
-                    "Mismatch for frustum {:?} and aabb {:?}: standard={} optimized={}",
-                    fr.half_spaces, aabb, standard, optimized
-                );
+                assert_eq!(standard, optimized);
             }
         }
     }
