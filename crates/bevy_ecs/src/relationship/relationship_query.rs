@@ -169,6 +169,21 @@ where
                 .collect(),
         }
     }
+
+    /// Creates an iterator which uses a closure to determine if recursive [`RelationshipTarget`]s
+    /// should be yielded.
+    ///
+    /// Once the the provided closure returns `false` for an [`Entity`] it and its recursive
+    /// [`RelationshipTarget`]s will not be yielded, effectively skipping that sub hierarchy.
+    pub fn filter_hierarchies<HF>(self, filter: HF) -> FilterDescendantIter<'w, 's, D, F, S, HF>
+    where
+        HF: FnMut(&Entity) -> bool,
+    {
+        FilterDescendantIter {
+            iter: self,
+            hierarchy_filter: filter,
+        }
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
@@ -268,5 +283,110 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.next = self.parent_query.get(self.next?).ok().map(R::get);
         self.next
+    }
+}
+
+/// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
+///
+/// Allows conditional skipping of sub hierarchies.
+pub struct FilterDescendantIter<'w, 's, D, QF, S, HF>
+where
+    D: QueryData,
+    D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
+    QF: QueryFilter,
+    S: RelationshipTarget,
+    HF: FnMut(&Entity) -> bool,
+{
+    iter: DescendantIter<'w, 's, D, QF, S>,
+    hierarchy_filter: HF,
+}
+
+impl<'w, 's, D, QF, S, HF> Iterator for FilterDescendantIter<'w, 's, D, QF, S, HF>
+where
+    D: QueryData,
+    D::ReadOnly: QueryData<Item<'w, 's> = &'w S>,
+    QF: QueryFilter,
+    S: RelationshipTarget,
+    HF: FnMut(&Entity) -> bool,
+{
+    type Item = Entity;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut entity = self.iter.vecdeque.pop_front()?;
+
+        while !(self.hierarchy_filter)(&entity) {
+            entity = self.iter.vecdeque.pop_front()?;
+        }
+
+        if let Ok(children) = self.iter.children_query.get(entity) {
+            self.iter.vecdeque.extend(children.iter());
+        }
+
+        Some(entity)
+    }
+}
+
+#[cfg(test)]
+mod test_iter_descendants {
+    use crate::{
+        prelude::*,
+        system::{RunSystemError, RunSystemOnce},
+    };
+    use alloc::{vec, vec::Vec};
+
+    #[test]
+    fn filter_hierarchies_all() -> Result<(), RunSystemError> {
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        let children = vec![
+            world.spawn(ChildOf(root)).id(),
+            world.spawn(ChildOf(root)).id(),
+            world.spawn(ChildOf(root)).id(),
+        ];
+
+        let descendants = world.run_system_once(move |q: Query<&Children>| {
+            q.iter_descendants(root)
+                .filter_hierarchies(|_| true)
+                .collect::<Vec<_>>()
+        })?;
+
+        assert_eq!(descendants, children);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_hierarchies_skip_flat() -> Result<(), RunSystemError> {
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        let c0 = world.spawn(ChildOf(root)).id();
+        let c_skip = world.spawn(ChildOf(root)).id();
+        let c2 = world.spawn(ChildOf(root)).id();
+
+        let descendants = world.run_system_once(move |q: Query<&Children>| {
+            q.iter_descendants(root)
+                .filter_hierarchies(|e| e != &c_skip)
+                .collect::<Vec<_>>()
+        })?;
+
+        assert_eq!(descendants, vec![c0, c2]);
+        Ok(())
+    }
+
+    #[test]
+    fn filter_hierarchies_skip_sub_hierarchy() -> Result<(), RunSystemError> {
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        let c0 = world.spawn(ChildOf(root)).id();
+        let c_skip = world.spawn((ChildOf(root), children![(), ()])).id();
+        let c2 = world.spawn(ChildOf(root)).id();
+
+        let descendants = world.run_system_once(move |q: Query<&Children>| {
+            q.iter_descendants(root)
+                .filter_hierarchies(|e| e != &c_skip)
+                .collect::<Vec<_>>()
+        })?;
+
+        assert_eq!(descendants, vec![c0, c2]);
+        Ok(())
     }
 }
