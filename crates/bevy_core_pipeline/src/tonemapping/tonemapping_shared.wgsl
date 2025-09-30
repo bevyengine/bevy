@@ -243,11 +243,6 @@ fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
     return color / (1.0 + color);
 }
 
-fn tonemapping_reinhard_extended(color: vec3<f32>, max_white: f32) -> vec3<f32> {
-    let numerator = color * (1.0 + (color / vec3<f32>(max_white * max_white)));
-    return numerator / (1.0 + color);
-}
-
 // luminance coefficients from Rec. 709.
 // https://en.wikipedia.org/wiki/Rec._709
 fn tonemapping_luminance(v: vec3<f32>) -> f32 {
