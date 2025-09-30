@@ -44,7 +44,7 @@ use crate::{
 };
 
 #[cfg(feature = "custom_window_icon")]
-use system::changed_window_icon;
+use system::{changed_window_icon, changed_window_icon_asset, set_winit_window_icon};
 
 pub mod accessibility;
 mod converters;
@@ -150,6 +150,10 @@ impl<T: Message> Plugin for WinitPlugin<T> {
                     changed_cursor_options,
                     #[cfg(feature = "custom_window_icon")]
                     changed_window_icon,
+                    #[cfg(feature = "custom_window_icon")]
+                    changed_window_icon_asset,
+                    #[cfg(feature = "custom_window_icon")]
+                    set_winit_window_icon,
                     despawn_windows,
                     check_keyboard_focus_lost,
                 )
