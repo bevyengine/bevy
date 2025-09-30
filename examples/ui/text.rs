@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Text with multiple sections
-    let mut entity_commands = commands
+    commands
         .spawn((
             // Create a Text with multiple child spans.
             Text::new("FPS: "),

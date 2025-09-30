@@ -286,7 +286,8 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{update_text_styles, DefaultTextStyle};
+    use bevy_text::*;
+    use bevy_text::{update_computed_text_styles, DefaultTextStyle};
 
     use super::*;
 
@@ -306,7 +307,23 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    update_text_styles,
+                    update_from_inherited_text_style_sources::<TextFont>,
+                    update_reparented_inherited_styles::<TextFont>,
+                    propagate_inherited_styles::<TextFont>,
+                    update_from_inherited_text_style_sources::<TextColor>,
+                    update_reparented_inherited_styles::<TextColor>,
+                    propagate_inherited_styles::<TextColor>,
+                    update_from_inherited_text_style_sources::<FontSize>,
+                    update_reparented_inherited_styles::<FontSize>,
+                    propagate_inherited_styles::<FontSize>,
+                    update_from_inherited_text_style_sources::<LineHeight>,
+                    update_reparented_inherited_styles::<LineHeight>,
+                    propagate_inherited_styles::<LineHeight>,
+                    update_from_inherited_text_style_sources::<FontSmoothing>,
+                    update_reparented_inherited_styles::<FontSmoothing>,
+                    propagate_inherited_styles::<FontSmoothing>,
+                    update_computed_text_styles,
+                    update_text_roots,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

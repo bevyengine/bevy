@@ -34,7 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
-use bevy_text::{detect_text_needs_rerender, update_text_roots, ComputedTextStyleUpdateSystems};
+use bevy_text::{detect_text_needs_rerender, update_text_roots};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
