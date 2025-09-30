@@ -9,9 +9,9 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::{With, Without},
+    query::With,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut},
+    system::{Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
