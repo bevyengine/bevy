@@ -74,6 +74,9 @@ use crate::{
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 
+#[cfg(feature = "bevy_transform")]
+use bevy_transform::components::Transform;
+
 use variadics_please::all_tuples_enumerated;
 
 // TODO: Think about merging `Ease` with `StableInterpolate`
@@ -172,6 +175,14 @@ impl Ease for Isometry2d {
                 )
                 .sample_unchecked(t),
             }
+        })
+    }
+}
+
+impl Ease for Transform {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            Transform::interpolate(&start, &end, t)
         })
     }
 }
