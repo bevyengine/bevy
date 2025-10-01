@@ -59,8 +59,8 @@ pub use text::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        ComputedTextStyle, Font, FontFace, FontSize, FontSmoothing, Justify, LineBreak, LineHeight,
-        TextColor, TextError, TextLayout,
+        ComputedTextStyle, DefaultTextStyle, Font, FontFace, FontSize, FontSmoothing, Justify,
+        LineBreak, LineHeight, TextColor, TextError, TextLayout, TextStyle,
     };
 }
 
