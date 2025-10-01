@@ -1,6 +1,6 @@
 //! Desktop request redraw
 use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FpsOverlayTextConfig},
     prelude::*,
     window::RequestRedraw,
     winit::WinitSettings,
@@ -18,11 +18,14 @@ fn main() {
         // Left and Right clicking the cube should roggle rotation on/off.
         .add_plugins(FpsOverlayPlugin {
             config: FpsOverlayConfig {
-                text_config: TextFont {
-                    font_size: 12.0,
+                text_config: FpsOverlayTextConfig {
+                    font: TextFont {
+                        font_size: 12.0,
+                        ..default()
+                    },
+                    color: Color::srgb(0.0, 1.0, 0.0),
                     ..default()
                 },
-                text_color: Color::srgb(0.0, 1.0, 0.0),
                 refresh_interval: core::time::Duration::from_millis(16),
                 ..default()
             },
