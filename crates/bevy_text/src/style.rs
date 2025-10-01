@@ -1,4 +1,5 @@
 use crate::*;
+use bevy_asset::AssetId;
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::Deref;
@@ -56,6 +57,36 @@ pub struct DefaultTextStyle(pub TextStyle);
 #[derive(Debug, Component, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, PartialEq)]
 pub struct InheritedTextStyle<S: Clone + PartialEq>(pub S);
+
+impl From<TextFont> for InheritedTextStyle<AssetId<Font>> {
+    fn from(value: TextFont) -> Self {
+        Self(value.0.id())
+    }
+}
+
+impl From<TextColor> for InheritedTextStyle<TextColor> {
+    fn from(value: TextColor) -> Self {
+        Self(value)
+    }
+}
+
+impl From<LineHeight> for InheritedTextStyle<LineHeight> {
+    fn from(value: LineHeight) -> Self {
+        Self(value)
+    }
+}
+
+impl From<FontSmoothing> for InheritedTextStyle<FontSmoothing> {
+    fn from(value: FontSmoothing) -> Self {
+        Self(value)
+    }
+}
+
+impl From<FontSize> for InheritedTextStyle<FontSize> {
+    fn from(value: FontSize) -> Self {
+        Self(value)
+    }
+}
 
 /// The resolved text style for a text entity.
 ///
