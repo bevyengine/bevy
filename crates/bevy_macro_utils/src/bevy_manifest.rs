@@ -20,7 +20,7 @@ pub struct BevyManifest {
 const BEVY: &str = "bevy";
 
 impl BevyManifest {
-    /// Returns a global shared instance of the [`BevyManifest`] struct.
+    /// Calls provided function with a global shared instance of the [`BevyManifest`] struct.
     pub fn shared<R>(f: impl FnOnce(&BevyManifest) -> R) -> R {
         static MANIFESTS: RwLock<BTreeMap<PathBuf, BevyManifest>> = RwLock::new(BTreeMap::new());
         let manifest_path = Self::get_manifest_path();
