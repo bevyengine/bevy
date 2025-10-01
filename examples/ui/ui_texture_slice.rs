@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .with_child((
                         Text::new("Button"),
                         FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-                        FontSize(33.0),
+                        FontSize::Px(33.0),
                         TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));
             }

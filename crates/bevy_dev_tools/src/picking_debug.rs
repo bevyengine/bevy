@@ -284,7 +284,7 @@ pub fn debug_draw(
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
-                    children![(Text::new(text.clone()), FontSize(12.0))],
+                    children![(Text::new(text.clone()), FontSize::Px(12.0))],
                 ));
         }
     }

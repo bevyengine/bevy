@@ -15,9 +15,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, style::ComputedTextStyle, ComputedTextBlock, Font, FontAtlasSets,
-    FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, FontFace,
-    TextLayout,
+    error::TextError, style::ComputedTextStyle, ComputedTextBlock, Font, FontAtlasSets, FontFace,
+    FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -93,6 +92,8 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        viewport_size: Vec2,
+        default_font_size: f32,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -100,10 +101,10 @@ impl TextPipeline {
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut max_font_size: f32 = 0.;
         let mut max_line_height: f32 = 0.0;
-        let mut spans: Vec<(usize, &str, &ComputedTextStyle, FontFaceInfo)> =
+        let mut spans: Vec<(usize, &str, &ComputedTextStyle, FontFaceInfo, f32)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &ComputedTextStyle, FontFaceInfo) { unreachable!() })
+                .map(|_| -> (usize, &str, &ComputedTextStyle, FontFaceInfo, f32) { unreachable!() })
                 .collect();
 
         computed.entities.clear();
@@ -129,24 +130,27 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
+            let font_size = style
+                .font_size
+                .eval(viewport_size, default_font_size);
 
             // Get max font size for use in cosmic Metrics.
-            max_font_size = max_font_size.max(style.font_size);
-            max_line_height = max_line_height.max(style.line_height.eval(style.font_size));
+            max_font_size = max_font_size.max(font_size);
+            max_line_height = max_line_height.max((style.line_height).eval(font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info =
                 load_font_to_fontdb(&style, font_system, &mut self.map_handle_to_font_id, fonts);
 
             // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || style.font_size <= 0.0 {
+            if scale_factor <= 0.0 || font_size <= 0.0 {
                 once!(warn!(
                     "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                 ));
 
                 continue;
             }
-            spans.push((span_index, span, style, face_info));
+            spans.push((span_index, span, style, face_info, font_size));
         }
 
         let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
@@ -162,12 +166,14 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans_iter = spans.iter().map(|(span_index, span, style, font_info)| {
-            (
-                *span,
-                get_attrs(*span_index, style, font_info, scale_factor),
-            )
-        });
+        let spans_iter = spans
+            .iter()
+            .map(|(span_index, span, style, font_info, font_size)| {
+                (
+                    *span,
+                    get_attrs(*span_index, style, font_info, *font_size, scale_factor),
+                )
+            });
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
@@ -229,6 +235,8 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
+        viewport_size: Vec2,
+        default_font_size: f32,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.section_rects.clear();
@@ -253,6 +261,8 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
+            viewport_size,
+            default_font_size,
         );
         if let Err(err) = update_result {
             self.glyph_info = glyph_info;
@@ -393,6 +403,8 @@ impl TextPipeline {
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        viewport_size: Vec2,
+        default_font_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -409,6 +421,8 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
+            viewport_size,
+            default_font_size,
         )?;
 
         let buffer = &mut computed.buffer;
@@ -522,6 +536,7 @@ fn get_attrs<'a>(
     span_index: usize,
     style: &'a ComputedTextStyle,
     face_info: &'a FontFaceInfo,
+    font_size: f32,
     scale_factor: f64,
 ) -> Attrs<'a> {
     Attrs::new()
@@ -532,8 +547,8 @@ fn get_attrs<'a>(
         .weight(face_info.weight)
         .metrics(
             Metrics {
-                font_size: style.font_size,
-                line_height: style.line_height.eval(style.font_size),
+                font_size,
+                line_height: style.line_height.eval(font_size),
             }
             .scale(scale_factor as f32),
         )

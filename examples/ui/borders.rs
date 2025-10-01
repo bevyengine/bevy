@@ -135,7 +135,7 @@ fn setup(mut commands: Commands) {
                                 BackgroundColor(YELLOW.into()),
                             )]
                         ),
-                        (Text::new(label), FontSize(9.0))
+                        (Text::new(label), FontSize::Px(9.0))
                     ],
                 )
             },
@@ -204,7 +204,7 @@ fn setup(mut commands: Commands) {
                                 BackgroundColor(YELLOW.into()),
                             )],
                         ),
-                        (Text::new(label), FontSize(9.0))
+                        (Text::new(label), FontSize::Px(9.0))
                     ],
                 )
             },
@@ -237,6 +237,6 @@ fn label(text: &str) -> impl Bundle {
             margin: px(25).all(),
             ..default()
         },
-        children![(Text::new(text), FontSize(20.0))],
+        children![(Text::new(text), FontSize::Px(20.0))],
     )
 }

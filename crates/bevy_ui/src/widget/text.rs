@@ -17,9 +17,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets,
-    LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextRoot,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
+    Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextRoot,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -203,6 +203,8 @@ fn create_text_measure<'a>(
     mut text_flags: Mut<TextNodeFlags>,
     mut computed: Mut<ComputedTextBlock>,
     font_system: &mut CosmicFontSystem,
+    viewport_size: Vec2,
+    default_font_size: f32,
 ) {
     match text_pipeline.create_text_measure(
         entity,
@@ -212,6 +214,8 @@ fn create_text_measure<'a>(
         &block,
         computed.as_mut(),
         font_system,
+        viewport_size,
+        default_font_size,
     ) {
         Ok(measure) => {
             if block.linebreak == LineBreak::NoWrap {
@@ -259,6 +263,7 @@ pub fn measure_text_system(
     text_query: Query<(&Text, &ComputedTextStyle)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
+    default_text_style: Res<DefaultTextStyle>,
 ) {
     for (
         entity,
@@ -287,6 +292,10 @@ pub fn measure_text_system(
                     .ok()
             });
 
+            let default_font_size = default_text_style
+                .font_size
+                .eval(computed_target.logical_size(), 20.);
+
             create_text_measure(
                 entity,
                 &fonts,
@@ -298,6 +307,8 @@ pub fn measure_text_system(
                 text_flags,
                 computed,
                 &mut font_system,
+                computed_target.logical_size(),
+                default_font_size,
             );
         }
     }
@@ -320,6 +331,8 @@ fn queue_text<'a>(
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
+    viewport_size: Vec2,
+    default_font_size: f32,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -348,6 +361,8 @@ fn queue_text<'a>(
         computed,
         font_system,
         swash_cache,
+        viewport_size,
+        default_font_size,
     ) {
         Err(TextError::NoSuchFont) => {
             // There was an error processing the text layout, try again next frame
@@ -385,17 +400,27 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         &TextRoot,
+        &ComputedUiRenderTargetInfo,
     )>,
     mut text_query: Query<(&Text, &ComputedTextStyle, &mut ComputedFontSize)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    default_text_style: Res<DefaultTextStyle>,
 ) {
-    for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
+    for (node, block, text_layout_info, text_flags, mut computed, text_root, target_info) in
+        &mut text_root_query
     {
+        let default_font_size = default_text_style
+            .font_size
+            .eval(target_info.logical_size(), 20.);
+
         if node.is_changed() || text_flags.needs_recompute {
             for &entity in text_root.0.iter() {
                 if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
-                    computed_size.0 = style.font_size() * node.inverse_scale_factor.recip();
+                    computed_size.0 = style
+                        .font_size()
+                        .eval(target_info.logical_size(), default_font_size)
+                        * node.inverse_scale_factor.recip();
                 }
             }
 
@@ -422,6 +447,8 @@ pub fn text_system(
                 &mut font_system,
                 &mut swash_cache,
                 spans,
+                target_info.logical_size(),
+                default_font_size,
             );
         }
     }

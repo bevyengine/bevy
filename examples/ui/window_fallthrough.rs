@@ -30,7 +30,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Hit 'P' then scroll/click around!"),
         FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-        FontSize(83.0), // Nice and big so you can see it!
+        FontSize::Px(83.0), // Nice and big so you can see it!
         // Set the style of the TextBundle itself.
         Node {
             position_type: PositionType::Absolute,

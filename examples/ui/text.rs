@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("hello\nbevy!"),
         // This font is loaded and will be used instead of the default font.
         FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-        FontSize(67.0),
+        FontSize::Px(67.0),
         TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
@@ -50,6 +50,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AnimatedText,
     ));
 
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(250),
+            left: px(250),
+            column_gap: px(10.),
+            ..default()
+        },
+        children![
+            (Text::new("one"), FontSize::Rem(1.)),
+            (Text::new("two"), FontSize::Rem(2.)),
+            (Text::new("three"), FontSize::Rem(3.)),
+        ],
+    ));
+
     // Text with multiple sections
     commands
         .spawn((
@@ -57,14 +72,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("FPS: "),
             // This font is loaded and will be used instead of the default font.
             FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-            FontSize(42.0),
+            FontSize::Px(42.0),
         ))
         .with_children(|parent| {
             let mut entity_commands = parent.spawn((Text::new("0"), FpsText));
             if cfg!(feature = "default_font") {
                 entity_commands.insert((
                     // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                    FontSize(33.),
+                    FontSize::Px(33.),
                     TextColor(GOLD.into()),
                     FpsText,
                 ));
@@ -72,7 +87,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 entity_commands.insert((
                     // "default_font" feature is unavailable, load a font to use instead.
                     FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
-                    FontSize(33.),
+                    FontSize::Px(33.),
                     TextColor(GOLD.into()),
                     FpsText,
                 ));

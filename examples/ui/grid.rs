@@ -137,7 +137,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         
                     );
                     builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
-                        FontSize(13.0)
+                        FontSize::Px(13.0)
                     ));
                     builder.spawn(Node::default());
                 });

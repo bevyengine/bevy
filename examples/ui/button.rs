@@ -97,7 +97,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             children![(
                 Text::new("Button"),
                 FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-                FontSize(33.0),
+                FontSize::Px(33.0),
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
             )]

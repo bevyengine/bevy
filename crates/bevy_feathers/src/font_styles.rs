@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::{Font, FontSize, FontFace};
+use bevy_text::{Font, FontFace, FontSize};
 
 use crate::{handle_or_path::HandleOrPath, theme::ThemedText};
 
@@ -58,6 +58,6 @@ pub(crate) fn on_changed_font(
     {
         commands
             .entity(insert.entity)
-            .insert((FontFace(font), FontSize(style.font_size)));
+            .insert((FontFace(font), FontSize::Px(style.font_size)));
     }
 }

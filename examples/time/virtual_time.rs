@@ -83,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             padding: UiRect::all(px(20)),
             ..default()
         },
-        FontSize(33.),
+        FontSize::Px(33.),
         children![
             (Text::default(), RealTime,),
             (

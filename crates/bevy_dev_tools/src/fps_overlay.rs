@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, FontSize, TextColor, FontFace};
+use bevy_text::{Font, FontFace, FontSize, TextColor};
 use bevy_time::Time;
 use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
@@ -169,7 +169,7 @@ fn setup(
             p.spawn((
                 Text::new("FPS: "),
                 FontFace(overlay_config.font.clone()),
-                FontSize(overlay_config.font_size),
+                FontSize::Px(overlay_config.font_size),
                 TextColor(overlay_config.text_color),
                 FpsText,
                 Pickable::IGNORE,

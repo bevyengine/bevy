@@ -265,7 +265,7 @@ fn setup(
                 padding: UiRect::all(px(5)),
                 ..default()
             },
-            FontSize(40.0),
+            FontSize::Px(40.0),
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),
         ))

@@ -46,7 +46,7 @@ fn setup(mut commands: Commands) {
                         justify: Justify::Center,
                         ..Default::default()
                     },
-                    FontSize(100.),
+                    FontSize::Px(100.),
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {

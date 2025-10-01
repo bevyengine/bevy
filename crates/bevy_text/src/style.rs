@@ -15,7 +15,7 @@ pub struct TextStyle {
     /// The font used by a text entity when neither it nor any ancestor has a [`TextFont`] component.
     pub font: Handle<Font>,
     /// Default value
-    pub font_size: f32,
+    pub font_size: FontSize,
     /// The color used by a text entity when neither it nor any ancestor has a [`TextColor`] component.
     pub color: Color,
     /// Default value
@@ -29,7 +29,7 @@ impl TextStyle {
     pub fn bundle(&self) -> impl Bundle {
         (
             FontFace(self.font.clone()),
-            FontSize(self.font_size),
+            self.font_size,
             TextColor(self.color),
             self.font_smoothing,
             self.line_height,
@@ -44,7 +44,7 @@ impl Default for TextStyle {
             color: Color::WHITE,
             font_smoothing: FontSmoothing::default(),
             line_height: LineHeight::default(),
-            font_size: FontSize::default().0,
+            font_size: FontSize::default(),
         }
     }
 }
@@ -77,7 +77,7 @@ pub struct ComputedTextStyle {
     /// or from [`DefaultTextStyle`] if none is found.
     pub(crate) font: AssetId<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    pub(crate) font_size: f32,
+    pub(crate) font_size: FontSize,
     /// The antialiasing method to use when rendering text.
     pub(crate) font_smoothing: FontSmoothing,
     /// The vertical height of a line of text, from the top of one line to the top of the
@@ -108,7 +108,7 @@ impl ComputedTextStyle {
     }
 
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    pub const fn font_size(&self) -> f32 {
+    pub const fn font_size(&self) -> FontSize {
         self.font_size
     }
 
@@ -238,7 +238,7 @@ fn update_computed_text_style(
         color: maybe_color
             .map(|t| t.0 .0)
             .unwrap_or(default_text_style.color),
-        font_size: maybe_size.map_or(default_text_style.font_size, |size| size.0 .0),
+        font_size: maybe_size.map_or(default_text_style.font_size, |size| size.0),
         font_smoothing: maybe_smoothing
             .map(|s| s.0)
             .unwrap_or(default_text_style.font_smoothing),
@@ -382,7 +382,7 @@ mod tests {
 
         app.world_mut()
             .entity_mut(propagator)
-            .insert(FontSize(font_size));
+            .insert(FontSize::Px(font_size));
 
         app.update();
 
@@ -392,7 +392,7 @@ mod tests {
             .get(app.world(), propagatee)
             .unwrap();
 
-        assert_eq!(style.font_size, font_size);
+        assert_eq!(style.font_size, FontSize::Px(font_size));
     }
 
     #[test]
@@ -423,8 +423,8 @@ mod tests {
                 .chain(),
         );
 
-        let source_1 = app.world_mut().spawn(FontSize(1.)).id();
-        let source_2 = app.world_mut().spawn(FontSize(2.)).id();
+        let source_1 = app.world_mut().spawn(FontSize::Px(1.)).id();
+        let source_2 = app.world_mut().spawn(FontSize::Px(2.)).id();
 
         let target = app.world_mut().spawn(ComputedTextStyle::default()).id();
 
@@ -449,7 +449,7 @@ mod tests {
                 .get(app.world(), target)
                 .unwrap()
                 .font_size(),
-            1.
+            FontSize::Px(1.)
         );
 
         app.world_mut().entity_mut(target).insert(ChildOf(source_2));
@@ -462,7 +462,7 @@ mod tests {
                 .get(app.world(), target)
                 .unwrap()
                 .font_size(),
-            2.
+            FontSize::Px(2.)
         );
     }
 
@@ -498,7 +498,7 @@ mod tests {
 
         let target_2 = app
             .world_mut()
-            .spawn((FontSize(2.), ComputedTextStyle::default()))
+            .spawn((FontSize::Px(2.), ComputedTextStyle::default()))
             .id();
 
         let root_3 = app.world_mut().spawn_empty().id();
@@ -508,7 +508,7 @@ mod tests {
             .spawn((ComputedTextStyle::default(), ChildOf(root_3)))
             .id();
 
-        let root_4 = app.world_mut().spawn(FontSize(4.)).id();
+        let root_4 = app.world_mut().spawn(FontSize::Px(4.)).id();
 
         let target_4 = app
             .world_mut()
@@ -517,7 +517,11 @@ mod tests {
 
         let target_5 = app
             .world_mut()
-            .spawn((FontSize(5.), ComputedTextStyle::default(), ChildOf(root_4)))
+            .spawn((
+                FontSize::Px(5.),
+                ComputedTextStyle::default(),
+                ChildOf(root_4),
+            ))
             .id();
 
         app.update();
@@ -525,10 +529,10 @@ mod tests {
         let default_default_text_style = DefaultTextStyle::default();
         for (target, expected_font_size) in [
             (target_1, default_default_text_style.font_size),
-            (target_2, 2.),
+            (target_2, FontSize::Px(2.)),
             (target_3, default_default_text_style.font_size),
-            (target_4, 4.),
-            (target_5, 5.),
+            (target_4, FontSize::Px(4.)),
+            (target_5, FontSize::Px(5.)),
         ] {
             assert_eq!(
                 *app.world_mut()
@@ -546,18 +550,18 @@ mod tests {
         }
 
         let mut default_text_style = app.world_mut().resource_mut::<DefaultTextStyle>();
-        default_text_style.font_size = 17.;
+        default_text_style.font_size = FontSize::Px(17.);
         default_text_style.line_height = LineHeight::Px(99.);
 
         app.update();
 
         let default_default_text_style = DefaultTextStyle::default();
         for (target, expected_font_size) in [
-            (target_1, 17.),
-            (target_2, 2.),
-            (target_3, 17.),
-            (target_4, 4.),
-            (target_5, 5.),
+            (target_1, FontSize::Px(17.)),
+            (target_2, FontSize::Px(2.)),
+            (target_3, FontSize::Px(17.)),
+            (target_4, FontSize::Px(4.)),
+            (target_5, FontSize::Px(5.)),
         ] {
             assert_eq!(
                 *app.world_mut()
@@ -608,7 +612,11 @@ mod tests {
         let node_1 = app
             .world_mut()
             .spawn_empty()
-            .insert((FontSize(1.), ComputedTextStyle::default(), ChildOf(root)))
+            .insert((
+                FontSize::Px(1.),
+                ComputedTextStyle::default(),
+                ChildOf(root),
+            ))
             .id();
 
         let node_2 = app
@@ -620,13 +628,21 @@ mod tests {
         let node_3 = app
             .world_mut()
             .spawn_empty()
-            .insert((FontSize(2.), ComputedTextStyle::default(), ChildOf(node_2)))
+            .insert((
+                FontSize::Px(2.),
+                ComputedTextStyle::default(),
+                ChildOf(node_2),
+            ))
             .id();
 
         let node_4 = app
             .world_mut()
             .spawn_empty()
-            .insert((FontSize(3.), ComputedTextStyle::default(), ChildOf(node_3)))
+            .insert((
+                FontSize::Px(3.),
+                ComputedTextStyle::default(),
+                ChildOf(node_3),
+            ))
             .id();
 
         let node_5 = app
@@ -639,11 +655,11 @@ mod tests {
 
         for (target, expected_font_size) in [
             (root, DefaultTextStyle::default().font_size),
-            (node_1, 1.),
-            (node_2, 1.),
-            (node_3, 2.),
-            (node_4, 3.),
-            (node_5, 3.),
+            (node_1, FontSize::Px(1.)),
+            (node_2, FontSize::Px(1.)),
+            (node_3, FontSize::Px(2.)),
+            (node_4, FontSize::Px(3.)),
+            (node_5, FontSize::Px(3.)),
         ] {
             assert_eq!(
                 app.world_mut()

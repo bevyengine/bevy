@@ -66,7 +66,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let font_sizetext_font = FontSize(4.);
+    let font_sizetext_font = FontSize::Px(4.);
     let text_block = TextLayout {
         justify: Justify::Left,
         linebreak: LineBreak::AnyCharacter,

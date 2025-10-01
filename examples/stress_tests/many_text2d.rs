@@ -199,7 +199,7 @@ fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> (F
     } else {
         60.0
     };
-    (FontFace(font), FontSize(font_size))
+    (FontFace(font), FontSize::Px(font_size))
 }
 
 fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {

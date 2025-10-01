@@ -96,7 +96,7 @@ mod text {
         commands.spawn((
             Text::new("Hello World."),
             FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-            FontSize(200.),
+            FontSize::Px(200.),
             DespawnOnExit(super::Scene::Text),
         ));
 
@@ -785,7 +785,7 @@ mod linear_gradient {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
                                             },
-                                            FontSize(10.),
+                                            FontSize::Px(10.),
                                             bevy::ui::widget::Text(format!("{color_space:?}")),
                                         ]
                                     )],
@@ -869,7 +869,7 @@ mod radial_gradient {
                                             ..default()
                                         },
                                         Text(format!("{shape_label}\n{position_label}")),
-                                        FontSize(9.),
+                                        FontSize::Px(9.),
                                     ));
                                     commands.spawn((
                                         Node {

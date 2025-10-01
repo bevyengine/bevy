@@ -5,6 +5,7 @@ use bevy_asset::{AssetId, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
+use bevy_math::Vec2;
 use bevy_reflect::prelude::*;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
@@ -236,12 +237,38 @@ impl InheritableTextStyle for FontFace {
 #[derive(Component, Copy, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub enum FontSize {
+    /// Font Size in logical pixels.
     Px(f32),
+    /// Font Size relative to the size of the default font.
     Rem(f32),
+    /// Font Size relative to the size of the viewport width.
     Vw(f32),
+    /// Font Size relative to the size of the viewport height.
     Vh(f32),
+    /// Font Size relative to the smaller of the viewport width and viewport height.
     VMin(f32),
+    /// Font Size relative to the larger of the viewport width and viewport height.
     VMax(f32),
+}
+
+impl FontSize {
+    /// Evaluate the font size to a value in logical pixels
+    pub fn eval(
+        self,
+        // Viewport size in logical pixels
+        viewport_size: Vec2,
+        // Default font size in logical pixels
+        default_font_size: f32,
+    ) -> f32 {
+        match self {
+            FontSize::Px(s) => s,
+            FontSize::Rem(s) => default_font_size * s,
+            FontSize::Vw(s) => viewport_size.x * s,
+            FontSize::Vh(s) => viewport_size.y * s,
+            FontSize::VMin(s) => viewport_size.min_element() * s,
+            FontSize::VMax(s) => viewport_size.max_element() * s,
+        }
+    }
 }
 
 impl Default for FontSize {

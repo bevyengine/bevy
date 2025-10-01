@@ -275,7 +275,7 @@ fn setup(
                     children![(
                         Text::new("Reset"),
                         FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-                        FontSize(16.0),
+                        FontSize::Px(16.0),
                     )],
                 )],
             ),
@@ -306,7 +306,7 @@ fn build_setting_row(
             ..default()
         },
         FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-        FontSize(16.0),
+        FontSize::Px(16.0),
         children![
             (
                 Node {
@@ -337,7 +337,7 @@ fn build_setting_row(
                     } else {
                         "-"
                     }),
-                    FontSize(18.0),
+                    FontSize::Px(18.0),
                 )],
             ),
             (
@@ -370,7 +370,7 @@ fn build_setting_row(
                     } else {
                         "+"
                     }),
-                    FontSize(18.0),
+                    FontSize::Px(18.0),
                 )],
             ),
         ],

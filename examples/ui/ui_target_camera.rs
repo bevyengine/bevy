@@ -52,7 +52,11 @@ fn setup(mut commands: Commands) {
 
         // Label each box with the order of its camera target
         let label_entity = commands
-            .spawn((Text(format!("{i}")), FontSize(50.), TextColor(color.into())))
+            .spawn((
+                Text(format!("{i}")),
+                FontSize::Px(50.),
+                TextColor(color.into()),
+            ))
             .id();
 
         commands

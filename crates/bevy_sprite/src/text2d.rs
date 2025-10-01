@@ -21,9 +21,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets,
-    LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextPipeline,
-    TextRoot,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
+    Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    TextPipeline, TextRoot,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -129,7 +129,7 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers, Vec2)>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
@@ -150,6 +150,7 @@ pub fn update_text2d_layout(
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    default_text_style: Res<DefaultTextStyle>,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -160,12 +161,17 @@ pub fn update_text2d_layout(
             })
             .filter_map(|(camera, _, maybe_camera_mask)| {
                 camera.target_scaling_factor().map(|scale_factor| {
-                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
+                    (
+                        scale_factor,
+                        maybe_camera_mask.cloned().unwrap_or_default(),
+                        camera.logical_viewport_size().unwrap_or_default(),
+                    )
                 })
             }),
     );
 
     let mut previous_scale_factor = 0.;
+    let mut previous_viewport_size = Vec2::ZERO;
     let mut previous_mask = &RenderLayers::none();
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, text_root) in
@@ -173,22 +179,24 @@ pub fn update_text2d_layout(
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
-        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
-            previous_scale_factor
-        } else {
-            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
-            // render targets with different scale factors, then we use the maximum of the scale factors.
-            let Some((scale_factor, mask)) = target_scale_factors
-                .iter()
-                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
-                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
-            else {
-                continue;
+        let (scale_factor, viewport_size) =
+            if entity_mask == previous_mask && 0. < previous_scale_factor {
+                (previous_scale_factor, previous_viewport_size)
+            } else {
+                // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+                // render targets with different scale factors, then we use the maximum of the scale factors.
+                let Some((scale_factor, mask, viewport_size)) = target_scale_factors
+                    .iter()
+                    .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
+                    .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
+                else {
+                    continue;
+                };
+                previous_scale_factor = *scale_factor;
+                previous_viewport_size = *viewport_size;
+                previous_mask = mask;
+                (*scale_factor, *viewport_size)
             };
-            previous_scale_factor = *scale_factor;
-            previous_mask = mask;
-            *scale_factor
-        };
 
         if scale_factor != text_layout_info.scale_factor
             || text_root.is_changed()
@@ -205,9 +213,12 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let default_font_size = default_text_style.font_size.eval(viewport_size, 20.);
+
             for &entity in text_root.0.iter() {
                 if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
-                    computed_size.0 = style.font_size() * scale_factor;
+                    computed_size.0 =
+                        style.font_size().eval(viewport_size, default_font_size) * scale_factor;
                 }
             }
 
@@ -232,6 +243,8 @@ pub fn update_text2d_layout(
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,
+                viewport_size,
+                default_font_size,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the

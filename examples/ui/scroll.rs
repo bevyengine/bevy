@@ -137,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
                         FontFace(font_handle.clone()),
-                        FontSize(FONT_SIZE),
+                        FontSize::Px(FONT_SIZE),
                         Label,
                     ));
 
@@ -158,7 +158,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent
                                     .spawn((
                                         Text(format!("Item {i}")),
-                                        FontSize(FONT_SIZE),
+                                        FontSize::Px(FONT_SIZE),
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                         Node {
@@ -210,7 +210,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 // Title
                 Text::new("Vertically Scrolling List"),
-                FontSize(FONT_SIZE),
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
@@ -232,7 +232,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         },
                         children![(
                             Text(format!("Item {i}")),
-                            FontSize(FONT_SIZE),
+                            FontSize::Px(FONT_SIZE),
                             Label,
                             AccessibilityNode(Accessible::new(Role::ListItem)),
                         )],
@@ -255,7 +255,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
         children![
             (
                 Text::new("Bidirectionally Scrolling List"),
-                FontSize(FONT_SIZE),
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
@@ -277,7 +277,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
-                                    FontSize(FONT_SIZE),
+                                    FontSize::Px(FONT_SIZE),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )
@@ -304,7 +304,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 // Title
                 Text::new("Nested Scrolling Lists"),
-                FontSize(FONT_SIZE),
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
