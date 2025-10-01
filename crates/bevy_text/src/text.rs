@@ -30,11 +30,15 @@ pub struct TextEntity {
     pub depth: usize,
 }
 
+/// Final resolved font, size includes scaling
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Debug, Clone)]
 pub struct ResolvedFont {
+    /// font handle
     pub handle: Handle<Font>,
+    /// resolved font size
     pub size: f32,
+    /// smoothing
     pub smoothing: FontSmoothing,
 }
 
@@ -70,6 +74,10 @@ pub struct ComputedTextBlock {
     // components for more granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
 }
+
+/// Resolved fonts for a text block
+#[derive(Component, Default)]
+pub struct ResolvedFonts(pub SmallVec<[ResolvedFont; 1]>);
 
 impl ComputedTextBlock {
     /// Accesses entities in this block.
@@ -118,7 +126,7 @@ impl Default for ComputedTextBlock {
 /// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo)]
+#[require(ComputedTextBlock, TextLayoutInfo, ResolvedFonts)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
