@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::css::{LIGHT_CYAN, YELLOW},
     prelude::*,
     sprite::Text2dShadow,
+    text::{DefaultTextStyle, TextStyle},
     window::{WindowRef, WindowResolution},
 };
 
@@ -62,32 +63,28 @@ fn setup_scene(mut commands: Commands) {
         ..default()
     };
 
-    let text_font = FontFace::from_font_size(30.);
+    commands.insert_resource(DefaultTextStyle(TextStyle {
+        font_size: 30.,
+        ..Default::default()
+    }));
 
     // UI nodes can only be rendered by one camera at a time and ignore `RenderLayers`.
     // This root UI node has no `UiTargetCamera` so `bevy_ui` will try to find a
     // camera with the `IsDefaultUiCamera` marker component. When that fails (neither
     // camera spawned here has an `IsDefaultUiCamera`), it queries for the
     // first camera targeting the primary window and uses that.
-    commands.spawn(node.clone()).with_child((
-        Text::new("UI Text Primary Window"),
-        text_font.clone(),
-        TextShadow::default(),
-    ));
+    commands
+        .spawn(node.clone())
+        .with_child((Text::new("UI Text Primary Window"), TextShadow::default()));
 
     commands
         .spawn((node, UiTargetCamera(secondary_window_camera)))
-        .with_child((
-            Text::new("UI Text Secondary Window"),
-            text_font.clone(),
-            TextShadow::default(),
-        ));
+        .with_child((Text::new("UI Text Secondary Window"), TextShadow::default()));
 
     // `Text2d` belonging to render layer `0`.
     commands.spawn((
         Text2d::new("Text2d Primary Window"),
         TextColor(YELLOW.into()),
-        text_font.clone(),
         Text2dShadow::default(),
     ));
 
@@ -95,7 +92,6 @@ fn setup_scene(mut commands: Commands) {
     commands.spawn((
         Text2d::new("Text2d Secondary Window"),
         TextColor(YELLOW.into()),
-        text_font.clone(),
         Text2dShadow::default(),
         RenderLayers::layer(1),
     ));
@@ -108,7 +104,6 @@ fn setup_scene(mut commands: Commands) {
     commands.spawn((
         Text2d::new("Text2d Both Windows"),
         TextColor(LIGHT_CYAN.into()),
-        text_font,
         Text2dShadow::default(),
         RenderLayers::from_layers(&[0, 1]),
         Transform::from_xyz(0., -50., 0.),
