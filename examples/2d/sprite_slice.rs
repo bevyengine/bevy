@@ -107,10 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let style = FontFace {
-        font: font.clone(),
-        ..default()
-    };
+    let style = FontFace(font.clone());
 
     // Load textures
     let handle_1 = asset_server.load("textures/slice_square.png");

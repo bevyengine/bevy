@@ -120,11 +120,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // Padding label text style
-    let text_style: FontFace = FontFace {
-        font: font.clone(),
-        font_size: 42.0,
-        ..default()
-    };
+    let text_style = (FontFace(font.clone()), FontSize(42.));
 
     // Labels to indicate padding
 
@@ -182,13 +178,6 @@ fn setup(
         ),
     ];
 
-    // Label text style
-    let sampling_label_style = FontFace {
-        font,
-        font_size: 25.0,
-        ..default()
-    };
-
     let base_y = 80.0; // y position of the sprites
 
     for (sampling, atlas_handle, atlas_sources, atlas_texture, x) in configurations {
@@ -207,7 +196,7 @@ fn setup(
             &mut commands,
             (x, base_y + 110.0, 0.0), // Offset to y position of the sprite
             sampling,
-            sampling_label_style.clone(),
+            (FontFace(font.clone()), FontSize(25.)),
         );
     }
 }
@@ -274,7 +263,7 @@ fn create_label(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     text: &str,
-    text_style: FontFace,
+    text_style: (FontFace, FontSize),
 ) {
     commands.spawn((
         Text2d::new(text),
