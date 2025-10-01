@@ -27,10 +27,6 @@ fn main() {
                 ..default()
             }),
             MaterialPlugin::<CustomMaterial>::default(),
-            // FIXME: PR #20999 breaks the functionality below:
-            //   This material only needs to read the prepass textures,
-            //   but the meshes using it should not contribute to the prepass render, so we can disable it.
-            // This should be fixed by materials as entities.
             MaterialPlugin::<PrepassOutputMaterial>::default(),
         ))
         .add_systems(Startup, setup)
@@ -205,6 +201,10 @@ impl Material for PrepassOutputMaterial {
     // This needs to be transparent in order to show the scene behind the mesh
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+
+    fn enable_prepass() -> bool {
+        false
     }
 }
 
