@@ -1,8 +1,16 @@
-use self::assign::ClusterableObjectType;
 use crate::*;
 use bevy_asset::UntypedAssetId;
+use bevy_camera::primitives::{
+    face_index_to_name, CascadesFrusta, CubeMapFace, CubemapFrusta, Frustum, HalfSpace,
+    CUBE_MAP_FACES,
+};
+use bevy_camera::visibility::{
+    CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
+    VisibleMeshEntities,
+};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
@@ -11,7 +19,16 @@ use bevy_ecs::{
     prelude::*,
     system::lifetimeless::Read,
 };
-use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_light::cascade::Cascade;
+use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
+use bevy_light::cluster::GlobalVisibleClusterableObjects;
+use bevy_light::SunDisk;
+use bevy_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
+    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+};
+use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
 use bevy_render::erased_render_asset::ErasedRenderAssets;
@@ -28,14 +45,13 @@ use bevy_render::{
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::ExtractedView,
     Extract,
 };
 use bevy_render::{
@@ -88,6 +104,8 @@ pub struct ExtractedDirectionalLight {
     pub soft_shadow_size: Option<f32>,
     /// True if this light is using two-phase occlusion culling.
     pub occlusion_culling: bool,
+    pub sun_disk_angular_size: f32,
+    pub sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -123,6 +141,8 @@ pub struct GpuDirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -182,39 +202,79 @@ pub struct ShadowSamplers {
     pub directional_light_linear_sampler: Sampler,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for ShadowSamplers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let base_sampler_descriptor = SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Nearest,
+        ..default()
+    };
 
-        let base_sampler_descriptor = SamplerDescriptor {
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
-            ..default()
-        };
+    commands.insert_resource(ShadowSamplers {
+        point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+        directional_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+    });
+}
 
-        ShadowSamplers {
-            point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                compare: Some(CompareFunction::GreaterEqual),
-                ..base_sampler_descriptor
-            }),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
-            directional_light_comparison_sampler: render_device.create_sampler(
-                &SamplerDescriptor {
-                    compare: Some(CompareFunction::GreaterEqual),
-                    ..base_sampler_descriptor
-                },
-            ),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            directional_light_linear_sampler: render_device
-                .create_sampler(&base_sampler_descriptor),
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ShadowFilteringMethod
+pub fn extract_shadow_filtering_method(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ShadowFilteringMethod)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, *query_item));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractResource on foreign type AmbientLight
+pub fn extract_ambient_light_resource(
+    mut commands: Commands,
+    main_resource: Extract<Option<Res<AmbientLight>>>,
+    target_resource: Option<ResMut<AmbientLight>>,
+) {
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = (*main_resource).clone();
+            }
+        } else {
+            commands.insert_resource((*main_resource).clone());
         }
     }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type AmbientLight
+pub fn extract_ambient_light(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &AmbientLight)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 pub fn extract_lights(
@@ -272,6 +332,7 @@ pub fn extract_lights(
                 Option<&RenderLayers>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
+                Option<&SunDisk>,
             ),
             Without<SpotLight>,
         >,
@@ -453,6 +514,7 @@ pub fn extract_lights(
         maybe_layers,
         volumetric_light,
         occlusion_culling,
+        sun_disk,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -519,6 +581,8 @@ pub fn extract_lights(
                     frusta: extracted_frusta,
                     render_layers: maybe_layers.unwrap_or_default().clone(),
                     occlusion_culling,
+                    sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
+                    sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
                 },
                 RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
@@ -550,30 +614,30 @@ pub struct LightViewEntities(EntityHashMap<Vec<Entity>>);
 
 // TODO: using required component
 pub(crate) fn add_light_view_entities(
-    trigger: On<Add, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    add: On<Add, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Ok(mut v) = commands.get_entity(trigger.target()) {
+    if let Ok(mut v) = commands.get_entity(add.entity) {
         v.insert(LightViewEntities::default());
     }
 }
 
 /// Removes [`LightViewEntities`] when light is removed. See [`add_light_view_entities`].
 pub(crate) fn extracted_light_removed(
-    trigger: On<Remove, (ExtractedDirectionalLight, ExtractedPointLight)>,
+    remove: On<Remove, (ExtractedDirectionalLight, ExtractedPointLight)>,
     mut commands: Commands,
 ) {
-    if let Ok(mut v) = commands.get_entity(trigger.target()) {
+    if let Ok(mut v) = commands.get_entity(remove.entity) {
         v.try_remove::<LightViewEntities>();
     }
 }
 
 pub(crate) fn remove_light_view_entities(
-    trigger: On<Remove, LightViewEntities>,
+    remove: On<Remove, LightViewEntities>,
     query: Query<&LightViewEntities>,
     mut commands: Commands,
 ) {
-    if let Ok(entities) = query.get(trigger.target()) {
+    if let Ok(entities) = query.get(remove.entity) {
         for v in entities.0.values() {
             for e in v.iter().copied() {
                 if let Ok(mut v) = commands.get_entity(e) {
@@ -581,63 +645,6 @@ pub(crate) fn remove_light_view_entities(
                 }
             }
         }
-    }
-}
-
-pub(crate) struct CubeMapFace {
-    pub(crate) target: Vec3,
-    pub(crate) up: Vec3,
-}
-
-// Cubemap faces are [+X, -X, +Y, -Y, +Z, -Z], per https://www.w3.org/TR/webgpu/#texture-view-creation
-// Note: Cubemap coordinates are left-handed y-up, unlike the rest of Bevy.
-// See https://registry.khronos.org/vulkan/specs/1.2/html/chap16.html#_cube_map_face_selection
-//
-// For each cubemap face, we take care to specify the appropriate target/up axis such that the rendered
-// texture using Bevy's right-handed y-up coordinate space matches the expected cubemap face in
-// left-handed y-up cubemap coordinates.
-pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
-    // +X
-    CubeMapFace {
-        target: Vec3::X,
-        up: Vec3::Y,
-    },
-    // -X
-    CubeMapFace {
-        target: Vec3::NEG_X,
-        up: Vec3::Y,
-    },
-    // +Y
-    CubeMapFace {
-        target: Vec3::Y,
-        up: Vec3::Z,
-    },
-    // -Y
-    CubeMapFace {
-        target: Vec3::NEG_Y,
-        up: Vec3::NEG_Z,
-    },
-    // +Z (with left-handed conventions, pointing forwards)
-    CubeMapFace {
-        target: Vec3::NEG_Z,
-        up: Vec3::Y,
-    },
-    // -Z (with left-handed conventions, pointing backwards)
-    CubeMapFace {
-        target: Vec3::Z,
-        up: Vec3::Y,
-    },
-];
-
-fn face_index_to_name(face_index: usize) -> &'static str {
-    match face_index {
-        0 => "+x",
-        1 => "-x",
-        2 => "+y",
-        3 => "-y",
-        4 => "+z",
-        5 => "-z",
-        _ => "invalid",
     }
 }
 
@@ -693,54 +700,6 @@ pub enum LightEntity {
     Spot {
         light_entity: Entity,
     },
-}
-pub fn calculate_cluster_factors(
-    near: f32,
-    far: f32,
-    z_slices: f32,
-    is_orthographic: bool,
-) -> Vec2 {
-    if is_orthographic {
-        Vec2::new(-near, z_slices / (-far - -near))
-    } else {
-        let z_slices_of_ln_zfar_over_znear = (z_slices - 1.0) / ops::ln(far / near);
-        Vec2::new(
-            z_slices_of_ln_zfar_over_znear,
-            ops::ln(near) * z_slices_of_ln_zfar_over_znear,
-        )
-    }
-}
-
-// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
-// we will also construct it in the fragment shader and need our implementations to match,
-// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
-// could move this onto transform but it's pretty niche
-pub(crate) fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
-    // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.back().extend(0.0);
-
-    let sign = 1f32.copysign(fwd_dir.z);
-    let a = -1.0 / (fwd_dir.z + sign);
-    let b = fwd_dir.x * fwd_dir.y * a;
-    let up_dir = Vec4::new(
-        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
-        sign * b,
-        -sign * fwd_dir.x,
-        0.0,
-    );
-    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
-
-    Mat4::from_cols(
-        right_dir,
-        up_dir,
-        fwd_dir,
-        transform.translation().extend(1.0),
-    )
-}
-
-pub(crate) fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
-    // spot light projection FOV is 2x the angle from spot light center to outer edge
-    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, near_z)
 }
 
 pub fn prepare_lights(
@@ -900,7 +859,7 @@ pub fn prepare_lights(
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by_cached_key(|(entity, _, light, _)| {
         (
-            ClusterableObjectType::from_point_or_spot_light(light).ordering(),
+            point_or_spot_light_to_clusterable(light).ordering(),
             *entity,
         )
     });
@@ -1250,6 +1209,8 @@ pub fn prepare_lights(
                 num_cascades: num_cascades as u32,
                 cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
                 depth_texture_base_index: num_directional_cascades_enabled_for_this_view as u32,
+                sun_disk_angular_size: light.sun_disk_angular_size,
+                sun_disk_intensity: light.sun_disk_intensity,
                 decal_index: decals
                     .as_ref()
                     .and_then(|decals| decals.get(*light_entity))
@@ -1360,7 +1321,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
-                            "shadow pass point light {} {}",
+                            "shadow_point_light_{}_{}",
                             light_index,
                             face_index_to_name(face_index)
                         ),
@@ -1465,7 +1426,7 @@ pub fn prepare_lights(
             commands.entity(view_light_entity).insert((
                 ShadowView {
                     depth_attachment,
-                    pass_name: format!("shadow pass spot light {light_index}"),
+                    pass_name: format!("shadow_spot_light_{light_index}"),
                 },
                 ExtractedView {
                     retained_view_entity,
@@ -1609,7 +1570,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
-                            "shadow pass directional light {light_index} cascade {cascade_index}"
+                            "shadow_directional_light_{light_index}_cascade_{cascade_index}"
                         ),
                     },
                     ExtractedView {
@@ -1971,7 +1932,7 @@ pub fn queue_shadows(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
@@ -1981,7 +1942,7 @@ pub fn queue_shadows(
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
 ) {
-    for (entity, view_lights) in &view_lights {
+    for (entity, view_lights, camera_layers) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
@@ -2031,11 +1992,6 @@ pub fn queue_shadows(
                     continue;
                 };
 
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
-                    continue;
-                }
-
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -2044,6 +2000,23 @@ pub fn queue_shadows(
                     .flags
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
+                    continue;
+                }
+
+                let mesh_layers = mesh_instance
+                    .shared
+                    .render_layers
+                    .as_ref()
+                    .unwrap_or_default();
+
+                let camera_layers = camera_layers.unwrap_or_default();
+
+                if !camera_layers.intersects(mesh_layers) {
+                    continue;
+                }
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
                     continue;
                 }
 
@@ -2365,5 +2338,20 @@ impl ShadowPassNode {
         }
 
         Ok(())
+    }
+}
+
+/// Creates the [`ClusterableObjectType`] data for a point or spot light.
+fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> ClusterableObjectType {
+    match point_light.spot_light_angles {
+        Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
+            outer_angle,
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
+        None => ClusterableObjectType::PointLight {
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
     }
 }

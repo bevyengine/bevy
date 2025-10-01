@@ -1,10 +1,12 @@
 //! Macros for deriving ECS traits.
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate proc_macro;
 
 mod component;
+mod event;
+mod message;
 mod query_data;
 mod query_filter;
 mod world_query;
@@ -115,6 +117,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut active_field_types = Vec::new();
     let mut active_field_tokens = Vec::new();
+    let mut active_field_alias: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut inactive_field_tokens = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
@@ -122,6 +125,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .zip(field_kind.iter())
         .zip(field.iter())
     {
+        let field_alias = format_ident!("field_{}", i).to_token_stream();
         let field_tokens = match field {
             Some(field) => field.to_token_stream(),
             None => Index::from(i).to_token_stream(),
@@ -129,6 +133,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         match field_kind {
             BundleFieldKind::Component => {
                 active_field_types.push(field_type);
+                active_field_alias.push(field_alias);
                 active_field_tokens.push(field_tokens);
             }
 
@@ -159,27 +164,37 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);)*
-            }
         }
     };
 
     let dynamic_bundle_impl = quote! {
-        #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
-            fn get_components(
-                self,
+            unsafe fn get_components(
+                ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
+                use #ecs_path::__macro_exports::DebugCheckedUnwrap;
+
+                #ecs_path::ptr::deconstruct_moving_ptr!({
+                    let #struct_name { #(#active_field_tokens: #active_field_alias,)* #(#inactive_field_tokens: _,)* } = ptr;
+                });
+                #(
+                    <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
+                        #active_field_alias,
+                        func
+                    );
+                )*
+            }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn apply_effect(
+                ptr: #ecs_path::ptr::MovingPtr<'_, core::mem::MaybeUninit<Self>>,
+                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+            ) {
             }
         }
     };
@@ -436,8 +451,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::State
+        // The struct can still be accessed via SystemParam::State, e.g. MessageReaderState can be accessed via
+        // <MessageReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
             type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
@@ -460,7 +475,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet<#path::component::ComponentId>, world: &mut #path::world::World) {
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
@@ -551,35 +566,37 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 /// Implement the `Event` trait.
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    component::derive_event(input)
+    event::derive_event(input)
 }
 
 /// Cheat sheet for derive syntax,
 /// see full explanation on `EntityEvent` trait docs.
 ///
 /// ```ignore
-/// #[derive(Event, EntityEvent)]
-/// /// Traversal component
-/// #[entity_event(traversal = &'static ChildOf)]
+/// #[derive(EntityEvent)]
+/// /// Enable propagation, which defaults to using the ChildOf component
+/// #[entity_event(propagate)]
+/// /// Enable propagation using the given Traversal implementation
+/// #[entity_event(propagate = &'static ChildOf)]
 /// /// Always propagate
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
 /// ```
-#[proc_macro_derive(EntityEvent, attributes(entity_event))]
+#[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    component::derive_entity_event(input)
+    event::derive_entity_event(input)
 }
 
-/// Implement the `BufferedEvent` trait.
-#[proc_macro_derive(BufferedEvent)]
-pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
-    component::derive_buffered_event(input)
+/// Implement the `Message` trait.
+#[proc_macro_derive(Message)]
+pub fn derive_message(input: TokenStream) -> TokenStream {
+    message::derive_message(input)
 }
 
 /// Implement the `Resource` trait.

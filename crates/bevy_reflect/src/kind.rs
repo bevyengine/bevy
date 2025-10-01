@@ -215,7 +215,7 @@ pub enum ReflectRef<'a> {
     /// [function-like]: Function
     #[cfg(feature = "functions")]
     Function(&'a dyn Function),
-    /// An immutable refeence to an [opaque] type.
+    /// An immutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a dyn PartialReflect),
@@ -281,7 +281,7 @@ pub enum ReflectMut<'a> {
     ///
     /// [function-like]: Function
     Function(&'a mut dyn Function),
-    /// A mutable refeence to an [opaque] type.
+    /// A mutable reference to an [opaque] type.
     ///
     /// [opaque]: ReflectKind::Opaque
     Opaque(&'a mut dyn PartialReflect),

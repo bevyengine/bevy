@@ -492,8 +492,8 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
 ///
 /// ```
 /// # use bevy_asset::{Handle, uuid_handle};
-/// # type Shader = ();
-/// const SHADER: Handle<Shader> = uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// # type Image = ();
+/// const IMAGE: Handle<Image> = uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
 /// ```
 #[macro_export]
 macro_rules! uuid_handle {
@@ -506,7 +506,7 @@ macro_rules! uuid_handle {
 #[macro_export]
 macro_rules! weak_handle {
     ($uuid:expr) => {
-        uuid_handle!($uuid)
+        $crate::uuid_handle!($uuid)
     };
 }
 

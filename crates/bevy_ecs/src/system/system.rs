@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -135,7 +135,6 @@ pub trait System: Send + Sync + 'static {
         unsafe { self.validate_param_unsafe(world_cell) }?;
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -181,7 +180,7 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     ///
     /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -221,6 +220,10 @@ pub trait System: Send + Sync + 'static {
 ///
 /// This must only be implemented for system types which do not mutate the `World`
 /// when [`System::run_unsafe`] is called.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a read-only system",
+    label = "invalid read-only system"
+)]
 pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the world.
     ///
@@ -237,13 +240,15 @@ pub unsafe trait ReadOnlySystem: System {
         unsafe { self.validate_param_unsafe(world) }?;
         // SAFETY:
         // - We have read-only access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+
+/// A convenience type alias for a boxed [`ReadOnlySystem`] trait object.
+pub type BoxedReadOnlySystem<In = (), Out = ()> = Box<dyn ReadOnlySystem<In = In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(
     last_run: &mut Tick,
@@ -487,16 +492,19 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
+    #[derive(Component)]
+    struct A;
+
     fn spawn_entity(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
+        assert_eq!(world.query::<&A>().query(&world).count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
     }
 
     #[test]
@@ -523,7 +531,15 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
-        let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert!(result.unwrap_err().to_string().contains(expected));
+
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 }

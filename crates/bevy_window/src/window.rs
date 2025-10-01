@@ -909,10 +909,10 @@ impl Default for WindowResolution {
 
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
-    pub fn new(physical_width: f32, physical_height: f32) -> Self {
+    pub fn new(physical_width: u32, physical_height: u32) -> Self {
         Self {
-            physical_width: physical_width as u32,
-            physical_height: physical_height as u32,
+            physical_width,
+            physical_height,
             ..Default::default()
         }
     }
@@ -1030,33 +1030,21 @@ impl WindowResolution {
     }
 }
 
-impl<I> From<(I, I)> for WindowResolution
-where
-    I: Into<f32>,
-{
-    fn from((width, height): (I, I)) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+impl From<(u32, u32)> for WindowResolution {
+    fn from((width, height): (u32, u32)) -> Self {
+        WindowResolution::new(width, height)
     }
 }
 
-impl<I> From<[I; 2]> for WindowResolution
-where
-    I: Into<f32>,
-{
-    fn from([width, height]: [I; 2]) -> WindowResolution {
-        WindowResolution::new(width.into(), height.into())
+impl From<[u32; 2]> for WindowResolution {
+    fn from([width, height]: [u32; 2]) -> WindowResolution {
+        WindowResolution::new(width, height)
     }
 }
 
-impl From<Vec2> for WindowResolution {
-    fn from(res: Vec2) -> WindowResolution {
+impl From<UVec2> for WindowResolution {
+    fn from(res: UVec2) -> WindowResolution {
         WindowResolution::new(res.x, res.y)
-    }
-}
-
-impl From<DVec2> for WindowResolution {
-    fn from(res: DVec2) -> WindowResolution {
-        WindowResolution::new(res.x as f32, res.y as f32)
     }
 }
 
@@ -1161,7 +1149,7 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
-    /// Uses a given [`crate::monitor::Monitor`] entity.
+    /// Uses a given [`Monitor`](`crate::monitor::Monitor`) entity.
     Entity(Entity),
 }
 
@@ -1182,8 +1170,8 @@ pub enum MonitorSelection {
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,
-    /// Uses a given [`crate::monitor::VideoMode`]. A list of video modes supported by the monitor
-    /// is supplied by [`crate::monitor::Monitor::video_modes`].
+    /// Uses a given [`VideoMode`](`crate::monitor::VideoMode`). A list of video modes supported by the monitor
+    /// is supplied by [`Monitor::video_modes`](`crate::monitor::Monitor::video_modes`).
     Specific(VideoMode),
 }
 
@@ -1501,7 +1489,7 @@ mod tests {
     #[test]
     fn cursor_position_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(800., 600.),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 
@@ -1529,7 +1517,7 @@ mod tests {
     #[test]
     fn cursor_position_not_within_window_bounds() {
         let mut window = Window {
-            resolution: WindowResolution::new(800., 600.),
+            resolution: WindowResolution::new(800, 600),
             ..Default::default()
         };
 

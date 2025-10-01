@@ -4,6 +4,7 @@ cfg::alloc! {
 }
 #[cfg(feature = "debug")]
 use core::any::type_name;
+use core::ops::Deref;
 use disqualified::ShortName;
 
 #[cfg(not(feature = "debug"))]
@@ -79,10 +80,10 @@ impl DebugName {
         }
     }
 
-    /// Get the [`ShortName`] corresping to this debug name
+    /// Get the [`ShortName`] corresponding to this debug name
     ///
     /// The value will be a static string if the `debug` feature is not enabled
-    pub fn shortname(&self) -> ShortName {
+    pub fn shortname(&self) -> ShortName<'_> {
         #[cfg(feature = "debug")]
         return ShortName(self.name.as_ref());
         #[cfg(not(feature = "debug"))]
@@ -95,6 +96,17 @@ impl DebugName {
     #[cfg(feature = "debug")]
     pub fn as_string(&self) -> String {
         self.name.clone().into_owned()
+    }
+}
+
+impl Deref for DebugName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        #[cfg(feature = "debug")]
+        return &self.name;
+        #[cfg(not(feature = "debug"))]
+        return FEATURE_DISABLED;
     }
 }
 
@@ -118,6 +130,26 @@ cfg::alloc! {
     impl From<String> for DebugName {
         fn from(value: String) -> Self {
             Self::owned(value)
+        }
+    }
+
+    impl From<DebugName> for Cow<'static, str> {
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
+        fn from(value: DebugName) -> Self {
+            #[cfg(feature = "debug")]
+            {
+                value.name
+            }
+            #[cfg(not(feature = "debug"))]
+            {
+                Cow::Borrowed(FEATURE_DISABLED)
+            }
         }
     }
 }

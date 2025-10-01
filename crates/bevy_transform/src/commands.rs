@@ -44,37 +44,38 @@ impl BuildChildrenTransformExt for EntityCommands<'_> {
 
 impl BuildChildrenTransformExt for EntityWorldMut<'_> {
     fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
-        let child = self.id();
-        self.world_scope(|world| {
-            world.entity_mut(parent).add_child(child);
-            // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
-            let mut update_transform = || {
-                let parent = *world.get_entity(parent).ok()?.get::<GlobalTransform>()?;
-                let child_global = *world.get_entity(child).ok()?.get::<GlobalTransform>()?;
-                let mut child_entity = world.get_entity_mut(child).ok()?;
-                let mut child = child_entity.get_mut::<Transform>()?;
-                *child = child_global.reparented_to(&parent);
-                Some(())
-            };
-            update_transform();
-        });
+        // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
+        let mut update_transform = || {
+            let child = self.id();
+            let parent_global = self.world_scope(|world| {
+                world
+                    .get_entity_mut(parent)
+                    .ok()?
+                    .add_child(child)
+                    .get::<GlobalTransform>()
+                    .copied()
+            })?;
+            let child_global = self.get::<GlobalTransform>()?;
+            let new_child_local = child_global.reparented_to(&parent_global);
+            let mut child_local = self.get_mut::<Transform>()?;
+            *child_local = new_child_local;
+            Some(())
+        };
+        update_transform();
         self
     }
 
     fn remove_parent_in_place(&mut self) -> &mut Self {
-        let child = self.id();
-        self.world_scope(|world| {
-            world.entity_mut(child).remove::<ChildOf>();
-            // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
-            let mut update_transform = || {
-                let child_global = *world.get_entity(child).ok()?.get::<GlobalTransform>()?;
-                let mut child_entity = world.get_entity_mut(child).ok()?;
-                let mut child = child_entity.get_mut::<Transform>()?;
-                *child = child_global.compute_transform();
-                Some(())
-            };
-            update_transform();
-        });
+        self.remove::<ChildOf>();
+        // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
+        let mut update_transform = || {
+            let global = self.get::<GlobalTransform>()?;
+            let new_local = global.compute_transform();
+            let mut local = self.get_mut::<Transform>()?;
+            *local = new_local;
+            Some(())
+        };
+        update_transform();
         self
     }
 }

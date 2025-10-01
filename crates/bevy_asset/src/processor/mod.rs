@@ -58,11 +58,13 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::{PoisonError, RwLock},
+};
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{debug, error, trace, warn};
@@ -533,7 +535,7 @@ impl AssetProcessor {
     async fn finish_processing_assets(&self) {
         self.try_reprocessing_queued().await;
         // clean up metadata in asset server
-        self.server.data.infos.write().consume_handle_drop_events();
+        self.server.write_infos().consume_handle_drop_events();
         self.set_state(ProcessorState::Finished).await;
     }
 
@@ -581,7 +583,11 @@ impl AssetProcessor {
 
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
-        let mut process_plans = self.data.processors.write();
+        let mut process_plans = self
+            .data
+            .processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
@@ -589,20 +595,37 @@ impl AssetProcessor {
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
-        let mut default_processors = self.data.default_processors.write();
+        let mut default_processors = self
+            .data
+            .default_processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         default_processors.insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
     pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let default_processors = self.data.default_processors.read();
+        let default_processors = self
+            .data
+            .default_processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let key = default_processors.get(extension)?;
-        self.data.processors.read().get(key).cloned()
+        self.data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(key)
+            .cloned()
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
     pub fn get_processor(&self, processor_type_name: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let processors = self.data.processors.read();
+        let processors = self
+            .data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         processors.get(processor_type_name).cloned()
     }
 
@@ -642,11 +665,12 @@ impl AssetProcessor {
                     ))
                     .await?;
                 }
-                if !contains_files && path.parent().is_some() {
-                    if let Some(writer) = clean_empty_folders_writer {
-                        // it is ok for this to fail as it is just a cleanup job.
-                        let _ = writer.remove_empty_directory(&path).await;
-                    }
+                if !contains_files
+                    && path.parent().is_some()
+                    && let Some(writer) = clean_empty_folders_writer
+                {
+                    // it is ok for this to fail as it is just a cleanup job.
+                    let _ = writer.remove_empty_directory(&path).await;
                 }
                 Ok(contains_files)
             } else {
@@ -892,22 +916,21 @@ impl AssetProcessor {
             if let Some(current_processed_info) = infos
                 .get(asset_path)
                 .and_then(|i| i.processed_info.as_ref())
+                && current_processed_info.hash == new_hash
             {
-                if current_processed_info.hash == new_hash {
-                    let mut dependency_changed = false;
-                    for current_dep_info in &current_processed_info.process_dependencies {
-                        let live_hash = infos
-                            .get(&current_dep_info.path)
-                            .and_then(|i| i.processed_info.as_ref())
-                            .map(|i| i.full_hash);
-                        if live_hash != Some(current_dep_info.full_hash) {
-                            dependency_changed = true;
-                            break;
-                        }
+                let mut dependency_changed = false;
+                for current_dep_info in &current_processed_info.process_dependencies {
+                    let live_hash = infos
+                        .get(&current_dep_info.path)
+                        .and_then(|i| i.processed_info.as_ref())
+                        .map(|i| i.full_hash);
+                    if live_hash != Some(current_dep_info.full_hash) {
+                        dependency_changed = true;
+                        break;
                     }
-                    if !dependency_changed {
-                        return Ok(ProcessResult::SkippedNotChanged);
-                    }
+                }
+                if !dependency_changed {
+                    return Ok(ProcessResult::SkippedNotChanged);
                 }
             }
         }

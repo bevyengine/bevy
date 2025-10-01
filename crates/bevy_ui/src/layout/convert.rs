@@ -73,7 +73,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
             x: node.overflow.x.into(),
             y: node.overflow.y.into(),
         },
-        scrollbar_width: 0.0,
+        scrollbar_width: node.scrollbar_width * context.scale_factor,
         position: node.position_type.into(),
         flex_direction: node.flex_direction.into(),
         flex_wrap: node.flex_wrap.into(),
@@ -503,6 +503,7 @@ mod tests {
             aspect_ratio: None,
             overflow: crate::Overflow::clip(),
             overflow_clip_margin: crate::OverflowClipMargin::default(),
+            scrollbar_width: 7.,
             column_gap: Val::ZERO,
             row_gap: Val::ZERO,
             grid_auto_flow: GridAutoFlow::ColumnDense,
@@ -624,6 +625,7 @@ mod tests {
         assert_eq!(taffy_style.max_size.width, taffy::style::Dimension::Auto);
         assert_eq!(taffy_style.max_size.height, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.aspect_ratio, None);
+        assert_eq!(taffy_style.scrollbar_width, 7.);
         assert_eq!(taffy_style.gap.width, taffy::style::LengthPercentage::ZERO);
         assert_eq!(taffy_style.gap.height, taffy::style::LengthPercentage::ZERO);
         assert_eq!(

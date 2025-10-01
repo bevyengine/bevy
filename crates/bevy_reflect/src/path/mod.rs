@@ -414,7 +414,7 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    pub fn parse(string: &str) -> PathResult<Self> {
+    pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {

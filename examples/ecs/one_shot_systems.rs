@@ -91,22 +91,21 @@ fn system_b(entity_b: Single<Entity, With<Text>>, mut writer: TextUiWriter) {
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
-    commands
-        .spawn((
-            Text::default(),
-            TextLayout::new_with_justify(Justify::Center),
-            Node {
-                align_self: AlignSelf::Center,
-                justify_self: JustifySelf::Center,
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan::new("Press A or B to trigger a one-shot system\n"));
-            p.spawn(TextSpan::new("Last Triggered: "));
-            p.spawn((
+    commands.spawn((
+        Text::default(),
+        TextLayout::new_with_justify(Justify::Center),
+        Node {
+            align_self: AlignSelf::Center,
+            justify_self: JustifySelf::Center,
+            ..default()
+        },
+        children![
+            (TextSpan::new("Press A or B to trigger a one-shot system\n")),
+            (TextSpan::new("Last Triggered: ")),
+            (
                 TextSpan::new("-"),
                 TextColor(bevy::color::palettes::css::ORANGE.into()),
-            ));
-        });
+            )
+        ],
+    ));
 }

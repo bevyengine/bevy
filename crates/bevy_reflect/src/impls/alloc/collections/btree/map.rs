@@ -9,7 +9,6 @@ use crate::{
     type_registry::{FromType, GetTypeRegistration, ReflectFromPtr, TypeRegistration},
     utility::GenericTypeInfoCell,
 };
-use alloc::borrow::Cow;
 use alloc::vec::Vec;
 use bevy_platform::prelude::*;
 use bevy_reflect_derive::impl_type_path;
@@ -129,11 +128,11 @@ where
         ReflectKind::Map
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Map(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Map(self)
     }
 
@@ -144,21 +143,8 @@ where
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         let mut map = Self::new();
         for (key, value) in self.iter() {
-            let key =
-                key.reflect_clone()?
-                    .take()
-                    .map_err(|_| ReflectCloneError::FailedDowncast {
-                        expected: Cow::Borrowed(<Self as TypePath>::type_path()),
-                        received: Cow::Owned(key.reflect_type_path().to_string()),
-                    })?;
-            let value =
-                value
-                    .reflect_clone()?
-                    .take()
-                    .map_err(|_| ReflectCloneError::FailedDowncast {
-                        expected: Cow::Borrowed(<Self as TypePath>::type_path()),
-                        received: Cow::Owned(value.reflect_type_path().to_string()),
-                    })?;
+            let key = key.reflect_clone_and_take()?;
+            let value = value.reflect_clone_and_take()?;
             map.insert(key, value);
         }
 

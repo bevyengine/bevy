@@ -66,8 +66,8 @@ pub fn generate_hovermap(
     // Inputs
     pickable: Query<&Pickable>,
     pointers: Query<&PointerId>,
-    mut under_pointer: EventReader<backend::PointerHits>,
-    mut pointer_input: EventReader<PointerInput>,
+    mut pointer_hits_reader: MessageReader<backend::PointerHits>,
+    mut pointer_input_reader: MessageReader<PointerInput>,
     // Local
     mut over_map: Local<OverMap>,
     // Output
@@ -80,7 +80,11 @@ pub fn generate_hovermap(
         &mut over_map,
         &pointers,
     );
-    build_over_map(&mut under_pointer, &mut over_map, &mut pointer_input);
+    build_over_map(
+        &mut pointer_hits_reader,
+        &mut over_map,
+        &mut pointer_input_reader,
+    );
     build_hover_map(&pointers, pickable, &over_map, &mut hover_map);
 }
 
@@ -111,11 +115,11 @@ fn reset_maps(
 
 /// Build an ordered map of entities that are under each pointer
 fn build_over_map(
-    backend_events: &mut EventReader<backend::PointerHits>,
+    pointer_hit_reader: &mut MessageReader<backend::PointerHits>,
     pointer_over_map: &mut Local<OverMap>,
-    pointer_input: &mut EventReader<PointerInput>,
+    pointer_input_reader: &mut MessageReader<PointerInput>,
 ) {
-    let cancelled_pointers: HashSet<PointerId> = pointer_input
+    let cancelled_pointers: HashSet<PointerId> = pointer_input_reader
         .read()
         .filter_map(|p| {
             if let PointerAction::Cancel = p.action {
@@ -126,7 +130,7 @@ fn build_over_map(
         })
         .collect();
 
-    for entities_under_pointer in backend_events
+    for entities_under_pointer in pointer_hit_reader
         .read()
         .filter(|e| !cancelled_pointers.contains(&e.pointer))
     {
@@ -243,10 +247,10 @@ pub fn update_interactions(
         };
 
         for entity in previously_hovered_entities.keys() {
-            if !new_interaction_state.contains_key(entity) {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    interaction.set_if_neq(PickingInteraction::None);
-                }
+            if !new_interaction_state.contains_key(entity)
+                && let Ok(mut interaction) = interact.get_mut(*entity)
+            {
+                interaction.set_if_neq(PickingInteraction::None);
             }
         }
     }
@@ -344,7 +348,7 @@ pub fn update_is_hovered(
     }
 
     // Algorithm: for each entity having a `Hovered` component, we want to know if the current
-    // entry in the hover map is "within" (that is, in the set of descenants of) that entity. Rather
+    // entry in the hover map is "within" (that is, in the set of descendants of) that entity. Rather
     // than doing an expensive breadth-first traversal of children, instead start with the hovermap
     // entry and search upwards. We can make this even cheaper by building a set of ancestors for
     // the hovermap entry, and then testing each `Hovered` entity against that set.
@@ -404,7 +408,7 @@ pub fn update_is_directly_hovered(
 
 #[cfg(test)]
 mod tests {
-    use bevy_render::camera::Camera;
+    use bevy_camera::Camera;
 
     use super::*;
 

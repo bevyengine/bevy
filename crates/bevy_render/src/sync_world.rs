@@ -1,10 +1,9 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHash;
-use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    lifecycle::{Add, Remove},
     observer::On,
     query::With,
     reflect::ReflectComponent,
@@ -94,15 +93,15 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         app.add_observer(
-            |trigger: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -336,10 +335,7 @@ mod render_entities_world_query_impls {
             unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
@@ -445,10 +441,7 @@ mod render_entities_world_query_impls {
             unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
@@ -532,15 +525,15 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |trigger: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

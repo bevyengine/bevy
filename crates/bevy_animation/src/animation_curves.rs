@@ -199,7 +199,7 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 
     /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
     /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 }
 
 /// A [`Component`] field that can be animated, defined by a function that reads the component and returns
@@ -236,7 +236,7 @@ where
         Ok((self.func)(c.into_inner()))
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::ComponentField(&self.evaluator_id)
     }
 }
@@ -357,7 +357,7 @@ where
         self.curve.domain()
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         self.property.evaluator_id()
     }
 
@@ -408,10 +408,7 @@ impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
         self.evaluator.push_blend_register(weight, graph_node)
     }
 
-    fn commit<'a>(
-        &mut self,
-        mut entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
+    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
         let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
@@ -479,7 +476,7 @@ where
         self.0.domain()
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::Type(TypeId::of::<WeightsCurveEvaluator>())
     }
 
@@ -596,10 +593,7 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
         Ok(())
     }
 
-    fn commit<'a>(
-        &mut self,
-        mut entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
+    fn commit(&mut self, mut entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
             return Ok(());
         }
@@ -774,7 +768,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ///
     /// This must match the type returned by [`Self::create_evaluator`]. It must
     /// be a single type that doesn't depend on the type of the curve.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 
     /// Returns a newly-instantiated [`AnimationCurveEvaluator`] for use with
     /// this curve.
@@ -823,7 +817,7 @@ pub enum EvaluatorId<'a> {
     Type(TypeId),
 }
 
-/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// A low-level trait for use in [`VariableCurve`](`crate::VariableCurve`) that provides fine
 /// control over how animations are evaluated.
 ///
 /// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
@@ -840,7 +834,7 @@ pub enum EvaluatorId<'a> {
 /// either a (value, weight) pair or empty. *Value* here refers to an instance
 /// of the value being animated: for example, [`Vec3`] in the case of
 /// translation keyframes.  The stack stores intermediate values generated while
-/// evaluating the [`crate::graph::AnimationGraph`], while the blend register
+/// evaluating the [`AnimationGraph`](`crate::graph::AnimationGraph`), while the blend register
 /// stores the result of a blend operation.
 ///
 /// [`Vec3`]: bevy_math::Vec3
@@ -905,10 +899,7 @@ pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     ///
     /// The property on the component must be overwritten with the value from
     /// the stack, not blended with it.
-    fn commit<'a>(
-        &mut self,
-        entity: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError>;
+    fn commit(&mut self, entity: AnimationEntityMut) -> Result<(), AnimationEvaluationError>;
 }
 
 impl_downcast!(AnimationCurveEvaluator);

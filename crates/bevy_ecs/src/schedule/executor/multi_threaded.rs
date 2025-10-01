@@ -23,7 +23,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 #[cfg(feature = "hotpatching")]
-use crate::{event::Events, HotPatched};
+use crate::{prelude::DetectChanges, HotPatchChanges};
 
 use super::__rust_begin_short_backtrace;
 
@@ -448,12 +448,12 @@ impl ExecutorState {
         }
 
         #[cfg(feature = "hotpatching")]
-        let should_update_hotpatch = !context
+        let hotpatch_tick = context
             .environment
             .world_cell
-            .get_resource::<Events<HotPatched>>()
-            .map(Events::is_empty)
-            .unwrap_or(true);
+            .get_resource_ref::<HotPatchChanges>()
+            .map(|r| r.last_changed())
+            .unwrap_or_default();
 
         // can't borrow since loop mutably borrows `self`
         let mut ready_systems = core::mem::take(&mut self.ready_systems_copy);
@@ -474,7 +474,10 @@ impl ExecutorState {
                     &mut unsafe { &mut *context.environment.systems[system_index].get() }.system;
 
                 #[cfg(feature = "hotpatching")]
-                if should_update_hotpatch {
+                if hotpatch_tick.is_newer_than(
+                    system.get_last_run(),
+                    context.environment.world_cell.change_tick(),
+                ) {
                     system.refresh_hotpatch();
                 }
 
@@ -598,6 +601,8 @@ impl ExecutorState {
                     &mut conditions.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
+                    true,
                 )
             };
 
@@ -619,6 +624,8 @@ impl ExecutorState {
                 &mut conditions.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
+                false,
             )
         };
 
@@ -712,7 +719,7 @@ impl ExecutorState {
         // Move the full context object into the new future.
         let context = *context;
 
-        if is_apply_deferred(system) {
+        if is_apply_deferred(&**system) {
             // TODO: avoid allocation
             let unapplied_systems = self.unapplied_systems.clone();
             self.unapplied_systems.clear();
@@ -823,6 +830,8 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -840,7 +849,6 @@ unsafe fn evaluate_and_fold_conditions(
                     // SAFETY:
                     // - The caller ensures that `world` has permission to read any data
                     //   required by the condition.
-                    // - `update_archetype_component_access` has been called for condition.
                     unsafe {
                         __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
                     }
@@ -849,9 +857,11 @@ unsafe fn evaluate_and_fold_conditions(
                     if let RunSystemError::Failed(err) = err {
                         error_handler(
                             err,
-                            ErrorContext::System {
+                            ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
+                                system: for_system.name(),
+                                on_set,
                             },
                         );
                     };

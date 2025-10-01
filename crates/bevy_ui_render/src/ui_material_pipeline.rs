@@ -8,14 +8,12 @@ use bevy_ecs::{
         lifetimeless::{Read, SRes},
         *,
     },
-    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
-use bevy_render::RenderApp;
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
-    load_shader_library,
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -24,6 +22,8 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_render::{RenderApp, RenderStartup};
+use bevy_shader::{load_shader_library, Shader, ShaderRef};
 use bevy_sprite::BorderRect;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -49,11 +49,8 @@ where
         embedded_asset!(app, "ui_material.wgsl");
 
         app.init_asset::<M>()
-            //.register_type::<MaterialNode<M>>()
-            .add_plugins((
-                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
-                RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
-            ));
+            .register_type::<MaterialNode<M>>()
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -61,6 +58,7 @@ where
                 .init_resource::<ExtractedUiMaterialNodes<M>>()
                 .init_resource::<UiMaterialMeta<M>>()
                 .init_resource::<SpecializedRenderPipelines<UiMaterialPipeline<M>>>()
+                .add_systems(RenderStartup, init_ui_material_pipeline::<M>)
                 .add_systems(
                     ExtractSchedule,
                     extract_ui_material_nodes::<M>.in_set(RenderUiSystems::ExtractBackgrounds),
@@ -72,12 +70,6 @@ where
                         prepare_uimaterial_nodes::<M>.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiMaterialPipeline<M>>();
         }
     }
 }
@@ -185,41 +177,41 @@ where
     }
 }
 
-impl<M: UiMaterial> FromWorld for UiMaterialPipeline<M> {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let ui_layout = M::bind_group_layout(render_device);
+pub fn init_ui_material_pipeline<M: UiMaterial>(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let ui_layout = M::bind_group_layout(&render_device);
 
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_view_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
-                ),
+    let view_layout = render_device.create_bind_group_layout(
+        "ui_view_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<GlobalsUniform>(false),
             ),
-        );
+        ),
+    );
 
-        let load_default = || load_embedded_asset!(asset_server, "ui_material.wgsl");
+    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
 
-        UiMaterialPipeline {
-            ui_layout,
-            view_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => load_default(),
-                ShaderRef::Handle(handle) => handle,
-                ShaderRef::Path(path) => asset_server.load(path),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => load_default(),
-                ShaderRef::Handle(handle) => handle,
-                ShaderRef::Path(path) => asset_server.load(path),
-            },
-            marker: PhantomData,
-        }
-    }
+    commands.insert_resource(UiMaterialPipeline::<M> {
+        ui_layout,
+        view_layout,
+        vertex_shader: match M::vertex_shader() {
+            ShaderRef::Default => load_default(),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        },
+        fragment_shader: match M::fragment_shader() {
+            ShaderRef::Default => load_default(),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        },
+        marker: PhantomData,
+    });
 }
 
 pub type DrawUiMaterial<M> = (
@@ -342,7 +334,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -619,7 +611,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key,
+                bind_group_data: material.key.clone(),
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

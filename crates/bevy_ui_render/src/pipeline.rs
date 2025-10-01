@@ -1,6 +1,7 @@
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -9,6 +10,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::{ViewTarget, ViewUniform},
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 #[derive(Resource)]
@@ -18,35 +20,35 @@ pub struct UiPipeline {
     pub shader: Handle<Shader>,
 }
 
-impl FromWorld for UiPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_ui_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let view_layout = render_device.create_bind_group_layout(
+        "ui_view_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            uniform_buffer::<ViewUniform>(true),
+        ),
+    );
 
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_view_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
+    let image_layout = render_device.create_bind_group_layout(
+        "ui_image_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        let image_layout = render_device.create_bind_group_layout(
-            "ui_image_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
-            ),
-        );
-
-        UiPipeline {
-            view_layout,
-            image_layout,
-            shader: load_embedded_asset!(world, "ui.wgsl"),
-        }
-    }
+    commands.insert_resource(UiPipeline {
+        view_layout,
+        image_layout,
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui.wgsl"),
+    });
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]

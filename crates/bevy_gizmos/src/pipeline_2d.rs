@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::visibility::RenderLayers;
 use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 
 use bevy_ecs::{
@@ -23,11 +24,14 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+use bevy_shader::Shader;
+use bevy_sprite_render::{
+    init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
+};
 use bevy_utils::default;
 use tracing::error;
 
@@ -49,14 +53,18 @@ impl Plugin for LineGizmo2dPlugin {
                 Render,
                 GizmoRenderSystems::QueueLineGizmos2d
                     .in_set(RenderSystems::Queue)
-                    .ambiguous_with(bevy_sprite::queue_sprites)
+                    .ambiguous_with(bevy_sprite_render::queue_sprites)
                     .ambiguous_with(
-                        bevy_sprite::queue_material2d_meshes::<bevy_sprite::ColorMaterial>,
+                        bevy_sprite_render::queue_material2d_meshes::<
+                            bevy_sprite_render::ColorMaterial,
+                        >,
                     ),
             )
             .add_systems(
                 RenderStartup,
-                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
+                init_line_gizmo_pipelines
+                    .after(init_line_gizmo_uniform_bind_group_layout)
+                    .after(init_mesh_2d_pipeline),
             )
             .add_systems(
                 Render,
