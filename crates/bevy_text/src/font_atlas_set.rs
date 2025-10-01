@@ -30,9 +30,7 @@ impl FontAtlasSets {
 
     /// Returns the total number of rasterized fonts across all sets.
     pub fn font_count(&self) -> usize {
-        self.sets
-            .iter()
-            .fold(0, |count, (_, set)| count + set.len())
+        self.sets.values().map(FontAtlasSet::len).sum()
     }
 }
 
