@@ -235,11 +235,18 @@ impl InheritableTextStyle for FontFace {
 /// which can have a strong performance impact.
 #[derive(Component, Copy, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct FontSize(pub f32);
+pub enum FontSize {
+    Px(f32),
+    Rem(f32),
+    Vw(f32),
+    Vh(f32),
+    VMin(f32),
+    VMax(f32),
+}
 
 impl Default for FontSize {
     fn default() -> Self {
-        Self(20.)
+        Self::Px(20.)
     }
 }
 
