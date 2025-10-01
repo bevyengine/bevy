@@ -23,7 +23,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Slider, SliderRange, SliderValue, TrackClick};
+use bevy_ui_widgets::{Slider, SliderPrecision, SliderRange, SliderValue, TrackClick};
 
 use crate::{
     constants::{fonts, size},
@@ -195,7 +195,13 @@ fn set_slider_styles(
 
 fn update_slider_pos(
     mut q_sliders: Query<
-        (Entity, &SliderValue, &SliderRange, &mut BackgroundGradient),
+        (
+            Entity,
+            &SliderValue,
+            &SliderRange,
+            &SliderPrecision,
+            &mut BackgroundGradient,
+        ),
         (
             With<SliderStyle>,
             Or<(
@@ -208,7 +214,7 @@ fn update_slider_pos(
     q_children: Query<&Children>,
     mut q_slider_text: Query<&mut Text, With<SliderValueText>>,
 ) {
-    for (slider_ent, value, range, mut gradient) in q_sliders.iter_mut() {
+    for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
             let percent_value = range.thumb_position(value.0) * 100.0;
             linear_gradient.stops[1].point = Val::Percent(percent_value);
@@ -218,7 +224,11 @@ fn update_slider_pos(
         // Find slider text child entity and update its text with the formatted value
         q_children.iter_descendants(slider_ent).for_each(|child| {
             if let Ok(mut text) = q_slider_text.get_mut(child) {
-                text.0 = format!("{}", value.0);
+                text.0 = if precision.0 >= 0 {
+                    format!("{:.precision$}", value.0, precision = precision.0 as usize)
+                } else {
+                    format!("{}", value.0)
+                };
             }
         });
     }
