@@ -104,6 +104,12 @@ impl Text {
     }
 }
 
+impl From<String> for Text {
+    fn from(value: String) -> Self {
+        Text(value)
+    }
+}
+
 /// Adds a shadow behind text
 ///
 /// Use the `Text2dShadow` component for `Text2d` shadows

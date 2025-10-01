@@ -160,10 +160,7 @@ fn setup(
     // Controls Text
 
     // We need the full version of this font so we can use box drawing characters.
-    let text_style = FontFace {
-        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-        ..default()
-    };
+    let text_style = FontFace(asset_server.load("fonts/FiraMono-Medium.ttf"));
 
     let label_text_style = (text_style.clone(), TextColor(ORANGE.into()));
 
