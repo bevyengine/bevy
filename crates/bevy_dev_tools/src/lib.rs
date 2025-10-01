@@ -17,7 +17,12 @@ mod easy_screenshot;
 pub mod fps_overlay;
 pub mod frame_time_graph;
 
+pub mod inspector;
+
 pub mod picking_debug;
+
+/// Reusable UI widgets suitable for upstreaming to bevy_ui
+pub mod widgets;
 
 pub mod states;
 
@@ -54,5 +59,8 @@ pub use easy_screenshot::*;
 pub struct DevToolsPlugin;
 
 impl Plugin for DevToolsPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, _app: &mut App) {
+        // Dev tools plugins can be added here if we want them enabled by default
+        // For now, users should add inspector::InspectorPlugin manually when needed
+    }
 }
