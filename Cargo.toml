@@ -2792,7 +2792,8 @@ wasm = false
 [[example]]
 name = "type_data"
 path = "examples/reflection/type_data.rs"
-doc-scrape-examples = true
+# Causes an ICE on docs.rs
+doc-scrape-examples = false
 
 [package.metadata.example.type_data]
 name = "Type Data"
