@@ -7,6 +7,7 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
 
+/// Identifies the font atlases for a particular font in `FontAtlasSets`
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct FontAtlasSetKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
 
