@@ -75,10 +75,6 @@ pub struct ComputedTextBlock {
     pub(crate) needs_rerender: bool,
 }
 
-/// Resolved fonts for a text block
-#[derive(Component, Default)]
-pub struct ResolvedFonts(pub SmallVec<[ResolvedFont; 1]>);
-
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
@@ -126,7 +122,7 @@ impl Default for ComputedTextBlock {
 /// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo, ResolvedFonts)]
+#[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
