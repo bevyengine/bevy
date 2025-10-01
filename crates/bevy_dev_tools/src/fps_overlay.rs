@@ -74,6 +74,22 @@ impl Plugin for FpsOverlayPlugin {
     }
 }
 
+/// Configuration options for the FPS overlay position on the screen.
+#[derive(Default, Copy, Clone)]
+pub struct FpsOverlayPosition {
+    /// The horizontal position of the left edge of the overlay.
+    pub left: Val,
+
+    /// The horizontal position of the right edge of the overlay.
+    pub right: Val,
+
+    /// The vertical position of the top edge of the overlay.
+    pub top: Val,
+
+    /// The vertical position of the bottom edge of the overlay.
+    pub bottom: Val,
+}
+
 /// Configuration options for the FPS overlay.
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
@@ -89,6 +105,8 @@ pub struct FpsOverlayConfig {
     pub refresh_interval: Duration,
     /// Configuration of the frame time graph
     pub frame_time_graph_config: FrameTimeGraphConfig,
+    /// Configuration of the overlay position.
+    pub position: FpsOverlayPosition,
 }
 
 impl Default for FpsOverlayConfig {
@@ -104,6 +122,7 @@ impl Default for FpsOverlayConfig {
             refresh_interval: Duration::from_millis(100),
             // TODO set this to display refresh rate if possible
             frame_time_graph_config: FrameTimeGraphConfig::target_fps(60.0),
+            position: FpsOverlayPosition::default(),
         }
     }
 }
@@ -161,6 +180,10 @@ fn setup(
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
+                top: overlay_config.position.top,
+                right: overlay_config.position.right,
+                bottom: overlay_config.position.bottom,
+                left: overlay_config.position.left,
                 ..Default::default()
             },
             // Render overlay on top of everything

@@ -1,7 +1,9 @@
 //! Showcase how to use and configure FPS overlay.
 
 use bevy::{
-    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
+    dev_tools::fps_overlay::{
+        FpsOverlayConfig, FpsOverlayPlugin, FpsOverlayPosition, FrameTimeGraphConfig,
+    },
     prelude::*,
     text::FontSmoothing,
 };
@@ -39,6 +41,11 @@ fn main() {
                         min_fps: 30.0,
                         // The target fps
                         target_fps: 144.0,
+                    },
+                    position: FpsOverlayPosition {
+                        top: px(1.0),
+                        left: px(1.0),
+                        ..default()
                     },
                 },
             },
