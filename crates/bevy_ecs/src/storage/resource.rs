@@ -148,6 +148,10 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
+    #[expect(
+        dead_code,
+        reason = "To be removed before 0.18 as part of resource-as-component effort"
+    )]
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
         let (ptr, ticks, caller) = self.get_with_ticks()?;
         Some(MutUntyped {
@@ -210,6 +214,10 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
+    #[expect(
+        dead_code,
+        reason = "To be removed before 0.18 as part of resource-as-component effort"
+    )]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
         value: OwningPtr<'_>,

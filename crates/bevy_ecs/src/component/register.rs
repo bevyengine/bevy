@@ -10,7 +10,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
     },
     query::DebugCheckedUnwrap as _,
-    resource::Resource,
+    resource::{IsResource, Resource, ResourceComponent},
 };
 
 /// Generates [`ComponentId`]s.
@@ -289,12 +289,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
-        }
+        self.register_component::<ResourceComponent<T>>()
     }
 
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
@@ -321,7 +316,7 @@ impl<'w> ComponentsRegistrator<'w> {
         type_id: TypeId,
         descriptor: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        if let Some(id) = self.resource_indices.get(&type_id) {
+        if let Some(id) = self.indices.get(&type_id) {
             return *id;
         }
 
@@ -344,6 +339,27 @@ impl<'w> ComponentsRegistrator<'w> {
             self.components
                 .register_resource_unchecked(type_id, id, descriptor());
         }
+
+        // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+        let hooks = self
+            .components
+            .get_hooks_mut(id)
+            .expect("The component was just registered");
+        hooks.on_add(crate::resource::on_add_hook);
+        hooks.on_remove(crate::resource::on_remove_hook);
+
+        let is_resource_id = self.register_component::<IsResource>();
+        // SAFETY:
+        // - The IsResource component id matches
+        // - The constructor constructs an IsResource
+        unsafe {
+            let _ = self.components.register_required_components::<IsResource>(
+                id,
+                is_resource_id,
+                || IsResource,
+            );
+        }
+
         id
     }
 
@@ -368,6 +384,27 @@ impl<'w> ComponentsRegistrator<'w> {
         unsafe {
             self.components.register_component_inner(id, descriptor);
         }
+
+        // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+        let hooks = self
+            .components
+            .get_hooks_mut(id)
+            .expect("the resource was just registered");
+        hooks.on_add(crate::resource::on_add_hook);
+        hooks.on_remove(crate::resource::on_remove_hook);
+
+        let is_resource_id = self.register_component::<IsResource>();
+        // SAFETY:
+        // - The IsResource component id matches
+        // - The constructor constructs an IsResource
+        unsafe {
+            let _ = self.components.register_required_components::<IsResource>(
+                id,
+                is_resource_id,
+                || IsResource,
+            );
+        }
+
         id
     }
 
