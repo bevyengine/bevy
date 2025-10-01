@@ -1,4 +1,6 @@
-use crate::{style::ComputedTextStyle, Font, InheritedTextStyle, TextLayoutInfo};
+use crate::{
+    style::ComputedTextStyle, Font, InheritableTextStyle, InheritedTextStyle, TextLayoutInfo,
+};
 use bevy_asset::{AssetId, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -197,15 +199,6 @@ impl From<Justify> for cosmic_text::Align {
             Justify::Justified => cosmic_text::Align::Justified,
         }
     }
-}
-
-/// The component is a text style that will be propagated to its descendants
-pub trait InheritableTextStyle: Component {
-    /// Type of the propagated value
-    type Inherited: Clone + PartialEq + Send + Sync + 'static;
-
-    /// Wrapper for the propagated value
-    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited>;
 }
 
 /// The specific font face to use, as a `Handle` to a [`Font`] asset.

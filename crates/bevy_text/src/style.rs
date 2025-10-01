@@ -58,6 +58,15 @@ pub struct DefaultTextStyle(pub TextStyle);
 #[reflect(Component, Clone, PartialEq)]
 pub struct InheritedTextStyle<S: Clone + PartialEq>(pub S);
 
+/// The component contains a text style that will be propagated to its descendants
+pub trait InheritableTextStyle: Component {
+    /// Type of the propagated value
+    type Inherited: Clone + PartialEq + Send + Sync + 'static;
+
+    /// Returns a wrapper for the propagated value
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited>;
+}
+
 /// The resolved text style for a text entity.
 ///
 /// Updated by [`update_computed_text_styles`]
@@ -110,7 +119,7 @@ impl ComputedTextStyle {
 }
 
 /// update text style sources
-pub fn update_from_inherited_text_style_sources<S: InheritableTextStyle + Component>(
+pub fn update_from_inherited_text_style_sources<S: InheritableTextStyle>(
     mut commands: Commands,
     changed_query: Query<(Entity, &S), Or<(Changed<S>, Without<InheritedTextStyle<S::Inherited>>)>>,
     mut removed_styles: RemovedComponents<S>,
@@ -127,7 +136,7 @@ pub fn update_from_inherited_text_style_sources<S: InheritableTextStyle + Compon
 }
 
 /// update reparented and orphaned styles
-pub fn update_reparented_inherited_styles<S: InheritableTextStyle + Component>(
+pub fn update_reparented_inherited_styles<S: InheritableTextStyle>(
     mut commands: Commands,
     moved: Query<
         (Entity, &ChildOf, Option<&InheritedTextStyle<S::Inherited>>),
