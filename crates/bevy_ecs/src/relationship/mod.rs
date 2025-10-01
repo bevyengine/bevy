@@ -18,7 +18,7 @@ use crate::{
     entity::{ComponentCloneCtx, Entity},
     error::CommandWithEntity,
     lifecycle::HookContext,
-    world::{DeferredWorld, EntityWorldMut},
+    world::{DeferredWorld, EntityWorldMut, World},
 };
 use log::warn;
 
@@ -117,7 +117,7 @@ pub trait Relationship: Component + Sized {
                 }
             }
         }
-        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
+        let target_entity = world.get::<Self>(entity).unwrap().get();
         if target_entity == entity {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
@@ -128,6 +128,7 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
+
         // For one-to-one relationships, remove existing relationship before adding new one
         let current_source_to_remove = world
             .get_entity(target_entity)
@@ -143,27 +144,45 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(current_source).try_remove::<Self>();
         }
 
-        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
-            // Deferring is necessary for batch mode
-            entity_commands
-                .entry::<Self::RelationshipTarget>()
-                .and_modify(move |mut relationship_target| {
-                    relationship_target.collection_mut_risky().add(entity);
-                })
-                .or_insert_with(move || {
-                    let mut target = Self::RelationshipTarget::with_capacity(1);
-                    target.collection_mut_risky().add(entity);
-                    target
-                });
-        } else {
-            warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
-                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                DebugName::type_name::<Self>(),
-                DebugName::type_name::<Self>()
-            );
-            world.commands().entity(entity).remove::<Self>();
-        }
+        // We defer the decision of inserting or modifying RelationshipTarget. Deciding now to defer
+        // either an insertion or a modification causes an issue when inserting in batch if the
+        // target doesn't have the component yet. In that case, since the hooks run with no flush in
+        // between, we end up deferring a batch of commands all inserting RelationshipTarget with a
+        // single entity, each command overwriting the previous one when applied. This also ensures
+        // the target exists before modifying it.
+        world.commands().queue(move |world: &mut World| {
+            if let Ok(mut target_entity) = world.get_entity_mut(target_entity) {
+                target_entity
+                    .entry::<Self::RelationshipTarget>()
+                    .and_modify(move |mut relationship_target| {
+                        relationship_target.collection_mut_risky().add(entity);
+                    })
+                    .or_insert_with(|| {
+                        let mut target = Self::RelationshipTarget::with_capacity(1);
+                        target.collection_mut_risky().add(entity);
+                        target
+                    });
+            } else if let Ok(mut entity) = world.get_entity_mut(entity) {
+                warn!(
+                    "{}The {}({target_entity:?}) relationship on entity {:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    entity.id(),
+                    DebugName::type_name::<Self>(),
+                    DebugName::type_name::<Self>()
+                );
+                entity.remove::<Self>();
+            } else {
+                warn!(
+                    "{}The {} relationship between entity {entity:?} and its target {target_entity:?} could not be set up because these entities don't exist.",
+                    caller
+                        .map(|location| format!("{location}: "))
+                        .unwrap_or_default(),
+                    DebugName::type_name::<Self>(),
+                );
+            }
+        });
     }
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
@@ -482,7 +501,9 @@ impl RelationshipTargetCloneBehaviorHierarchy
 mod tests {
     use core::marker::PhantomData;
 
-    use crate::prelude::{ChildOf, Children};
+    use crate::prelude::{Add, ChildOf, Children, On};
+    use crate::spawn::SpawnRelated;
+    use crate::system::{Commands, Query};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -696,5 +717,18 @@ mod tests {
 
         assert!(world.get::<ChildOf>(child).is_some());
         assert!(world.get::<Children>(parent).is_some());
+    }
+
+    #[test]
+    fn target_disappears_before_hook_commands_apply() {
+        let mut world = World::new();
+        world.add_observer(
+            |add: On<Add, ChildOf>, q_child_of: Query<&ChildOf>, mut commands: Commands| {
+                let target = q_child_of.get(add.entity).unwrap().parent();
+                // Will run after the ChildOf on_insert hook but before its commands
+                commands.entity(target).despawn();
+            },
+        );
+        world.spawn(Children::spawn_one(()));
     }
 }
