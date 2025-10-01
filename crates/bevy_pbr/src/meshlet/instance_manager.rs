@@ -8,7 +8,7 @@ use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
-    event::EventReader,
+    message::MessageReader,
     query::Has,
     resource::Resource,
     system::{Local, Query, Res, ResMut, SystemState},
@@ -207,7 +207,7 @@ pub fn extract_meshlet_mesh_entities(
                 )>,
                 Res<AssetServer>,
                 ResMut<Assets<MeshletMesh>>,
-                EventReader<AssetEvent<MeshletMesh>>,
+                MessageReader<AssetEvent<MeshletMesh>>,
             )>,
         >,
     >,

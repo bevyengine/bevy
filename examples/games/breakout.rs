@@ -61,22 +61,17 @@ fn main() {
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
-        .add_event::<CollisionEvent>()
         .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
         // which runs at 64 Hz by default
         .add_systems(
             FixedUpdate,
-            (
-                apply_velocity,
-                move_paddle,
-                check_for_collisions,
-                play_collision_sound,
-            )
+            (apply_velocity, move_paddle, check_for_collisions)
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
         .add_systems(Update, update_scoreboard)
+        .add_observer(play_collision_sound)
         .run();
 }
 
@@ -89,8 +84,8 @@ struct Ball;
 #[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec2);
 
-#[derive(BufferedEvent, Default)]
-struct CollisionEvent;
+#[derive(Event)]
+struct BallCollided;
 
 #[derive(Component)]
 struct Brick;
@@ -342,7 +337,6 @@ fn check_for_collisions(
     mut score: ResMut<Score>,
     ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
-    mut collision_events: EventWriter<CollisionEvent>,
 ) {
     let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
@@ -356,8 +350,8 @@ fn check_for_collisions(
         );
 
         if let Some(collision) = collision {
-            // Writes a collision event so that other systems can react to the collision
-            collision_events.write_default();
+            // Trigger observers of the "BallCollided" event
+            commands.trigger(BallCollided);
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
@@ -392,16 +386,11 @@ fn check_for_collisions(
 }
 
 fn play_collision_sound(
+    _collided: On<BallCollided>,
     mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
     sound: Res<CollisionSound>,
 ) {
-    // Play a sound once per frame if a collision occurred.
-    if !collision_events.is_empty() {
-        // This prevents events staying active on the next frame.
-        collision_events.clear();
-        commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
-    }
+    commands.spawn((AudioPlayer(sound.clone()), PlaybackSettings::DESPAWN));
 }
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]

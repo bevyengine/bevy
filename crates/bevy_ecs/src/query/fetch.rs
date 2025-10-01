@@ -555,7 +555,7 @@ impl ReleaseStateQueryData for EntityLocation {
 ///         print!(
 ///             "entity {:?} spawned at {:?}",
 ///             entity,
-///             spawn_details.spawned_at()
+///             spawn_details.spawn_tick()
 ///         );
 ///         match spawn_details.spawned_by().into_option() {
 ///             Some(location) => println!(" by {:?}", location),
@@ -569,7 +569,7 @@ impl ReleaseStateQueryData for EntityLocation {
 #[derive(Clone, Copy, Debug)]
 pub struct SpawnDetails {
     spawned_by: MaybeLocation,
-    spawned_at: Tick,
+    spawn_tick: Tick,
     last_run: Tick,
     this_run: Tick,
 }
@@ -578,12 +578,12 @@ impl SpawnDetails {
     /// Returns `true` if the entity spawned since the last time this system ran.
     /// Otherwise, returns `false`.
     pub fn is_spawned(self) -> bool {
-        self.spawned_at.is_newer_than(self.last_run, self.this_run)
+        self.spawn_tick.is_newer_than(self.last_run, self.this_run)
     }
 
     /// Returns the `Tick` this entity spawned at.
-    pub fn spawned_at(self) -> Tick {
-        self.spawned_at
+    pub fn spawn_tick(self) -> Tick {
+        self.spawn_tick
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -680,14 +680,14 @@ unsafe impl QueryData for SpawnDetails {
         _table_row: TableRow,
     ) -> Self::Item<'w, 's> {
         // SAFETY: only living entities are queried
-        let (spawned_by, spawned_at) = unsafe {
+        let (spawned_by, spawn_tick) = unsafe {
             fetch
                 .entities
                 .entity_get_spawned_or_despawned_unchecked(entity)
         };
         Self {
             spawned_by,
-            spawned_at,
+            spawn_tick,
             last_run: fetch.last_run,
             this_run: fetch.this_run,
         }
@@ -3036,7 +3036,7 @@ mod tests {
         struct NonReleaseQueryData;
 
         /// SAFETY:
-        /// `update_component_access` and `update_archetype_component_access` do nothing.
+        /// `update_component_access` do nothing.
         /// This is sound because `fetch` does not access components.
         unsafe impl WorldQuery for NonReleaseQueryData {
             type Fetch<'w> = ();

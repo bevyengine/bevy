@@ -43,7 +43,7 @@
 //!
 //! Despite the absence of generics, each lifecycle event is associated with a specific component.
 //! When defining a component hook for a [`Component`] type, that component is used.
-//! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
+//! When observers watch lifecycle events, the `B: Bundle` generic is used.
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
 //! which are assigned during [`World`] initialization.
@@ -53,9 +53,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{
-        BufferedEvent, EntityEvent, EventCursor, EventId, EventIterator, EventIteratorWithId,
-        EventKey, Events,
+    event::{EntityComponentsTrigger, EntityEvent, EventKey},
+    message::{
+        Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
@@ -327,49 +327,69 @@ pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.
-/// See [`crate::lifecycle::ComponentHooks::on_add`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+/// See [`ComponentHooks::on_add`](`crate::lifecycle::ComponentHooks::on_add`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnAdd")]
-pub struct Add;
+pub struct Add {
+    /// The entity this component was added to.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is inserted, regardless of whether or not the entity already
 /// had that component. Runs after `Add`, if it ran.
-/// See [`crate::lifecycle::ComponentHooks::on_insert`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+/// See [`ComponentHooks::on_insert`](`crate::lifecycle::ComponentHooks::on_insert`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnInsert")]
-pub struct Insert;
+pub struct Insert {
+    /// The entity this component was inserted into.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is removed from an entity, regardless
 /// of whether or not it is later replaced.
 ///
 /// Runs before the value is replaced, so you can still access the original component data.
-/// See [`crate::lifecycle::ComponentHooks::on_replace`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+/// See [`ComponentHooks::on_replace`](`crate::lifecycle::ComponentHooks::on_replace`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnReplace")]
-pub struct Replace;
+pub struct Replace {
+    /// The entity that held this component before it was replaced.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is removed from an entity, and runs before the component is
 /// removed, so you can still access the component data.
-/// See [`crate::lifecycle::ComponentHooks::on_remove`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+/// See [`ComponentHooks::on_remove`](`crate::lifecycle::ComponentHooks::on_remove`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnRemove")]
-pub struct Remove;
+pub struct Remove {
+    /// The entity this component was removed from.
+    pub entity: Entity,
+}
 
-/// Trigger emitted for each component on an entity when it is despawned.
-/// See [`crate::lifecycle::ComponentHooks::on_despawn`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+/// [`EntityEvent`] emitted for each component on an entity when it is despawned.
+/// See [`ComponentHooks::on_despawn`](`crate::lifecycle::ComponentHooks::on_despawn`) for more information.
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnDespawn")]
-pub struct Despawn;
+pub struct Despawn {
+    /// The entity that held this component before it was despawned.
+    pub entity: Entity,
+}
 
 /// Deprecated in favor of [`Add`].
 #[deprecated(since = "0.17.0", note = "Renamed to `Add`.")]
@@ -392,20 +412,20 @@ pub type OnRemove = Remove;
 pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
-/// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(BufferedEvent, Debug, Clone, Into)]
+/// Internally, `RemovedComponents` uses these as an [`Messages<RemovedComponentEntity>`].
+#[derive(Message, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
 
-/// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
-/// can differentiate events between components.
+/// Wrapper around a [`MessageCursor<RemovedComponentEntity>`] so that we
+/// can differentiate messages between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: EventCursor<RemovedComponentEntity>,
+    reader: MessageCursor<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -419,7 +439,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = EventCursor<RemovedComponentEntity>;
+    type Target = MessageCursor<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -430,15 +450,18 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
         &mut self.reader
     }
 }
+/// Renamed to [`RemovedComponentMessages`].
+#[deprecated(since = "0.17.0", note = "Use `RemovedComponentMessages` instead.")]
+pub type RemovedComponentEvents = RemovedComponentMessages;
 
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
-pub struct RemovedComponentEvents {
-    event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
+pub struct RemovedComponentMessages {
+    event_sets: SparseSet<ComponentId, Messages<RemovedComponentEntity>>,
 }
 
-impl RemovedComponentEvents {
-    /// Creates an empty storage buffer for component removal events.
+impl RemovedComponentMessages {
+    /// Creates an empty storage buffer for component removal messages.
     pub fn new() -> Self {
         Self::default()
     }
@@ -446,13 +469,13 @@ impl RemovedComponentEvents {
     /// For each type of component, swaps the event buffers and clears the oldest event buffer.
     /// In general, this should be called once per frame/update.
     pub fn update(&mut self) {
-        for (_component_id, events) in self.event_sets.iter_mut() {
-            events.update();
+        for (_component_id, messages) in self.event_sets.iter_mut() {
+            messages.update();
         }
     }
 
-    /// Returns an iterator over components and their entity events.
-    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
+    /// Returns an iterator over components and their entity messages.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Messages<RemovedComponentEntity>)> {
         self.event_sets.iter()
     }
 
@@ -460,17 +483,20 @@ impl RemovedComponentEvents {
     pub fn get(
         &self,
         component_id: impl Into<ComponentId>,
-    ) -> Option<&Events<RemovedComponentEntity>> {
+    ) -> Option<&Messages<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
     }
 
-    /// Sends a removal event for the specified component.
-    #[deprecated(since = "0.17.0", note = "Use `RemovedComponentEvents:write` instead.")]
+    /// Sends a removal message for the specified component.
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `RemovedComponentMessages:write` instead."
+    )]
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.write(component_id, entity);
     }
 
-    /// Writes a removal event for the specified component.
+    /// Writes a removal message for the specified component.
     pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
@@ -481,7 +507,7 @@ impl RemovedComponentEvents {
 /// A [`SystemParam`] that yields entities that had their `T` [`Component`]
 /// removed or have been despawned with it.
 ///
-/// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
+/// This acts effectively the same as a [`MessageReader`](crate::message::MessageReader).
 ///
 /// Unlike hooks or observers (see the [lifecycle](crate) module docs),
 /// this does not allow you to see which data existed before removal.
@@ -514,14 +540,14 @@ impl RemovedComponentEvents {
 pub struct RemovedComponents<'w, 's, T: Component> {
     component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
-    event_sets: &'w RemovedComponentEvents,
+    message_sets: &'w RemovedComponentMessages,
 }
 
 /// Iterator over entities that had a specific component removed.
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<EventIterator<'a, RemovedComponentEntity>>>>,
+    iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
@@ -529,103 +555,121 @@ pub type RemovedIter<'a> = iter::Map<
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<EventIteratorWithId<'a, RemovedComponentEntity>>>,
+    iter::Flatten<option::IntoIter<MessageIteratorWithId<'a, RemovedComponentEntity>>>,
     fn(
-        (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
-    ) -> (Entity, EventId<RemovedComponentEntity>),
+        (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
+    ) -> (Entity, MessageId<RemovedComponentEntity>),
 >;
 
-fn map_id_events(
-    (entity, id): (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
-) -> (Entity, EventId<RemovedComponentEntity>) {
+fn map_id_messages(
+    (entity, id): (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
+) -> (Entity, MessageId<RemovedComponentEntity>) {
     (entity.clone().into(), id)
 }
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
-// should be similar to `EventReader<T>` to reduce confusion.
+// should be similar to `MessageReader<T>` to reduce confusion.
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
-    /// Fetch underlying [`EventCursor`].
-    pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
+    /// Fetch underlying [`MessageCursor`].
+    pub fn reader(&self) -> &MessageCursor<RemovedComponentEntity> {
         &self.reader
     }
 
-    /// Fetch underlying [`EventCursor`] mutably.
-    pub fn reader_mut(&mut self) -> &mut EventCursor<RemovedComponentEntity> {
+    /// Fetch underlying [`MessageCursor`] mutably.
+    pub fn reader_mut(&mut self) -> &mut MessageCursor<RemovedComponentEntity> {
         &mut self.reader
     }
 
-    /// Fetch underlying [`Events`].
-    pub fn events(&self) -> Option<&Events<RemovedComponentEntity>> {
-        self.event_sets.get(self.component_id.get())
+    /// Fetch underlying [`Messages`].
+    #[deprecated(since = "0.17.0", note = "Renamed to `messages`.")]
+    pub fn events(&self) -> Option<&Messages<RemovedComponentEntity>> {
+        self.messages()
     }
 
-    /// Destructures to get a mutable reference to the `EventCursor`
-    /// and a reference to `Events`.
+    /// Fetch underlying [`Messages`].
+    pub fn messages(&self) -> Option<&Messages<RemovedComponentEntity>> {
+        self.message_sets.get(self.component_id.get())
+    }
+
+    /// Destructures to get a mutable reference to the `MessageCursor`
+    /// and a reference to `Messages`.
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most
-    /// usecases of the reader uses the `Events` as well.
+    /// usecases of the reader uses the `Messages` as well.
+    pub fn reader_mut_with_messages(
+        &mut self,
+    ) -> Option<(
+        &mut RemovedComponentReader<T>,
+        &Messages<RemovedComponentEntity>,
+    )> {
+        self.message_sets
+            .get(self.component_id.get())
+            .map(|messages| (&mut *self.reader, messages))
+    }
+
+    /// Destructures to get a reference to the `MessageCursor`
+    /// and a reference to `Messages`.
+    #[deprecated(since = "0.17.0", note = "Renamed to `reader_mut_with_messages`.")]
     pub fn reader_mut_with_events(
         &mut self,
     ) -> Option<(
         &mut RemovedComponentReader<T>,
-        &Events<RemovedComponentEntity>,
+        &Messages<RemovedComponentEntity>,
     )> {
-        self.event_sets
-            .get(self.component_id.get())
-            .map(|events| (&mut *self.reader, events))
+        self.reader_mut_with_messages()
     }
 
-    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
-    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
+    /// Iterates over the messages this [`RemovedComponents`] has not seen yet. This updates the
+    /// [`RemovedComponents`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
     pub fn read(&mut self) -> RemovedIter<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read(events).cloned())
+        self.reader_mut_with_messages()
+            .map(|(reader, messages)| reader.read(messages).cloned())
             .into_iter()
             .flatten()
             .map(RemovedComponentEntity::into)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`MessageId`] of the messages.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read_with_id(events))
+        self.reader_mut_with_messages()
+            .map(|(reader, messages)| reader.read_with_id(messages))
             .into_iter()
             .flatten()
-            .map(map_id_events)
+            .map(map_id_messages)
     }
 
-    /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
+    /// Determines the number of removal messages available to be read from this [`RemovedComponents`] without consuming any.
     pub fn len(&self) -> usize {
-        self.events()
-            .map(|events| self.reader.len(events))
+        self.messages()
+            .map(|messages| self.reader.len(messages))
             .unwrap_or(0)
     }
 
-    /// Returns `true` if there are no events available to read.
+    /// Returns `true` if there are no messages available to read.
     pub fn is_empty(&self) -> bool {
-        self.events()
-            .is_none_or(|events| self.reader.is_empty(events))
+        self.messages()
+            .is_none_or(|messages| self.reader.is_empty(messages))
     }
 
-    /// Consumes all available events.
+    /// Consumes all available messages.
     ///
-    /// This means these events will not appear in calls to [`RemovedComponents::read()`] or
+    /// This means these messages will not appear in calls to [`RemovedComponents::read()`] or
     /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
     pub fn clear(&mut self) {
-        if let Some((reader, events)) = self.reader_mut_with_events() {
-            reader.clear(events);
+        if let Some((reader, messages)) = self.reader_mut_with_messages() {
+            reader.clear(messages);
         }
     }
 }
 
-// SAFETY: Only reads World removed component events
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
+// SAFETY: Only reads World removed component messages
+unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentMessages {}
 
 // SAFETY: no component value access.
-unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
+unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
     type State = ();
-    type Item<'w, 's> = &'w RemovedComponentEvents;
+    type Item<'w, 's> = &'w RemovedComponentMessages;
 
     fn init_state(_world: &mut World) -> Self::State {}
 

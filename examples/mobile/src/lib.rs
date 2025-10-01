@@ -60,35 +60,35 @@ pub fn main() {
 
 fn touch_camera(
     window: Query<&Window>,
-    mut touches: EventReader<TouchInput>,
+    mut touch_inputs: MessageReader<TouchInput>,
     mut camera_transform: Single<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
-    mut rotations: EventReader<RotationGesture>,
+    mut rotation_gestures: MessageReader<RotationGesture>,
 ) {
     let Ok(window) = window.single() else {
         return;
     };
 
-    for touch in touches.read() {
-        if touch.phase == TouchPhase::Started {
+    for touch_input in touch_inputs.read() {
+        if touch_input.phase == TouchPhase::Started {
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
             **camera_transform = Transform::from_xyz(
                 camera_transform.translation.x
-                    + (touch.position.x - last_position.x) / window.width() * 5.0,
+                    + (touch_input.position.x - last_position.x) / window.width() * 5.0,
                 camera_transform.translation.y,
                 camera_transform.translation.z
-                    + (touch.position.y - last_position.y) / window.height() * 5.0,
+                    + (touch_input.position.y - last_position.y) / window.height() * 5.0,
             )
             .looking_at(Vec3::ZERO, Vec3::Y);
         }
-        *last_position = Some(touch.position);
+        *last_position = Some(touch_input.position);
     }
     // Rotation gestures only work on iOS
-    for rotation in rotations.read() {
+    for rotation_gesture in rotation_gestures.read() {
         let forward = camera_transform.forward();
-        camera_transform.rotate_axis(forward, rotation.0 / 10.0);
+        camera_transform.rotate_axis(forward, rotation_gesture.0 / 10.0);
     }
 }
 
@@ -193,11 +193,11 @@ fn setup_music(asset_server: Res<AssetServer>, mut commands: Commands) {
 // Pause audio when app goes into background and resume when it returns.
 // This is handled by the OS on iOS, but not on Android.
 fn handle_lifetime(
-    mut lifecycle_events: EventReader<AppLifecycle>,
+    mut app_lifecycle_reader: MessageReader<AppLifecycle>,
     music_controller: Single<&AudioSink>,
 ) {
-    for event in lifecycle_events.read() {
-        match event {
+    for app_lifecycle in app_lifecycle_reader.read() {
+        match app_lifecycle {
             AppLifecycle::Idle | AppLifecycle::WillSuspend | AppLifecycle::WillResume => {}
             AppLifecycle::Suspended => music_controller.pause(),
             AppLifecycle::Running => music_controller.play(),

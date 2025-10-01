@@ -1458,6 +1458,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Lightmap>,
                 Changed<Aabb>,
                 Changed<Mesh3d>,
+                Changed<MeshTag>,
                 Changed<NoFrustumCulling>,
                 Changed<NotShadowReceiver>,
                 Changed<TransmittedShadowReceiver>,
@@ -3153,7 +3154,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), *index_format);
 
                 match item.extra_index() {
                     PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => {

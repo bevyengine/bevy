@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin, SubApp};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
+    prelude::{Commands, IntoScheduleConfigs, MessageReader, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
     system::{ScheduleSystem, StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
@@ -230,7 +230,7 @@ impl<ERA> ErasedRenderAssets<ERA> {
 #[derive(Resource)]
 struct CachedExtractErasedRenderAssetSystemState<A: ErasedRenderAsset> {
     state: SystemState<(
-        EventReader<'static, 'static, AssetEvent<A::SourceAsset>>,
+        MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
     )>,
 }
