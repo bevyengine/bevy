@@ -58,36 +58,6 @@ pub struct DefaultTextStyle(pub TextStyle);
 #[reflect(Component, Clone, PartialEq)]
 pub struct InheritedTextStyle<S: Clone + PartialEq>(pub S);
 
-impl From<TextFont> for InheritedTextStyle<AssetId<Font>> {
-    fn from(value: TextFont) -> Self {
-        Self(value.0.id())
-    }
-}
-
-impl From<TextColor> for InheritedTextStyle<TextColor> {
-    fn from(value: TextColor) -> Self {
-        Self(value)
-    }
-}
-
-impl From<LineHeight> for InheritedTextStyle<LineHeight> {
-    fn from(value: LineHeight) -> Self {
-        Self(value)
-    }
-}
-
-impl From<FontSmoothing> for InheritedTextStyle<FontSmoothing> {
-    fn from(value: FontSmoothing) -> Self {
-        Self(value)
-    }
-}
-
-impl From<FontSize> for InheritedTextStyle<FontSize> {
-    fn from(value: FontSize) -> Self {
-        Self(value)
-    }
-}
-
 /// The resolved text style for a text entity.
 ///
 /// Updated by [`update_computed_text_styles`]
@@ -96,7 +66,7 @@ impl From<FontSize> for InheritedTextStyle<FontSize> {
 pub struct ComputedTextStyle {
     /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
     /// or from [`DefaultTextStyle`] if none is found.
-    pub(crate) font: Handle<Font>,
+    pub(crate) font: AssetId<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     pub(crate) font_size: f32,
     /// The antialiasing method to use when rendering text.
@@ -112,7 +82,7 @@ pub struct ComputedTextStyle {
 impl ComputedTextStyle {
     /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
     /// or from [`DefaultTextStyle`] if none is found.
-    pub const fn font(&self) -> &Handle<Font> {
+    pub const fn font(&self) -> &AssetId<Font> {
         &self.font
     }
 
@@ -140,54 +110,66 @@ impl ComputedTextStyle {
 }
 
 /// update text style sources
-pub fn update_from_inherited_text_style_sources<S: Component + Clone + PartialEq>(
+pub fn update_from_inherited_text_style_sources<S: InheritableTextStyle + Component>(
     mut commands: Commands,
-    changed_query: Query<(Entity, &S), Or<(Changed<S>, Without<InheritedTextStyle<S>>)>>,
+    changed_query: Query<(Entity, &S), Or<(Changed<S>, Without<InheritedTextStyle<S::Inherited>>)>>,
     mut removed_styles: RemovedComponents<S>,
 ) {
     for (entity, source) in &changed_query {
-        commands
-            .entity(entity)
-            .try_insert(InheritedTextStyle(source.clone()));
+        commands.entity(entity).try_insert(source.to_inherited());
     }
 
     for removed_style in removed_styles.read() {
         if let Ok(mut commands) = commands.get_entity(removed_style) {
-            commands.remove::<(InheritedTextStyle<S>, S)>();
+            commands.remove::<(InheritedTextStyle<S::Inherited>, S)>();
         }
     }
 }
 
 /// update reparented and orphaned styles
-pub fn update_reparented_inherited_styles<S: Component + Clone + PartialEq>(
+pub fn update_reparented_inherited_styles<S: InheritableTextStyle + Component>(
     mut commands: Commands,
     moved: Query<
-        (Entity, &ChildOf, Option<&InheritedTextStyle<S>>),
+        (Entity, &ChildOf, Option<&InheritedTextStyle<S::Inherited>>),
         (Changed<ChildOf>, Without<S>),
     >,
-    parents: Query<&InheritedTextStyle<S>>,
-    orphaned: Query<Entity, (With<InheritedTextStyle<S>>, Without<S>, Without<ChildOf>)>,
+    parents: Query<&InheritedTextStyle<S::Inherited>>,
+    orphaned: Query<
+        Entity,
+        (
+            With<InheritedTextStyle<S::Inherited>>,
+            Without<S>,
+            Without<ChildOf>,
+        ),
+    >,
 ) {
     for (entity, parent, maybe_inherited) in &moved {
         if let Ok(inherited) = parents.get(parent.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
-            commands.entity(entity).remove::<InheritedTextStyle<S>>();
+            commands
+                .entity(entity)
+                .remove::<InheritedTextStyle<S::Inherited>>();
         }
     }
 
     for orphan in &orphaned {
-        commands.entity(orphan).remove::<InheritedTextStyle<S>>();
+        commands
+            .entity(orphan)
+            .remove::<InheritedTextStyle<S::Inherited>>();
     }
 }
 
 /// propagate inherited styles
-pub fn propagate_inherited_styles<S: Component + Clone + PartialEq>(
+pub fn propagate_inherited_styles<S: InheritableTextStyle>(
     mut commands: Commands,
-    changed: Query<(&InheritedTextStyle<S>, &Children), Changed<InheritedTextStyle<S>>>,
-    recurse: Query<(Option<&Children>, Option<&InheritedTextStyle<S>>), Without<S>>,
-    mut removed: RemovedComponents<InheritedTextStyle<S>>,
-    mut to_process: Local<Vec<(Entity, Option<InheritedTextStyle<S>>)>>,
+    changed: Query<
+        (&InheritedTextStyle<S::Inherited>, &Children),
+        Changed<InheritedTextStyle<S::Inherited>>,
+    >,
+    recurse: Query<(Option<&Children>, Option<&InheritedTextStyle<S::Inherited>>), Without<S>>,
+    mut removed: RemovedComponents<InheritedTextStyle<S::Inherited>>,
+    mut to_process: Local<Vec<(Entity, Option<InheritedTextStyle<S::Inherited>>)>>,
 ) {
     // gather changed
     for (inherited, targets) in &changed {
@@ -226,7 +208,9 @@ pub fn propagate_inherited_styles<S: Component + Clone + PartialEq>(
         if let Some(inherited) = maybe_inherited {
             commands.entity(entity).try_insert(inherited.clone());
         } else {
-            commands.entity(entity).remove::<InheritedTextStyle<S>>();
+            commands
+                .entity(entity)
+                .remove::<InheritedTextStyle<S::Inherited>>();
         }
     }
 }
@@ -234,16 +218,14 @@ pub fn propagate_inherited_styles<S: Component + Clone + PartialEq>(
 fn update_computed_text_style(
     default_text_style: &DefaultTextStyle,
     mut style: Mut<ComputedTextStyle>,
-    maybe_font: Option<&InheritedTextStyle<TextFont>>,
+    maybe_font: Option<&InheritedTextStyle<AssetId<Font>>>,
     maybe_color: Option<&InheritedTextStyle<TextColor>>,
     maybe_size: Option<&InheritedTextStyle<FontSize>>,
     maybe_line_height: Option<&InheritedTextStyle<LineHeight>>,
     maybe_smoothing: Option<&InheritedTextStyle<FontSmoothing>>,
 ) {
     let new_style = ComputedTextStyle {
-        font: maybe_font
-            .map_or(&default_text_style.font, |font| &font.0 .0)
-            .clone(),
+        font: maybe_font.map_or(default_text_style.font.id(), |font| font.0),
         color: maybe_color
             .map(|t| t.0 .0)
             .unwrap_or(default_text_style.color),
@@ -274,7 +256,7 @@ pub fn update_computed_text_styles(
     mut param_sets: ParamSet<(
         Query<(
             &mut ComputedTextStyle,
-            Option<&InheritedTextStyle<TextFont>>,
+            Option<&InheritedTextStyle<AssetId<Font>>>,
             Option<&InheritedTextStyle<TextColor>>,
             Option<&InheritedTextStyle<FontSize>>,
             Option<&InheritedTextStyle<LineHeight>>,
@@ -283,14 +265,14 @@ pub fn update_computed_text_styles(
         Query<
             (
                 &mut ComputedTextStyle,
-                Option<&InheritedTextStyle<TextFont>>,
+                Option<&InheritedTextStyle<AssetId<Font>>>,
                 Option<&InheritedTextStyle<TextColor>>,
                 Option<&InheritedTextStyle<FontSize>>,
                 Option<&InheritedTextStyle<LineHeight>>,
                 Option<&InheritedTextStyle<FontSmoothing>>,
             ),
             Or<(
-                Changed<InheritedTextStyle<TextFont>>,
+                Changed<InheritedTextStyle<AssetId<Font>>>,
                 Changed<InheritedTextStyle<TextColor>>,
                 Changed<InheritedTextStyle<FontSize>>,
                 Changed<InheritedTextStyle<LineHeight>>,
@@ -546,7 +528,7 @@ mod tests {
                     .unwrap(),
                 ComputedTextStyle {
                     font_size: expected_font_size,
-                    font: default_default_text_style.font.clone(),
+                    font: default_default_text_style.font.id(),
                     color: default_default_text_style.color,
                     font_smoothing: default_default_text_style.font_smoothing,
                     line_height: default_default_text_style.line_height,
@@ -575,7 +557,7 @@ mod tests {
                     .unwrap(),
                 ComputedTextStyle {
                     font_size: expected_font_size,
-                    font: default_default_text_style.font.clone(),
+                    font: default_default_text_style.font.id(),
                     color: default_default_text_style.color,
                     font_smoothing: default_default_text_style.font_smoothing,
                     line_height: LineHeight::Px(99.),

@@ -116,7 +116,7 @@ impl TextPipeline {
                 continue;
             }
             // Return early if a font is not loaded yet.
-            if !fonts.contains(style.font.id()) {
+            if !fonts.contains(style.font) {
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -241,7 +241,7 @@ impl TextPipeline {
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, text_style)| {
-            glyph_info.push((text_style.font.id(), text_style.font_smoothing));
+            glyph_info.push((text_style.font, text_style.font_smoothing));
         });
 
         let update_result = self.update_buffer(
@@ -491,25 +491,22 @@ pub fn load_font_to_fontdb(
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
 ) -> FontFaceInfo {
-    let font_handle = style.font.clone();
-    let (face_id, family_name) = map_handle_to_font_id
-        .entry(font_handle.id())
-        .or_insert_with(|| {
-            let font = fonts.get(font_handle.id()).expect(
-                "Tried getting a font that was not available, probably due to not being loaded yet",
-            );
-            let data = Arc::clone(&font.data);
-            let ids = font_system
-                .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+    let (face_id, family_name) = map_handle_to_font_id.entry(style.font).or_insert_with(|| {
+        let font = fonts.get(style.font).expect(
+            "Tried getting a font that was not available, probably due to not being loaded yet",
+        );
+        let data = Arc::clone(&font.data);
+        let ids = font_system
+            .db_mut()
+            .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-            // TODO: it is assumed this is the right font face
-            let face_id = *ids.last().unwrap();
-            let face = font_system.db().face(face_id).unwrap();
-            let family_name = Arc::from(face.families[0].0.as_str());
+        // TODO: it is assumed this is the right font face
+        let face_id = *ids.last().unwrap();
+        let face = font_system.db().face(face_id).unwrap();
+        let family_name = Arc::from(face.families[0].0.as_str());
 
-            (face_id, family_name)
-        });
+        (face_id, family_name)
+    });
     let face = font_system.db().face(*face_id).unwrap();
 
     FontFaceInfo {

@@ -1,5 +1,5 @@
-use crate::{style::ComputedTextStyle, Font, TextLayoutInfo};
-use bevy_asset::Handle;
+use crate::{style::ComputedTextStyle, Font, InheritedTextStyle, TextLayoutInfo};
+use bevy_asset::{AssetId, Handle};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
@@ -28,18 +28,6 @@ pub struct TextEntity {
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
-}
-
-/// Final resolved font, size includes scaling
-#[derive(Debug, Clone, Reflect)]
-#[reflect(Debug, Clone)]
-pub struct ResolvedFont {
-    /// font handle
-    pub handle: Handle<Font>,
-    /// resolved font size
-    pub size: f32,
-    /// smoothing
-    pub smoothing: FontSmoothing,
 }
 
 /// Computed information for a text block.
@@ -211,6 +199,15 @@ impl From<Justify> for cosmic_text::Align {
     }
 }
 
+/// The component is a text style that will be propagated to its descendants
+pub trait InheritableTextStyle: Component {
+    /// Type of the propagated value
+    type Inherited: Clone + PartialEq + Send + Sync + 'static;
+
+    /// Wrapper for the propagated value
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited>;
+}
+
 /// The specific font face to use, as a `Handle` to a [`Font`] asset.
 ///
 /// If the `font` is not specified, then
@@ -228,6 +225,14 @@ impl From<Handle<Font>> for TextFont {
     }
 }
 
+impl InheritableTextStyle for TextFont {
+    type Inherited = AssetId<Font>;
+
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {
+        InheritedTextStyle(self.0.id())
+    }
+}
+
 /// The vertical height of rasterized glyphs in the font atlas in pixels.
 ///
 /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -242,6 +247,14 @@ pub struct FontSize(pub f32);
 impl Default for FontSize {
     fn default() -> Self {
         Self(20.)
+    }
+}
+
+impl InheritableTextStyle for FontSize {
+    type Inherited = FontSize;
+
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {
+        InheritedTextStyle(*self)
     }
 }
 
@@ -272,6 +285,14 @@ impl Default for LineHeight {
     }
 }
 
+impl InheritableTextStyle for LineHeight {
+    type Inherited = LineHeight;
+
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {
+        InheritedTextStyle(*self)
+    }
+}
+
 /// The color of the text for this section.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
@@ -296,6 +317,13 @@ impl TextColor {
     pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
+impl InheritableTextStyle for TextColor {
+    type Inherited = TextColor;
+
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {
+        InheritedTextStyle(*self)
+    }
+}
 /// The background color of the text for this section.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
@@ -364,6 +392,14 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
+}
+
+impl InheritableTextStyle for FontSmoothing {
+    type Inherited = FontSmoothing;
+
+    fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {
+        InheritedTextStyle(*self)
+    }
 }
 
 /// Text root

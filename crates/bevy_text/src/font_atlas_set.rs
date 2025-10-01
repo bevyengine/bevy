@@ -292,7 +292,7 @@ pub fn free_unused_font_atlases(
     // collect keys for all fonts currently in use by a text entity
     active_fonts.extend(active_font_query.iter().map(|(style, font_size)| {
         (
-            style.font.id(),
+            style.font,
             FontAtlasKey(font_size.0.to_bits(), style.font_smoothing),
         )
     }));
