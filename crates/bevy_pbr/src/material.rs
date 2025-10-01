@@ -179,6 +179,19 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    /// Controls if shadows are enabled for the Material.
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     ///
@@ -324,14 +337,6 @@ impl Plugin for MaterialsPlugin {
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
 pub struct MaterialPlugin<M: Material> {
-    /// Controls if the prepass is enabled for the Material.
-    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
-    ///
-    /// When it is enabled, it will automatically add the [`PrepassPlugin`]
-    /// required to make the prepass work on this Material.
-    pub prepass_enabled: bool,
-    /// Controls if shadows are enabled for the Material.
-    pub shadows_enabled: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
     pub _marker: PhantomData<M>,
@@ -340,8 +345,6 @@ pub struct MaterialPlugin<M: Material> {
 impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
-            prepass_enabled: true,
-            shadows_enabled: true,
             debug_flags: RenderDebugFlags::default(),
             _marker: Default::default(),
         }
@@ -366,7 +369,7 @@ where
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
-        if self.shadows_enabled {
+        if M::enable_shadows() {
             app.add_systems(
                 PostUpdate,
                 check_light_entities_needing_specialization::<M>
@@ -375,13 +378,6 @@ where
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            if self.prepass_enabled {
-                render_app.init_resource::<PrepassEnabled<M>>();
-            }
-            if self.shadows_enabled {
-                render_app.init_resource::<ShadowsEnabled<M>>();
-            }
-
             render_app
                 .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
                 .add_systems(
@@ -1511,11 +1507,7 @@ where
         SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
         SRes<AssetServer>,
-        (
-            Option<SRes<ShadowsEnabled<M>>>,
-            Option<SRes<PrepassEnabled<M>>>,
-            M::Param,
-        ),
+        M::Param,
     );
 
     fn prepare_asset(
@@ -1536,13 +1528,13 @@ where
             alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
             asset_server,
-            (shadows_enabled, prepass_enabled, material_param),
+            material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout(render_device);
 
-        let shadows_enabled = shadows_enabled.is_some();
-        let prepass_enabled = prepass_enabled.is_some();
+        let shadows_enabled = M::enable_shadows();
+        let prepass_enabled = M::enable_prepass();
 
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
@@ -1809,15 +1801,5 @@ pub fn write_material_bind_group_buffers(
 ) {
     for (_, allocator) in allocators.iter_mut() {
         allocator.write_buffers(&render_device, &render_queue);
-    }
-}
-
-/// Marker resource for whether shadows are enabled for this material type
-#[derive(Resource, Debug)]
-pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for ShadowsEnabled<M> {
-    fn default() -> Self {
-        Self(PhantomData)
     }
 }
