@@ -30,6 +30,14 @@ pub struct TextEntity {
     pub depth: usize,
 }
 
+#[derive(Debug, Clone, Reflect)]
+#[reflect(Debug, Clone)]
+pub struct ResolvedFont {
+    pub handle: Handle<Font>,
+    pub size: f32,
+    pub smoothing: FontSmoothing,
+}
+
 /// Computed information for a text block.
 ///
 /// See [`TextLayout`].
