@@ -95,11 +95,8 @@ mod text {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
-            FontFace {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 200.,
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize(200.),
             DespawnOnExit(super::Scene::Text),
         ));
 
@@ -110,10 +107,7 @@ mod text {
                 ..Default::default()
             },
             Text::new("white "),
-            FontFace {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
                 (
@@ -134,10 +128,7 @@ mod text {
                 (
                     Text::new("black"),
                     TextColor(Color::BLACK),
-                    FontFace {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -150,18 +141,12 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            FontFace {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
                 (
                     Text::new("white "),
-                    FontFace {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ),
                 (
                     Text::new("red "),
@@ -181,10 +166,7 @@ mod text {
                 (
                     Text::new("black"),
                     TextColor(Color::BLACK),
-                    FontFace {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -197,20 +179,14 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            FontFace {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
                 (Text::new(""), TextColor(YELLOW.into()),),
                 Text::new(""),
                 (
                     Text::new("white "),
-                    FontFace {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ),
                 Text::new(""),
                 (
@@ -236,10 +212,7 @@ mod text {
                 (
                     Text::new("black"),
                     TextColor(Color::BLACK),
-                    FontFace {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
                 Text::new(""),
@@ -706,7 +679,7 @@ mod linear_gradient {
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
-    use bevy::text::FontFace;
+    use bevy::text::FontSize;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
@@ -812,7 +785,7 @@ mod linear_gradient {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
                                             },
-                                            FontFace::from_font_size(10.),
+                                            FontSize(10.),
                                             bevy::ui::widget::Text(format!("{color_space:?}")),
                                         ]
                                     )],
@@ -896,7 +869,7 @@ mod radial_gradient {
                                             ..default()
                                         },
                                         Text(format!("{shape_label}\n{position_label}")),
-                                        FontFace::from_font_size(9.),
+                                        FontSize(9.),
                                     ));
                                     commands.spawn((
                                         Node {
