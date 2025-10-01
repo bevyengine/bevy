@@ -6,6 +6,8 @@ pull_requests: [20999]
 The `MaterialPlugin` fields `prepass_enabled` and `shadows_enabled` have
 been replaced by the `Material` methods `enable_prepass` and `enable_shadows`.
 
+Analogous methods have also been added to `MaterialExtension`
+
 ```rust
 /// before
 MaterialPlugin::<MyMaterial> {
