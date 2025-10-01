@@ -1,6 +1,5 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
-    lifecycle::RemovedComponents,
     message::MessageReader,
     resource::Resource,
     system::{Local, Query, ResMut},
