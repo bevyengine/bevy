@@ -29,11 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("Hit 'P' then scroll/click around!"),
-        FontFace {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 83.0, // Nice and big so you can see it!
-            ..default()
-        },
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize(83.0), // Nice and big so you can see it!
         // Set the style of the TextBundle itself.
         Node {
             position_type: PositionType::Absolute,
