@@ -28,7 +28,7 @@ impl FontAtlasSets {
         self.sets.get_mut(&id)
     }
 
-    /// Returns the total number of fonts in all sets
+    /// Returns the total number of rasterized fonts across all sets.
     pub fn font_count(&self) -> usize {
         self.sets
             .iter()
