@@ -120,14 +120,7 @@ fn setup(
                     },
                 )
                 .with_children(|parent| {
-                    parent.spawn((
-                        Text::new("Drag Me!"),
-                        FontFace {
-                            font_size: 40.0,
-                            ..default()
-                        },
-                        TextColor::WHITE,
-                    ));
+                    parent.spawn((Text::new("Drag Me!"), FontSize::Px(40.0), TextColor::WHITE));
                 });
         });
 

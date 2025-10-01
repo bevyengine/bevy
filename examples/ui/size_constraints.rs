@@ -43,11 +43,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = (
-        FontFace {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 33.0,
-            ..Default::default()
-        },
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
     );
 

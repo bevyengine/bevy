@@ -269,10 +269,6 @@ fn setup_sticks(
     let live_mid = (live_lower + live_upper) / 2.0;
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
-        let style = FontFace {
-            font_size: 13.,
-            ..default()
-        };
         commands.spawn((
             Transform::from_xyz(x_pos, y_pos, 0.),
             Visibility::default(),
@@ -291,10 +287,11 @@ fn setup_sticks(
                     Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
                     Anchor::BOTTOM_CENTER,
                     TextWithAxes { x_axis, y_axis },
+                    FontSize::Px(13.),
                     children![
-                        (TextSpan(format!("{:.3}", 0.)), style.clone()),
-                        (Text::new(", "), style.clone()),
-                        (TextSpan(format!("{:.3}", 0.)), style),
+                        Text2d(format!("{:.3}", 0.)),
+                        Text2d::new(", "),
+                        Text2d(format!("{:.3}", 0.)),
                     ]
                 ),
                 (
@@ -344,11 +341,8 @@ fn setup_triggers(
             ),
             children![(
                 Transform::from_xyz(0., 0., 1.),
-                Text(format!("{:.3}", 0.)),
-                FontFace {
-                    font_size: 13.,
-                    ..default()
-                },
+                Text2d(format!("{:.3}", 0.)),
+                FontSize::Px(13.),
                 TextWithButtonValue(button_type),
             )],
         ));

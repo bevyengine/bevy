@@ -71,7 +71,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     commands.insert_resource(DefaultTextStyle(TextStyle {
-        font_size: 20.,
+        font_size: FontSize::Px(20.),
         color: Color::srgb(0.9, 0.9, 0.9),
         ..default()
     }));
