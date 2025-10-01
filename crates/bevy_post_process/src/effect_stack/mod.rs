@@ -29,12 +29,12 @@ use bevy_render::{
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState,
-        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
-        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDimension,
-        TextureFormat, TextureSampleType,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d,
+        FilterMode, FragmentState, Operations, PipelineCache, RenderPassColorAttachment,
+        RenderPassDescriptor, RenderPipelineDescriptor, Sampler, SamplerBindingType,
+        SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
@@ -125,7 +125,7 @@ pub struct ChromaticAberration {
 #[derive(Resource)]
 pub struct PostProcessingPipeline {
     /// The layout of bind group 0, containing the source, LUT, and settings.
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     /// Specifies how to sample the source framebuffer texture.
     source_sampler: Sampler,
     /// Specifies how to sample the chromatic aberration gradient.
@@ -263,8 +263,8 @@ pub fn init_post_processing_pipeline(
     asset_server: Res<AssetServer>,
 ) {
     // Create our single bind group layout.
-    let bind_group_layout = render_device.create_bind_group_layout(
-        Some("postprocessing bind group layout"),
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
+        "postprocessing bind group layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
@@ -395,7 +395,7 @@ impl ViewNode for PostProcessingNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             Some("postprocessing bind group"),
-            &post_processing_pipeline.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&post_processing_pipeline.bind_group_layout),
             &BindGroupEntries::sequential((
                 post_process.source,
                 &post_processing_pipeline.source_sampler,

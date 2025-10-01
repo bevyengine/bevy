@@ -10,11 +10,11 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         binding_types::{texture_storage_2d, uniform_buffer},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, ImageSubresourceRange, PipelineCache,
-        ShaderStages, StorageTextureAccess, TextureFormat,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
+        ImageSubresourceRange, PipelineCache, ShaderStages, StorageTextureAccess, TextureFormat,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderContext,
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::default;
@@ -27,7 +27,7 @@ pub mod graph {
 }
 
 pub struct PathtracerNode {
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     pipeline: CachedComputePipelineId,
 }
 
@@ -63,7 +63,7 @@ impl ViewNode for PathtracerNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             "pathtracer_bind_group",
-            &self.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
             &BindGroupEntries::sequential((
                 &accumulation_texture.0.default_view,
                 view_target.get_unsampled_color_attachment().view,
@@ -95,11 +95,10 @@ impl ViewNode for PathtracerNode {
 
 impl FromWorld for PathtracerNode {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let scene_bindings = world.resource::<RaytracingSceneBindings>();
 
-        let bind_group_layout = render_device.create_bind_group_layout(
+        let bind_group_layout = BindGroupLayoutDescriptor::new(
             "pathtracer_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,

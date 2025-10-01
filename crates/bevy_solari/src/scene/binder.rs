@@ -5,7 +5,6 @@ use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     resource::Resource,
     system::{Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
@@ -29,7 +28,7 @@ const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     previous_frame_light_entities: Vec<Entity>,
 }
 
@@ -47,6 +46,7 @@ pub fn prepare_raytracing_scene_bindings(
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
@@ -258,7 +258,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
-        &raytracing_scene_bindings.bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
         &BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),
@@ -276,13 +276,11 @@ pub fn prepare_raytracing_scene_bindings(
     ));
 }
 
-impl FromWorld for RaytracingSceneBindings {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
+impl RaytracingSceneBindings {
+    pub fn new() -> Self {
         Self {
             bind_group: None,
-            bind_group_layout: render_device.create_bind_group_layout(
+            bind_group_layout: BindGroupLayoutDescriptor::new(
                 "raytracing_scene_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -305,6 +303,12 @@ impl FromWorld for RaytracingSceneBindings {
             ),
             previous_frame_light_entities: Vec::new(),
         }
+    }
+}
+
+impl Default for RaytracingSceneBindings {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
