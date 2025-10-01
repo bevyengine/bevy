@@ -55,7 +55,7 @@ pub struct DefaultTextStyle(pub TextStyle);
 /// Wrapper used to differentiate propagated text style compoonents
 #[derive(Debug, Component, Clone, PartialEq, Reflect)]
 #[reflect(Component, Clone, PartialEq)]
-pub struct InheritedTextStyle<S: Component + Clone + PartialEq>(pub S);
+pub struct InheritedTextStyle<S: Clone + PartialEq>(pub S);
 
 /// The resolved text style for a text entity.
 ///
