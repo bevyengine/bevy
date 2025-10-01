@@ -3,79 +3,39 @@ use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
-use bevy_reflect::TypePath;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
+
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub struct FontAtlasSetKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
-    pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
+    pub(crate) sets: HashMap<FontAtlasSetKey, Vec<FontAtlas>>,
 }
 
 impl FontAtlasSets {
     /// Get a reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
-        let id: AssetId<Font> = id.into();
-        self.sets.get(&id)
+    pub fn get(&self, id: FontAtlasSetKey) -> Option<&[FontAtlas]> {
+        self.sets.get(&id).map(Vec::as_slice)
     }
+
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
-        let id: AssetId<Font> = id.into();
+    pub fn get_mut(&mut self, id: FontAtlasSetKey) -> Option<&mut Vec<FontAtlas>> {
         self.sets.get_mut(&id)
     }
-}
 
-/// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
-pub fn remove_dropped_font_atlas_sets(
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_events: MessageReader<AssetEvent<Font>>,
-) {
-    for event in font_events.read() {
-        if let AssetEvent::Removed { id } = event {
-            font_atlas_sets.sets.remove(id);
-        }
-    }
-}
-
-/// Identifies a font size and smoothing method in a [`FontAtlasSet`].
-///
-/// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub struct FontAtlasKey(pub u32, pub FontSmoothing);
-
-/// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.
-///
-/// Provides the interface for adding and retrieving rasterized glyphs, and manages the [`FontAtlas`]es.
-///
-/// There is at most one `FontAtlasSet` for each font, stored in the `FontAtlasSets` resource.
-/// `FontAtlasSet`s are added and updated by the [`queue_text`](crate::pipeline::TextPipeline::queue_text) function.
-///
-/// A `FontAtlasSet` contains one or more [`FontAtlas`]es for each font size.
-#[derive(Debug, TypePath)]
-pub struct FontAtlasSet {
-    font_atlases: HashMap<FontAtlasKey, Vec<FontAtlas>>,
-}
-
-impl Default for FontAtlasSet {
-    fn default() -> Self {
-        FontAtlasSet {
-            font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
-        }
-    }
-}
-
-impl FontAtlasSet {
     /// Returns an iterator over the [`FontAtlas`]es in this set
-    pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
-        self.font_atlases.iter()
+    pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasSetKey, &Vec<FontAtlas>)> {
+        self.sets.iter()
     }
 
     /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasKey) -> bool {
-        self.font_atlases
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasSetKey) -> bool {
+        self.sets
             .get(font_size)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
     }
@@ -83,6 +43,7 @@ impl FontAtlasSet {
     /// Adds the given subpixel-offset glyph to the [`FontAtlas`]es in this set
     pub fn add_glyph_to_atlas(
         &mut self,
+        font: AssetId<Font>,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         font_system: &mut cosmic_text::FontSystem,
@@ -93,8 +54,9 @@ impl FontAtlasSet {
         let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
 
         let font_atlases = self
-            .font_atlases
-            .entry(FontAtlasKey(
+            .sets
+            .entry(FontAtlasSetKey(
+                font,
                 physical_glyph.cache_key.font_size_bits,
                 font_smoothing,
             ))
@@ -151,39 +113,33 @@ impl FontAtlasSet {
         }
 
         Ok(self
-            .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+            .get_glyph_atlas_info(font, physical_glyph.cache_key, font_smoothing)
             .unwrap())
     }
 
     /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
     pub fn get_glyph_atlas_info(
         &mut self,
+        font: AssetId<Font>,
         cache_key: cosmic_text::CacheKey,
         font_smoothing: FontSmoothing,
     ) -> Option<GlyphAtlasInfo> {
-        self.font_atlases
-            .get(&FontAtlasKey(cache_key.font_size_bits, font_smoothing))
-            .and_then(|font_atlases| {
-                font_atlases.iter().find_map(|atlas| {
-                    atlas
-                        .get_glyph_index(cache_key)
-                        .map(|location| GlyphAtlasInfo {
-                            location,
-                            texture_atlas: atlas.texture_atlas.id(),
-                            texture: atlas.texture.id(),
-                        })
-                })
+        self.get(FontAtlasSetKey(
+            font,
+            cache_key.font_size_bits,
+            font_smoothing,
+        ))
+        .and_then(|font_atlases| {
+            font_atlases.iter().find_map(|atlas| {
+                atlas
+                    .get_glyph_index(cache_key)
+                    .map(|location| GlyphAtlasInfo {
+                        location,
+                        texture_atlas: atlas.texture_atlas.id(),
+                        texture: atlas.texture.id(),
+                    })
             })
-    }
-
-    /// Returns the number of font atlases in this set.
-    pub fn len(&self) -> usize {
-        self.font_atlases.len()
-    }
-
-    /// Returns `true` if the set has no font atlases.
-    pub fn is_empty(&self) -> bool {
-        self.font_atlases.len() == 0
+        })
     }
 
     /// Get the texture of the glyph as a rendered image, and its offset
@@ -250,5 +206,17 @@ impl FontAtlasSet {
             ),
             IVec2::new(left, top),
         ))
+    }
+}
+
+/// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
+pub fn remove_dropped_font_atlas_sets(
+    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_events: MessageReader<AssetEvent<Font>>,
+) {
+    for event in font_events.read() {
+        if let AssetEvent::Removed { id } = event {
+            font_atlas_sets.sets.retain(|key, _| key.0 != *id);
+        }
     }
 }
