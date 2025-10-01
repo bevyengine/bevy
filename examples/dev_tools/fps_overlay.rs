@@ -41,6 +41,8 @@ fn main() {
                         min_fps: 30.0,
                         // The target fps
                         target_fps: 144.0,
+                        min_color: LinearRgba::GREEN,
+                        max_color: LinearRgba::RED,
                     },
                     position: FpsOverlayPosition {
                         top: px(1.0),

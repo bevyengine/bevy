@@ -2,7 +2,7 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{Assets, Handle};
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
     component::Component,
@@ -134,12 +134,16 @@ pub struct FrameTimeGraphConfig {
     pub enabled: bool,
     /// The minimum acceptable FPS
     ///
-    /// Anything below this will show a red bar
+    /// Anything below this will show a `min_color` bar
     pub min_fps: f32,
     /// The target FPS
     ///
-    /// Anything above this will show a green bar
+    /// Anything above this will show a `max_color` bar
     pub target_fps: f32,
+    /// The color of the bar when having lower values
+    pub min_color: LinearRgba,
+    /// The color of the bar when having higher values
+    pub max_color: LinearRgba,
 }
 
 impl FrameTimeGraphConfig {
@@ -158,6 +162,8 @@ impl Default for FrameTimeGraphConfig {
             enabled: true,
             min_fps: 30.0,
             target_fps: 60.0,
+            min_color: LinearRgba::GREEN,
+            max_color: LinearRgba::RED,
         }
     }
 }
@@ -225,6 +231,8 @@ fn setup(
                         overlay_config.frame_time_graph_config.target_fps,
                         overlay_config.frame_time_graph_config.min_fps,
                         true,
+                        overlay_config.frame_time_graph_config.min_color,
+                        overlay_config.frame_time_graph_config.max_color,
                     ),
                 })),
                 FrameTimeGraph,
