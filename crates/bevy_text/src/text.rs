@@ -415,26 +415,26 @@ pub fn update_text_roots<T: Component>(
 
     for root_entity in parents.drain(..) {
         spans.clear();
+        let mut changed = false;
 
-        fn recur<T: Component>(
+        fn walk_text_descendants<T: Component>(
             target: Entity,
             query: &Query<(Option<&Children>, Ref<T>, Ref<ComputedTextStyle>)>,
             spans: &mut Vec<Entity>,
-        ) -> bool {
+            changed: &mut bool,
+        ) {
             spans.push(target);
-            let mut changed = false;
             if let Ok((children, text, style)) = query.get(target) {
-                changed = changed || text.is_changed() || style.is_changed();
+                *changed |= text.is_changed() || style.is_changed();
                 if let Some(children) = children {
                     for child in children {
-                        changed = changed || recur(*child, query, spans);
+                        walk_text_descendants(*child, query, spans, changed);
                     }
                 }
             }
-            changed
         }
 
-        let changed = recur(root_entity, &children_query, &mut spans);
+        walk_text_descendants(root_entity, &children_query, &mut spans, &mut changed);
 
         if let Ok((_, _, Some(mut text_root), ..)) = text_node_query.get_mut(root_entity) {
             if text_root.0.as_slice() != spans.as_slice() {
