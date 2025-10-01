@@ -449,5 +449,5 @@ pub fn update_text_roots<T: Component>(
 }
 
 /// Final font size
-#[derive(Component, Debug, Copy, Clone, PartialEq, Deref, DerefMut)]
+#[derive(Component, Debug, Copy, Clone, PartialEq, Deref, DerefMut, Default)]
 pub struct ComputedFontSize(pub f32);

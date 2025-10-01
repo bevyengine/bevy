@@ -61,6 +61,7 @@ pub struct InheritedTextStyle<S: Component + Clone + PartialEq>(pub S);
 ///
 /// Updated by [`update_computed_text_styles`]
 #[derive(Component, PartialEq, Debug, Default)]
+#[require(ComputedFontSize)]
 pub struct ComputedTextStyle {
     /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
     /// or from [`DefaultTextStyle`] if none is found.
