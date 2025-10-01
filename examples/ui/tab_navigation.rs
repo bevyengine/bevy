@@ -7,6 +7,7 @@ use bevy::{
         InputDispatchPlugin, InputFocus,
     },
     prelude::*,
+    text::{DefaultTextStyle, TextStyle},
 };
 
 fn main() {
@@ -68,6 +69,13 @@ fn focus_system(
 fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
+
+    commands.insert_resource(DefaultTextStyle(TextStyle {
+        font_size: 20.,
+        color: Color::srgb(0.9, 0.9, 0.9),
+        ..default()
+    }));
+
     commands
         .spawn(Node {
             width: percent(100),
@@ -128,12 +136,7 @@ fn setup(mut commands: Commands) {
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
                                     children![(
-                                        Text::new(format!("TabIndex {i}")),
-                                        FontFace {
-                                            font_size: 20.0,
-                                            ..default()
-                                        },
-                                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                                        Text::new(format!("TabIndex {i}")),                                        
                                     )],
                                 ))
                                 .observe(

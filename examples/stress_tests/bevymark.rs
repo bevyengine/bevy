@@ -210,6 +210,17 @@ struct BirdResources {
 #[derive(Component)]
 struct StatsText;
 
+#[derive(Component)]
+struct CountText;
+#[derive(Component)]
+struct RawText;
+
+#[derive(Component)]
+struct SmaText;
+
+#[derive(Component)]
+struct EmaText;
+
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
@@ -246,11 +257,6 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let font = FontFace {
-        font_size: 40.0,
-        ..Default::default()
-    };
-
     commands.spawn(Camera2d);
     commands
         .spawn((
@@ -259,35 +265,20 @@ fn setup(
                 padding: UiRect::all(px(5)),
                 ..default()
             },
+            FontSize(40.0),
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
             GlobalZIndex(i32::MAX),
         ))
         .with_children(|p| {
             p.spawn((Text::default(), StatsText)).with_children(|p| {
-                p.spawn((
-                    Text::new("Bird Count: "),
-                    font.clone(),
-                    TextColor(LIME.into()),
-                ));
-                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
-                    Text::new("\nFPS (raw): "),
-                    font.clone(),
-                    TextColor(LIME.into()),
-                ));
-                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
-                    Text::new("\nFPS (SMA): "),
-                    font.clone(),
-                    TextColor(LIME.into()),
-                ));
-                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
-                p.spawn((
-                    Text::new("\nFPS (EMA): "),
-                    font.clone(),
-                    TextColor(LIME.into()),
-                ));
-                p.spawn((Text::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((Text::new("Bird Count: "), TextColor(LIME.into())));
+                p.spawn((Text::new(""), CountText, TextColor(AQUA.into())));
+                p.spawn((Text::new("\nFPS (raw): "), TextColor(LIME.into())));
+                p.spawn((Text::new(""), RawText, TextColor(AQUA.into())));
+                p.spawn((Text::new("\nFPS (SMA): "), TextColor(LIME.into())));
+                p.spawn((Text::new(""), SmaText, TextColor(AQUA.into())));
+                p.spawn((Text::new("\nFPS (EMA): "), TextColor(LIME.into())));
+                p.spawn((Text::new(""), EmaText, TextColor(AQUA.into())));
             });
         });
 
@@ -540,26 +531,35 @@ fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &T
 }
 
 fn counter_system(
+    mut commands: Commands,
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    query: Single<Entity, With<StatsText>>,
-    mut writer: TextUiWriter,
+    count_query: Query<Entity, With<CountText>>,
+    raw_query: Query<Entity, With<RawText>>,
+    sma_query: Query<Entity, With<SmaText>>,
+    ema_query: Query<Entity, With<EmaText>>,
 ) {
-    let text = *query;
-
     if counter.is_changed() {
-        *writer.text(text, 2) = counter.count.to_string();
+        commands
+            .entity(count_query.single().unwrap())
+            .insert(Text(counter.count.to_string()));
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            *writer.text(text, 4) = format!("{raw:.2}");
+            commands
+                .entity(raw_query.single().unwrap())
+                .insert(Text(format!("{raw:.2}")));
         }
         if let Some(sma) = fps.average() {
-            *writer.text(text, 6) = format!("{sma:.2}");
+            commands
+                .entity(sma_query.single().unwrap())
+                .insert(Text(format!("{sma:.2}")));
         }
         if let Some(ema) = fps.smoothed() {
-            *writer.text(text, 8) = format!("{ema:.2}");
+            commands
+                .entity(ema_query.single().unwrap())
+                .insert(Text(format!("{ema:.2}")));
         }
     };
 }

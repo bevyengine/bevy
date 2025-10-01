@@ -46,16 +46,13 @@ fn setup(mut commands: Commands) {
                         justify: Justify::Center,
                         ..Default::default()
                     },
+                    FontSize(100.),
                 ))
                 .with_children(|commands| {
                     for (i, section_str) in message_text.iter().enumerate() {
                         commands.spawn((
                             Text::new(*section_str),
                             TextColor::BLACK,
-                            FontFace {
-                                font_size: 100.,
-                                ..default()
-                            },
                             TextBackgroundColor(PALETTE[i % PALETTE.len()]),
                         ));
                     }
