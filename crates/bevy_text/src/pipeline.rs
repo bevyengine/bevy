@@ -16,8 +16,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSetKey, FontAtlasSets, FontSmoothing,
-    Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
+    FontAtlasSetKey, FontAtlasSets, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -324,7 +325,7 @@ impl TextPipeline {
 
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    font_atlas_sets
+                    let font_atlases = font_atlas_sets
                         .sets
                         .entry(FontAtlasSetKey(
                             font_id,
@@ -333,12 +334,11 @@ impl TextPipeline {
                         ))
                         .or_default();
 
-                    let atlas_info = font_atlas_sets
-                        .get_glyph_atlas_info(font_id, physical_glyph.cache_key, font_smoothing)
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
                         .map(Ok)
                         .unwrap_or_else(|| {
-                            font_atlas_sets.add_glyph_to_atlas(
-                                font_id,
+                            add_glyph_to_atlas(
+                                font_atlases,
                                 texture_atlases,
                                 textures,
                                 &mut font_system.0,
