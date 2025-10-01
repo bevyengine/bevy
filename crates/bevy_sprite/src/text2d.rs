@@ -21,8 +21,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
-    SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextPipeline, TextRoot,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets,
+    LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextPipeline,
+    TextRoot,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -137,7 +138,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    text_query: Query<(&Text2d, &ComputedTextStyle)>,
+    mut text_query: Query<(&Text2d, &ComputedTextStyle, &mut ComputedFontSize)>,
     mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
@@ -204,10 +205,16 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            for &entity in text_root.0.iter() {
+                if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
+                    computed_size.0 = style.font_size() * scale_factor;
+                }
+            }
+
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style, _)| (entity, 0, text.0.as_str(), style))
                     .ok()
             });
 

@@ -17,9 +17,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets, LineBreak,
-    SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextRoot,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, Font, FontAtlasSets,
+    LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextRoot,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -380,17 +380,23 @@ pub fn text_system(
         &mut ComputedTextBlock,
         &TextRoot,
     )>,
-    text_query: Query<(&Text, &ComputedTextStyle)>,
+    mut text_query: Query<(&Text, &ComputedTextStyle, &mut ComputedFontSize)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
     for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
     {
         if node.is_changed() || text_flags.needs_recompute {
+            for &entity in text_root.0.iter() {
+                if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
+                    computed_size.0 = style.font_size() * node.inverse_scale_factor.recip();
+                }
+            }
+
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style, _)| (entity, 0, text.0.as_str(), style))
                     .ok()
             });
 
