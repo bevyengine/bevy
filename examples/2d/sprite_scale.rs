@@ -124,7 +124,7 @@ fn setup_sprites(mut commands: Commands, asset_server: Res<AssetServer>) {
             children![(
                 Text2d::new(rect.text),
                 TextLayout::new_with_justify(Justify::Center),
-                TextFont::from_font_size(15.),
+                FontFace::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * rect.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
             )],
@@ -266,7 +266,7 @@ fn setup_texture_atlas(
             children![(
                 Text2d::new(sprite_sheet.text),
                 TextLayout::new_with_justify(Justify::Center),
-                TextFont::from_font_size(15.),
+                FontFace::from_font_size(15.),
                 Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.),
                 bevy::sprite::Anchor::TOP_CENTER,
             )],

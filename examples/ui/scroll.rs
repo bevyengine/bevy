@@ -133,7 +133,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // header
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
-                        TextFont {
+                        FontFace {
                             font: font_handle.clone(),
                             font_size: FONT_SIZE,
                             ..default()
@@ -158,7 +158,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent
                                     .spawn((
                                         Text(format!("Item {i}")),
-                                        TextFont {
+                                        FontFace {
                                             font: font_handle.clone(),
                                             ..default()
                                         },
@@ -212,7 +212,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 // Title
                 Text::new("Vertically Scrolling List"),
-                TextFont {
+                FontFace {
                     font: font_handle.clone(),
                     font_size: FONT_SIZE,
                     ..default()
@@ -238,7 +238,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         },
                         children![(
                             Text(format!("Item {i}")),
-                            TextFont {
+                            FontFace {
                                 font: font_handle.clone(),
                                 ..default()
                             },
@@ -264,7 +264,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
         children![
             (
                 Text::new("Bidirectionally Scrolling List"),
-                TextFont {
+                FontFace {
                     font: font_handle.clone(),
                     font_size: FONT_SIZE,
                     ..default()
@@ -291,7 +291,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
-                                    TextFont {
+                                    FontFace {
                                         font: value.clone(),
                                         ..default()
                                     },
@@ -320,7 +320,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 // Title
                 Text::new("Nested Scrolling Lists"),
-                TextFont {
+                FontFace {
                     font: font_handle.clone(),
                     font_size: FONT_SIZE,
                     ..default()
@@ -354,7 +354,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 20) + i)),
-                                    TextFont {
+                                    FontFace {
                                         font: value.clone(),
                                         ..default()
                                     },

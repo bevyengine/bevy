@@ -291,7 +291,7 @@ fn add_help_text(
 ) {
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
-        TextFont {
+        FontFace {
             font: font.clone(),
             ..default()
         },
@@ -309,7 +309,7 @@ fn add_help_text(
 fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
-        TextFont {
+        FontFace {
             font: font.clone(),
             font_size: 15.0,
             ..default()

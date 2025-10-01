@@ -54,7 +54,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         }).with_children(|builder| {
         builder.spawn((
             Text::new("This is\ntext with\nline breaks\nin the top left."),
-            TextFont(font.clone()),
+            FontFace(font.clone()),
             FontSize(25.0),                
             BackgroundColor(background_color)
         ));
@@ -62,7 +62,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new(
                 "This text is right-justified. The `Justify` component controls the horizontal alignment of the lines of multi-line text relative to each other, and does not affect the text node's position in the UI layout.",
             ),
-            TextFont ( font.clone()),
+            FontFace ( font.clone()),
             FontSize(25.0),
             TextColor(YELLOW.into()),
             TextLayout::new_with_justify(Justify::Right),
@@ -75,7 +75,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         builder.spawn((
             Text::new(
                 "This\ntext has\nline breaks and also a set width in the bottom left."),
-            TextFont(font.clone()),
+            FontFace(font.clone()),
             FontSize(25.0),
             Node {
                 max_width: px(300),
@@ -98,7 +98,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn((
                 Text::new("This text is very long, has a limited width, is center-justified, is positioned in the top right and is also colored pink."),
-                TextFont(font.clone()),
+                FontFace(font.clone()),
                 FontSize(33.0),
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
                 TextLayout::new_with_justify(Justify::Center),
@@ -111,7 +111,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder.spawn((
                 Text::new("This text is left-justified and is vertically positioned to distribute the empty space equally above and below it."),
-                TextFont(font.clone()),
+                FontFace(font.clone()),
                 FontSize(29.0),
                 TextColor(YELLOW.into()),
                 TextLayout::new_with_justify(Justify::Left),
@@ -124,7 +124,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder.spawn((
                 Text::new("This text is fully justified and is positioned in the same way."),
-                TextFont(font.clone()),
+                FontFace(font.clone()),
                 FontSize(29.0),
                 TextLayout::new_with_justify(Justify::Justified),
                 TextColor(GREEN_YELLOW.into()),
@@ -138,7 +138,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             builder
                 .spawn((
                     Text::default(),
-                    TextFont(font.clone()),
+                    FontFace(font.clone()),
                 FontSize(21.0),
                     TextChanges,
                     BackgroundColor(background_color),
@@ -146,48 +146,48 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|p| {
                     p.spawn((
                         Text::new("\nThis text changes in the bottom right"),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(21.0),
                     ));
                     p.spawn((
                         Text::new(" this text has zero font size"),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(0.0),
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
                         Text::new("\nThis text changes in the bottom right - "),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(21.0),
                         TextColor(RED.into()),
                     ));
                     p.spawn((
                         Text::default(),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(21.0),
                         TextColor(ORANGE_RED.into()),
                     ));
                     p.spawn((
                         Text::new(" fps, "),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(21.0),
                         TextColor(YELLOW.into()),
                     ));
                     p.spawn((
                         Text::default(),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(21.0),
                         TextColor(LIME.into()),
                     ));
                     p.spawn((
                         Text::new(" ms/frame"),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(42.0),
                         TextColor(BLUE.into()),
                     ));
                     p.spawn((
                         Text::new(" this text has negative font size"),
-                        TextFont(font.clone()),
+                        FontFace(font.clone()),
                 FontSize(-42.0),
                         TextColor(BLUE.into()),
                     ));

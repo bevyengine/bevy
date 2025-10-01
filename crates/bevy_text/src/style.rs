@@ -28,7 +28,7 @@ impl TextStyle {
     /// Returns the text style as a bundle of components
     pub fn bundle(&self) -> impl Bundle {
         (
-            TextFont(self.font.clone()),
+            FontFace(self.font.clone()),
             FontSize(self.font_size),
             TextColor(self.color),
             self.font_smoothing,
@@ -335,9 +335,9 @@ mod tests {
         app.add_systems(
             Update,
             (
-                update_from_inherited_text_style_sources::<TextFont>,
-                update_reparented_inherited_styles::<TextFont>,
-                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<FontFace>,
+                update_reparented_inherited_styles::<FontFace>,
+                propagate_inherited_styles::<FontFace>,
                 update_from_inherited_text_style_sources::<TextColor>,
                 update_reparented_inherited_styles::<TextColor>,
                 propagate_inherited_styles::<TextColor>,
@@ -403,9 +403,9 @@ mod tests {
         app.add_systems(
             Update,
             (
-                update_from_inherited_text_style_sources::<TextFont>,
-                update_reparented_inherited_styles::<TextFont>,
-                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<FontFace>,
+                update_reparented_inherited_styles::<FontFace>,
+                propagate_inherited_styles::<FontFace>,
                 update_from_inherited_text_style_sources::<TextColor>,
                 update_reparented_inherited_styles::<TextColor>,
                 propagate_inherited_styles::<TextColor>,
@@ -474,9 +474,9 @@ mod tests {
         app.add_systems(
             Update,
             (
-                update_from_inherited_text_style_sources::<TextFont>,
-                update_reparented_inherited_styles::<TextFont>,
-                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<FontFace>,
+                update_reparented_inherited_styles::<FontFace>,
+                propagate_inherited_styles::<FontFace>,
                 update_from_inherited_text_style_sources::<TextColor>,
                 update_reparented_inherited_styles::<TextColor>,
                 propagate_inherited_styles::<TextColor>,
@@ -583,9 +583,9 @@ mod tests {
         app.add_systems(
             Update,
             (
-                update_from_inherited_text_style_sources::<TextFont>,
-                update_reparented_inherited_styles::<TextFont>,
-                propagate_inherited_styles::<TextFont>,
+                update_from_inherited_text_style_sources::<FontFace>,
+                update_reparented_inherited_styles::<FontFace>,
+                propagate_inherited_styles::<FontFace>,
                 update_from_inherited_text_style_sources::<TextColor>,
                 update_reparented_inherited_styles::<TextColor>,
                 propagate_inherited_styles::<TextColor>,

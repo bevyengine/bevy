@@ -119,7 +119,7 @@ fn build_ui(
         let schedule = schedules.get(*label).unwrap();
         text_spans.push((
             TextSpan(format!("{label:?}\n")),
-            TextFont {
+            FontFace {
                 font: asset_server.load(FONT_BOLD),
                 ..default()
             },
@@ -148,16 +148,12 @@ fn build_ui(
                 .push((*label, NodeId::System(key), text_spans.len() + 1));
 
             // Add a text section for displaying the cursor for this system
-            text_spans.push((
-                Text::new("   "),
-                TextFont::default(),
-                TextColor(FONT_COLOR),
-            ));
+            text_spans.push((Text::new("   "), FontFace::default(), TextColor(FONT_COLOR)));
 
             // add the name of the system to the ui
             text_spans.push((
                 TextSpan(format!("{}\n", system.name())),
-                TextFont::default(),
+                FontFace::default(),
                 TextColor(FONT_COLOR),
             ));
         }
@@ -193,7 +189,7 @@ fn build_stepping_hint(mut commands: Commands) {
     // stepping description box
     commands.spawn((
         Text::new(hint_text),
-        TextFont {
+        FontFace {
             font_size: 15.0,
             ..default()
         },

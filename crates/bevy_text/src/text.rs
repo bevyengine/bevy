@@ -210,15 +210,15 @@ impl From<Justify> for cosmic_text::Align {
 ///   handle.
 #[derive(Default, Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct TextFont(pub Handle<Font>);
+pub struct FontFace(pub Handle<Font>);
 
-impl From<Handle<Font>> for TextFont {
+impl From<Handle<Font>> for FontFace {
     fn from(font: Handle<Font>) -> Self {
         Self(font)
     }
 }
 
-impl InheritableTextStyle for TextFont {
+impl InheritableTextStyle for FontFace {
     type Inherited = AssetId<Font>;
 
     fn to_inherited(&self) -> InheritedTextStyle<Self::Inherited> {

@@ -74,7 +74,7 @@ impl TargetUpdate for Target<Visibility> {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let palette: [Color; 4] = PALETTE.map(|hex| Srgba::hex(hex).unwrap().into());
 
-    let text_font = TextFont {
+    let text_font = FontFace {
         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
         ..default()
     };
@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    let text_font = TextFont {
+                    let text_font = FontFace {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         ..default()
                     };
@@ -259,7 +259,7 @@ fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) ->
 
 fn spawn_right_panel(
     parent: &mut ChildSpawnerCommands,
-    text_font: TextFont,
+    text_font: FontFace,
     palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
@@ -373,7 +373,7 @@ fn spawn_right_panel(
         });
 }
 
-fn spawn_button<T>(parent: &mut ChildSpawnerCommands, text_font: TextFont, target: Entity)
+fn spawn_button<T>(parent: &mut ChildSpawnerCommands, text_font: FontFace, target: Entity)
 where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,

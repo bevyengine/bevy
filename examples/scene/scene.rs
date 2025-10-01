@@ -213,7 +213,7 @@ fn infotext_system(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("Nothing to see in this window! Check the console output!"),
-        TextFont {
+        FontFace {
             font_size: 42.0,
             ..default()
         },

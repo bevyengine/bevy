@@ -45,7 +45,7 @@ fn setup(mut commands: Commands) {
             children![(
                 CustomText,
                 Text::new("Example text"),
-                TextFont {
+                FontFace {
                     font_size: 25.0,
                     ..default()
                 },

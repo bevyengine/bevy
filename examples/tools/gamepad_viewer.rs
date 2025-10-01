@@ -269,7 +269,7 @@ fn setup_sticks(
     let live_mid = (live_lower + live_upper) / 2.0;
 
     let mut spawn_stick = |x_pos, y_pos, x_axis, y_axis, button| {
-        let style = TextFont {
+        let style = FontFace {
             font_size: 13.,
             ..default()
         };
@@ -345,7 +345,7 @@ fn setup_triggers(
             children![(
                 Transform::from_xyz(0., 0., 1.),
                 Text(format!("{:.3}", 0.)),
-                TextFont {
+                FontFace {
                     font_size: 13.,
                     ..default()
                 },

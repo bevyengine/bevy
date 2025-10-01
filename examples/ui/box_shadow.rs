@@ -274,7 +274,7 @@ fn setup(
                     SettingsButton::Reset,
                     children![(
                         Text::new("Reset"),
-                        TextFont {
+                        FontFace {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 16.0,
                             ..default()
@@ -319,7 +319,7 @@ fn build_setting_row(
                 // Attach SettingType to the value label node, not the parent row
                 children![(
                     Text::new(setting_type.label()),
-                    TextFont {
+                    FontFace {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 16.0,
                         ..default()
@@ -345,7 +345,7 @@ fn build_setting_row(
                     } else {
                         "-"
                     }),
-                    TextFont {
+                    FontFace {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 18.0,
                         ..default()
@@ -365,7 +365,7 @@ fn build_setting_row(
                 children![{
                     (
                         Text::new(value_text),
-                        TextFont {
+                        FontFace {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 16.0,
                             ..default()
@@ -392,7 +392,7 @@ fn build_setting_row(
                     } else {
                         "+"
                     }),
-                    TextFont {
+                    FontFace {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 18.0,
                         ..default()

@@ -278,7 +278,7 @@ fn setup_node_rects(commands: &mut Commands) {
         let text = commands
             .spawn((
                 Text::new(node_string),
-                TextFont {
+                FontFace {
                     font_size: 16.0,
                     ..default()
                 },

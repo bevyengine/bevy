@@ -120,7 +120,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // Padding label text style
-    let text_style: TextFont = TextFont {
+    let text_style: FontFace = FontFace {
         font: font.clone(),
         font_size: 42.0,
         ..default()
@@ -183,7 +183,7 @@ fn setup(
     ];
 
     // Label text style
-    let sampling_label_style = TextFont {
+    let sampling_label_style = FontFace {
         font,
         font_size: 25.0,
         ..default()
@@ -274,7 +274,7 @@ fn create_label(
     commands: &mut Commands,
     translation: (f32, f32, f32),
     text: &str,
-    text_style: TextFont,
+    text_style: FontFace,
 ) {
     commands.spawn((
         Text2d::new(text),

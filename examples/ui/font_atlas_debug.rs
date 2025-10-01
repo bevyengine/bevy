@@ -98,7 +98,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
         .with_children(|parent| {
             parent.spawn((
                 Text::new("a"),
-                TextFont {
+                FontFace {
                     font: font_handle,
                     font_size: 50.0,
                     ..default()

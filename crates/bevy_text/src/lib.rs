@@ -60,7 +60,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         ComputedTextStyle, Font, FontSize, FontSmoothing, Justify, LineBreak, LineHeight,
-        TextColor, TextError, TextFont, TextLayout,
+        TextColor, TextError, FontFace, TextLayout,
     };
 }
 
@@ -104,9 +104,9 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    update_from_inherited_text_style_sources::<TextFont>,
-                    update_reparented_inherited_styles::<TextFont>,
-                    propagate_inherited_styles::<TextFont>,
+                    update_from_inherited_text_style_sources::<FontFace>,
+                    update_reparented_inherited_styles::<FontFace>,
+                    propagate_inherited_styles::<FontFace>,
                     update_from_inherited_text_style_sources::<TextColor>,
                     update_reparented_inherited_styles::<TextColor>,
                     propagate_inherited_styles::<TextColor>,

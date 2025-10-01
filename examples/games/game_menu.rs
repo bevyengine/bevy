@@ -158,7 +158,7 @@ mod game {
                 children![
                     (
                         Text::new("Will be back to the menu shortly..."),
-                        TextFont {
+                        FontFace {
                             font_size: 67.0,
                             ..default()
                         },
@@ -177,7 +177,7 @@ mod game {
                         children![
                             (
                                 TextSpan(format!("quality: {:?}", *display_quality)),
-                                TextFont {
+                                FontFace {
                                     font_size: 50.0,
                                     ..default()
                                 },
@@ -185,7 +185,7 @@ mod game {
                             ),
                             (
                                 Text::new(" - "),
-                                TextFont {
+                                FontFace {
                                     font_size: 50.0,
                                     ..default()
                                 },
@@ -193,7 +193,7 @@ mod game {
                             ),
                             (
                                 TextSpan(format!("volume: {:?}", *volume)),
-                                TextFont {
+                                FontFace {
                                     font_size: 50.0,
                                     ..default()
                                 },
@@ -373,7 +373,7 @@ mod menu {
             left: px(10),
             ..default()
         };
-        let button_text_font = TextFont {
+        let button_text_font = FontFace {
             font_size: 33.0,
             ..default()
         };
@@ -403,7 +403,7 @@ mod menu {
                     // Display the game name
                     (
                         Text::new("Bevy Game Menu UI"),
-                        TextFont {
+                        FontFace {
                             font_size: 67.0,
                             ..default()
                         },
@@ -471,7 +471,7 @@ mod menu {
         };
 
         let button_text_style = (
-            TextFont {
+            FontFace {
                 font_size: 33.0,
                 ..default()
             },
@@ -529,7 +529,7 @@ mod menu {
         }
         fn button_text_style() -> impl Bundle {
             (
-                TextFont {
+                FontFace {
                     font_size: 33.0,
                     ..default()
                 },
@@ -617,7 +617,7 @@ mod menu {
             ..default()
         };
         let button_text_style = (
-            TextFont {
+            FontFace {
                 font_size: 33.0,
                 ..default()
             },

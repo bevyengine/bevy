@@ -34,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
         // This font is loaded and will be used instead of the default font.
-        TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
         FontSize(67.0),
         TextShadow::default(),
         // Set the justification of the Text
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // Create a Text with multiple child spans.
             Text::new("FPS: "),
             // This font is loaded and will be used instead of the default font.
-            TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             FontSize(42.0),
         ))
         .with_children(|parent| {
@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             } else {
                 entity_commands.insert((
                     // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+                    FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
                     FontSize(33.),
                     TextColor(GOLD.into()),
                     FpsText,
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
         Text::new("Default font disabled"),
-        TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+        FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(5),

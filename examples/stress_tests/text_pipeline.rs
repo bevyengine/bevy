@@ -40,13 +40,13 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         [
             (
                 Text2d("text".repeat(i)),
-                TextFont(asset_server.load("fonts/FiraMono-Medium.ttf")),
+                FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
                 FontSize((4 + i % 10) as f32),
                 TextColor(BLUE.into()),
             ),
             (
                 Text2d("pipeline".repeat(i)),
-                TextFont(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 FontSize((4 + i % 11) as f32),
                 TextColor(YELLOW.into()),
             ),

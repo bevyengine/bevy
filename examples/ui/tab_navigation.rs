@@ -129,7 +129,7 @@ fn setup(mut commands: Commands) {
                                     TabIndex(i),
                                     children![(
                                         Text::new(format!("TabIndex {i}")),
-                                        TextFont {
+                                        FontFace {
                                             font_size: 20.0,
                                             ..default()
                                         },

@@ -122,7 +122,7 @@ fn setup(
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Drag Me!"),
-                        TextFont {
+                        FontFace {
                             font_size: 40.0,
                             ..default()
                         },

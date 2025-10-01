@@ -51,7 +51,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("IME Buffer:  "),
             (
                 Text::new("\n"),
-                TextFont {
+                FontFace {
                     font: font.clone(),
                     ..default()
                 },
@@ -61,7 +61,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Text2d::new(""),
-        TextFont {
+        FontFace {
             font,
             font_size: 100.0,
             ..default()
@@ -132,7 +132,7 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut keyboard_input_reader: MessageReader<KeyboardInput>,
-    edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
+    edit_text: Single<(&mut Text2d, &FontFace), (Without<Node>, Without<Bubble>)>,
 ) {
     let (mut text, style) = edit_text.into_inner();
     for keyboard_input in keyboard_input_reader.read() {

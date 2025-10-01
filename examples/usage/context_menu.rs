@@ -134,7 +134,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
         children![(
             Pickable::IGNORE,
             Text::new(text),
-            TextFont {
+            FontFace {
                 font_size: 24.0,
                 ..default()
             },
@@ -173,7 +173,7 @@ fn background_and_button() -> impl Bundle {
                     children![(
                         Pickable::IGNORE,
                         Text::new("Context Menu"),
-                        TextFont {
+                        FontFace {
                             font_size: 28.0,
                             ..default()
                         },

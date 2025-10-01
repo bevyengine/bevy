@@ -21,7 +21,7 @@ const PLOT_SIZE: Vec2 = Vec2::splat(80.0);
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let text_font = TextFont {
+    let text_font = FontFace {
         font_size: 10.0,
         ..default()
     };

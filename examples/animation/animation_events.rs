@@ -56,7 +56,7 @@ fn setup(
     commands.spawn((
         MessageText,
         Text2d::default(),
-        TextFont {
+        FontFace {
             font_size: 119.0,
             ..default()
         },

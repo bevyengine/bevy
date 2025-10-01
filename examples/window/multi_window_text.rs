@@ -62,7 +62,7 @@ fn setup_scene(mut commands: Commands) {
         ..default()
     };
 
-    let text_font = TextFont::from_font_size(30.);
+    let text_font = FontFace::from_font_size(30.);
 
     // UI nodes can only be rendered by one camera at a time and ignore `RenderLayers`.
     // This root UI node has no `UiTargetCamera` so `bevy_ui` will try to find a

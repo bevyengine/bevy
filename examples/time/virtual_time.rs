@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         children![
             (
                 Text::default(),
-                TextFont {
+                FontFace {
                     font_size,
                     ..default()
                 },
@@ -97,7 +97,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             ),
             (
                 Text::new("CONTROLS\nUn/Pause: Space\nSpeed+: Up\nSpeed-: Down"),
-                TextFont {
+                FontFace {
                     font_size,
                     ..default()
                 },
@@ -106,7 +106,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
             ),
             (
                 Text::default(),
-                TextFont {
+                FontFace {
                     font_size,
                     ..default()
                 },

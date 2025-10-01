@@ -228,7 +228,7 @@ fn setup_ui(mut commands: Commands) {
 // given `ChildSpawnerCommands`.
 fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
-        TextFont {
+        FontFace {
             font_size: 14.0,
             ..default()
         },

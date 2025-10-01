@@ -151,7 +151,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
         BackgroundColor(NORMAL_BUTTON),
         children![(
             Text::new("Button"),
-            TextFont {
+            FontFace {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 33.0,
                 ..default()
@@ -394,7 +394,7 @@ fn checkbox(
             )),
             Spawn((
                 Text::new(caption),
-                TextFont {
+                FontFace {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 20.0,
                     ..default()

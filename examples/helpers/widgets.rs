@@ -154,7 +154,7 @@ where
 pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
-        TextFont {
+        FontFace {
             font_size: 18.0,
             ..default()
         },

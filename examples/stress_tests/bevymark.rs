@@ -246,7 +246,7 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let font = TextFont {
+    let font = FontFace {
         font_size: 40.0,
         ..Default::default()
     };

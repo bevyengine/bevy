@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, FontSize, TextColor, TextFont};
+use bevy_text::{Font, FontSize, TextColor, FontFace};
 use bevy_time::Time;
 use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
@@ -168,7 +168,7 @@ fn setup(
         .with_children(|p| {
             p.spawn((
                 Text::new("FPS: "),
-                TextFont(overlay_config.font.clone()),
+                FontFace(overlay_config.font.clone()),
                 FontSize(overlay_config.font_size),
                 TextColor(overlay_config.text_color),
                 FpsText,
@@ -230,7 +230,7 @@ fn update_text(
 
 fn customize_overlay(
     overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<(&mut TextFont, &mut TextColor), With<FpsText>>,
+    mut query: Query<(&mut FontFace, &mut TextColor), With<FpsText>>,
 ) {
     for (mut font, mut color) in &mut query {
         font.0 = overlay_config.font.clone();

@@ -54,7 +54,7 @@ fn setup(mut commands: Commands) {
         let label_entity = commands
             .spawn((
                 Text(format!("{i}")),
-                TextFont::from_font_size(50.),
+                FontFace::from_font_size(50.),
                 TextColor(color.into()),
             ))
             .id();

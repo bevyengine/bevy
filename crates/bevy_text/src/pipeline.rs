@@ -16,7 +16,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, style::ComputedTextStyle, ComputedTextBlock, Font, FontAtlasSets,
-    FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont,
+    FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, FontFace,
     TextLayout,
 };
 
@@ -74,7 +74,7 @@ pub struct TextPipeline {
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
-    spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
+    spans_buffer: Vec<(usize, &'static str, &'static FontFace, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
     glyph_info: Vec<(AssetId<Font>, FontSmoothing)>,
 }
@@ -121,7 +121,7 @@ impl TextPipeline {
                 self.spans_buffer = spans
                     .into_iter()
                     .map(
-                        |_| -> (usize, &'static str, &'static TextFont, FontFaceInfo) {
+                        |_| -> (usize, &'static str, &'static FontFace, FontFaceInfo) {
                             unreachable!()
                         },
                     )
@@ -205,7 +205,7 @@ impl TextPipeline {
         spans.clear();
         self.spans_buffer = spans
             .into_iter()
-            .map(|_| -> (usize, &'static str, &'static TextFont, FontFaceInfo) { unreachable!() })
+            .map(|_| -> (usize, &'static str, &'static FontFace, FontFaceInfo) { unreachable!() })
             .collect();
 
         Ok(())

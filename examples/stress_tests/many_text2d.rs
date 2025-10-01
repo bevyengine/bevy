@@ -193,13 +193,13 @@ fn print_counts(
     );
 }
 
-fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> (TextFont, FontSize) {
+fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> (FontFace, FontSize) {
     let font_size = if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
         60.0
     };
-    (TextFont(font), FontSize(font_size))
+    (FontFace(font), FontSize(font_size))
 }
 
 fn random_text(rng: &mut ChaCha8Rng, args: &Args) -> String {

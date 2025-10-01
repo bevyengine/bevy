@@ -18,7 +18,7 @@ fn main() {
         // Left and Right clicking the cube should roggle rotation on/off.
         .add_plugins(FpsOverlayPlugin {
             config: FpsOverlayConfig {
-                text_config: TextFont {
+                text_config: FontFace {
                     font_size: 12.0,
                     ..default()
                 },

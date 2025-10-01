@@ -52,7 +52,7 @@ fn setup(mut commands: Commands) {
                         commands.spawn((
                             Text::new(*section_str),
                             TextColor::BLACK,
-                            TextFont {
+                            FontFace {
                                 font_size: 100.,
                                 ..default()
                             },

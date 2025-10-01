@@ -70,7 +70,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // text
                             parent.spawn((
                                 Text::new("Text Example"),
-                                TextFont {
+                                FontFace {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: 25.0,
                                     ..default()
@@ -86,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 // Debug overlay text
                                 parent.spawn((
                                     Text::new("Press Space to toggle debug outlines."),
-                                    TextFont {
+                                    FontFace {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         ..default()
                                     },
@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                                 parent.spawn((
                                     Text::new("V: toggle UI root's visibility"),
-                                    TextFont {
+                                    FontFace {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 12.,
                                         ..default()
@@ -105,7 +105,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                                 parent.spawn((
                                     Text::new("S: toggle outlines for hidden nodes"),
-                                    TextFont {
+                                    FontFace {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 12.,
                                         ..default()
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 ));
                                 parent.spawn((
                                     Text::new("C: toggle outlines for clipped nodes"),
-                                    TextFont {
+                                    FontFace {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 12.,
                                         ..default()
@@ -125,7 +125,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             #[cfg(not(feature = "bevy_ui_debug"))]
                             parent.spawn((
                                 Text::new("Try enabling feature \"bevy_ui_debug\"."),
-                                TextFont {
+                                FontFace {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     ..default()
                                 },
@@ -146,7 +146,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // Title
                     parent.spawn((
                         Text::new("Scrolling list"),
-                        TextFont {
+                        FontFace {
                             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                             font_size: 21.,
                             ..default()
@@ -187,7 +187,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         parent
                                             .spawn((
                                                 Text(format!("Item {i}")),
-                                                TextFont {
+                                                FontFace {
                                                     font: asset_server
                                                         .load("fonts/FiraSans-Bold.ttf"),
                                                     ..default()

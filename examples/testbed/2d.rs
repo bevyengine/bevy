@@ -166,7 +166,7 @@ mod text {
             );
         }
 
-        let sans_serif = TextFont::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
+        let sans_serif = FontFace::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
@@ -223,13 +223,13 @@ mod text {
                 },
                 children![
                     (
-                        Text::new(format!("{}, {}\n", anchor.x, anchor.y)),
-                        TextFont::from_font_size(14.0),
+                        Text2d(format!("{}, {}\n", anchor.x, anchor.y)),
+                        FontSize(14.0),
                         TextColor(palettes::tailwind::BLUE_400.into()),
                     ),
                     (
-                        Text::new(format!("{justify:?}")),
-                        TextFont::from_font_size(14.0),
+                        Text2d(format!("{justify:?}")),
+                        FontSize(14.0),
                         TextColor(palettes::tailwind::GREEN_400.into()),
                     ),
                 ],

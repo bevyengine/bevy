@@ -320,9 +320,9 @@ mod tests {
             .add_systems(
                 Update,
                 (
-                    update_from_inherited_text_style_sources::<TextFont>,
-                    update_reparented_inherited_styles::<TextFont>,
-                    propagate_inherited_styles::<TextFont>,
+                    update_from_inherited_text_style_sources::<FontFace>,
+                    update_reparented_inherited_styles::<FontFace>,
+                    propagate_inherited_styles::<FontFace>,
                     update_from_inherited_text_style_sources::<TextColor>,
                     update_reparented_inherited_styles::<TextColor>,
                     propagate_inherited_styles::<TextColor>,
