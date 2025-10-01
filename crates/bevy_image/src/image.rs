@@ -1143,7 +1143,7 @@ impl Image {
         if self.texture_descriptor.size.depth_or_array_layers != 1 {
             return Err(TextureReinterpretationError::InvalidLayerCount);
         }
-        if self.height() % layers != 0 {
+        if !self.height().is_multiple_of(layers) {
             return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
                 height: self.height(),
                 layers,
