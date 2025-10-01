@@ -16,6 +16,9 @@ use bevy::{
 const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 
+#[derive(Component)]
+struct PrepassOutputLabel;
+
 fn main() {
     App::new()
         .add_plugins((
@@ -127,6 +130,7 @@ fn setup(
 
     commands.spawn((
         Text::default(),
+        TextColor(Color::WHITE),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -135,7 +139,7 @@ fn setup(
         },
         children![
             Text::new("Prepass Output: transparent\n"),
-            Text::new("\n\n"),
+            (Text::new("\n\n"), PrepassOutputLabel),
             Text::new("Controls\n"),
             Text::new("---------------\n"),
             Text::new("Space - Change output\n"),
@@ -215,8 +219,8 @@ fn toggle_prepass_view(
     keycode: Res<ButtonInput<KeyCode>>,
     material_handle: Single<&MeshMaterial3d<PrepassOutputMaterial>>,
     mut materials: ResMut<Assets<PrepassOutputMaterial>>,
-    text: Single<Entity, With<Text>>,
-    mut writer: TextUiWriter,
+    query: Query<Entity, With<PrepassOutputLabel>>,
+    mut commands: Commands,
 ) {
     if keycode.just_pressed(KeyCode::Space) {
         *prepass_view = (*prepass_view + 1) % 4;
@@ -228,11 +232,11 @@ fn toggle_prepass_view(
             3 => "motion vectors",
             _ => unreachable!(),
         };
-        let text = *text;
-        *writer.text(text, 1) = format!("Prepass Output: {label}\n");
-        writer.for_each_color(text, |mut color| {
-            color.0 = Color::WHITE;
-        });
+
+        let entity = query.single().unwrap();
+        commands
+            .entity(entity)
+            .insert(Text(format!("Prepass Output: {label}\n")));
 
         let mat = materials.get_mut(*material_handle).unwrap();
         mat.settings.show_depth = (*prepass_view == 1) as u32;
