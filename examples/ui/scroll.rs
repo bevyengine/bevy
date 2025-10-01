@@ -274,7 +274,6 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             ..default()
                         },
                         Children::spawn(SpawnIter((0..10).map({
-                            let value = font_handle.clone();
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
