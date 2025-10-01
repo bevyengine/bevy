@@ -437,6 +437,5 @@ pub fn clustered_decals_are_usable(
     // See issue #17553.
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
-        && cfg!(not(any(target_os = "macos", target_os = "ios")))
         && cfg!(feature = "pbr_clustered_decals")
 }
