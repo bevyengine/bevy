@@ -1,5 +1,6 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
+    lifecycle::RemovedComponents,
     message::MessageReader,
     resource::Resource,
     system::{Local, Query, ResMut},
@@ -311,7 +312,7 @@ pub fn free_unused_font_atlases(
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
     for (font, key) in
-        least_recently_used.drain(0..font_atlas_sets.font_count().saturating_sub(max_fonts.0))
+        least_recently_used.drain(..font_atlas_sets.font_count().saturating_sub(max_fonts.0))
     {
         if let Some(font_atlas_set) = font_atlas_sets.get_mut(font) {
             font_atlas_set.font_atlases.remove(&key);
