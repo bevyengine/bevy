@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSets, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
     TextEntity, TextFont, TextLayout,
 };
 
@@ -230,7 +230,7 @@ impl TextPipeline {
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
-        font_atlas_sets: &mut FontAtlasSets,
+        font_atlas_sets: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,

@@ -18,7 +18,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
     TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
@@ -318,7 +318,7 @@ fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_sets: &mut FontAtlasSets,
+    font_atlas_sets: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
@@ -387,7 +387,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_atlas_sets: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,

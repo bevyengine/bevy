@@ -6,7 +6,7 @@ use bevy::{
     camera::visibility::NoFrustumCulling,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::FontAtlasSets,
+    text::FontAtlasSet,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -170,7 +170,7 @@ fn print_counts(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
-    atlases: Res<FontAtlasSets>,
+    atlases: Res<FontAtlasSet>,
     font: Res<FontHandle>,
 ) {
     timer.tick(time.delta());
