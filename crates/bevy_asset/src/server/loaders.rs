@@ -331,7 +331,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>> {
         let span = info_span!(
             "asset loading",
-            loader = core::any::type_name::<T>(),
+            loader = T::type_path(),
             asset = load_context.path().to_string(),
         );
         self.0.load(reader, settings, load_context).instrument(span)
@@ -437,7 +437,7 @@ mod tests {
 
         let loader = block_on(
             loaders
-                .get_by_name(Loader::<A, 1, 0>::type_path())
+                .get_by_name(<Loader<A, 1, 0> as TypePath>::type_path())
                 .unwrap()
                 .get(),
         )
