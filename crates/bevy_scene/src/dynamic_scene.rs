@@ -207,8 +207,7 @@ mod tests {
         component::Component,
         entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        resource::{Resource, ResourceComponent},
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
         world::World,
     };
 
@@ -217,9 +216,9 @@ mod tests {
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, MapEntities, Debug)]
-    #[reflect(Resource, MapEntities)]
-    struct TestResource {
+    #[derive(Component, Reflect, MapEntities, Debug)]
+    #[reflect(Component, MapEntities)]
+    struct TestComponent {
         #[entities]
         entity_a: Entity,
         #[entities]
@@ -229,9 +228,7 @@ mod tests {
     #[test]
     fn resource_entity_map_maps_entities() {
         let type_registry = AppTypeRegistry::default();
-        type_registry
-            .write()
-            .register::<ResourceComponent<TestResource>>();
+        type_registry.write().register::<TestComponent>();
 
         let mut source_world = World::new();
         source_world.insert_resource(type_registry.clone());
@@ -239,14 +236,16 @@ mod tests {
         let original_entity_a = source_world.spawn_empty().id();
         let original_entity_b = source_world.spawn_empty().id();
 
-        source_world.insert_resource(TestResource {
-            entity_a: original_entity_a,
-            entity_b: original_entity_b,
-        });
+        let entity_holder = source_world
+            .spawn(TestComponent {
+                entity_a: original_entity_a,
+                entity_b: original_entity_b,
+            })
+            .id();
 
         // Write the scene.
         let scene = DynamicSceneBuilder::from_world(&source_world)
-            .extract_resources()
+            .extract_entity(entity_holder)
             .extract_entity(original_entity_a)
             .extract_entity(original_entity_b)
             .build();
@@ -262,9 +261,12 @@ mod tests {
         let &from_entity_a = entity_map.get(&original_entity_a).unwrap();
         let &from_entity_b = entity_map.get(&original_entity_b).unwrap();
 
-        let test_resource = destination_world.get_resource::<TestResource>().unwrap();
-        assert_eq!(from_entity_a, test_resource.entity_a);
-        assert_eq!(from_entity_b, test_resource.entity_b);
+        let test_component = destination_world
+            .query::<&TestComponent>()
+            .single(&destination_world)
+            .unwrap();
+        assert_eq!(from_entity_a, test_component.entity_a);
+        assert_eq!(from_entity_b, test_component.entity_b);
     }
 
     #[test]
