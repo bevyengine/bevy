@@ -66,20 +66,30 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
+        // Ensure that all scene entities have been allocated in the destination
+        // world before handling components that may contain references that need mapping.
+        for archetype in self.world.archetypes().iter() {
+            for scene_entity in archetype.entities() {
+                entity_map
+                    .entry(scene_entity.id())
+                    .or_insert_with(|| world.spawn_empty().id());
+            }
+        }
+
         let self_dqf_id = self
             .world
             .components()
             .get_id(TypeId::of::<ResourceComponent<DefaultQueryFilters>>());
 
         // Resources archetype
-        for (component_id, entity) in self.world.resource_entities.iter() {
+        for (component_id, scene_entity) in self.world.resource_entities.iter() {
             if Some(*component_id) == self_dqf_id {
                 continue;
             }
 
             let entity_ref = self
                 .world
-                .get_entity(*entity)
+                .get_entity(*scene_entity)
                 .expect("Resource entity should exist in the world.");
 
             if !entity_ref.contains_id(*component_id) {
@@ -108,33 +118,27 @@ impl Scene {
                 }
             })?;
             let Some(component) = reflect_component
-                .reflect(self.world.entity(*entity))
+                .reflect(self.world.entity(*scene_entity))
                 .map(|component| clone_reflect_value(component.as_partial_reflect(), registration))
             else {
                 continue;
             };
 
+            let entity = *entity_map
+                .get(scene_entity)
+                .expect("should have previously spawned an entity");
+
             // If this component references entities in the scene,
             // update them to the entities in the world.
             SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
                 reflect_component.apply_or_insert_mapped(
-                    &mut world.entity_mut(*entity),
+                    &mut world.entity_mut(entity),
                     component.as_partial_reflect(),
                     &type_registry,
                     mapper,
                     RelationshipHookMode::Skip,
                 );
             });
-        }
-
-        // Ensure that all scene entities have been allocated in the destination
-        // world before handling components that may contain references that need mapping.
-        for archetype in self.world.archetypes().iter() {
-            for scene_entity in archetype.entities() {
-                entity_map
-                    .entry(scene_entity.id())
-                    .or_insert_with(|| world.spawn_empty().id());
-            }
         }
 
         for archetype in self.world.archetypes().iter() {

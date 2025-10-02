@@ -1,5 +1,3 @@
-use core::any::TypeId;
-
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
@@ -8,7 +6,7 @@ use bevy_ecs::{
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent},
-    resource::Resource,
+    resource::{Resource, ResourceComponent},
     world::World,
 };
 use bevy_utils::default;
@@ -165,7 +163,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been denied, then it will be removed from the denylist.
     #[must_use]
     pub fn allow_resource<T: Resource>(mut self) -> Self {
-        self.resource_filter = self.resource_filter.allow::<T>();
+        self.resource_filter = self.resource_filter.allow::<ResourceComponent<T>>();
         self
     }
 
@@ -177,7 +175,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// If `T` has already been allowed, then it will be removed from the allowlist.
     #[must_use]
     pub fn deny_resource<T: Resource>(mut self) -> Self {
-        self.resource_filter = self.resource_filter.deny::<T>();
+        self.resource_filter = self.resource_filter.deny::<ResourceComponent<T>>();
         self
     }
 
@@ -349,12 +347,12 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_valid_id(TypeId::of::<DefaultQueryFilters>());
+            .valid_resource_id::<DefaultQueryFilters>();
         // Don't extract the AppTypeRegistry resource
         let original_world_atr_id = self
             .original_world
             .components()
-            .get_valid_id(TypeId::of::<AppTypeRegistry>());
+            .valid_resource_id::<AppTypeRegistry>();
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
@@ -416,11 +414,10 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity_disabling::Internal,
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-        resource::IsResource,
+        resource::ResourceComponent,
         world::World,
     };
 
@@ -588,7 +585,7 @@ mod tests {
         let mut world = World::default();
 
         let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
+        atr.write().register::<ResourceComponent<ResourceA>>();
         world.insert_resource(atr);
 
         world.insert_resource(ResourceA);
@@ -598,7 +595,7 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert!(scene.resources[0].contains::<ResourceComponent<ResourceA>>());
     }
 
     #[test]
@@ -606,7 +603,7 @@ mod tests {
         let mut world = World::default();
 
         let atr = AppTypeRegistry::default();
-        atr.write().register::<ResourceA>();
+        atr.write().register::<ResourceComponent<ResourceA>>();
         world.insert_resource(atr);
 
         world.insert_resource(ResourceA);
@@ -617,7 +614,7 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert!(scene.resources[0].contains::<ResourceComponent<ResourceA>>());
     }
 
     #[test]
@@ -681,8 +678,8 @@ mod tests {
         let atr = AppTypeRegistry::default();
         {
             let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
+            register.register::<ResourceComponent<ResourceA>>();
+            register.register::<ResourceComponent<ResourceB>>();
         }
         world.insert_resource(atr);
 
@@ -695,7 +692,7 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceA>());
+        assert!(scene.resources[0].contains::<ResourceComponent<ResourceA>>());
     }
 
     #[test]
@@ -705,8 +702,8 @@ mod tests {
         let atr = AppTypeRegistry::default();
         {
             let mut register = atr.write();
-            register.register::<ResourceA>();
-            register.register::<ResourceB>();
+            register.register::<ResourceComponent<ResourceA>>();
+            register.register::<ResourceComponent<ResourceB>>();
         }
         world.insert_resource(atr);
 
@@ -719,7 +716,7 @@ mod tests {
             .build();
 
         assert_eq!(scene.resources.len(), 1);
-        assert!(scene.resources[0].represents::<ResourceB>());
+        assert!(scene.resources[0].contains::<ResourceComponent<ResourceB>>());
     }
 
     #[test]
@@ -733,6 +730,7 @@ mod tests {
         {
             let mut register = atr.write();
             register.register::<SomeType>();
+            register.register::<ResourceComponent<SomeType>>();
         }
         world.insert_resource(atr);
 
@@ -750,10 +748,10 @@ mod tests {
             .expect("component should be concrete due to `FromReflect`")
             .is::<SomeType>());
 
-        let resource = &scene.resources[0];
+        let resource = &scene.resources[0].components[0];
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
-            .is::<SomeType>());
+            .is::<ResourceComponent<SomeType>>());
     }
 }

@@ -6,7 +6,7 @@ use bevy_ecs::{
     resource::IsResource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath};
+use bevy_reflect::{PartialReflect, Reflect, TypePath};
 
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
@@ -42,6 +42,18 @@ pub struct DynamicEntity {
     /// A vector of boxed components that belong to the given entity and
     /// implement the [`PartialReflect`] trait.
     pub components: Vec<Box<dyn PartialReflect>>,
+}
+
+impl DynamicEntity {
+    /// Returns true if and only if any of the components on the entity represents T.
+    pub fn contains<T>(&self) -> bool
+    where
+        T: Reflect + TypePath,
+    {
+        self.components
+            .iter()
+            .any(|component| component.represents::<T>())
+    }
 }
 
 impl DynamicScene {
@@ -196,7 +208,7 @@ mod tests {
         entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        resource::Resource,
+        resource::{Resource, ResourceComponent},
         world::World,
     };
 
@@ -217,7 +229,9 @@ mod tests {
     #[test]
     fn resource_entity_map_maps_entities() {
         let type_registry = AppTypeRegistry::default();
-        type_registry.write().register::<TestResource>();
+        type_registry
+            .write()
+            .register::<ResourceComponent<TestResource>>();
 
         let mut source_world = World::new();
         source_world.insert_resource(type_registry.clone());
