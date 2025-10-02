@@ -241,7 +241,7 @@ pub fn get_outlined_glyph_texture(
 
 /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
 pub fn get_glyph_atlas_info(
-    font_atlases: &mut Vec<FontAtlas>,
+    font_atlases: &mut [FontAtlas],
     cache_key: cosmic_text::CacheKey,
 ) -> Option<GlyphAtlasInfo> {
     font_atlases.iter().find_map(|atlas| {
