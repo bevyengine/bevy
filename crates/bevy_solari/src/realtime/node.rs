@@ -23,8 +23,8 @@ use bevy_render::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
-        ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
+        ComputePassDescriptor, ComputePipelineDescriptor, LoadOp, PipelineCache, PushConstantRange,
+        RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
@@ -156,12 +156,14 @@ impl ViewNode for SolariLightingNode {
             return Ok(());
         };
 
+        let view_target = view_target.get_unsampled_color_attachment();
+
         let s = solari_lighting_resources;
         let bind_group = render_context.render_device().create_bind_group(
             "solari_lighting_bind_group",
             &self.bind_group_layout,
             &BindGroupEntries::sequential((
-                view_target.get_unsampled_color_attachment().view,
+                view_target.view,
                 s.light_tile_samples.as_entire_binding(),
                 s.light_tile_resolved_samples.as_entire_binding(),
                 &s.di_reservoirs_a.1,
@@ -211,6 +213,17 @@ impl ViewNode for SolariLightingNode {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
+
+        // Clear the view target if we're the first node to write to it
+        if matches!(view_target.ops.load, LoadOp::Clear(_)) {
+            command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("solari_lighting_clear"),
+                color_attachments: &[Some(view_target)],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+        }
 
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("solari_lighting"),
