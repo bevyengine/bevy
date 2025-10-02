@@ -1,5 +1,5 @@
 ---
-title: "Remove FontAtlasSets"
+title: "Removed `FontAtlasSets`"
 pull_requests: [#21345]
 ---
 

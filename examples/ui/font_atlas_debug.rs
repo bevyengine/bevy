@@ -41,9 +41,7 @@ fn atlas_render_system(
     font_atlas_sets: Res<FontAtlasSet>,
     images: Res<Assets<Image>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle)
-        && let Some((_size, font_atlases)) = set.iter().next()
-    {
+    if let Some((_, font_atlases)) = font_atlas_sets.iter().next() {
         let x_offset = state.atlas_count as f32;
         if state.atlas_count == font_atlases.len() as u32 {
             return;
