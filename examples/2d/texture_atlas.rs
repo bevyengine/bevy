@@ -120,7 +120,7 @@ fn setup(
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // Padding label text style
-    let text_style = (FontFace(font.clone()), FontSize(42.));
+    let text_style = (FontFace(font.clone()), FontSize::Px(42.));
 
     // Labels to indicate padding
 
@@ -196,7 +196,7 @@ fn setup(
             &mut commands,
             (x, base_y + 110.0, 0.0), // Offset to y position of the sprite
             sampling,
-            (FontFace(font.clone()), FontSize(25.)),
+            (FontFace(font.clone()), FontSize::Px(25.)),
         );
     }
 }

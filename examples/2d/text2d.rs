@@ -35,7 +35,7 @@ struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_font = (FontFace(font.clone()), FontSize(50.0));
+    let text_font = (FontFace(font.clone()), FontSize::Px(50.0));
     let text_justification = Justify::Center;
     commands.spawn(Camera2d);
     // Demonstrate changing translation
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AnimateScale,
     ));
     // Demonstrate text wrapping
-    let slightly_smaller_text_font = (FontFace(font), FontSize(35.));
+    let slightly_smaller_text_font = (FontFace(font), FontSize::Px(35.));
 
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
