@@ -110,7 +110,7 @@ fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOve
         overlay.enabled = !overlay.enabled;
     }
     if input.just_released(KeyCode::Digit5) {
-        overlay.frame_time_graph_config.enabled = !overlay.frame_time_graph_config.enabled;
+        overlay.graph_config.enabled = !overlay.graph_config.enabled;
     }
     if input.just_released(KeyCode::Digit6) {
         overlay.text_config.enabled = !overlay.text_config.enabled;
