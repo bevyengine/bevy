@@ -81,8 +81,8 @@ impl<'a> Serialize for SceneSerializer<'a> {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
             SCENE_RESOURCES,
-            &SceneMapSerializer {
-                entries: &self.scene.resources,
+            &EntitiesSerializer {
+                entities: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -246,8 +246,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
 
@@ -275,8 +275,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if resources.is_some() {
                         return Err(Error::duplicate_field(SCENE_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(SceneMapDeserializer {
-                        registry: self.type_registry,
+                    resources = Some(map.next_value_seed(SceneEntitiesDeserializer {
+                        type_registry: self.type_registry,
                     })?);
                 }
                 SceneField::Entities => {

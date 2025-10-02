@@ -98,7 +98,8 @@ pub struct World {
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentMessages,
-    pub(crate) resource_entities: HashMap<ComponentId, Entity>,
+    /// Internal cache matching the component ids of resources to the corresponding entity.
+    pub resource_entities: HashMap<ComponentId, Entity>,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
