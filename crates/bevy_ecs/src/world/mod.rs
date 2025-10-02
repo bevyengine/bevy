@@ -3252,6 +3252,7 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::change_detection::MutUntyped;
+    /// # use bevy_ecs::resource::ResourceComponent;
     /// # use std::collections::HashMap;
     /// # use std::any::TypeId;
     /// # #[derive(Resource)]
@@ -3271,7 +3272,7 @@ impl World {
     /// let mut mutators: HashMap<TypeId, Box<dyn Fn(&mut MutUntyped<'_>)>> = HashMap::default();
     ///
     /// // Add mutator closure for `A`
-    /// mutators.insert(TypeId::of::<A>(), Box::new(|mut_untyped| {
+    /// mutators.insert(TypeId::of::<ResourceComponent<A>>(), Box::new(|mut_untyped| {
     ///     // Note: `MutUntyped::as_mut()` automatically marks the resource as changed
     ///     // for ECS change detection, and gives us a `PtrMut` we can use to mutate the resource.
     ///     // SAFETY: We assert ptr is the same type of A with TypeId of A
@@ -3281,7 +3282,7 @@ impl World {
     /// }));
     ///
     /// // Add mutator closure for `B`
-    /// mutators.insert(TypeId::of::<B>(), Box::new(|mut_untyped| {
+    /// mutators.insert(TypeId::of::<ResourceComponent<B>>(), Box::new(|mut_untyped| {
     ///     // SAFETY: We assert ptr is the same type of B with TypeId of B
     ///     let b = unsafe { &mut mut_untyped.as_mut().deref_mut::<B>() };
     /// #   b.0 += 1;
@@ -3845,12 +3846,18 @@ mod tests {
         let mut iter = world.iter_resources();
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        assert_eq!(
+            info.name(),
+            DebugName::type_name::<ResourceComponent<TestResource>>()
+        );
         // SAFETY: We know that the resource is of type `TestResource`
         assert_eq!(unsafe { ptr.deref::<TestResource>().0 }, 42);
 
         let (info, ptr) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
+        assert_eq!(
+            info.name(),
+            DebugName::type_name::<ResourceComponent<TestResource2>>()
+        );
         assert_eq!(
             // SAFETY: We know that the resource is of type `TestResource2`
             unsafe { &ptr.deref::<TestResource2>().0 },
@@ -3873,14 +3880,20 @@ mod tests {
         let mut iter = world.iter_resources_mut();
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource>());
+        assert_eq!(
+            info.name(),
+            DebugName::type_name::<ResourceComponent<TestResource>>()
+        );
         // SAFETY: We know that the resource is of type `TestResource`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
         };
 
         let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), DebugName::type_name::<TestResource2>());
+        assert_eq!(
+            info.name(),
+            DebugName::type_name::<ResourceComponent<TestResource2>>()
+        );
         // SAFETY: We know that the resource is of type `TestResource2`
         unsafe {
             mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
