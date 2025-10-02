@@ -777,7 +777,7 @@ mod tests {
         sub_texts: Vec<String>,
     }
 
-    #[derive(Default)]
+    #[derive(Default, TypePath)]
     pub struct CoolTextLoader;
 
     #[derive(Error, Debug)]
@@ -1870,6 +1870,7 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
+        #[derive(TypePath)]
         struct NestedLoadOfSubassetLoader;
 
         impl AssetLoader for NestedLoadOfSubassetLoader {
@@ -2090,6 +2091,7 @@ mod tests {
     // Note: we can't just use the GatedReader, since currently we hold the handle until after
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
+    #[derive(TypePath)]
     struct GatedLoader {
         in_loader_sender: async_channel::Sender<()>,
         gate_receiver: async_channel::Receiver<()>,
@@ -2498,6 +2500,7 @@ mod tests {
         unused,
         reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
     )]
+    #[derive(TypePath)]
     struct CoolTextSaver;
 
     impl AssetSaver for CoolTextSaver {
@@ -2539,12 +2542,13 @@ mod tests {
         unused,
         reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
     )]
+    #[derive(TypePath)]
     // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
     // closure cannot be used (since we need to include the name of the transformer in the meta
     // file).
     struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-    trait MutateAsset<A: Asset>: Send + Sync + 'static {
+    trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
         fn mutate(&self, asset: &mut A);
     }
 
@@ -2630,6 +2634,7 @@ mod tests {
             processed_dir,
         } = create_app_with_asset_processor();
 
+        #[derive(TypePath)]
         struct AddText;
 
         impl MutateAsset<CoolText> for AddText {
@@ -2690,6 +2695,7 @@ mod tests {
             processed_dir,
         } = create_app_with_asset_processor();
 
+        #[derive(TypePath)]
         struct AddText;
 
         impl MutateAsset<CoolText> for AddText {
@@ -2759,6 +2765,7 @@ mod tests {
 
     // The asset processor currently requires multi_threaded.
     #[cfg(feature = "multi_threaded")]
+    #[derive(TypePath)]
     struct FakeGltfLoader;
 
     // The asset processor currently requires multi_threaded.
@@ -2801,6 +2808,7 @@ mod tests {
     // scene that holds all the data including parents.
     // TODO: It would be nice if the inlining was actually done as an `AssetTransformer`, but
     // `Process` currently has no way to load nested assets.
+    #[derive(TypePath)]
     struct FakeBsnLoader;
 
     // The asset processor currently requires multi_threaded.
