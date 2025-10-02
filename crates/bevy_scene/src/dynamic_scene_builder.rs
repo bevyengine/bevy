@@ -350,7 +350,12 @@ impl<'w> DynamicSceneBuilder<'w> {
         let original_world_dqf_id = self
             .original_world
             .components()
-            .get_valid_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_valid_id(TypeId::of::<DefaultQueryFilters>());
+        // Don't extract the AppTypeRegistry resource
+        let original_world_atr_id = self
+            .original_world
+            .components()
+            .get_valid_id(TypeId::of::<AppTypeRegistry>());
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 

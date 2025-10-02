@@ -1253,7 +1253,7 @@ mod tests {
         world.insert_resource(Num(123));
         let resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<ResourceComponent<Num>>())
+            .get_id(TypeId::of::<ResourceComponent<Num>>())
             .unwrap();
 
         assert_eq!(world.resource::<Num>().0, 123);
@@ -1310,7 +1310,7 @@ mod tests {
 
         let current_resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<ResourceComponent<Num>>())
+            .get_id(TypeId::of::<ResourceComponent<Num>>())
             .unwrap();
         assert_eq!(
             resource_id, current_resource_id,

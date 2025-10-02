@@ -1822,7 +1822,7 @@ impl World {
     /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_valid_id(TypeId::of::<R>())?;
         let (ptr, _, _) = self
             .storages
             .non_send_resources
@@ -1836,7 +1836,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<ResourceComponent<R>>())
+            .valid_resource_id::<R>()
             .is_some_and(|component_id| self.contains_resource_by_id(component_id))
     }
 
@@ -1855,7 +1855,7 @@ impl World {
     #[inline]
     pub fn contains_non_send<R: 'static>(&self) -> bool {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .get_valid_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.non_send_resources.get(component_id))
             .is_some_and(ResourceData::is_present)
     }
@@ -1903,7 +1903,7 @@ impl World {
     ///   was called.
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .get_valid_id(TypeId::of::<ResourceComponent<R>>())
+            .valid_resource_id::<R>()
             .is_some_and(|component_id| self.is_resource_changed_by_id(component_id))
     }
 
@@ -1922,7 +1922,7 @@ impl World {
     /// Retrieves the change ticks for the given resource.
     pub fn get_resource_change_ticks<R: Resource>(&self) -> Option<ComponentTicks> {
         self.components
-            .get_valid_resource_id(TypeId::of::<R>())
+            .valid_resource_id::<R>()
             .and_then(|component_id| self.get_resource_change_ticks_by_id(component_id))
     }
 
@@ -3648,7 +3648,6 @@ mod tests {
         entity::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled, Internal},
         ptr::OwningPtr,
-        relationship::RelationshipHookMode,
         resource::{Resource, ResourceComponent},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
@@ -3798,7 +3797,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_valid_resource_id(TypeId::of::<ResourceComponent<TestResource>>())
+            .valid_resource_id::<TestResource>()
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -3814,7 +3813,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_valid_resource_id(TypeId::of::<ResourceComponent<TestResource>>())
+            .get_valid_id(TypeId::of::<ResourceComponent<TestResource>>())
             .unwrap();
 
         {

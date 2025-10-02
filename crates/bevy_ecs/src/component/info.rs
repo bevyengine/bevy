@@ -575,6 +575,10 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use valid_resource_id::<R>() or get_valid_id(TypeId::of::<ResourceComponent<R>>()) for normal resources. Use get_valid_id(TypeId::of::<R>()) for non-send resources."
+    )]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
     }
@@ -601,7 +605,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<ResourceComponent<T>>())
+        self.get_valid_id(TypeId::of::<ResourceComponent<T>>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -653,15 +657,12 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use resource_id::<R>() or get_id(TypeId::of::<ResourceComponent<R>>()) instead for normal resources. Use get_id(TypeId::of::<R>()) for non-send resources."
+    )]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .resources
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
+        self.get_id(type_id)
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -693,7 +694,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<ResourceComponent<T>>())
+        self.get_id(TypeId::of::<ResourceComponent<T>>())
     }
 
     /// # Safety

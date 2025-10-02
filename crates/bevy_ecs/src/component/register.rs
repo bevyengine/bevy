@@ -341,23 +341,29 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
-        let hooks = self
-            .components
-            .get_hooks_mut(id)
-            .expect("The component was just registered");
-        hooks.on_add(crate::resource::on_add_hook);
-        hooks.on_remove(crate::resource::on_remove_hook);
+        if self
+            .get_info(id)
+            .expect("component was just registered")
+            .is_send_and_sync()
+        {
+            let hooks = self
+                .components
+                .get_hooks_mut(id)
+                .expect("component was just registered");
+            hooks.on_add(crate::resource::on_add_hook);
+            hooks.on_remove(crate::resource::on_remove_hook);
 
-        let is_resource_id = self.register_component::<IsResource>();
-        // SAFETY:
-        // - The IsResource component id matches
-        // - The constructor constructs an IsResource
-        unsafe {
-            let _ = self.components.register_required_components::<IsResource>(
-                id,
-                is_resource_id,
-                || IsResource,
-            );
+            let is_resource_id = self.register_component::<IsResource>();
+            // SAFETY:
+            // - The IsResource component id matches
+            // - The constructor constructs an IsResource
+            unsafe {
+                let _ = self.components.register_required_components::<IsResource>(
+                    id,
+                    is_resource_id,
+                    || IsResource,
+                );
+            }
         }
 
         id
@@ -386,23 +392,29 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
-        let hooks = self
-            .components
-            .get_hooks_mut(id)
-            .expect("the resource was just registered");
-        hooks.on_add(crate::resource::on_add_hook);
-        hooks.on_remove(crate::resource::on_remove_hook);
+        if self
+            .get_info(id)
+            .expect("component was just registered")
+            .is_send_and_sync()
+        {
+            let hooks = self
+                .components
+                .get_hooks_mut(id)
+                .expect("the resource was just registered");
+            hooks.on_add(crate::resource::on_add_hook);
+            hooks.on_remove(crate::resource::on_remove_hook);
 
-        let is_resource_id = self.register_component::<IsResource>();
-        // SAFETY:
-        // - The IsResource component id matches
-        // - The constructor constructs an IsResource
-        unsafe {
-            let _ = self.components.register_required_components::<IsResource>(
-                id,
-                is_resource_id,
-                || IsResource,
-            );
+            let is_resource_id = self.register_component::<IsResource>();
+            // SAFETY:
+            // - The IsResource component id matches
+            // - The constructor constructs an IsResource
+            unsafe {
+                let _ = self.components.register_required_components::<IsResource>(
+                    id,
+                    is_resource_id,
+                    || IsResource,
+                );
+            }
         }
 
         id
@@ -657,7 +669,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
+        self.get_id(type_id).unwrap_or_else(|| {
             // SAFETY: We just checked that this type was not already registered.
             unsafe {
                 self.register_arbitrary_resource(
@@ -691,7 +703,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     #[inline]
     pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
+        self.get_id(type_id).unwrap_or_else(|| {
             // SAFETY: We just checked that this type was not already registered.
             unsafe {
                 self.register_arbitrary_resource(
