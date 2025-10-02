@@ -668,26 +668,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// See type level docs for details.
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-        self.get_id(type_id).unwrap_or_else(|| {
-            // SAFETY: We just checked that this type was not already registered.
-            unsafe {
-                self.register_arbitrary_resource(
-                    type_id,
-                    ComponentDescriptor::new_resource::<T>(),
-                    move |registrator, id, descriptor| {
-                        // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
-                        // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
-                        #[expect(unused_unsafe, reason = "More precise to specify.")]
-                        unsafe {
-                            registrator
-                                .components
-                                .register_resource_unchecked(type_id, id, descriptor);
-                        }
-                    },
-                )
-            }
-        })
+        self.queue_register_component::<ResourceComponent<T>>()
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
@@ -743,6 +724,32 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                 registrator
                     .components
                     .register_component_inner(id, descriptor);
+            }
+
+            // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+            if registrator
+                .get_info(id)
+                .expect("component was just registered")
+                .is_send_and_sync()
+            {
+                let hooks = registrator
+                    .components
+                    .get_hooks_mut(id)
+                    .expect("the resource was just registered");
+                hooks.on_add(crate::resource::on_add_hook);
+                hooks.on_remove(crate::resource::on_remove_hook);
+
+                let is_resource_id = registrator.register_component::<IsResource>();
+                // SAFETY:
+                // - The IsResource component id matches
+                // - The constructor constructs an IsResource
+                unsafe {
+                    let _ = registrator
+                        .components
+                        .register_required_components::<IsResource>(id, is_resource_id, || {
+                            IsResource
+                        });
+                }
             }
         })
     }
