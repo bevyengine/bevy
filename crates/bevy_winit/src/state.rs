@@ -466,21 +466,21 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
         // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
         #[cfg(target_os = "windows")]
         {
-            if WINIT_WINDOWS.with_borrow(|winit_windows| {
-                let headless = winit_windows.windows.is_empty();
-                let exiting = self.app_exit.is_some();
-                let reactive = matches!(self.update_mode, UpdateMode::Reactive { .. });
-                let all_invisible = winit_windows
-                    .windows
-                    .iter()
-                    .all(|(_, w)| !w.is_visible().unwrap_or(false));
-                !exiting
-                    && (self.startup_forced_updates > 0
-                        || headless
-                        || all_invisible
-                        || reactive
-                        || self.window_event_received)
-            }) {
+            fn headless_or_all_invisible() -> bool {
+                WINIT_WINDOWS.with_borrow(|winit_windows| {
+                    winit_windows
+                        .windows
+                        .iter()
+                        .all(|(_, w)| !w.is_visible().unwrap_or(false))
+                })
+            }
+
+            if !self.app_exit.is_some()
+                && (self.startup_forced_updates > 0
+                    || matches!(self.update_mode, UpdateMode::Reactive { .. })
+                    || self.window_event_received
+                    || headless_or_all_invisible())
+            {
                 self.redraw_requested(event_loop);
             }
         }
