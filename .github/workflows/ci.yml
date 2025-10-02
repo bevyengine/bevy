@@ -19,7 +19,7 @@ env:
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
   RUSTFLAGS: "-D warnings"
-  BINSTALL_VERSION: "v1.14.1"
+  BINSTALL_VERSION: "v1.15.6"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -318,7 +318,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # Update in sync with BINSTALL_VERSION
-      - uses: cargo-bins/cargo-binstall@v1.15.4
+      - uses: cargo-bins/cargo-binstall@v1.15.6
       - name: Install taplo
         run: cargo binstall taplo-cli@0.9.3 --locked
       - name: Run Taplo
