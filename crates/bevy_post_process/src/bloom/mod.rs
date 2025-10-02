@@ -362,15 +362,15 @@ fn prepare_bloom_textures(
         if let Some(viewport) = camera.physical_viewport_size {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
             let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if viewport.y != 0 {
-                bloom.max_mip_dimension as f32 / viewport.y as f32
+            let mip_dim_ratio = if viewport.y != 0 && viewport.x != 0 {
+                (bloom.max_mip_dimension as f32 / viewport.as_vec2()).max_element()
             } else {
                 0.
             };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: (viewport.as_vec2() * mip_height_ratio)
+                size: (viewport.as_vec2() * mip_dim_ratio)
                     .round()
                     .as_uvec2()
                     .max(UVec2::ONE)
