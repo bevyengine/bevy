@@ -15,17 +15,17 @@ pub struct FontAtlasSets {
 }
 
 impl FontAtlasSets {
-    /// Get a reference to the [`FontAtlasSet`] with the given font asset id.
+    /// Get a reference to the [`FontAtlas`]es with the given font asset id.
     pub fn get(&self, id: FontAtlasKey) -> Option<&[FontAtlas]> {
         self.sets.get(&id).map(Vec::as_slice)
     }
 
-    /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
+    /// Get a mutable reference to the [`FontAtlas`]es with the given font asset id.
     pub fn get_mut(&mut self, id: FontAtlasKey) -> Option<&mut Vec<FontAtlas>> {
         self.sets.get_mut(&id)
     }
 
-    /// Returns an iterator over the [`FontAtlas`]es in this set
+    /// Returns an iterator over all the [`FontAtlas`]es in this set
     pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.sets.iter()
     }
@@ -38,7 +38,7 @@ impl FontAtlasSets {
     }
 }
 
-/// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
+/// A system that cleans up [`FontAtlas`]es for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut font_events: MessageReader<AssetEvent<Font>>,
