@@ -16,6 +16,7 @@ use std::thread::ThreadId;
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData<const SEND: bool> {
+    /// Capacity is 1, length is 1 if `is_present` and 0 otherwise.
     data: BlobArray,
     is_present: bool,
     added_ticks: UnsafeCell<Tick>,

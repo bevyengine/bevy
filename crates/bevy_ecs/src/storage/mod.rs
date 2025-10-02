@@ -78,7 +78,6 @@ trait VecExtensions<T> {
     ///
     /// This does not preserve ordering of the remaining elements, but is O(1). If you need to preserve the element order, use [`remove`] instead.
     ///
-    /// Unlike [`swap_remove`], this does not panic if `index` is out of bounds.
     ///
     /// # Safety
     ///

@@ -9,7 +9,7 @@ use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 /// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the blob that it stores,
 /// and a pointer to the location of the start of the array, similar to a C-style `void*` array.
 ///
-/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
+/// This type is reliant on its owning type to store the capacity and length information.
 #[derive(Debug)]
 pub(super) struct BlobArray {
     item_layout: Layout,

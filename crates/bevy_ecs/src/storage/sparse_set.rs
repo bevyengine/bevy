@@ -119,6 +119,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 /// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
+    /// Capacity and length match those of `entities`.
     dense: ThinColumn,
     // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
@@ -200,7 +201,7 @@ impl ComponentSparseSet {
                 // SAFETY: An entity was just pushed onto `entities`, its capacity cannot be zero.
                 let new_capacity = unsafe { NonZero::new_unchecked(self.entities.capacity()) };
                 if let Some(capacity) = NonZero::new(capacity) {
-                    // SAFETY: This is using the layout of the previous allocation.
+                    // SAFETY: This is using the capacity of the previous allocation.
                     unsafe { self.dense.realloc(capacity, new_capacity) };
                 } else {
                     self.dense.alloc(new_capacity);
@@ -208,8 +209,7 @@ impl ComponentSparseSet {
             }
 
             // SAFETY: This entity row does not exist here yet, so there are no duplicates,
-            // and the entity index can not be the max, so the length must not be max either.
-            // To do so would have caused a panic in the entity alloxator.
+            // and the entity index is `NonMaxU32` so the length must not be max either.
             let table_row = unsafe { TableRow::new(NonMaxU32::new_unchecked(dense_index as u32)) };
             self.dense.initialize(table_row, value, change_tick, caller);
             self.sparse.insert(entity.row(), table_row);
