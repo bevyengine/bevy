@@ -5,33 +5,33 @@ use bevy_platform::collections::HashMap;
 
 /// Identifies the font atlases for a particular font in `FontAtlasSets`
 #[derive(Debug, Hash, PartialEq, Eq)]
-pub struct FontAtlasSetKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
+pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
-    pub(crate) sets: HashMap<FontAtlasSetKey, Vec<FontAtlas>>,
+    pub(crate) sets: HashMap<FontAtlasKey, Vec<FontAtlas>>,
 }
 
 impl FontAtlasSets {
     /// Get a reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get(&self, id: FontAtlasSetKey) -> Option<&[FontAtlas]> {
+    pub fn get(&self, id: FontAtlasKey) -> Option<&[FontAtlas]> {
         self.sets.get(&id).map(Vec::as_slice)
     }
 
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get_mut(&mut self, id: FontAtlasSetKey) -> Option<&mut Vec<FontAtlas>> {
+    pub fn get_mut(&mut self, id: FontAtlasKey) -> Option<&mut Vec<FontAtlas>> {
         self.sets.get_mut(&id)
     }
 
     /// Returns an iterator over the [`FontAtlas`]es in this set
-    pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasSetKey, &Vec<FontAtlas>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.sets.iter()
     }
 
     /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasSetKey) -> bool {
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasKey) -> bool {
         self.sets
             .get(font_size)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))

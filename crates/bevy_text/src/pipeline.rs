@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasSetKey, FontAtlasSets, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    FontAtlasKey, FontAtlasSets, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
     TextEntity, TextFont, TextLayout,
 };
 
@@ -327,7 +327,7 @@ impl TextPipeline {
 
                     let font_atlases = font_atlas_sets
                         .sets
-                        .entry(FontAtlasSetKey(
+                        .entry(FontAtlasKey(
                             font_id,
                             physical_glyph.cache_key.font_size_bits,
                             font_smoothing,
