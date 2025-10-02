@@ -56,6 +56,7 @@ fn setup(
     // Camera for the primary window (Top Left)
     commands.spawn((
         Camera3d::default(),
+        transform,
         Camera {
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
@@ -63,7 +64,6 @@ fn setup(
             }),
             ..default()
         },
-        transform,
     ));
 
     let top_right = commands
