@@ -251,6 +251,13 @@ impl ViewNode for SolariLightingNode {
             pass.dispatch_workgroups(dx, dy, 1);
         }
 
+        pass.set_pipeline(presample_light_tiles_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
+
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
         pass.set_pipeline(decay_world_cache_pipeline);
@@ -282,13 +289,6 @@ impl ViewNode for SolariLightingNode {
             &solari_lighting_resources.world_cache_active_cells_dispatch,
             0,
         );
-
-        pass.set_pipeline(presample_light_tiles_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
 
         pass.set_pipeline(di_initial_and_temporal_pipeline);
         pass.set_push_constants(
