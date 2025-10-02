@@ -38,6 +38,7 @@ impl AssetLoaders {
     /// Registers a new [`AssetLoader`]. [`AssetLoader`]s must be registered before they can be used.
     pub(crate) fn push<L: AssetLoader>(&mut self, loader: L) {
         let type_path = L::type_path();
+        // TODO: Allow using the short path of loaders.
         let loader_asset_type = TypeId::of::<L::Asset>();
         let loader_asset_type_name = core::any::type_name::<L::Asset>();
 
@@ -111,6 +112,7 @@ impl AssetLoaders {
         let loader_asset_type = TypeId::of::<L::Asset>();
         let loader_asset_type_name = core::any::type_name::<L::Asset>();
         let type_path = L::type_path();
+        // TODO: Allow using the short path of loaders.
 
         let loader_index = self.loaders.len();
 
