@@ -112,9 +112,8 @@ pub struct AssetProcessorData {
     /// avoids needing to use [`block_on`](bevy_tasks::block_on) to set the factory).
     log_factory: Mutex<Option<Box<dyn ProcessorTransactionLogFactory>>>,
     log: async_lock::RwLock<Option<Box<dyn ProcessorTransactionLog>>>,
-    processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
-    /// Default processors for file extensions
-    default_processors: RwLock<HashMap<Box<str>, &'static str>>,
+    /// The processors that will be used to process assets.
+    processors: RwLock<Processors>,
     sources: Arc<AssetSources>,
 }
 
@@ -130,6 +129,15 @@ pub(crate) struct ProcessingState {
     finished_receiver: async_broadcast::Receiver<()>,
     /// The current state of the assets.
     asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
+}
+
+#[derive(Default)]
+struct Processors {
+    /// Maps the type name of the processor to its instance.
+    type_name_to_processor: HashMap<&'static str, Arc<dyn ErasedProcessor>>,
+    /// Maps the file extension of an asset to the type name of the processor we should use to
+    /// process it by default.
+    file_extension_to_default_processor: HashMap<Box<str>, &'static str>,
 }
 
 impl AssetProcessor {
@@ -712,40 +720,41 @@ impl AssetProcessor {
 
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
-        let mut process_plans = self
+        let mut processors = self
             .data
             .processors
             .write()
             .unwrap_or_else(PoisonError::into_inner);
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
-        process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
+        processors
+            .type_name_to_processor
+            .insert(core::any::type_name::<P>(), Arc::new(processor));
     }
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
-        let mut default_processors = self
+        let mut processors = self
             .data
-            .default_processors
+            .processors
             .write()
             .unwrap_or_else(PoisonError::into_inner);
-        default_processors.insert(extension.into(), core::any::type_name::<P>());
+        processors
+            .file_extension_to_default_processor
+            .insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
     pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let default_processors = self
+        let processors = self
             .data
-            .default_processors
-            .read()
-            .unwrap_or_else(PoisonError::into_inner);
-        let key = default_processors.get(extension)?;
-        self.data
             .processors
             .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(key)
-            .cloned()
+            .unwrap_or_else(PoisonError::into_inner);
+        let key = processors
+            .file_extension_to_default_processor
+            .get(extension)?;
+        processors.type_name_to_processor.get(key).cloned()
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
@@ -755,7 +764,10 @@ impl AssetProcessor {
             .processors
             .read()
             .unwrap_or_else(PoisonError::into_inner);
-        processors.get(processor_type_name).cloned()
+        processors
+            .type_name_to_processor
+            .get(processor_type_name)
+            .cloned()
     }
 
     /// Populates the initial view of each asset by scanning the unprocessed and processed asset folders.
@@ -1257,7 +1269,6 @@ impl AssetProcessorData {
             log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),
-            default_processors: Default::default(),
         }
     }
 
