@@ -5,7 +5,7 @@ use crate::io::{
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_platform::sync::{PoisonError, RwLock};
+use bevy_platform::sync::RwLock;
 use core::time::Duration;
 use notify_debouncer_full::{notify::RecommendedWatcher, Debouncer, RecommendedCache};
 use std::{

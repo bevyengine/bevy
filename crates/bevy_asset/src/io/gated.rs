@@ -2,7 +2,7 @@ use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
 use alloc::{boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
 use bevy_platform::{collections::HashMap, sync::RwLock};
-use std::{path::Path, sync::PoisonError};
+use std::path::Path;
 
 /// A "gated" reader that will prevent asset reads from returning until
 /// a given path has been "opened" using [`GateOpener`].
