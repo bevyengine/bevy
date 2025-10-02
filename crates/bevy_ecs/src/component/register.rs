@@ -668,26 +668,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// See type level docs for details.
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-        self.get_id(type_id).unwrap_or_else(|| {
-            // SAFETY: We just checked that this type was not already registered.
-            unsafe {
-                self.register_arbitrary_resource(
-                    type_id,
-                    ComponentDescriptor::new_resource::<T>(),
-                    move |registrator, id, descriptor| {
-                        // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
-                        // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
-                        #[expect(unused_unsafe, reason = "More precise to specify.")]
-                        unsafe {
-                            registrator
-                                .components
-                                .register_resource_unchecked(type_id, id, descriptor);
-                        }
-                    },
-                )
-            }
-        })
+        queue_register_component::<ResourceComponent<T>>()
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
