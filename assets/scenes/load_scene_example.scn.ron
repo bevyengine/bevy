@@ -1,7 +1,13 @@
 (
   resources: {
-    "scene::ResourceA": (
-      score: 1,
+    4294967299: (
+      components: {
+        "bevy_ecs::resource::ResourceComponent<scene::ResourceA>": ((
+          score: 1,
+        )),
+        "bevy_ecs::resource::IsResource": (),
+        "bevy_ecs::entity_disabling::Internal": (),
+      },
     ),
   },
   entities: {
