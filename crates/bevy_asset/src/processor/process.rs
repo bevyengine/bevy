@@ -14,6 +14,7 @@ use alloc::{
     borrow::ToOwned,
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
 use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
@@ -122,6 +123,11 @@ pub enum ProcessError {
     #[error("The processor '{0}' does not exist")]
     #[from(ignore)]
     MissingProcessor(String),
+    #[error("The processor '{processor_short_name}' is ambiguous between several processors: {ambiguous_processor_names:?}")]
+    AmbiguousProcessor {
+        processor_short_name: String,
+        ambiguous_processor_names: Vec<&'static str>,
+    },
     #[error("Encountered an AssetReader error for '{path}': {err}")]
     #[from(ignore)]
     AssetReaderError {
