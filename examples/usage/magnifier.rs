@@ -1,4 +1,4 @@
-//! Demonstrates zooming part of the screen with SubCameraView
+//! Demonstrates zooming part of the screen with `SubCameraView`
 use bevy::{
     camera::{SubCameraView, SubViewSourceProjection, Viewport},
     input::mouse::AccumulatedMouseScroll,
@@ -73,6 +73,10 @@ fn setup(
             order: 1,
             ..default()
         },
+        // The `SubViewSourceProjection` component lets us use the other camera's projection instead, but while retaining our
+        // own viewport's aspect ratio, which is needed to massively simplify the math we have to do. This is not just for
+        // magnification, but any time a sub view is used to overlay a visual alteration on top of an image with a different
+        // aspect ratio.
         SubViewSourceProjection(main_camera),
         ViewportSize(physical_size),
         Magnification(0.25),
@@ -80,21 +84,16 @@ fn setup(
     ));
 
     // Debug text
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
-        ))
-        .with_children(|children| {
-            children.spawn(TextSpan::new("Press space to toggle sub view"));
-            children.spawn(TextSpan::new("\n"));
-            children.spawn((TextSpan::default(), DebugText));
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+        DebugText,
+    ));
 }
 
 fn update_magnification(
@@ -110,14 +109,10 @@ fn update_magnification(
 }
 
 fn update_sub_view(
-    background_camera: Single<&Camera, With<IsDefaultUiCamera>>,
-    camera: Single<
-        (&mut Camera, &mut Projection, &ViewportSize, &Magnification),
-        Without<IsDefaultUiCamera>,
-    >,
+    camera: Single<(&mut Camera, &ViewportSize, &Magnification), Without<IsDefaultUiCamera>>,
     window: Single<&Window, With<PrimaryWindow>>,
 ) {
-    let (mut camera, mut projection, viewport_size, magnification) = camera.into_inner();
+    let (mut camera, viewport_size, magnification) = camera.into_inner();
 
     let Some(cursor) = window.physical_cursor_position() else {
         return;
@@ -142,10 +137,10 @@ fn update_sub_view(
     // Normalise the position to the 0..1 range the sub view expects
     let mut offset = cursor / window_size;
 
-    // A subview scale of 1.0 makes the full window image visible within the viewport (i.e. very "zoomed out").
+    // A subview scale of 1.0 makes the full window image visible within the much smaller viewport (i.e. very "zoomed out").
     // For 1x magnification, so the viewport shows the same image as just the background area it covers,
     // the subview scale would be `viewport_size.y / window_size.y`.
-    // So, we scale that value by the intended magnification to get the actual subview scale.
+    // So, we scale that value by the intended magnification to get the actual subview scale that we use.
     let size = magnification.0 * (viewport_size / window_size);
 
     // `viewport_size / window_size` is the fraction of the window that the viewport covers.
@@ -167,7 +162,7 @@ fn update_sub_view(
 }
 
 fn update_debug_text(
-    mut text: Single<&mut TextSpan, With<DebugText>>,
+    mut text: Single<&mut Text, With<DebugText>>,
     camera: Single<(&Camera, &Magnification)>,
 ) {
     text.0 = format!(
