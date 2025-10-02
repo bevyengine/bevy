@@ -17,7 +17,7 @@ struct GzAsset {
     uncompressed: ErasedLoadedAsset,
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 struct GzAssetLoader;
 
 /// Possible errors that can be produced by [`GzAssetLoader`]

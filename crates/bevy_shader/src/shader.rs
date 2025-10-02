@@ -338,7 +338,7 @@ impl From<&Source> for naga_oil::compose::ShaderType {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, TypePath)]
 pub struct ShaderLoader;
 
 #[non_exhaustive]

@@ -287,6 +287,7 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
     });
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -326,9 +327,10 @@ impl AssetSaver for CoolTextSaver {
 // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
 // closure cannot be used (since we need to include the name of the transformer in the meta
 // file).
+#[derive(TypePath)]
 struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-trait MutateAsset<A: Asset>: Send + Sync + 'static {
+trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
     fn mutate(&self, asset: &mut A);
 }
 
@@ -354,6 +356,7 @@ impl<M: MutateAsset<A>, A: Asset> AssetTransformer for RootAssetTransformer<M, A
     }
 }
 
+#[derive(TypePath)]
 struct AddText(String);
 
 impl MutateAsset<CoolText> for AddText {
@@ -529,6 +532,7 @@ struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
 }
 
+#[derive(TypePath)]
 struct FakeGltfLoader;
 
 impl AssetLoader for FakeGltfLoader {
@@ -565,6 +569,7 @@ struct FakeBsn {
 // scene that holds all the data including parents.
 // TODO: It would be nice if the inlining was actually done as an `AssetTransformer`, but
 // `Process` currently has no way to load nested assets.
+#[derive(TypePath)]
 struct FakeBsnLoader;
 
 impl AssetLoader for FakeBsnLoader {
@@ -1073,6 +1078,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         value: String,
     }
 
+    #[derive(TypePath)]
     struct NesterLoader;
 
     impl AssetLoader for NesterLoader {
@@ -1104,6 +1110,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         }
     }
 
+    #[derive(TypePath)]
     struct AddTextToNested(String, Arc<Mutex<u32>>);
 
     impl MutateAsset<Nester> for AddTextToNested {
@@ -1119,6 +1126,7 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
         ron::ser::to_string(&serialized).unwrap()
     }
 
+    #[derive(TypePath)]
     struct NesterSaver;
 
     impl AssetSaver for NesterSaver {
