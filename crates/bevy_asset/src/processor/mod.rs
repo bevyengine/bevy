@@ -40,6 +40,8 @@
 mod log;
 mod process;
 
+#[cfg(feature = "trace")]
+use bevy_reflect::TypePath;
 pub use log::*;
 pub use process::*;
 
@@ -122,9 +124,9 @@ pub struct AssetProcessorData {
 
 #[derive(Default)]
 struct Processors {
-    /// Maps the type name of the processor to its instance.
-    type_name_to_processor: HashMap<&'static str, Arc<dyn ErasedProcessor>>,
-    /// Maps the file extension of an asset to the type name of the processor we should use to
+    /// Maps the type path of the processor to its instance.
+    type_path_to_processor: HashMap<&'static str, Arc<dyn ErasedProcessor>>,
+    /// Maps the file extension of an asset to the type path of the processor we should use to
     /// process it by default.
     file_extension_to_default_processor: HashMap<Box<str>, &'static str>,
 }
@@ -626,8 +628,8 @@ impl AssetProcessor {
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
         processors
-            .type_name_to_processor
-            .insert(core::any::type_name::<P>(), Arc::new(processor));
+            .type_path_to_processor
+            .insert(P::type_path(), Arc::new(processor));
     }
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
@@ -639,7 +641,7 @@ impl AssetProcessor {
             .unwrap_or_else(PoisonError::into_inner);
         processors
             .file_extension_to_default_processor
-            .insert(extension.into(), core::any::type_name::<P>());
+            .insert(extension.into(), P::type_path());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
@@ -652,7 +654,7 @@ impl AssetProcessor {
         let key = processors
             .file_extension_to_default_processor
             .get(extension)?;
-        processors.type_name_to_processor.get(key).cloned()
+        processors.type_path_to_processor.get(key).cloned()
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
@@ -663,7 +665,7 @@ impl AssetProcessor {
             .read()
             .unwrap_or_else(PoisonError::into_inner);
         processors
-            .type_name_to_processor
+            .type_path_to_processor
             .get(processor_type_name)
             .cloned()
     }
@@ -1231,6 +1233,7 @@ impl AssetProcessorData {
 }
 
 #[cfg(feature = "trace")]
+#[derive(TypePath)]
 struct InstrumentedAssetProcessor<T>(T);
 
 #[cfg(feature = "trace")]
@@ -1254,7 +1257,7 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
         };
         let span = info_span!(
             "asset processing",
-            processor = core::any::type_name::<T>(),
+            processor = T::type_path(),
             asset = context.path().to_string(),
         );
         self.0.process(context, meta, writer).instrument(span)

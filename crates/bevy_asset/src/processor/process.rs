@@ -15,6 +15,7 @@ use alloc::{
     boxed::Box,
     string::{String, ToString},
 };
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ use thiserror::Error;
 ///
 /// This is a "low level", maximally flexible interface. Most use cases are better served by the [`LoadTransformAndSave`] implementation
 /// of [`Process`].
-pub trait Process: Send + Sync + Sized + 'static {
+pub trait Process: TypePath + Send + Sync + Sized + 'static {
     /// The configuration / settings used to process the asset. This will be stored in the [`AssetMeta`] and is user-configurable per-asset.
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The [`AssetLoader`] that will be used to load the final processed asset.
@@ -59,6 +60,7 @@ pub trait Process: Send + Sync + Sized + 'static {
 /// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
+#[derive(TypePath)]
 pub struct LoadTransformAndSave<
     L: AssetLoader,
     T: AssetTransformer<AssetInput = L::Asset>,

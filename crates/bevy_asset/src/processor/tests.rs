@@ -120,6 +120,7 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -159,9 +160,10 @@ impl AssetSaver for CoolTextSaver {
 // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
 // closure cannot be used (since we need to include the name of the transformer in the meta
 // file).
+#[derive(TypePath)]
 struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-trait MutateAsset<A: Asset>: Send + Sync + 'static {
+trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
     fn mutate(&self, asset: &mut A);
 }
 
@@ -235,6 +237,7 @@ fn asset_processor_transforms_asset_default_processor() {
         processed_dir,
     } = create_app_with_asset_processor();
 
+    #[derive(TypePath)]
     struct AddText;
 
     impl MutateAsset<CoolText> for AddText {
@@ -293,6 +296,7 @@ fn asset_processor_transforms_asset_with_meta() {
         processed_dir,
     } = create_app_with_asset_processor();
 
+    #[derive(TypePath)]
     struct AddText;
 
     impl MutateAsset<CoolText> for AddText {
@@ -325,7 +329,7 @@ fn asset_processor_transforms_asset_with_meta() {
     source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -358,6 +362,7 @@ struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
 }
 
+#[derive(TypePath)]
 struct FakeGltfLoader;
 
 impl AssetLoader for FakeGltfLoader {
@@ -394,6 +399,7 @@ struct FakeBsn {
 // scene that holds all the data including parents.
 // TODO: It would be nice if the inlining was actually done as an `AssetTransformer`, but
 // `Process` currently has no way to load nested assets.
+#[derive(TypePath)]
 struct FakeBsnLoader;
 
 impl AssetLoader for FakeBsnLoader {
