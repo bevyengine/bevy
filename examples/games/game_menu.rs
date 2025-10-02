@@ -158,7 +158,7 @@ mod game {
                 children![
                     (
                         Text::new("Will be back to the menu shortly..."),
-                        FontSize(67.0),
+                        FontSize::Px(67.0),
                         TextColor(TEXT_COLOR),
                         Node {
                             margin: UiRect::all(px(50)),
@@ -167,7 +167,7 @@ mod game {
                     ),
                     (
                         Text::default(),
-                        FontSize(50.0),
+                        FontSize::Px(50.0),
                         Node {
                             margin: UiRect::all(px(50)),
                             ..default()
@@ -175,7 +175,7 @@ mod game {
                         children![
                             (
                                 Text(format!("quality: {:?}", *display_quality)),
-                                FontSize(50.0),
+                                FontSize::Px(50.0),
                                 TextColor(BLUE.into()),
                             ),
                             (Text::new(" - "), TextColor(TEXT_COLOR),),
@@ -357,7 +357,7 @@ mod menu {
             left: px(10),
             ..default()
         };
-        let button_text_font = FontSize(33.);
+        let button_text_font = FontSize::Px(33.);
 
         let right_icon = asset_server.load("textures/Game Icons/right.png");
         let wrench_icon = asset_server.load("textures/Game Icons/wrench.png");
@@ -384,7 +384,7 @@ mod menu {
                     // Display the game name
                     (
                         Text::new("Bevy Game Menu UI"),
-                        FontSize(67.0),
+                        FontSize::Px(67.0),
                         TextColor(TEXT_COLOR),
                         Node {
                             margin: UiRect::all(px(50)),
@@ -457,7 +457,7 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            FontSize(33.0),
+            FontSize::Px(33.0),
             TextColor(TEXT_COLOR),
             BackgroundColor(CRIMSON.into()),
             OnSettingsMenuScreen,
@@ -510,7 +510,7 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            FontSize(33.),
+            FontSize::Px(33.),
             TextColor(TEXT_COLOR),
             OnDisplaySettingsMenuScreen,
             children![(
@@ -590,7 +590,7 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            FontSize(33.),
+            FontSize::Px(33.),
             TextColor(TEXT_COLOR),
             OnSoundSettingsMenuScreen,
             children![(

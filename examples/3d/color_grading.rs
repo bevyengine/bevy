@@ -307,7 +307,7 @@ fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         FontFace(font.clone()),
-        FontSize(15.),
+        FontSize::Px(15.),
         TextColor(color),
     )
 }

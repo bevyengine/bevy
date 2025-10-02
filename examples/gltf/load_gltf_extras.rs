@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // a place to display the extras on screen
     commands.spawn((
         Text::default(),
-        FontSize(15.),
+        FontSize::Px(15.),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),

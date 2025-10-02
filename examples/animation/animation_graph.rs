@@ -278,7 +278,7 @@ fn setup_node_rects(commands: &mut Commands) {
         let text = commands
             .spawn((
                 Text::new(node_string),
-                FontSize(16.),
+                FontSize::Px(16.),
                 TextColor(ANTIQUE_WHITE.into()),
                 TextLayout::new_with_justify(Justify::Center),
             ))
