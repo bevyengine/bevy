@@ -762,7 +762,7 @@ mod tests {
         sub_texts: Vec<String>,
     }
 
-    #[derive(Default)]
+    #[derive(Default, TypePath)]
     pub struct CoolTextLoader;
 
     #[derive(Error, Debug)]
@@ -1855,6 +1855,7 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
+        #[derive(TypePath)]
         struct NestedLoadOfSubassetLoader;
 
         impl AssetLoader for NestedLoadOfSubassetLoader {

@@ -3,7 +3,7 @@ use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},
 };
-use bevy_reflect::TypeRegistryArc;
+use bevy_reflect::{TypePath, TypeRegistryArc};
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -16,7 +16,7 @@ use {
 /// Asset loader for a Bevy dynamic scene (`.scn` / `.scn.ron`).
 ///
 /// The loader handles assets serialized with [`DynamicScene::serialize`].
-#[derive(Debug)]
+#[derive(Debug, TypePath)]
 pub struct SceneLoader {
     #[cfg_attr(
         not(feature = "serialize"),
