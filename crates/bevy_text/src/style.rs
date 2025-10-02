@@ -12,7 +12,7 @@ use bevy_reflect::Reflect;
 /// Text style
 #[derive(Clone, PartialEq)]
 pub struct TextStyle {
-    /// The font used by a text entity when neither it nor any ancestor has a [`TextFont`] component.
+    /// The font used by a text entity when neither it nor any ancestor has a [`FontFace`] component.
     pub font: Handle<Font>,
     /// Default value
     pub font_size: FontSize,
@@ -73,7 +73,7 @@ pub trait InheritableTextStyle: Component {
 #[derive(Component, PartialEq, Debug, Default)]
 #[require(ComputedFontSize)]
 pub struct ComputedTextStyle {
-    /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
+    /// The resolved font, taken from the nearest ancestor (including self) with a [`FontFace`],
     /// or from [`DefaultTextStyle`] if none is found.
     pub(crate) font: AssetId<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
@@ -89,7 +89,7 @@ pub struct ComputedTextStyle {
 }
 
 impl ComputedTextStyle {
-    /// The resolved font, taken from the nearest ancestor (including self) with a [`TextFont`],
+    /// The resolved font, taken from the nearest ancestor (including self) with a [`FontFace`],
     /// or from [`DefaultTextStyle`] if none is found.
     pub const fn font(&self) -> &AssetId<Font> {
         &self.font

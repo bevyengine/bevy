@@ -46,7 +46,7 @@ use core::any::TypeId;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, FontFace, TextColor, TextSpan};
 /// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -58,11 +58,8 @@ use core::any::TypeId;
 /// // With non-default style.
 /// world.spawn((
 ///     Text2d::new("hello world!"),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
+///     FontFace(font_handle.clone()),
+///     FontSize::Px(60.0),
 ///     TextColor(BLUE.into()),
 /// ));
 ///
@@ -74,8 +71,8 @@ use core::any::TypeId;
 ///
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text2d::new("world"));
+///     parent.spawn((Text2d::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]

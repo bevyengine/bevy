@@ -57,11 +57,11 @@ pub struct ComputedTextBlock {
     ///
     /// Includes:
     /// - [`TextLayout`] changes.
-    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    /// - [`FontFace`] or `Text2d`/`Text` changes anywhere in the block's entity hierarchy.
     // TODO: This encompasses both structural changes like font size or justification and non-structural
     // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
-    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
+    // solution would probably require splitting TextLayout and FontFace into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
     pub(crate) needs_rerender: bool,
 }
@@ -69,7 +69,7 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`FontFace`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
@@ -106,7 +106,7 @@ impl Default for ComputedTextBlock {
 
 /// Component with text format settings for a block of text.
 ///
-/// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
+/// A block of text is composed of text spans, which each have a separate string value and [`FontFace`]. Text
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///

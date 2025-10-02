@@ -130,9 +130,7 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
-            let font_size = style
-                .font_size
-                .eval(viewport_size, default_font_size);
+            let font_size = style.font_size.eval(viewport_size, default_font_size);
 
             // Get max font size for use in cosmic Metrics.
             max_font_size = max_font_size.max(font_size);
@@ -531,7 +529,7 @@ pub fn load_font_to_fontdb(
     }
 }
 
-/// Translates [`TextFont`] to [`Attrs`].
+/// Translates [`FontFace`] to [`Attrs`].
 fn get_attrs<'a>(
     span_index: usize,
     style: &'a ComputedTextStyle,

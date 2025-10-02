@@ -137,7 +137,7 @@ pub enum RenderUiSystems {
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
 /// in a camera. By default, UI is always anti-aliased.
 ///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
+/// **Note:** This does not affect text anti-aliasing. For that, use the `FontSmoothing` component.
 ///
 /// ```
 /// use bevy_camera::prelude::*;
