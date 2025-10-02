@@ -1,4 +1,4 @@
-#import bevy_solari::world_cache::{WORLD_CACHE_EMPTY_CELL, world_cache_life, world_cache_checksums, world_cache_radiance, world_cache_a, world_cache_b, world_cache_active_cell_indices, world_cache_active_cells_count}
+#import bevy_solari::world_cache::{WORLD_CACHE_EMPTY_CELL, world_cache_life, world_cache_checksums, world_cache_radiance, world_cache_a, world_cache_b, world_cache_active_cell_indices, world_cache_active_cells_count, world_cache_light_data, world_cache_light_data_new_lights, WORLD_CACHE_CELL_LIGHT_COUNT}
 
 @group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
 
@@ -15,6 +15,23 @@ fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if life == 0u {
             world_cache_checksums[global_id.x] = WORLD_CACHE_EMPTY_CELL;
             world_cache_radiance[global_id.x] = vec4(0.0);
+        } else {
+            var count = min(WORLD_CACHE_CELL_LIGHT_COUNT, atomicLoad(&world_cache_light_data_new_lights[global_id.x].visible_light_count));
+            atomicStore(&world_cache_light_data_new_lights[global_id.x].visible_light_count, 0u);
+            for (var i = 0u; i < count; i++) {
+                let data = atomicLoad(&world_cache_light_data_new_lights[global_id.x].visible_lights[i]);
+                atomicStore(&world_cache_light_data_new_lights[global_id.x].visible_lights[i], 0);
+                if data == 0 { 
+                    count = i;
+                    break; 
+                }
+
+                let light = u32(data & 0xffffffff);
+                let weight = bitcast<f32>(u32(data >> 32u));
+                world_cache_light_data[global_id.x].visible_lights[i].light = light;
+                world_cache_light_data[global_id.x].visible_lights[i].weight = weight;
+            }
+            world_cache_light_data[global_id.x].visible_light_count = count;
         }
     }
 }

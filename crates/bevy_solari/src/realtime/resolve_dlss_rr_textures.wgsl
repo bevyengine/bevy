@@ -2,8 +2,8 @@
 #import bevy_pbr::utils::octahedral_decode
 #import bevy_render::view::View
 
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(12) var<uniform> view: View;
+@group(1) @binding(3) var gbuffer: texture_2d<u32>;
+@group(1) @binding(8) var<uniform> view: View;
 
 @group(2) @binding(0) var diffuse_albedo: texture_storage_2d<rgba8unorm, write>;
 @group(2) @binding(1) var specular_albedo: texture_storage_2d<rgba8unorm, write>;

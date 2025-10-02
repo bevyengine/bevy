@@ -11,15 +11,15 @@
 #import bevy_solari::world_cache::query_world_cache
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(6) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(9) var motion_vectors: texture_2d<f32>;
-@group(1) @binding(10) var previous_gbuffer: texture_2d<u32>;
-@group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-@group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
+@group(1) @binding(1) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
+@group(1) @binding(2) var<storage, read_write> gi_reservoirs_b: array<Reservoir>;
+@group(1) @binding(3) var gbuffer: texture_2d<u32>;
+@group(1) @binding(4) var depth_buffer: texture_depth_2d;
+@group(1) @binding(5) var motion_vectors: texture_2d<f32>;
+@group(1) @binding(6) var previous_gbuffer: texture_2d<u32>;
+@group(1) @binding(7) var previous_depth_buffer: texture_depth_2d;
+@group(1) @binding(8) var<uniform> view: View;
+@group(1) @binding(9) var<uniform> previous_view: PreviousViewUniforms;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
@@ -80,7 +80,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure, 0.0);
-    textureStore(view_output, global_id.xy, pixel_color);
+    // textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
     textureStore(view_output, global_id.xy, vec4(query_world_cache(world_position, world_normal, view.world_position) * view.exposure, 1.0));
@@ -112,7 +112,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.radiance = direct_lighting.radiance;
     reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
 #else
-    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position);
+    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position).radiance;
     reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
 #endif
 
