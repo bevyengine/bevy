@@ -14,6 +14,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
@@ -28,7 +29,7 @@ use thiserror::Error;
 /// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
 ///
 /// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
-pub trait AssetLoader: Send + Sync + 'static {
+pub trait AssetLoader: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
     type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].

@@ -5,6 +5,7 @@ use crate::{
 use alloc::boxed::Box;
 use atomicow::CowArc;
 use bevy_platform::collections::HashMap;
+use bevy_reflect::TypePath;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 /// This trait is generally used in concert with [`AssetWriter`](crate::io::AssetWriter) to write assets as bytes.
 ///
 /// For a complementary version of this trait that can load assets, see [`AssetLoader`].
-pub trait AssetSaver: Send + Sync + 'static {
+pub trait AssetSaver: TypePath + Send + Sync + 'static {
     /// The top level [`Asset`] saved by this [`AssetSaver`].
     type Asset: Asset;
     /// The settings type used by this [`AssetSaver`].
