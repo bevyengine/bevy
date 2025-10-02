@@ -1,6 +1,6 @@
 ---
-title: "Removed `FontAtlasSets`"
-pull_requests: [#21345]
+title: Reemoved `FontAtlasSets`
+pull_requests: [21345]
 ---
 
 `FontAtlasSets` has been removed. `FontAtlasKey` now wraps a `(AssetId<Font>, u32, FontSmoothing)`.
