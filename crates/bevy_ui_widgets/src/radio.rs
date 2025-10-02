@@ -6,7 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::{ChildOf, Children},
     observer::On,
-    query::{Has, With, Without},
+    query::{Has, With},
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
@@ -156,20 +156,15 @@ fn radio_group_on_key_input(
 // on `Space` or `Enter` key press.
 fn radio_button_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_radio_button: Query<Has<Checked>, (With<RadioButton>, Without<InteractionDisabled>)>,
+    q_radio_button: Query<(Has<InteractionDisabled>, Has<Checked>), With<RadioButton>>,
     q_group: Query<(), With<RadioGroup>>,
     q_parents: Query<&ChildOf>,
     mut commands: Commands,
 ) {
-    let Ok(checked) = q_radio_button.get(ev.focused_entity) else {
+    let Ok((disabled, checked)) = q_radio_button.get(ev.focused_entity) else {
         // Not a radio button
         return;
     };
-
-    // Radio button already checked
-    if checked {
-        return;
-    }
 
     let event = &ev.event().input;
     if event.state == ButtonState::Pressed
@@ -177,6 +172,11 @@ fn radio_button_on_key_input(
         && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
     {
         ev.propagate(false);
+
+        // Radio button is disabled or already checked
+        if disabled || checked {
+            return;
+        }
 
         trigger_radio_button_and_radio_group_value_change(
             ev.focused_entity,
@@ -190,19 +190,19 @@ fn radio_button_on_key_input(
 fn radio_button_on_click(
     mut ev: On<Pointer<Click>>,
     q_group: Query<(), With<RadioGroup>>,
-    q_radio: Query<Has<Checked>, (With<RadioButton>, Without<InteractionDisabled>)>,
+    q_radio: Query<(Has<InteractionDisabled>, Has<Checked>), With<RadioButton>>,
     q_parents: Query<&ChildOf>,
     mut commands: Commands,
 ) {
-    let Ok(checked) = q_radio.get(ev.entity) else {
+    let Ok((disabled, checked)) = q_radio.get(ev.entity) else {
         // Not a radio button
         return;
     };
 
     ev.propagate(false);
 
-    // Radio button is already checked
-    if checked {
+    // Radio button is disabled or already checked
+    if disabled || checked {
         return;
     }
 
