@@ -1,4 +1,4 @@
-//! Demonstrates splitting an image across multiple windows with SubCameraView
+//! Demonstrates splitting an image across multiple windows with `SubCameraView`
 use bevy::{
     camera::{RenderTarget, SubCameraView},
     prelude::*,
@@ -60,7 +60,6 @@ fn setup(
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::ZERO,
-                ..default()
             }),
             ..default()
         },
@@ -78,6 +77,9 @@ fn setup(
         })
         .id();
 
+    // offset is set to `(0.5, 0.0)` instead of `(1.0, 0.0)` because it controls the top-left corner of the view.
+    // As this camera is the top-right quadrant of the overall image, the top-left corner of this quadrant
+    // would be halfway along horizontally, and at the very top vertically. Hence the offset being `(0.5, 0.0)`.
     commands.spawn((
         Camera3d::default(),
         transform,
@@ -86,7 +88,6 @@ fn setup(
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::new(0.5, 0.0),
-                ..default()
             }),
             ..default()
         },
@@ -103,6 +104,7 @@ fn setup(
         })
         .id();
 
+    // Same logic as the top-right, except for the vertical axis instead of the horizontal axis.
     commands.spawn((
         Camera3d::default(),
         transform,
@@ -111,7 +113,6 @@ fn setup(
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::new(0.0, 0.5),
-                ..default()
             }),
             ..default()
         },
@@ -128,6 +129,7 @@ fn setup(
         })
         .id();
 
+    // The top-left corner of the bottom-right quadrant is the very middle.
     commands.spawn((
         Camera3d::default(),
         transform,
@@ -136,7 +138,6 @@ fn setup(
             sub_camera_view: Some(SubCameraView {
                 scale: 0.5,
                 offset: Vec2::splat(0.5),
-                ..default()
             }),
             ..default()
         },

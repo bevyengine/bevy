@@ -8,9 +8,7 @@ use bevy_asset::Handle;
 use bevy_derive::Deref;
 use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
 use bevy_image::Image;
-use bevy_math::{
-    ops, AspectRatio, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A,
-};
+use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{NormalizedWindowRef, WindowRef};
@@ -110,16 +108,37 @@ impl Viewport {
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
-/// Settings to define a camera sub view. Also called a "sheared frustum".
+/// Settings to define a camera sub view. Also called a "sheared projection matrix".
 ///
-/// The [`Projection`] component defines a view frustum. This type, when set on a camera, modifies that view frustum.
-/// By default, the projection used is the one on the same entity as the camera. It's possible to use a different projection
-/// as the source for the sub view, by inserting a [`SubViewSourceProjection`] component, which is useful for some more advanced
-/// cases.
+/// This is not a component type itself, but rather is stored in the `sub_camera_view` field of the [`Camera`] component.
+/// The `Camera` component is typically used alongside the `Projection` component, which is used to calculate a view frustum
+/// for that camera. If a sub view is set on the camera, it is used to modify the frustum calculation.
+///
+/// The two parameters that a sub view has are `scale` and `offset`.
+/// `scale` is a multiplier for the width and height of the view frustum.
+/// `offset` is an interpolation parameter for the position of the view frustum, within the bounds of the unmodified "base" frustum,
+/// that would be used if the camera didn't have a sub view set.
+///
+/// Changing the scale of a sub view will not change the size of the rendered image on screen, as the size of a camera's frustum
+/// is independent of the size of its viewport. Rather, this will cause the image to appear to zoom in or out. An important
+/// thing to note is that the scale does not zoom "around" the center of the view, but rather the top-left corner.
+///
+/// The top-left corner is also the point controlled by the offset parameter. An offset of 0 in a given axis puts the
+/// corresponding edge (either top or left) on the same edge of the base frustum. An offset of 1 puts that edge on the
+/// opposite edge of the base frustum, which means the rest of the sub view will be *outside* of the base view on that axis.
+/// Offset values in between 0 and 1 are linearly interpolated between these two extremes.
+///
+/// ## [`SubViewSourceProjection`]
+///
+/// The `SubViewSourceProjection` relationship component can be inserted onto an camera entity that has a sub view set, in
+/// order to use the `Projection` component on a different entity as the base for the sub view frustum calculation. All of the
+/// parameters of the specified projection will be used, except that the aspect ratio of the calculated frustum will still be
+/// the same as the aspect ratio of the camera's viewport. This can be used to drastically simplify the math in some use cases,
+/// see the "magnifier" example for an example of this.
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
-    /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the full view
+    /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the base view
     pub scale: f32,
     /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,

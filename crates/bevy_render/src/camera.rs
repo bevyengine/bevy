@@ -463,6 +463,7 @@ fn camera_sub_view_system(
             && size.x != 0.0
             && size.y != 0.0
         {
+            // This expect will usually never be hit, because the same check is performed in the projection update call earlier
             let aspect_ratio = AspectRatio::try_new(size.x, size.y)
             .expect("Failed to update CameraSubView: viewport size must be a positive, non-zero value")
             .ratio();
@@ -810,7 +811,7 @@ mod tests {
 
         fn get_clip_from_view_for_sub(
             &self,
-            sub_view: &SubCameraView,
+            _sub_view: &SubCameraView,
             sub_view_aspect_ratio: Option<f32>,
         ) -> Mat4 {
             if sub_view_aspect_ratio.is_none() {
@@ -820,13 +821,13 @@ mod tests {
             }
         }
 
-        fn update(&mut self, width: f32, height: f32) {}
+        fn update(&mut self, _width: f32, _height: f32) {}
 
         fn far(&self) -> f32 {
             unimplemented!()
         }
 
-        fn get_frustum_corners(&self, z_near: f32, z_far: f32) -> [Vec3A; 8] {
+        fn get_frustum_corners(&self, _z_near: f32, _z_far: f32) -> [Vec3A; 8] {
             unimplemented!()
         }
     }
@@ -914,7 +915,9 @@ mod tests {
         app.update();
 
         let sub_view_camera = app.world().get::<Camera>(sub_view_camera).unwrap();
-
         assert_eq!(sub_view_camera.computed.clip_from_view, DEPENDENT_SUB_VIEW);
+
+        let source_camera = app.world().get::<Camera>(source_camera).unwrap();
+        assert_eq!(source_camera.computed.clip_from_view, NO_SUB_VIEW);
     }
 }
