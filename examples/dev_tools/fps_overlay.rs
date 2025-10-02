@@ -42,7 +42,7 @@ fn main() {
                     refresh_interval: core::time::Duration::from_millis(100),
                     // Enable or disable the entire fps overlay
                     enabled: true,
-                    frame_time_graph_config: FrameTimeGraphConfig {
+                    graph_config: FrameTimeGraphConfig {
                         enabled: true,
                         // The minimum acceptable fps
                         min_fps: 30.0,

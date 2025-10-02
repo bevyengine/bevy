@@ -124,7 +124,7 @@ pub struct FpsOverlayConfig {
     /// Defaults to once every 100 ms.
     pub refresh_interval: Duration,
     /// Configuration of the frame time graph
-    pub frame_time_graph_config: FrameTimeGraphConfig,
+    pub graph_config: FrameTimeGraphConfig,
     /// Configuration of the overlay position.
     pub position: FpsOverlayPositionConfig,
 }
@@ -136,7 +136,7 @@ impl Default for FpsOverlayConfig {
             enabled: true,
             refresh_interval: Duration::from_millis(100),
             // TODO set this to display refresh rate if possible
-            frame_time_graph_config: FrameTimeGraphConfig::target_fps(60.0),
+            graph_config: FrameTimeGraphConfig::target_fps(60.0),
             position: FpsOverlayPositionConfig::default(),
         }
     }
@@ -226,7 +226,7 @@ fn setup(
                 Node {
                     width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
                     height: Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE),
-                    display: if overlay_config.frame_time_graph_config.enabled {
+                    display: if overlay_config.graph_config.enabled {
                         bevy_ui::Display::DEFAULT
                     } else {
                         bevy_ui::Display::None
@@ -243,11 +243,11 @@ fn setup(
                         ..Default::default()
                     }),
                     config: FrameTimeGraphConfigUniform::new(
-                        overlay_config.frame_time_graph_config.target_fps,
-                        overlay_config.frame_time_graph_config.min_fps,
+                        overlay_config.graph_config.target_fps,
+                        overlay_config.graph_config.min_fps,
                         true,
-                        overlay_config.frame_time_graph_config.min_color,
-                        overlay_config.frame_time_graph_config.max_color,
+                        overlay_config.graph_config.min_color,
+                        overlay_config.graph_config.max_color,
                     ),
                 })),
                 FrameTimeGraph,
@@ -302,7 +302,7 @@ fn toggle_display(
         text_node.display = bevy_ui::Display::None;
     }
 
-    if overlay_config.enabled && overlay_config.frame_time_graph_config.enabled {
+    if overlay_config.enabled && overlay_config.graph_config.enabled {
         // Scale the frame time graph based on the font size of the overlay
         let font_size = overlay_config.text_config.font.font_size;
         graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);

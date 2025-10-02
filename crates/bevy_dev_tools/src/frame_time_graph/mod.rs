@@ -107,7 +107,7 @@ fn update_frame_time_values(
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {
-    if !config.is_none_or(|c| c.frame_time_graph_config.enabled) {
+    if !config.is_none_or(|c| c.graph_config.enabled) {
         return;
     }
     let Some(frame_time) = diagnostics_store.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME) else {
