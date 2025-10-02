@@ -304,9 +304,9 @@ fn setup(
             ..default()
         },
         children![
-            (TextSpan(format!("Parallax depth scale: {parallax_depth_scale:.5}\n"))),
-            (TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n"))),
-            (TextSpan(format!("{parallax_mapping_method}\n"))),
+            (Text(format!("Parallax depth scale: {parallax_depth_scale:.5}\n"))),
+            (Text(format!("Layers: {max_parallax_layer_count:.0}\n"))),
+            (Text(format!("{parallax_mapping_method}\n"))),
             (Text::new("\n\n")),
             (Text::new("Controls:\n")),
             (Text::new("Left click - Change view angle\n")),

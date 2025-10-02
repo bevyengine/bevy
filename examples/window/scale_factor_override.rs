@@ -45,10 +45,7 @@ fn setup(mut commands: Commands) {
             children![(
                 CustomText,
                 Text::new("Example text"),
-                FontFace {
-                    font_size: 25.0,
-                    ..default()
-                },
+                FontSize::Px(25.0),
                 Node {
                     align_self: AlignSelf::FlexEnd,
                     ..default()

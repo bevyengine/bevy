@@ -355,7 +355,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             TextLayout::new_with_justify(Justify::Center),
             children![
                 Text::new("Primitive: "),
-                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
+                Text(format!("{text}", text = PrimitiveSelected::default())),
                 Text::new("\n\n"),
                 Text::new(
                     "Press 'C' to switch between 2D and 3D mode\n\

@@ -61,10 +61,7 @@ fn setup(
     // labels
     commands.spawn((
         Text::new("Perceptual Roughness"),
-        FontFace {
-            font_size: 30.0,
-            ..default()
-        },
+        FontSize::Px(30.0),
         Node {
             position_type: PositionType::Absolute,
             top: px(20),
@@ -75,10 +72,7 @@ fn setup(
 
     commands.spawn((
         Text::new("Metallic"),
-        FontFace {
-            font_size: 30.0,
-            ..default()
-        },
+        FontSize::Px(30.0),
         Node {
             position_type: PositionType::Absolute,
             top: px(130),
@@ -93,10 +87,7 @@ fn setup(
 
     commands.spawn((
         Text::new("Loading Environment Map..."),
-        FontFace {
-            font_size: 30.0,
-            ..default()
-        },
+        FontSize::Px(30.0),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(20),

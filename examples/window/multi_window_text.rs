@@ -64,7 +64,7 @@ fn setup_scene(mut commands: Commands) {
     };
 
     commands.insert_resource(DefaultTextStyle(TextStyle {
-        font_size: 30.,
+        font_size: FontSize::Px(30.),
         ..Default::default()
     }));
 

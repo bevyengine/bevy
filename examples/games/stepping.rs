@@ -118,11 +118,8 @@ fn build_ui(
     for label in schedule_order {
         let schedule = schedules.get(*label).unwrap();
         text_spans.push((
-            TextSpan(format!("{label:?}\n")),
-            FontFace {
-                font: asset_server.load(FONT_BOLD),
-                ..default()
-            },
+            Text(format!("{label:?}\n")),
+            FontFace(asset_server.load(FONT_BOLD)),
             TextColor(FONT_COLOR),
         ));
 
@@ -152,7 +149,7 @@ fn build_ui(
 
             // add the name of the system to the ui
             text_spans.push((
-                TextSpan(format!("{}\n", system.name())),
+                Text(format!("{}\n", system.name())),
                 FontFace::default(),
                 TextColor(FONT_COLOR),
             ));
@@ -189,10 +186,6 @@ fn build_stepping_hint(mut commands: Commands) {
     // stepping description box
     commands.spawn((
         Text::new(hint_text),
-        FontFace {
-            font_size: 15.0,
-            ..default()
-        },
         TextColor(FONT_COLOR),
         Node {
             position_type: PositionType::Absolute,

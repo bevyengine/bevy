@@ -35,10 +35,7 @@ fn on_a_enter(mut commands: Commands) {
     commands.spawn((
         DespawnOnExit(GameState::A),
         Text::new("Game is in state 'A'"),
-        FontFace {
-            font_size: 33.0,
-            ..default()
-        },
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
@@ -54,10 +51,7 @@ fn on_a_exit(mut commands: Commands) {
     commands.spawn((
         DespawnOnEnter(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
-        FontFace {
-            font_size: 33.0,
-            ..default()
-        },
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
@@ -73,10 +67,7 @@ fn on_b_enter(mut commands: Commands) {
     commands.spawn((
         DespawnOnExit(GameState::B),
         Text::new("Game is in state 'B'"),
-        FontFace {
-            font_size: 33.0,
-            ..default()
-        },
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
@@ -92,10 +83,7 @@ fn on_b_exit(mut commands: Commands) {
     commands.spawn((
         DespawnOnEnter(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
-        FontFace {
-            font_size: 33.0,
-            ..default()
-        },
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
