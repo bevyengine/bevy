@@ -310,7 +310,7 @@ pub enum MissingRenderTargetInfoError {
 ///
 /// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 /// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
-pub fn camera_system(
+fn camera_system(
     mut window_resized_reader: MessageReader<WindowResized>,
     mut window_created_reader: MessageReader<WindowCreated>,
     mut window_scale_factor_changed_reader: MessageReader<WindowScaleFactorChanged>,
