@@ -27,8 +27,14 @@ impl CameraProjection for ObliquePerspectiveProjection {
         mat
     }
 
-    fn get_clip_from_view_for_sub(&self, sub_view: &bevy::camera::SubCameraView) -> Mat4 {
-        let mut mat = self.perspective.get_clip_from_view_for_sub(sub_view);
+    fn get_clip_from_view_for_sub(
+        &self,
+        sub_view: &bevy::camera::SubCameraView,
+        sub_view_aspect_ratio: Option<f32>,
+    ) -> Mat4 {
+        let mut mat = self
+            .perspective
+            .get_clip_from_view_for_sub(sub_view, sub_view_aspect_ratio);
         mat.col_mut(2)[0] = self.horizontal_obliqueness;
         mat.col_mut(2)[1] = self.vertical_obliqueness;
         mat
