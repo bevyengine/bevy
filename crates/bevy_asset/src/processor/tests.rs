@@ -25,18 +25,145 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-        AssetWatcher, PathStream, Reader,
+        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
+        AssetSourceId, AssetWatcher, PathStream, Reader,
     },
+    meta::AssetMeta,
     processor::{
-        AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
-        ProcessorTransactionLogFactory,
+        AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
+        ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
     tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
+
+#[derive(TypePath)]
+struct MyProcessor<T>(PhantomData<fn() -> T>);
+
+impl<T: TypePath + 'static> Process for MyProcessor<T> {
+    type OutputLoader = ();
+    type Settings = ();
+
+    async fn process(
+        &self,
+        _context: &mut ProcessContext<'_>,
+        _meta: AssetMeta<(), Self>,
+        _writer: &mut crate::io::Writer,
+    ) -> Result<(), ProcessError> {
+        Ok(())
+    }
+}
+
+#[derive(TypePath)]
+struct Marker;
+
+fn create_empty_asset_processor() -> AssetProcessor {
+    let mut sources = AssetSourceBuilders::default();
+    // Create an empty asset source so that AssetProcessor is happy.
+    let dir = Dir::default();
+    let memory_reader = MemoryAssetReader { root: dir.clone() };
+    sources.insert(
+        AssetSourceId::Default,
+        AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
+    );
+
+    AssetProcessor::new(&mut sources, false).0
+}
+
+#[test]
+fn get_asset_processor_by_name() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+
+    let long_processor = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let short_processor = asset_processor
+        .get_processor("MyProcessor<Marker>")
+        .expect("Processor was previously registered");
+
+    // We can use either the long or short processor name and we will get the same processor
+    // out.
+    assert!(Arc::ptr_eq(&long_processor, &short_processor));
+}
+
+#[test]
+fn missing_processor_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+
+    let Err(long_processor_err) = asset_processor.get_processor(
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+    ) else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(
+        long_processor_err,
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>"
+    );
+
+    // Short paths should also return an error.
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(long_processor_err, "MyProcessor<Marker>");
+}
+
+// Create another marker type whose short name will overlap `Marker`.
+mod sneaky {
+    use bevy_reflect::TypePath;
+
+    #[derive(TypePath)]
+    pub struct Marker;
+}
+
+#[test]
+fn ambiguous_short_path_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+    asset_processor.register_processor(MyProcessor::<sneaky::Marker>(PhantomData));
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though the short path is ambiguous.");
+    };
+    let GetProcessorError::Ambiguous {
+        processor_short_name,
+        ambiguous_processor_names,
+    } = &long_processor_err
+    else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(processor_short_name, "MyProcessor<Marker>");
+    let expected_ambiguous_names = [
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+    ];
+    assert_eq!(ambiguous_processor_names, &expected_ambiguous_names);
+
+    let processor_1 = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let processor_2 = asset_processor
+            .get_processor(
+                "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+            )
+            .expect("Processor was previously registered");
+
+    // If we fully specify the paths, we get the two different processors.
+    assert!(!Arc::ptr_eq(&processor_1, &processor_2));
+}
 
 #[derive(Clone)]
 struct ProcessingDirs {
