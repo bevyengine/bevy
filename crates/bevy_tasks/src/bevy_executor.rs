@@ -344,7 +344,7 @@ impl Executor {
         let state = &self.state;
 
         move |runnable| {
-            Self::schedule_runnable(&state, runnable);
+            Self::schedule_runnable(state, runnable);
         }
     }
 
@@ -359,7 +359,7 @@ impl Executor {
                 // If this returns Err, the thread's destructor has been called and thus it's meaningless
                 // to push onto the queue.
                 let _ = try_with_local_queue(|tls| {
-                    Self::schedule_runnable_local(&state, tls, runnable);
+                    Self::schedule_runnable_local(state, tls, runnable);
                 });
             }
         }
