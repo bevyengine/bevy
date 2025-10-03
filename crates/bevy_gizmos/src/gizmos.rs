@@ -626,9 +626,10 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::{bounding::Aabb3d, Vec3};
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cuboid(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
