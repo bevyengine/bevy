@@ -8,7 +8,7 @@
 #import bevy_render::view::View
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache
+#import bevy_solari::world_cache::query_world_cache_radiance
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
@@ -83,7 +83,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(world_position, world_normal, view.world_position) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache_radiance(world_position, world_normal, view.world_position) * view.exposure, 1.0));
 #endif
 }
 
@@ -112,7 +112,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.radiance = direct_lighting.radiance;
     reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
 #else
-    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.geometric_world_normal, view.world_position).radiance;
+    reservoir.radiance = query_world_cache_radiance(sample_point.world_position, sample_point.geometric_world_normal, view.world_position);
     reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
 #endif
 

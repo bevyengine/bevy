@@ -10,9 +10,9 @@
     world_cache_geometry_data,
     world_cache_radiance,
     world_cache_active_cells_new_radiance,
-    query_world_cache, 
+    query_world_cache_radiance,
+    query_world_cache_lights, 
     evaluate_lighting_from_cache, 
-    write_world_cache_light,
 }
 
 @group(1) @binding(8) var<uniform> view: View;
@@ -36,9 +36,8 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
         material.roughness = 1.0;
         material.metallic = 0.0;
 
-        let cell = query_world_cache(geometry_data.world_position, geometry_data.world_normal, view.world_position);
+        let cell = query_world_cache_lights(&rng, geometry_data.world_position, geometry_data.world_normal, view.world_position);
         let direct_lighting = evaluate_lighting_from_cache(&rng, cell, geometry_data.world_position, geometry_data.world_normal, geometry_data.world_normal, material, view.exposure);
-        write_world_cache_light(direct_lighting, geometry_data.world_position, geometry_data.world_normal, view.world_position);
         var new_radiance = direct_lighting.radiance * direct_lighting.inverse_pdf;
 
 #ifndef NO_MULTIBOUNCE
@@ -46,7 +45,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
         let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
-            new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position).radiance;
+            new_radiance += ray_hit.material.base_color * query_world_cache_radiance(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
         }
 #endif
 

@@ -6,7 +6,7 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::scene_bindings::ResolvedMaterial
-#import bevy_solari::world_cache::{query_world_cache, evaluate_lighting_from_cache, write_world_cache_light}
+#import bevy_solari::world_cache::{query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(3) var gbuffer: texture_2d<u32>;
@@ -43,9 +43,9 @@ fn shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocat
     material.roughness = clamp(base_rough.a * base_rough.a, 0.001, 1.0);
     material.metallic = props.g;
 
-    let cell = query_world_cache(world_position, world_normal, view.world_position);
+    let cell = query_world_cache_lights(&rng, world_position, world_normal, view.world_position);
     let direct_lighting = evaluate_lighting_from_cache(&rng, cell, world_position, world_normal, wo, material, view.exposure);
-    write_world_cache_light(direct_lighting, world_position, world_normal, view.world_position);
+    write_world_cache_light(direct_lighting, world_position, world_normal, view.world_position, view.exposure);
 
     let pixel_color = direct_lighting.radiance * direct_lighting.inverse_pdf * view.exposure + material.emissive;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));

@@ -50,12 +50,6 @@ struct WorldCacheLightDataWrite {
     visible_lights: array<atomic<u64>, WORLD_CACHE_CELL_LIGHT_COUNT>,
 }
 
-struct WorldCacheData {
-    radiance: vec3<f32>,
-    visible_light_count: u32,
-    visible_lights: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>,
-}
-
 @group(1) @binding(10) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
 #ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 @group(1) @binding(11) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
@@ -73,7 +67,7 @@ struct WorldCacheData {
 @group(1) @binding(20) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheData {
+fn query_world_cache_radiance(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
     let cell_size = get_cell_size(world_position, view_position);
     let world_position_quantized = quantize_position(world_position, cell_size);
     let world_normal_quantized = quantize_normal(world_normal);
@@ -85,27 +79,62 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
         if existing_checksum == checksum {
             // Cache entry already exists - get radiance and reset cell lifetime
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
-            let radiance = world_cache_radiance[key].rgb;
-            let data = world_cache_light_data[key];
-            return WorldCacheData(radiance, data.visible_light_count, data.visible_lights);
+            return world_cache_radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - reset cell lifetime so that it starts getting updated next frame
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
             world_cache_geometry_data[key].world_position = world_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             world_cache_light_data[key].visible_light_count = 0u;
-            return WorldCacheData(vec3(0.0), 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
+            return vec3(0.0);
         } else {
             // Collision - jump to another entry
             key = wrap_key(pcg_hash(key));
         }
     }
 
-    return WorldCacheData(vec3(0.0), 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
+    return vec3(0.0);
 }
-#endif
 
-fn write_world_cache_light(cell: EvaluatedLighting, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) {
+fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheLightDataRead {
+    let cell_size = get_cell_size(world_position, view_position);
+    var world_position_quantized = quantize_position(world_position, cell_size);
+    let center_offset = quantize_position_fract(world_position, cell_size) - vec3(0.5);
+    let direction = vec3<i32>(sign(center_offset));
+    let lerp = vec3(rand_f(rng), rand_f(rng), rand_f(rng));
+    let p_lerp_away = abs(center_offset);
+    world_position_quantized += vec3<u32>(select(vec3(0), direction, lerp > p_lerp_away));
+
+    let world_normal_quantized = quantize_normal(world_normal);
+    var key = compute_key(world_position_quantized, world_normal_quantized);
+    let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
+
+    for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
+        let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
+        if existing_checksum == checksum {
+            // Cache entry already exists - get radiance and reset cell lifetime
+            atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
+            return world_cache_light_data[key];
+        } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
+            // Cell is empty - reset cell lifetime so that it starts getting updated next frame
+            atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
+            world_cache_geometry_data[key].world_position = world_position;
+            world_cache_geometry_data[key].world_normal = world_normal;
+            world_cache_light_data[key].visible_light_count = 0u;
+            return WorldCacheLightDataRead(0u, 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
+        } else {
+            // Collision - jump to another entry
+            key = wrap_key(pcg_hash(key));
+        }
+    }
+
+    return WorldCacheLightDataRead(0u, 0u, array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>());
+}
+
+fn write_world_cache_light(cell: EvaluatedLighting, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, exposure: f32) {
+    let cell_selected_weight = cell.data.weight + log2(exposure);
+    if cell_selected_weight < 0.0001 { return; }    
+
     let cell_size = get_cell_size(world_position, view_position);
     let world_position_quantized = quantize_position(world_position, cell_size);
     let world_normal_quantized = quantize_normal(world_normal);
@@ -113,18 +142,26 @@ fn write_world_cache_light(cell: EvaluatedLighting, world_position: vec3<f32>, w
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
-        // Don't need a CAS because we know the cell is alive
-        let existing_checksum = atomicLoad(&world_cache_checksums[key]);
-        if existing_checksum == checksum {
+        let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
+        if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
             let index = atomicAdd(&world_cache_light_data_new_lights[key].visible_light_count, 1u) & (WORLD_CACHE_CELL_LIGHT_COUNT - 1u);
             let packed = (u64(bitcast<u32>(cell.data.weight)) << 32u) | u64(cell.data.light);
-            atomicMax(&world_cache_light_data_new_lights[key].visible_lights[index], packed);
-        } else {
+            atomicStore(&world_cache_light_data_new_lights[key].visible_lights[index], packed);
+
+            if existing_checksum == WORLD_CACHE_EMPTY_CELL {
+                // Cell is empty - reset cell lifetime so that it starts getting updated next frame
+                atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
+                world_cache_geometry_data[key].world_position = world_position;
+                world_cache_geometry_data[key].world_normal = world_normal;
+                world_cache_light_data[key].visible_light_count = 0u;
+            }
+        } else  {
             // Collision - jump to another entry
             key = wrap_key(pcg_hash(key));
         }
     }
 }
+#endif
 
 struct EvaluatedLighting {
     radiance: vec3<f32>,
@@ -134,7 +171,7 @@ struct EvaluatedLighting {
 
 fn evaluate_lighting_from_cache(
     rng: ptr<function, u32>, 
-    cell: WorldCacheData,
+    cell: WorldCacheLightDataRead,
     world_position: vec3<f32>,
     world_normal: vec3<f32>,
     wo: vec3<f32>,
@@ -143,7 +180,7 @@ fn evaluate_lighting_from_cache(
 ) -> EvaluatedLighting {
     let cell_selected_light = select_light_from_cache_cell(rng, cell, world_position, world_normal, wo, material);
     let cell_selected_weight = cell_selected_light.weight + log2(exposure);
-    let cell_confidence = smoothstep(0.1, 0.3, cell_selected_weight);
+    let cell_confidence = smoothstep(0.0001, 0.3, cell_selected_weight);
 
     // Sample more random lights if our cell has bad lights
     let random_sample_count = u32(round(mix(f32(WORLD_CACHE_CELL_LIGHT_COUNT), f32(WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT), cell_confidence)));
@@ -195,7 +232,7 @@ fn p_wrs(selection: SelectedLight) -> f32 {
 
 fn select_light_from_cache_cell(
     rng: ptr<function, u32>, 
-    cell: WorldCacheData,
+    cell: WorldCacheLightDataRead,
     world_position: vec3<f32>,
     world_normal: vec3<f32>,
     wo: vec3<f32>,
@@ -271,11 +308,27 @@ fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
 }
 
 fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<u32> {
-    return vec3<u32>(vec3<i32>(floor(world_position / quantization_factor + 0.0001)));
+    return vec3<u32>(vec3<i32>(floor(world_position / quantization_factor)));
+}
+
+fn quantize_position_fract(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
+    return fract(world_position / quantization_factor);
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<u32> {
-    return vec3<u32>(vec3<i32>(floor(world_normal + 0.0001)));
+    let x = vec3(1.0, 0.0, 0.0);
+    let y = vec3(0.0, 1.0, 0.0);
+    let z = vec3(0.0, 0.0, 1.0);
+    let dot_x = dot(world_normal, x);
+    let dot_y = dot(world_normal, y);
+    let dot_z = dot(world_normal, z);
+    let max_dot = max(max(abs(dot_x), abs(dot_y)), abs(dot_z));
+
+    var sel = select(vec3(0.0), x, max_dot == dot_x);
+    sel = select(sel, y, max_dot == dot_y);
+    sel = select(sel, z, max_dot == dot_z);
+
+    return vec3<u32>(vec3<i32>(sel * sign(max_dot)));
 }
 
 // TODO: Clustering
