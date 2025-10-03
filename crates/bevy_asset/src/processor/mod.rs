@@ -1633,7 +1633,7 @@ pub enum SetTransactionLogFactoryError {
 }
 
 /// An error when retrieving an asset processor.
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum GetProcessorError {
     #[error("The processor '{0}' does not exist")]
     Missing(String),
