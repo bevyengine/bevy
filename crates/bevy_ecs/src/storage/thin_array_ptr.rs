@@ -1,7 +1,5 @@
 use crate::query::DebugCheckedUnwrap;
-use alloc::{
-    alloc::{alloc, handle_alloc_error, realloc},
-};
+use alloc::alloc::{alloc, handle_alloc_error, realloc};
 use core::{
     alloc::Layout,
     mem::{needs_drop, size_of},

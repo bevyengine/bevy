@@ -311,7 +311,9 @@ impl ThinColumn {
     pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
         const {
             assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
-            assert!(!std::mem::needs_drop::<UnsafeCell<&'static Location<'static>>>());
+            assert!(!std::mem::needs_drop::<
+                UnsafeCell<&'static Location<'static>>,
+            >());
         }
         self.data.drop(cap, len);
     }
@@ -324,7 +326,9 @@ impl ThinColumn {
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         const {
             assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
-            assert!(!std::mem::needs_drop::<UnsafeCell<&'static Location<'static>>>());
+            assert!(!std::mem::needs_drop::<
+                UnsafeCell<&'static Location<'static>>,
+            >());
         }
         self.data.drop_last_element(last_element_index);
     }
