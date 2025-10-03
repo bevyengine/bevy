@@ -2,7 +2,8 @@
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::utils::rand_f
-#import bevy_solari::brdf::evaluate_brdf
+#import bevy_render::maths::PI
+// #import bevy_solari::brdf::evaluate_brdf
 #import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
@@ -13,12 +14,17 @@ const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 /// Maximum lights stored in each cache cell
+/// This should match `WORLD_CACHE_CELL_LIGHT_COUNT` in `realtime/prepare.rs`!
 const WORLD_CACHE_CELL_LIGHT_COUNT: u32 = 8u;
 /// Lights searched that aren't in the cell
-const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT: u32 = 2u;
+const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN: u32 = 4u;
+const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX: u32 = 10u;
+const WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO: f32 = 0.20;
+const WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN: f32 = 0.0001;
+const WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX: f32 = 0.1;
 
 /// The size of a cache cell at the lowest LOD in meters
-const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.25;
+const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.1;
 /// How fast the world cache transitions between LODs as a function of distance to the camera
 const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
 
@@ -37,7 +43,6 @@ struct WorldCacheSingleLightData {
     weight: f32,
 }
 
-// The size of these structs should match `WORLD_CACHE_CELL_LIGHT_COUNT` in `realtime/prepare.rs`!
 struct WorldCacheLightDataRead {
     visible_light_count: u32,
     padding: u32,
@@ -103,7 +108,7 @@ fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, 
     let direction = vec3<i32>(sign(center_offset));
     let lerp = vec3(rand_f(rng), rand_f(rng), rand_f(rng));
     let p_lerp_away = abs(center_offset);
-    world_position_quantized += vec3<u32>(select(vec3(0), direction, lerp > p_lerp_away));
+    world_position_quantized += select(vec3(0), direction, lerp > p_lerp_away);
 
     let world_normal_quantized = quantize_normal(world_normal);
     var key = compute_key(world_position_quantized, world_normal_quantized);
@@ -133,7 +138,7 @@ fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, 
 
 fn write_world_cache_light(cell: EvaluatedLighting, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, exposure: f32) {
     let cell_selected_weight = cell.data.weight + log2(exposure);
-    if cell_selected_weight < 0.0001 { return; }    
+    if cell_selected_weight < WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN { return; }    
 
     let cell_size = get_cell_size(world_position, view_position);
     let world_position_quantized = quantize_position(world_position, cell_size);
@@ -180,15 +185,15 @@ fn evaluate_lighting_from_cache(
 ) -> EvaluatedLighting {
     let cell_selected_light = select_light_from_cache_cell(rng, cell, world_position, world_normal, wo, material);
     let cell_selected_weight = cell_selected_light.weight + log2(exposure);
-    let cell_confidence = smoothstep(0.0001, 0.3, cell_selected_weight);
+    let cell_confidence = smoothstep(WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN, WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX, cell_selected_weight);
 
     // Sample more random lights if our cell has bad lights
-    let random_sample_count = u32(round(mix(f32(WORLD_CACHE_CELL_LIGHT_COUNT), f32(WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT), cell_confidence)));
+    let random_sample_count = u32(round(mix(f32(WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX), f32(WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN), cell_confidence)));
     let random_selected_light = select_light_randomly(rng, world_position, world_normal, wo, material, random_sample_count);
 
     let p_cell_selection = select(p_wrs(cell_selected_light), 0.0, cell_selected_light.weight_sum < 0.0001);
     let p_random_selection = select(p_wrs(random_selected_light), 0.0, random_selected_light.weight_sum < 0.0001);
-    let p_random_selection_clamped = min(mix(1.0, 0.25 * p_cell_selection, cell_confidence), p_random_selection);
+    let p_random_selection_clamped = min(mix(1.0, WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO * p_cell_selection, cell_confidence), p_random_selection);
 
     let weight_sum = p_cell_selection + p_random_selection_clamped;
     if weight_sum < 0.0001 {
@@ -301,21 +306,25 @@ fn select_light_randomly(
     return SelectedLight(selected, selected_weight, weight_sum, base_pdf);
 }
 
+fn evaluate_brdf(normal: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
+    return material.base_color / PI;
+}
+
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
     let camera_distance = distance(view_position, world_position) / WORLD_CACHE_POSITION_LOD_SCALE;
     let lod = exp2(floor(log2(1.0 + camera_distance)));
     return WORLD_CACHE_POSITION_BASE_CELL_SIZE * lod;
 }
 
-fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<u32> {
-    return vec3<u32>(vec3<i32>(floor(world_position / quantization_factor)));
+fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<i32> {
+    return vec3<i32>(floor(world_position / quantization_factor));
 }
 
 fn quantize_position_fract(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
     return fract(world_position / quantization_factor);
 }
 
-fn quantize_normal(world_normal: vec3<f32>) -> vec3<u32> {
+fn quantize_normal(world_normal: vec3<f32>) -> vec3<i32> {
     let x = vec3(1.0, 0.0, 0.0);
     let y = vec3(0.0, 1.0, 0.0);
     let z = vec3(0.0, 0.0, 1.0);
@@ -328,28 +337,32 @@ fn quantize_normal(world_normal: vec3<f32>) -> vec3<u32> {
     sel = select(sel, y, max_dot == dot_y);
     sel = select(sel, z, max_dot == dot_z);
 
-    return vec3<u32>(vec3<i32>(sel * sign(max_dot)));
+    return vec3<i32>(sel * sign(max_dot));
 }
 
 // TODO: Clustering
-fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
-    var key = pcg_hash(world_position.x);
-    key = pcg_hash(key + world_position.y);
-    key = pcg_hash(key + world_position.z);
-    key = pcg_hash(key + world_normal.x);
-    key = pcg_hash(key + world_normal.y);
-    key = pcg_hash(key + world_normal.z);
+fn compute_key(world_position: vec3<i32>, world_normal: vec3<i32>) -> u32 {
+    let pos = vec3<u32>(world_position);
+    let norm = vec3<u32>(world_normal);
+    var key = pcg_hash(pos.x);
+    key = pcg_hash(key + pos.y);
+    key = pcg_hash(key + pos.z);
+    key = pcg_hash(key + norm.x);
+    key = pcg_hash(key + norm.y);
+    key = pcg_hash(key + norm.z);
     return wrap_key(key);
 }
 
-fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
-    var key = iqint_hash(world_position.x);
-    key = iqint_hash(key + world_position.y);
-    key = iqint_hash(key + world_position.z);
-    key = iqint_hash(key + world_normal.x);
-    key = iqint_hash(key + world_normal.y);
-    key = iqint_hash(key + world_normal.z);
-    return key;
+fn compute_checksum(world_position: vec3<i32>, world_normal: vec3<i32>) -> u32 {
+    let pos = vec3<u32>(world_position);
+    let norm = vec3<u32>(world_normal);
+    var key = iqint_hash(pos.x);
+    key = iqint_hash(key + pos.y);
+    key = iqint_hash(key + pos.z);
+    key = iqint_hash(key + norm.x);
+    key = iqint_hash(key + norm.y);
+    key = iqint_hash(key + norm.z);
+    return u32(key);
 }
 
 fn pcg_hash(input: u32) -> u32 {
