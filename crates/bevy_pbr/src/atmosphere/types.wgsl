@@ -34,6 +34,8 @@ struct AtmosphereSettings {
     aerial_view_lut_samples: u32,
     aerial_view_lut_max_distance: f32,
     scene_units_to_m: f32,
+    sky_max_samples: u32,
+    rendering_method: u32,
 }
 
 
@@ -41,5 +43,4 @@ struct AtmosphereSettings {
 // so the horizon stays a horizontal line in our luts
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
-    atmosphere_from_world: mat4x4<f32>,
 }

@@ -1,6 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_camera::visibility::Visibility;
-use bevy_core_widgets::CoreRadio;
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -21,6 +20,7 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
 };
+use bevy_ui_widgets::RadioButton;
 
 use crate::{
     constants::{fonts, size},
@@ -60,7 +60,7 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             column_gap: Val::Px(4.0),
             ..Default::default()
         },
-        CoreRadio,
+        RadioButton,
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
@@ -111,7 +111,7 @@ fn update_radio_styles(
             &ThemeFontColor,
         ),
         (
-            With<CoreRadio>,
+            With<RadioButton>,
             Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
@@ -159,7 +159,7 @@ fn update_radio_styles_remove(
             &Hovered,
             &ThemeFontColor,
         ),
-        With<CoreRadio>,
+        With<RadioButton>,
     >,
     q_children: Query<&Children>,
     mut q_outline: Query<&ThemeBorderColor, With<RadioOutline>>,

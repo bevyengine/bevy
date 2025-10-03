@@ -1,10 +1,9 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetPlugin};
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
-use blocking::unblock;
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
@@ -104,7 +103,7 @@ impl WebAssetReader {
         PathBuf::from(prefix).join(path)
     }
 
-    /// See [`crate::io::get_meta_path`]
+    /// See [`io::get_meta_path`](`crate::io::get_meta_path`)
     fn make_meta_uri(&self, path: &Path) -> PathBuf {
         let meta_path = crate::io::get_meta_path(path);
         self.make_uri(&meta_path)
@@ -124,8 +123,9 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use alloc::{boxed::Box, vec::Vec};
+    use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
+    use blocking::unblock;
     use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {

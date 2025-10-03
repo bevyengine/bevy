@@ -162,7 +162,7 @@ impl Default for SubCameraView {
 }
 
 /// Information about the current [`RenderTarget`].
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct RenderTargetInfo {
     /// The physical size of this render target (in physical pixels, ignoring scale factor).
     pub physical_size: UVec2,
@@ -171,6 +171,15 @@ pub struct RenderTargetInfo {
     /// When rendering to a window, typically it is a value greater or equal than 1.0,
     /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
     pub scale_factor: f32,
+}
+
+impl Default for RenderTargetInfo {
+    fn default() -> Self {
+        Self {
+            physical_size: Default::default(),
+            scale_factor: 1.,
+        }
+    }
 }
 
 /// Holds internally computed [`Camera`] values.
@@ -808,6 +817,14 @@ pub enum RenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// The camera won't render to any color target.
+    ///
+    /// This is useful when you want a camera that *only* renders prepasses, for
+    /// example a depth prepass. See the `render_depth_to_texture` example.
+    None {
+        /// The physical size of the viewport.
+        size: UVec2,
+    },
 }
 
 impl RenderTarget {
@@ -831,6 +848,10 @@ impl RenderTarget {
                 .map(NormalizedRenderTarget::Window),
             RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
             RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+            RenderTarget::None { size } => Some(NormalizedRenderTarget::None {
+                width: size.x,
+                height: size.y,
+            }),
         }
     }
 }
@@ -848,22 +869,63 @@ pub enum NormalizedRenderTarget {
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+    /// The camera won't render to any color target.
+    ///
+    /// This is useful when you want a camera that *only* renders prepasses, for
+    /// example a depth prepass. See the `render_depth_to_texture` example.
+    None {
+        /// The physical width of the viewport.
+        width: u32,
+        /// The physical height of the viewport.
+        height: u32,
+    },
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
+///
+/// See `ManualTextureViews` in `bevy_camera` for more details.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
     pub handle: Handle<Image>,
     /// The scale factor of the render target image, corresponding to the scale
     /// factor for a window target. This should almost always be 1.0.
-    pub scale_factor: FloatOrd,
+    pub scale_factor: f32,
+}
+
+impl Eq for ImageRenderTarget {}
+
+impl PartialEq for ImageRenderTarget {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle && FloatOrd(self.scale_factor) == FloatOrd(other.scale_factor)
+    }
+}
+
+impl core::hash::Hash for ImageRenderTarget {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        FloatOrd(self.scale_factor).hash(state);
+    }
+}
+
+impl PartialOrd for ImageRenderTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ImageRenderTarget {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.handle
+            .cmp(&other.handle)
+            .then_with(|| FloatOrd(self.scale_factor).cmp(&FloatOrd(other.scale_factor)))
+    }
 }
 
 impl From<Handle<Image>> for RenderTarget {
@@ -876,7 +938,7 @@ impl From<Handle<Image>> for ImageRenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self {
             handle,
-            scale_factor: FloatOrd(1.0),
+            scale_factor: 1.0,
         }
     }
 }

@@ -6,7 +6,7 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
 //! with forward or deferred rendering and don't require a prepass.
 //!
 //! On their own, clustered decals only project the base color of a texture. You
@@ -437,6 +437,5 @@ pub fn clustered_decals_are_usable(
     // See issue #17553.
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
-        && cfg!(not(any(target_os = "macos", target_os = "ios")))
         && cfg!(feature = "pbr_clustered_decals")
 }

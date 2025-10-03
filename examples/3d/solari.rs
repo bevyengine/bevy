@@ -19,7 +19,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_aliasing::dlss::{
+use bevy::anti_alias::dlss::{
     Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
 };
 
@@ -159,7 +159,7 @@ fn setup(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    event: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<(
         &Mesh3d,
@@ -171,7 +171,7 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    for descendant in children.iter_descendants(event.entity()) {
+    for descendant in children.iter_descendants(scene_ready.entity) {
         if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
             mesh_query.get(descendant)
         {

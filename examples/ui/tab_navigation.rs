@@ -7,14 +7,11 @@ use bevy::{
         InputDispatchPlugin, InputFocus,
     },
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, (button_system, focus_system))
         .run();
@@ -58,8 +55,8 @@ fn focus_system(
             if focus.0 == Some(button) {
                 commands.entity(button).insert(Outline {
                     color: Color::WHITE,
-                    width: Val::Px(2.0),
-                    offset: Val::Px(2.0),
+                    width: px(2),
+                    offset: px(2),
                 });
             } else {
                 commands.entity(button).remove::<Outline>();
@@ -73,13 +70,13 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
-            row_gap: Val::Px(6.0),
+            row_gap: px(6),
             ..default()
         })
         .observe(
@@ -105,9 +102,9 @@ fn setup(mut commands: Commands) {
                         Node {
                             display: Display::Flex,
                             flex_direction: FlexDirection::Row,
-                            column_gap: Val::Px(6.0),
+                            column_gap: px(6),
                             margin: UiRect {
-                                bottom: Val::Px(10.0),
+                                bottom: px(10),
                                 ..default()
                             },
                             ..default()
@@ -120,9 +117,9 @@ fn setup(mut commands: Commands) {
                                 .spawn((
                                     Button,
                                     Node {
-                                        width: Val::Px(200.0),
-                                        height: Val::Px(65.0),
-                                        border: UiRect::all(Val::Px(5.0)),
+                                        width: px(200),
+                                        height: px(65),
+                                        border: UiRect::all(px(5)),
                                         justify_content: JustifyContent::Center,
                                         align_items: AlignItems::Center,
                                         ..default()
@@ -140,10 +137,10 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut event: On<Pointer<Click>>,
+                                    |mut click: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(event.entity());
-                                        event.propagate(false);
+                                        focus.0 = Some(click.entity);
+                                        click.propagate(false);
                                     },
                                 );
                         }
