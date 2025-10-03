@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPoolBuilder, ThreadSpawner};
+use bevy_tasks::{ComputeTaskPool, LocalTaskSpawner, Scope, TaskPoolBuilder};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -269,7 +269,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         }
 
         let thread_executor = world
-            .get_resource::<MainThreadSpawner>()
+            .get_resource::<MainThreadTaskSpawner>()
             .map(|e| e.0.clone());
 
         let environment = &Environment::new(self, schedule, world);
@@ -598,6 +598,8 @@ impl ExecutorState {
                     &mut conditions.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
+                    true,
                 )
             };
 
@@ -619,6 +621,8 @@ impl ExecutorState {
                 &mut conditions.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
+                false,
             )
         };
 
@@ -823,6 +827,8 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -840,7 +846,6 @@ unsafe fn evaluate_and_fold_conditions(
                     // SAFETY:
                     // - The caller ensures that `world` has permission to read any data
                     //   required by the condition.
-                    // - `update_archetype_component_access` has been called for condition.
                     unsafe {
                         __rust_begin_short_backtrace::readonly_run_unsafe(&mut **condition, world)
                     }
@@ -852,6 +857,8 @@ unsafe fn evaluate_and_fold_conditions(
                             ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
+                                system: for_system.name(),
+                                on_set,
                             },
                         );
                     };
@@ -861,20 +868,20 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// New-typed [`ThreadSpawner`] [`Resource`] that is used to run systems on the main thread
+/// New-typed [`LocalTaskSpawner`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadSpawner(pub ThreadSpawner);
+pub struct MainThreadTaskSpawner(pub LocalTaskSpawner);
 
-impl Default for MainThreadSpawner {
+impl Default for MainThreadTaskSpawner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MainThreadSpawner {
+impl MainThreadTaskSpawner {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadSpawner(ComputeTaskPool::get().current_thread_spawner())
+        MainThreadTaskSpawner(ComputeTaskPool::get().current_thread_spawner())
     }
 }
 

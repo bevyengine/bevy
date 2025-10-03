@@ -49,11 +49,8 @@ where
         embedded_asset!(app, "ui_material.wgsl");
 
         app.init_asset::<M>()
-            //.register_type::<MaterialNode<M>>()
-            .add_plugins((
-                //ExtractComponentPlugin::<MaterialNode<M>>::extract_visible(),
-                RenderAssetPlugin::<PreparedUiMaterial<M>>::default(),
-            ));
+            .register_type::<MaterialNode<M>>()
+            .add_plugins(RenderAssetPlugin::<PreparedUiMaterial<M>>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -614,7 +611,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key,
+                bind_group_data: material.key.clone(),
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

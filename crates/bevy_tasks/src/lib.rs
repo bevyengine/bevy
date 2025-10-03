@@ -95,21 +95,15 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 pub use futures_lite;
 pub use futures_lite::future::poll_once;
 
-cfg::web! {
-    if {} else {
-        pub use usages::tick_global_task_pools_on_main_thread;
-    }
-}
-
 cfg::multi_threaded! {
     if {
         mod task_pool;
 
-        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
+        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, LocalTaskSpawner};
     } else {
         mod single_threaded_task_pool;
 
-        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
+        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, LocalTaskSpawner};
     }
 }
 
@@ -131,8 +125,7 @@ cfg::switch! {
             let mut future = core::pin::pin!(future);
 
             // We don't care about the waker as we're just going to poll as fast as possible.
-            let waker = futures::noop_waker();
-            let cx = &mut Context::from_waker(&waker);
+            let cx = &mut Context::from_waker(core::task::Waker::noop());
 
             // Keep polling until the future is ready.
             loop {

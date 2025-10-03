@@ -1,4 +1,4 @@
-use crate::{define_atomic_id, renderer::RenderDevice, WgpuWrapper};
+use crate::{define_atomic_id, renderer::RenderDevice, renderer::WgpuWrapper};
 use bevy_ecs::system::Res;
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;

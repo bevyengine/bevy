@@ -122,8 +122,6 @@ pub(crate) async fn create_raw_device(
 
 #[derive(Error, Debug)]
 pub(crate) enum CreateRawVulkanDeviceError {
-    #[error("Could not create a raw Vulkan device because the Vulkan backend is not supported")]
-    UnsupportedBackend,
     #[error(transparent)]
     RequestDeviceError(#[from] wgpu::RequestDeviceError),
     #[error(transparent)]
@@ -136,11 +134,15 @@ pub(crate) enum CreateRawVulkanDeviceError {
 pub struct AdditionalVulkanFeatures(HashSet<TypeId>);
 
 impl AdditionalVulkanFeatures {
-    pub fn register<T: Any>(&mut self) {
+    pub fn insert<T: Any>(&mut self) {
         self.0.insert(TypeId::of::<T>());
     }
 
     pub fn has<T: Any>(&self) -> bool {
         self.0.contains(&TypeId::of::<T>())
+    }
+
+    pub fn remove<T: Any>(&mut self) {
+        self.0.remove(&TypeId::of::<T>());
     }
 }

@@ -2,19 +2,18 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{Assets, Handle};
-use bevy_camera::visibility::Visibility;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     prelude::Local,
-    query::With,
+    query::{With, Without},
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
-    system::{Commands, Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut, Single},
 };
+use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
@@ -166,6 +165,7 @@ fn setup(
             },
             // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
+            Pickable::IGNORE,
         ))
         .with_children(|p| {
             p.spawn((
@@ -173,6 +173,7 @@ fn setup(
                 overlay_config.text_config.clone(),
                 TextColor(overlay_config.text_color),
                 FpsText,
+                Pickable::IGNORE,
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
 
@@ -188,6 +189,7 @@ fn setup(
                     },
                     ..Default::default()
                 },
+                Pickable::IGNORE,
                 MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
                     values: buffers.add(ShaderStorageBuffer {
                         // Initialize with dummy data because the default (`data: None`) will
@@ -243,26 +245,23 @@ fn customize_overlay(
 
 fn toggle_display(
     overlay_config: Res<FpsOverlayConfig>,
-    mut query: Query<&mut Visibility, With<FpsText>>,
-    mut graph_style: Query<&mut Node, With<FrameTimeGraph>>,
+    mut text_node: Single<&mut Node, (With<FpsText>, Without<FrameTimeGraph>)>,
+    mut graph_node: Single<&mut Node, (With<FrameTimeGraph>, Without<FpsText>)>,
 ) {
-    for mut visibility in &mut query {
-        visibility.set_if_neq(match overlay_config.enabled {
-            true => Visibility::Visible,
-            false => Visibility::Hidden,
-        });
+    if overlay_config.enabled {
+        text_node.display = bevy_ui::Display::DEFAULT;
+    } else {
+        text_node.display = bevy_ui::Display::None;
     }
 
-    if let Ok(mut graph_style) = graph_style.single_mut() {
-        if overlay_config.frame_time_graph_config.enabled {
-            // Scale the frame time graph based on the font size of the overlay
-            let font_size = overlay_config.text_config.font_size;
-            graph_style.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
-            graph_style.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
+    if overlay_config.frame_time_graph_config.enabled {
+        // Scale the frame time graph based on the font size of the overlay
+        let font_size = overlay_config.text_config.font_size;
+        graph_node.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
+        graph_node.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 
-            graph_style.display = bevy_ui::Display::DEFAULT;
-        } else {
-            graph_style.display = bevy_ui::Display::None;
-        }
+        graph_node.display = bevy_ui::Display::DEFAULT;
+    } else {
+        graph_node.display = bevy_ui::Display::None;
     }
 }

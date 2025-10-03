@@ -119,7 +119,7 @@ impl Scene {
                     .get(&scene_entity.id())
                     .expect("should have previously spawned an entity");
 
-                for component_id in archetype.components() {
+                for component_id in archetype.iter_components() {
                     let component_info = self
                         .world
                         .components()

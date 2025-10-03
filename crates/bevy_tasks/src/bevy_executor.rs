@@ -1,3 +1,9 @@
+//! Fork of `async_executor`.
+//!
+//! It has been vendored along with its tests to update several outdated dependencies.
+//!
+//! [`async_executor`]: https://github.com/smol-rs/async-executor
+
 #![expect(
     unsafe_code,
     reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
@@ -96,13 +102,13 @@ impl Default for ThreadLocalState {
 ///
 /// [`TaskPool::current_thread_spawner`]: crate::TaskPool::current_thread_spawner
 #[derive(Clone, Debug)]
-pub struct ThreadSpawner {
+pub struct LocalTaskSpawner {
     thread_id: ThreadId,
     target_queue: &'static ConcurrentQueue<Runnable>,
     state: &'static State,
 }
 
-impl ThreadSpawner {
+impl LocalTaskSpawner {
     /// Spawns a task onto the specific target thread.
     pub fn spawn<T: Send + 'static>(
         &self,
@@ -215,7 +221,9 @@ impl Executor {
                 .spawn_unchecked(|()| future, self.schedule())
         };
 
-        runnable.schedule();
+        // `Runnable::schedule ` has a extra extraneous Waker clone/drop if the schedule captures
+        // variables, so directly schedule here instead.
+        Self::schedule_runnable(&self.state, runnable);
         task
     }
 
@@ -226,6 +234,10 @@ impl Executor {
     }
 
     /// Spawns a non-'static and non-Send task onto the executor.
+    /// 
+    /// # Panics
+    ///  - This function will panic if any of the internal allocations causes an OOM (out of memory) error.
+    ///  - This function will panic if the current thread's destructor has already been called.
     ///
     /// # Safety
     /// The caller must ensure that the returned Task does not outlive 'a.
@@ -237,7 +249,7 @@ impl Executor {
         //
         // SAFETY: There are no instances where the value is accessed mutably
         // from multiple locations simultaneously.
-        let (runnable, task) = unsafe {
+        unsafe {
             try_with_local_queue(|tls| {
                 let entry = tls.local_active.vacant_entry();
                 let index = entry.key();
@@ -278,16 +290,17 @@ impl Executor {
 
                 mem::forget(_panic_guard);
 
-                (runnable, task)
-            }).unwrap()
-        };
+                // Runnable::schedule has a extra extraneous Waker clone/drop if the schedule captures
+                // variables, so directly schedule here instead.
+                Self::schedule_runnable_local(&self.state, tls, runnable);
 
-        runnable.schedule();
-        task
+                task
+            }).unwrap()
+        }
     }
 
-    pub fn current_thread_spawner(&'static self) -> ThreadSpawner {
-        ThreadSpawner {
+    pub fn current_thread_spawner(&'static self) -> LocalTaskSpawner {
+        LocalTaskSpawner {
             thread_id: std::thread::current().id(),
             target_queue: &THREAD_LOCAL_STATE.get_or_default().thread_locked_queue,
             state: &self.state,
@@ -331,27 +344,7 @@ impl Executor {
         let state = &self.state;
 
         move |runnable| {
-            // Attempt to push onto the local queue first in dedicated executor threads,
-            // because we know that this thread is awake and always processing new tasks.
-            let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
-                if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
-                    match local_state.stealable_queue.push(runnable) {
-                        Ok(()) => {
-                            state.notify_specific_thread(std::thread::current().id(), true);
-                            return;
-                        }
-                        Err(r) => r.into_inner(),
-                    }
-                } else {
-                    runnable
-                }
-            } else {
-                runnable
-            };
-            // Otherwise push onto the global queue instead.
-            let result = state.queue.push(runnable);
-            debug_assert!(result.is_ok());
-            state.notify();
+            Self::schedule_runnable(&state, runnable);
         }
     }
 
@@ -362,10 +355,45 @@ impl Executor {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
-            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }.is_ok() {
-                state.notify_specific_thread(std::thread::current().id(), false);
+            unsafe  {
+                // If this returns Err, the thread's destructor has been called and thus it's meaningless
+                // to push onto the queue.
+                let _ = try_with_local_queue(|tls| {
+                    Self::schedule_runnable_local(&state, tls, runnable);
+                });
             }
         }
+    }
+
+    #[inline]
+    fn schedule_runnable(state: &State, runnable: Runnable) {
+        // Attempt to push onto the local queue first in dedicated executor threads,
+        // because we know that this thread is awake and always processing new tasks.
+        let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
+            if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
+                match local_state.stealable_queue.push(runnable) {
+                    Ok(()) => {
+                        state.notify_specific_thread(std::thread::current().id(), true);
+                        return;
+                    }
+                    Err(r) => r.into_inner(),
+                }
+            } else {
+                runnable
+            }
+        } else {
+            runnable
+        };
+        // Otherwise push onto the global queue instead.
+        let result = state.queue.push(runnable);
+        debug_assert!(result.is_ok());
+        state.notify();
+    }
+
+    #[inline]
+    fn schedule_runnable_local(state: &State, tls: &mut LocalQueue, runnable: Runnable) {
+        tls.local_queue.push_back(runnable);
+        state.notify_specific_thread(std::thread::current().id(), false);
     }
 }
 
@@ -440,6 +468,13 @@ impl fmt::Debug for State {
     }
 }
 
+/// A sleeping ticker
+struct Sleeper {
+    id: usize,
+    thread_id: ThreadId,
+    waker: Waker,
+}
+
 /// A list of sleeping tickers.
 struct Sleepers {
     /// Number of sleeping tickers (both notified and unnotified).
@@ -448,7 +483,7 @@ struct Sleepers {
     /// IDs and wakers of sleeping unnotified tickers.
     ///
     /// A sleeping ticker is notified when its waker is missing from this list.
-    wakers: Vec<(usize, ThreadId, Waker)>,
+    wakers: Vec<Sleeper>,
 
     /// Reclaimed IDs.
     free_ids: Vec<usize>,
@@ -457,13 +492,13 @@ struct Sleepers {
 impl Sleepers {
     /// Inserts a new sleeping ticker.
     fn insert(&mut self, waker: &Waker) -> usize {
-        let id = match self.free_ids.pop() {
-            Some(id) => id,
-            None => self.count + 1,
-        };
+        let id = self.free_ids.pop().unwrap_or_else(|| self.count + 1);
         self.count += 1;
-        self.wakers
-            .push((id, std::thread::current().id(), waker.clone()));
+        self.wakers.push(Sleeper {
+            id,
+            thread_id: std::thread::current().id(),
+            waker: waker.clone()
+        });
         id
     }
 
@@ -472,14 +507,17 @@ impl Sleepers {
     /// Returns `true` if the ticker was notified.
     fn update(&mut self, id: usize, waker: &Waker) -> bool {
         for item in &mut self.wakers {
-            if item.0 == id {
-                item.2.clone_from(waker);
+            if item.id == id {
+                item.waker.clone_from(waker);
                 return false;
             }
         }
 
-        self.wakers
-            .push((id, std::thread::current().id(), waker.clone()));
+        self.wakers.push(Sleeper { 
+            id, 
+            thread_id: std::thread::current().id(), 
+            waker: waker.clone() 
+        });
         true
     }
 
@@ -491,7 +529,7 @@ impl Sleepers {
         self.free_ids.push(id);
 
         for i in (0..self.wakers.len()).rev() {
-            if self.wakers[i].0 == id {
+            if self.wakers[i].id == id {
                 self.wakers.remove(i);
                 return false;
             }
@@ -509,7 +547,7 @@ impl Sleepers {
     /// If a ticker was notified already or there are no tickers, `None` will be returned.
     fn notify(&mut self) -> Option<Waker> {
         if self.wakers.len() == self.count {
-            self.wakers.pop().map(|item| item.2)
+            self.wakers.pop().map(|item| item.waker)
         } else {
             None
         }
@@ -519,10 +557,10 @@ impl Sleepers {
     ///
     /// If a ticker was notified already or there are no tickers, `None` will be returned.
     fn notify_specific_thread(&mut self, thread_id: ThreadId) -> Option<Waker> {
-        for i in (0..self.wakers.len()).rev() {
-            if self.wakers[i].1 == thread_id {
-                let (_, _, waker) = self.wakers.remove(i);
-                return Some(waker);
+        for i in 0..self.wakers.len() {
+            if self.wakers[i].thread_id == thread_id {
+                let sleeper = self.wakers.remove(i);
+                return Some(sleeper.waker);
             }
         }
         None
@@ -694,52 +732,50 @@ impl Runner<'_> {
                 }
 
                 crate::cfg::multi_threaded! {
-                    if {
-                        // Try the local queue.
-                        if let Ok(r) = self.local_state.stealable_queue.pop() {
-                            return Some(r);
-                        }
+                    // Try the local queue.
+                    if let Ok(r) = self.local_state.stealable_queue.pop() {
+                        return Some(r);
+                    }
 
-                        // Try stealing from the global queue.
-                        if let Ok(r) = self.state.queue.pop() {
-                            steal(&self.state.queue, &self.local_state.stealable_queue);
-                            return Some(r);
-                        }
+                    // Try stealing from the global queue.
+                    if let Ok(r) = self.state.queue.pop() {
+                        steal(&self.state.queue, &self.local_state.stealable_queue);
+                        return Some(r);
+                    }
 
-                        // Try stealing from other runners.
-                        if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
-                            // Pick a random starting point in the iterator list and rotate the list.
-                            let n = stealer_queues.len();
-                            let start = _rng.usize(..n);
-                            let iter = stealer_queues
-                                .iter()
-                                .chain(stealer_queues.iter())
-                                .skip(start)
-                                .take(n);
+                    // Try stealing from other runners.
+                    if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
+                        // Pick a random starting point in the iterator list and rotate the list.
+                        let n = stealer_queues.len();
+                        let start = _rng.usize(..n);
+                        let iter = stealer_queues
+                            .iter()
+                            .chain(stealer_queues.iter())
+                            .skip(start)
+                            .take(n);
 
-                            // Remove this runner's local queue.
-                            let iter =
-                                iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
+                        // Remove this runner's local queue.
+                        let iter =
+                            iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
 
-                            // Try stealing from each local queue in the list.
-                            for local in iter {
-                                steal(*local, &self.local_state.stealable_queue);
-                                if let Ok(r) = self.local_state.stealable_queue.pop() {
-                                    return Some(r);
-                                }
+                        // Try stealing from each local queue in the list.
+                        for local in iter {
+                            steal(*local, &self.local_state.stealable_queue);
+                            if let Ok(r) = self.local_state.stealable_queue.pop() {
+                                return Some(r);
                             }
                         }
+                    }
 
-                        if let Ok(r) = self.local_state.thread_locked_queue.pop() {
-                            // Do not steal from this queue. If other threads steal
-                            // from this current thread, the task will be moved.
-                            //
-                            // Instead, flush all queued tasks into the local queue to
-                            // minimize the effort required to scan for these tasks.
-                            flush_to_local(&self.local_state.thread_locked_queue, tls);
-                            return Some(r);
-                        }
-                    } else {}
+                    if let Ok(r) = self.local_state.thread_locked_queue.pop() {
+                        // Do not steal from this queue. If other threads steal
+                        // from this current thread, the task will be moved.
+                        //
+                        // Instead, flush all queued tasks into the local queue to
+                        // minimize the effort required to scan for these tasks.
+                        flush_to_local(&self.local_state.thread_locked_queue, tls);
+                        return Some(r);
+                    }
                 }
 
                 None

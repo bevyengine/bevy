@@ -10,7 +10,7 @@ use bevy::{
     prelude::*,
     scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -46,8 +46,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -55,10 +54,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
@@ -232,18 +228,18 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    trigger: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    for child in children.iter_descendants(trigger.target()) {
+    for child in children.iter_descendants(scene_ready.entity) {
         if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(trigger.target().index() as f32 / 10.0);
+                playing_animation.seek_to(scene_ready.entity.index() as f32 / 10.0);
             }
             commands
                 .entity(child)

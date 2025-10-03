@@ -2,10 +2,6 @@
 
 use bevy::{
     color::palettes,
-    core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep, SliderValue, ValueChange,
-    },
     feathers::{
         controls::{
             button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
@@ -15,15 +11,15 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        tokens, FeathersPlugins,
     },
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::tab_navigation::TabGroup,
     prelude::*,
     ui::{Checked, InteractionDisabled},
-    winit::WinitSettings,
+    ui_widgets::{
+        Activate, Callback, RadioButton, RadioGroup, SliderPrecision, SliderStep, SliderValue,
+        ValueChange,
+    },
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -39,22 +35,17 @@ enum SwatchType {
     Hsl,
 }
 
+#[derive(Component, Clone, Copy)]
+struct DemoDisabledButton;
+
 fn main() {
     App::new()
-        .add_plugins((
-            DefaultPlugins,
-            CoreWidgetsPlugins,
-            InputDispatchPlugin,
-            TabNavigationPlugin,
-            FeathersPlugin,
-        ))
+        .add_plugins((DefaultPlugins, FeathersPlugins))
         .insert_resource(UiTheme(create_dark_theme()))
         .insert_resource(DemoWidgetStates {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();
@@ -70,7 +61,7 @@ fn setup(mut commands: Commands) {
 fn demo_root(commands: &mut Commands) -> impl Bundle {
     // Update radio button states based on notification from radio group.
     let radio_exclusion = commands.register_system(
-        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+        |ent: In<Activate>, q_radio: Query<Entity, With<RadioButton>>, mut commands: Commands| {
             for radio in q_radio.iter() {
                 if radio == ent.0 .0 {
                     commands.entity(radio).insert(Checked);
@@ -125,13 +116,13 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
 
     (
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Start,
             justify_content: JustifyContent::Start,
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.0),
+            row_gap: px(10),
             ..default()
         },
         TabGroup::default(),
@@ -142,10 +133,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
-                padding: UiRect::all(Val::Px(8.0)),
-                row_gap: Val::Px(8.0),
-                width: Val::Percent(30.),
-                min_width: Val::Px(200.),
+                padding: UiRect::all(px(8)),
+                row_gap: px(8),
+                width: percent(30),
+                min_width: px(200),
                 ..default()
             },
             children![
@@ -155,7 +146,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
+                        column_gap: px(8),
                         ..default()
                     },
                     children![
@@ -180,7 +171,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                                 )),
                                 ..default()
                             },
-                            InteractionDisabled,
+                            (InteractionDisabled, DemoDisabledButton),
                             Spawn((Text::new("Disabled"), ThemedText))
                         ),
                         button(
@@ -204,7 +195,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(1.0),
+                        column_gap: px(1),
                         ..default()
                     },
                     children![
@@ -261,7 +252,25 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 ),
                 checkbox(
                     CheckboxProps {
-                        on_change: Callback::Ignore,
+                        on_change: Callback::System(commands.register_system(
+                            |change: In<ValueChange<bool>>,
+                             query: Query<Entity, With<DemoDisabledButton>>,
+                             mut commands: Commands| {
+                                info!("Checkbox clicked!");
+                                let mut button = commands.entity(query.single().unwrap());
+                                if change.value {
+                                    button.insert(InteractionDisabled);
+                                } else {
+                                    button.remove::<InteractionDisabled>();
+                                }
+                                let mut checkbox = commands.entity(change.source);
+                                if change.value {
+                                    checkbox.insert(Checked);
+                                } else {
+                                    checkbox.remove::<Checked>();
+                                }
+                            }
+                        )),
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))
@@ -284,10 +293,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(4.0),
+                        row_gap: px(4),
                         ..default()
                     },
-                    CoreRadioGroup {
+                    RadioGroup {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![
@@ -306,7 +315,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
+                        column_gap: px(8),
                         ..default()
                     },
                     children![

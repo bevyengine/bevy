@@ -2,9 +2,11 @@ mod graph_runner;
 #[cfg(feature = "raw_vulkan_init")]
 pub mod raw_vulkan_init;
 mod render_device;
+mod wgpu_wrapper;
 
 pub use graph_runner::*;
 pub use render_device::*;
+pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -13,7 +15,6 @@ use crate::{
     render_resource::RenderPassDescriptor,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
-    WgpuWrapper,
 };
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
@@ -507,6 +508,10 @@ impl<'w> RenderContext<'w> {
             self.render_device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         })
+    }
+
+    pub(crate) fn has_commands(&mut self) -> bool {
+        self.command_encoder.is_some() || !self.command_buffer_queue.is_empty()
     }
 
     /// Creates a new [`TrackedRenderPass`] for the context,

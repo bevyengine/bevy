@@ -1,5 +1,6 @@
 use alloc::{string::String, vec::Vec, fmt};
-use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem, task::{Poll, Context, Waker}, pin::Pin};
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
+use crate::futures::now_or_never;
 
 use crate::{block_on, Task};
 
@@ -21,9 +22,9 @@ pub struct TaskPoolBuilder {}
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
-/// and so the [`ThreadSpawner`] does nothing.
+/// and so the [`LocalTaskSpawner`] does nothing.
 #[derive(Clone)]
-pub struct ThreadSpawner;
+pub struct LocalTaskSpawner;
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance
@@ -73,8 +74,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn current_thread_spawner(&self) -> ThreadSpawner {
-        ThreadSpawner
+    pub fn current_thread_spawner(&self) -> LocalTaskSpawner {
+        LocalTaskSpawner
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -112,7 +113,7 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        _thread_executor: Option<ThreadSpawner>,
+        _thread_executor: Option<LocalTaskSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -156,14 +157,11 @@ impl TaskPool {
             }
         }));
 
-        let mut context = Context::from_waker(Waker::noop());
         tasks
             .take()
             .into_iter()
-            .map(|mut task| match Pin::new(&mut task).poll(&mut context) {
-                Poll::Ready(result) => result,
-                Poll::Pending => unreachable!(),
-            })
+            .map(now_or_never)
+            .map(Option::unwrap)
             .collect()
     }
 
@@ -187,7 +185,13 @@ impl TaskPool {
             _ => {
                 let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
-                while Self::try_tick_local() {}
+                crate::cfg::bevy_executor! {
+                    if {
+                        while !Executor::try_tick_local() {}
+                    } else {
+                        while EXECUTOR.try_tick() {}
+                    }
+                }
 
                 Task::new(task)
             }
@@ -203,20 +207,6 @@ impl TaskPool {
         T: 'static + MaybeSend + MaybeSync,
     {
         self.spawn(future)
-    }
-
-    crate::cfg::web! {
-        if {} else {
-            pub(crate) fn try_tick_local() -> bool {
-                crate::cfg::bevy_executor! {
-                    if {
-                        Executor::try_tick_local()
-                    } else {
-                        EXECUTOR.try_tick()
-                    }
-                }
-            }
-        }
     }
 }
 

@@ -1,8 +1,7 @@
-//! Alternative to `async_executor` based on [`edge_executor`] by Ivan Markov.
+//! Alternative to `bevy_executor` based on [`edge_executor`] by Ivan Markov.
 //!
 //! It has been vendored along with its tests to update several outdated dependencies.
 //!
-//! [`async_executor`]: https://github.com/smol-rs/async-executor
 //! [`edge_executor`]: https://github.com/ivmarkov/edge-executor
 
 #![expect(unsafe_code, reason = "original implementation relies on unsafe")]

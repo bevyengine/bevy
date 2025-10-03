@@ -23,7 +23,7 @@ use bevy_render::{
 use binding_types::*;
 use core::iter;
 
-/// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].
+/// Manages per-view and per-cluster GPU resources for [`MeshletPlugin`](`super::MeshletPlugin`).
 #[derive(Resource)]
 pub struct ResourceManager {
     /// Intermediate buffer of cluster IDs for use with rasterizing the visibility buffer

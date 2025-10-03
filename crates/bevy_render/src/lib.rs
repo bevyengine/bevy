@@ -42,8 +42,6 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -64,7 +62,6 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
-mod wgpu_wrapper;
 
 /// The render prelude.
 ///
@@ -82,7 +79,7 @@ pub use extract_param::Extract;
 use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
+    mesh::{MeshRenderAssetPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderAdapterInfo},
@@ -114,7 +111,6 @@ use render_asset::{
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-pub use wgpu_wrapper::WgpuWrapper;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -370,7 +366,7 @@ impl Plugin for RenderPlugin {
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
-            MeshPlugin,
+            MeshRenderAssetPlugin,
             GlobalsPlugin,
             MorphPlugin,
             TexturePlugin,

@@ -33,10 +33,9 @@ use crate::{
         ViewSortedRenderPhases,
     },
     render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
-    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    wgpu_wrapper::WgpuWrapper,
     Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 

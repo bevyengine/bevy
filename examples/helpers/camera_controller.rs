@@ -125,7 +125,7 @@ Freecam Controls:
 }
 
 fn run_camera_controller(
-    time: Res<Time>,
+    time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,

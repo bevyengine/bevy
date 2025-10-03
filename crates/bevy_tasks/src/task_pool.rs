@@ -10,7 +10,7 @@ use futures_lite::FutureExt;
 
 use crate::{block_on, Task};
 
-pub use crate::bevy_executor::ThreadSpawner;
+pub use crate::bevy_executor::LocalTaskSpawner;
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -142,9 +142,9 @@ pub struct TaskPool {
 }
 
 impl TaskPool {
-    /// Creates a [`ThreadSpawner`] for this current thread of execution.
+    /// Creates a [`LocalTaskSpawner`] for this current thread of execution.
     /// Can be used to spawn new tasks to execute exclusively on this thread.
-    pub fn current_thread_spawner(&self) -> ThreadSpawner {
+    pub fn current_thread_spawner(&self) -> LocalTaskSpawner {
         self.executor.current_thread_spawner()
     }
 
@@ -303,14 +303,14 @@ impl TaskPool {
         self.scope_with_executor_inner(scope_spawner.clone(), scope_spawner, f)
     }
 
-    /// This allows passing an external [`ThreadSpawner`] to spawn tasks to. When you pass an external spawner
-    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadSpawner`] originated from.
-    /// If [`None`] is passed the scope will use a [`ThreadSpawner`] that is ticked on the current thread.
+    /// This allows passing an external [`LocalTaskSpawner`] to spawn tasks to. When you pass an external spawner
+    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`LocalTaskSpawner`] originated from.
+    /// If [`None`] is passed the scope will use a [`LocalTaskSpawner`] that is ticked on the current thread.
     ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        external_spawner: Option<ThreadSpawner>,
+        external_spawner: Option<LocalTaskSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -330,8 +330,8 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
-        external_spawner: ThreadSpawner,
-        scope_spawner: ThreadSpawner,
+        external_spawner: LocalTaskSpawner,
+        scope_spawner: LocalTaskSpawner,
         f: F,
     ) -> Vec<T>
     where
@@ -416,10 +416,6 @@ impl TaskPool {
     {
         Task::new(self.executor.spawn_local(future))
     }
-
-    pub(crate) fn try_tick_local() -> bool {
-        Executor::try_tick_local()
-    }
 }
 
 impl Default for TaskPool {
@@ -448,8 +444,8 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'static Executor,
-    external_spawner: ThreadSpawner,
-    scope_spawner: ThreadSpawner,
+    external_spawner: LocalTaskSpawner,
+    scope_spawner: LocalTaskSpawner,
     spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -483,7 +479,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
 
     #[expect(
         unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
+        reason = "LocalTaskSpawner::spawn otherwise requires 'static Futures"
     )]
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
@@ -505,7 +501,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
 
     #[expect(
         unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
+        reason = "LocalTaskSpawner::spawn otherwise requires 'static Futures"
     )]
     /// Spawns a scoped future onto the thread of the external thread executor.
     /// This is typically the main thread. The scope *must* outlive

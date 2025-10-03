@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{rng, Rng};
 
@@ -21,8 +21,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     title: "many_lights".into(),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
@@ -33,10 +32,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();

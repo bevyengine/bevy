@@ -48,7 +48,7 @@ pub use spot_light::{
 mod directional_light;
 pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
-    DirectionalLightTexture,
+    DirectionalLightTexture, SunDisk,
 };
 
 /// The light prelude.
@@ -127,6 +127,7 @@ pub mod light_consts {
     }
 }
 
+#[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {

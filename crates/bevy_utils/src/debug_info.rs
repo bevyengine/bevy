@@ -106,7 +106,7 @@ impl Deref for DebugName {
         #[cfg(feature = "debug")]
         return &self.name;
         #[cfg(not(feature = "debug"))]
-        return &FEATURE_DISABLED;
+        return FEATURE_DISABLED;
     }
 }
 
@@ -130,6 +130,26 @@ cfg::alloc! {
     impl From<String> for DebugName {
         fn from(value: String) -> Self {
             Self::owned(value)
+        }
+    }
+
+    impl From<DebugName> for Cow<'static, str> {
+        #[cfg_attr(
+            not(feature = "debug"),
+            expect(
+                unused_variables,
+                reason = "The value will be ignored if the `debug` feature is not enabled"
+            )
+        )]
+        fn from(value: DebugName) -> Self {
+            #[cfg(feature = "debug")]
+            {
+                value.name
+            }
+            #[cfg(not(feature = "debug"))]
+            {
+                Cow::Borrowed(FEATURE_DISABLED)
+            }
         }
     }
 }

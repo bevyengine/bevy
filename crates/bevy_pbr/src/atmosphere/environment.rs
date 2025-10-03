@@ -3,7 +3,7 @@ use crate::{
         AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset,
     },
-    AtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
+    GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
@@ -58,7 +58,7 @@ pub struct AtmosphereProbeLayouts {
 }
 
 #[derive(Resource)]
-pub struct AtmosphereProbePipelines {
+pub struct AtmosphereProbePipeline {
     pub environment: CachedComputePipelineId,
 }
 
@@ -69,7 +69,7 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<R
             ShaderStages::COMPUTE,
             (
                 uniform_buffer::<Atmosphere>(true),
-                uniform_buffer::<AtmosphereSettings>(true),
+                uniform_buffer::<GpuAtmosphereSettings>(true),
                 uniform_buffer::<AtmosphereTransform>(true),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<GpuLights>(true),
@@ -102,7 +102,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
-    settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
+    settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &probes {
@@ -165,7 +165,7 @@ pub(super) fn prepare_probe_textures(
     }
 }
 
-pub fn queue_atmosphere_probe_pipelines(
+pub fn init_atmosphere_probe_pipeline(
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<AtmosphereProbeLayouts>,
     asset_server: Res<AssetServer>,
@@ -177,7 +177,7 @@ pub fn queue_atmosphere_probe_pipelines(
         shader: load_embedded_asset!(asset_server.as_ref(), "environment.wgsl"),
         ..default()
     });
-    commands.insert_resource(AtmosphereProbePipelines { environment });
+    commands.insert_resource(AtmosphereProbePipeline { environment });
 }
 
 // Ensure power-of-two dimensions to avoid edge update issues on cubemap faces
@@ -246,7 +246,7 @@ pub fn prepare_atmosphere_probe_components(
 pub(super) struct EnvironmentNode {
     main_view_query: QueryState<(
         Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
@@ -279,7 +279,7 @@ impl Node for EnvironmentNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereProbePipelines>();
+        let pipelines = world.resource::<AtmosphereProbePipeline>();
         let view_entity = graph.view_entity();
 
         let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
