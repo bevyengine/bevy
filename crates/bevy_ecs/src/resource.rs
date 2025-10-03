@@ -98,6 +98,7 @@ pub trait Resource: Send + Sync + 'static {}
 #[derive(Component)]
 #[require(IsResource, Internal)]
 #[component(on_add = on_add_hook, on_remove = on_remove_hook)]
+#[repr(transparent)]
 pub struct ResourceComponent<R: Resource>(pub R);
 
 pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {

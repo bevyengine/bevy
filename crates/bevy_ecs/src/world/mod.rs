@@ -1844,12 +1844,10 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(&component_id)
-            && let Some(entity_ref) = self.get_entity(*entity).ok()
-        {
-            return entity_ref.contains_id(component_id);
-        }
-        false
+        self.resource_entities
+            .get(&component_id)
+            .and_then(|entity| self.get_entity(*entity).ok())
+            .is_some_and(|entity_ref| entity_ref.contains_id(component_id))
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -2602,7 +2600,6 @@ impl World {
             .get_mut::<ResourceComponent<R>>()?
             .set_last_changed(ticks.changed);
 
-        let entity = entity_mut.id();
         self.resource_entities.insert(component_id, entity);
 
         Some(result)
@@ -3234,12 +3231,13 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids: Vec<ComponentId> = self.resource_entities.keys().copied().collect();
-        component_ids.into_iter().filter_map(|component_id| {
-            let component_info = self.components().get_info(component_id)?;
-            let resource = self.get_resource_by_id(component_id)?;
-            Some((component_info, resource))
-        })
+        self.resource_entities
+            .iter()
+            .filter_map(|(&component_id, &entity)| {
+                let component_info = self.components().get_info(component_id)?;
+                let resource = self.get_entity(entity).ok()?.get_by_id(component_id).ok()?;
+                Some((component_info, resource))
+            })
     }
 
     /// Mutably iterates over all resources in the world.
@@ -3316,8 +3314,7 @@ impl World {
 
         resource_entities
             .into_iter()
-            .map(|(component_id, entity)| (*component_id, *entity))
-            .filter_map(move |(component_id, entity)| {
+            .filter_map(move |(&component_id, &entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info =
                     unsafe { components.get_info(component_id).debug_checked_unwrap() };
