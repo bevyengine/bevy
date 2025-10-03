@@ -224,10 +224,18 @@ fn update_slider_pos(
         // Find slider text child entity and update its text with the formatted value
         q_children.iter_descendants(slider_ent).for_each(|child| {
             if let Ok(mut text) = q_slider_text.get_mut(child) {
-                text.0 = if precision.0 >= 0 {
+                let label = format!("{}", value.0);
+                let decimals_len = label
+                    .as_str()
+                    .split_once('.')
+                    .map(|(_, decimals)| decimals.len() as i32)
+                    .unwrap_or(precision.0);
+
+                // Don't format with precision if the value has more decimals than the precision
+                text.0 = if precision.0 >= 0 && decimals_len <= precision.0 {
                     format!("{:.precision$}", value.0, precision = precision.0 as usize)
                 } else {
-                    format!("{}", value.0)
+                    label
                 };
             }
         });
