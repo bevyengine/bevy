@@ -6752,11 +6752,14 @@ mod tests {
         let _id2 = world.spawn(Marker).id();
         let id3 = world.spawn(Marker).id();
 
+        #[cfg(feature = "track_location")]
         let e1_spawned = world.entity(id1).spawned_by();
 
         let spawn = world.entity(id3).spawned_by();
         world.entity_mut(id1).despawn();
+        #[cfg(feature = "track_location")]
         let e1_despawned = world.entities().entity_get_spawned_or_despawned_by(id1);
+        #[cfg(feature = "track_location")]
         assert_ne!(e1_spawned.map(Some), e1_despawned);
 
         let spawn_after = world.entity(id3).spawned_by();
