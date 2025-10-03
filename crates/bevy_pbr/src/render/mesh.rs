@@ -2590,8 +2590,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = key.view_target_format();
-
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this
         // in their own shaders.
@@ -2613,7 +2611,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_target_format(),
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],

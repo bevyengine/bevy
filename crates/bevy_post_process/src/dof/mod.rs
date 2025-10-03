@@ -688,8 +688,7 @@ pub fn prepare_depth_of_field_pipelines(
             fragment_shader: load_embedded_asset!(asset_server.as_ref(), "dof.wgsl"),
         };
 
-        // We'll need these two flags to create the `DepthOfFieldPipelineKey`s.
-        let (target_format, multisample) = (view.target_format, *msaa != Msaa::Off);
+        let multisample = *msaa != Msaa::Off;
 
         // Go ahead and specialize the pipelines.
         match depth_of_field.mode {
@@ -701,7 +700,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                target_format,
+                                target_format: view.target_format,
                                 multisample,
                                 pass: DofPass::GaussianHorizontal,
                             },
@@ -710,7 +709,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                target_format,
+                                target_format: view.target_format,
                                 multisample,
                                 pass: DofPass::GaussianVertical,
                             },
@@ -726,7 +725,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                target_format,
+                                target_format: view.target_format,
                                 multisample,
                                 pass: DofPass::BokehPass0,
                             },
@@ -735,7 +734,7 @@ pub fn prepare_depth_of_field_pipelines(
                             &pipeline_cache,
                             &dof_pipeline,
                             DepthOfFieldPipelineKey {
-                                target_format,
+                                target_format: view.target_format,
                                 multisample,
                                 pass: DofPass::BokehPass1,
                             },

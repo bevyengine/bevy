@@ -227,8 +227,6 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = key.view_target_format();
-
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
             step_mode: VertexStepMode::Instance,
@@ -277,7 +275,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

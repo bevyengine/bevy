@@ -73,8 +73,6 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let texture_format = key.target_format;
-
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
                 // At the time of developing this we decided to blend our
@@ -115,7 +113,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                 shader: self.fragment_shader.clone(),
                 entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
-                    format: texture_format,
+                    format: key.target_format,
                     blend: Some(BlendState {
                         color: color_blend,
                         alpha: BlendComponent {

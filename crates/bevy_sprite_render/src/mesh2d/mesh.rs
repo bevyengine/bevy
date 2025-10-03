@@ -640,8 +640,6 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = key.view_target_format();
-
         let (depth_write_enabled, label, blend);
         if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {
             label = "transparent_mesh2d_pipeline";
@@ -664,7 +662,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_target_format(),
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],

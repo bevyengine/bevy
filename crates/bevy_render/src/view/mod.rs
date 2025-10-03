@@ -811,7 +811,7 @@ impl ViewTarget {
         self.main_texture_format
     }
 
-    /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
+    /// Returns `true` if the view target is using HDR rendering.
     #[inline]
     pub fn is_hdr(&self) -> bool {
         self.hdr

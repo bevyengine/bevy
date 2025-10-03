@@ -897,8 +897,6 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                let format = view.target_format;
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),
                     // The size of the transmission texture
@@ -906,7 +904,7 @@ pub fn prepare_core_3d_transmission_textures(
                     mip_level_count: 1,
                     sample_count: 1, // No need for MSAA, as we'll only copy the main texture here
                     dimension: TextureDimension::D2,
-                    format,
+                    format: view.target_format,
                     usage,
                     view_formats: &[],
                 };

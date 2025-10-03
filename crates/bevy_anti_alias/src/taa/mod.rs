@@ -313,8 +313,6 @@ impl SpecializedRenderPipeline for TaaPipeline {
             shader_defs.push("RESET".into());
         }
 
-        let format = key.target_format;
-
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
             layout: vec![self.taa_bind_group_layout.clone()],
@@ -324,12 +322,12 @@ impl SpecializedRenderPipeline for TaaPipeline {
                 shader_defs,
                 targets: vec![
                     Some(ColorTargetState {
-                        format,
+                        format: key.target_format,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     }),
                     Some(ColorTargetState {
-                        format,
+                        format: key.target_format,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     }),

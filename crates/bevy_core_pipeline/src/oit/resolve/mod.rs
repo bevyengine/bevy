@@ -199,8 +199,6 @@ fn specialize_oit_resolve_pipeline(
     fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
-    let format = key.target_format;
-
     RenderPipelineDescriptor {
         label: Some("oit_resolve_pipeline".into()),
         layout: vec![
@@ -214,7 +212,7 @@ fn specialize_oit_resolve_pipeline(
                 key.layer_count as u32,
             )],
             targets: vec![Some(ColorTargetState {
-                format,
+                format: key.target_format,
                 blend: Some(BlendState {
                     color: BlendComponent::OVER,
                     alpha: BlendComponent::OVER,

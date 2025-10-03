@@ -110,8 +110,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
     type Key = LineGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = key.mesh_key.view_target_format();
-
         let shader_defs = vec![
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
@@ -140,7 +138,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader_defs,
                 entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.mesh_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -190,8 +188,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
     type Key = LineJointGizmoPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = key.mesh_key.view_target_format();
-
         let shader_defs = vec![
             #[cfg(feature = "webgl")]
             "SIXTEEN_BYTE_ALIGNMENT".into(),
@@ -223,7 +219,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.mesh_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

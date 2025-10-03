@@ -112,8 +112,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = key.view_key.view_target_format();
-
         let view_layout = self
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
@@ -138,7 +136,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader_defs,
                 entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -189,8 +187,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = key.view_key.view_target_format();
-
         let view_layout = self
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
@@ -218,7 +214,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

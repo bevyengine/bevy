@@ -589,6 +589,7 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
 #[macro_export]
 macro_rules! declare_view_target_format_fn {
     () => {
+        /// Create a pipeline key from view target format.
         #[inline]
         pub fn from_view_target_format(format: TextureFormat) -> Self {
             match format {
@@ -603,10 +604,11 @@ macro_rules! declare_view_target_format_fn {
                 TextureFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
                 TextureFormat::Rg11b10Ufloat => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
                 TextureFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
-                _ => unreachable!("Unsupported target format"),
+                _ => unreachable!("Unsupported view target format"),
             }
         }
 
+        /// Get the view target format of this pipeline key.
         #[inline]
         pub fn view_target_format(&self) -> TextureFormat {
             let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
@@ -634,7 +636,7 @@ macro_rules! declare_view_target_format_fn {
             } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
                 TextureFormat::Rgb10a2Unorm
             } else {
-                unreachable!("Unsupported target format")
+                unreachable!("Unsupported view target format")
             }
         }
     };
