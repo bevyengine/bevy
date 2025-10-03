@@ -13,7 +13,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{Commands, In, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
@@ -23,7 +23,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{Callback, Slider, SliderRange, SliderValue, TrackClick, ValueChange};
+use bevy_ui_widgets::{Slider, SliderRange, SliderValue, TrackClick};
 
 use crate::{
     constants::{fonts, size},
@@ -43,8 +43,6 @@ pub struct SliderProps {
     pub min: f32,
     /// Slider maximum value
     pub max: f32,
-    /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {
@@ -53,7 +51,6 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            on_change: Callback::Ignore,
         }
     }
 }
@@ -86,7 +83,6 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             ..Default::default()
         },
         Slider {
-            on_change: props.on_change,
             track_click: TrackClick::Drag,
         },
         SliderStyle,
