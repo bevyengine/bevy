@@ -3,8 +3,7 @@ use crate::serde::ser::error_utils::make_custom_error;
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::serde::ReflectSerializeWithRegistry;
 use crate::{PartialReflect, ReflectSerialize, TypeRegistry};
-use core::borrow::Borrow;
-use serde::{Serialize, Serializer};
+use serde::Serializer;
 
 /// Attempts to serialize a [`PartialReflect`] value with custom [`ReflectSerialize`]
 /// or [`ReflectSerializeWithRegistry`] type data.
@@ -42,10 +41,7 @@ pub(super) fn try_custom_serialize<S: Serializer>(
         #[cfg(feature = "debug_stack")]
         TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
 
-        Ok(reflect_serialize
-            .get_serializable(value)
-            .borrow()
-            .serialize(serializer))
+        Ok(reflect_serialize.serialize(value, serializer))
     } else if let Some(reflect_serialize_with_registry) =
         registration.data::<ReflectSerializeWithRegistry>()
     {

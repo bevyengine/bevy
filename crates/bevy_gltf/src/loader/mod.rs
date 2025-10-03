@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
+use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
@@ -1439,10 +1439,10 @@ fn load_node(
     if let Some(ref mut animation_context) = animation_context {
         animation_context.path.push(name);
 
-        node.insert(AnimationTarget {
-            id: AnimationTargetId::from_names(animation_context.path.iter()),
-            player: animation_context.root,
-        });
+        node.insert((
+            AnimationTargetId::from_names(animation_context.path.iter()),
+            AnimatedBy(animation_context.root),
+        ));
     }
 
     if let Some(extras) = gltf_node.extras() {
@@ -1909,7 +1909,7 @@ mod test {
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-    use bevy_render::mesh::MeshPlugin;
+    use bevy_mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

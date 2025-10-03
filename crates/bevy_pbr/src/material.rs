@@ -179,6 +179,19 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         false
     }
 
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    /// Controls if shadows are enabled for the Material.
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the default prepass vertex shader
     /// will be used.
     ///
@@ -324,14 +337,6 @@ impl Plugin for MaterialsPlugin {
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
 pub struct MaterialPlugin<M: Material> {
-    /// Controls if the prepass is enabled for the Material.
-    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
-    ///
-    /// When it is enabled, it will automatically add the [`PrepassPlugin`]
-    /// required to make the prepass work on this Material.
-    pub prepass_enabled: bool,
-    /// Controls if shadows are enabled for the Material.
-    pub shadows_enabled: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
     pub _marker: PhantomData<M>,
@@ -340,8 +345,6 @@ pub struct MaterialPlugin<M: Material> {
 impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
-            prepass_enabled: true,
-            shadows_enabled: true,
             debug_flags: RenderDebugFlags::default(),
             _marker: Default::default(),
         }
@@ -366,7 +369,7 @@ where
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
-        if self.shadows_enabled {
+        if M::enable_shadows() {
             app.add_systems(
                 PostUpdate,
                 check_light_entities_needing_specialization::<M>
@@ -375,13 +378,6 @@ where
         }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            if self.prepass_enabled {
-                render_app.init_resource::<PrepassEnabled<M>>();
-            }
-            if self.shadows_enabled {
-                render_app.init_resource::<ShadowsEnabled<M>>();
-            }
-
             render_app
                 .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
                 .add_systems(
@@ -391,7 +387,9 @@ where
                         early_sweep_material_instances::<M>
                             .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
-                        extract_entities_needs_specialization::<M>.after(extract_cameras),
+                        extract_entities_needs_specialization::<M>
+                            .after(extract_cameras)
+                            .after(MaterialExtractionSystems),
                     ),
                 );
         }
@@ -779,6 +777,7 @@ pub(crate) fn late_sweep_material_instances(
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    material_instances: Res<RenderMaterialInstances>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
@@ -796,7 +795,20 @@ pub fn extract_entities_needs_specialization<M>(
     // Clean up any despawned entities, we do this first in case the removed material was re-added
     // the same frame, thus will appear both in the removed components list and have been added to
     // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
+    //
+    // Additionally, we need to make sure that we are careful about materials that could have changed
+    // type, e.g. from a `StandardMaterial` to a `CustomMaterial`, as this will also appear in the
+    // removed components list. As such, we make sure that this system runs after `MaterialExtractionSystems`
+    // so that the `RenderMaterialInstances` bookkeeping has already been done, and we can check if the entity
+    // still has a valid material instance.
     for entity in removed_mesh_material_components.read() {
+        if material_instances
+            .instances
+            .contains_key(&MainEntity::from(entity))
+        {
+            continue;
+        }
+
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             if let Some(cache) =
@@ -1495,11 +1507,7 @@ where
         SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
         SRes<AssetServer>,
-        (
-            Option<SRes<ShadowsEnabled<M>>>,
-            Option<SRes<PrepassEnabled<M>>>,
-            M::Param,
-        ),
+        M::Param,
     );
 
     fn prepare_asset(
@@ -1520,13 +1528,13 @@ where
             alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
             asset_server,
-            (shadows_enabled, prepass_enabled, material_param),
+            material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
         let material_layout = M::bind_group_layout(render_device);
 
-        let shadows_enabled = shadows_enabled.is_some();
-        let prepass_enabled = prepass_enabled.is_some();
+        let shadows_enabled = M::enable_shadows();
+        let prepass_enabled = M::enable_prepass();
 
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
@@ -1768,21 +1776,6 @@ where
     }
 }
 
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(pub Option<BindGroupId>);
-
-impl MaterialBindGroupId {
-    pub fn new(id: BindGroupId) -> Self {
-        Self(Some(id))
-    }
-}
-
-impl From<BindGroup> for MaterialBindGroupId {
-    fn from(value: BindGroup) -> Self {
-        Self::new(value.id())
-    }
-}
-
 /// Creates and/or recreates any bind groups that contain materials that were
 /// modified this frame.
 pub fn prepare_material_bind_groups(
@@ -1808,15 +1801,5 @@ pub fn write_material_bind_group_buffers(
 ) {
     for (_, allocator) in allocators.iter_mut() {
         allocator.write_buffers(&render_device, &render_queue);
-    }
-}
-
-/// Marker resource for whether shadows are enabled for this material type
-#[derive(Resource, Debug)]
-pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for ShadowsEnabled<M> {
-    fn default() -> Self {
-        Self(PhantomData)
     }
 }

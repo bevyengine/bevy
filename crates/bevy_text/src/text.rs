@@ -214,6 +214,7 @@ impl From<String> for TextSpan {
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
+#[doc(alias = "JustifyText")]
 pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
@@ -243,7 +244,7 @@ impl From<Justify> for cosmic_text::Align {
 }
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
-/// the font face, the font size, and the color.
+/// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {

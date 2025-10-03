@@ -74,7 +74,7 @@ fn toggle_resolution(
 /// Whenever the window is resized, the text will update with the new resolution.
 fn on_resize_system(
     mut text: Single<&mut Text, With<ResolutionText>>,
-    mut resize_reader: EventReader<WindowResized>,
+    mut resize_reader: MessageReader<WindowResized>,
 ) {
     for e in resize_reader.read() {
         // When resolution is being changed

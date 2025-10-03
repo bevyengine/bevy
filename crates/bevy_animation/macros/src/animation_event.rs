@@ -5,9 +5,11 @@ use syn::{parse_macro_input, DeriveInput};
 
 pub fn derive_animation_event(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let manifest = BevyManifest::shared();
-    let bevy_ecs = manifest.get_path("bevy_ecs");
-    let bevy_animation = manifest.get_path("bevy_animation");
+    let (bevy_ecs, bevy_animation) = BevyManifest::shared(|manifest| {
+        let bevy_ecs = manifest.get_path("bevy_ecs");
+        let bevy_animation = manifest.get_path("bevy_animation");
+        (bevy_ecs, bevy_animation)
+    });
 
     let generics = ast.generics;
     let (impl_generics, type_generics, where_clause) = generics.split_for_impl();

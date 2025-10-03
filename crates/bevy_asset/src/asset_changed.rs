@@ -297,7 +297,7 @@ mod tests {
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
-        event::EventWriter,
+        message::MessageWriter,
         resource::Resource,
         system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
@@ -333,7 +333,7 @@ mod tests {
     fn handle_filter_pos_ok() {
         fn compatible_filter(
             _query: Query<&mut MyComponent, AssetChanged<MyComponent>>,
-            mut exit: EventWriter<AppExit>,
+            mut exit: MessageWriter<AppExit>,
         ) {
             exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }

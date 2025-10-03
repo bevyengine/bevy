@@ -1,5 +1,5 @@
 //! A framework for theming.
-use bevy_app::Propagate;
+use bevy_app::{Propagate, PropagateOver};
 use bevy_color::{palettes, Color};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -16,13 +16,42 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
+use smol_str::SmolStr;
+
+/// A design token for the theme. This serves as the lookup key for the theme properties.
+#[derive(Clone, PartialEq, Eq, Hash, Reflect)]
+pub struct ThemeToken(SmolStr);
+
+impl ThemeToken {
+    /// Construct a new [`ThemeToken`] from a [`SmolStr`].
+    pub const fn new(text: SmolStr) -> Self {
+        Self(text)
+    }
+
+    /// Construct a new [`ThemeToken`] from a static string.
+    pub const fn new_static(text: &'static str) -> Self {
+        Self(SmolStr::new_static(text))
+    }
+}
+
+impl core::fmt::Display for ThemeToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl core::fmt::Debug for ThemeToken {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "ThemeToken({:?})", self.0)
+    }
+}
 
 /// A collection of properties that make up a theme.
 #[derive(Default, Clone, Reflect, Debug)]
 #[reflect(Default, Debug)]
 pub struct ThemeProps {
     /// Map of design tokens to colors.
-    pub color: HashMap<String, Color>,
+    pub color: HashMap<ThemeToken, Color>,
     // Other style property types to be added later.
 }
 
@@ -34,7 +63,7 @@ pub struct UiTheme(pub ThemeProps);
 impl UiTheme {
     /// Lookup a color by design token. If the theme does not have an entry for that token,
     /// logs a warning and returns an error color.
-    pub fn color<'a>(&self, token: &'a str) -> Color {
+    pub fn color(&self, token: &ThemeToken) -> Color {
         let color = self.0.color.get(token);
         match color {
             Some(c) => *c,
@@ -47,38 +76,41 @@ impl UiTheme {
     }
 
     /// Associate a design token with a given color.
-    pub fn set_color(&mut self, token: impl Into<String>, color: Color) {
-        self.0.color.insert(token.into(), color);
+    pub fn set_color(&mut self, token: &str, color: Color) {
+        self.0
+            .color
+            .insert(ThemeToken::new(SmolStr::new(token)), color);
     }
 }
 
 /// Component which causes the background color of an entity to be set based on a theme color.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone)]
 #[require(BackgroundColor)]
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-pub struct ThemeBackgroundColor(pub &'static str);
+pub struct ThemeBackgroundColor(pub ThemeToken);
 
 /// Component which causes the border color of an entity to be set based on a theme color.
 /// Only supports setting all borders to the same color.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone)]
 #[require(BorderColor)]
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-pub struct ThemeBorderColor(pub &'static str);
+pub struct ThemeBorderColor(pub ThemeToken);
 
 /// Component which causes the inherited text color of an entity to be set based on a theme color.
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone)]
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-pub struct ThemeFontColor(pub &'static str);
+#[require(ThemedText, PropagateOver::<TextColor>::default())]
+pub struct ThemeFontColor(pub ThemeToken);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component, Reflect)]
+#[derive(Component, Reflect, Default)]
 #[reflect(Component)]
 pub struct ThemedText;
 
@@ -90,12 +122,12 @@ pub(crate) fn update_theme(
     if theme.is_changed() {
         // Update all background colors
         for (mut bg, theme_bg) in q_background.iter_mut() {
-            bg.0 = theme.color(theme_bg.0);
+            bg.0 = theme.color(&theme_bg.0);
         }
 
         // Update all border colors
         for (mut border, theme_border) in q_border.iter_mut() {
-            border.set_all(theme.color(theme_border.0));
+            border.set_all(theme.color(&theme_border.0));
         }
     }
 }
@@ -110,7 +142,7 @@ pub(crate) fn on_changed_background(
 ) {
     // Update background colors where the design token has changed.
     if let Ok((mut bg, theme_bg)) = q_background.get_mut(insert.entity) {
-        bg.0 = theme.color(theme_bg.0);
+        bg.0 = theme.color(&theme_bg.0);
     }
 }
 
@@ -121,7 +153,7 @@ pub(crate) fn on_changed_border(
 ) {
     // Update background colors where the design token has changed.
     if let Ok((mut border, theme_border)) = q_border.get_mut(insert.entity) {
-        border.set_all(theme.color(theme_border.0));
+        border.set_all(theme.color(&theme_border.0));
     }
 }
 
@@ -134,7 +166,7 @@ pub(crate) fn on_changed_font_color(
     mut commands: Commands,
 ) {
     if let Ok(token) = font_color.get(insert.entity) {
-        let color = theme.color(token.0);
+        let color = theme.color(&token.0);
         commands
             .entity(insert.entity)
             .insert(Propagate(TextColor(color)));

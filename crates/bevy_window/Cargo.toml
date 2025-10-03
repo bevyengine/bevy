@@ -1,6 +1,6 @@
 [package]
 name = "bevy_window"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Provides windowing functionality for Bevy Engine"
 homepage = "https://bevy.org"
@@ -48,16 +48,16 @@ libm = ["bevy_math/libm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.17.0-dev", default-features = false }
-bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
 
 # bevy optional
-bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", default-features = false, optional = true }
-bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev", default-features = false, optional = true }
+bevy_image = { path = "../bevy_image", version = "0.18.0-dev", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }
 

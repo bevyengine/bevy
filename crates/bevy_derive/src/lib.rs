@@ -1,7 +1,7 @@
 //! Assorted proc macro derive functions.
 
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -228,7 +228,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let mut trait_path = BevyManifest::shared().get_path("bevy_app");
+    let mut trait_path = BevyManifest::shared(|manifest| manifest.get_path("bevy_app"));
     trait_path.segments.push(format_ident!("AppLabel").into());
     derive_label(input, "AppLabel", &trait_path)
 }

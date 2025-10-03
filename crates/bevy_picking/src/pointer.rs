@@ -270,7 +270,7 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
-#[derive(BufferedEvent, Debug, Clone, Reflect)]
+#[derive(Message, Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.
@@ -315,7 +315,7 @@ impl PointerInput {
 
     /// Updates pointer entities according to the input events.
     pub fn receive(
-        mut events: EventReader<PointerInput>,
+        mut events: MessageReader<PointerInput>,
         mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
     ) {
         for event in events.read() {

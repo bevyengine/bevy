@@ -5,7 +5,7 @@ use bevy::{color::palettes::css::*, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_event::<ButtonActivatedEvent>()
+        .add_message::<ButtonActivated>()
         .add_systems(Startup, setup)
         .add_systems(Update, (update_buttons, update_radio_buttons_colors))
         .run();
@@ -35,8 +35,8 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(BufferedEvent)]
-struct ButtonActivatedEvent(Entity);
+#[derive(Message)]
+struct ButtonActivated(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
@@ -264,12 +264,12 @@ fn update_buttons(
     mut bar_node: Single<&mut Node, With<Bar>>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
-    mut button_activated_event: EventWriter<ButtonActivatedEvent>,
+    mut button_activated_writer: MessageWriter<ButtonActivated>,
 ) {
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
         match interaction {
             Interaction::Pressed => {
-                button_activated_event.write(ButtonActivatedEvent(button_id));
+                button_activated_writer.write(ButtonActivated(button_id));
                 match constraint {
                     Constraint::FlexBasis => {
                         bar_node.flex_basis = value.0;
@@ -320,14 +320,14 @@ fn update_buttons(
 }
 
 fn update_radio_buttons_colors(
-    mut event_reader: EventReader<ButtonActivatedEvent>,
+    mut button_activated_reader: MessageReader<ButtonActivated>,
     button_query: Query<(Entity, &Constraint, &Interaction)>,
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut TextColor>,
     children_query: Query<&Children>,
 ) {
-    for &ButtonActivatedEvent(button_id) in event_reader.read() {
+    for &ButtonActivated(button_id) in button_activated_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();
         for (id, constraint, interaction) in button_query.iter() {
             if target_constraint == constraint {

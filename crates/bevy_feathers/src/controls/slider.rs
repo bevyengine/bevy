@@ -2,7 +2,6 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -14,7 +13,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{Commands, In, Query, Res},
+    system::{Commands, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
@@ -24,6 +23,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
+use bevy_ui_widgets::{Slider, SliderRange, SliderValue, TrackClick};
 
 use crate::{
     constants::{fonts, size},
@@ -43,8 +43,6 @@ pub struct SliderProps {
     pub min: f32,
     /// Slider maximum value
     pub max: f32,
-    /// On-change handler
-    pub on_change: Callback<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {
@@ -53,13 +51,12 @@ impl Default for SliderProps {
             value: 0.0,
             min: 0.0,
             max: 1.0,
-            on_change: Callback::Ignore,
         }
     }
 }
 
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider)]
+#[require(Slider)]
 #[derive(Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderStyle;
@@ -85,8 +82,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreSlider {
-            on_change: props.on_change,
+        Slider {
             track_click: TrackClick::Drag,
         },
         SliderStyle,
@@ -172,12 +168,12 @@ fn set_slider_styles(
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(match disabled {
+    let bar_color = theme.color(&match disabled {
         true => tokens::SLIDER_BAR_DISABLED,
         false => tokens::SLIDER_BAR,
     });
 
-    let bg_color = theme.color(tokens::SLIDER_BG);
+    let bg_color = theme.color(&tokens::SLIDER_BG);
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,

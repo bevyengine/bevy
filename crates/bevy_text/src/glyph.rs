@@ -9,7 +9,7 @@ use bevy_reflect::Reflect;
 ///
 /// Contains information about how and where to render a glyph.
 ///
-/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
+/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`TextLayoutInfo`](`crate::TextLayoutInfo`) for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PositionedGlyph {

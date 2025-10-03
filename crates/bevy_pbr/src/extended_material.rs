@@ -48,6 +48,19 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
         None
     }
 
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    /// Controls if shadows are enabled for the Material.
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
+    }
+
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
     /// will be used.
     fn prepass_vertex_shader() -> ShaderRef {
@@ -323,6 +336,14 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn reads_view_transmission_texture(&self) -> bool {
         B::reads_view_transmission_texture(&self.base)
+    }
+
+    fn enable_prepass() -> bool {
+        E::enable_prepass()
+    }
+
+    fn enable_shadows() -> bool {
+        E::enable_prepass()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

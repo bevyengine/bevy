@@ -270,7 +270,7 @@ impl<'a> SweepLine<'a> {
         reason = "this function is only used with the alloc feature"
     )
 )]
-#[inline(always)]
+#[inline]
 const fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
     (p2.x - p1.x) * (q.y - p1.y) - (q.x - p1.x) * (p2.y - p1.y)
 }

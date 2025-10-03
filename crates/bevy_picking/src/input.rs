@@ -120,12 +120,12 @@ pub fn spawn_mouse_pointer(mut commands: Commands) {
 /// Sends mouse pointer events to be processed by the core plugin
 pub fn mouse_pick_events(
     // Input
-    mut window_events: EventReader<WindowEvent>,
+    mut window_events: MessageReader<WindowEvent>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     // Locals
     mut cursor_last: Local<Vec2>,
     // Output
-    mut pointer_events: EventWriter<PointerInput>,
+    mut pointer_inputs: MessageWriter<PointerInput>,
 ) {
     for window_event in window_events.read() {
         match window_event {
@@ -140,7 +140,7 @@ pub fn mouse_pick_events(
                     },
                     position: event.position,
                 };
-                pointer_events.write(PointerInput::new(
+                pointer_inputs.write(PointerInput::new(
                     PointerId::Mouse,
                     location,
                     PointerAction::Move {
@@ -170,7 +170,7 @@ pub fn mouse_pick_events(
                     ButtonState::Pressed => PointerAction::Press(button),
                     ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_inputs.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             WindowEvent::MouseWheel(event) => {
                 let MouseWheel { unit, x, y, window } = *event;
@@ -187,7 +187,7 @@ pub fn mouse_pick_events(
 
                 let action = PointerAction::Scroll { x, y, unit };
 
-                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_inputs.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}
         }
@@ -197,13 +197,13 @@ pub fn mouse_pick_events(
 /// Sends touch pointer events to be consumed by the core plugin
 pub fn touch_pick_events(
     // Input
-    mut window_events: EventReader<WindowEvent>,
+    mut window_events: MessageReader<WindowEvent>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     // Locals
     mut touch_cache: Local<HashMap<u64, TouchInput>>,
     // Output
     mut commands: Commands,
-    mut pointer_events: EventWriter<PointerInput>,
+    mut pointer_inputs: MessageWriter<PointerInput>,
 ) {
     for window_event in window_events.read() {
         if let WindowEvent::TouchInput(touch) = window_event {
@@ -222,7 +222,7 @@ pub fn touch_pick_events(
                     debug!("Spawning pointer {:?}", pointer);
                     commands.spawn((pointer, PointerLocation::new(location.clone())));
 
-                    pointer_events.write(PointerInput::new(
+                    pointer_inputs.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Press(PointerButton::Primary),
@@ -236,7 +236,7 @@ pub fn touch_pick_events(
                         if last_touch == touch {
                             continue;
                         }
-                        pointer_events.write(PointerInput::new(
+                        pointer_inputs.write(PointerInput::new(
                             pointer,
                             location,
                             PointerAction::Move {
@@ -247,7 +247,7 @@ pub fn touch_pick_events(
                     touch_cache.insert(touch.id, *touch);
                 }
                 TouchPhase::Ended => {
-                    pointer_events.write(PointerInput::new(
+                    pointer_inputs.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Release(PointerButton::Primary),
@@ -255,7 +255,7 @@ pub fn touch_pick_events(
                     touch_cache.remove(&touch.id);
                 }
                 TouchPhase::Canceled => {
-                    pointer_events.write(PointerInput::new(
+                    pointer_inputs.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Cancel,
@@ -275,7 +275,7 @@ pub fn deactivate_touch_pointers(
     mut commands: Commands,
     mut despawn_list: Local<HashSet<(Entity, PointerId)>>,
     pointers: Query<(Entity, &PointerId)>,
-    mut touches: EventReader<TouchInput>,
+    mut touches: MessageReader<TouchInput>,
 ) {
     for touch in touches.read() {
         if let TouchPhase::Ended | TouchPhase::Canceled = touch.phase {

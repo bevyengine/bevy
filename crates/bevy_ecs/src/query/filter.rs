@@ -84,7 +84,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
     ///
-    /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
+    /// This enables optimizations for [`QueryIter`](`crate::query::QueryIter`) that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
     ///
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.

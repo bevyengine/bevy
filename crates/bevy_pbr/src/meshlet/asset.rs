@@ -25,7 +25,7 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 2;
 /// The conversion step is very slow, and is meant to be ran once ahead of time, and not during runtime. This type of mesh is not suitable for
 /// dynamically generated geometry.
 ///
-/// There are restrictions on the [`crate::Material`] functionality that can be used with this type of mesh.
+/// There are restrictions on the [`Material`](`crate::Material`) functionality that can be used with this type of mesh.
 /// * Materials have no control over the vertex shader or vertex attributes.
 /// * Materials must be opaque. Transparent, alpha masked, and transmissive materials are not supported.
 /// * Do not use normal maps baked from higher-poly geometry. Use the high-poly geometry directly and skip the normal map.
@@ -33,10 +33,10 @@ pub const MESHLET_MESH_ASSET_VERSION: u64 = 2;
 /// * Material shaders must not use builtin functions that automatically calculate derivatives <https://gpuweb.github.io/gpuweb/wgsl/#derivatives>.
 ///   * Performing manual arithmetic on texture coordinates (UVs) is forbidden. Use the chain-rule version of arithmetic functions instead (TODO: not yet implemented).
 /// * Limited control over [`bevy_render::render_resource::RenderPipelineDescriptor`] attributes.
-/// * Materials must use the [`crate::Material::meshlet_mesh_fragment_shader`] method (and similar variants for prepass/deferred shaders)
+/// * Materials must use the [`Material::meshlet_mesh_fragment_shader`](`crate::Material::meshlet_mesh_fragment_shader`) method (and similar variants for prepass/deferred shaders)
 ///   which requires certain shader patterns that differ from the regular material shaders.
 ///
-/// See also [`super::MeshletMesh3d`] and [`super::MeshletPlugin`].
+/// See also [`MeshletMesh3d`](`super::MeshletMesh3d`) and [`MeshletPlugin`](`super::MeshletPlugin`).
 #[derive(Asset, TypePath, Clone)]
 pub struct MeshletMesh {
     /// Quantized and bitstream-packed vertex positions for meshlet vertices.

@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![expect(
     clippy::doc_markdown,
     reason = "Android GameActivity does not need to be code-formatted."

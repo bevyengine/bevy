@@ -105,7 +105,7 @@ fn take_damage(
     attack: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
-    mut app_exit: EventWriter<AppExit>,
+    mut app_exit: MessageWriter<AppExit>,
 ) {
     let (mut hp, name) = hp.get_mut(attack.entity).unwrap();
     **hp = hp.saturating_sub(attack.damage);

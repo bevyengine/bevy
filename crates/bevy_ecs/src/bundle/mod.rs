@@ -14,6 +14,8 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
+use bevy_ptr::MovingPtr;
+use core::mem::MaybeUninit;
 pub use info::*;
 
 /// Derive the [`Bundle`] trait
@@ -234,33 +236,57 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-pub trait DynamicBundle {
+pub trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
-    type Effect: BundleEffect;
-    // SAFETY:
-    // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
-    // component being fetched.
-    //
-    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
-    /// ownership of the component values to `func`.
-    #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    type Effect;
+
+    /// Moves the components out of the bundle.
+    ///
+    /// # Safety
+    /// For callers:
+    /// - Must be called exactly once before `apply_effect`
+    /// - The `StorageType` argument passed into `func` must be correct for the component being fetched.
+    /// - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
+    ///
+    /// For implementors:
+    ///  - Implementors of this function must convert `ptr` into pointers to individual components stored within
+    ///    `Self` and call `func` on each of them in exactly the same order as [`Bundle::get_component_ids`] and
+    ///    [`BundleFromComponents::from_components`].
+    ///  - If any part of `ptr` is to be accessed in `apply_effect`, it must *not* be dropped at any point in this
+    ///    function. Calling [`bevy_ptr::deconstruct_moving_ptr`] in this function automatically ensures this.
+    ///
+    /// [`Component`]: crate::component::Component
+    // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
+    // information.
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    );
+
+    /// Applies the after-effects of spawning this bundle.
+    ///
+    /// This is applied after all residual changes to the [`World`], including flushing the internal command
+    /// queue.
+    ///
+    /// # Safety
+    /// For callers:
+    /// - Must be called exactly once after `get_components` has been called.
+    /// - `ptr` must point to the instance of `Self` that `get_components` was called on,
+    ///   all of fields that were moved out of in `get_components` will not be valid anymore.
+    ///
+    /// For implementors:
+    ///  - If any part of `ptr` is to be accessed in this function, it must *not* be dropped at any point in
+    ///    `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically
+    ///    ensures this is the case.
+    ///
+    /// [`World`]: crate::world::World
+    // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
+    // information.
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
 }
 
-/// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the
-/// [`Bundle`] that defined this bundle effect.
-/// The order of operations is:
-///
-/// 1. The [`Bundle`] is inserted on the entity
-/// 2. Relevant Hooks are run for the insert, then Observers
-/// 3. The [`BundleEffect`] is run.
-///
-/// See [`DynamicBundle::Effect`].
-pub trait BundleEffect {
-    /// Applies this effect to the given `entity`.
-    fn apply(self, entity: &mut EntityWorldMut);
-}
-
-/// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
+/// A trait implemented for [`DynamicBundle::Effect`] implementations that do nothing. This is used as a type constraint for
 /// [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as "batch spawn" APIs.
 pub trait NoBundleEffect {}

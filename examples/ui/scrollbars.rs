@@ -1,10 +1,6 @@
 //! Demonstrations of scrolling and scrollbars.
 
 use bevy::{
-    core_widgets::{
-        ControlOrientation, CoreScrollbar, CoreScrollbarDragState, CoreScrollbarPlugin,
-        CoreScrollbarThumb,
-    },
     ecs::{relationship::RelatedSpawner, spawn::SpawnWith},
     input_focus::{
         tab_navigation::{TabGroup, TabNavigationPlugin},
@@ -12,13 +8,16 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
+    ui_widgets::{
+        ControlOrientation, CoreScrollbarDragState, CoreScrollbarThumb, Scrollbar, ScrollbarPlugin,
+    },
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreScrollbarPlugin,
+            ScrollbarPlugin,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -113,7 +112,7 @@ fn scroll_area_demo() -> impl Bundle {
                     grid_column: GridPlacement::start(2),
                     ..default()
                 },
-                CoreScrollbar {
+                Scrollbar {
                     orientation: ControlOrientation::Vertical,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,
@@ -138,7 +137,7 @@ fn scroll_area_demo() -> impl Bundle {
                     grid_column: GridPlacement::start(1),
                     ..default()
                 },
-                CoreScrollbar {
+                Scrollbar {
                     orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,

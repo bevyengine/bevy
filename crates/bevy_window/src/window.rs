@@ -1149,7 +1149,7 @@ pub enum MonitorSelection {
     Primary,
     /// Uses the monitor with the specified index.
     Index(usize),
-    /// Uses a given [`crate::monitor::Monitor`] entity.
+    /// Uses a given [`Monitor`](`crate::monitor::Monitor`) entity.
     Entity(Entity),
 }
 
@@ -1170,8 +1170,8 @@ pub enum MonitorSelection {
 pub enum VideoModeSelection {
     /// Uses the video mode that the monitor is already in.
     Current,
-    /// Uses a given [`crate::monitor::VideoMode`]. A list of video modes supported by the monitor
-    /// is supplied by [`crate::monitor::Monitor::video_modes`].
+    /// Uses a given [`VideoMode`](`crate::monitor::VideoMode`). A list of video modes supported by the monitor
+    /// is supplied by [`Monitor::video_modes`](`crate::monitor::Monitor::video_modes`).
     Specific(VideoMode),
 }
 

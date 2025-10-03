@@ -101,7 +101,7 @@ fn sprite_picking(
         &Pickable,
         &ViewVisibility,
     )>,
-    mut output: EventWriter<PointerHits>,
+    mut pointer_hits_writer: MessageWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
@@ -251,6 +251,6 @@ fn sprite_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.write(PointerHits::new(*pointer, picks, order));
+        pointer_hits_writer.write(PointerHits::new(*pointer, picks, order));
     }
 }

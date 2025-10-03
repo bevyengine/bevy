@@ -16,10 +16,10 @@ use core::ops::Range;
 /// same amount of work to be done, which may not hold true in every
 /// workload.
 ///
-/// See [`Query::par_iter`], [`EventReader::par_read`] for more information.
+/// See [`Query::par_iter`], [`MessageReader::par_read`] for more information.
 ///
 /// [`Query::par_iter`]: crate::system::Query::par_iter
-/// [`EventReader::par_read`]: crate::event::EventReader::par_read
+/// [`MessageReader::par_read`]: crate::message::MessageReader::par_read
 #[derive(Clone, Debug)]
 pub struct BatchingStrategy {
     /// The upper and lower limits for a batch of items.

@@ -12,7 +12,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// to query information about the display, such as its size, position, and video modes.
 ///
 /// Each monitor corresponds to an entity and can be used to position a monitor using
-/// [`crate::window::MonitorSelection::Entity`].
+/// [`MonitorSelection::Entity`](`crate::window::MonitorSelection::Entity`).
 ///
 /// # Warning
 ///

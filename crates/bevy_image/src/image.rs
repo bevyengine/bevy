@@ -1291,6 +1291,33 @@ impl Image {
         offset.map(|start| &mut data[start..(start + len)])
     }
 
+    /// Clears the content of the image with the given pixel. The image needs to be initialized on
+    /// the cpu otherwise this is a noop.
+    ///
+    /// This does nothing if the image data is not already initialized
+    pub fn clear(&mut self, pixel: &[u8]) {
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Clear data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            if let Some(data) = self.data.as_mut() {
+                for pixel_data in data.chunks_mut(pixel_size) {
+                    pixel_data.copy_from_slice(pixel);
+                }
+            }
+        }
+    }
+
     /// Read the color of a specific pixel (1D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
@@ -2136,5 +2163,26 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn image_clear() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));
+
+        image.clear(&[255; 4]);
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
     }
 }

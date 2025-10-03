@@ -1,7 +1,10 @@
+#[cfg(feature = "track_location")]
+use crate::change_detection::MaybeLocation;
 use crate::{
     system::{Command, SystemBuffer, SystemMeta},
     world::{DeferredWorld, World},
 };
+
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
@@ -29,7 +32,6 @@ struct CommandMeta {
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
-#[derive(Default)]
 pub struct CommandQueue {
     // This buffer densely stores all queued commands.
     //
@@ -39,6 +41,21 @@ pub struct CommandQueue {
     pub(crate) bytes: Vec<MaybeUninit<u8>>,
     pub(crate) cursor: usize,
     pub(crate) panic_recovery: Vec<MaybeUninit<u8>>,
+    #[cfg(feature = "track_location")]
+    pub(crate) caller: MaybeLocation,
+}
+
+impl Default for CommandQueue {
+    #[track_caller]
+    fn default() -> Self {
+        Self {
+            bytes: Default::default(),
+            cursor: Default::default(),
+            panic_recovery: Default::default(),
+            #[cfg(feature = "track_location")]
+            caller: MaybeLocation::caller(),
+        }
+    }
 }
 
 /// Wraps pointers to a [`CommandQueue`], used internally to avoid stacked borrow rules when
@@ -57,9 +74,13 @@ pub(crate) struct RawCommandQueue {
 // So instead, the manual impl just prints the length of vec.
 impl Debug for CommandQueue {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("CommandQueue")
-            .field("len_bytes", &self.bytes.len())
-            .finish_non_exhaustive()
+        let mut binding = f.debug_struct("CommandQueue");
+        binding.field("len_bytes", &self.bytes.len());
+
+        #[cfg(feature = "track_location")]
+        binding.field("caller", &self.caller.into_option());
+
+        binding.finish_non_exhaustive()
     }
 }
 
@@ -311,6 +332,9 @@ impl RawCommandQueue {
 impl Drop for CommandQueue {
     fn drop(&mut self) {
         if !self.bytes.is_empty() {
+            #[cfg(feature = "track_location")]
+            warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply? caller:{:?}",self.caller.into_option());
+            #[cfg(not(feature = "track_location"))]
             warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
         }
         // SAFETY: A reference is always a valid pointer

@@ -2,7 +2,7 @@ use crate::mesh::Mesh;
 use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, event::EventReader,
+    change_detection::DetectChangesMut, component::Component, message::MessageReader,
     reflect::ReflectComponent, system::Query,
 };
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
@@ -126,7 +126,7 @@ impl AsAssetId for Mesh3d {
 /// needs to be kept up to date if the contents of the mesh change.
 pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
     mut meshes_3d: Query<&mut Mesh3d>,
-    mut mesh_asset_events: EventReader<AssetEvent<Mesh>>,
+    mut mesh_asset_events: MessageReader<AssetEvent<Mesh>>,
 ) {
     let mut changed_meshes: HashSet<AssetId<Mesh>, FixedHasher> = HashSet::default();
     for mesh_asset_event in mesh_asset_events.read() {

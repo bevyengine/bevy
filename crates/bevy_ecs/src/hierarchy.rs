@@ -13,11 +13,12 @@ use crate::{
     component::Component,
     entity::Entity,
     lifecycle::HookContext,
+    name::Name,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
-use alloc::{format, string::String, vec::Vec};
+use alloc::{format, vec::Vec};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::std_traits::ReflectDefault;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -456,18 +457,25 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     let parent = child_of.parent();
-    if !world.get_entity(parent).is_ok_and(|e| e.contains::<C>()) {
-        // TODO: print name here once Name lives in bevy_ecs
-        let name: Option<String> = None;
+    let maybe_parent_ref = world.get_entity(parent);
+    if let Ok(parent_ref) = maybe_parent_ref
+        && !parent_ref.contains::<C>()
+    {
+        let name = entity_ref.get::<Name>();
         let debug_name = DebugName::type_name::<C>();
+        let parent_name = parent_ref.get::<Name>();
         warn!(
-            "warning[B0004]: {}{name} with the {ty_name} component has a parent ({parent}) without {ty_name}.\n\
+            "warning[B0004]: {}{name} with the {ty_name} component has a parent ({parent_name}) without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = debug_name.shortname(),
             name = name.map_or_else(
                 || format!("Entity {entity}"),
                 |s| format!("The {s} entity")
+            ),
+            parent_name = parent_name.map_or_else(
+                || format!("{parent} entity"),
+                |s| format!("the {s} entity")
             ),
         );
     }
@@ -807,6 +815,9 @@ mod tests {
     #[test]
     fn spawn_many_children() {
         let mut world = World::new();
+
+        // ensure an empty set can be mentioned
+        world.spawn(children![]);
 
         // 12 children should result in a flat tuple
         let id = world

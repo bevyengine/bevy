@@ -506,7 +506,7 @@ macro_rules! uuid_handle {
 #[macro_export]
 macro_rules! weak_handle {
     ($uuid:expr) => {
-        uuid_handle!($uuid)
+        $crate::uuid_handle!($uuid)
     };
 }
 

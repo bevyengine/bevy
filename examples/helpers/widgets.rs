@@ -6,7 +6,7 @@ use bevy::prelude::*;
 
 /// An event that's sent whenever the user changes one of the settings by
 /// clicking a radio button.
-#[derive(Clone, BufferedEvent, Deref, DerefMut)]
+#[derive(Clone, Message, Deref, DerefMut)]
 pub struct WidgetClickEvent<T>(T);
 
 /// A marker component that we place on all widgets that send
@@ -169,7 +169,7 @@ pub fn handle_ui_interactions<T>(
         (&Interaction, &WidgetClickSender<T>),
         (With<Button>, With<RadioButton>),
     >,
-    mut widget_click_events: EventWriter<WidgetClickEvent<T>>,
+    mut widget_click_events: MessageWriter<WidgetClickEvent<T>>,
 ) where
     T: Clone + Send + Sync + 'static,
 {

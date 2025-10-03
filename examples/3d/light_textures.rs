@@ -114,8 +114,8 @@ fn main() {
             ..default()
         }))
         .init_resource::<AppStatus>()
-        .add_event::<WidgetClickEvent<Selection>>()
-        .add_event::<WidgetClickEvent<Visibility>>()
+        .add_message::<WidgetClickEvent<Selection>>()
+        .add_message::<WidgetClickEvent<Visibility>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
@@ -152,7 +152,7 @@ fn setup(
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Light textures aren't usable on this platform.");
-        commands.write_event(AppExit::error());
+        commands.write_message(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
@@ -435,7 +435,7 @@ fn update_radio_buttons(
 
 /// Changes the selection when the user clicks a radio button.
 fn handle_selection_change(
-    mut events: EventReader<WidgetClickEvent<Selection>>,
+    mut events: MessageReader<WidgetClickEvent<Selection>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -444,7 +444,7 @@ fn handle_selection_change(
 }
 
 fn toggle_visibility(
-    mut events: EventReader<WidgetClickEvent<Visibility>>,
+    mut events: MessageReader<WidgetClickEvent<Visibility>>,
     app_status: Res<AppStatus>,
     mut visibility: Query<(&mut Visibility, &Selection)>,
 ) {

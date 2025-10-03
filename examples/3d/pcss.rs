@@ -121,7 +121,7 @@ fn main() {
             }),
             ..default()
         }))
-        .add_event::<WidgetClickEvent<AppSetting>>()
+        .add_message::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)
         .add_systems(
@@ -275,7 +275,7 @@ fn update_radio_buttons(
 fn handle_light_type_change(
     mut commands: Commands,
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -312,7 +312,7 @@ fn handle_light_type_change(
 fn handle_shadow_filter_change(
     mut commands: Commands,
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {
@@ -341,7 +341,7 @@ fn handle_shadow_filter_change(
 /// Handles requests from the user to toggle soft shadows on and off.
 fn handle_pcss_toggle(
     mut lights: Query<AnyOf<(&mut DirectionalLight, &mut PointLight, &mut SpotLight)>>,
-    mut events: EventReader<WidgetClickEvent<AppSetting>>,
+    mut events: MessageReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in events.read() {

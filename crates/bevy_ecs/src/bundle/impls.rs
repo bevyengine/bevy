@@ -1,10 +1,11 @@
 use core::any::TypeId;
 
-use bevy_ptr::OwningPtr;
-use variadics_please::all_tuples;
+use bevy_ptr::{MovingPtr, OwningPtr};
+use core::mem::MaybeUninit;
+use variadics_please::all_tuples_enumerated;
 
 use crate::{
-    bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     world::EntityWorldMut,
 };
@@ -40,13 +41,19 @@ unsafe impl<C: Component> BundleFromComponents for C {
 impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) -> Self::Effect {
+        func(C::STORAGE_TYPE, OwningPtr::from(ptr));
     }
+
+    #[inline]
+    unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -125,59 +132,38 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($(mut $name,)*) = self;
-                ($(
-                    $name.get_components(&mut *func),
-                )*)
+            unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let tuple { $($index: $alias,)* } = ptr;
+                });
+                // SAFETY: Caller ensures requirements for calling `get_components` are met.
+                $( $name::get_components($alias, func); )*
+            }
+
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            #[inline(always)]
+            unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+                bevy_ptr::deconstruct_moving_ptr!({
+                    let MaybeUninit::<tuple> { $($index: $alias,)* } = ptr;
+                });
+                // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
+                $( $name::apply_effect($alias, entity); )*
             }
         }
+
+        $(#[$meta])*
+        impl<$($name: NoBundleEffect),*> NoBundleEffect for ($($name,)*) {}
     }
 }
 
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     tuple_impl,
     0,
     15,
-    B
-);
-
-macro_rules! after_effect_impl {
-    ($(#[$meta:meta])* $($after_effect: ident),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
-        )]
-        $(#[$meta])*
-        impl<$($after_effect: BundleEffect),*> BundleEffect for ($($after_effect,)*) {
-            #[allow(
-                clippy::unused_unit,
-                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case.")
-            ]
-            fn apply(self, _entity: &mut EntityWorldMut) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($after_effect,)*) = self;
-                $($after_effect.apply(_entity);)*
-            }
-        }
-
-        $(#[$meta])*
-        impl<$($after_effect: NoBundleEffect),*> NoBundleEffect for ($($after_effect,)*) { }
-    }
-}
-
-all_tuples!(
-    #[doc(fake_variadic)]
-    after_effect_impl,
-    0,
-    15,
-    P
+    B,
+    field_
 );

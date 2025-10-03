@@ -6,13 +6,13 @@ use crate::{
     container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
     field_attributes::FieldAttributes,
     remote::RemoteType,
-    result_sifter::ResultSifter,
     serialization::SerializationDataDef,
     string_expr::StringExpr,
     type_path::parse_path_no_leading_colon,
     where_clause_options::WhereClauseOptions,
     REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
+use bevy_macro_utils::ResultSifter;
 use quote::{format_ident, quote, ToTokens};
 use syn::token::Comma;
 

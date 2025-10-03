@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     text::FontAtlasSets,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 use argh::FromArgs;
@@ -82,10 +82,7 @@ fn main() {
             ..default()
         }),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .init_resource::<FontHandle>()
     .add_systems(Startup, setup)
     .add_systems(Update, (move_camera, print_counts));

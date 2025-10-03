@@ -93,8 +93,8 @@
 //! - [`ResMut`] and `Option<ResMut>`
 //! - [`Commands`]
 //! - [`Local`]
-//! - [`EventReader`](crate::event::EventReader)
-//! - [`EventWriter`](crate::event::EventWriter)
+//! - [`MessageReader`](crate::message::MessageReader)
+//! - [`MessageWriter`](crate::message::MessageWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`RemovedComponents`](crate::lifecycle::RemovedComponents)
@@ -1336,7 +1336,7 @@ mod tests {
             SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(query.unwrap().spawned_at(), spawn_tick);
+            assert_eq!(query.unwrap().spawn_tick(), spawn_tick);
         }
 
         {

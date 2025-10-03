@@ -18,12 +18,16 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PropagateSet};
+use bevy_app::{
+    HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
+};
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
+use bevy_ui_widgets::UiWidgetsPlugins;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
@@ -87,5 +91,18 @@ impl Plugin for FeathersPlugin {
             .add_observer(font_styles::on_changed_font);
 
         app.init_resource::<AlphaPatternResource>();
+    }
+}
+
+/// A plugin group that adds all dependencies for Feathers
+pub struct FeathersPlugins;
+
+impl PluginGroup for FeathersPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add_group(UiWidgetsPlugins)
+            .add(InputDispatchPlugin)
+            .add(TabNavigationPlugin)
+            .add(FeathersPlugin)
     }
 }

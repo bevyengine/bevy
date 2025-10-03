@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    event::{EventReader, EventWriter},
+    message::{MessageReader, MessageWriter},
     schedule::{IntoScheduleConfigs, Schedule},
     system::{Commands, IntoSystem, Res, ResMut},
 };
@@ -95,8 +95,8 @@ impl<S: InnerStateSet> StateSet for S {
         schedule: &mut Schedule,
     ) {
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
+            |mut parent_changed: MessageReader<StateTransitionEvent<S::RawState>>,
+             event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state: Option<ResMut<State<T>>>,
              state_set: Option<Res<State<S::RawState>>>| {
@@ -166,8 +166,8 @@ impl<S: InnerStateSet> StateSet for S {
         // | true           | false      | true           | true         | Some(current) -> Some(current)   |
 
         let apply_state_transition =
-            |mut parent_changed: EventReader<StateTransitionEvent<S::RawState>>,
-             event: EventWriter<StateTransitionEvent<T>>,
+            |mut parent_changed: MessageReader<StateTransitionEvent<S::RawState>>,
+             event: MessageWriter<StateTransitionEvent<T>>,
              commands: Commands,
              current_state_res: Option<ResMut<State<T>>>,
              next_state_res: Option<ResMut<NextState<T>>>,
@@ -243,8 +243,8 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
+                    |($(mut $evt),*,): ($(MessageReader<StateTransitionEvent<$param::RawState>>),*,),
+                     message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state: Option<ResMut<State<T>>>,
                      ($($val),*,): ($(Option<Res<State<$param::RawState>>>),*,)| {
@@ -259,7 +259,7 @@ macro_rules! impl_state_set_sealed_tuples {
                             None
                         };
 
-                        internal_apply_state_transition(event, commands, current_state, new_state);
+                        internal_apply_state_transition(message, commands, current_state, new_state);
                     };
 
                 schedule.configure_sets((
@@ -287,8 +287,8 @@ macro_rules! impl_state_set_sealed_tuples {
                 schedule: &mut Schedule,
             ) {
                 let apply_state_transition =
-                    |($(mut $evt),*,): ($(EventReader<StateTransitionEvent<$param::RawState>>),*,),
-                     event: EventWriter<StateTransitionEvent<T>>,
+                    |($(mut $evt),*,): ($(MessageReader<StateTransitionEvent<$param::RawState>>),*,),
+                     message: MessageWriter<StateTransitionEvent<T>>,
                      commands: Commands,
                      current_state_res: Option<ResMut<State<T>>>,
                      next_state_res: Option<ResMut<NextState<T>>>,
@@ -313,7 +313,7 @@ macro_rules! impl_state_set_sealed_tuples {
                         };
                         let new_state = initial_state.map(|x| next_state.or(current_state).unwrap_or(x));
 
-                        internal_apply_state_transition(event, commands, current_state_res, new_state);
+                        internal_apply_state_transition(message, commands, current_state_res, new_state);
                     };
 
                 schedule.configure_sets((

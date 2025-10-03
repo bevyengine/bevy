@@ -100,7 +100,7 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
-    mut closing: Extract<EventReader<WindowClosing>>,
+    mut closing: Extract<MessageReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,

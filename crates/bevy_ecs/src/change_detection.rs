@@ -230,13 +230,13 @@ pub trait DetectChangesMut: DetectChanges {
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
-    /// #[derive(BufferedEvent, PartialEq, Eq)]
+    /// #[derive(Message, PartialEq, Eq)]
     /// pub struct ScoreChanged {
     ///     current: u32,
     ///     previous: u32,
     /// }
     ///
-    /// fn reset_score(mut score: ResMut<Score>, mut score_changed: EventWriter<ScoreChanged>) {
+    /// fn reset_score(mut score: ResMut<Score>, mut score_changed: MessageWriter<ScoreChanged>) {
     ///     // Set the score to zero, unless it is already zero.
     ///     let new_score = 0;
     ///     if let Some(Score(previous_score)) = score.replace_if_neq(Score(new_score)) {

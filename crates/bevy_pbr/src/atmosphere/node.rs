@@ -80,7 +80,7 @@ impl ViewNode for AtmosphereLutsNode {
             label: Some("atmosphere_luts"),
             timestamp_writes: None,
         });
-        let pass_span = diagnostics.time_span(&mut luts_pass, "atmosphere_luts");
+        let pass_span = diagnostics.pass_span(&mut luts_pass, "atmosphere_luts");
 
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
             const WORKGROUP_SIZE: u32 = 16;
