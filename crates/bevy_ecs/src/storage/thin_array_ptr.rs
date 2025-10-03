@@ -255,23 +255,6 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
-    /// Drop the entire array and all its elements.
-    ///
-    /// # Safety
-    /// - `current_len` is indeed the length of the array
-    /// - `current_capacity` is indeed the capacity of the array
-    /// - The caller must not use this `ThinArrayPtr` in any way after calling this function
-    pub unsafe fn drop(&mut self, current_capacity: usize, current_len: usize) {
-        #[cfg(debug_assertions)]
-        assert_eq!(self.capacity, current_capacity);
-        if current_capacity != 0 {
-            self.clear_elements(current_len);
-            let layout = Layout::array::<T>(current_capacity).expect("layout should be valid");
-            alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
-        }
-        self.set_capacity(0);
-    }
-
     /// Get the [`ThinArrayPtr`] as a slice with a given length.
     ///
     /// # Safety
