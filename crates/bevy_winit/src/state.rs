@@ -94,6 +94,8 @@ pub(crate) struct WinitAppRunnerState<T: Message> {
             ),
         >,
     )>,
+    /// time at which next tick is scheduled to run when `update_mode` is [`UpdateMode::Reactive`]
+    scheduled_tick_start: Option<Instant>,
 }
 
 impl<M: Message> WinitAppRunnerState<M> {
@@ -125,6 +127,7 @@ impl<M: Message> WinitAppRunnerState<M> {
             raw_winit_events: Vec::new(),
             _marker: PhantomData,
             message_writer_system_state,
+            scheduled_tick_start: None,
         }
     }
 
@@ -466,24 +469,23 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
         // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
         #[cfg(target_os = "windows")]
         {
-            WINIT_WINDOWS.with_borrow(|winit_windows| {
-                let headless = winit_windows.windows.is_empty();
-                let exiting = self.app_exit.is_some();
-                let reactive = matches!(self.update_mode, UpdateMode::Reactive { .. });
-                let all_invisible = winit_windows
-                    .windows
-                    .iter()
-                    .all(|(_, w)| !w.is_visible().unwrap_or(false));
-                if !exiting
-                    && (self.startup_forced_updates > 0
-                        || headless
-                        || all_invisible
-                        || reactive
-                        || self.window_event_received)
-                {
-                    self.redraw_requested(event_loop);
-                }
-            });
+            fn headless_or_all_invisible() -> bool {
+                WINIT_WINDOWS.with_borrow(|winit_windows| {
+                    winit_windows
+                        .windows
+                        .iter()
+                        .all(|(_, w)| !w.is_visible().unwrap_or(false))
+                })
+            }
+
+            if !self.app_exit.is_some()
+                && (self.startup_forced_updates > 0
+                    || matches!(self.update_mode, UpdateMode::Reactive { .. })
+                    || self.window_event_received
+                    || headless_or_all_invisible())
+            {
+                self.redraw_requested(event_loop);
+            }
         }
     }
 
@@ -650,6 +652,8 @@ impl<M: Message> WinitAppRunnerState<M> {
             self.redraw_requested = true;
             // Consider the wait as elapsed since it could have been cancelled by a user event
             self.wait_elapsed = true;
+            // reset the scheduled start time
+            self.scheduled_tick_start = None;
 
             self.update_mode = update_mode;
         }
@@ -690,11 +694,22 @@ impl<M: Message> WinitAppRunnerState<M> {
                 }
             }
             UpdateMode::Reactive { wait, .. } => {
-                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
-                if let Some(next) = begin_frame_time.checked_add(wait)
-                    && self.wait_elapsed
-                {
-                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                // Set the next timeout, starting from the instant we were scheduled to begin
+                if self.wait_elapsed {
+                    self.redraw_requested = true;
+
+                    let begin_instant = self.scheduled_tick_start.unwrap_or(begin_frame_time);
+                    if let Some(next) = begin_instant.checked_add(wait) {
+                        let now = Instant::now();
+                        if next < now {
+                            // request next redraw as soon as possible if we are already past the next scheduled frame start time
+                            event_loop.set_control_flow(ControlFlow::Poll);
+                            self.scheduled_tick_start = Some(now);
+                        } else {
+                            event_loop.set_control_flow(ControlFlow::WaitUntil(next));
+                            self.scheduled_tick_start = Some(next);
+                        }
+                    }
                 }
             }
         }
@@ -1023,10 +1038,10 @@ mod tests {
         app.add_systems(
             Update,
             move |mut window: Single<(Entity, &mut Window)>,
-             mut window_backend_scale_factor_changed: MessageWriter<
-                WindowBackendScaleFactorChanged,
-            >,
-             mut window_scale_factor_changed: MessageWriter<WindowScaleFactorChanged>| {
+                  mut window_backend_scale_factor_changed: MessageWriter<
+                      WindowBackendScaleFactorChanged,
+                  >,
+                  mut window_scale_factor_changed: MessageWriter<WindowScaleFactorChanged>| {
                 react_to_scale_factor_change(
                     window.0,
                     &mut window.1,
