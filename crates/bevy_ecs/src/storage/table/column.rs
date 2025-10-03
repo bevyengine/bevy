@@ -201,7 +201,7 @@ impl ThinColumn {
     /// Overwrites component data to the column at given row. The previous value is dropped.
     ///
     /// # Safety
-    /// - There must be a valid initialized value stored at `row`.
+    /// - There must be a valid initalized value stored at `row`.
     /// - `row.as_usize()` must be in bounds.
     /// - `data` holds a component that matches the `component_id`
     #[inline]
