@@ -22,18 +22,10 @@ pub struct ThinArrayPtr<T> {
 
 impl<T> ThinArrayPtr<T> {
     fn empty() -> Self {
-        #[cfg(debug_assertions)]
-        {
-            Self {
-                data: NonNull::dangling(),
-                capacity: 0,
-            }
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            Self {
-                data: NonNull::dangling(),
-            }
+        Self {
+            data: NonNull::dangling(),
+            #[cfg(debug_assertions)]
+            capacity: 0,
         }
     }
 
