@@ -17,8 +17,8 @@ use core::panic::Location;
 /// instead of working directly with `ThinColumn`.
 ///
 /// For performance reasons, `ThinColumn` does not does not store it's capacity and length.
-/// This type is used by [`Table`] and [`ComponentSparseSet`], because all of the capacities
-/// and lengths of the owning storaage.
+/// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
+/// and length can be found.
 ///
 /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
@@ -80,11 +80,11 @@ impl ThinColumn {
         self.data
             .swap_remove_and_drop_unchecked(row.index(), last_element_index);
         self.added_ticks
-            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
+            .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_ticks
-            .swap_remove_and_drop_unchecked(row.index(), last_element_index);
+            .swap_remove_unchecked(row.index(), last_element_index);
         self.changed_by.as_mut().map(|changed_by| {
-            changed_by.swap_remove_and_drop_unchecked(row.index(), last_element_index);
+            changed_by.swap_remove_unchecked(row.index(), last_element_index);
         });
     }
 
@@ -198,9 +198,10 @@ impl ThinColumn {
             .assign(caller);
     }
 
-    /// Writes component data to the column at given row. Assumes the slot is initialized, drops the previous value.
+    /// Overwrites component data to the column at given row. The previous value is dropped.
     ///
     /// # Safety
+    /// - There must be a valid initalized value stored at `row`.
     /// - `row.as_usize()` must be in bounds.
     /// - `data` holds a component that matches the `component_id`
     #[inline]
@@ -308,12 +309,11 @@ impl ThinColumn {
     /// - `cap` is indeed the capacity of the column
     /// - the data stored in `self` will never be used again
     pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
-        self.added_ticks.drop(cap, len);
-        self.changed_ticks.drop(cap, len);
+        const {
+            assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
+            assert!(!std::mem::needs_drop::<UnsafeCell<&'static Location<'static>>>());
+        }
         self.data.drop(cap, len);
-        self.changed_by
-            .as_mut()
-            .map(|changed_by| changed_by.drop(cap, len));
     }
 
     /// Drops the last component in this column.
@@ -322,11 +322,10 @@ impl ThinColumn {
     /// - `last_element_index` is indeed the index of the last element
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
-        core::ptr::drop_in_place(self.added_ticks.get_unchecked_raw(last_element_index));
-        core::ptr::drop_in_place(self.changed_ticks.get_unchecked_raw(last_element_index));
-        self.changed_by.as_mut().map(|changed_by| {
-            core::ptr::drop_in_place(changed_by.get_unchecked_raw(last_element_index));
-        });
+        const {
+            assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
+            assert!(!std::mem::needs_drop::<UnsafeCell<&'static Location<'static>>>());
+        }
         self.data.drop_last_element(last_element_index);
     }
 
