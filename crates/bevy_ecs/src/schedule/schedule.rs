@@ -1556,6 +1556,7 @@ impl ScheduleGraph {
             .zip(schedule.systems.drain(..))
             .zip(schedule.system_conditions.drain(..))
         {
+            // if the node no longer exists it was removed, so do nothing
             if let Some(node) = self.systems.node_mut(key) {
                 // if node.inner.is_some() then the system was replaced
                 if node.inner.is_none() {
@@ -1563,6 +1564,7 @@ impl ScheduleGraph {
                 }
             }
 
+            // if the node no longer exists it was removed, so do nothing
             if let Some(node_conditions) = self.systems.get_conditions_mut(key) {
                 *node_conditions = conditions;
             }
@@ -1573,6 +1575,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
+            // if the node no longer exists it was removed, so do nothing
             if let Some(node_conditions) = self.system_sets.get_conditions_mut(key) {
                 *node_conditions = conditions;
             }
