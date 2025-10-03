@@ -77,7 +77,7 @@ fn controls(
     }
 
     if let Some(viewport) = camera.viewport.as_mut() {
-        // Reset viewport when widnow is resize
+        // Reset viewport size on window resize
         if viewport.physical_size.x > window_size.x || viewport.physical_size.y > window_size.y {
             viewport.physical_size = (window_size.as_vec2() * 0.75).as_uvec2();
         }
