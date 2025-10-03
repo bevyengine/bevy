@@ -1086,6 +1086,23 @@ impl ScheduleGraph {
         self.ambiguous_with_all.remove(&NodeId::from(key));
     }
 
+    /// Replace a system in a set. Use [`system_in_set`] to get
+    /// the [`SystemKey`]. This leaves any run conditions or ordering dependencies
+    /// in place.
+    pub fn replace_system_by_key(
+        &mut self,
+        key: SystemKey,
+        system: ScheduleSystem,
+    ) -> Result<(), ScheduleError> {
+        if !self.systems.replace(key, system) {
+            return Err(ScheduleError::SystemNotFound);
+        }
+
+        self.changed = true;
+
+        Ok(())
+    }
+
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
     fn update_graphs(&mut self, id: NodeId, graph_info: GraphInfo) {
         self.changed = true;
@@ -1540,7 +1557,10 @@ impl ScheduleGraph {
             .zip(schedule.system_conditions.drain(..))
         {
             if let Some(node) = self.systems.node_mut(key) {
-                node.inner = Some(system);
+                // if node.inner.is_some() then the system was replaced
+                if node.inner.is_none() {
+                    node.inner = Some(system);
+                }
             }
 
             if let Some(node_conditions) = self.systems.get_conditions_mut(key) {
@@ -1990,6 +2010,8 @@ pub struct ScheduleNotInitialized;
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
+
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
@@ -1999,7 +2021,7 @@ mod tests {
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings,
             ScheduleCleanupPolicy, SystemSet,
         },
-        system::Commands,
+        system::{Commands, IntoSystem, ScheduleSystem},
         world::World,
     };
 
@@ -2974,5 +2996,43 @@ mod tests {
         assert!(result.is_ok());
         let conflicts = schedule.graph().conflicting_systems();
         assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn replace_a_system() {
+        #[derive(Resource)]
+        struct Counter(usize);
+
+        fn system_1(mut counter: ResMut<Counter>) {
+            counter.0 = 1;
+        }
+
+        fn system_2(mut counter: ResMut<Counter>) {
+            counter.0 = 2;
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system_1);
+
+        let mut world = World::new();
+        world.insert_resource(Counter(0));
+
+        let boxed: ScheduleSystem = Box::new(IntoSystem::into_system(system_2));
+
+        schedule.initialize(&mut world).unwrap();
+        let Ok(&[key]) = schedule
+            .graph_mut()
+            .systems_in_set(system_1.into_system_set().intern())
+        else {
+            panic!("key not found")
+        };
+        assert!(schedule
+            .graph_mut()
+            .replace_system_by_key(key, boxed)
+            .is_ok());
+
+        schedule.run(&mut world);
+
+        assert_eq!(world.resource::<Counter>().0, 2);
     }
 }

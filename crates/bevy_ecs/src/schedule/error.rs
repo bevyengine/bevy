@@ -272,6 +272,9 @@ pub enum ScheduleError {
     /// Schedule not found
     #[error("Schedule not found.")]
     ScheduleNotFound,
+    /// System not found
+    #[error("System not found")]
+    SystemNotFound,
     /// Error initializing schedule
     #[error("{0}")]
     ScheduleBuildError(ScheduleBuildError),
