@@ -1,5 +1,6 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
+use bevy::render::render_resource::TextureFormat;
 use bevy::{
     camera::CameraMainTextureFormat,
     core_pipeline::tonemapping::Tonemapping,
@@ -7,7 +8,6 @@ use bevy::{
     post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
-use bevy_render::render_resource::TextureFormat;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},

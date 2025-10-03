@@ -49,8 +49,7 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
-        ViewUniformOffset,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewUniformOffset,
     },
     Extract,
 };
