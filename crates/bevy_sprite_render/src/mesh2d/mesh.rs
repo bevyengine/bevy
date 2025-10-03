@@ -20,7 +20,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
 use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
@@ -45,7 +45,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
@@ -133,7 +133,7 @@ pub fn check_views_need_specialization(
 ) {
     for (view_entity, view, msaa, tonemapping, dither) in &views {
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
-            | Mesh2dPipelineKey::from_hdr(view.hdr);
+            | Mesh2dPipelineKey::from_view_target_format(view.target_format);
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {
@@ -492,6 +492,18 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -503,19 +515,14 @@ impl Mesh2dPipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const VIEW_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::VIEW_TARGET_FORMAT_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            Mesh2dPipelineKey::HDR
-        } else {
-            Mesh2dPipelineKey::NONE
-        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -541,6 +548,8 @@ impl Mesh2dPipelineKey {
             _ => PrimitiveTopology::default(),
         }
     }
+
+    bevy_render::declare_view_target_format_fn!();
 }
 
 impl SpecializedMeshPipeline for Mesh2dPipeline {
@@ -631,10 +640,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
-        let format = match key.contains(Mesh2dPipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.view_target_format();
 
         let (depth_write_enabled, label, blend);
         if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {

@@ -88,7 +88,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
 use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
-use bevy_image::{BevyDefault, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -108,7 +108,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, RenderEntity},
     texture::{ColorAttachment, TextureCache},
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use nonmax::NonMaxU32;
@@ -897,11 +897,7 @@ pub fn prepare_core_3d_transmission_textures(
             .or_insert_with(|| {
                 let usage = TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST;
 
-                let format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
+                let format = view.target_format;
 
                 let descriptor = TextureDescriptor {
                     label: Some("view_transmission_texture"),

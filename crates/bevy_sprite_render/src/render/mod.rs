@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
+use bevy_image::{Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -35,7 +35,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -144,6 +144,18 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -153,6 +165,9 @@ impl SpritePipelineKey {
     const TONEMAP_METHOD_MASK_BITS: u32 = 0b111;
     const TONEMAP_METHOD_SHIFT_BITS: u32 =
         Self::MSAA_SHIFT_BITS - Self::TONEMAP_METHOD_MASK_BITS.count_ones();
+    const VIEW_TARGET_FORMAT_MASK_BITS: u32 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u32 =
+        Self::TONEMAP_METHOD_SHIFT_BITS - Self::VIEW_TARGET_FORMAT_MASK_BITS.count_ones();
 
     #[inline]
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -166,14 +181,7 @@ impl SpritePipelineKey {
         1 << ((self.bits() >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    #[inline]
-    pub const fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            SpritePipelineKey::HDR
-        } else {
-            SpritePipelineKey::NONE
-        }
-    }
+    bevy_render::declare_view_target_format_fn!();
 }
 
 impl SpecializedRenderPipeline for SpritePipeline {
@@ -219,10 +227,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }
         }
 
-        let format = match key.contains(SpritePipelineKey::HDR) {
-            true => ViewTarget::TEXTURE_FORMAT_HDR,
-            false => TextureFormat::bevy_default(),
-        };
+        let format = key.view_target_format();
 
         let instance_rate_vertex_buffer_layout = VertexBufferLayout {
             array_stride: 80,
@@ -533,7 +538,8 @@ pub fn queue_sprites(
         };
 
         let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples());
-        let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        let mut view_key =
+            SpritePipelineKey::from_view_target_format(view.target_format) | msaa_key;
 
         if !view.hdr {
             if let Some(tonemapping) = tonemapping {

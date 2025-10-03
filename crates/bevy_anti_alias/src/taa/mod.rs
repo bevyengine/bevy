@@ -15,7 +15,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::World,
 };
-use bevy_image::{BevyDefault as _, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -295,6 +295,7 @@ fn init_taa_pipeline(
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TaaPipelineKey {
     hdr: bool,
+    target_format: TextureFormat,
     reset: bool,
 }
 
@@ -304,16 +305,15 @@ impl SpecializedRenderPipeline for TaaPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = vec![];
 
-        let format = if key.hdr {
+        if key.hdr {
             shader_defs.push("TONEMAP".into());
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
         };
 
         if key.reset {
             shader_defs.push("RESET".into());
         }
+
+        let format = key.target_format;
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -417,11 +417,7 @@ fn prepare_taa_history_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
+                format: view.target_format,
                 usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
                 view_formats: &[],
             };
@@ -462,6 +458,7 @@ fn prepare_taa_pipelines(
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
+            target_format: view.target_format,
             reset: taa_settings.reset,
         };
         let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key.clone());

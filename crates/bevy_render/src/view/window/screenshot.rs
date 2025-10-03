@@ -644,8 +644,8 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             // The polling for this map call is done every frame when the command queue is submitted.
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 let err = result.err();
-                if err.is_some() {
-                    panic!("{}", err.unwrap().to_string());
+                if let Some(e) = err {
+                    panic!("{}", e.to_string());
                 }
                 tx.try_send(()).unwrap();
             });

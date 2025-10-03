@@ -7,7 +7,6 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
 };
-use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
@@ -16,7 +15,7 @@ use bevy_render::{
         FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
-    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
 use bevy_shader::ShaderDefVal;
@@ -137,7 +136,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct OitResolvePipelineKey {
-    hdr: bool,
+    target_format: TextureFormat,
     layer_count: i32,
 }
 
@@ -163,7 +162,7 @@ pub fn queue_oit_resolve_pipeline(
     for (e, view, oit_settings) in &views {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
-            hdr: view.hdr,
+            target_format: view.target_format,
             layer_count: oit_settings.layer_count,
         };
 
@@ -200,11 +199,7 @@ fn specialize_oit_resolve_pipeline(
     fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
-    let format = if key.hdr {
-        ViewTarget::TEXTURE_FORMAT_HDR
-    } else {
-        TextureFormat::bevy_default()
-    };
+    let format = key.target_format;
 
     RenderPipelineDescriptor {
         label: Some("oit_resolve_pipeline".into()),

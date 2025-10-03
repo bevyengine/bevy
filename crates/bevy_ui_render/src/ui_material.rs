@@ -5,7 +5,7 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor, TextureFormat},
 };
 use bevy_shader::ShaderRef;
 use derive_more::derive::From;
@@ -121,7 +121,7 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 }
 
 pub struct UiMaterialKey<M: UiMaterial> {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     pub bind_group_data: M::Data,
 }
 
@@ -132,7 +132,7 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.target_format == other.target_format && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -142,7 +142,7 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            hdr: self.hdr,
+            target_format: self.target_format,
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -153,7 +153,7 @@ where
     M::Data: core::hash::Hash,
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.hdr.hash(state);
+        self.target_format.hash(state);
         self.bind_group_data.hash(state);
     }
 }

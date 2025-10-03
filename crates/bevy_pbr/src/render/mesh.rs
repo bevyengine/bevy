@@ -18,7 +18,7 @@ use bevy_ecs::{
     query::{QueryData, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
-use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::{ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
     EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
     ShadowFilteringMethod, TransmittedShadowReceiver,
@@ -49,7 +49,7 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
         ViewUniformOffset,
     },
     Extract,
@@ -344,7 +344,7 @@ pub fn check_views_need_specialization(
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -2133,6 +2133,19 @@ bitflags::bitflags! {
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
             Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+
+        const VIEW_TARGET_FORMAT_RESERVED_BITS = Self::VIEW_TARGET_FORMAT_MASK_BITS << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R8UNORM = 0 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG8UNORM = 1  << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORM = 2 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA8UNORMSRGB = 3 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORM = 4 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_BGRA8UNORMSRGB = 5 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_R16FLOAT = 6 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RG16FLOAT = 7 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGBA16FLOAT = 8 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RB11B10FLOAT = 9 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
+        const VIEW_TARGET_FORMAT_RGB10A2UNORM = 10 << Self::VIEW_TARGET_FORMAT_SHIFT_BITS;
     }
 }
 
@@ -2160,18 +2173,15 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
 
+    const VIEW_TARGET_FORMAT_MASK_BITS: u64 = 0b1111;
+    const VIEW_TARGET_FORMAT_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() as u64 & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits_retain(msaa_bits)
-    }
-
-    pub fn from_hdr(hdr: bool) -> Self {
-        if hdr {
-            MeshPipelineKey::HDR
-        } else {
-            MeshPipelineKey::NONE
-        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -2198,6 +2208,8 @@ impl MeshPipelineKey {
             _ => PrimitiveTopology::default(),
         }
     }
+
+    bevy_render::declare_view_target_format_fn!();
 }
 
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
@@ -2579,11 +2591,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             }
         }
 
-        let format = if key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
+        let format = key.view_target_format();
 
         // This is defined here so that custom shaders that use something other than
         // the mesh binding from bevy_pbr::mesh_bindings can easily make use of this

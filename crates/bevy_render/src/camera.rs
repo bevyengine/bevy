@@ -19,9 +19,9 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
-    Projection, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraMainTextureFormat, CameraMainTextureUsages, CameraOutputMode,
+    CameraUpdateSystems, ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle,
+    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -32,7 +32,7 @@ use bevy_ecs::{
     lifecycle::HookContext,
     message::MessageReader,
     prelude::With,
-    query::{Has, QueryItem},
+    query::{Has, QueryData, QueryItem},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -60,6 +60,7 @@ impl Plugin for CameraPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
+                ExtractComponentPlugin::<CameraMainTextureFormat>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -100,6 +101,15 @@ impl ExtractResource for ClearColor {
     }
 }
 impl ExtractComponent for CameraMainTextureUsages {
+    type QueryData = &'static Self;
+    type QueryFilter = ();
+    type Out = Self;
+
+    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
+        Some(*item)
+    }
+}
+impl ExtractComponent for CameraMainTextureFormat {
     type QueryData = &'static Self;
     type QueryFilter = ();
     type Out = Self;
@@ -416,27 +426,29 @@ pub struct ExtractedCamera {
     pub hdr: bool,
 }
 
+#[derive(QueryData)]
+pub struct CameraQuery<'a> {
+    main_entity: Entity,
+    render_entity: RenderEntity,
+    camera: &'a Camera,
+    camera_render_graph: &'a CameraRenderGraph,
+    transform: &'a GlobalTransform,
+    visible_entities: &'a VisibleEntities,
+    frustum: &'a Frustum,
+    camera_main_texture_format: &'a CameraMainTextureFormat,
+    hdr: Has<Hdr>,
+    color_grading: Option<&'a ColorGrading>,
+    exposure: Option<&'a Exposure>,
+    temporal_jitter: Option<&'a TemporalJitter>,
+    mip_bias: Option<&'a MipBias>,
+    render_layers: Option<&'a RenderLayers>,
+    projection: Option<&'a Projection>,
+    no_indirect_drawing: Has<NoIndirectDrawing>,
+}
+
 pub fn extract_cameras(
     mut commands: Commands,
-    query: Extract<
-        Query<(
-            Entity,
-            RenderEntity,
-            &Camera,
-            &CameraRenderGraph,
-            &GlobalTransform,
-            &VisibleEntities,
-            &Frustum,
-            Has<Hdr>,
-            Option<&ColorGrading>,
-            Option<&Exposure>,
-            Option<&TemporalJitter>,
-            Option<&MipBias>,
-            Option<&RenderLayers>,
-            Option<&Projection>,
-            Has<NoIndirectDrawing>,
-        )>,
-    >,
+    query: Extract<Query<CameraQuery>>,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
@@ -453,7 +465,7 @@ pub fn extract_cameras(
         NoIndirectDrawing,
         ViewUniformOffset,
     );
-    for (
+    for CameraQueryItem {
         main_entity,
         render_entity,
         camera,
@@ -461,6 +473,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
+        camera_main_texture_format,
         hdr,
         color_grading,
         exposure,
@@ -469,7 +482,7 @@ pub fn extract_cameras(
         render_layers,
         projection,
         no_indirect_drawing,
-    ) in query.iter()
+    } in query.iter()
     {
         if !camera.is_active {
             commands
@@ -544,7 +557,6 @@ pub fn extract_cameras(
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
-                    hdr,
                     viewport: UVec4::new(
                         viewport_origin.x,
                         viewport_origin.y,
@@ -552,6 +564,12 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    target_format: if hdr {
+                        camera_main_texture_format.hdr_format
+                    } else {
+                        camera_main_texture_format.sdr_format
+                    },
+                    hdr,
                 },
                 render_visible_entities,
                 *frustum,

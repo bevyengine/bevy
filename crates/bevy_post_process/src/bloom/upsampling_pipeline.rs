@@ -15,7 +15,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    view::ViewTarget,
+    view::ExtractedView,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -38,7 +38,7 @@ pub struct BloomUpsamplingPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BloomUpsamplingPipelineKeys {
     composite_mode: BloomCompositeMode,
-    final_pipeline: bool,
+    target_format: TextureFormat,
 }
 
 pub fn init_bloom_upscaling_pipeline(
@@ -73,11 +73,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
     type Key = BloomUpsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let texture_format = if key.final_pipeline {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            BLOOM_TEXTURE_FORMAT
-        };
+        let texture_format = key.target_format;
 
         let color_blend = match key.composite_mode {
             BloomCompositeMode::EnergyConserving => {
@@ -142,15 +138,15 @@ pub fn prepare_upsampling_pipeline(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &Bloom)>,
+    views: Query<(Entity, &ExtractedView, &Bloom)>,
 ) {
-    for (entity, bloom) in &views {
+    for (entity, view, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: false,
+                target_format: BLOOM_TEXTURE_FORMAT,
             },
         );
 
@@ -159,7 +155,7 @@ pub fn prepare_upsampling_pipeline(
             &pipeline,
             BloomUpsamplingPipelineKeys {
                 composite_mode: bloom.composite_mode,
-                final_pipeline: true,
+                target_format: view.target_format,
             },
         );
 

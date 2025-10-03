@@ -19,7 +19,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d};
+use bevy_camera::{Camera, Camera2d, Camera3d, CameraMainTextureFormat};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -753,6 +753,7 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
+                &CameraMainTextureFormat,
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
@@ -764,7 +765,16 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
+    for (
+        main_entity,
+        render_entity,
+        camera,
+        camera_main_texture_format,
+        hdr,
+        ui_anti_alias,
+        shadow_samples,
+    ) in &query
+    {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -801,6 +811,11 @@ pub fn extract_ui_camera_view(
                         ),
                         clip_from_world: None,
                         hdr,
+                        target_format: if hdr {
+                            camera_main_texture_format.hdr_format
+                        } else {
+                            camera_main_texture_format.sdr_format
+                        },
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
                             physical_viewport_rect.size(),
@@ -1259,7 +1274,7 @@ pub fn queue_uinodes(
             &pipeline_cache,
             &ui_pipeline,
             UiPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
             },
         );
