@@ -441,25 +441,16 @@ fn camera_system(
 }
 
 fn camera_sub_view_system(
-    camera_entities: In<Vec<Entity>>,
+    dependent_cameras_that_need_updating: In<Vec<Entity>>,
     mut cameras: Query<(&mut Camera, &Projection, Option<&SubViewSourceProjection>)>,
 ) {
     // Update dependent cameras in a second loop, so that all the cameras that are depended on have already been updated
     // Doing it like this is also necessary for borrow checker reasons
-    for entity in camera_entities.0 {
-        let Ok((camera, _, Some(projection_entity))) = cameras.get(entity) else {
-            continue;
-        };
-
-        let Ok((_, projection, _)) = cameras.get(projection_entity.0) else {
-            continue;
-        };
-
-        let Some(sub_view) = &camera.sub_camera_view else {
-            continue;
-        };
-
-        if let Some(size) = camera.logical_viewport_size()
+    for entity in dependent_cameras_that_need_updating.0 {
+        if let Ok((camera, _, Some(projection_entity))) = cameras.get(entity)
+            && let Ok((_, projection, _)) = cameras.get(projection_entity.0)
+            && let Some(sub_view) = &camera.sub_camera_view
+            && let Some(size) = camera.logical_viewport_size()
             && size.x != 0.0
             && size.y != 0.0
         {
@@ -474,10 +465,9 @@ fn camera_sub_view_system(
 
             // Re-get the camera, but mutably (exclusively) this time, now that the calculation has been done and the
             // two simultaneous shared borrows can be dropped
-            let Ok((mut camera, _, _)) = cameras.get_mut(entity) else {
-                continue;
-            };
-            camera.computed.clip_from_view = clip_from_view;
+            if let Ok((mut camera, _, _)) = cameras.get_mut(entity) {
+                camera.computed.clip_from_view = clip_from_view;
+            }
         }
     }
 }
