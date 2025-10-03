@@ -226,7 +226,6 @@ fn update_slider_pos(
             if let Ok(mut text) = q_slider_text.get_mut(child) {
                 let label = format!("{}", value.0);
                 let decimals_len = label
-                    .as_str()
                     .split_once('.')
                     .map(|(_, decimals)| decimals.len() as i32)
                     .unwrap_or(precision.0);
