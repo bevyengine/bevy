@@ -2,7 +2,7 @@ use crate::{
     ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
     UiStack,
 };
-use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget, RenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -149,7 +149,7 @@ pub struct NodeQuery {
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -189,10 +189,10 @@ pub fn ui_focus_system(
 
     let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
         .iter()
-        .filter_map(|(entity, camera)| {
+        .filter_map(|(entity, camera, render_target)| {
             // Interactions are only supported for cameras rendering to a window.
             let Some(NormalizedRenderTarget::Window(window_ref)) =
-                camera.target.normalize(primary_window)
+                render_target.normalize(primary_window)
             else {
                 return None;
             };
