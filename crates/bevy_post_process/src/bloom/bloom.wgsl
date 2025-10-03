@@ -68,12 +68,14 @@ fn bloom_down_kernel4(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn bloom_up_kernel4(uv: vec2<f32>) -> vec3<f32> {
+	// Modified version of BloomUpKernel4B https://www.shadertoy.com/view/mdsyDf. I couldn't get a good result with the original version.
 	let ps = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
     let w = vec4<f32>(0.211029, 0.288971, 0.288971, 0.211029);
-    let l00 = vec2<f32>(0.347209, 0.526425);
-    let l10 = vec2<f32>(0.109840, 0.334045);
-    let l01 = vec2<f32>(0.334045, 0.109840);
-    let l11 = vec2<f32>(0.526425, 0.347209);
+    // Add a small offset for better radial symmetry.
+    let l00 = vec2<f32>(0.347209, 0.526425) + 0.1;
+    let l10 = vec2<f32>(0.109840, 0.334045) + 0.1;
+    let l01 = vec2<f32>(0.334045, 0.109840) + 0.1;
+    let l11 = vec2<f32>(0.526425, 0.347209) + 0.1;
 
 	let a = textureSample(input_texture, s, uv + (vec2<f32>( -0.5, -1.5) + l00) * ps).rgb * w.x;
 	let b = textureSample(input_texture, s, uv + (vec2<f32>(0.5, -0.5) + l10) * ps).rgb * w.y;

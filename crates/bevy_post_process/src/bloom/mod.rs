@@ -181,7 +181,7 @@ impl ViewNode for BloomNode {
                     &BindGroupEntries::sequential((
                         // Read from main texture directly
                         view_texture,
-                        &bind_groups.sampler,
+                        &bind_groups.downsample_sampler,
                         uniforms.clone(),
                     )),
                 );
@@ -418,7 +418,7 @@ fn prepare_bloom_textures(
 struct BloomBindGroups {
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
-    sampler: Sampler,
+    downsample_sampler: Sampler,
 }
 
 fn prepare_bloom_bind_groups(
@@ -429,8 +429,6 @@ fn prepare_bloom_bind_groups(
     views: Query<(Entity, &BloomTexture)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
 ) {
-    let sampler = &downsampling_pipeline.sampler;
-
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
 
@@ -441,7 +439,7 @@ fn prepare_bloom_bind_groups(
                 &downsampling_pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip - 1),
-                    sampler,
+                    &downsampling_pipeline.sampler,
                     uniforms.binding().unwrap(),
                 )),
             ));
@@ -454,7 +452,7 @@ fn prepare_bloom_bind_groups(
                 &upsampling_pipeline.bind_group_layout,
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip),
-                    sampler,
+                    &upsampling_pipeline.sampler,
                     uniforms.binding().unwrap(),
                 )),
             ));
@@ -463,7 +461,7 @@ fn prepare_bloom_bind_groups(
         commands.entity(entity).insert(BloomBindGroups {
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
-            sampler: sampler.clone(),
+            downsample_sampler: downsampling_pipeline.sampler.clone(),
         });
     }
 }

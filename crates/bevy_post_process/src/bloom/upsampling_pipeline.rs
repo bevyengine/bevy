@@ -29,6 +29,7 @@ pub struct UpsamplingPipelineIds {
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
     pub bind_group_layout: BindGroupLayout,
+    pub sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -63,8 +64,18 @@ pub fn init_bloom_upscaling_pipeline(
         ),
     );
 
+    // Sampler
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        ..Default::default()
+    });
+
     commands.insert_resource(BloomUpsamplingPipeline {
         bind_group_layout,
+        sampler,
         fullscreen_shader: fullscreen_shader.clone(),
         fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
     });
