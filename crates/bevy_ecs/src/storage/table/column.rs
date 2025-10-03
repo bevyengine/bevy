@@ -3,7 +3,7 @@ use crate::{
     change_detection::MaybeLocation,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
-use core::panic::Location;
+use core::{mem::needs_drop, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
@@ -309,13 +309,12 @@ impl ThinColumn {
     /// - `cap` is indeed the capacity of the column
     /// - the data stored in `self` will never be used again
     pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
-        const {
-            assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
-            assert!(!std::mem::needs_drop::<
-                UnsafeCell<&'static Location<'static>>,
-            >());
-        }
+        self.added_ticks.drop(cap, len);
+        self.changed_ticks.drop(cap, len);
         self.data.drop(cap, len);
+        self.changed_by
+            .as_mut()
+            .map(|changed_by| changed_by.drop(cap, len));
     }
 
     /// Drops the last component in this column.
@@ -325,10 +324,8 @@ impl ThinColumn {
     /// - the data stored in `last_element_index` will never be used unless properly initialized again.
     pub(crate) unsafe fn drop_last_component(&mut self, last_element_index: usize) {
         const {
-            assert!(!std::mem::needs_drop::<UnsafeCell<Tick>>());
-            assert!(!std::mem::needs_drop::<
-                UnsafeCell<&'static Location<'static>>,
-            >());
+            assert!(!needs_drop::<UnsafeCell<Tick>>());
+            assert!(!needs_drop::<UnsafeCell<&'static Location<'static>>>());
         }
         self.data.drop_last_element(last_element_index);
     }
