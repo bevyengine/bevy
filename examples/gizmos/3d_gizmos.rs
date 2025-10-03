@@ -130,7 +130,7 @@ fn draw_example_collection(
         .cell_count(UVec2::new(5, 10))
         .spacing(Vec2::new(0.2, 0.1));
 
-    gizmos.cuboid(
+    gizmos.cube(
         Transform::from_translation(Vec3::Y * 0.5).with_scale(Vec3::splat(1.25)),
         BLACK,
     );

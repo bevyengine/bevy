@@ -185,7 +185,7 @@ where
             let transform = Transform::from_translation(config.isometry.translation.into())
                 .with_rotation(config.isometry.rotation)
                 .with_scale(self.size);
-            self.gizmos.cuboid(transform, config.color);
+            self.gizmos.cube(transform, config.color);
             return;
         }
 
