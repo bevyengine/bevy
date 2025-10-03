@@ -318,7 +318,7 @@ fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_sets: &mut FontAtlasSet,
+    font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
