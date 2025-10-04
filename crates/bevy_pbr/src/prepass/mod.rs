@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
     MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
@@ -21,7 +21,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
     alpha::AlphaMode,
@@ -61,7 +61,6 @@ use bevy_render::{
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
-use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -183,16 +182,6 @@ impl Plugin for PrepassPlugin {
     }
 }
 
-/// Marker resource for whether prepass is enabled globally for this material type
-#[derive(Resource, Debug)]
-pub struct PrepassEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for PrepassEnabled<M> {
-    fn default() -> Self {
-        PrepassEnabled(PhantomData)
-    }
-}
-
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
 
@@ -201,15 +190,15 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let world_from_view = camera_transform.to_matrix();
-        let view_from_world = world_from_view.inverse();
+        let world_from_view = camera_transform.affine();
+        let view_from_world = Mat4::from(world_from_view.inverse());
         let view_from_clip = camera.clip_from_view().inverse();
 
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
-            world_from_clip: world_from_view * view_from_clip,
+            world_from_clip: Mat4::from(world_from_view) * view_from_clip,
             view_from_clip,
         });
     }
@@ -672,15 +661,15 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let world_from_view = camera.world_from_view.to_matrix();
-                let view_from_world = world_from_view.inverse();
+                let world_from_view = camera.world_from_view.affine();
+                let view_from_world = Mat4::from(world_from_view.inverse());
                 let view_from_clip = camera.clip_from_view.inverse();
 
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
-                    world_from_clip: world_from_view * view_from_clip,
+                    world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,
                 }
             }

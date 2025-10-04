@@ -1,7 +1,10 @@
 use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles,
+};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
 
@@ -129,6 +132,24 @@ impl Aabb {
         let aabb_center_world = world_from_local.transform_point3a(self.center);
         let signed_distance = p_normal.dot(aabb_center_world) + half_space.d();
         signed_distance > r
+    }
+}
+
+impl From<Aabb3d> for Aabb {
+    fn from(aabb: Aabb3d) -> Self {
+        Self {
+            center: aabb.center(),
+            half_extents: aabb.half_size(),
+        }
+    }
+}
+
+impl From<Aabb> for Aabb3d {
+    fn from(aabb: Aabb) -> Self {
+        Self {
+            min: aabb.min(),
+            max: aabb.max(),
+        }
     }
 }
 
@@ -294,6 +315,7 @@ impl Frustum {
                 row3 - row
             });
         }
+        half_spaces[5] = HalfSpace::new(Vec4::new(0.0, 0.0, 0.0, f32::MAX));
         Self { half_spaces }
     }
 

@@ -39,18 +39,18 @@ impl DiagnosticPath {
     pub fn new(path: impl Into<Cow<'static, str>>) -> DiagnosticPath {
         let path = path.into();
 
-        debug_assert!(!path.is_empty(), "diagnostic path can't be empty");
+        debug_assert!(!path.is_empty(), "diagnostic path should not be empty");
         debug_assert!(
             !path.starts_with('/'),
-            "diagnostic path can't be start with `/`"
+            "diagnostic path should not start with `/`"
         );
         debug_assert!(
             !path.ends_with('/'),
-            "diagnostic path can't be end with `/`"
+            "diagnostic path should not end with `/`"
         );
         debug_assert!(
             !path.contains("//"),
-            "diagnostic path can't contain empty components"
+            "diagnostic path should not contain empty components"
         );
 
         DiagnosticPath {

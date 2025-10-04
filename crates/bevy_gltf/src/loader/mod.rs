@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
+use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
@@ -184,6 +184,10 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
+    /// If true, the loader will load `AnimationClip` assets, and also add
+    /// `AnimationTarget` and `AnimationPlayer` components to hierarchies
+    /// affected by animation. Requires the `bevy_animation` feature.
+    pub load_animations: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
     /// Overrides the default sampler. Data from sampler node is added on top of that.
@@ -205,6 +209,7 @@ impl Default for GltfLoaderSettings {
             load_materials: RenderAssetUsages::default(),
             load_cameras: true,
             load_lights: true,
+            load_animations: true,
             include_source: false,
             default_sampler: None,
             override_sampler: false,
@@ -237,7 +242,7 @@ impl GltfLoader {
         let linear_textures = get_linear_textures(&gltf.document);
 
         #[cfg(feature = "bevy_animation")]
-        let paths = {
+        let paths = if settings.load_animations {
             let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
             for scene in gltf.scenes() {
                 for node in scene.nodes() {
@@ -246,6 +251,8 @@ impl GltfLoader {
                 }
             }
             paths
+        } else {
+            Default::default()
         };
 
         let convert_coordinates = match settings.convert_coordinates {
@@ -254,7 +261,7 @@ impl GltfLoader {
         };
 
         #[cfg(feature = "bevy_animation")]
-        let (animations, named_animations, animation_roots) = {
+        let (animations, named_animations, animation_roots) = if settings.load_animations {
             use bevy_animation::{
                 animated_field, animation_curves::*, gltf_curves::*, VariableCurve,
             };
@@ -537,6 +544,8 @@ impl GltfLoader {
                 animations.push(handle);
             }
             (animations, named_animations, animation_roots)
+        } else {
+            Default::default()
         };
 
         let default_sampler = match settings.default_sampler.as_ref() {
@@ -1394,10 +1403,10 @@ fn load_node(
     if let Some(ref mut animation_context) = animation_context {
         animation_context.path.push(name);
 
-        node.insert(AnimationTarget {
-            id: AnimationTargetId::from_names(animation_context.path.iter()),
-            player: animation_context.root,
-        });
+        node.insert((
+            AnimationTargetId::from_names(animation_context.path.iter()),
+            AnimatedBy(animation_context.root),
+        ));
     }
 
     if let Some(extras) = gltf_node.extras() {
@@ -1870,7 +1879,7 @@ mod test {
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-    use bevy_render::mesh::MeshPlugin;
+    use bevy_mesh::MeshPlugin;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

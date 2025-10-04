@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -48,8 +48,8 @@ use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
 use bevy_light::{
-    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
-    SimulationLightSystems, SpotLight,
+    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
+    SpotLight,
 };
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
@@ -223,7 +223,6 @@ impl Plugin for PbrPlugin {
                     debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {
-                    prepass_enabled: self.prepass_enabled,
                     debug_flags: self.debug_flags,
                     ..Default::default()
                 },
@@ -233,7 +232,6 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                LightPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
