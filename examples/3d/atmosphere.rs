@@ -2,10 +2,6 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy_image::{
-    ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
-};
-use bevy_render::render_resource::{AsBindGroup, ShaderType};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -15,6 +11,10 @@ use bevy::{
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
     diagnostic::LogDiagnosticsPlugin,
+    image::{
+        ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
+        ImageSamplerDescriptor,
+    },
     input::keyboard::KeyCode,
     light::{
         light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
@@ -26,6 +26,7 @@ use bevy::{
     },
     post_process::bloom::Bloom,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderType},
     shader::ShaderRef,
 };
 
