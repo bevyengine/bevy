@@ -28,7 +28,7 @@ use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::HashSet,
-    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
@@ -146,31 +146,19 @@ impl AssetServer {
     }
 
     pub(crate) fn read_infos(&self) -> RwLockReadGuard<'_, AssetInfos> {
-        self.data
-            .infos
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.data.infos.read()
     }
 
     pub(crate) fn write_infos(&self) -> RwLockWriteGuard<'_, AssetInfos> {
-        self.data
-            .infos
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.data.infos.write()
     }
 
     fn read_loaders(&self) -> RwLockReadGuard<'_, AssetLoaders> {
-        self.data
-            .loaders
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.data.loaders.read()
     }
 
     fn write_loaders(&self) -> RwLockWriteGuard<'_, AssetLoaders> {
-        self.data
-            .loaders
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.data.loaders.write()
     }
 
     /// Retrieves the [`AssetSource`] for the given `source`.

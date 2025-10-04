@@ -1,9 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::TypeIdMap;
 use core::{
@@ -33,23 +30,9 @@ pub struct TypeRegistry {
     ambiguous_names: HashSet<&'static str>,
 }
 
-// TODO:  remove this wrapper once we migrate to Atelier Assets and the Scene AssetLoader doesn't
-// need a TypeRegistry ref
-/// A synchronized wrapper around a [`TypeRegistry`].
-#[derive(Clone, Default)]
-pub struct TypeRegistryArc {
-    /// The wrapped [`TypeRegistry`].
-    pub internal: Arc<RwLock<TypeRegistry>>,
-}
-
-impl Debug for TypeRegistryArc {
+impl Debug for TypeRegistry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        self.internal
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .type_path_to_id
-            .keys()
-            .fmt(f)
+        self.type_path_to_id.keys().fmt(f)
     }
 }
 
@@ -504,20 +487,6 @@ impl TypeRegistry {
             let type_data = item.data::<T>();
             type_data.map(|data| (item, data))
         })
-    }
-}
-
-impl TypeRegistryArc {
-    /// Takes a read lock on the underlying [`TypeRegistry`].
-    pub fn read(&self) -> RwLockReadGuard<'_, TypeRegistry> {
-        self.internal.read().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Takes a write lock on the underlying [`TypeRegistry`].
-    pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
-        self.internal
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 

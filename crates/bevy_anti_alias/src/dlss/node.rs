@@ -72,7 +72,7 @@ impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
-        let mut dlss_context = dlss_context.context.lock().unwrap();
+        let mut dlss_context = dlss_context.context.lock();
 
         command_encoder.push_debug_group("dlss_super_resolution");
         let time_span = diagnostics.time_span(command_encoder, "dlss_super_resolution");
@@ -148,7 +148,7 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
-        let mut dlss_context = dlss_context.context.lock().unwrap();
+        let mut dlss_context = dlss_context.context.lock();
 
         command_encoder.push_debug_group("dlss_ray_reconstruction");
         let time_span = diagnostics.time_span(command_encoder, "dlss_ray_reconstruction");

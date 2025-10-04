@@ -5,13 +5,7 @@
 //! cubes. The demo displays the number of cubes that were actually rendered, so
 //! the effects of occlusion culling can be seen.
 
-use std::{
-    any::TypeId,
-    f32::consts::PI,
-    fmt::Write as _,
-    result::Result,
-    sync::{Arc, Mutex},
-};
+use std::{any::TypeId, f32::consts::PI, fmt::Write as _, result::Result};
 
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
@@ -23,6 +17,7 @@ use bevy::{
         prepass::DepthPrepass,
     },
     pbr::PbrPlugin,
+    platform::sync::{Arc, Mutex},
     prelude::*,
     render::{
         batching::gpu_preprocessing::{
@@ -148,8 +143,7 @@ fn init_saved_indirect_parameters(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     saved_indirect_parameters: Res<SavedIndirectParameters>,
 ) {
-    let mut saved_indirect_parameters = saved_indirect_parameters.0.lock().unwrap();
-    *saved_indirect_parameters = Some(SavedIndirectParametersData {
+    *saved_indirect_parameters.0.lock() = Some(SavedIndirectParametersData {
         data: vec![],
         count: 0,
         occlusion_culling_supported: gpu_preprocessing_support.is_culling_supported(),
@@ -545,7 +539,7 @@ fn update_status_text(
         occlusion_culling_supported,
         occlusion_culling_introspection_supported,
     ): (u32, bool, bool) = {
-        let saved_indirect_parameters = saved_indirect_parameters.lock().unwrap();
+        let saved_indirect_parameters = saved_indirect_parameters.lock();
         let Some(saved_indirect_parameters) = saved_indirect_parameters.as_ref() else {
             // Bail out early if the resource isn't initialized yet.
             return;
@@ -601,7 +595,6 @@ fn readback_indirect_parameters(
     // If culling isn't supported on this platform, bail.
     if !saved_indirect_parameters
         .lock()
-        .unwrap()
         .as_ref()
         .unwrap()
         .occlusion_culling_supported
@@ -621,20 +614,10 @@ fn readback_indirect_parameters(
     let saved_indirect_parameters_0 = (**saved_indirect_parameters).clone();
     let saved_indirect_parameters_1 = (**saved_indirect_parameters).clone();
     readback_buffer::<IndirectParametersIndexed>(data_buffer, move |indirect_parameters| {
-        saved_indirect_parameters_0
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .data = indirect_parameters.to_vec();
+        saved_indirect_parameters_0.lock().as_mut().unwrap().data = indirect_parameters.to_vec();
     });
     readback_buffer::<u32>(batch_sets_buffer, move |indirect_parameters_count| {
-        saved_indirect_parameters_1
-            .lock()
-            .unwrap()
-            .as_mut()
-            .unwrap()
-            .count = indirect_parameters_count[0];
+        saved_indirect_parameters_1.lock().as_mut().unwrap().count = indirect_parameters_count[0];
     });
 }
 

@@ -4,7 +4,7 @@ use crate::TypeInfo;
 use alloc::boxed::Box;
 use bevy_platform::{
     hash::{DefaultHasher, FixedHasher, NoOpHash},
-    sync::{OnceLock, PoisonError, RwLock},
+    sync::{OnceLock, RwLock},
 };
 use bevy_utils::TypeIdMap;
 use core::{
@@ -252,11 +252,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     ///
     /// This method will then return the correct [`TypedProperty`] reference for the given type `T`.
     fn get_by_type_id(&self, type_id: TypeId) -> Option<&T::Stored> {
-        self.0
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(&type_id)
-            .copied()
+        self.0.read().get(&type_id).copied()
     }
 
     /// Returns a reference to the [`TypedProperty`] stored in the cell.
@@ -274,7 +270,7 @@ impl<T: TypedProperty> GenericTypeCell<T> {
     }
 
     fn insert_by_type_id(&self, type_id: TypeId, value: T::Stored) -> &T::Stored {
-        let mut write_lock = self.0.write().unwrap_or_else(PoisonError::into_inner);
+        let mut write_lock = self.0.write();
 
         write_lock
             .entry(type_id)
