@@ -72,26 +72,12 @@ impl<'a> AssetSourceId<'a> {
     }
 }
 
-impl AssetSourceId<'static> {
-    /// Indicates this [`AssetSourceId`] should have a static lifetime.
-    #[inline]
-    pub fn as_static(self) -> Self {
-        match self {
-            Self::Default => Self::Default,
-            Self::Name(value) => Self::Name(value.as_static()),
-        }
-    }
-
-    /// Constructs an [`AssetSourceId`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
-    }
-}
-
-impl<'a> From<&'a str> for AssetSourceId<'a> {
-    fn from(value: &'a str) -> Self {
-        AssetSourceId::Name(CowArc::Borrowed(value))
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
+impl From<&'static str> for AssetSourceId<'static> {
+    fn from(value: &'static str) -> Self {
+        AssetSourceId::Name(value.into())
     }
 }
 
@@ -101,10 +87,10 @@ impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
     }
 }
 
-impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
-    fn from(value: Option<&'a str>) -> Self {
+impl From<Option<&'static str>> for AssetSourceId<'static> {
+    fn from(value: Option<&'static str>) -> Self {
         match value {
-            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
+            Some(value) => AssetSourceId::Name(value.into()),
             None => AssetSourceId::Default,
         }
     }
@@ -329,7 +315,7 @@ pub struct AssetSourceBuilders {
 impl AssetSourceBuilders {
     /// Inserts a new builder with the given `id`
     pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
-        match AssetSourceId::from_static(id) {
+        match id.into() {
             AssetSourceId::Default => {
                 self.default = Some(source);
             }

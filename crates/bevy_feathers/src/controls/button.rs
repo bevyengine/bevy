@@ -1,5 +1,4 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Activate, Callback, CoreButton};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -10,12 +9,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
-    system::{Commands, In, Query},
+    system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
+use bevy_ui_widgets::Button;
 
 use crate::{
     constants::{fonts, size},
@@ -29,7 +29,7 @@ use crate::{
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Clone, Default)]
 pub enum ButtonVariant {
     /// The standard button appearance
@@ -47,8 +47,6 @@ pub struct ButtonProps {
     pub variant: ButtonVariant,
     /// Rounded corners options
     pub corners: RoundedCorners,
-    /// Click handler
-    pub on_click: Callback<In<Activate>>,
 }
 
 /// Template function to spawn a button.
@@ -71,9 +69,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreButton {
-            on_activate: props.on_click,
-        },
+        Button,
         props.variant,
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
@@ -101,13 +97,18 @@ fn update_button_styles(
             &ThemeBackgroundColor,
             &ThemeFontColor,
         ),
-        Or<(Changed<Hovered>, Added<Pressed>, Added<InteractionDisabled>)>,
+        Or<(
+            Changed<Hovered>,
+            Changed<ButtonVariant>,
+            Added<Pressed>,
+            Added<InteractionDisabled>,
+        )>,
     >,
     mut commands: Commands,
 ) {
     for (button_ent, variant, disabled, pressed, hovered, bg_color, font_color) in q_buttons.iter()
     {
-        set_button_colors(
+        set_button_styles(
             button_ent,
             variant,
             disabled,
@@ -141,7 +142,7 @@ fn update_button_styles_remove(
             if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
                 q_buttons.get(ent)
             {
-                set_button_colors(
+                set_button_styles(
                     button_ent,
                     variant,
                     disabled,
@@ -155,7 +156,7 @@ fn update_button_styles_remove(
         });
 }
 
-fn set_button_colors(
+fn set_button_styles(
     button_ent: Entity,
     variant: &ButtonVariant,
     disabled: bool,
@@ -183,6 +184,11 @@ fn set_button_colors(
         (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change background color
     if bg_color.0 != bg_token {
         commands
@@ -196,6 +202,11 @@ fn set_button_colors(
             .entity(button_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(button_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the button styles.

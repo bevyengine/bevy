@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::sprite_render::{Wireframe2dConfig, Wireframe2dPlugin};
 
 fn main() {
     let mut app = App::new();
@@ -54,6 +54,15 @@ fn setup(
             Vec2::new(-50.0, -50.0),
             Vec2::new(50.0, -50.0),
         )),
+        meshes.add(Segment2d::new(
+            Vec2::new(-50.0, 50.0),
+            Vec2::new(50.0, -50.0),
+        )),
+        meshes.add(Polyline2d::new(vec![
+            Vec2::new(-50.0, 50.0),
+            Vec2::new(0.0, -50.0),
+            Vec2::new(50.0, 50.0),
+        ])),
     ];
     let num_shapes = shapes.len();
 
@@ -78,8 +87,8 @@ fn setup(
         Text::new("Press space to toggle wireframes"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -122,9 +122,7 @@ impl ExtractComponent for Skybox {
             skybox.clone(),
             SkyboxUniforms {
                 brightness: skybox.brightness * exposure,
-                transform: Transform::from_rotation(skybox.rotation)
-                    .to_matrix()
-                    .inverse(),
+                transform: Transform::from_rotation(skybox.rotation.inverse()).to_matrix(),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 _wasm_padding_8b: 0,
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]

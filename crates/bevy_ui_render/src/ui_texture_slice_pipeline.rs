@@ -25,7 +25,8 @@ use bevy_render::{
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_shader::Shader;
-use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
+use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
+use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
@@ -705,7 +706,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

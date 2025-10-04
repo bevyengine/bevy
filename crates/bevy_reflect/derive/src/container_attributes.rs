@@ -5,11 +5,11 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]`.
 
-use crate::{
-    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
-    derive_data::ReflectTraitToImpl,
+use crate::{custom_attributes::CustomAttributes, derive_data::ReflectTraitToImpl};
+use bevy_macro_utils::{
+    fq_std::{FQAny, FQClone, FQOption, FQResult},
+    terminated_parser,
 };
-use bevy_macro_utils::fq_std::{FQAny, FQClone, FQOption, FQResult};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::{

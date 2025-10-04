@@ -2,7 +2,7 @@ use bevy_asset::Handle;
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::Quat;
+use bevy_math::{Quat, UVec2};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 
@@ -136,6 +136,39 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
+        }
+    }
+}
+
+/// Lets the atmosphere contribute environment lighting (reflections and ambient diffuse) to your scene.
+///
+/// Attach this to a [`Camera3d`](bevy_camera::Camera3d) to light the entire view, or to a
+/// [`LightProbe`] to light only a specific region.
+/// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
+/// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
+///
+/// For HDRI-based lighting, use a preauthored [`EnvironmentMapLight`] or filter one at runtime with
+/// [`GeneratedEnvironmentMapLight`].
+#[derive(Component, Clone)]
+pub struct AtmosphereEnvironmentMapLight {
+    /// Controls how bright the atmosphere's environment lighting is.
+    /// Increase this value to brighten reflections and ambient diffuse lighting.
+    ///
+    /// The default is `1.0` so that the generated environment lighting matches
+    /// the light intensity of the atmosphere in the scene.
+    pub intensity: f32,
+    /// Whether the diffuse contribution should affect meshes that already have lightmaps.
+    pub affects_lightmapped_mesh_diffuse: bool,
+    /// Cubemap resolution in pixels (must be a power-of-two).
+    pub size: UVec2,
+}
+
+impl Default for AtmosphereEnvironmentMapLight {
+    fn default() -> Self {
+        Self {
+            intensity: 1.0,
+            affects_lightmapped_mesh_diffuse: true,
+            size: UVec2::new(512, 512),
         }
     }
 }

@@ -103,26 +103,26 @@ pub struct WindowPlugin {
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         // User convenience events
-        app.add_event::<WindowEvent>()
-            .add_event::<WindowResized>()
-            .add_event::<WindowCreated>()
-            .add_event::<WindowClosing>()
-            .add_event::<WindowClosed>()
-            .add_event::<WindowCloseRequested>()
-            .add_event::<WindowDestroyed>()
-            .add_event::<RequestRedraw>()
-            .add_event::<CursorMoved>()
-            .add_event::<CursorEntered>()
-            .add_event::<CursorLeft>()
-            .add_event::<Ime>()
-            .add_event::<WindowFocused>()
-            .add_event::<WindowOccluded>()
-            .add_event::<WindowScaleFactorChanged>()
-            .add_event::<WindowBackendScaleFactorChanged>()
-            .add_event::<FileDragAndDrop>()
-            .add_event::<WindowMoved>()
-            .add_event::<WindowThemeChanged>()
-            .add_event::<AppLifecycle>();
+        app.add_message::<WindowEvent>()
+            .add_message::<WindowResized>()
+            .add_message::<WindowCreated>()
+            .add_message::<WindowClosing>()
+            .add_message::<WindowClosed>()
+            .add_message::<WindowCloseRequested>()
+            .add_message::<WindowDestroyed>()
+            .add_message::<RequestRedraw>()
+            .add_message::<CursorMoved>()
+            .add_message::<CursorEntered>()
+            .add_message::<CursorLeft>()
+            .add_message::<Ime>()
+            .add_message::<WindowFocused>()
+            .add_message::<WindowOccluded>()
+            .add_message::<WindowScaleFactorChanged>()
+            .add_message::<WindowBackendScaleFactorChanged>()
+            .add_message::<FileDragAndDrop>()
+            .add_message::<WindowMoved>()
+            .add_message::<WindowThemeChanged>()
+            .add_message::<AppLifecycle>();
 
         if let Some(primary_window) = &self.primary_window {
             let mut entity_commands = app.world_mut().spawn(primary_window.clone());

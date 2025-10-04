@@ -508,8 +508,8 @@ macro_rules! impl_sparse_set {
             }
 
             /// Returns an iterator visiting all keys (indices) in arbitrary order.
-            pub fn indices(&self) -> impl Iterator<Item = I> + Clone + '_ {
-                self.indices.iter().cloned()
+            pub fn indices(&self) -> &[I] {
+                &self.indices
             }
 
             /// Returns an iterator visiting all values in arbitrary order.
@@ -775,7 +775,6 @@ mod tests {
         storage::SparseSet,
     };
     use alloc::{vec, vec::Vec};
-    use nonmax::NonMaxU32;
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);
@@ -783,11 +782,11 @@ mod tests {
     #[test]
     fn sparse_set() {
         let mut set = SparseSet::<Entity, Foo>::default();
-        let e0 = Entity::from_raw(EntityRow::new(NonMaxU32::new(0).unwrap()));
-        let e1 = Entity::from_raw(EntityRow::new(NonMaxU32::new(1).unwrap()));
-        let e2 = Entity::from_raw(EntityRow::new(NonMaxU32::new(2).unwrap()));
-        let e3 = Entity::from_raw(EntityRow::new(NonMaxU32::new(3).unwrap()));
-        let e4 = Entity::from_raw(EntityRow::new(NonMaxU32::new(4).unwrap()));
+        let e0 = Entity::from_row(EntityRow::from_raw_u32(0).unwrap());
+        let e1 = Entity::from_row(EntityRow::from_raw_u32(1).unwrap());
+        let e2 = Entity::from_row(EntityRow::from_raw_u32(2).unwrap());
+        let e3 = Entity::from_row(EntityRow::from_raw_u32(3).unwrap());
+        let e4 = Entity::from_row(EntityRow::from_raw_u32(4).unwrap());
 
         set.insert(e1, Foo(1));
         set.insert(e2, Foo(2));

@@ -20,7 +20,7 @@
 //! Note that text measurement is only relevant in a UI context.
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
-//! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
+//! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
 //! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
@@ -40,10 +40,8 @@ mod font_loader;
 mod glyph;
 mod pipeline;
 mod text;
-mod text2d;
 mod text_access;
 
-use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -53,7 +51,6 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
-pub use text2d::*;
 pub use text_access::*;
 
 /// The text prelude.
@@ -62,16 +59,13 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, Text2d, Text2dReader, Text2dWriter, TextColor, TextError,
-        TextFont, TextLayout, TextSpan,
+        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems};
+use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-use bevy_render::{ExtractSchedule, RenderApp};
-use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -103,29 +97,9 @@ impl Plugin for TextPlugin {
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                (
-                    remove_dropped_font_atlas_sets.before(AssetEventSystems),
-                    detect_text_needs_rerender::<Text2d>,
-                    update_text2d_layout
-                        // Potential conflict: `Assets<Image>`
-                        // In practice, they run independently since `bevy_render::camera_update_system`
-                        // will only ever observe its own render target, and `update_text2d_layout`
-                        // will never modify a pre-existing `Image` asset.
-                        .ambiguous_with(CameraUpdateSystems),
-                    calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
-                )
-                    .chain()
-                    .in_set(Text2dUpdateSystems)
-                    .after(AnimationSystems),
+                remove_dropped_font_atlas_sets.before(AssetEventSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
-            );
-        }
 
         #[cfg(feature = "default_font")]
         {

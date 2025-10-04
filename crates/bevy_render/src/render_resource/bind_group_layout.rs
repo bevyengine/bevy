@@ -1,4 +1,4 @@
-use crate::{define_atomic_id, renderer::RenderDevice, WgpuWrapper};
+use crate::{define_atomic_id, renderer::RenderDevice, renderer::WgpuWrapper};
 use bevy_ecs::system::Res;
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
@@ -12,7 +12,7 @@ define_atomic_id!(BindGroupLayoutId);
 /// which can be cloned as needed to workaround lifetime management issues. It may be converted
 /// from and dereferences to wgpu's [`BindGroupLayout`](wgpu::BindGroupLayout).
 ///
-/// Can be created via [`RenderDevice::create_bind_group_layout`](crate::RenderDevice::create_bind_group_layout).
+/// Can be created via [`RenderDevice::create_bind_group_layout`](crate::renderer::RenderDevice::create_bind_group_layout).
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,

@@ -84,6 +84,10 @@ struct View {
 ///    Perspective projection: 0.0 is inf far away
 ///    Orthographic projection: 0.0 is far clipping plane
 
+/// Clip space:
+/// This is NDC before the perspective divide, still in homogenous coordinate space.
+/// Dividing a clip space point by its w component yields a point in NDC space.
+
 /// UV space:
 /// 0.0, 0.0 is the top left
 /// 1.0, 1.0 is the bottom right
