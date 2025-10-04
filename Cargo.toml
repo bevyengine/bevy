@@ -178,6 +178,7 @@ default = [
   "wayland",
   "debug",
   "zstd_rust",
+  "bevy_dev_tools",
 ]
 
 # Recommended defaults for no_std applications
