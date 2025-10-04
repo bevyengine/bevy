@@ -211,7 +211,7 @@ pub(crate) struct PendingSyncEntity {
     records: Vec<EntityRecord>,
 }
 
-pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
+pub fn entity_sync_system(main_world: &mut World, render_world: &mut World) {
     main_world.resource_scope(|world, mut pending: Mut<PendingSyncEntity>| {
         // TODO : batching record
         for record in pending.drain(..) {
@@ -253,7 +253,7 @@ pub(crate) fn entity_sync_system(main_world: &mut World, render_world: &mut Worl
     });
 }
 
-pub(crate) fn despawn_temporary_render_entities(
+pub fn despawn_temporary_render_entities(
     world: &mut World,
     state: &mut SystemState<Query<Entity, With<TemporaryRenderEntity>>>,
     mut local: Local<Vec<Entity>>,
