@@ -3,10 +3,8 @@
 //! Also demonstrates how to use `MeshTag` to use external data in a custom material.
 
 use bevy::{
-    mesh::MeshTag,
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    mesh::MeshTag, prelude::*, reflect::TypePath, render::render_resource::AsBindGroup,
+    shader::ShaderRef,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/automatic_instancing.wgsl";

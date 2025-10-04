@@ -1,5 +1,5 @@
 ---
-title: `CloneBehavior` is no longer `PartialEq` or `Eq`
+title: "`CloneBehavior` is no longer `PartialEq` or `Eq`"
 pull_requests: [18393]
 ---
 

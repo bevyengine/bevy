@@ -346,7 +346,7 @@ impl BsnSceneListItems {
             BsnSceneListItem::Expression(block) => quote! {#block},
         });
         quote! {
-            (#(#scenes,)*)
+            #bevy_scene::auto_nest_tuple!(#(#scenes),*)
         }
     }
 }

@@ -1,5 +1,5 @@
 ---
-title: `labeled_asset_scope` can now return errors.
+title: "`labeled_asset_scope` can now return errors"
 pull_requests: [19449]
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: `LightVisibilityClass` renamed to `ClusterVisibilityClass`
+title: "`LightVisibilityClass` renamed to `ClusterVisibilityClass`"
 pull_requests: [19986]
 ---
 

@@ -1,8 +1,8 @@
 //! Shows how to modify mesh assets after spawning.
 
 use bevy::{
-    gltf::GltfLoaderSettings, input::common_conditions::input_just_pressed,
-    mesh::VertexAttributeValues, prelude::*, render::render_asset::RenderAssetUsages,
+    asset::RenderAssetUsages, gltf::GltfLoaderSettings,
+    input::common_conditions::input_just_pressed, mesh::VertexAttributeValues, prelude::*,
 };
 
 fn main() {
@@ -138,8 +138,8 @@ fn spawn_text(mut commands: Commands) {
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

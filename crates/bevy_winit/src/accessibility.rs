@@ -159,11 +159,11 @@ pub(crate) fn prepare_accessibility_for_window(
 
 fn window_closed(
     mut handlers: ResMut<WinitActionRequestHandlers>,
-    mut events: EventReader<WindowClosed>,
+    mut window_closed_reader: MessageReader<WindowClosed>,
     _non_send_marker: NonSendMarker,
 ) {
     ACCESS_KIT_ADAPTERS.with_borrow_mut(|adapters| {
-        for WindowClosed { window, .. } in events.read() {
+        for WindowClosed { window, .. } in window_closed_reader.read() {
             adapters.remove(window);
             handlers.remove(window);
         }
@@ -172,7 +172,7 @@ fn window_closed(
 
 fn poll_receivers(
     handlers: Res<WinitActionRequestHandlers>,
-    mut actions: EventWriter<ActionRequestWrapper>,
+    mut actions: MessageWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
@@ -309,7 +309,7 @@ pub struct AccessKitPlugin;
 impl Plugin for AccessKitPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WinitActionRequestHandlers>()
-            .add_event::<ActionRequestWrapper>()
+            .add_message::<ActionRequestWrapper>()
             .add_systems(
                 PostUpdate,
                 (

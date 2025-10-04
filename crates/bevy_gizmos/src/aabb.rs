@@ -1,6 +1,7 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
 use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::primitives::Aabb;
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
@@ -11,7 +12,6 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystems,
@@ -36,7 +36,7 @@ impl Plugin for AabbGizmoPlugin {
                     config.config::<AabbGizmoConfigGroup>().1.draw_all
                 }),
             )
-                .after(bevy_render::view::VisibilitySystems::CalculateBounds)
+                .after(bevy_camera::visibility::VisibilitySystems::CalculateBounds)
                 .after(TransformSystems::Propagate),
         );
     }

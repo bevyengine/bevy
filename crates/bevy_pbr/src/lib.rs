@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -47,14 +47,11 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::SimulationLightSystems;
-pub use bevy_light::{
-    light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
-    ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
-    FogVolume, IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver,
-    PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
-    SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+use bevy_light::{
+    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
+    SpotLight,
 };
+use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
@@ -85,11 +82,6 @@ pub mod prelude {
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
-    };
-    #[doc(hidden)]
-    pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -141,13 +133,11 @@ use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{sort_cameras, Projection},
-    extract_component::ExtractComponentPlugin,
+    camera::sort_cameras,
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     render_graph::RenderGraph,
     render_resource::{
-        Extent3d, ShaderRef, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
     sync_component::SyncComponentPlugin,
@@ -238,13 +228,11 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                LightPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -257,7 +245,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
-                ExtractComponentPlugin::<AmbientLight>::default(),
+                SyncComponentPlugin::<AmbientLight>::default(),
             ))
             .add_plugins(AtmospherePlugin)
             .configure_sets(
@@ -282,7 +270,8 @@ impl Plugin for PbrPlugin {
                     base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
 
         let has_bluenoise = app
             .get_sub_app(RenderApp)
@@ -333,6 +322,9 @@ impl Plugin for PbrPlugin {
                 (
                     extract_clusters,
                     extract_lights,
+                    extract_ambient_light_resource,
+                    extract_ambient_light,
+                    extract_shadow_filtering_method,
                     late_sweep_material_instances,
                 ),
             )

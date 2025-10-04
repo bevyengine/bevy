@@ -3,6 +3,8 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
+#[cfg(feature = "bevy_render")]
+use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
@@ -14,7 +16,7 @@ use {
         entity::Entity,
         system::{Commands, Local, Query},
     },
-    bevy_render::{view::RenderLayers, Extract},
+    bevy_render::Extract,
     bevy_transform::components::GlobalTransform,
 };
 
@@ -153,7 +155,7 @@ pub(crate) fn extract_linegizmos(
                 #[cfg(feature = "webgl")]
                 _padding: Default::default(),
             },
-            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite"))]
+            #[cfg(any(feature = "bevy_pbr", feature = "bevy_sprite_render"))]
             crate::config::GizmoMeshConfig {
                 line_perspective: gizmo.line_config.perspective,
                 line_style: gizmo.line_config.style,

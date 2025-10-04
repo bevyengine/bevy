@@ -12,15 +12,16 @@ use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
+    camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    light::NotShadowCaster,
     math::{DVec2, DVec3},
-    pbr::NotShadowCaster,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
-        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -109,7 +110,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()

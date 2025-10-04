@@ -1,26 +1,25 @@
 use alloc::{string::String, vec::Vec};
 use bevy_platform::sync::Arc;
-use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
 
-use crate::Task;
+use crate::executor::LocalExecutor;
+use crate::{block_on, Task};
 
 crate::cfg::std! {
     if {
         use std::thread_local;
-        use crate::executor::LocalExecutor;
+
+        use crate::executor::LocalExecutor as Executor;
 
         thread_local! {
-            static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+            static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
         }
-
-        type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
     } else {
-        use bevy_platform::sync::{Mutex, PoisonError};
-        use crate::executor::Executor as LocalExecutor;
 
-        static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+        // Because we do not have thread-locals without std, we cannot use LocalExecutor here.
+        use crate::executor::Executor;
 
-        type ScopeResult<T> = Arc<Mutex<Option<T>>>;
+        static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
     }
 }
 
@@ -111,7 +110,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         self.scope_with_executor(false, None, f)
@@ -130,7 +129,7 @@ impl TaskPool {
         f: F,
     ) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
@@ -141,17 +140,22 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = &LocalExecutor::new();
+        let executor = LocalExecutor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor_ref: &'env LocalExecutor<'env> = unsafe { mem::transmute(&executor) };
 
-        let results: RefCell<Vec<ScopeResult<T>>> = RefCell::new(Vec::new());
+        let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let results: &'env RefCell<Vec<ScopeResult<T>>> = unsafe { mem::transmute(&results) };
+        let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
+
+        let pending_tasks: Cell<usize> = Cell::new(0);
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let pending_tasks: &'env Cell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
         let mut scope = Scope {
-            executor,
-            results,
+            executor_ref,
+            pending_tasks,
+            results_ref,
             scope: PhantomData,
             env: PhantomData,
         };
@@ -161,21 +165,17 @@ impl TaskPool {
 
         f(scope_ref);
 
-        // Loop until all tasks are done
-        while executor.try_tick() {}
+        // Wait until the scope is complete
+        block_on(executor.run(async {
+            while pending_tasks.get() != 0 {
+                futures_lite::future::yield_now().await;
+            }
+        }));
 
-        let results = scope.results.borrow();
         results
-            .iter()
-            .map(|result| crate::cfg::switch! {{
-                crate::cfg::std => {
-                    result.borrow_mut().take().unwrap()
-                }
-                _ => {
-                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                    lock.take().unwrap()
-                }
-            }})
+            .take()
+            .into_iter()
+            .map(|result| result.unwrap())
             .collect()
     }
 
@@ -239,7 +239,7 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&LocalExecutor) -> R,
+        F: FnOnce(&Executor) -> R,
     {
         crate::cfg::switch! {{
             crate::cfg::std => {
@@ -257,9 +257,11 @@ impl TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope LocalExecutor<'scope>,
+    executor_ref: &'scope LocalExecutor<'scope>,
+    // The number of pending tasks spawned on the scope
+    pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env RefCell<Vec<ScopeResult<T>>>,
+    results_ref: &'env RefCell<Vec<Option<T>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -295,21 +297,32 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + MaybeSend>(&self, f: Fut) {
-        let result = ScopeResult::<T>::default();
-        self.results.borrow_mut().push(result.clone());
-        let f = async move {
-            let temp_result = f.await;
+        // increment the number of pending tasks
+        let pending_tasks = self.pending_tasks;
+        pending_tasks.update(|i| i + 1);
 
-            crate::cfg::std! {
-                if {
-                    result.borrow_mut().replace(temp_result);
-                } else {
-                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                    *lock = Some(temp_result);
-                }
-            }
+        // add a spot to keep the result, and record the index
+        let results_ref = self.results_ref;
+        let mut results = results_ref.borrow_mut();
+        let task_number = results.len();
+        results.push(None);
+        drop(results);
+
+        // create the job closure
+        let f = async move {
+            let result = f.await;
+
+            // store the result in the allocated slot
+            let mut results = results_ref.borrow_mut();
+            results[task_number] = Some(result);
+            drop(results);
+
+            // decrement the pending tasks count
+            pending_tasks.update(|i| i - 1);
         };
-        self.executor.spawn(f).detach();
+
+        // spawn the job itself
+        self.executor_ref.spawn(f).detach();
     }
 }
 
@@ -326,5 +339,34 @@ crate::cfg::std! {
     
         pub trait MaybeSync: Sync {}
         impl<T: Sync> MaybeSync for T {}
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{time, thread};
+
+    use super::*;
+
+    /// This test creates a scope with a single task that goes to sleep for a
+    /// nontrivial amount of time. At one point, the scope would (incorrectly)
+    /// return early under these conditions, causing a crash.
+    ///
+    /// The correct behavior is for the scope to block until the receiver is
+    /// woken by the external thread.
+    #[test]
+    fn scoped_spawn() {
+        let (sender, recever) = async_channel::unbounded();
+        let task_pool = TaskPool {};
+        let thread = thread::spawn(move || {
+            let duration = time::Duration::from_millis(50);
+            thread::sleep(duration);
+            let _ = sender.send(0);
+        });
+        task_pool.scope(|scope| {
+            scope.spawn(async {
+                recever.recv().await
+            });
+        });
     }
 }

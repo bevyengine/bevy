@@ -2,8 +2,8 @@ use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot}
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
-    visibility::{NoFrustumCulling, ViewVisibility, VisibilityRange},
-    Camera,
+    visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
+    Camera, Camera3d, Projection,
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -20,7 +20,8 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
-    EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
+    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
+    ShadowFilteringMethod, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
@@ -53,6 +54,7 @@ use bevy_render::{
     },
     Extract,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
@@ -61,7 +63,6 @@ use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
@@ -72,7 +73,6 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
@@ -82,7 +82,6 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
-use bevy_render::view::RenderLayers;
 use bevy_render::RenderSystems::PrepareAssets;
 
 use bytemuck::{Pod, Zeroable};
@@ -1459,6 +1458,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Lightmap>,
                 Changed<Aabb>,
                 Changed<Mesh3d>,
+                Changed<MeshTag>,
                 Changed<NoFrustumCulling>,
                 Changed<NotShadowReceiver>,
                 Changed<TransmittedShadowReceiver>,
@@ -1823,17 +1823,18 @@ impl FromWorld for MeshPipeline {
                 }
             };
 
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image was created without data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
+            if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
+                render_queue.write_texture(
+                    texture.as_image_copy(),
+                    image.data.as_ref().expect("Image was created without data"),
+                    TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(image.width() * format_size as u32),
+                        rows_per_image: None,
+                    },
+                    image.texture_descriptor.size,
+                );
+            }
 
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
             GpuImage {

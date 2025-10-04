@@ -9,6 +9,7 @@
 
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::{
+    camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
     ecs::{
         query::QueryItem,
@@ -30,7 +31,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         sync_world::MainEntity,
-        view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
+        view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };

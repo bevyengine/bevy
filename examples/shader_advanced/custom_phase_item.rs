@@ -8,6 +8,10 @@
 //! for better reuse of parts of Bevy's built-in mesh rendering logic.
 
 use bevy::{
+    camera::{
+        primitives::Aabb,
+        visibility::{self, VisibilityClass},
+    },
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
         component::Tick,
@@ -18,7 +22,6 @@ use bevy::{
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        primitives::Aabb,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
             RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
@@ -31,7 +34,7 @@ use bevy::{
             Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
-        view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderSystems,
     },
 };
@@ -46,7 +49,7 @@ use bytemuck::{Pod, Zeroable};
 /// that entities with this component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
+#[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
 
 /// A [`RenderCommand`] that binds the vertex and index buffers and issues the

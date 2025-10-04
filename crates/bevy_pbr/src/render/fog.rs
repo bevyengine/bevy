@@ -4,12 +4,12 @@ use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
     render_resource::{DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
     Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 
 use crate::{DistanceFog, FogFalloff};
 

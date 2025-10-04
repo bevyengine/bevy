@@ -1,7 +1,6 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{CallbackTemplate, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -10,7 +9,7 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Commands, In, Query},
+    system::{Commands, Query},
     world::Mut,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
@@ -18,6 +17,7 @@ use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene2::prelude::*;
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
+use bevy_ui_widgets::Checkbox;
 
 use crate::{
     constants::size,
@@ -25,13 +25,6 @@ use crate::{
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
-
-/// Parameters for the toggle switch template, passed to [`toggle_switch`] function.
-#[derive(Default)]
-pub struct ToggleSwitchProps {
-    /// Change handler
-    pub on_change: CallbackTemplate<In<ValueChange<bool>>>,
-}
 
 /// Marker for the toggle switch outline
 #[derive(Component, Default, Clone, Reflect)]
@@ -47,16 +40,14 @@ struct ToggleSwitchSlide;
 ///
 /// # Arguments
 /// * `props` - construction properties for the toggle switch.
-pub fn toggle_switch(props: ToggleSwitchProps) -> impl Scene {
+pub fn toggle_switch() -> impl Scene {
     bsn! {
         Node {
             width: size::TOGGLE_WIDTH,
             height: size::TOGGLE_HEIGHT,
             border: UiRect::all(Val::Px(2.0)),
         }
-        CoreCheckbox {
-            on_change: {props.on_change.clone()},
-        }
+        Checkbox
         ToggleSwitchOutline
         BorderRadius::all(Val::Px(5.0))
         ThemeBackgroundColor(tokens::SWITCH_BG)
@@ -65,7 +56,7 @@ pub fn toggle_switch(props: ToggleSwitchProps) -> impl Scene {
         Hovered
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
-        [(
+        [
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Percent(0.),
@@ -76,7 +67,7 @@ pub fn toggle_switch(props: ToggleSwitchProps) -> impl Scene {
             BorderRadius::all(Val::Px(3.0))
             ToggleSwitchSlide
             ThemeBackgroundColor(tokens::SWITCH_SLIDE)
-        )]
+        ]
     }
 }
 
@@ -108,7 +99,7 @@ fn update_switch_styles(
         };
         // Safety: since we just checked the query, should always work.
         let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-        set_switch_colors(
+        set_switch_styles(
             switch_ent,
             slide_ent,
             disabled,
@@ -156,7 +147,7 @@ fn update_switch_styles_remove(
                 };
                 // Safety: since we just checked the query, should always work.
                 let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-                set_switch_colors(
+                set_switch_styles(
                     switch_ent,
                     slide_ent,
                     disabled,
@@ -172,7 +163,7 @@ fn update_switch_styles_remove(
         });
 }
 
-fn set_switch_colors(
+fn set_switch_styles(
     switch_ent: Entity,
     slide_ent: Entity,
     disabled: bool,
@@ -207,6 +198,11 @@ fn set_switch_colors(
         false => Val::Percent(0.),
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -232,6 +228,11 @@ fn set_switch_colors(
     if slide_pos != slide_style.left {
         slide_style.left = slide_pos;
     }
+
+    // Change cursor shape
+    commands
+        .entity(switch_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the toggle switch styles.

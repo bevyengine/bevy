@@ -26,13 +26,14 @@
 //! set the `uv_rect` field on [`Lightmap`] appropriately.
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
-//! [`Mesh3d`]: bevy_render::mesh::Mesh3d
+//! [`Mesh3d`]: bevy_mesh::Mesh3d
 //! [`MeshMaterial3d<StandardMaterial>`]: crate::StandardMaterial
 //! [`StandardMaterial`]: crate::StandardMaterial
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -49,16 +50,15 @@ use bevy_math::{uvec2, vec4, Rect, UVec2};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{Sampler, TextureView, WgpuSampler, WgpuTextureView},
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
+use bevy_shader::load_shader_library;
 use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
@@ -79,9 +79,9 @@ pub struct LightmapPlugin;
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
 ///
-/// When assigned to an entity that contains a [`Mesh3d`](bevy_render::mesh::Mesh3d) and a
+/// When assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
 /// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
-/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]

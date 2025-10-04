@@ -1,6 +1,5 @@
-use bevy_camera::Viewport;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::camera::MainPassResolutionOverride;
 use bevy_render::experimental::occlusion_culling::OcclusionCulling;
 use bevy_render::render_graph::ViewNode;
 

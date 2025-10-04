@@ -22,7 +22,7 @@ const FIXED_HASHER: FixedState =
 #[derive(Copy, Clone, Default, Debug)]
 pub struct FixedHasher;
 impl BuildHasher for FixedHasher {
-    type Hasher = DefaultHasher;
+    type Hasher = DefaultHasher<'static>;
 
     #[inline]
     fn build_hasher(&self) -> Self::Hasher {

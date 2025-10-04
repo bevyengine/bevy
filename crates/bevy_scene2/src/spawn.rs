@@ -1,14 +1,14 @@
 use crate::{ResolvedScene, Scene, ScenePatch, ScenePatchInstance};
 use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets};
-use bevy_ecs::{event::EventCursor, prelude::*};
+use bevy_ecs::{message::MessageCursor, prelude::*};
 use bevy_platform::collections::HashMap;
 
 pub trait SpawnScene {
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut;
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut<'_>;
 }
 
 impl SpawnScene for World {
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut {
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityWorldMut<'_> {
         let assets = self.resource::<AssetServer>();
         let patch = ScenePatch::load(assets, scene);
         let handle = assets.add(patch);
@@ -17,11 +17,11 @@ impl SpawnScene for World {
 }
 
 pub trait CommandsSpawnScene {
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands;
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_>;
 }
 
 impl<'w, 's> CommandsSpawnScene for Commands<'w, 's> {
-    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands {
+    fn spawn_scene<S: Scene>(&mut self, scene: S) -> EntityCommands<'_> {
         let mut entity_commands = self.spawn_empty();
         let id = entity_commands.id();
         entity_commands.commands().queue(move |world: &mut World| {
@@ -37,7 +37,7 @@ impl<'w, 's> CommandsSpawnScene for Commands<'w, 's> {
 }
 
 pub fn resolve_scene_patches(
-    mut events: EventReader<AssetEvent<ScenePatch>>,
+    mut events: MessageReader<AssetEvent<ScenePatch>>,
     assets: Res<AssetServer>,
     mut patches: ResMut<Assets<ScenePatch>>,
 ) {
@@ -65,11 +65,11 @@ pub struct QueuedScenes {
 pub fn spawn_queued(
     world: &mut World,
     handles: &mut QueryState<(Entity, &ScenePatchInstance), Added<ScenePatchInstance>>,
-    mut reader: Local<EventCursor<AssetEvent<ScenePatch>>>,
+    mut reader: Local<MessageCursor<AssetEvent<ScenePatch>>>,
 ) {
     world.resource_scope(|world, mut patches: Mut<Assets<ScenePatch>>| {
         world.resource_scope(|world, mut queued: Mut<QueuedScenes>| {
-            world.resource_scope(|world, events: Mut<Events<AssetEvent<ScenePatch>>>| {
+            world.resource_scope(|world, events: Mut<Messages<AssetEvent<ScenePatch>>>| {
                 for (entity, id) in handles
                     .iter(world)
                     .map(|(e, h)| (e, h.id()))

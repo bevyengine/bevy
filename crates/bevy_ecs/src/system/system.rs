@@ -533,7 +533,15 @@ mod tests {
         let result = world.run_system_once(system);
 
         assert!(matches!(result, Err(RunSystemError::Failed { .. })));
-        let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
-        assert!(result.unwrap_err().to_string().contains(expected));
+
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 }

@@ -10,6 +10,7 @@ use crate::{
     MeshViewBindGroup, PrepassViewBindGroup, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
     ViewLightProbesUniformOffset, ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
+use bevy_camera::MainPassResolutionOverride;
 use bevy_camera::Viewport;
 use bevy_core_pipeline::prepass::{
     MotionVectorPrepass, PreviousViewUniformOffset, ViewPrepassTextures,
@@ -19,7 +20,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_render::{
-    camera::{ExtractedCamera, MainPassResolutionOverride},
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{

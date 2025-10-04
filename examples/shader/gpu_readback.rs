@@ -2,11 +2,12 @@
 //! using both a storage buffer and texture.
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
@@ -102,10 +103,10 @@ fn setup(
     // to stop reading back the data.
     commands
         .spawn(Readback::buffer(buffer.clone()))
-        .observe(|trigger: On<ReadbackComplete>| {
+        .observe(|event: On<ReadbackComplete>| {
             // This matches the type which was used to create the `ShaderStorageBuffer` above,
             // and is a convenient way to interpret the data.
-            let data: Vec<u32> = trigger.event().to_shader_type();
+            let data: Vec<u32> = event.to_shader_type();
             info!("Buffer {:?}", data);
         });
 
@@ -116,8 +117,8 @@ fn setup(
             4 * u32::SHADER_SIZE.get(), // skip the first four elements
             8 * u32::SHADER_SIZE.get(), // read eight elements
         ))
-        .observe(|trigger: On<ReadbackComplete>| {
-            let data: Vec<u32> = trigger.event().to_shader_type();
+        .observe(|event: On<ReadbackComplete>| {
+            let data: Vec<u32> = event.to_shader_type();
             info!("Buffer range {:?}", data);
         });
 
@@ -128,11 +129,11 @@ fn setup(
     // texture, as it will affect how the data is interpreted.
     commands
         .spawn(Readback::texture(image.clone()))
-        .observe(|trigger: On<ReadbackComplete>| {
+        .observe(|event: On<ReadbackComplete>| {
             // You probably want to interpret the data as a color rather than a `ShaderType`,
             // but in this case we know the data is a single channel storage texture, so we can
             // interpret it as a `Vec<u32>`
-            let data: Vec<u32> = trigger.event().to_shader_type();
+            let data: Vec<u32> = event.to_shader_type();
             info!("Image {:?}", data);
         });
     commands.insert_resource(ReadbackImage(image));

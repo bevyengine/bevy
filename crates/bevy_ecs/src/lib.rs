@@ -10,7 +10,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -42,6 +42,7 @@ pub mod hierarchy;
 pub mod intern;
 pub mod label;
 pub mod lifecycle;
+pub mod message;
 pub mod name;
 pub mod never;
 pub mod observer;
@@ -61,7 +62,7 @@ pub mod world;
 pub use bevy_ptr as ptr;
 
 #[cfg(feature = "hotpatching")]
-use event::BufferedEvent;
+use message::Message;
 
 /// The ECS prelude.
 ///
@@ -79,18 +80,16 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{
-            BufferedEvent, EntityEvent, Event, EventKey, EventMutator, EventReader, EventWriter,
-            Events,
-        },
+        event::{EntityEvent, Event, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         lifecycle::{
             Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
             RemovedComponents, Replace,
         },
+        message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
         name::{Name, NameOrEntity},
         observer::{Observer, On, Trigger},
-        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         resource::Resource,
@@ -137,6 +136,7 @@ pub mod __macro_exports {
     // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
+    pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::vec::Vec;
 }
 
@@ -144,7 +144,7 @@ pub mod __macro_exports {
 ///
 /// Can be used for causing custom behavior on hot-patch.
 #[cfg(feature = "hotpatching")]
-#[derive(BufferedEvent, Default)]
+#[derive(Message, Default)]
 pub struct HotPatched;
 
 /// Resource which "changes" when a hotpatch happens.
@@ -1950,15 +1950,27 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct MyEntities {
         #[entities]
@@ -1967,10 +1979,6 @@ mod tests {
         another_one: Entity,
         #[entities]
         maybe_entity: Option<Entity>,
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
-        )]
         something_else: String,
     }
 
@@ -1985,22 +1993,42 @@ mod tests {
     fn clone_entities() {
         use crate::entity::{ComponentCloneCtx, SourceComponent};
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Ignore)]
         struct IgnoreClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Default)]
         struct DefaultClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Custom(custom_clone))]
         struct CustomClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component, Clone)]
         #[component(clone_behavior = clone::<Self>())]
         struct CloneFunction;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
 

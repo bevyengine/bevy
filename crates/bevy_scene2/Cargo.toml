@@ -1,6 +1,6 @@
 [package]
 name = "bevy_scene2"
-version = "0.17.0-dev"
+version = "0.17.1"
 edition = "2024"
 
 [dependencies]

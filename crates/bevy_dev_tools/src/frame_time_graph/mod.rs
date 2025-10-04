@@ -7,9 +7,10 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
-    render_resource::{AsBindGroup, Shader, ShaderRef, ShaderType},
+    render_resource::{AsBindGroup, ShaderType},
     storage::ShaderStorageBuffer,
 };
+use bevy_shader::{Shader, ShaderRef};
 use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
 
 use crate::fps_overlay::FpsOverlayConfig;

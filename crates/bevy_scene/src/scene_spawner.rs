@@ -2,8 +2,9 @@ use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
-    event::{EntityEvent, EventCursor, Events},
+    event::EntityEvent,
     hierarchy::ChildOf,
+    message::{MessageCursor, Messages},
     reflect::AppTypeRegistry,
     resource::Resource,
     world::{Mut, World},
@@ -22,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`SceneInstance`](`crate::SceneInstance`) becomes ready to use.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
@@ -30,6 +31,8 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    /// The entity whose scene instance is ready.
+    pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
@@ -81,8 +84,19 @@ pub struct SceneSpawner {
     pub(crate) spawned_scenes: HashMap<AssetId<Scene>, HashSet<InstanceId>>,
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
-    scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
-    dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
+    scene_asset_event_reader: MessageCursor<AssetEvent<Scene>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
+    // To handle scene hot reloading, they are unloaded/reloaded on asset modifications.
+    // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
+    // and each will trigger either a created or modified event for the parent asset. This causes the scene to be
+    // unloaded, losing its initial setup, and reloaded without it.
+    // Debouncing scene asset events let us ignore events that happen less than SCENE_ASSET_AGE_THRESHOLD frames
+    // apart and not reload the scene in those cases as it's unlikely to be an actual asset change.
+    debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
+    dynamic_scene_asset_event_reader: MessageCursor<AssetEvent<DynamicScene>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
+    // See debounced_scene_asset_events
+    debounced_dynamic_scene_asset_events: HashMap<AssetId<DynamicScene>, u32>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
     scenes_to_despawn: Vec<AssetId<Scene>>,
@@ -495,12 +509,18 @@ impl SceneSpawner {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
             }
         }
     }
@@ -543,8 +563,8 @@ pub fn scene_spawner_system(world: &mut World) {
             .scenes_to_spawn
             .retain(|(_, _, parent)| is_parent_alive(parent));
 
-        let scene_asset_events = world.resource::<Events<AssetEvent<Scene>>>();
-        let dynamic_scene_asset_events = world.resource::<Events<AssetEvent<DynamicScene>>>();
+        let scene_asset_events = world.resource::<Messages<AssetEvent<Scene>>>();
+        let dynamic_scene_asset_events = world.resource::<Messages<AssetEvent<DynamicScene>>>();
         let scene_spawner = &mut *scene_spawner;
 
         let mut updated_spawned_scenes = Vec::new();
@@ -552,10 +572,21 @@ pub fn scene_spawner_system(world: &mut World) {
             .scene_asset_event_reader
             .read(scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event
-                && scene_spawner.spawned_scenes.contains_key(id)
-            {
-                updated_spawned_scenes.push(*id);
+            match event {
+                AssetEvent::Added { id } => {
+                    scene_spawner.debounced_scene_asset_events.insert(*id, 0);
+                }
+                AssetEvent::Modified { id } => {
+                    if scene_spawner
+                        .debounced_scene_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && scene_spawner.spawned_scenes.contains_key(id)
+                    {
+                        updated_spawned_scenes.push(*id);
+                    }
+                }
+                _ => {}
             }
         }
         let mut updated_spawned_dynamic_scenes = Vec::new();
@@ -563,10 +594,23 @@ pub fn scene_spawner_system(world: &mut World) {
             .dynamic_scene_asset_event_reader
             .read(dynamic_scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event
-                && scene_spawner.spawned_dynamic_scenes.contains_key(id)
-            {
-                updated_spawned_dynamic_scenes.push(*id);
+            match event {
+                AssetEvent::Added { id } => {
+                    scene_spawner
+                        .debounced_dynamic_scene_asset_events
+                        .insert(*id, 0);
+                }
+                AssetEvent::Modified { id } => {
+                    if scene_spawner
+                        .debounced_dynamic_scene_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && scene_spawner.spawned_dynamic_scenes.contains_key(id)
+                    {
+                        updated_spawned_dynamic_scenes.push(*id);
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -582,6 +626,40 @@ pub fn scene_spawner_system(world: &mut World) {
             .update_spawned_dynamic_scenes(world, &updated_spawned_dynamic_scenes)
             .unwrap();
         scene_spawner.trigger_scene_ready_events(world);
+
+        const SCENE_ASSET_AGE_THRESHOLD: u32 = 2;
+        for asset_id in scene_spawner.debounced_scene_asset_events.clone().keys() {
+            let age = scene_spawner
+                .debounced_scene_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > SCENE_ASSET_AGE_THRESHOLD {
+                scene_spawner.debounced_scene_asset_events.remove(asset_id);
+            } else {
+                scene_spawner
+                    .debounced_scene_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
+        for asset_id in scene_spawner
+            .debounced_dynamic_scene_asset_events
+            .clone()
+            .keys()
+        {
+            let age = scene_spawner
+                .debounced_dynamic_scene_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > SCENE_ASSET_AGE_THRESHOLD {
+                scene_spawner
+                    .debounced_dynamic_scene_asset_events
+                    .remove(asset_id);
+            } else {
+                scene_spawner
+                    .debounced_dynamic_scene_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
     });
 }
 
@@ -811,21 +889,21 @@ mod tests {
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Option<Entity>) {
         // Add observer
         app.world_mut().add_observer(
-            move |trigger: On<SceneInstanceReady>,
+            move |event: On<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
                 assert_eq!(
-                    trigger.event().instance_id,
+                    event.event().instance_id,
                     scene_id,
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.target(),
+                    event.event_target(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
                 assert!(
-                    scene_spawner.instance_is_ready(trigger.event().instance_id),
+                    scene_spawner.instance_is_ready(event.event().instance_id),
                     "`InstanceId` is not ready"
                 );
                 trigger_count.0 += 1;

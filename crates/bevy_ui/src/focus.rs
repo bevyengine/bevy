@@ -1,6 +1,8 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, OverrideClip, UiStack,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
+    UiStack,
 };
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -14,7 +16,6 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -139,7 +140,7 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -234,7 +235,7 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let camera_entity = node.target_camera.camera()?;
+            let camera_entity = node.target_camera.get()?;
 
             let cursor_position = camera_cursor_positions.get(&camera_entity);
 

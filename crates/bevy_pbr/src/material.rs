@@ -5,12 +5,13 @@ use crate::*;
 use alloc::sync::Arc;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
+use bevy_camera::visibility::ViewVisibility;
+use bevy_camera::ScreenSpaceTransmissionQuality;
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
-        Transmissive3d, Transparent3d,
+        AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transmissive3d, Transparent3d,
     },
     prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
     tonemapping::Tonemapping,
@@ -49,13 +50,15 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewVisibility},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::Parallel;
-use core::any::TypeId;
+use core::any::{Any, TypeId};
+use core::hash::{BuildHasher, Hasher};
 use core::{hash::Hash, marker::PhantomData};
 use smallvec::SmallVec;
 use tracing::error;
@@ -79,7 +82,9 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::{mesh::{Mesh, Mesh3d}, render_resource::{AsBindGroup, ShaderRef}};
+/// # use bevy_mesh::{Mesh, Mesh3d};
+/// # use bevy_render::render_resource::AsBindGroup;
+/// # use bevy_shader::ShaderRef;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
@@ -386,7 +391,9 @@ where
                         early_sweep_material_instances::<M>
                             .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
-                        extract_entities_needs_specialization::<M>.after(extract_cameras),
+                        extract_entities_needs_specialization::<M>
+                            .after(extract_cameras)
+                            .after(MaterialExtractionSystems),
                     ),
                 );
         }
@@ -428,7 +435,7 @@ pub struct MaterialPipelineKey<M: Material> {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ErasedMaterialPipelineKey {
     pub mesh_key: MeshPipelineKey,
-    pub material_key: SmallVec<[u8; 8]>,
+    pub material_key: ErasedMaterialKey,
     pub type_id: TypeId,
 }
 
@@ -774,6 +781,7 @@ pub(crate) fn late_sweep_material_instances(
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    material_instances: Res<RenderMaterialInstances>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
@@ -791,7 +799,20 @@ pub fn extract_entities_needs_specialization<M>(
     // Clean up any despawned entities, we do this first in case the removed material was re-added
     // the same frame, thus will appear both in the removed components list and have been added to
     // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
+    //
+    // Additionally, we need to make sure that we are careful about materials that could have changed
+    // type, e.g. from a `StandardMaterial` to a `CustomMaterial`, as this will also appear in the
+    // removed components list. As such, we make sure that this system runs after `MaterialExtractionSystems`
+    // so that the `RenderMaterialInstances` bookkeeping has already been done, and we can check if the entity
+    // still has a valid material instance.
     for entity in removed_mesh_material_components.read() {
+        if material_instances
+            .instances
+            .contains_key(&MainEntity::from(entity))
+        {
+            continue;
+        }
+
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
             if let Some(cache) =
@@ -1286,6 +1307,85 @@ pub struct DeferredDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
 
+#[derive(Debug)]
+pub struct ErasedMaterialKey {
+    type_id: TypeId,
+    hash: u64,
+    value: Box<dyn Any + Send + Sync>,
+    vtable: Arc<ErasedMaterialKeyVTable>,
+}
+
+#[derive(Debug)]
+pub struct ErasedMaterialKeyVTable {
+    clone_fn: fn(&dyn Any) -> Box<dyn Any + Send + Sync>,
+    partial_eq_fn: fn(&dyn Any, &dyn Any) -> bool,
+}
+
+impl ErasedMaterialKey {
+    pub fn new<T>(material_key: T) -> Self
+    where
+        T: Clone + Hash + PartialEq + Send + Sync + 'static,
+    {
+        let type_id = TypeId::of::<T>();
+        let hash = FixedHasher::hash_one(&FixedHasher, &material_key);
+
+        fn clone<T: Clone + Send + Sync + 'static>(any: &dyn Any) -> Box<dyn Any + Send + Sync> {
+            Box::new(any.downcast_ref::<T>().unwrap().clone())
+        }
+        fn partial_eq<T: PartialEq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
+            a.downcast_ref::<T>().unwrap() == b.downcast_ref::<T>().unwrap()
+        }
+
+        Self {
+            type_id,
+            hash,
+            value: Box::new(material_key),
+            vtable: Arc::new(ErasedMaterialKeyVTable {
+                clone_fn: clone::<T>,
+                partial_eq_fn: partial_eq::<T>,
+            }),
+        }
+    }
+
+    pub fn to_key<T: Clone + 'static>(&self) -> T {
+        debug_assert_eq!(self.type_id, TypeId::of::<T>());
+        self.value.downcast_ref::<T>().unwrap().clone()
+    }
+}
+
+impl PartialEq for ErasedMaterialKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.type_id == other.type_id
+            && (self.vtable.partial_eq_fn)(self.value.as_ref(), other.value.as_ref())
+    }
+}
+
+impl Eq for ErasedMaterialKey {}
+
+impl Clone for ErasedMaterialKey {
+    fn clone(&self) -> Self {
+        Self {
+            type_id: self.type_id,
+            hash: self.hash,
+            value: (self.vtable.clone_fn)(self.value.as_ref()),
+            vtable: self.vtable.clone(),
+        }
+    }
+}
+
+impl Hash for ErasedMaterialKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.type_id.hash(state);
+        self.hash.hash(state);
+    }
+}
+
+impl Default for ErasedMaterialKey {
+    fn default() -> Self {
+        Self::new(())
+    }
+}
+
 /// Common [`Material`] properties, calculated for a specific material instance.
 #[derive(Default)]
 pub struct MaterialProperties {
@@ -1328,7 +1428,7 @@ pub struct MaterialProperties {
     >,
     /// The key for this material, typically a bitfield of flags that are used to modify
     /// the pipeline descriptor used for this material.
-    pub material_key: SmallVec<[u8; 8]>,
+    pub material_key: ErasedMaterialKey,
     /// Whether shadows are enabled for this material
     pub shadows_enabled: bool,
     /// Whether prepass is enabled for this material
@@ -1391,7 +1491,7 @@ pub struct PreparedMaterial {
 // orphan rules T_T
 impl<M: Material> ErasedRenderAsset for MeshMaterial3d<M>
 where
-    M::Data: Clone,
+    M::Data: PartialEq + Eq + Hash + Clone,
 {
     type SourceAsset = M;
     type ErasedAsset = PreparedMaterial;
@@ -1552,21 +1652,24 @@ where
 
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
-        let material_key = SmallVec::from(bytemuck::bytes_of(&bind_group_data));
+        let material_key = ErasedMaterialKey::new(bind_group_data);
         fn specialize<M: Material>(
             pipeline: &MaterialPipeline,
             descriptor: &mut RenderPipelineDescriptor,
             mesh_layout: &MeshVertexBufferLayoutRef,
             erased_key: ErasedMaterialPipelineKey,
-        ) -> Result<(), SpecializedMeshPipelineError> {
-            let material_key = bytemuck::from_bytes(erased_key.material_key.as_slice());
+        ) -> Result<(), SpecializedMeshPipelineError>
+        where
+            M::Data: Hash + Clone,
+        {
+            let material_key = erased_key.material_key.to_key();
             M::specialize(
                 pipeline,
                 descriptor,
                 mesh_layout,
                 MaterialPipelineKey {
                     mesh_key: erased_key.mesh_key,
-                    bind_group_data: *material_key,
+                    bind_group_data: material_key,
                 },
             )
         }
@@ -1678,21 +1781,6 @@ where
         };
         let bind_group_allactor = bind_group_allocators.get_mut(&TypeId::of::<M>()).unwrap();
         bind_group_allactor.free(material_binding_id);
-    }
-}
-
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(pub Option<BindGroupId>);
-
-impl MaterialBindGroupId {
-    pub fn new(id: BindGroupId) -> Self {
-        Self(Some(id))
-    }
-}
-
-impl From<BindGroup> for MaterialBindGroupId {
-    fn from(value: BindGroup) -> Self {
-        Self::new(value.id())
     }
 }
 

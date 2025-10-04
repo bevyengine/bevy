@@ -7,7 +7,8 @@ use bevy::{
     mesh::{SphereKind, SphereMeshBuilder},
     pbr::{ExtendedMaterial, MaterialExtension, MeshMaterial3d},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
     utils::default,
 };
 

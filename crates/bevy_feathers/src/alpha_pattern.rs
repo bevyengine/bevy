@@ -10,7 +10,8 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+use bevy_render::render_resource::AsBindGroup;
+use bevy_shader::ShaderRef;
 use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
 
 #[derive(AsBindGroup, Asset, TypePath, Default, Debug, Clone)]
@@ -42,11 +43,11 @@ pub(crate) struct AlphaPattern;
 /// Observer to fill in the material handle (since we don't have access to the materials asset
 /// in the template)
 fn on_add_alpha_pattern(
-    ev: On<Add, AlphaPattern>,
+    add: On<Add, AlphaPattern>,
     mut q_material_node: Query<&mut MaterialNode<AlphaPatternMaterial>>,
     r_material: Res<AlphaPatternResource>,
 ) {
-    if let Ok(mut material) = q_material_node.get_mut(ev.target()) {
+    if let Ok(mut material) = q_material_node.get_mut(add.entity) {
         material.0 = r_material.0.clone();
     }
 }

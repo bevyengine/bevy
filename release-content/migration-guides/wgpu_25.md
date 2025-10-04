@@ -1,5 +1,5 @@
 ---
-title: `wgpu` 25
+title: "`wgpu` 25"
 pull_requests: [ 19563 ]
 ---
 
@@ -21,3 +21,21 @@ Exported float constants from shaders without an explicit type declaration like 
 longer supported and must be explicitly typed like `const FOO: f32 = 1.0;`.
 
 See the [full changelog here](https://github.com/gfx-rs/wgpu/blob/trunk/CHANGELOG.md#v2500-2025-04-10).
+
+When migrating shaders or other custom rendering code, you may encounter panics like:
+
+```raw
+wgpu error: Validation Error
+
+Caused by:
+  In Device::create_render_pipeline, label = 'pbr_opaque_mesh_pipeline'
+    Error matching ShaderStages(FRAGMENT) shader requirements against the pipeline
+      Shader global ResourceBinding { group: 2, binding: 100 } is not available in the pipeline layout
+        Binding is missing from the pipeline layout
+
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+Encountered a panic in system `bevy_render::render_resource::pipeline_cache::PipelineCache::process_pipeline_queue_system`!
+```
+
+This error is a result of Bevy's bind group indices changing. Identify the shader by searching for the group and binding mentioned, e.g. `@group(2) @binding(100)`, and follow the above advice to fix the binding group index.

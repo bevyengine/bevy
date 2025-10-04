@@ -1,17 +1,20 @@
-use crate::WgpuWrapper;
 use crate::{
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice},
+    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    event::EventReader,
+    message::MessageReader,
     resource::Resource,
     system::{Res, ResMut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_shader::{
+    CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
+    ValidateShader,
+};
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};
@@ -724,7 +727,7 @@ impl PipelineCache {
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
         shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
             #[expect(
@@ -806,7 +809,7 @@ fn create_pipeline_task(
         return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
     }
 
-    match futures_lite::future::block_on(task) {
+    match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
@@ -821,7 +824,7 @@ fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
-    match futures_lite::future::block_on(task) {
+    match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }

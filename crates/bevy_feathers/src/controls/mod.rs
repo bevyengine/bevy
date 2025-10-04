@@ -10,16 +10,16 @@ mod slider;
 mod toggle_switch;
 mod virtual_keyboard;
 
-pub use button::{button, tool_button, ButtonPlugin, ButtonProps, ButtonVariant};
-pub use checkbox::{checkbox, CheckboxPlugin, CheckboxProps};
-pub use color_slider::{
-    color_slider, ColorChannel, ColorSlider, ColorSliderPlugin, ColorSliderProps, SliderBaseColor,
-};
-pub use color_swatch::{color_swatch, ColorSwatch, ColorSwatchFg};
-pub use radio::{radio, RadioPlugin};
-pub use slider::{slider, SliderPlugin, SliderProps};
-pub use toggle_switch::{toggle_switch, ToggleSwitchPlugin, ToggleSwitchProps};
-pub use virtual_keyboard::virtual_keyboard;
+pub use button::*;
+pub use checkbox::*;
+pub use color_slider::*;
+pub use color_swatch::*;
+pub use radio::*;
+pub use slider::*;
+pub use toggle_switch::*;
+pub use virtual_keyboard::*;
+
+use crate::alpha_pattern::AlphaPatternPlugin;
 
 /// Plugin which registers all `bevy_feathers` controls.
 pub struct ControlsPlugin;
@@ -27,6 +27,7 @@ pub struct ControlsPlugin;
 impl Plugin for ControlsPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins((
+            AlphaPatternPlugin,
             ButtonPlugin,
             CheckboxPlugin,
             ColorSliderPlugin,

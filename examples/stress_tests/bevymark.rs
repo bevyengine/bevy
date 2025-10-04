@@ -7,16 +7,14 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::AlphaMode2d,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    sprite_render::AlphaMode2d,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -135,8 +133,7 @@ fn main() {
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "BevyMark".into(),
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     present_mode: PresentMode::AutoNoVsync,
                     ..default()
                 }),
@@ -145,10 +142,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,
@@ -262,7 +256,7 @@ fn setup(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+                padding: UiRect::all(px(5)),
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),

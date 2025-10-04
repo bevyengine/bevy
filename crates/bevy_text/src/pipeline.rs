@@ -64,7 +64,7 @@ pub struct FontFaceInfo {
     pub family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -98,8 +98,8 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut font_size: f32 = 0.;
-        let mut line_height: f32 = 0.0;
+        let mut max_font_size: f32 = 0.;
+        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -131,8 +131,8 @@ impl TextPipeline {
             }
 
             // Get max font size for use in cosmic Metrics.
-            font_size = font_size.max(text_font.font_size);
-            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
+            max_font_size = max_font_size.max(text_font.font_size);
+            max_line_height = max_line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -153,7 +153,7 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
         // deallocating the buffer.
@@ -449,6 +449,8 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.

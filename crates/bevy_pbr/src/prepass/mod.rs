@@ -12,10 +12,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::Camera;
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
-};
+use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -23,13 +21,12 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
     alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
-    load_shader_library,
     mesh::{allocator::MeshAllocator, RenderMesh},
     render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
@@ -42,6 +39,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
 pub use prepass_bindings::*;
 use tracing::{error, warn};
@@ -203,15 +201,15 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let world_from_view = camera_transform.to_matrix();
-        let view_from_world = world_from_view.inverse();
+        let world_from_view = camera_transform.affine();
+        let view_from_world = Mat4::from(world_from_view.inverse());
         let view_from_clip = camera.clip_from_view().inverse();
 
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
-            world_from_clip: world_from_view * view_from_clip,
+            world_from_clip: Mat4::from(world_from_view) * view_from_clip,
             view_from_clip,
         });
     }
@@ -674,15 +672,15 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let world_from_view = camera.world_from_view.to_matrix();
-                let view_from_world = world_from_view.inverse();
+                let world_from_view = camera.world_from_view.affine();
+                let view_from_world = Mat4::from(world_from_view.inverse());
                 let view_from_clip = camera.clip_from_view.inverse();
 
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
-                    world_from_clip: world_from_view * view_from_clip,
+                    world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,
                 }
             }

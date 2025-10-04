@@ -61,7 +61,7 @@ fn base() -> impl Scene {
         Gen::<usize> {
             value: 10,
         }
-        on(|event: On<Explode>| {
+        on(|explode: On<Explode>| {
         })
         Foo(100, @"asset://branding/bevy_bird_dark.png")
         [
@@ -125,8 +125,10 @@ struct Nested {
 #[derive(Component, Clone, Debug, GetTemplate)]
 struct Foo(usize, #[template] Handle<Image>);
 
-#[derive(Event, EntityEvent)]
-struct Explode;
+#[derive(EntityEvent)]
+struct Explode {
+    entity: Entity,
+}
 
 #[derive(Component, Default, Clone)]
 struct Thing;

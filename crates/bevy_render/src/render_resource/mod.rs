@@ -16,7 +16,6 @@ mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
-pub use bevy_shader::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;

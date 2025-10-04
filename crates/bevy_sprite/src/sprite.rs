@@ -1,23 +1,20 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    sync_world::SyncToRenderWorld,
-    view::{self, Visibility, VisibilityClass},
-};
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Clone, Reflect)]
-#[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
+#[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
+#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
@@ -170,6 +167,14 @@ impl From<Handle<Image>> for Sprite {
     }
 }
 
+impl AsAssetId for Sprite {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
@@ -299,7 +304,7 @@ mod tests {
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
-    use bevy_render::render_resource::{TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDimension, TextureFormat};
 
     use crate::Anchor;
 

@@ -3,10 +3,10 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
-use bevy_core_pipeline::{
-    core_3d::Camera3d,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+use bevy_core_pipeline::prepass::{
+    DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -18,7 +18,8 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::{BevyDefault, Image};
-use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
+use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
+use bevy_math::{vec4, Affine3A, Mat4, Vec3, Vec3A, Vec4};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
@@ -33,7 +34,7 @@ use bevy_render::{
         BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
         PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
     },
@@ -43,15 +44,15 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
+use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
-    VolumetricLight,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -697,12 +698,12 @@ pub fn prepare_volumetric_fog_uniforms(
     fog_volumes: Query<(Entity, &FogVolume, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut local_from_world_matrices: Local<Vec<Mat4>>,
+    mut local_from_world_matrices: Local<Vec<Affine3A>>,
 ) {
     // Do this up front to avoid O(n^2) matrix inversion.
     local_from_world_matrices.clear();
     for (_, _, fog_transform) in fog_volumes.iter() {
-        local_from_world_matrices.push(fog_transform.to_matrix().inverse());
+        local_from_world_matrices.push(fog_transform.affine().inverse());
     }
 
     let uniform_count = view_targets.iter().len() * local_from_world_matrices.len();
@@ -714,7 +715,7 @@ pub fn prepare_volumetric_fog_uniforms(
     };
 
     for (view_entity, extracted_view, volumetric_fog) in view_targets.iter() {
-        let world_from_view = extracted_view.world_from_view.to_matrix();
+        let world_from_view = extracted_view.world_from_view.affine();
 
         let mut view_fog_volumes = vec![];
 
@@ -735,7 +736,9 @@ pub fn prepare_volumetric_fog_uniforms(
             );
 
             // Calculate the radius of the sphere that bounds the fog volume.
-            let bounding_radius = (Mat3A::from_mat4(view_from_local) * Vec3A::splat(0.5)).length();
+            let bounding_radius = view_from_local
+                .transform_vector3a(Vec3A::splat(0.5))
+                .length();
 
             // Write out our uniform.
             let uniform_buffer_offset = writer.write(&VolumetricFogUniform {
@@ -787,9 +790,8 @@ pub fn prepare_view_depth_textures_for_volumetric_fog(
     }
 }
 
-fn get_far_planes(view_from_local: &Mat4) -> [Vec4; 3] {
+fn get_far_planes(view_from_local: &Affine3A) -> [Vec4; 3] {
     let (mut far_planes, mut next_index) = ([Vec4::ZERO; 3], 0);
-    let view_from_normal_local = Mat3A::from_mat4(*view_from_local);
 
     for &local_normal in &[
         Vec3A::X,
@@ -799,13 +801,15 @@ fn get_far_planes(view_from_local: &Mat4) -> [Vec4; 3] {
         Vec3A::Z,
         Vec3A::NEG_Z,
     ] {
-        let view_normal = (view_from_normal_local * local_normal).normalize_or_zero();
+        let view_normal = view_from_local
+            .transform_vector3a(local_normal)
+            .normalize_or_zero();
         if view_normal.z <= 0.0 {
             continue;
         }
 
-        let view_position = *view_from_local * (-local_normal * 0.5).extend(1.0);
-        let plane_coords = view_normal.extend(-view_normal.dot(view_position.xyz().into()));
+        let view_position = view_from_local.transform_point3a(-local_normal * 0.5);
+        let plane_coords = view_normal.extend(-view_normal.dot(view_position));
 
         far_planes[next_index] = plane_coords;
         next_index += 1;
@@ -845,8 +849,9 @@ impl VolumetricFogBindGroupLayoutKey {
 
 /// Given the transform from the view to the 1×1×1 cube in local fog volume
 /// space, returns true if the camera is inside the volume.
-fn camera_is_inside_fog_volume(local_from_view: &Mat4) -> bool {
-    Vec3A::from(local_from_view.col(3).xyz())
+fn camera_is_inside_fog_volume(local_from_view: &Affine3A) -> bool {
+    local_from_view
+        .translation
         .abs()
         .cmple(Vec3A::splat(0.5))
         .all()
@@ -857,10 +862,10 @@ fn camera_is_inside_fog_volume(local_from_view: &Mat4) -> bool {
 fn calculate_fog_volume_clip_from_local_transforms(
     interior: bool,
     clip_from_view: &Mat4,
-    view_from_local: &Mat4,
+    view_from_local: &Affine3A,
 ) -> Mat4 {
     if !interior {
-        return *clip_from_view * *view_from_local;
+        return *clip_from_view * Mat4::from(*view_from_local);
     }
 
     // If the camera is inside the fog volume, then we'll be rendering a full

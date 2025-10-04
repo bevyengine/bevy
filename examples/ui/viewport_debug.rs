@@ -25,7 +25,7 @@ fn main() {
                 title: "Viewport Coordinates Debug".to_string(),
                 // This example relies on these specific viewport dimensions, so let's explicitly
                 // define them.
-                resolution: [1280., 720.].into(),
+                resolution: (1280, 720).into(),
                 resizable: false,
                 ..Default::default()
             }),
@@ -69,9 +69,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Vw(100.),
-                height: Val::Vh(100.),
-                border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
+                width: vw(100),
+                height: vh(100),
+                border: UiRect::axes(vw(5), vh(5)),
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
@@ -81,9 +81,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn((
                 Node {
-                    width: Val::Vw(30.),
-                    height: Val::Vh(30.),
-                    border: UiRect::all(Val::VMin(5.)),
+                    width: vw(30),
+                    height: vh(30),
+                    border: UiRect::all(vmin(5)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
@@ -92,8 +92,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Vw(60.),
-                    height: Val::Vh(30.),
+                    width: vw(60),
+                    height: vh(30),
                     ..default()
                 },
                 BackgroundColor(PALETTE[3].into()),
@@ -101,9 +101,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Vw(45.),
-                    height: Val::Vh(30.),
-                    border: UiRect::left(Val::VMax(45. / 2.)),
+                    width: vw(45),
+                    height: vh(30),
+                    border: UiRect::left(vmax(45. / 2.)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
@@ -112,9 +112,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Vw(45.),
-                    height: Val::Vh(30.),
-                    border: UiRect::right(Val::VMax(45. / 2.)),
+                    width: vw(45),
+                    height: vh(30),
+                    border: UiRect::right(vmax(45. / 2.)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
@@ -123,8 +123,8 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Vw(60.),
-                    height: Val::Vh(30.),
+                    width: vw(60),
+                    height: vh(30),
                     ..default()
                 },
                 BackgroundColor(PALETTE[6].into()),
@@ -132,9 +132,9 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Vw(30.),
-                    height: Val::Vh(30.),
-                    border: UiRect::all(Val::VMin(5.)),
+                    width: vw(30),
+                    height: vh(30),
+                    border: UiRect::all(vmin(5)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
@@ -147,9 +147,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Px(640.),
-                height: Val::Px(360.),
-                border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
+                width: px(640),
+                height: px(360),
+                border: UiRect::axes(px(32), px(18)),
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
@@ -159,9 +159,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
         .with_children(|builder| {
             builder.spawn((
                 Node {
-                    width: Val::Px(192.),
-                    height: Val::Px(108.),
-                    border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
+                    width: px(192),
+                    height: px(108),
+                    border: UiRect::axes(px(18), px(18)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
@@ -170,8 +170,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Px(384.),
-                    height: Val::Px(108.),
+                    width: px(384),
+                    height: px(108),
                     ..default()
                 },
                 BackgroundColor(PALETTE[3].into()),
@@ -179,9 +179,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Px(288.),
-                    height: Val::Px(108.),
-                    border: UiRect::left(Val::Px(144.)),
+                    width: px(288),
+                    height: px(108),
+                    border: UiRect::left(px(144)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
@@ -190,9 +190,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Px(288.),
-                    height: Val::Px(108.),
-                    border: UiRect::right(Val::Px(144.)),
+                    width: px(288),
+                    height: px(108),
+                    border: UiRect::right(px(144)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
@@ -201,8 +201,8 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Px(384.),
-                    height: Val::Px(108.),
+                    width: px(384),
+                    height: px(108),
                     ..default()
                 },
                 BackgroundColor(PALETTE[6].into()),
@@ -210,9 +210,9 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
 
             builder.spawn((
                 Node {
-                    width: Val::Px(192.),
-                    height: Val::Px(108.),
-                    border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
+                    width: px(192),
+                    height: px(108),
+                    border: UiRect::axes(px(18), px(18)),
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
