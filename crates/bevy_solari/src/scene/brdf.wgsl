@@ -11,8 +11,8 @@ fn evaluate_brdf(
     wi: vec3<f32>,
     material: ResolvedMaterial,
 ) -> vec3<f32> {
-    let diffuse_brdf = diffuse_brdf(material.base_color, material.metallic);
-    let specular_brdf = specular_brdf(
+    let diffuse_brdf = evaluate_diffuse_brdf(material.base_color, material.metallic);
+    let specular_brdf = evaluate_specular_brdf(
         world_normal,
         wo,
         wi,
@@ -25,12 +25,12 @@ fn evaluate_brdf(
     return diffuse_brdf + specular_brdf;
 }
 
-fn diffuse_brdf(base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
+fn evaluate_diffuse_brdf(base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
     let diffuse_color = calculate_diffuse_color(base_color, metallic, 0.0, 0.0);
     return diffuse_color / PI;
 }
 
-fn specular_brdf(
+fn evaluate_specular_brdf(
     N: vec3<f32>,
     V: vec3<f32>,
     L: vec3<f32>,
