@@ -2,12 +2,17 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
+use bevy_image::{
+    ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
+};
+use bevy_render::render_resource::{AsBindGroup, ShaderType};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
     camera::Exposure,
+    color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
     diagnostic::LogDiagnosticsPlugin,
     input::keyboard::KeyCode,
@@ -17,10 +22,11 @@ use bevy::{
     },
     pbr::{
         Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
-        ScreenSpaceReflections,
+        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
+    shader::ShaderRef,
 };
 
 #[derive(Resource, Default)]
@@ -38,6 +44,7 @@ fn main() {
             CameraControllerPlugin,
             LogDiagnosticsPlugin::default(),
         ))
+        .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(
             Startup,
             (setup_camera_fog, setup_terrain_scene, print_controls),
@@ -95,7 +102,7 @@ fn atmosphere_controls(
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Transform::from_xyz(-3.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // This is the component that enables atmospheric scattering for a camera
         Atmosphere::EARTH,
         // Can be adjusted to change the scene scale and rendering quality
@@ -123,10 +130,44 @@ fn setup_camera_fog(mut commands: Commands) {
 #[derive(Component)]
 struct Terrain;
 
+/// A custom [`ExtendedMaterial`] that creates animated water ripples.
+#[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
+struct Water {
+    /// The normal map image.
+    ///
+    /// Note that, like all normal maps, this must not be loaded as sRGB.
+    #[texture(100)]
+    #[sampler(101)]
+    normals: Handle<Image>,
+
+    // Parameters to the water shader.
+    #[uniform(102)]
+    settings: WaterSettings,
+}
+
+/// Parameters to the water shader.
+#[derive(ShaderType, Debug, Clone)]
+struct WaterSettings {
+    /// How much to displace each octave each frame, in the u and v directions.
+    /// Two octaves are packed into each `vec4`.
+    octave_vectors: [Vec4; 2],
+    /// How wide the waves are in each octave.
+    octave_scales: Vec4,
+    /// How high the waves are in each octave.
+    octave_strengths: Vec4,
+}
+
+impl MaterialExtension for Water {
+    fn deferred_fragment_shader() -> ShaderRef {
+        "shaders/water_material.wgsl".into()
+    }
+}
+
 fn setup_terrain_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut water_materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, Water>>>,
     asset_server: Res<AssetServer>,
 ) {
     // Configure a properly scaled cascade shadow map for this scene (defaults are too large, mesh units are in km)
@@ -194,6 +235,58 @@ fn setup_terrain_scene(
         Transform::from_xyz(-1.0, 0.0, -0.5)
             .with_scale(Vec3::splat(0.5))
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    ));
+
+    spawn_water(
+        &mut commands,
+        &asset_server,
+        &mut meshes,
+        &mut water_materials,
+    );
+}
+
+// Spawns the water plane.
+fn spawn_water(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    meshes: &mut Assets<Mesh>,
+    water_materials: &mut Assets<ExtendedMaterial<StandardMaterial, Water>>,
+) {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::splat(1.0)))),
+        MeshMaterial3d(water_materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                base_color: BLACK.into(),
+                perceptual_roughness: 0.0,
+                ..default()
+            },
+            extension: Water {
+                normals: asset_server.load_with_settings::<Image, ImageLoaderSettings>(
+                    "textures/water_normals.png",
+                    |settings| {
+                        settings.is_srgb = false;
+                        settings.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                            address_mode_u: ImageAddressMode::Repeat,
+                            address_mode_v: ImageAddressMode::Repeat,
+                            mag_filter: ImageFilterMode::Linear,
+                            min_filter: ImageFilterMode::Linear,
+                            ..default()
+                        });
+                    },
+                ),
+                // These water settings are just random values to create some
+                // variety.
+                settings: WaterSettings {
+                    octave_vectors: [
+                        vec4(0.080, 0.059, 0.073, -0.062),
+                        vec4(0.153, 0.138, -0.149, -0.195),
+                    ],
+                    octave_scales: vec4(1.0, 2.1, 7.9, 14.9) * 500.0,
+                    octave_strengths: vec4(0.16, 0.18, 0.093, 0.044) * 0.2,
+                },
+            },
+        })),
+        Transform::from_scale(Vec3::splat(100.0)),
     ));
 }
 
