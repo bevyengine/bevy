@@ -240,7 +240,7 @@ pub fn update_text2d_layout(
                 scale_factor as f64,
                 &block,
                 text_bounds,
-                &mut font_atlas_sets,
+                &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
                 computed.as_mut(),
