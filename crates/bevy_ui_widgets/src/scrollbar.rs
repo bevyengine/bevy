@@ -263,7 +263,7 @@ fn update_scrollbar_thumb(
             visible_size: f32,
             track_length: f32,
             min_size: f32,
-            offset: f32,
+            mut offset: f32,
         ) -> (f32, f32) {
             let thumb_size = if content_size > visible_size {
                 (track_length * visible_size / content_size)
@@ -272,6 +272,15 @@ fn update_scrollbar_thumb(
             } else {
                 track_length
             };
+
+            if content_size > visible_size {
+                let max_offset = content_size - visible_size;
+
+                // Clamp offset to prevent thumb from going out of bounds during inertial scroll
+                offset = offset.clamp(0.0, max_offset);
+            } else {
+                offset = 0.0;
+            }
 
             let thumb_pos = if content_size > visible_size {
                 offset * (track_length - thumb_size) / (content_size - visible_size)
