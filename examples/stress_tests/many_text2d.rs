@@ -179,7 +179,7 @@ fn print_counts(
     }
 
     let font_id = font.0.id();
-    let num_atlases = atlases
+    let num_atlases = font_atlas_set
         .iter()
         .filter(|(key, _)| key.0 == font_id)
         .map(|(_, atlases)| atlases.len())
