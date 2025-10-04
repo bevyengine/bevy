@@ -4,10 +4,12 @@ use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_platform::collections::HashMap;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
+///
+/// The `u32` value is bitcast from the font's `f32` size value.
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
 
-/// A map of font faces to their corresponding [`FontAtlas`]es.
+/// Set of rasterized font's stored in [`FontAtlas`]es.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSet {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
@@ -25,21 +27,26 @@ impl FontAtlasSet {
         self.sets.get_mut(&id)
     }
 
-    /// Returns an iterator over all the [`FontAtlas`]es in this set
+    /// Returns the total number of rasterized font faces stored in this `FontAtlasSet`.
+    pub fn font_count(&self) -> usize {
+        self.sets.len()
+    }
+
+    /// Returns an iterator over each font and its corresponding list of [`FontAtlas`]es.
     pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.sets.iter()
     }
 
-    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es in this set
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_size: &FontAtlasKey) -> bool {
+    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es for this font.
+    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_key: &FontAtlasKey) -> bool {
         self.sets
-            .get(font_size)
+            .get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
     }
 }
 
-/// A system that cleans up [`FontAtlas`]es for removed [`Font`]s
-pub fn remove_dropped_font_atlas_sets(
+/// System that automatically frees the unused texture atlases after a font asset is removed.
+pub fn free_unused_font_atlases_system(
     mut font_atlas_sets: ResMut<FontAtlasSet>,
     mut font_events: MessageReader<AssetEvent<Font>>,
 ) {
