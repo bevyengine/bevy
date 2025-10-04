@@ -6,21 +6,6 @@ use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuil
 use core::fmt::Debug;
 use log::trace;
 
-cfg_if::cfg_if! {
-    if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
-        use {crate::Last, bevy_tasks::tick_global_task_pools_on_main_thread};
-        use bevy_ecs::system::NonSendMarker;
-
-        /// A system used to check and advanced our task pools.
-        ///
-        /// Calls [`tick_global_task_pools_on_main_thread`],
-        /// and uses [`NonSendMarker`] to ensure that this system runs on the main thread
-        fn tick_global_task_pools(_main_thread_marker: NonSendMarker) {
-            tick_global_task_pools_on_main_thread();
-        }
-    }
-}
-
 /// Setup of default task pools: [`AsyncComputeTaskPool`], [`ComputeTaskPool`], [`IoTaskPool`].
 #[derive(Default)]
 pub struct TaskPoolPlugin {
@@ -32,9 +17,6 @@ impl Plugin for TaskPoolPlugin {
     fn build(&self, _app: &mut App) {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
-
-        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
-        _app.add_systems(Last, tick_global_task_pools);
     }
 }
 

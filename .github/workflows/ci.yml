@@ -91,6 +91,13 @@ jobs:
   miri:
     runs-on: macos-latest
     timeout-minutes: 60
+    env:
+      # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
+      RUSTFLAGS: -Zrandomize-layout
+      # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
+      # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
+      # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
+      MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
     steps:
       - uses: actions/checkout@v5
       - uses: actions/cache/restore@v4
@@ -111,17 +118,14 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
-      - name: CI job
+      - name: CI job (Tasks)
+        # To run the tests one item at a time for troubleshooting, use
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_tasks --lib -- --exact
+        run: cargo miri test -p bevy_tasks --features bevy_executor --features multi_threaded
+      - name: CI job (ECS)
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
         run: cargo miri test -p bevy_ecs --features bevy_utils/debug
-        env:
-          # -Zrandomize-layout makes sure we dont rely on the layout of anything that might change
-          RUSTFLAGS: -Zrandomize-layout
-          # https://github.com/rust-lang/miri#miri--z-flags-and-environment-variables
-          # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
-          # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
-          MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
 
   check-compiles:
     runs-on: ubuntu-latest
