@@ -17,7 +17,7 @@ use core::{
     fmt::{Debug, Write},
 };
 use fixedbitset::FixedBitSet;
-use log::{error, info, warn};
+use log::{info, warn};
 use pass::ScheduleBuildPassObj;
 use thiserror::Error;
 #[cfg(feature = "trace")]

@@ -5,7 +5,7 @@ use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use core::hash::Hash;
 use naga::valid::Capabilities;
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::debug;
 use wgpu_types::{DownlevelFlags, Features};
 
 /// Source of a shader module.

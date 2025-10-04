@@ -14,7 +14,6 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -130,7 +129,7 @@ pub fn init_box_shadow_pipeline(
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BoxShadowPipelineKey {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     /// Number of samples, a higher value results in better quality shadows.
     pub samples: u32,
 }
@@ -174,11 +173,7 @@ impl SpecializedRenderPipeline for BoxShadowPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -337,7 +332,7 @@ pub fn queue_shadows(
             &pipeline_cache,
             &box_shadow_pipeline,
             BoxShadowPipelineKey {
-                hdr: view.hdr,
+                target_format: view.target_format,
                 samples: shadow_samples.copied().unwrap_or_default().0,
             },
         );

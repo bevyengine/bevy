@@ -31,9 +31,9 @@ use bevy::{
             ColorTargetState, ColorWrites, CompareFunction, DepthStencilState, Face, FragmentState,
             FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            SpecializedMeshPipelines, VertexState,
         },
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
@@ -223,11 +223,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
                 targets: vec![Some(ColorTargetState {
                     // This isn't required, but bevy supports HDR and non-HDR rendering
                     // so it's generally recommended to specialize the pipeline for that
-                    format: if mesh_key.contains(MeshPipelineKey::HDR) {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: mesh_key.view_target_format(),
                     // For this example we only use opaque meshes,
                     // but if you wanted to use alpha blending you would need to set it here
                     blend: None,
@@ -296,7 +292,7 @@ fn queue_custom_mesh_pipeline(
 
         // Create the key based on the view. In this case we only care about MSAA and HDR
         let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         // Find all the custom rendered entities that are visible from this
         // view.

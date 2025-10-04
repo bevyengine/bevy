@@ -16,3 +16,11 @@ impl_reflect_opaque!(::wgpu_types::BlendState(
     Deserialize,
     Serialize,
 ));
+impl_reflect_opaque!(::wgpu_types::TextureUsages(
+    Clone,
+    Debug,
+    Hash,
+    PartialEq,
+    Deserialize,
+    Serialize,
+));

@@ -3,7 +3,6 @@ use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 use thiserror::Error;
-use tracing::error;
 
 /// An error produced by [`DynamicTextureAtlasBuilder`] when trying to add a new
 /// texture to a [`TextureAtlasLayout`].

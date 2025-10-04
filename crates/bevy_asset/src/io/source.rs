@@ -12,7 +12,7 @@ use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
 use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
-use tracing::{error, warn};
+use tracing::warn;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
