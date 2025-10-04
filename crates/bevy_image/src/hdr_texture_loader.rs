@@ -1,13 +1,14 @@
 use crate::{Image, TextureAccessError, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_reflect::TypePath;
 use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
-#[derive(Clone, Default)]
+#[derive(Clone, Default, TypePath)]
 pub struct HdrTextureLoader;
 
 #[derive(Serialize, Deserialize, Default, Debug)]
