@@ -49,6 +49,43 @@ fn karis_average(color: vec3<f32>) -> f32 {
     return 1.0 / (1.0 + luma);
 }
 
+// https://www.shadertoy.com/view/mdsyDf
+#ifdef FAST_BLUR
+fn bloom_down_kernel4(uv: vec2<f32>) -> vec3<f32> {
+	let ps = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
+	let o = 0.5 + 1.0 / 4.0;
+
+	let a = textureSample(input_texture, s, uv + vec2<f32>(-1.0, -1.0) * o * ps).rgb * 0.25;
+	let b = textureSample(input_texture, s, uv + vec2<f32>(1.0, -1.0) * o * ps).rgb * 0.25;
+	let c = textureSample(input_texture, s, uv + vec2<f32>(-1.0, 1.0) * o * ps).rgb * 0.25;
+	let d = textureSample(input_texture, s, uv + vec2<f32>(1.0, 1.0) * o * ps).rgb * 0.25;
+
+#ifdef FIRST_DOWNSAMPLE
+	return (a + b + c + d) * karis_average(a + b + c + d);
+#else
+	return a + b + c + d;
+#endif
+}
+
+fn bloom_up_kernel4(uv: vec2<f32>) -> vec3<f32> {
+	// Modified version of BloomUpKernel4B https://www.shadertoy.com/view/mdsyDf. I couldn't get a good result with the original version.
+	let ps = uniforms.scale / vec2<f32>(textureDimensions(input_texture));
+    let w = vec4<f32>(0.211029, 0.288971, 0.288971, 0.211029);
+    // Add a small offset for better radial symmetry.
+    let l00 = vec2<f32>(0.347209, 0.526425) + 0.1;
+    let l10 = vec2<f32>(0.109840, 0.334045) + 0.1;
+    let l01 = vec2<f32>(0.334045, 0.109840) + 0.1;
+    let l11 = vec2<f32>(0.526425, 0.347209) + 0.1;
+
+	let a = textureSample(input_texture, s, uv + (vec2<f32>( -0.5, -1.5) + l00) * ps).rgb * w.x;
+	let b = textureSample(input_texture, s, uv + (vec2<f32>(0.5, -0.5) + l10) * ps).rgb * w.y;
+	let c = textureSample(input_texture, s, uv + (vec2<f32>( -0.5, 0.5) + l01) * ps).rgb * w.z;
+	let d = textureSample(input_texture, s, uv + (vec2<f32>( -1.5,-0.5) + l11) * ps).rgb * w.w;
+
+    return a + b + c + d;
+}
+#endif
+
 // [COD] slide 153
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 #ifdef UNIFORM_SCALE
@@ -161,7 +198,11 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 @fragment
 fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
     let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
+#ifdef FAST_BLUR
+	var sample = bloom_down_kernel4(sample_uv);
+#else
     var sample = sample_input_13_tap(sample_uv);
+#endif
     // Lower bound of 0.0001 is to avoid propagating multiplying by 0.0 through the
     // downscaling and upscaling which would result in black boxes.
     // The upper bound is to prevent NaNs.
@@ -178,10 +219,18 @@ fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32>
 
 @fragment
 fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+#ifdef FAST_BLUR
+	return vec4<f32>(bloom_down_kernel4(uv), 1.0);
+#else
     return vec4<f32>(sample_input_13_tap(uv), 1.0);
+#endif
 }
 
 @fragment
 fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+#ifdef FAST_BLUR
+	return vec4<f32>(bloom_up_kernel4(uv), 1.0);
+#else
     return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
+#endif
 }
