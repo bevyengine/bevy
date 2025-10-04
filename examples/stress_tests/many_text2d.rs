@@ -6,7 +6,7 @@ use bevy::{
     camera::visibility::NoFrustumCulling,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::FontAtlasSets,
+    text::FontAtlasSet,
     window::{PresentMode, WindowResolution},
     winit::WinitSettings,
 };
@@ -170,7 +170,7 @@ fn print_counts(
     time: Res<Time>,
     mut timer: Local<PrintingTimer>,
     texts: Query<&ViewVisibility, With<Text2d>>,
-    atlases: Res<FontAtlasSets>,
+    font_atlas_set: Res<FontAtlasSet>,
     font: Res<FontHandle>,
 ) {
     timer.tick(time.delta());
@@ -178,10 +178,12 @@ fn print_counts(
         return;
     }
 
-    let num_atlases = atlases
-        .get(font.0.id())
-        .map(|set| set.iter().map(|atlas| atlas.1.len()).sum())
-        .unwrap_or(0);
+    let font_id = font.0.id();
+    let num_atlases = font_atlas_set
+        .iter()
+        .filter(|(key, _)| key.0 == font_id)
+        .map(|(_, atlases)| atlases.len())
+        .sum::<usize>();
 
     let visible_texts = texts.iter().filter(|visibility| visibility.get()).count();
 
