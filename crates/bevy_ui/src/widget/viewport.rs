@@ -32,6 +32,8 @@ use bevy_transform::components::GlobalTransform;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
+#[cfg(feature = "bevy_ui_picking_backend")]
+use crate::UiGlobalTransform;
 use crate::{ComputedNode, Node};
 
 /// Component used to render a [`Camera::target`]  to a node.
@@ -73,7 +75,7 @@ pub fn viewport_picking(
         &PointerId,
         &mut PointerLocation,
         &ComputedNode,
-        &GlobalTransform,
+        &UiGlobalTransform,
     )>,
     camera_query: Query<&Camera>,
     hover_map: Res<HoverMap>,
@@ -123,10 +125,8 @@ pub fn viewport_picking(
         };
 
         // Create a `Rect` in *physical* coordinates centered at the node's GlobalTransform
-        let node_rect = Rect::from_center_size(
-            global_transform.translation().truncate(),
-            computed_node.size(),
-        );
+        let node_rect =
+            Rect::from_center_size(global_transform.translation.trunc(), computed_node.size());
         // Location::position uses *logical* coordinates
         let top_left = node_rect.min * computed_node.inverse_scale_factor();
         let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
