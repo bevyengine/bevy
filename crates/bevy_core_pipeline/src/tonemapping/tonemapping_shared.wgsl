@@ -48,15 +48,6 @@ fn rgb_to_ycbcr(col: vec3<f32>) -> vec3<f32> {
     return col * m;
 }
 
-fn ycbcr_to_rgb(col: vec3<f32>) -> vec3<f32> {
-    let m = mat3x3<f32>(
-        1.0, 0.0, 1.5748,
-        1.0, -0.1873, -0.4681,
-        1.0, 1.8556, 0.0
-    );
-    return max(vec3(0.0), col * m);
-}
-
 fn tonemap_curve(v: f32) -> f32 {
 #ifdef 0
     // Large linear part in the lows, but compresses highs.
@@ -241,11 +232,6 @@ fn sample_blender_filmic_lut(stimulus: vec3<f32>) -> vec3<f32> {
 // reinhard on RGB oversaturates colors
 fn tonemapping_reinhard(color: vec3<f32>) -> vec3<f32> {
     return color / (1.0 + color);
-}
-
-fn tonemapping_reinhard_extended(color: vec3<f32>, max_white: f32) -> vec3<f32> {
-    let numerator = color * (1.0 + (color / vec3<f32>(max_white * max_white)));
-    return numerator / (1.0 + color);
 }
 
 // luminance coefficients from Rec. 709.
