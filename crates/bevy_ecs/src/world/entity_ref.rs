@@ -146,6 +146,15 @@ impl<'w> EntityRef<'w> {
         unsafe { self.cell.get_change_ticks::<T>() }
     }
 
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
+    #[inline]
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.cell.get_changed_by::<T>() }
+    }
+
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
@@ -1745,6 +1754,18 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks::<T>()
+    }
+
+    /// Get the [`MaybeLocation`] from where the given [`Component`] was last changed from.
+    /// This contains information regarding the last place (in code) that changed this component and can be useful for debugging.
+    /// For more information, see [`Location`](https://doc.rust-lang.org/nightly/core/panic/struct.Location.html), and enable the `track_location` feature.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_changed_by<T: Component>(&self) -> Option<MaybeLocation> {
+        self.as_readonly().get_changed_by::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -5219,6 +5240,7 @@ mod tests {
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
+        entity_disabling::Internal,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
         world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
@@ -5660,7 +5682,7 @@ mod tests {
 
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityRefExcept<TestComponent>>();
+        let mut query = world.query::<EntityRefExcept<(TestComponent, Internal)>>();
 
         let mut found = false;
         for entity_ref in query.iter_mut(&mut world) {
@@ -5718,7 +5740,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, query: Query<EntityRefExcept<TestComponent>>) {
+        fn system(
+            _: Query<&mut TestComponent>,
+            query: Query<EntityRefExcept<(TestComponent, Internal)>>,
+        ) {
             for entity_ref in query.iter() {
                 assert!(matches!(
                     entity_ref.get::<TestComponent2>(),
@@ -5735,7 +5760,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityMutExcept<TestComponent>>();
+        let mut query = world.query::<EntityMutExcept<(TestComponent, Internal)>>();
 
         let mut found = false;
         for mut entity_mut in query.iter_mut(&mut world) {
@@ -5800,7 +5825,10 @@ mod tests {
 
         world.run_system_once(system).unwrap();
 
-        fn system(_: Query<&mut TestComponent>, mut query: Query<EntityMutExcept<TestComponent>>) {
+        fn system(
+            _: Query<&mut TestComponent>,
+            mut query: Query<EntityMutExcept<(TestComponent, Internal)>>,
+        ) {
             for mut entity_mut in query.iter_mut() {
                 assert!(entity_mut
                     .get_mut::<TestComponent2>()
