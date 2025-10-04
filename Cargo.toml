@@ -130,7 +130,7 @@ default = [
   "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
-  "animation",
+  "gltf_animation",
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
@@ -439,7 +439,7 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_internal/animation", "bevy_animation"]
+gltf_animation = ["bevy_internal/gltf_animation"]
 
 # Enable using a shared stdlib for cxx on Android
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
