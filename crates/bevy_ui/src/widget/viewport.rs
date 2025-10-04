@@ -28,8 +28,6 @@ use bevy_picking::{
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 #[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_transform::components::GlobalTransform;
-#[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
