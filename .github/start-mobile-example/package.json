@@ -13,13 +13,13 @@
   "author": "",
   "license": "MIT/Apache2",
   "devDependencies": {
-    "@wdio/cli": "^5.20.1",
-    "@wdio/local-runner": "^5.20.1",
-    "@wdio/mocha-framework": "^5.18.7",
-    "browserstack-local": "^1.4.5",
-    "@percy/appium-app": "^0.0.7"
+    "@wdio/cli": "^9.20.0",
+    "@wdio/local-runner": "^9.20.0",
+    "@wdio/mocha-framework": "^9.20.0",
+    "browserstack-local": "^1.5.8",
+    "@percy/appium-app": "^2.1.0"
   },
   "dependencies": {
-    "dotenv": "^16.0.1"
+    "dotenv": "^17.2.3"
   }
 }
