@@ -245,13 +245,14 @@ pub fn extract_shadows(
 
         let ui_physical_viewport_size = target.physical_size().as_vec2();
         let scale_factor = target.scale_factor();
+        let rem = target.rem();
 
         for drop_shadow in box_shadow.iter() {
             if drop_shadow.color.is_fully_transparent() {
                 continue;
             }
 
-            let resolve_val = |val, base, scale_factor| match val {
+            let resolve_val = |val, base, scale_factor, rem| match val {
                 Val::Auto => 0.,
                 Val::Px(px) => px * scale_factor,
                 Val::Percent(percent) => percent / 100. * base,
@@ -259,17 +260,24 @@ pub fn extract_shadows(
                 Val::Vh(percent) => percent / 100. * ui_physical_viewport_size.y,
                 Val::VMin(percent) => percent / 100. * ui_physical_viewport_size.min_element(),
                 Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
+                Val::Rem(value) => value * rem,
             };
 
-            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_x = resolve_val(
+                drop_shadow.spread_radius,
+                uinode.size().x,
+                scale_factor,
+                rem,
+            );
             let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
             let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let blur_radius =
+                resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor, rem);
             let offset = vec2(
-                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
-                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor, rem),
+                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor, rem),
             );
 
             let shadow_size = uinode.size() + spread;
