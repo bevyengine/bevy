@@ -311,8 +311,20 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     ) {
         <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
     }
-}
 
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        _components: &crate::component::Components,
+        _values: &mut impl FnMut(crate::component::FragmentingValueBorrowed<'a>),
+    ) {
+        // RelationshipTargets can't fragment by value since they're mutable
+    }
+
+    fn count_fragmenting_values() -> usize {
+        // RelationshipTargets can't fragment by value since they're mutable
+        0
+    }
+}
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
@@ -402,6 +414,19 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
         <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+    }
+
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        _components: &crate::component::Components,
+        _values: &mut impl FnMut(crate::component::FragmentingValueBorrowed<'a>),
+    ) {
+        // RelationshipTargets can't fragment by value since they're mutable
+    }
+
+    fn count_fragmenting_values() -> usize {
+        // RelationshipTargets can't fragment by value since they're mutable
+        0
     }
 }
 

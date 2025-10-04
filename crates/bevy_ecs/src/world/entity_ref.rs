@@ -4,7 +4,10 @@ use crate::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, FragmentingValuesBorrowed, Mutable,
+        StorageType, Tick,
+    },
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
@@ -2041,7 +2044,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick, &*bundle);
         // SAFETY:
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.
@@ -2120,9 +2123,22 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        // Safety: pointers are valid references to data represented by the corresponding
+        // `ComponentId`
+        let value_components = unsafe {
+            FragmentingValuesBorrowed::from_components(
+                &self.world.components,
+                [(component_id, component.as_ref())],
+            )
+        };
 
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
@@ -2180,14 +2196,32 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let mut components = Vec::with_capacity(component_ids.len());
+        components.extend(iter_components);
+        // Safety: pointers are valid references to data represented by the corresponding
+        // `ComponentId`
+        let value_components = unsafe {
+            FragmentingValuesBorrowed::from_components(
+                &self.world.components,
+                component_ids
+                    .iter()
+                    .copied()
+                    .zip(components.iter().map(|ptr| ptr.as_ref())),
+            )
+        };
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
             self.entity,
             location,
-            iter_components,
+            components.into_iter(),
             (*storage_types).iter().cloned(),
             InsertMode::Replace,
             MaybeLocation::caller(),

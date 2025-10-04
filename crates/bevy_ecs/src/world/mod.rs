@@ -38,8 +38,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
-        RequiredComponents, RequiredComponentsError, Tick,
+        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator,
+        FragmentingValuesBorrowed, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
@@ -1164,7 +1164,7 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        let mut bundle_spawner = BundleSpawner::new(self, change_tick, &*bundle);
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type
@@ -2315,6 +2315,8 @@ impl World {
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
             if let Some(first_location) = self.entities().get(first_entity) {
+                let value_components =
+                    FragmentingValuesBorrowed::from_bundle(self.components(), &first_bundle);
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
                     inserter: unsafe {
@@ -2323,6 +2325,7 @@ impl World {
                             first_location.archetype_id,
                             bundle_id,
                             change_tick,
+                            &value_components,
                         )
                     },
                     archetype_id: first_location.archetype_id,
@@ -2346,7 +2349,11 @@ impl World {
 
                 for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
-                        if location.archetype_id != cache.archetype_id {
+                        if B::count_fragmenting_values() > 0
+                            || location.archetype_id != cache.archetype_id
+                        {
+                            let value_components =
+                                FragmentingValuesBorrowed::from_bundle(self.components(), &bundle);
                             cache = InserterArchetypeCache {
                                 // SAFETY: we initialized this bundle_id in `register_info`
                                 inserter: unsafe {
@@ -2355,6 +2362,7 @@ impl World {
                                         location.archetype_id,
                                         bundle_id,
                                         change_tick,
+                                        &value_components,
                                     )
                                 },
                                 archetype_id: location.archetype_id,
@@ -2470,6 +2478,8 @@ impl World {
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
                 if let Some(first_location) = self.entities().get(first_entity) {
+                    let value_components =
+                        FragmentingValuesBorrowed::from_bundle(self.components(), &first_bundle);
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_bundle_info`
                         inserter: unsafe {
@@ -2478,6 +2488,7 @@ impl World {
                                 first_location.archetype_id,
                                 bundle_id,
                                 change_tick,
+                                &value_components,
                             )
                         },
                         archetype_id: first_location.archetype_id,
@@ -2510,7 +2521,11 @@ impl World {
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
                 if let Some(location) = cache.inserter.entities().get(entity) {
-                    if location.archetype_id != cache.archetype_id {
+                    if B::count_fragmenting_values() > 0
+                        || location.archetype_id != cache.archetype_id
+                    {
+                        let value_components =
+                            FragmentingValuesBorrowed::from_bundle(self.components(), &bundle);
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`
                             inserter: unsafe {
@@ -2519,6 +2534,7 @@ impl World {
                                     location.archetype_id,
                                     bundle_id,
                                     change_tick,
+                                    &value_components,
                                 )
                             },
                             archetype_id: location.archetype_id,
@@ -3030,6 +3046,7 @@ impl World {
             ref mut sparse_sets,
             ref mut resources,
             ref mut non_send_resources,
+            ref mut fragmenting_values,
         } = self.storages;
 
         #[cfg(feature = "trace")]
@@ -3038,6 +3055,7 @@ impl World {
         sparse_sets.check_change_ticks(check);
         resources.check_change_ticks(check);
         non_send_resources.check_change_ticks(check);
+        fragmenting_values.check_change_ticks(check);
         self.entities.check_change_ticks(check);
 
         if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
@@ -3989,6 +4007,7 @@ mod tests {
         let mut world = World::new();
 
         // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
+        // and fragmenting_value_vtable is None
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 "Custom Test Component".to_string(),
@@ -4001,6 +4020,7 @@ mod tests {
                 }),
                 true,
                 ComponentCloneBehavior::Default,
+                None,
             )
         };
 

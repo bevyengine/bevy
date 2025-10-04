@@ -201,6 +201,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let key = attrs
+        .key
+        .map(ToTokens::into_token_stream)
+        .unwrap_or_else(|| quote! {#bevy_ecs_path::component::NoKey});
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -208,6 +213,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
+            type Key = #key;
             fn register_required_components(
                 _requiree: #bevy_ecs_path::component::ComponentId,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
@@ -342,6 +348,7 @@ pub const MAP_ENTITIES: &str = "map_entities";
 
 pub const IMMUTABLE: &str = "immutable";
 pub const CLONE_BEHAVIOR: &str = "clone_behavior";
+pub const KEY: &str = "key";
 
 /// All allowed attribute value expression kinds for component hooks.
 /// This doesn't simply use general expressions because of conflicting needs:
@@ -460,6 +467,7 @@ struct Attrs {
     immutable: bool,
     clone_behavior: Option<Expr>,
     map_entities: Option<MapEntitiesAttributeKind>,
+    key: Option<Type>,
 }
 
 #[derive(Clone, Copy)]
@@ -500,6 +508,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
         clone_behavior: None,
         map_entities: None,
+        key: None,
     };
 
     let mut require_paths = HashSet::new();
@@ -540,6 +549,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     Ok(())
                 } else if nested.path.is_ident(MAP_ENTITIES) {
                     attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
+                    Ok(())
+                } else if nested.path.is_ident(KEY) {
+                    attrs.key = Some(nested.value()?.parse()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
