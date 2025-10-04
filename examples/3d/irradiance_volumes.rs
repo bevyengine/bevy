@@ -601,7 +601,7 @@ fn draw_gizmo(
 ) {
     if app_status.voxels_visible {
         for transform in irradiance_volume_query.iter() {
-            gizmos.cuboid(*transform, GIZMO_COLOR);
+            gizmos.cube(*transform, GIZMO_COLOR);
         }
     }
 }
