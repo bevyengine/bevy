@@ -384,6 +384,12 @@ impl AssetInfos {
         world: &mut World,
         sender: &Sender<InternalAssetEvent>,
     ) {
+        // Process all the labeled assets first so that they don't get skipped due to the "parent"
+        // not having its handle alive.
+        for (_, asset) in loaded_asset.labeled_assets {
+            self.process_asset_load(asset.handle.id(), asset.asset, world, sender);
+        }
+
         // Check whether the handle has been dropped since the asset was loaded.
         if !self.infos.contains_key(&loaded_asset_id) {
             return;
