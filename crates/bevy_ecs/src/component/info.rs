@@ -20,7 +20,7 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
-    resource::Resource,
+    resource::{Resource, ResourceComponent},
     storage::SparseSetIndex,
 };
 
@@ -290,18 +290,7 @@ impl ComponentDescriptor {
     ///
     /// The [`StorageType`] for resources is always [`StorageType::Table`].
     pub fn new_resource<T: Resource>() -> Self {
-        Self {
-            name: DebugName::type_name::<T>(),
-            // PERF: `SparseStorage` may actually be a more
-            // reasonable choice as `storage_type` for resources.
-            storage_type: StorageType::Table,
-            is_send_and_sync: true,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: true,
-            clone_behavior: ComponentCloneBehavior::Default,
-        }
+        Self::new::<ResourceComponent<T>>()
     }
 
     pub(super) fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
@@ -348,7 +337,6 @@ impl ComponentDescriptor {
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
-    pub(super) resource_indices: TypeIdMap<ComponentId>,
     // This is kept internal and local to verify that no deadlocks can occor.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
@@ -587,8 +575,12 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use valid_resource_id::<R>() or get_valid_id(TypeId::of::<ResourceComponent<R>>()) for normal resources. Use get_valid_id(TypeId::of::<R>()) for non-send resources."
+    )]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
@@ -613,7 +605,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<T>())
+        self.get_valid_id(TypeId::of::<ResourceComponent<T>>())
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -665,15 +657,12 @@ impl Components {
 
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
+    #[deprecated(
+        since = "0.18.0",
+        note = "Use resource_id::<R>() or get_id(TypeId::of::<ResourceComponent<R>>()) instead for normal resources. Use get_id(TypeId::of::<R>()) for non-send resources."
+    )]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .resources
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
+        self.get_id(type_id)
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -705,7 +694,7 @@ impl Components {
     /// * [`Components::get_resource_id()`]
     #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+        self.get_id(TypeId::of::<ResourceComponent<T>>())
     }
 
     /// # Safety
@@ -724,7 +713,7 @@ impl Components {
         unsafe {
             self.register_component_inner(component_id, descriptor);
         }
-        let prev = self.resource_indices.insert(type_id, component_id);
+        let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 

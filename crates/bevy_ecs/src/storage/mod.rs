@@ -41,8 +41,6 @@ pub struct Storages {
     pub sparse_sets: SparseSets,
     /// Backing storage for [`Table`] components.
     pub tables: Tables,
-    /// Backing storage for resources.
-    pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
 }

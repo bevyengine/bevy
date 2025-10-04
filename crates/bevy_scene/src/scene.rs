@@ -7,8 +7,9 @@ use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent},
     relationship::RelationshipHookMode,
+    resource::ResourceComponent,
     world::World,
 };
 use bevy_reflect::TypePath;
@@ -65,24 +66,40 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
+        // Ensure that all scene entities have been allocated in the destination
+        // world before handling components that may contain references that need mapping.
+        for archetype in self.world.archetypes().iter() {
+            for scene_entity in archetype.entities() {
+                entity_map
+                    .entry(scene_entity.id())
+                    .or_insert_with(|| world.spawn_empty().id());
+            }
+        }
+
         let self_dqf_id = self
             .world
             .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+            .get_id(TypeId::of::<ResourceComponent<DefaultQueryFilters>>());
 
         // Resources archetype
-        for (component_id, resource_data) in self.world.storages().resources.iter() {
-            if Some(component_id) == self_dqf_id {
+        for (component_id, scene_entity) in self.world.resource_entities.iter() {
+            if Some(*component_id) == self_dqf_id {
                 continue;
             }
-            if !resource_data.is_present() {
+
+            let entity_ref = self
+                .world
+                .get_entity(*scene_entity)
+                .expect("Resource entity should exist in the world.");
+
+            if !entity_ref.contains_id(*component_id) {
                 continue;
             }
 
             let component_info = self
                 .world
                 .components()
-                .get_info(component_id)
+                .get_info(*component_id)
                 .expect("component_ids in archetypes should have ComponentInfo");
 
             let type_id = component_info
@@ -95,22 +112,33 @@ impl Scene {
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
                         std_type_name: component_info.name(),
                     })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+            let reflect_component = registration.data::<ReflectComponent>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
                     type_path: registration.type_info().type_path().to_string(),
                 }
             })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
-        }
+            let Some(component) = reflect_component
+                .reflect(self.world.entity(*scene_entity))
+                .map(|component| clone_reflect_value(component.as_partial_reflect(), registration))
+            else {
+                continue;
+            };
 
-        // Ensure that all scene entities have been allocated in the destination
-        // world before handling components that may contain references that need mapping.
-        for archetype in self.world.archetypes().iter() {
-            for scene_entity in archetype.entities() {
-                entity_map
-                    .entry(scene_entity.id())
-                    .or_insert_with(|| world.spawn_empty().id());
-            }
+            let entity = *entity_map
+                .get(scene_entity)
+                .expect("should have previously spawned an entity");
+
+            // If this component references entities in the scene,
+            // update them to the entities in the world.
+            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                reflect_component.apply_or_insert_mapped(
+                    &mut world.entity_mut(entity),
+                    component.as_partial_reflect(),
+                    &type_registry,
+                    mapper,
+                    RelationshipHookMode::Skip,
+                );
+            });
         }
 
         for archetype in self.world.archetypes().iter() {

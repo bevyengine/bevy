@@ -1,14 +1,13 @@
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
-use bevy_ecs::reflect::{ReflectMapEntities, ReflectResource};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent},
+    resource::IsResource,
     world::World,
 };
-use bevy_reflect::{PartialReflect, TypePath};
+use bevy_reflect::{PartialReflect, Reflect, TypePath};
 
-use crate::reflect_utils::clone_reflect_value;
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::relationship::RelationshipHookMode;
 
@@ -29,7 +28,7 @@ use {
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<Box<dyn PartialReflect>>,
+    pub resources: Vec<DynamicEntity>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -43,6 +42,18 @@ pub struct DynamicEntity {
     /// A vector of boxed components that belong to the given entity and
     /// implement the [`PartialReflect`] trait.
     pub components: Vec<Box<dyn PartialReflect>>,
+}
+
+impl DynamicEntity {
+    /// Returns true if and only if any of the components on the entity represents T.
+    pub fn contains<T>(&self) -> bool
+    where
+        T: Reflect + TypePath,
+    {
+        self.components
+            .iter()
+            .any(|component| component.represents::<T>())
+    }
 }
 
 impl DynamicScene {
@@ -61,7 +72,12 @@ impl DynamicScene {
                     .archetypes()
                     .iter()
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
-                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id)
+                    .filter(|id| {
+                        world
+                            .get_entity(*id)
+                            .is_ok_and(|entity| !entity.contains::<IsResource>())
+                    }),
             )
             .extract_resources()
             .build()
@@ -82,7 +98,7 @@ impl DynamicScene {
 
         // First ensure that every entity in the scene has a corresponding world
         // entity in the entity map.
-        for scene_entity in &self.entities {
+        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
@@ -91,7 +107,7 @@ impl DynamicScene {
                 .or_insert_with(|| world.spawn_empty().id());
         }
 
-        for scene_entity in &self.entities {
+        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
             // Fetch the entity with the given entity id from the `entity_map`.
             let entity = *entity_map
                 .get(&scene_entity.entity)
@@ -140,45 +156,6 @@ impl DynamicScene {
                     );
                 });
             }
-        }
-
-        // Insert resources after all entities have been added to the world.
-        // This ensures the entities are available for the resources to reference during mapping.
-        for resource in &self.resources {
-            let type_info = resource.get_represented_type_info().ok_or_else(|| {
-                SceneSpawnError::NoRepresentedType {
-                    type_path: resource.reflect_type_path().to_string(),
-                }
-            })?;
-            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
-                SceneSpawnError::UnregisteredButReflectedType {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: type_info.type_path().to_string(),
-                }
-            })?;
-
-            // If this component references entities in the scene, update
-            // them to the entities in the world.
-            let mut cloned_resource;
-            let partial_reflect_resource = if let Some(map_entities) =
-                registration.data::<ReflectMapEntities>()
-            {
-                cloned_resource = clone_reflect_value(resource.as_partial_reflect(), registration);
-                SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                    map_entities.map_entities(cloned_resource.as_partial_reflect_mut(), mapper);
-                });
-                cloned_resource.as_partial_reflect()
-            } else {
-                resource.as_partial_reflect()
-            };
-
-            // If the world already contains an instance of the given resource
-            // just apply the (possibly) new value, otherwise insert the resource
-            reflect_resource.apply_or_insert(world, partial_reflect_resource, &type_registry);
         }
 
         Ok(())
@@ -230,8 +207,7 @@ mod tests {
         component::Component,
         entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        resource::Resource,
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
         world::World,
     };
 
@@ -240,9 +216,9 @@ mod tests {
     use crate::dynamic_scene::DynamicScene;
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
-    #[derive(Resource, Reflect, MapEntities, Debug)]
-    #[reflect(Resource, MapEntities)]
-    struct TestResource {
+    #[derive(Component, Reflect, MapEntities, Debug)]
+    #[reflect(Component, MapEntities)]
+    struct TestComponent {
         #[entities]
         entity_a: Entity,
         #[entities]
@@ -252,7 +228,7 @@ mod tests {
     #[test]
     fn resource_entity_map_maps_entities() {
         let type_registry = AppTypeRegistry::default();
-        type_registry.write().register::<TestResource>();
+        type_registry.write().register::<TestComponent>();
 
         let mut source_world = World::new();
         source_world.insert_resource(type_registry.clone());
@@ -260,14 +236,16 @@ mod tests {
         let original_entity_a = source_world.spawn_empty().id();
         let original_entity_b = source_world.spawn_empty().id();
 
-        source_world.insert_resource(TestResource {
-            entity_a: original_entity_a,
-            entity_b: original_entity_b,
-        });
+        let entity_holder = source_world
+            .spawn(TestComponent {
+                entity_a: original_entity_a,
+                entity_b: original_entity_b,
+            })
+            .id();
 
         // Write the scene.
         let scene = DynamicSceneBuilder::from_world(&source_world)
-            .extract_resources()
+            .extract_entity(entity_holder)
             .extract_entity(original_entity_a)
             .extract_entity(original_entity_b)
             .build();
@@ -283,9 +261,12 @@ mod tests {
         let &from_entity_a = entity_map.get(&original_entity_a).unwrap();
         let &from_entity_b = entity_map.get(&original_entity_b).unwrap();
 
-        let test_resource = destination_world.get_resource::<TestResource>().unwrap();
-        assert_eq!(from_entity_a, test_resource.entity_a);
-        assert_eq!(from_entity_b, test_resource.entity_b);
+        let test_component = destination_world
+            .query::<&TestComponent>()
+            .single(&destination_world)
+            .unwrap();
+        assert_eq!(from_entity_a, test_component.entity_a);
+        assert_eq!(from_entity_b, test_component.entity_b);
     }
 
     #[test]
