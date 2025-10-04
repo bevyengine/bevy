@@ -11,7 +11,7 @@ use bevy_transform::components::Transform;
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -37,6 +37,21 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// How the sprite's image will be scaled.
     pub image_mode: SpriteImageMode,
+}
+
+impl Default for Sprite {
+    fn default() -> Self {
+        Self {
+            image: Handle::default(),
+            texture_atlas: Default::default(),
+            color: Default::default(),
+            flip_x: Default::default(),
+            flip_y: Default::default(),
+            custom_size: Default::default(),
+            rect: Default::default(),
+            image_mode: Default::default(),
+        }
+    }
 }
 
 impl Sprite {

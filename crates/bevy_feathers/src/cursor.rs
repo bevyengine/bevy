@@ -9,6 +9,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
+    VariantDefaults,
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -27,7 +28,7 @@ pub struct DefaultCursor(pub EntityCursor);
 ///
 /// This is effectively the same type as [`CustomCursor`] but with different methods, and used
 /// in different places.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
+#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq, VariantDefaults)]
 #[reflect(Component, Debug, Default, PartialEq, Clone)]
 pub enum EntityCursor {
     #[cfg(feature = "custom_cursor")]

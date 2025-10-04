@@ -1,19 +1,16 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
-    bundle::Bundle,
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::{SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene2::{prelude::*, template_value};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 use bevy_ui_widgets::Button;
 
@@ -21,11 +18,11 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeFontColor},
     tokens,
 };
+use bevy_input_focus::tab_navigation::TabIndex;
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
@@ -49,41 +46,61 @@ pub struct ButtonProps {
     pub corners: RoundedCorners,
 }
 
-/// Template function to spawn a button.
+/// Button scene function.
 ///
 /// # Arguments
 /// * `props` - construction properties for the button.
-/// * `overrides` - a bundle of components that are merged in with the normal button components.
-/// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
-pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    props: ButtonProps,
-    overrides: B,
-    children: C,
-) -> impl Bundle {
-    (
+pub fn button(props: ButtonProps) -> impl Scene {
+    bsn! {
+        Node {
+            height: size::ROW_HEIGHT,
+            min_width: size::ROW_HEIGHT,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
+            flex_grow: 1.0,
+        }
+        Button
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeBackgroundColor(tokens::BUTTON_BG)
+        ThemeFontColor(tokens::BUTTON_TEXT)
+        template_value(props.variant)
+        template_value(props.corners.to_border_radius(4.0))
+        InheritableFont {
+            font: fonts::REGULAR,
+            font_size: 14.0,
+        }
+    }
+}
+
+/// Tool button scene function: a smaller button for embedding in panel headers.
+///
+/// # Arguments
+/// * `props` - construction properties for the button.
+pub fn tool_button(props: ButtonProps) -> impl Scene {
+    bsn! {
         Node {
             height: size::ROW_HEIGHT,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             padding: UiRect::axes(Val::Px(8.0), Val::Px(0.)),
             flex_grow: 1.0,
-            ..Default::default()
-        },
-        Button,
-        props.variant,
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        props.corners.to_border_radius(4.0),
-        ThemeBackgroundColor(tokens::BUTTON_BG),
-        ThemeFontColor(tokens::BUTTON_TEXT),
+        }
+        Button
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeBackgroundColor(tokens::BUTTON_BG)
+        ThemeFontColor(tokens::BUTTON_TEXT)
         InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+            font: fonts::REGULAR,
             font_size: 14.0,
-        },
-        overrides,
-        Children::spawn(children),
-    )
+        }
+        template_value(props.variant)
+        template_value(props.corners.to_border_radius(4.0))
+    }
 }
 
 fn update_button_styles(

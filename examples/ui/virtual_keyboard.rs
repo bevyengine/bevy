@@ -9,7 +9,7 @@ use bevy::{
         FeathersPlugins,
     },
     prelude::*,
-    ui_widgets::observe,
+    scene2::prelude::*,
 };
 
 fn main() {
@@ -37,34 +37,32 @@ fn setup(mut commands: Commands) {
         vec!["left", "right", "up", "down", "home", "end"],
     ];
 
-    commands.spawn((
+    commands.spawn_scene(bsn! {
         Node {
             width: percent(100),
             height: percent(100),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
-            ..default()
-        },
-        children![(
+        }
+        [(
             Node {
                 flex_direction: FlexDirection::Column,
-                border: px(5).into(),
+                border: px(5),
                 row_gap: px(5),
-                padding: px(5).into(),
+                padding: px(5),
                 align_items: AlignItems::Center,
-                margin: px(25).into(),
-                ..Default::default()
-            },
-            BackgroundColor(NAVY.into()),
-            BorderColor::all(Color::WHITE),
-            BorderRadius::all(px(10)),
-            children![
+                margin: px(25),
+            }
+            BackgroundColor(NAVY)
+            BorderColor::all(Color::WHITE)
+            BorderRadius::all(px(10))
+            [
                 Text::new("virtual keyboard"),
                 (
-                    virtual_keyboard(layout.into_iter()),
-                    observe(on_virtual_key_pressed)
+                    virtual_keyboard(layout.into_iter())
+                    on(on_virtual_key_pressed)
                 )
             ]
-        )],
-    ));
+        )]
+    });
 }

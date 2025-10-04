@@ -1,22 +1,20 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene2::prelude::*;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
@@ -27,7 +25,6 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
@@ -47,71 +44,58 @@ struct CheckboxOutline;
 #[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
-/// Template function to spawn a checkbox.
+/// Checkbox scene function.
 ///
 /// # Arguments
 /// * `props` - construction properties for the checkbox.
-/// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
-/// * `label` - the label of the checkbox.
-pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    overrides: B,
-    label: C,
-) -> impl Bundle {
-    (
+pub fn checkbox() -> impl Scene {
+    bsn! {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Row,
             justify_content: JustifyContent::Start,
             align_items: AlignItems::Center,
             column_gap: Val::Px(4.0),
-            ..Default::default()
-        },
-        Checkbox,
-        CheckboxFrame,
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        ThemeFontColor(tokens::CHECKBOX_TEXT),
+        }
+        Checkbox
+        CheckboxFrame
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeFontColor(tokens::CHECKBOX_TEXT)
         InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+            font: fonts::REGULAR,
             font_size: 14.0,
-        },
-        overrides,
-        Children::spawn((
-            Spawn((
+        }
+        [(
+            Node {
+                width: size::CHECKBOX_SIZE,
+                height: size::CHECKBOX_SIZE,
+                border: UiRect::all(Val::Px(2.0)),
+            }
+            CheckboxOutline
+            BorderRadius::all(Val::Px(4.0))
+            ThemeBackgroundColor(tokens::CHECKBOX_BG)
+            ThemeBorderColor(tokens::CHECKBOX_BORDER)
+            [(
+                // Cheesy checkmark: rotated node with L-shaped border.
                 Node {
-                    width: size::CHECKBOX_SIZE,
-                    height: size::CHECKBOX_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..Default::default()
-                },
-                CheckboxOutline,
-                BorderRadius::all(Val::Px(4.0)),
-                ThemeBackgroundColor(tokens::CHECKBOX_BG),
-                ThemeBorderColor(tokens::CHECKBOX_BORDER),
-                children![(
-                    // Cheesy checkmark: rotated node with L-shaped border.
-                    Node {
-                        position_type: PositionType::Absolute,
-                        left: Val::Px(4.0),
-                        top: Val::Px(0.0),
-                        width: Val::Px(6.),
-                        height: Val::Px(11.),
-                        border: UiRect {
-                            bottom: Val::Px(2.0),
-                            right: Val::Px(2.0),
-                            ..Default::default()
-                        },
-                        ..Default::default()
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(4.0),
+                    top: Val::Px(0.0),
+                    width: Val::Px(6.),
+                    height: Val::Px(11.),
+                    border: UiRect {
+                        bottom: Val::Px(2.0),
+                        right: Val::Px(2.0),
                     },
-                    UiTransform::from_rotation(Rot2::FRAC_PI_4),
-                    CheckboxMark,
-                    ThemeBorderColor(tokens::CHECKBOX_MARK),
-                )],
-            )),
-            label,
-        )),
-    )
+                }
+                UiTransform::from_rotation(Rot2::FRAC_PI_4)
+                CheckboxMark
+                ThemeBorderColor(tokens::CHECKBOX_MARK)
+            )]
+        )]
+    }
 }
 
 fn update_checkbox_styles(

@@ -1,16 +1,13 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
@@ -26,10 +23,10 @@ use crate::{
     constants::{fonts, size},
     cursor::EntityCursor,
     font_styles::InheritableFont,
-    handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
     tokens,
 };
+use bevy_scene2::prelude::*;
 
 /// Marker for the radio outline
 #[derive(Component, Default, Clone, Reflect)]
@@ -41,64 +38,49 @@ struct RadioOutline;
 #[reflect(Component, Clone, Default)]
 struct RadioMark;
 
-/// Template function to spawn a radio.
-///
-/// # Arguments
-/// * `props` - construction properties for the radio.
-/// * `overrides` - a bundle of components that are merged in with the normal radio components.
-/// * `label` - the label of the radio.
-pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
-    overrides: B,
-    label: C,
-) -> impl Bundle {
-    (
+/// Radio scene function.
+pub fn radio() -> impl Scene {
+    bsn! {
         Node {
             display: Display::Flex,
             flex_direction: FlexDirection::Row,
             justify_content: JustifyContent::Start,
             align_items: AlignItems::Center,
             column_gap: Val::Px(4.0),
-            ..Default::default()
-        },
-        RadioButton,
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        ThemeFontColor(tokens::RADIO_TEXT),
+        }
+        RadioButton
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        ThemeFontColor(tokens::RADIO_TEXT)
         InheritableFont {
-            font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
+            font: fonts::REGULAR,
             font_size: 14.0,
-        },
-        overrides,
-        Children::spawn((
-            Spawn((
+        }
+        [(
+            Node {
+                display: Display::Flex,
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                width: size::RADIO_SIZE,
+                height: size::RADIO_SIZE,
+                border: UiRect::all(Val::Px(2.0)),
+            }
+            RadioOutline
+            BorderRadius::MAX
+            ThemeBorderColor(tokens::RADIO_BORDER)
+            [(
+                // Cheesy checkmark: rotated node with L-shaped border.
                 Node {
-                    display: Display::Flex,
-                    align_items: AlignItems::Center,
-                    justify_content: JustifyContent::Center,
-                    width: size::RADIO_SIZE,
-                    height: size::RADIO_SIZE,
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..Default::default()
-                },
-                RadioOutline,
-                BorderRadius::MAX,
-                ThemeBorderColor(tokens::RADIO_BORDER),
-                children![(
-                    // Cheesy checkmark: rotated node with L-shaped border.
-                    Node {
-                        width: Val::Px(8.),
-                        height: Val::Px(8.),
-                        ..Default::default()
-                    },
-                    BorderRadius::MAX,
-                    RadioMark,
-                    ThemeBackgroundColor(tokens::RADIO_MARK),
-                )],
-            )),
-            label,
-        )),
-    )
+                    width: Val::Px(8.),
+                    height: Val::Px(8.),
+                }
+                BorderRadius::MAX
+                RadioMark
+                ThemeBackgroundColor(tokens::RADIO_MARK)
+            )]
+        )]
+    }
 }
 
 fn update_radio_styles(

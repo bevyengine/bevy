@@ -46,7 +46,7 @@ pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
 /// A component representing a chunk of a tilemap.
 /// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
-#[derive(Component, Clone, Debug, Default, Reflect)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Clone, Debug, Default)]
 #[component(immutable, on_insert = on_insert_tilemap_chunk)]
 pub struct TilemapChunk {
@@ -59,6 +59,17 @@ pub struct TilemapChunk {
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
+}
+
+impl Default for TilemapChunk {
+    fn default() -> Self {
+        Self {
+            chunk_size: Default::default(),
+            tile_display_size: Default::default(),
+            tileset: Handle::default(),
+            alpha_mode: Default::default(),
+        }
+    }
 }
 
 impl TilemapChunk {

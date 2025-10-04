@@ -35,7 +35,7 @@ use crate::ValueChange;
 /// associated with a particular constant value, and would be checked whenever that value is equal
 /// to the group's value. This also means that as long as each button's associated value is unique
 /// within the group, it should never be the case that more than one button is selected at a time.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
 pub struct RadioGroup;
 
@@ -45,7 +45,7 @@ pub struct RadioGroup;
 /// According to the WAI-ARIA best practices document, radio buttons should not be focusable,
 /// but rather the enclosing group should be focusable.
 /// See <https://www.w3.org/WAI/ARIA/apg/patterns/radio>/
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
 #[derive(Reflect)]
 #[reflect(Component)]

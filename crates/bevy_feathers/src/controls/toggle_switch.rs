@@ -2,8 +2,6 @@ use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_ecs::{
-    bundle::Bundle,
-    children,
     component::Component,
     entity::Entity,
     hierarchy::Children,
@@ -11,13 +9,13 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or, With},
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    spawn::SpawnRelated,
     system::{Commands, Query},
     world::Mut,
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_scene2::prelude::*;
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
 use bevy_ui_widgets::Checkbox;
 
@@ -38,43 +36,39 @@ struct ToggleSwitchOutline;
 #[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
 
-/// Template function to spawn a toggle switch.
+/// Toggle switch scene function.
 ///
 /// # Arguments
 /// * `props` - construction properties for the toggle switch.
-/// * `overrides` - a bundle of components that are merged in with the normal toggle switch components.
-pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
-    (
+pub fn toggle_switch() -> impl Scene {
+    bsn! {
         Node {
             width: size::TOGGLE_WIDTH,
             height: size::TOGGLE_HEIGHT,
             border: UiRect::all(Val::Px(2.0)),
-            ..Default::default()
-        },
-        Checkbox,
-        ToggleSwitchOutline,
-        BorderRadius::all(Val::Px(5.0)),
-        ThemeBackgroundColor(tokens::SWITCH_BG),
-        ThemeBorderColor(tokens::SWITCH_BORDER),
-        AccessibilityNode(accesskit::Node::new(Role::Switch)),
-        Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
-        overrides,
-        children![(
+        }
+        Checkbox
+        ToggleSwitchOutline
+        BorderRadius::all(Val::Px(5.0))
+        ThemeBackgroundColor(tokens::SWITCH_BG)
+        ThemeBorderColor(tokens::SWITCH_BORDER)
+        AccessibilityNode(accesskit::Node::new(Role::Switch))
+        Hovered
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
+        TabIndex(0)
+        [
             Node {
                 position_type: PositionType::Absolute,
                 left: Val::Percent(0.),
                 top: Val::Px(0.),
                 bottom: Val::Px(0.),
                 width: Val::Percent(50.),
-                ..Default::default()
-            },
-            BorderRadius::all(Val::Px(3.0)),
-            ToggleSwitchSlide,
-            ThemeBackgroundColor(tokens::SWITCH_SLIDE),
-        )],
-    )
+            }
+            BorderRadius::all(Val::Px(3.0))
+            ToggleSwitchSlide
+            ThemeBackgroundColor(tokens::SWITCH_SLIDE)
+        ]
+    }
 }
 
 fn update_switch_styles(

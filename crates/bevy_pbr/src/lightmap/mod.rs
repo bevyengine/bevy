@@ -325,7 +325,7 @@ pub(crate) fn pack_lightmap_uv_rect(maybe_rect: Option<Rect>) -> UVec2 {
 impl Default for Lightmap {
     fn default() -> Self {
         Self {
-            image: Default::default(),
+            image: Handle::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
             bicubic_sampling: false,
         }

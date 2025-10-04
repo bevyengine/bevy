@@ -20,7 +20,7 @@ use crate::Activate;
 /// Headless button widget. This widget maintains a "pressed" state, which is used to
 /// indicate whether the button is currently being pressed by the user. It emits an [`Activate`]
 /// event when the button is un-pressed.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Clone, Debug, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
 pub struct Button;
 

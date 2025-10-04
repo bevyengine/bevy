@@ -122,6 +122,7 @@ log = { version = "0.4", default-features = false }
 bumpalo = "3"
 subsecond = { version = "0.7.0-rc.0", optional = true }
 slotmap = { version = "1.0.7", default-features = false }
+downcast-rs = { version = "2", default-features = false, features = ["std"] }
 
 concurrent-queue = { version = "2.5.0", default-features = false }
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]

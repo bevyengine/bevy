@@ -4,12 +4,21 @@ use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
 use core::ops::Deref;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Debug, Clone)]
 pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]
     pub joints: Vec<Entity>,
+}
+
+impl Default for SkinnedMesh {
+    fn default() -> Self {
+        Self {
+            inverse_bindposes: Handle::default(),
+            joints: Default::default(),
+        }
+    }
 }
 
 impl AsAssetId for SkinnedMesh {

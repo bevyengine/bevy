@@ -29,6 +29,8 @@ plugin_group! {
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_scene")]
         bevy_scene:::ScenePlugin,
+        #[cfg(feature = "bevy_scene2")]
+        bevy_scene2:::ScenePlugin,
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
         #[custom(cfg(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
