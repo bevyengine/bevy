@@ -179,7 +179,7 @@ mod ui {
                     BackgroundColor(NORMAL_BUTTON),
                     children![(
                         Text::new("Play"),
-                        TextFont {
+                        FontFace {
                             font_size: 33.0,
                             ..default()
                         },
@@ -221,7 +221,7 @@ mod ui {
                 BackgroundColor(NORMAL_BUTTON),
                 children![(
                     Text::new("Paused"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },

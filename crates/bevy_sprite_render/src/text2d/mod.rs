@@ -6,6 +6,7 @@ use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
+    query::With,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
@@ -14,7 +15,8 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
+    ComputedTextBlock, ComputedTextStyle, PositionedGlyph, TextBackgroundColor, TextBounds,
+    TextLayoutInfo, TextRoot,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -26,18 +28,21 @@ pub fn extract_text2d_sprite(
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-            &TextBounds,
-            &Anchor,
-            Option<&Text2dShadow>,
-            &GlobalTransform,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &ComputedTextBlock,
+                &TextLayoutInfo,
+                &TextBounds,
+                &Anchor,
+                Option<&Text2dShadow>,
+                &GlobalTransform,
+            ),
+            With<TextRoot>,
+        >,
     >,
-    text_colors: Extract<Query<&TextColor>>,
+    text_colors: Extract<Query<&ComputedTextStyle>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
@@ -170,7 +175,7 @@ pub fn extract_text2d_sprite(
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
-                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .map(|style| LinearRgba::from(style.color()))
                     .unwrap_or_default();
                 current_span = *span_index;
             }

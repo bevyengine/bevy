@@ -56,9 +56,9 @@ fn setup(
         },
         RenderLayers::layer(1),
         children![
-            TextSpan::new("Press T to toggle OIT\n"),
-            TextSpan::new("OIT Enabled"),
-            TextSpan::new("\nPress C to cycle test scenes"),
+            Text::new("Press T to toggle OIT\n"),
+            Text::new("OIT Enabled"),
+            Text::new("\nPress C to cycle test scenes"),
         ],
     ));
 

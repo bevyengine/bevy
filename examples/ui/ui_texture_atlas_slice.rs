@@ -101,7 +101,7 @@ fn setup(
                     .with_children(|parent| {
                         parent.spawn((
                             Text::new("Button"),
-                            TextFont {
+                            FontFace {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 33.0,
                                 ..default()

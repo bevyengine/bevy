@@ -1,7 +1,7 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*};
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, text::FontSize};
 
 fn main() {
     App::new()
@@ -96,11 +96,8 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             BackgroundColor(Color::BLACK),
             children![(
                 Text::new("Button"),
-                TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 33.0,
-                    ..default()
-                },
+                FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                FontSize::Px(33.0),
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
             )]

@@ -179,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     commands.spawn((
         DespawnOnExit(GameState::Playing),
         Text::new("Score:"),
-        TextFont {
+        FontFace {
             font_size: 33.0,
             ..default()
         },
@@ -399,7 +399,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
         },
         children![(
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
-            TextFont {
+            FontFace {
                 font_size: 67.0,
                 ..default()
             },

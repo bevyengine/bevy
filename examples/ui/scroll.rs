@@ -114,13 +114,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // root node
     commands
-        .spawn(Node {
-            width: percent(100),
-            height: percent(100),
-            justify_content: JustifyContent::SpaceBetween,
-            flex_direction: FlexDirection::Column,
-            ..default()
-        })
+        .spawn((
+            Node {
+                width: percent(100),
+                height: percent(100),
+                justify_content: JustifyContent::SpaceBetween,
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        ))
         .with_children(|parent| {
             // horizontal scroll example
             parent
@@ -133,11 +136,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // header
                     parent.spawn((
                         Text::new("Horizontally Scrolling list (Ctrl + MouseWheel)"),
-                        TextFont {
-                            font: font_handle.clone(),
-                            font_size: FONT_SIZE,
-                            ..default()
-                        },
+                        FontFace(font_handle.clone()),
+                        FontSize::Px(FONT_SIZE),
                         Label,
                     ));
 
@@ -158,10 +158,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent
                                     .spawn((
                                         Text(format!("Item {i}")),
-                                        TextFont {
-                                            font: font_handle.clone(),
-                                            ..default()
-                                        },
+                                        FontSize::Px(FONT_SIZE),
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                         Node {
@@ -208,15 +205,12 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             width: px(200),
             ..default()
         },
+        FontFace(font_handle),
         children![
             (
                 // Title
                 Text::new("Vertically Scrolling List"),
-                TextFont {
-                    font: font_handle.clone(),
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
@@ -238,10 +232,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         },
                         children![(
                             Text(format!("Item {i}")),
-                            TextFont {
-                                font: font_handle.clone(),
-                                ..default()
-                            },
+                            FontSize::Px(FONT_SIZE),
                             Label,
                             AccessibilityNode(Accessible::new(Role::ListItem)),
                         )],
@@ -264,11 +255,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
         children![
             (
                 Text::new("Bidirectionally Scrolling List"),
-                TextFont {
-                    font: font_handle.clone(),
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
@@ -287,14 +274,10 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             ..default()
                         },
                         Children::spawn(SpawnIter((0..10).map({
-                            let value = font_handle.clone();
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 10) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
+                                    FontSize::Px(FONT_SIZE),
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )
@@ -316,15 +299,12 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             width: px(200),
             ..default()
         },
+        FontFace(font_handle),
         children![
             (
                 // Title
                 Text::new("Nested Scrolling Lists"),
-                TextFont {
-                    font: font_handle.clone(),
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
+                FontSize::Px(FONT_SIZE),
                 Label,
             ),
             (
@@ -350,14 +330,9 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         },
                         BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
                         Children::spawn(SpawnIter((0..20).map({
-                            let value = font_handle.clone();
                             move |i| {
                                 (
                                     Text(format!("Item {}", (oi * 20) + i)),
-                                    TextFont {
-                                        font: value.clone(),
-                                        ..default()
-                                    },
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
                                 )

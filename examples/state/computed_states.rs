@@ -357,7 +357,7 @@ mod ui {
                         MenuButton::Play,
                         children![(
                             Text::new("Play"),
-                            TextFont {
+                            FontFace {
                                 font_size: 33.0,
                                 ..default()
                             },
@@ -382,7 +382,7 @@ mod ui {
                         MenuButton::Tutorial,
                         children![(
                             Text::new("Tutorial"),
-                            TextFont {
+                            FontFace {
                                 font_size: 33.0,
                                 ..default()
                             },
@@ -469,7 +469,7 @@ mod ui {
                 MenuButton::Play,
                 children![(
                     Text::new("Paused"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -495,7 +495,7 @@ mod ui {
             },
             children![(
                 Text::new("TURBO MODE"),
-                TextFont {
+                FontFace {
                     font_size: 33.0,
                     ..default()
                 },
@@ -532,7 +532,7 @@ mod ui {
             children![
                 (
                     Text::new("Move the bevy logo with the arrow keys"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -540,7 +540,7 @@ mod ui {
                 ),
                 (
                     Text::new("Press T to enter TURBO MODE"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -548,7 +548,7 @@ mod ui {
                 ),
                 (
                     Text::new("Press SPACE to pause"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -556,7 +556,7 @@ mod ui {
                 ),
                 (
                     Text::new("Press ESCAPE to return to the menu"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -583,7 +583,7 @@ mod ui {
             children![
                 (
                     Text::new("Press SPACE to resume"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },
@@ -591,7 +591,7 @@ mod ui {
                 ),
                 (
                     Text::new("Press ESCAPE to return to the menu"),
-                    TextFont {
+                    FontFace {
                         font_size: 33.0,
                         ..default()
                     },

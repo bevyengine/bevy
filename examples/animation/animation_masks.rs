@@ -227,13 +227,7 @@ fn setup_ui(mut commands: Commands) {
 // The button will automatically become a child of the parent that owns the
 // given `ChildSpawnerCommands`.
 fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
-    let button_text_style = (
-        TextFont {
-            font_size: 14.0,
-            ..default()
-        },
-        TextColor::WHITE,
-    );
+    let button_text_style = (FontSize(14.0), TextColor::WHITE);
     let selected_button_text_style = (button_text_style.0.clone(), TextColor::BLACK);
     let label_text_style = (
         button_text_style.0.clone(),

@@ -300,18 +300,12 @@ fn spawn_button(
             parent
                 .spawn((
                     Text(format!("{column}, ")),
-                    TextFont {
-                        font_size: FONT_SIZE,
-                        ..default()
-                    },
+                    FontSize::Px(FONT_SIZE),
                     TextColor(Color::srgb(0.5, 0.2, 0.2)),
                 ))
                 .with_child((
-                    TextSpan(format!("{row}")),
-                    TextFont {
-                        font_size: FONT_SIZE,
-                        ..default()
-                    },
+                    Text(format!("{row}")),
+                    FontSize::Px(FONT_SIZE),
                     TextColor(Color::srgb(0.2, 0.2, 0.5)),
                 ));
         });

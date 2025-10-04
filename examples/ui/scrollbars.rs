@@ -161,7 +161,7 @@ fn scroll_area_demo() -> impl Bundle {
 fn text_row(caption: &str) -> impl Bundle {
     (
         Text::new(caption),
-        TextFont {
+        FontFace {
             font_size: 14.0,
             ..default()
         },

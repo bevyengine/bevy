@@ -277,7 +277,7 @@ fn setup(mut commands: Commands) {
                     ..Default::default()
                 }
             ).with_children(|commands| {
-                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), TextFont { font_size: 25., ..default() }, CurrentColorSpaceLabel));
+                commands.spawn((Text::new(format!("{:?}", InterpolationColorSpace::default())), FontSize::Px(25.), CurrentColorSpaceLabel));
 
             })
             .add_child(button);

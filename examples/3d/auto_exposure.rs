@@ -123,7 +123,7 @@ fn setup(
         },
     ));
 
-    let text_font = TextFont::default();
+    let text_font = FontFace::default();
 
     commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
             text_font.clone(), Node {

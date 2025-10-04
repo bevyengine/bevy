@@ -75,7 +75,7 @@ fn setup(mut commands: Commands) {
         C: Toggle cyclic curve construction";
     let spline_mode_text = format!("Spline: {spline_mode}");
     let cycling_mode_text = format!("{cycling_mode}");
-    let style = TextFont::default();
+    let style = FontFace::default();
 
     commands
         .spawn(Node {

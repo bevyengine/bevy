@@ -3,7 +3,7 @@
 use bevy::{
     dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin, FrameTimeGraphConfig},
     prelude::*,
-    text::FontSmoothing,
+    text::{FontSmoothing, TextStyle},
 };
 
 struct OverlayColor;
@@ -19,17 +19,17 @@ fn main() {
             DefaultPlugins,
             FpsOverlayPlugin {
                 config: FpsOverlayConfig {
-                    text_config: TextFont {
+                    text_style: TextStyle {
                         // Here we define size of our overlay
                         font_size: 42.0,
                         // If we want, we can use a custom font
                         font: default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
+                        // We can also change color of the overlay
+                        color: OverlayColor::GREEN,
                         ..default()
                     },
-                    // We can also change color of the overlay
-                    text_color: OverlayColor::GREEN,
                     // We can also set the refresh interval for the FPS counter
                     refresh_interval: core::time::Duration::from_millis(100),
                     enabled: true,
@@ -74,17 +74,17 @@ fn setup(mut commands: Commands) {
 fn customize_config(input: Res<ButtonInput<KeyCode>>, mut overlay: ResMut<FpsOverlayConfig>) {
     if input.just_pressed(KeyCode::Digit1) {
         // Changing resource will affect overlay
-        if overlay.text_color == OverlayColor::GREEN {
-            overlay.text_color = OverlayColor::RED;
+        if overlay.text_style.color == OverlayColor::GREEN {
+            overlay.text_style.color = OverlayColor::RED;
         } else {
-            overlay.text_color = OverlayColor::GREEN;
+            overlay.text_style.color = OverlayColor::GREEN;
         }
     }
     if input.just_pressed(KeyCode::Digit2) {
-        overlay.text_config.font_size -= 2.0;
+        overlay.text_style.font_size -= 2.0;
     }
     if input.just_pressed(KeyCode::Digit3) {
-        overlay.text_config.font_size += 2.0;
+        overlay.text_style.font_size += 2.0;
     }
     if input.just_pressed(KeyCode::Digit4) {
         overlay.enabled = !overlay.enabled;

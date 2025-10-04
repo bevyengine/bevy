@@ -158,10 +158,7 @@ mod game {
                 children![
                     (
                         Text::new("Will be back to the menu shortly..."),
-                        TextFont {
-                            font_size: 67.0,
-                            ..default()
-                        },
+                        FontSize::Px(67.0),
                         TextColor(TEXT_COLOR),
                         Node {
                             margin: UiRect::all(px(50)),
@@ -170,33 +167,20 @@ mod game {
                     ),
                     (
                         Text::default(),
+                        FontSize::Px(50.0),
                         Node {
                             margin: UiRect::all(px(50)),
                             ..default()
                         },
                         children![
                             (
-                                TextSpan(format!("quality: {:?}", *display_quality)),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
+                                Text(format!("quality: {:?}", *display_quality)),
+                                FontSize::Px(50.0),
                                 TextColor(BLUE.into()),
                             ),
+                            (Text::new(" - "), TextColor(TEXT_COLOR),),
                             (
-                                TextSpan::new(" - "),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
-                                TextColor(TEXT_COLOR),
-                            ),
-                            (
-                                TextSpan(format!("volume: {:?}", *volume)),
-                                TextFont {
-                                    font_size: 50.0,
-                                    ..default()
-                                },
+                                Text(format!("volume: {:?}", *volume)),
                                 TextColor(LIME.into()),
                             ),
                         ]
@@ -373,10 +357,7 @@ mod menu {
             left: px(10),
             ..default()
         };
-        let button_text_font = TextFont {
-            font_size: 33.0,
-            ..default()
-        };
+        let button_text_font = FontSize::Px(33.);
 
         let right_icon = asset_server.load("textures/Game Icons/right.png");
         let wrench_icon = asset_server.load("textures/Game Icons/wrench.png");
@@ -403,10 +384,7 @@ mod menu {
                     // Display the game name
                     (
                         Text::new("Bevy Game Menu UI"),
-                        TextFont {
-                            font_size: 67.0,
-                            ..default()
-                        },
+                        FontSize::Px(67.0),
                         TextColor(TEXT_COLOR),
                         Node {
                             margin: UiRect::all(px(50)),
@@ -470,14 +448,6 @@ mod menu {
             ..default()
         };
 
-        let button_text_style = (
-            TextFont {
-                font_size: 33.0,
-                ..default()
-            },
-            TextColor(TEXT_COLOR),
-        );
-
         commands.spawn((
             DespawnOnExit(MenuState::Settings),
             Node {
@@ -487,6 +457,9 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            FontSize::Px(33.0),
+            TextColor(TEXT_COLOR),
+            BackgroundColor(CRIMSON.into()),
             OnSettingsMenuScreen,
             children![(
                 Node {
@@ -494,7 +467,6 @@ mod menu {
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BackgroundColor(CRIMSON.into()),
                 Children::spawn(SpawnIter(
                     [
                         (MenuButtonAction::SettingsDisplay, "Display"),
@@ -508,7 +480,7 @@ mod menu {
                             button_node.clone(),
                             BackgroundColor(NORMAL_BUTTON),
                             action,
-                            children![(Text::new(text), button_text_style.clone())],
+                            children![(Text::new(text))],
                         )
                     })
                 ))
@@ -527,15 +499,6 @@ mod menu {
                 ..default()
             }
         }
-        fn button_text_style() -> impl Bundle {
-            (
-                TextFont {
-                    font_size: 33.0,
-                    ..default()
-                },
-                TextColor(TEXT_COLOR),
-            )
-        }
 
         let display_quality = *display_quality;
         commands.spawn((
@@ -547,6 +510,8 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            FontSize::Px(33.),
+            TextColor(TEXT_COLOR),
             OnDisplaySettingsMenuScreen,
             children![(
                 Node {
@@ -566,7 +531,7 @@ mod menu {
                         BackgroundColor(CRIMSON.into()),
                         Children::spawn((
                             // Display a label for the current setting
-                            Spawn((Text::new("Display Quality"), button_text_style())),
+                            Spawn(Text::new("Display Quality")),
                             SpawnWith(move |parent: &mut ChildSpawner| {
                                 for quality_setting in [
                                     DisplayQuality::Low,
@@ -582,10 +547,7 @@ mod menu {
                                         },
                                         BackgroundColor(NORMAL_BUTTON),
                                         quality_setting,
-                                        children![(
-                                            Text::new(format!("{quality_setting:?}")),
-                                            button_text_style(),
-                                        )],
+                                        children![(Text::new(format!("{quality_setting:?}")),)],
                                     ));
                                     if display_quality == quality_setting {
                                         entity.insert(SelectedOption);
@@ -600,7 +562,7 @@ mod menu {
                         button_node(),
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::BackToSettings,
-                        children![(Text::new("Back"), button_text_style())]
+                        children![(Text::new("Back"))]
                     )
                 ]
             )],
@@ -616,13 +578,6 @@ mod menu {
             align_items: AlignItems::Center,
             ..default()
         };
-        let button_text_style = (
-            TextFont {
-                font_size: 33.0,
-                ..default()
-            },
-            TextColor(TEXT_COLOR),
-        );
 
         let volume = *volume;
         let button_node_clone = button_node.clone();
@@ -635,6 +590,8 @@ mod menu {
                 justify_content: JustifyContent::Center,
                 ..default()
             },
+            FontSize::Px(33.),
+            TextColor(TEXT_COLOR),
             OnSoundSettingsMenuScreen,
             children![(
                 Node {
@@ -651,7 +608,7 @@ mod menu {
                         },
                         BackgroundColor(CRIMSON.into()),
                         Children::spawn((
-                            Spawn((Text::new("Volume"), button_text_style.clone())),
+                            Spawn(Text::new("Volume")),
                             SpawnWith(move |parent: &mut ChildSpawner| {
                                 for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
                                     let mut entity = parent.spawn((
@@ -676,7 +633,7 @@ mod menu {
                         button_node,
                         BackgroundColor(NORMAL_BUTTON),
                         MenuButtonAction::BackToSettings,
-                        children![(Text::new("Back"), button_text_style)]
+                        children![Text::new("Back")]
                     )
                 ]
             )],

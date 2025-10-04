@@ -95,11 +95,8 @@ mod text {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 200.,
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize::Px(200.),
             DespawnOnExit(super::Scene::Text),
         ));
 
@@ -110,22 +107,28 @@ mod text {
                 ..Default::default()
             },
             Text::new("white "),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -138,29 +141,32 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
                 (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
+                    Text::new("white "),
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    FontFace::default()
+                ),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -173,40 +179,43 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
             DespawnOnExit(super::Scene::Text),
             children![
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                TextSpan::new(""),
+                (Text::new(""), TextColor(YELLOW.into()),),
+                Text::new(""),
                 (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
+                    Text::new("white "),
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                 ),
-                TextSpan::new(""),
-                (TextSpan::new("red "), TextColor(RED.into()),),
-                TextSpan::new(""),
-                TextSpan::new(""),
-                (TextSpan::new("green "), TextColor(GREEN.into()),),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
-                (TextSpan::new("blue "), TextColor(BLUE.into()),),
-                TextSpan::new(""),
-                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                Text::new(""),
                 (
-                    TextSpan::new("black"),
+                    Text::new("red "),
+                    TextColor(RED.into()),
+                    FontFace::default()
+                ),
+                Text::new(""),
+                Text::new(""),
+                (
+                    Text::new("green "),
+                    TextColor(GREEN.into()),
+                    FontFace::default()
+                ),
+                (Text::new(""), TextColor(YELLOW.into()),),
+                (
+                    Text::new("blue "),
+                    TextColor(BLUE.into()),
+                    FontFace::default()
+                ),
+                Text::new(""),
+                (Text::new(""), TextColor(YELLOW.into()), FontFace::default()),
+                (
+                    Text::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
                     TextBackgroundColor(Color::WHITE)
                 ),
-                TextSpan::new(""),
+                Text::new(""),
             ],
         ));
     }
@@ -670,7 +679,7 @@ mod linear_gradient {
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
-    use bevy::text::TextFont;
+    use bevy::text::FontSize;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
@@ -776,7 +785,7 @@ mod linear_gradient {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
                                             },
-                                            TextFont::from_font_size(10.),
+                                            FontSize::Px(10.),
                                             bevy::ui::widget::Text(format!("{color_space:?}")),
                                         ]
                                     )],
@@ -860,7 +869,7 @@ mod radial_gradient {
                                             ..default()
                                         },
                                         Text(format!("{shape_label}\n{position_label}")),
-                                        TextFont::from_font_size(9.),
+                                        FontSize::Px(9.),
                                     ));
                                     commands.spawn((
                                         Node {

@@ -43,11 +43,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     let text_font = (
-        TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 33.0,
-            ..Default::default()
-        },
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize::Px(33.0),
         TextColor(Color::srgb(0.9, 0.9, 0.9)),
     );
 
@@ -139,7 +136,7 @@ fn spawn_bar(parent: &mut ChildSpawnerCommands) {
 fn spawn_button_row(
     parent: &mut ChildSpawnerCommands,
     constraint: Constraint,
-    text_style: (TextFont, TextColor),
+    text_style: (FontFace, TextColor),
 ) {
     let label = match constraint {
         Constraint::FlexBasis => "flex_basis",
@@ -208,7 +205,7 @@ fn spawn_button(
     constraint: Constraint,
     action: ButtonValue,
     label: String,
-    text_style: (TextFont, TextColor),
+    text_style: (FontFace, TextColor),
     active: bool,
 ) {
     parent
