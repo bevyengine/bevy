@@ -3834,6 +3834,20 @@ name = "fallback_image"
 path = "examples/shader/fallback_image.rs"
 doc-scrape-examples = true
 
+[package.metadata.example.fallback_image]
+hidden = true
+
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shader"
+wasm = true
+
 [[example]]
 name = "reflection_probes"
 path = "examples/3d/reflection_probes.rs"
@@ -3844,9 +3858,6 @@ name = "Reflection Probes"
 description = "Demonstrates reflection probes"
 category = "3D Rendering"
 wasm = false
-
-[package.metadata.example.fallback_image]
-hidden = true
 
 [package.metadata.example.window_resizing]
 name = "Window Resizing"
