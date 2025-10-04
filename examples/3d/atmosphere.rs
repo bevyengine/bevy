@@ -6,7 +6,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
     diagnostic::LogDiagnosticsPlugin,
