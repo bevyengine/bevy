@@ -172,7 +172,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(TextFont, TextColor, LineHeight)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -264,11 +264,6 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -296,12 +291,6 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
 }
 
 impl From<Handle<Font>> for TextFont {
@@ -310,21 +299,11 @@ impl From<Handle<Font>> for TextFont {
     }
 }
 
-impl From<LineHeight> for TextFont {
-    fn from(line_height: LineHeight) -> Self {
-        Self {
-            line_height,
-            ..default()
-        }
-    }
-}
-
 impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            line_height: LineHeight::default(),
             font_smoothing: Default::default(),
         }
     }
@@ -333,8 +312,8 @@ impl Default for TextFont {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
