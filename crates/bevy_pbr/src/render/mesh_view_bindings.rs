@@ -738,16 +738,15 @@ pub fn prepare_mesh_view_bind_groups(
                 ));
             }
 
-            if has_atmosphere {
-                if let (Some(atmosphere_textures), Some(atmosphere_buffer_binding)) =
+            if has_atmosphere
+                && let (Some(atmosphere_textures), Some(atmosphere_buffer_binding)) =
                     (atmosphere_textures, atmosphere_buffer.buffer.binding())
-                {
-                    entries = entries.extend_with_indices((
-                        (29, &atmosphere_textures.transmittance_lut.default_view),
-                        (30, &atmosphere_samplers.transmittance_lut),
-                        (31, atmosphere_buffer_binding),
-                    ));
-                }
+            {
+                entries = entries.extend_with_indices((
+                    (29, &atmosphere_textures.transmittance_lut.default_view),
+                    (30, &atmosphere_samplers.transmittance_lut),
+                    (31, atmosphere_buffer_binding),
+                ));
             }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();
