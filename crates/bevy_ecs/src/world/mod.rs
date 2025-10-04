@@ -32,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
+        InsertMode, NoBundleEffect,
     },
     change_detection::{DetectChangesMut, MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -50,9 +50,9 @@ use crate::{
     prelude::{Add, Despawn, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceComponent},
+    resource::{Resource, ResourceComponent},
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{ResourceData, Storages},
+    storage::{ResourceData, SparseSet, Storages},
     system::Commands,
     world::{
         command_queue::RawCommandQueue,
@@ -62,7 +62,6 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashMap;
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
@@ -99,7 +98,7 @@ pub struct World {
     pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentMessages,
     /// Internal cache matching the component ids of resources to the corresponding entity.
-    pub resource_entities: HashMap<ComponentId, Entity>,
+    pub resource_entities: SparseSet<ComponentId, Entity>,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -1738,8 +1737,20 @@ impl World {
     ) {
         let resource_component = ResourceComponent(value);
         move_as_ptr!(resource_component);
-        // If the resource already exists, a hook replaces it.
-        self.spawn_with_caller(resource_component, caller);
+        // if the resource already exists, we replace it on the same entity
+        if let Some(component_id) = self.resource_id::<R>()
+            && let Some(entity) = self.resource_entities.get(component_id)
+            && let Ok(mut entity_mut) = self.get_entity_mut(*entity)
+        {
+            entity_mut.insert_with_caller(
+                resource_component,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            );
+        } else {
+            self.spawn_with_caller(resource_component, caller);
+        }
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -1801,7 +1812,7 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.resource_id::<R>()?;
-        let entity = *self.resource_entities.get(&component_id)?;
+        let entity = *self.resource_entities.get(component_id)?;
         let value = self
             .get_entity_mut(entity)
             .ok()?
@@ -1845,7 +1856,7 @@ impl World {
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
         self.resource_entities
-            .get(&component_id)
+            .get(component_id)
             .and_then(|entity| self.get_entity(*entity).ok())
             .is_some_and(|entity_ref| entity_ref.contains_id(component_id))
     }
@@ -1932,7 +1943,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity = self.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         let entity_ref = self.get_entity(*entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
@@ -2544,8 +2555,8 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.valid_resource_id::<R>()?;
-        let entity = self.resource_entities.get(&component_id)?;
-        let mut entity_mut = self.get_entity_mut(*entity).ok()?;
+        let entity = *self.resource_entities.get(component_id)?;
+        let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<ResourceComponent<R>>()?;
         let mut changed_by = entity_mut.get_changed_by::<ResourceComponent<R>>()?;
@@ -2562,16 +2573,6 @@ impl World {
             changed_by: changed_by.as_mut(),
         };
 
-        // to fully remove the resource, we remove the entity and the resource_entities entry
-        entity_mut.despawn();
-        self.resource_entities.remove(&component_id);
-
-        // There may be commands that are registered by the closure, which interact with the resource.
-        // In make sure that the resource is available, we avoid flushing until the resource is fully inserted back.
-        // Since spawn calls flush, we do it before calling the closure, and check afterwards that it was not removed.
-        // world.flush() is now called at the end of `insert_with_caller()`.
-        let entity = self.spawn(IsResource).id();
-
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
@@ -2585,22 +2586,51 @@ impl World {
         let value = ResourceComponent(value);
         move_as_ptr!(value);
 
-        entity_mut.insert_with_caller(
-            value,
-            InsertMode::Replace,
-            changed_by,
-            RelationshipHookMode::Skip,
-        );
+        // See EntityWorldMut::insert_with_caller for the original code.
+        // This is copied here to update the change ticks. This way we can ensure that the commands
+        // ran during self.flush(), interact with the correct ticks on the resource component.
+        {
+            let location = entity_mut.location();
+            let mut bundle_inserter = BundleInserter::new::<ResourceComponent<R>>(
+                // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
+                unsafe { entity_mut.world_mut() },
+                location.archetype_id,
+                ticks.changed,
+            );
+            // SAFETY:
+            // - `location` matches current entity and thus must currently exist in the source
+            //   archetype for this inserter and its location within the archetype.
+            // - `T` matches the type used to create the `BundleInserter`.
+            // - `apply_effect` is called exactly once after this function.
+            // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+            //   and the caller ensures that the value is not accessed or dropped after this function
+            //   returns.
+            let (bundle, _) = value.partial_move(|bundle| unsafe {
+                bundle_inserter.insert(
+                    entity,
+                    location,
+                    bundle,
+                    InsertMode::Replace,
+                    changed_by,
+                    RelationshipHookMode::Run,
+                )
+            });
+            entity_mut.update_location();
 
-        // Update ticks
-        entity_mut
-            .get_mut::<ResourceComponent<R>>()?
-            .set_last_added(ticks.added);
-        entity_mut
-            .get_mut::<ResourceComponent<R>>()?
-            .set_last_changed(ticks.changed);
+            // set the added tick to the original
+            entity_mut
+                .get_mut::<ResourceComponent<R>>()?
+                .set_last_added(ticks.added);
 
-        self.resource_entities.insert(component_id, entity);
+            // SAFETY: We update the entity location afterwards.
+            unsafe { entity_mut.world_mut() }.flush();
+
+            entity_mut.update_location();
+            // SAFETY:
+            // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+            // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
+            unsafe { <ResourceComponent<R>>::apply_effect(bundle, &mut entity_mut) };
+        }
 
         Some(result)
     }
@@ -3231,13 +3261,12 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        self.resource_entities
-            .iter()
-            .filter_map(|(&component_id, &entity)| {
-                let component_info = self.components().get_info(component_id)?;
-                let resource = self.get_entity(entity).ok()?.get_by_id(component_id).ok()?;
-                Some((component_info, resource))
-            })
+        let component_ids: Vec<ComponentId> = self.resource_entities.indices().to_vec();
+        component_ids.into_iter().filter_map(|component_id| {
+            let component_info = self.components().get_info(component_id)?;
+            let resource = self.get_resource_by_id(component_id)?;
+            Some((component_info, resource))
+        })
     }
 
     /// Mutably iterates over all resources in the world.
@@ -3313,7 +3342,7 @@ impl World {
         let components = unsafe_world.components();
 
         resource_entities
-            .into_iter()
+            .iter()
             .filter_map(move |(&component_id, &entity)| {
                 // SAFETY: If a resource has been initialized, a corresponding ComponentInfo must exist with its ID.
                 let component_info =
@@ -3377,7 +3406,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        let entity = self.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         self.despawn(*entity).then_some(())
     }
 

@@ -103,9 +103,9 @@ pub struct ResourceComponent<R: Resource>(pub R);
 
 pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
     let world = deferred_world.deref();
-    if world.resource_entities.contains_key(&context.component_id) {
+    if world.resource_entities.contains(context.component_id) {
         // the resource already exists and we need to overwrite it
-        let offending_entity = *world.resource_entities.get(&context.component_id).unwrap();
+        let offending_entity = *world.resource_entities.get(context.component_id).unwrap();
         deferred_world.commands().entity(offending_entity).despawn();
     }
     // we update the cache
@@ -122,7 +122,7 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
 pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
     let world = deferred_world.deref();
     // If the resource is already linked to a new (different) entity, we don't remove it.
-    if let Some(entity) = world.resource_entities.get(&context.component_id)
+    if let Some(entity) = world.resource_entities.get(context.component_id)
         && *entity == context.entity
     {
         // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
@@ -131,7 +131,7 @@ pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookCon
                 .as_unsafe_world_cell()
                 .world_mut()
                 .resource_entities
-                .remove(&context.component_id);
+                .remove(context.component_id);
         }
     }
 }
