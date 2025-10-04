@@ -117,6 +117,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
+|pcx|PCX image format support|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
