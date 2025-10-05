@@ -5,7 +5,7 @@
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache_with_cell_size, get_cell_size}
+#import bevy_solari::world_cache::query_world_cache
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
@@ -63,23 +63,16 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
 
-    var radiance = vec3(0.0);
     var throughput = vec3(1.0);
-    for (var i = 1u; i <= 3u; i += 1u) {
+    // Trace upto three specular bounces, getting the net throughput from them.
+    for (var i = 0u; i < 3u; i += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        // Terminate in the world cache after the first bounce,
-        // if it's traveled at least a cell's worth of distance,
-        // or we're on the last bounce
-        let cell_size = get_cell_size(ray_hit.world_position, view.world_position);
-        let cell_face_diagonal = cell_size * sqrt(2.0);
-        if i != 1u && (ray.t > cell_face_diagonal || i == 3u) {
-            radiance = query_world_cache_with_cell_size(ray_hit.world_position, ray_hit.geometric_world_normal, cell_size);
-            radiance *= ray_hit.material.base_color / PI; // TODO: Correct BRDF
-            break;
+        if ray_hit.material.roughness > 0.04 || i == 2u {
+            return throughput * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position) * ray_hit.material.base_color / PI;
         }
 
         // Sample new ray direction from the GGX BRDF for next bounce
@@ -90,7 +83,8 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
-        let wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+        wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
+        ray_origin = ray_hit.world_position;
 
         // Update throughput for next bounce
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
@@ -99,7 +93,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         throughput *= (brdf * cos_theta) / pdf;
     }
 
-    return radiance * throughput;
+    return vec3(0.0);
 }
 
 // Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
