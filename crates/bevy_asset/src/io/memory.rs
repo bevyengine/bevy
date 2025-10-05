@@ -275,10 +275,13 @@ pub enum Value {
 }
 
 impl Data {
-    fn path(&self) -> &Path {
+    /// The path that this data was written to.
+    pub fn path(&self) -> &Path {
         &self.path
     }
-    fn value(&self) -> &[u8] {
+
+    /// The value in bytes that was written here.
+    pub fn value(&self) -> &[u8] {
         match &self.value {
             Value::Vec(vec) => vec,
             Value::Static(value) => value,
