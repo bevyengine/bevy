@@ -862,6 +862,19 @@ description = "Renders text to multiple windows with different scale factors usi
 category = "2D Rendering"
 wasm = true
 
+
+[[example]]
+name = "system_fonts"
+path = "examples/2d/system_fonts.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.system_fonts]
+name = "System Fonts"
+description = "Uses a system font to display text"
+category = "2D Rendering"
+# Loading asset folders is not supported in Wasm, but required to create the atlas.
+wasm = false
+
 [[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"

@@ -128,6 +128,7 @@ Example | Description
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
+[System Fonts](../examples/2d/system_fonts.rs) | Uses a system font to display text
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
 [Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
