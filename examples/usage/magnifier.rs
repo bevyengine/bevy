@@ -1,4 +1,6 @@
-//! Demonstrates zooming part of the screen with `SubCameraView`
+//! Demonstrates zooming part of the screen with [`SubCameraView`].
+//!
+//! Also see the `camera_sub_view` example for more information about sub views.
 use bevy::{
     camera::{SubCameraView, SubViewSourceProjection, Viewport},
     input::mouse::AccumulatedMouseScroll,
