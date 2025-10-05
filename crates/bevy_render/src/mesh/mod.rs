@@ -1,12 +1,11 @@
 pub mod allocator;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
-    render_resource::TextureView,
     texture::GpuImage,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
-use bevy_app::{App, Plugin, PostUpdate};
+use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
@@ -15,6 +14,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+#[cfg(feature = "morph")]
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 use bevy_mesh::*;
 use wgpu::IndexFormat;
@@ -40,10 +40,15 @@ impl Plugin for MeshRenderAssetPlugin {
 
 /// [Inherit weights](inherit_weights) from glTF mesh parent entity to direct
 /// bevy mesh child entities (ie: glTF primitive).
+#[cfg(feature = "morph")]
 pub struct MorphPlugin;
+#[cfg(feature = "morph")]
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, inherit_weights.in_set(InheritWeightSystems));
+        app.add_systems(
+            bevy_app::PostUpdate,
+            inherit_weights.in_set(InheritWeightSystems),
+        );
     }
 }
 
@@ -51,6 +56,7 @@ impl Plugin for MorphPlugin {
 /// should be inherited by children meshes.
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
+#[cfg(feature = "morph")]
 pub fn inherit_weights(
     morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
@@ -71,7 +77,8 @@ pub struct RenderMesh {
     pub vertex_count: u32,
 
     /// Morph targets for the mesh, if present.
-    pub morph_targets: Option<TextureView>,
+    #[cfg(feature = "morph")]
+    pub morph_targets: Option<crate::render_resource::TextureView>,
 
     /// Information about the mesh data buffers, including whether the mesh uses
     /// indices or not.
@@ -143,6 +150,7 @@ impl RenderAsset for RenderMesh {
         (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
                 let Some(target_image) = images.get(mt) else {
@@ -165,6 +173,7 @@ impl RenderAsset for RenderMesh {
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
         let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        #[cfg(feature = "morph")]
         key_bits.set(
             BaseMeshPipelineKey::MORPH_TARGETS,
             mesh.morph_targets().is_some(),
@@ -175,6 +184,7 @@ impl RenderAsset for RenderMesh {
             buffer_info,
             key_bits,
             layout: mesh_vertex_buffer_layout,
+            #[cfg(feature = "morph")]
             morph_targets,
         })
     }

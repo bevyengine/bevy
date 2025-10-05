@@ -23,6 +23,8 @@ decoupled_naga = ["bevy_shader/decoupled_naga"]
 
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
+morph = ["bevy_mesh/morph"]
+
 shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
 
 # Enable SPIR-V shader passthrough
