@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, TextPlugin,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -30,19 +30,38 @@ pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
     fn default() -> Self {
-        Self::new(true)
+        Self::new_with_settings(&TextPlugin::default())
     }
 }
 
 impl CosmicFontSystem {
     /// Creates a new, wrapped [`cosmic_text::FontSystem`].
     ///
-    /// The option to load system fonts is typically provided via [`TextPlugin`](super::TextPlugin).
-    pub fn new(load_system_fonts: bool) -> Self {
+    /// The option to load system fonts is typically provided via the values in [`TextPlugin`].
+    pub fn new_with_settings(plugin_settings: &TextPlugin) -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
         let mut db = cosmic_text::fontdb::Database::new();
-        if load_system_fonts {
+        if plugin_settings.load_system_fonts {
             db.load_system_fonts();
+        }
+        if let Some(family_serif) = &plugin_settings.family_serif {
+            db.set_serif_family(family_serif.to_string());
+        }
+
+        if let Some(family_sans_serif) = &plugin_settings.family_sans_serif {
+            db.set_serif_family(family_sans_serif.to_string());
+        }
+
+        if let Some(family_cursive) = &plugin_settings.family_cursive {
+            db.set_serif_family(family_cursive.to_string());
+        }
+
+        if let Some(family_fantasy) = &plugin_settings.family_fantasy {
+            db.set_serif_family(family_fantasy.to_string());
+        }
+
+        if let Some(family_monospace) = &plugin_settings.family_monospace {
+            db.set_serif_family(family_monospace.to_string());
         }
 
         Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
@@ -530,7 +549,7 @@ pub fn load_font_to_fontdb(
                     // TODO: it is assumed this is the right font face
                     *ids.last().unwrap()
                 }
-                Font::System {
+                Font::Query {
                     families,
                     weight,
                     stretch,

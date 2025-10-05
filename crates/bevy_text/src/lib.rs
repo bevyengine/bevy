@@ -79,13 +79,33 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
 pub struct TextPlugin {
-    /// If true, the [`CosmicFontSystem`] will load system fonts.
+    /// If `true`, the [`CosmicFontSystem`] will load system fonts.
+    ///
+    /// Supports Windows, Linux, and MacOS.
+    ///
+    /// See [`cosmic_text::fontdb::Database::load_system_fonts`] for details.
     pub load_system_fonts: bool,
+
+    /// Override the family identifier for the system general Serif font
+    pub family_serif: Option<String>,
+    /// Override the default identifier for the general Sans-Serif font
+    pub family_sans_serif: Option<String>,
+    /// Override the default identifier for the general Cursive font
+    pub family_cursive: Option<String>,
+    /// Override the default identifier for the general Fantasy font
+    pub family_fantasy: Option<String>,
+    /// Override the default identifier for the general Monospace font
+    pub family_monospace: Option<String>,
 }
 impl Default for TextPlugin {
     fn default() -> Self {
         Self {
             load_system_fonts: true,
+            family_serif: None,
+            family_sans_serif: None,
+            family_cursive: None,
+            family_fantasy: None,
+            family_monospace: None,
         }
     }
 }
@@ -104,7 +124,7 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
-            .insert_resource(CosmicFontSystem::new(self.load_system_fonts))
+            .insert_resource(CosmicFontSystem::new_with_settings(self))
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .add_systems(

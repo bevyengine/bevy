@@ -11,7 +11,7 @@ fn main() {
 fn setup(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
     commands.spawn(Camera2d);
 
-    let font = fonts.add(Font::System {
+    let font = fonts.add(Font::Query {
         families: vec![
             Family::Name("Liberation Sans".to_string()),
             Family::Name("Ubuntu".to_string()),

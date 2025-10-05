@@ -19,9 +19,11 @@ use bevy_reflect::TypePath;
 pub enum Font {
     /// Content of a font file as bytes
     Data(Arc<Vec<u8>>),
-    /// References a font installed on the system by family, weight, stretch, and style.
-    System {
-        /// A list of font families that satisfy this font requirement
+    /// References a font inserted into the font database by family, weight, stretch, and style.
+    ///
+    /// This can include system fonts, if enabled in [`super::TextPlugin`], or previously loaded fonts via [`Font::Data`].
+    Query {
+        /// A list of font families that satisfy this font requirement.
         families: Vec<Family>,
         /// Specifies the weight of glyphs in the font, their degree of blackness or stroke thickness.
         ///
