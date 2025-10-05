@@ -53,13 +53,16 @@ pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
 
+pub use cosmic_text::{Stretch, Style, Weight};
+
 /// The text prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Family, Font, Justify, LineBreak, Stretch, Style, TextColor, TextError, TextFont,
+        TextLayout, TextSpan, Weight,
     };
 }
 
