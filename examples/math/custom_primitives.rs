@@ -3,6 +3,9 @@
 
 use std::f32::consts::{PI, SQRT_2};
 
+#[cfg(not(target_family = "wasm"))]
+use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
+
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
@@ -92,9 +95,14 @@ struct Shape2d;
 struct Shape3d;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .init_state::<BoundingShape>()
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins);
+
+    #[cfg(not(target_family = "wasm"))]
+    app.add_plugins(WireframePlugin::default());
+
+    app.init_state::<BoundingShape>()
         .init_state::<CameraActive>()
         .add_systems(Startup, setup)
         .add_systems(
@@ -105,8 +113,15 @@ fn main() {
                 update_bounding_shape.run_if(input_just_pressed(KeyCode::KeyB)),
                 switch_cameras.run_if(input_just_pressed(KeyCode::Space)),
             ),
-        )
-        .run();
+        );
+
+    #[cfg(not(target_family = "wasm"))]
+    app.add_systems(
+        Update,
+        toggle_wireframes.run_if(input_just_pressed(KeyCode::Tab)),
+    );
+
+    app.run();
 }
 
 fn setup(
@@ -154,10 +169,13 @@ fn setup(
         Transform::from_xyz(8.0, 12.0, 1.0),
     ));
 
+    let mut text = "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+            Press 'Space' to switch between 3D and 2D".to_string();
+    #[cfg(not(target_family = "wasm"))]
+    text.push_str("\nPress 'Tab' to toggle display of wireframes");
     // Example instructions
     commands.spawn((
-        Text::new("Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
-            Press 'Space' to switch between 3D and 2D"),
+        Text::new(text),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -279,6 +297,10 @@ fn switch_cameras(
             *projection = PROJECTION_3D;
         }
     };
+}
+
+fn toggle_wireframes(mut wireframe_config: ResMut<WireframeConfig>) {
+    wireframe_config.global = !wireframe_config.global;
 }
 
 /// A custom 2D heart primitive. The heart is made up of two circles centered at `Vec2::new(±radius, 0.)` each with the same `radius`.
