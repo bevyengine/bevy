@@ -6753,15 +6753,19 @@ mod tests {
         let _id2 = world.spawn(Marker).id();
         let id3 = world.spawn(Marker).id();
 
-        #[cfg(feature = "track_location")]
         let e1_spawned = world.entity(id1).spawned_by();
 
         let spawn = world.entity(id3).spawned_by();
         world.entity_mut(id1).despawn();
-        #[cfg(feature = "track_location")]
         let e1_despawned = world.entities().entity_get_spawned_or_despawned_by(id1);
-        #[cfg(feature = "track_location")]
-        assert_ne!(e1_spawned.map(Some), e1_despawned);
+
+        // These assertions are only possible if the `track_location` feature is enabled
+        if let (Some(e1_spawned), Some(e1_despawned)) =
+            (e1_spawned.into_option(), e1_despawned.into_option())
+        {
+            assert!(e1_despawned.is_some());
+            assert_ne!(Some(e1_spawned), e1_despawned);
+        }
 
         let spawn_after = world.entity(id3).spawned_by();
         assert_eq!(spawn, spawn_after);
