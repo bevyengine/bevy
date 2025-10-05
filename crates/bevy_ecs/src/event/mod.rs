@@ -4,6 +4,7 @@ mod trigger;
 pub use bevy_ecs_macros::{EntityEvent, Event};
 pub use trigger::*;
 
+use crate::entity::ContainsEntity;
 use crate::{
     component::{Component, ComponentId},
     entity::Entity,
@@ -283,12 +284,13 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// [`Observer::watch_entities`]: crate::observer::Observer::watch_entities
 pub trait EntityEvent: Event {
     /// The [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
-    fn event_target(&self) -> Entity;
-    /// Returns a mutable reference to the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
+    fn event_target(&self) -> &impl ContainsEntity;
+
+    /// Sets the "target" [`Entity`] of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     ///
-    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
+    /// Note: In general, this should not be used from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
     /// the event in any of Bevy's built-in [`Trigger`] implementations.
-    fn event_target_mut(&mut self) -> &mut Entity;
+    fn set_event_target(&mut self, entity: Entity);
 }
 
 impl World {
@@ -958,5 +960,75 @@ mod tests {
             assert!(events.is_empty());
         });
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_derive_entity_event() {
+        use bevy_ecs::prelude::*;
+
+        struct Entitoid(Entity);
+
+        impl ContainsEntity for Entitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        // Lame :(
+        impl From<Entity> for Entitoid {
+            fn from(value: Entity) -> Self {
+                Self(value)
+            }
+        }
+
+        #[derive(EntityEvent)]
+        struct A(Entity);
+
+        #[derive(EntityEvent)]
+        struct B {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct C {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        struct D(Entitoid);
+
+        #[derive(EntityEvent)]
+        struct E {
+            entity: Entitoid,
+        }
+
+        #[derive(EntityEvent)]
+        struct F {
+            #[event_target]
+            target: Entitoid,
+        }
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+
+        world.entity_mut(entity).trigger(A);
+
+        // Lame :(
+        world.entity_mut(entity).trigger(|entity| B { entity });
+        world
+            .entity_mut(entity)
+            .trigger(|entity| C { target: entity });
+        world
+            .entity_mut(entity)
+            .trigger(|entity| D(Entitoid(entity)));
+        world.entity_mut(entity).trigger(|entity| E {
+            entity: Entitoid(entity),
+        });
+        world.entity_mut(entity).trigger(|entity| F {
+            target: Entitoid(entity),
+        });
+
+        // No asserts; test just needs to compile
     }
 }

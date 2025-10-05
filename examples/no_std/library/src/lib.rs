@@ -126,7 +126,7 @@ fn tick_timers(
 }
 
 fn unwrap<B: Bundle>(event: On<Unwrap>, world: &mut World) {
-    if let Ok(mut target) = world.get_entity_mut(event.event_target())
+    if let Ok(mut target) = world.get_entity_mut(event.entity)
         && let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>()
     {
         target.insert(bundle);

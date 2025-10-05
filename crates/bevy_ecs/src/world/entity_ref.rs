@@ -6274,7 +6274,7 @@ mod tests {
             .spawn_empty()
             .observe(|event: On<TestEvent>, mut commands: Commands| {
                 commands
-                    .entity(event.event_target())
+                    .entity(event.event_target().entity())
                     .insert(TestComponent(0));
             })
             .id();

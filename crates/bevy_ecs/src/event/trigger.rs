@@ -1,3 +1,4 @@
+use crate::entity::ContainsEntity;
 use crate::{
     component::ComponentId,
     entity::Entity,
@@ -141,7 +142,7 @@ unsafe impl<E: EntityEvent + for<'a> Event<Trigger<'a> = Self>> Trigger<E> for E
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let entity = event.event_target();
+        let entity = event.event_target().entity();
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
@@ -278,7 +279,7 @@ unsafe impl<
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let mut current_entity = event.event_target();
+        let mut current_entity = event.event_target().entity();
         self.original_event_target = current_entity;
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
@@ -309,7 +310,8 @@ unsafe impl<
                 break;
             }
 
-            *event.event_target_mut() = current_entity;
+            event.set_event_target(current_entity);
+
             // SAFETY:
             // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
             // - the passed in event pointer comes from `event`, which is an `Event`
@@ -354,7 +356,7 @@ unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let entity = event.event_target();
+        let entity = event.event_target().entity();
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`

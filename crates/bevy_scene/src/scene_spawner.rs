@@ -709,7 +709,7 @@ mod tests {
         component::Component,
         hierarchy::Children,
         observer::On,
-        prelude::ReflectComponent,
+        prelude::*,
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -898,7 +898,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    event.event_target(),
+                    event.event_target().entity(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );

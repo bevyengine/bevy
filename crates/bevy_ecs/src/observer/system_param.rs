@@ -140,7 +140,7 @@ impl<'w, 't, E: EntityEvent, B: Bundle> On<'w, 't, E, B> {
         note = "Call On::event() to access the event, then read the target entity from the event directly."
     )]
     pub fn target(&self) -> Entity {
-        self.event.event_target()
+        self.event.event_target().entity()
     }
 }
 
