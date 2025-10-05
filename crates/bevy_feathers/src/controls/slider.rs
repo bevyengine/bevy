@@ -216,7 +216,7 @@ fn update_slider_pos(
 ) {
     for (slider_ent, value, range, precision, mut gradient) in q_sliders.iter_mut() {
         if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
-            let percent_value = range.thumb_position(value.0) * 100.0;
+            let percent_value = (range.thumb_position(value.0) * 100.0).clamp(0.0, 100.0);
             linear_gradient.stops[1].point = Val::Percent(percent_value);
             linear_gradient.stops[2].point = Val::Percent(percent_value);
         }
