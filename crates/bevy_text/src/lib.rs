@@ -75,8 +75,17 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 ///
 /// When the `bevy_text` feature is enabled with the `bevy` crate, this
 /// plugin is included by default in the `DefaultPlugins`.
-#[derive(Default)]
-pub struct TextPlugin;
+pub struct TextPlugin {
+    /// If true, the [`CosmicFontSystem`] will load system fonts.
+    pub load_system_fonts: bool,
+}
+impl Default for TextPlugin {
+    fn default() -> Self {
+        Self {
+            load_system_fonts: true,
+        }
+    }
+}
 
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -92,7 +101,7 @@ impl Plugin for TextPlugin {
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
+            .insert_resource(CosmicFontSystem::new(self.load_system_fonts))
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .add_systems(
