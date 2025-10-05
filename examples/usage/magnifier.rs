@@ -31,6 +31,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // Plane
     commands.spawn((
@@ -43,6 +44,19 @@ fn setup(
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
+
+    // Tiny Bevy logo
+    let scale = 0.05;
+    commands.spawn((
+        Mesh3d(meshes.add(Rectangle::new(2.0 * scale, 0.5 * scale))),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load("branding/bevy_logo_dark.png")),
+            alpha_mode: AlphaMode::Mask(0.5),
+            ..default()
+        })),
+        // Slightly further along the z axis to avoid z fighting with the cube
+        Transform::from_xyz(0.0, 0.5, 0.501),
     ));
 
     // Light
