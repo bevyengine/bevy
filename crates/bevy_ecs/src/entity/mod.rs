@@ -842,7 +842,7 @@ impl Entities {
             // and farther beyond `meta.len()`.
             let raw = self.meta.len() as IdCursor - n;
             if raw == IdCursor::MAX {
-                panic!("number of entities exceeds {}", IdCursor::MAX);
+                panic!("number of entities can't exceed {}", IdCursor::MAX);
             }
             // SAFETY: We just checked the bounds
             let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };
