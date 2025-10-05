@@ -633,7 +633,6 @@ mod tests {
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
     }
 
-    /// `Handle` should be created from a `Uuid` via `From` trait
     #[test]
     fn from_uuid() {
         let uuid = UUID_1;
