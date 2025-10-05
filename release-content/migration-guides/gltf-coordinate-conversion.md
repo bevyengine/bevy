@@ -1,36 +1,35 @@
 ---
-title: Changes to glTF coordinate conversion
+title: glTF Coordinate Conversion
 pull_requests: [20394]
 ---
 
-Bevy 0.17 added an option for coordinate conversion of glTF files -
-`GltfPlugin::convert_coordinates` and `GltfLoaderSettings::convert_coordinates`.
-The goal was to ensure that objects facing forward in the glTF matched the
-direction of Bevy's `Transform::forward`.
+**Bevy 0.17** added experimental options for coordinate conversion of glTF
+files - `GltfPlugin::use_model_forward_direction` and
+`GltfLoaderSettings::use_model_forward_direction`. In **Bevy 0.18** these
+options have changed. The options are disabled by default, so if you haven't
+enabled them then your glTFs will work the same as before.
 
-The conversion was disabled by default, so if you didn't enable the option then
-you don't have to make any changes - your glTFs will work the same as before.
+The goal of coordinate conversion is to take objects that face forward in the
+glTF and change them to match the direction of Bevy's `Transform::forward`.
+Conversion is necessary because glTF's standard scene forward is +Z, while
+Bevy's is -Z (although not all glTF files follow the standard, and there are
+exceptions for cameras and lights).
 
-Conversion is useful because glTF's standard forward is +Z, while Bevy's is -Z
-(although not all glTF files follow the standard). Cameras and lights are an
-exception - they have the correct `Transform::forward` with or without
-conversion. This is because both glTF and Bevy use -Z forward for cameras and
+In 0.17 the conversion was applied to nodes and meshes within glTF scenes.
+This worked well for some users, but had
+[bugs](https://github.com/bevyengine/bevy/issues/20621) and didn't work well for
+other users. In particular, node conversion caused issues with cameras and
 lights.
 
-The Bevy 0.17 conversion was applied to scenes, nodes and meshes within the
-glTF. This worked well for some users, but had
-[bugs](https://github.com/bevyengine/bevy/issues/20621) and didn't work well for
-other users.
-
-In Bevy 0.18, parts of the conversion have been removed or rearranged to avoid
-bugs. The `convert_coordinates` boolean has been changed to a struct with
-separate options to convert scenes and/or meshes.
+In 0.18 there are two changes. Firstly, the `use_model_forward_direction` option
+has been renamed to `convert_coordinates`, and is now a struct with two separate
+options.
 
 ```diff
  struct GltfPlugin {
      ...
--    bool convert_coordinates,
-+    GltfConvertCoordinates convert_coordinates,
+-    use_model_forward_direction: bool,
++    convert_coordinates: GltfConvertCoordinates,
  }
 ```
 
@@ -41,24 +40,36 @@ struct GltfConvertCoordinates {
 }
 ```
 
-Whether the changes affect you will depend on how you're using glTFs.
+Secondly, the conversion behavior has changed. Nodes within the glTF scene are
+no longer converted - instead a new conversion is applied to the scene root and
+mesh primitive entities. Whether these changes affect you will depend on how
+you're using glTFs.
 
-If you simply spawn your glTF as a scene and want it to visually match the
-`Transform::forward` of the entity it's spawned on, then you're supported by the
-`GltfConvertCoordinates::scenes` option.
+- If you simply spawn your glTF via `SceneRoot` and want it to visually match
+  the `Transform::forward` of the entity it's spawned on, then you're still
+  supported. The internals of the scene will be different, but the visual result
+  will be the same. You can enable this conversion with the 
+  `GltfConvertCoordinates::scenes` option.
 
-If you want the `Mesh` assets within the glTF to be converted, then you're
-supported by the `GltfConvertCoordinates::meshes` option. This can be combined
-with the `scenes` option if you want both.
+- If you want the `Mesh` assets in your glTF to be converted, then you're
+  supported by the `GltfConvertCoordinates::meshes` option. This can be combined
+  with the `scenes` option if you want both.
 
-There is no longer a way to enable conversion of nodes within the glTF scene.
-This change was made to avoid bugs and give other users more options. If you
-only needed scene and/or mesh conversion then you're not affected by this
-change.
+- If you enabled the 0.17 conversion and aren't sure what to enable in 0.18,
+  try enabling both the `scenes` and `meshes` options. This will be closest to
+  the 0.17 behavior.
 
-If you want to start using conversion, the easiest way is to enable it for your
-entire app through the `GltfPlugin` settings. This example enables scene
-conversion:
+- If you tried the 0.17 conversion but found it caused issues with cameras or
+  lights, then the 0.18 conversion should fix these issues.
+
+- If you relied on node conversion, you'll find that 0.18 no longer applies that
+  conversion. This change was made to avoid bugs and give other users more
+  options.
+
+If you want to try out glTF coordinate conversion, the simplest method is to
+set `GltfPlugin::convert_coordinates` - this option can be set on app startup,
+and is applied to all glTFs when they're loaded. For an app that uses
+`DefaultPlugins`, the example below shows how to enable just scene conversion.
 
 ```rust
 App::new()
@@ -69,8 +80,8 @@ App::new()
     .run();
 ```
 
-You can also choose the option per-asset through `GltfLoaderSettings`. This will
-override the settings in `GltfPlugin`.
+If you want finer control, you can choose the option per-glTF with
+`GltfLoaderSettings`.
 
 ```rust
 let handle = asset_server.load_with_settings(
