@@ -81,7 +81,7 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 pub struct TextPlugin {
     /// If `true`, the [`CosmicFontSystem`] will load system fonts.
     ///
-    /// Supports Windows, Linux, and MacOS.
+    /// Supports Windows, Linux, and macOS.
     ///
     /// See [`cosmic_text::fontdb::Database::load_system_fonts`] for details.
     pub load_system_fonts: bool,
