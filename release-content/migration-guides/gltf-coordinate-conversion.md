@@ -48,8 +48,8 @@ you're using glTFs.
 - If you simply spawn your glTF via `SceneRoot` and want it to visually match
   the `Transform::forward` of the entity it's spawned on, then you're still
   supported. The internals of the scene will be different, but the visual result
-  will be the same. You can enable this conversion with the 
-  `GltfConvertCoordinates::scenes` option.
+  will be the same. You can enable this conversion with the `GltfConvertCoordinates::scenes`
+  option.
 
 - If you want the `Mesh` assets in your glTF to be converted, then you're
   supported by the `GltfConvertCoordinates::meshes` option. This can be combined
