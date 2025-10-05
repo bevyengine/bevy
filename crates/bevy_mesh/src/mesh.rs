@@ -2,10 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    generate_tangents_for_mesh, scale_normal, triangle_area_normal, triangle_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
+    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
+    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
+    VertexAttributeValues, VertexBufferLayout,
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
@@ -942,8 +942,9 @@ impl Mesh {
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        let tangents = generate_tangents_for_mesh(self)?;
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn generate_tangents(&mut self) -> Result<(), super::GenerateTangentsError> {
+        let tangents = super::generate_tangents_for_mesh(self)?;
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
@@ -955,7 +956,8 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, super::GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
     }
@@ -1411,6 +1413,21 @@ impl Mesh {
     /// Gets a list of all morph target names, if they exist.
     pub fn morph_target_names(&self) -> Option<&[String]> {
         self.morph_target_names.as_deref()
+    }
+}
+
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
+
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
     }
 }
 

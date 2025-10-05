@@ -149,6 +149,7 @@ default = [
   "bevy_scene",
   "bevy_image",
   "bevy_mesh",
+  "bevy_mikktspace",
   "bevy_camera",
   "bevy_light",
   "bevy_shader",
@@ -271,6 +272,9 @@ bevy_image = ["bevy_internal/bevy_image"]
 
 # Provides a mesh format and some primitive meshing routines.
 bevy_mesh = ["bevy_internal/bevy_mesh"]
+
+# Provides Mikkelsen Tangent Space generation for use with bevy_mesh.
+bevy_mikktspace = ["bevy_internal/bevy_mikktspace"]
 
 # Provides camera and visibility types, as well as culling primitives.
 bevy_camera = ["bevy_internal/bevy_camera"]

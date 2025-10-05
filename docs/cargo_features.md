@@ -29,6 +29,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
+|bevy_mikktspace|Provides Mikkelsen Tangent Space generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
