@@ -33,10 +33,12 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
     if surface.material.roughness > 0.04 {
+        // Surface is very rough, reuse the ReSTIR GI reservoir
         let gi_reservoir = gi_reservoirs_a[pixel_index];
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
         radiance = gi_reservoir.radiance * gi_reservoir.unbiased_contribution_weight;
     } else {
+        // Surface is glossy or mirror-like, trace a new path
         let TBN = orthonormalize(surface.world_normal);
         let T = TBN[0];
         let B = TBN[1];
@@ -63,16 +65,18 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
     var ray_origin = initial_ray_origin;
     var wi = initial_wi;
 
+    // Trace up to three bounces, getting the net throughput from them
     var throughput = vec3(1.0);
-    // Trace upto three specular bounces, getting the net throughput from them.
     for (var i = 0u; i < 3u; i += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
+        // Surface is very rough, terminate path in the world cache
         if ray_hit.material.roughness > 0.04 || i == 2u {
-            return throughput * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position) * ray_hit.material.base_color / PI;
+            let diffuse_brdf = ray_hit.material.base_color / PI;
+            return throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
         }
 
         // Sample new ray direction from the GGX BRDF for next bounce
