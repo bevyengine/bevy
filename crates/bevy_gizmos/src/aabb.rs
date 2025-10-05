@@ -1,7 +1,7 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
 use bevy_app::{Plugin, PostUpdate};
-use bevy_camera::primitives::Aabb;
+use bevy_camera::{primitives::Aabb, visibility::ViewVisibility};
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
@@ -36,7 +36,7 @@ impl Plugin for AabbGizmoPlugin {
                     config.config::<AabbGizmoConfigGroup>().1.draw_all
                 }),
             )
-                .after(bevy_camera::visibility::VisibilitySystems::CalculateBounds)
+                .after(bevy_camera::visibility::VisibilitySystems::MarkNewlyHiddenEntitiesInvisible)
                 .after(TransformSystems::Propagate),
         );
     }
@@ -70,10 +70,20 @@ pub struct ShowAabbGizmo {
 }
 
 fn draw_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform, &ShowAabbGizmo)>,
+    query: Query<(
+        Entity,
+        &Aabb,
+        &GlobalTransform,
+        Option<&ViewVisibility>,
+        &ShowAabbGizmo,
+    )>,
     mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
-    for (entity, &aabb, &transform, gizmo) in &query {
+    for (entity, &aabb, &transform, view_visibility, gizmo) in &query {
+        if !is_visible(view_visibility) {
+            continue;
+        }
+
         let color = gizmo
             .color
             .or(gizmos.config_ext.default_color)
@@ -83,16 +93,27 @@ fn draw_aabbs(
 }
 
 fn draw_all_aabbs(
-    query: Query<(Entity, &Aabb, &GlobalTransform), Without<ShowAabbGizmo>>,
+    query: Query<
+        (Entity, &Aabb, &GlobalTransform, Option<&ViewVisibility>),
+        Without<ShowAabbGizmo>,
+    >,
     mut gizmos: Gizmos<AabbGizmoConfigGroup>,
 ) {
-    for (entity, &aabb, &transform) in &query {
+    for (entity, &aabb, &transform, view_visibility) in &query {
+        if !is_visible(view_visibility) {
+            continue;
+        }
+
         let color = gizmos
             .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
         gizmos.cuboid(aabb_transform(aabb, transform), color);
     }
+}
+
+fn is_visible(view_visibility: Option<&ViewVisibility>) -> bool {
+    view_visibility.is_some_and(|v| v.get())
 }
 
 fn color_from_entity(entity: Entity) -> Color {
