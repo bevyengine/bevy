@@ -147,13 +147,13 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (_images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
         _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         #[cfg(feature = "morph")]
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {
-                let Some(target_image) = images.get(mt) else {
+                let Some(target_image) = _images.get(mt) else {
                     return Err(PrepareAssetError::RetryNextUpdate(mesh));
                 };
                 Some(target_image.texture_view.clone())
@@ -172,12 +172,13 @@ impl RenderAsset for RenderMesh {
         let mesh_vertex_buffer_layout =
             mesh.get_mesh_vertex_buffer_layout(mesh_vertex_buffer_layouts);
 
-        let mut key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
+        let key_bits = BaseMeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
         #[cfg(feature = "morph")]
-        key_bits.set(
-            BaseMeshPipelineKey::MORPH_TARGETS,
-            mesh.morph_targets().is_some(),
-        );
+        let key_bits = if mesh.morph_targets().is_some() {
+            key_bits | BaseMeshPipelineKey::MORPH_TARGETS
+        } else {
+            key_bits
+        };
 
         Ok(RenderMesh {
             vertex_count: mesh.count_vertices() as u32,
