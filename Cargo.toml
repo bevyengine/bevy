@@ -167,6 +167,7 @@ default = [
   "hdr",
   "ktx2",
   "morph",
+  "morph_animation",
   "multi_threaded",
   "png",
   "reflect_auto_register",
@@ -444,6 +445,9 @@ animation = ["bevy_internal/animation", "bevy_animation"]
 
 # Enables support for morph target weights in bevy_mesh
 morph = ["bevy_internal/morph"]
+
+# Enables bevy_mesh and bevy_animation morph weight support
+morph_animation = ["bevy_internal/morph_animation"]
 
 # Enable using a shared stdlib for cxx on Android
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
