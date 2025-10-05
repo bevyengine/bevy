@@ -12,10 +12,7 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{
-    components::{GlobalTransform, Transform},
-    TransformSystems,
-};
+use bevy_transform::{components::GlobalTransform, TransformSystems};
 
 use crate::{
     config::{GizmoConfigGroup, GizmoConfigStore},
@@ -78,7 +75,7 @@ fn draw_aabbs(
             .color
             .or(gizmos.config_ext.default_color)
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.aabb_3d(aabb, transform, color);
     }
 }
 
@@ -91,18 +88,10 @@ fn draw_all_aabbs(
             .config_ext
             .default_color
             .unwrap_or_else(|| color_from_entity(entity));
-        gizmos.cuboid(aabb_transform(aabb, transform), color);
+        gizmos.aabb_3d(aabb, transform, color);
     }
 }
 
 fn color_from_entity(entity: Entity) -> Color {
     Oklcha::sequential_dispersed(entity.index()).into()
-}
-
-fn aabb_transform(aabb: Aabb, transform: GlobalTransform) -> GlobalTransform {
-    transform
-        * GlobalTransform::from(
-            Transform::from_translation(aabb.center.into())
-                .with_scale((aabb.half_extents * 2.).into()),
-        )
 }
