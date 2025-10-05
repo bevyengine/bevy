@@ -1,4 +1,10 @@
-//! Demonstrates splitting an image across multiple windows with `SubCameraView`
+//! Demonstrates splitting an image across multiple windows with [`SubCameraView`].
+//!
+//! A `SubCameraView` is a way of cropping the image that a camera renders to its viewport, using a "sheared projection matrix".
+//! Some use cases include:
+//! - Splitting one image between multiple render targets, as demonstrated by this example
+//! - Magnifying a section of the image, as demonstrated by the `magnifier` example
+//! - Creating a screen shake effect by rapidly changing the sub view offset
 use bevy::{
     camera::{RenderTarget, SubCameraView},
     prelude::*,
