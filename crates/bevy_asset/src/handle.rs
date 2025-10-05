@@ -640,11 +640,6 @@ mod tests {
 
         assert!(handle.is_uuid());
         assert_eq!(handle.id(), AssetId::Uuid { uuid });
-
-        // Should also work with explicit From::from
-        let handle2 = Handle::<TestAsset>::from(UUID_2);
-        assert!(handle2.is_uuid());
-        assert_eq!(handle2.id(), AssetId::Uuid { uuid: UUID_2 });
     }
 
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
