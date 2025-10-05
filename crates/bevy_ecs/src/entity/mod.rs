@@ -841,8 +841,8 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             let raw = self.meta.len() as IdCursor - n;
-            if raw >= u32::MAX as IdCursor {
-                panic!("too many entities");
+            if raw == IdCursor::MAX {
+                panic!("number of entities exceeds {}", IdCursor::MAX);
             }
             // SAFETY: We just checked the bounds
             let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };
