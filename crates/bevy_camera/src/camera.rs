@@ -134,12 +134,12 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// The camera's projection is configured so the entire grid is visible on screen.
 ///
 /// ```
-/// +---------+
-/// | 0 1 2 3 |
-/// | 4 5 6 7 |
-/// | 8 9 A B |
-/// | C D E F |
-/// +---------+
+/// ┌─────────┐
+/// │ 0 1 2 3 │
+/// │ 4 5 6 7 │
+/// │ 8 9 A B │
+/// │ C D E F │
+/// └─────────┘
 /// ```
 ///
 /// If a `SubCameraView` was set on the camera, with a scale of `0.5`, and an offset of `(0.0, 0.0)`, the width and height of
@@ -148,12 +148,12 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// viewport.
 ///
 /// ```
-/// +----------
-/// | 0     1
-/// |
-/// |
-/// | 4     5
-/// |
+/// ┌──────────
+/// │ 0     1
+/// │
+/// │
+/// │ 4     5
+/// │
 /// ```
 ///
 /// If the sub view had its offset changed to `(0.5, 0.5)`, then the top-left corner of the view frustum would be moved to the
@@ -161,24 +161,24 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// with the grid, this means the top-left corner of the frustum would appear to be moved to the middle of the grid.
 ///
 /// ```
-///           |
-///   A     B |
-///           |
-///           |
-///   E     F |
-/// ----------+
+///           │
+///   A     B │
+///           │
+///           │
+///   E     F │
+/// ──────────┘
 /// ```
 ///
 /// Now suppose that the sub view's offset was changed to `(1.0, 0.0)`. This would move the top-left corner of the view to the
 /// top-right corner of the grid, putting the grid off-screen.
 ///
 /// ```
-/// +
-/// |
-/// |
-/// |
-/// |
-/// |
+/// ┐
+/// │
+/// │
+/// │
+/// │
+/// │
 /// ```
 ///
 /// Lastly, if we wanted to center the view on the grid, we would need to modify the offset so that we can use it to describe the
