@@ -631,19 +631,30 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.sparse.remove(index).map(|dense_index| {
             let index = dense_index.get();
             let is_last = index == self.dense.len() - 1;
-            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
-            // in the dense Vec.
-            let value = unsafe { self.dense.swap_remove_unchecked(index) };
-            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
-            // in the indices Vec.
-            unsafe { self.indices.swap_remove_unchecked(index) };
-            if !is_last {
+            if is_last {
+                let new_len = self.dense.len() - 1;
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.dense.set_len(new_len) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.indices.set_len(new_len) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.dense.as_ptr().add(index).read() }
+            } else {
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                let value = unsafe { self.dense.swap_remove_nonoverlapping_unchecked(index) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the indices Vec.
+                unsafe { self.indices.swap_remove_nonoverlapping_unchecked(index) };
                 // SAFETY: This index was just swapped to above, it must be valid.
                 let swapped_index = unsafe { self.indices.get_unchecked(index).clone() };
                 // SAFETY: The swapped index must be valid in the sparse array.
                 unsafe { *self.sparse.get_mut(swapped_index).debug_checked_unwrap() = dense_index };
+                value
             }
-            value
         })
     }
 

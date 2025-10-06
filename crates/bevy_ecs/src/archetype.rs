@@ -25,8 +25,8 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
-    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    query::DebugCheckedUnwrap,
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -626,25 +626,41 @@ impl Archetype {
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
-    /// # Panics
-    /// This function will panic if `row >= self.entities.len()`
+    /// # Safety
+    /// The caller must ensure that `row < self.entity_count()`
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(
         &mut self,
         row: ArchetypeRow,
     ) -> ArchetypeSwapRemoveResult {
+        let index = row.index();
         let is_last = row.index() == self.entities.len() - 1;
-        // SAFETY: Caller assures that `row` is in bounds.
-        let entity = unsafe { self.entities.swap_remove_unchecked(row.index()) };
-        ArchetypeSwapRemoveResult {
-            swapped_entity: (!is_last).then(|| {
-                let archetype_entity =
-                    // SAFETY: Caller assures that `row` is in bounds, and remains in bounds
-                    // after the prior swap_remove call.
+        if is_last {
+            let result = ArchetypeSwapRemoveResult {
+                swapped_entity: None,
+
+                // SAFETY: The caller must ensure that `row` is in bounds.
+                table_row: unsafe { self.entities.get_unchecked(index).table_row },
+            };
+            // SAFETY: The caller must ensure that `row` is in bounds.
+            unsafe { self.entities.set_len(self.entities.len() - 1) };
+            result
+        } else {
+            // SAFETY: The caller must ensure that `row` is in bounds.
+            let entity = unsafe {
+                self.entities
+                    .swap_remove_nonoverlapping_unchecked(row.index())
+            };
+            ArchetypeSwapRemoveResult {
+                swapped_entity: Some({
+                    let archetype_entity =
+                    // SAFETY: The caller must ensure that `row` is in bounds, and the is_last check ensures
+                    // it remains in bounds after the prior swap_remove call.
                     unsafe { self.entities.get(row.index()).debug_checked_unwrap() };
-                archetype_entity.entity
-            }),
-            table_row: entity.table_row,
+                    archetype_entity.entity
+                }),
+                table_row: entity.table_row,
+            }
         }
     }
 
