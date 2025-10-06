@@ -933,17 +933,17 @@ pub struct EntitySpecializationTicksTable {
 ///    the mesh as up to date by recording the current tick.
 ///
 /// 3. [`sweep_entities_needing_specialization`] runs for material A and checks
-///   to ensure it's safe to remove the [`EntitySpecializationTicks`] for the mesh
-///   from the [`EntitySpecializationTicksTable`]. To do this, it needs to know
-///   whether [`extract_entities_needs_specialization`] for some *different*
-///   material (in this case, material B) ran earlier in the frame and updated the
-///   change tick, and to skip removing the [`EntitySpecializationTicks`] if so.
-///   It can't reliably use the [`Self::system_tick`] to determine this because
-///   the [`SystemChangeTick`] can be updated multiple times in the same frame.
-///   Instead, it needs a type of tick that's updated only once per frame, after
-///   all materials' versions of [`sweep_entities_needing_specialization`] have
-///   run. The [`RenderMaterialInstances`] tick satisfies this criterion, and so
-///   that's what [`sweep_entities_needing_specialization`] uses.
+///    to ensure it's safe to remove the [`EntitySpecializationTicks`] for the mesh
+///    from the [`EntitySpecializationTicksTable`]. To do this, it needs to know
+///    whether [`extract_entities_needs_specialization`] for some *different*
+///    material (in this case, material B) ran earlier in the frame and updated the
+///    change tick, and to skip removing the [`EntitySpecializationTicks`] if so.
+///    It can't reliably use the [`Self::system_tick`] to determine this because
+///    the [`SystemChangeTick`] can be updated multiple times in the same frame.
+///    Instead, it needs a type of tick that's updated only once per frame, after
+///    all materials' versions of [`sweep_entities_needing_specialization`] have
+///    run. The [`RenderMaterialInstances`] tick satisfies this criterion, and so
+///    that's what [`sweep_entities_needing_specialization`] uses.
 #[derive(Clone, Copy, Debug)]
 pub struct EntitySpecializationTicks {
     /// The standard Bevy system tick.
