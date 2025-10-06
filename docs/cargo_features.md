@@ -48,7 +48,7 @@ The default feature set enables most of the expected features of a game engine, 
 |custom_cursor|Enable winit custom cursor support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
-|gltf_animation|Enable animation support, and glTF animation loading|
+|gltf_animation|Enable glTF animation loading|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
