@@ -3,7 +3,9 @@ use crate::{
     change_detection::MaybeLocation,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
-use core::{mem::needs_drop, panic::Location};
+use alloc::vec::Vec;
+use bevy_ptr::PtrMut;
+use core::{mem::needs_drop, ops::RangeBounds, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
@@ -312,7 +314,7 @@ impl Column {
     pub(crate) unsafe fn clear(&mut self, len: usize) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
-        self.data.clear(len);
+        self.data.clear_range(..len);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.clear_elements(len));
@@ -325,10 +327,10 @@ impl Column {
     /// - `len` is indeed the length of the column
     /// - `cap` is indeed the capacity of the column
     /// - the data stored in `self` will never be used again
-    pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize) {
+    pub(crate) unsafe fn drop(&mut self, cap: usize, len: usize, range: impl RangeBounds<usize>) {
         self.added_ticks.drop(cap, len);
         self.changed_ticks.drop(cap, len);
-        self.data.drop(cap, len);
+        self.data.drop(cap, range);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.drop(cap, len));

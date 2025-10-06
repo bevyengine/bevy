@@ -933,7 +933,7 @@ impl Drop for Table {
             // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
                 // TODO: don't drop disabled entities components
-                col.drop(cap, len);
+                col.drop(cap, len, self.disabled_entities as usize..len);
             }
         }
     }

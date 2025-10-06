@@ -5,7 +5,7 @@ use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
-    ops::{Bound, Range, RangeBounds},
+    ops::{Bound, RangeBounds},
     ptr::NonNull,
 };
 
@@ -162,38 +162,6 @@ impl BlobArray {
         }
     }
 
-    /// Clears the array, i.e. removing (and dropping) all of the elements.
-    /// Note that this method has no effect on the allocated capacity of the vector.
-    ///
-    /// Note that this method will behave exactly the same as [`Vec::clear`].
-    ///
-    /// # Safety
-    /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
-    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
-    ///
-    /// [`Vec::clear`]: alloc::vec::Vec::clear
-    pub unsafe fn clear(&mut self, len: usize) {
-        #[cfg(debug_assertions)]
-        debug_assert!(self.capacity >= len);
-        if let Some(drop) = self.drop {
-            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
-            // accidentally drop elements twice in the event of a drop impl panicking.
-            self.drop = None;
-            let size = self.item_layout.size();
-            for i in 0..len {
-                // SAFETY:
-                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
-                // * `size` is a multiple of the erased type's alignment,
-                //   so adding a multiple of `size` will preserve alignment.
-                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
-                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
-                unsafe { drop(item) };
-            }
-            self.drop = Some(drop);
-        }
-    }
-
     /// Clears the array, i.e. removing (and dropping) all of the elements in the range.
     /// Note that this method has no effect on the allocated capacity of the vector.
     ///
@@ -243,11 +211,11 @@ impl BlobArray {
     /// # Safety
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     /// - This [`BlobArray`] mustn't be used after calling this method.
-    pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+    pub unsafe fn drop(&mut self, cap: usize, range: impl RangeBounds<usize>) {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, cap);
         if cap != 0 {
-            self.clear(len);
+            self.clear_range(range);
             if !self.is_zst() {
                 let layout =
                     array_layout(&self.item_layout, cap).expect("array layout should be valid");

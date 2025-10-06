@@ -1321,7 +1321,10 @@ pub type EntityIdLocation = Option<EntityLocation>;
 /// An [`Entity`] that has been disabled. This entity will not be found by queries or accessible via other ECS operations, but it's components are still stored in the ECS.
 /// This is useful for temporarily disabling an entity without fully despawning it or invoking archetype moves. This entity keeps track of its location, so it can be re-enabled later.
 pub struct DisabledEntity {
+    /// The disabled entity.
     pub entity: Entity,
+    /// The location of the entity after it was disabled.
+    /// This may not necessarily be it's location when it is re-enabled.
     pub location: EntityLocation,
 }
 
