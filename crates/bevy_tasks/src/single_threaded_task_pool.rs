@@ -1,27 +1,18 @@
-use alloc::{string::String, vec::Vec};
-use bevy_platform::sync::Arc;
+use alloc::{string::String, vec::Vec, fmt};
 use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
+use crate::futures::now_or_never;
 
-use crate::executor::LocalExecutor;
 use crate::{block_on, Task};
 
-crate::cfg::std! {
-    if {
-        use std::thread_local;
-
-        use crate::executor::LocalExecutor as Executor;
-
-        thread_local! {
-            static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
-        }
+crate::cfg::bevy_executor! {
+    if { 
+        use crate::bevy_executor::Executor;
     } else {
-
-        // Because we do not have thread-locals without std, we cannot use LocalExecutor here.
-        use crate::executor::Executor;
-
-        static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
+        use crate::edge_executor::Executor;
     }
 }
+
+static EXECUTOR: Executor<'static> = const { Executor::new() };
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -31,15 +22,9 @@ pub struct TaskPoolBuilder {}
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
-/// and so the [`ThreadExecutor`] does nothing.
-#[derive(Default)]
-pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
-impl<'a> ThreadExecutor<'a> {
-    /// Creates a new `ThreadExecutor`
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+/// and so the [`LocalTaskSpawner`] does nothing.
+#[derive(Clone)]
+pub struct LocalTaskSpawner<'a>(PhantomData<&'a ()>);
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance
@@ -85,8 +70,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
-        Arc::new(ThreadExecutor::new())
+    pub fn current_thread_spawner(&self) -> LocalTaskSpawner<'static> {
+        LocalTaskSpawner(PhantomData)
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -113,7 +98,7 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(false, None, f)
+        self.scope_with_executor(None, f)
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -124,8 +109,7 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        _tick_task_pool_executor: bool,
-        _thread_executor: Option<&ThreadExecutor>,
+        _thread_executor: Option<LocalTaskSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -140,13 +124,13 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = LocalExecutor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor_ref: &'env LocalExecutor<'env> = unsafe { mem::transmute(&executor) };
+        let executor_ref: &'env Executor<'env> = unsafe { mem::transmute(&EXECUTOR) };
 
-        let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
+        // Kept around to ensure that, in the case of an unwinding panic, all scheduled Tasks are cancelled.
+        let tasks: RefCell<Vec<async_task::Task<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
+        let tasks_ref: &'env RefCell<Vec<async_task::Task<T>>> = unsafe { mem::transmute(&tasks) };
 
         let pending_tasks: Cell<usize> = Cell::new(0);
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
@@ -154,8 +138,8 @@ impl TaskPool {
 
         let mut scope = Scope {
             executor_ref,
+            tasks_ref,
             pending_tasks,
-            results_ref,
             scope: PhantomData,
             env: PhantomData,
         };
@@ -166,16 +150,17 @@ impl TaskPool {
         f(scope_ref);
 
         // Wait until the scope is complete
-        block_on(executor.run(async {
+        block_on(executor_ref.run(async {
             while pending_tasks.get() != 0 {
                 futures_lite::future::yield_now().await;
             }
         }));
 
-        results
+        tasks
             .take()
             .into_iter()
-            .map(|result| result.unwrap())
+            .map(now_or_never)
+            .map(Option::unwrap)
             .collect()
     }
 
@@ -195,20 +180,17 @@ impl TaskPool {
         crate::cfg::switch! {{
             crate::cfg::web => {
                 Task::wrap_future(future)
-            }
-            crate::cfg::std => {
-                LOCAL_EXECUTOR.with(|executor| {
-                    let task = executor.spawn(future);
-                    // Loop until all tasks are done
-                    while executor.try_tick() {}
-
-                    Task::new(task)
-                })
-            }
+            } 
             _ => {
-                let task = LOCAL_EXECUTOR.spawn(future);
+                let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
-                while LOCAL_EXECUTOR.try_tick() {}
+                crate::cfg::bevy_executor! {
+                    if {
+                        while !Executor::try_tick_local() {}
+                    } else {
+                        while EXECUTOR.try_tick() {}
+                    }
+                }
 
                 Task::new(task)
             }
@@ -225,43 +207,17 @@ impl TaskPool {
     {
         self.spawn(future)
     }
-
-    /// Runs a function with the local executor. Typically used to tick
-    /// the local executor on the main thread as it needs to share time with
-    /// other things.
-    ///
-    /// ```
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// TaskPool::new().with_local_executor(|local_executor| {
-    ///     local_executor.try_tick();
-    /// });
-    /// ```
-    pub fn with_local_executor<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&Executor) -> R,
-    {
-        crate::cfg::switch! {{
-            crate::cfg::std => {
-                LOCAL_EXECUTOR.with(f)
-            }
-            _ => {
-                f(&LOCAL_EXECUTOR)
-            }
-        }}
-    }
 }
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
-#[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor_ref: &'scope LocalExecutor<'scope>,
+    executor_ref: &'scope Executor<'scope>,
     // The number of pending tasks spawned on the scope
     pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
-    results_ref: &'env RefCell<Vec<Option<T>>>,
+    tasks_ref: &'env RefCell<Vec<async_task::Task<T>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -301,28 +257,33 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let pending_tasks = self.pending_tasks;
         pending_tasks.update(|i| i + 1);
 
-        // add a spot to keep the result, and record the index
-        let results_ref = self.results_ref;
-        let mut results = results_ref.borrow_mut();
-        let task_number = results.len();
-        results.push(None);
-        drop(results);
-
         // create the job closure
         let f = async move {
             let result = f.await;
 
-            // store the result in the allocated slot
-            let mut results = results_ref.borrow_mut();
-            results[task_number] = Some(result);
-            drop(results);
-
             // decrement the pending tasks count
             pending_tasks.update(|i| i - 1);
+
+            result
         };
 
-        // spawn the job itself
-        self.executor_ref.spawn(f).detach();
+        let mut tasks = self.tasks_ref.borrow_mut();
+
+        #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
+        // SAFETY: The surrounding scope will not terminate until all local tasks are done
+        // ensuring that the borrowed variables do not outlive the detached task.
+        tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
+    }
+}
+
+impl <'scope, 'env: 'scope, T> fmt::Debug for Scope<'scope, 'env, T> 
+where T: fmt::Debug
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Scope")
+            .field("pending_tasks", &self.pending_tasks)
+            .field("tasks_ref", &self.tasks_ref)
+            .finish()
     }
 }
 
