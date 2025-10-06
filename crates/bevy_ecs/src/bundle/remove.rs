@@ -295,10 +295,17 @@ impl<'w> BundleRemover<'w> {
                         table_row: location.table_row,
                     }),
                 );
-                world
-                    .archetypes
-                    .get_unchecked_mut(swapped_location.archetype_id)
-                    .set_entity_table_row(swapped_location.archetype_row, location.table_row);
+
+                // SAFETY: The row provided by swapped_location must be in bounds.
+                unsafe {
+                    world
+                        .archetypes
+                        .get_unchecked_mut(swapped_location.archetype_id)
+                        .set_entity_table_row_unchecked(
+                            swapped_location.archetype_row,
+                            location.table_row,
+                        );
+                }
             }
 
             new_location

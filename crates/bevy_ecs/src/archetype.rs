@@ -588,11 +588,18 @@ impl Archetype {
     /// Updates if the components for the entity at `index` can be found
     /// in the corresponding table.
     ///
-    /// # Panics
-    /// This function will panic if `index >= self.len()`.
+    /// # Safety
+    /// The caller must ensure that `row >= self.len()`.
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, row: ArchetypeRow, table_row: TableRow) {
-        self.entities[row.index()].table_row = table_row;
+    pub(crate) unsafe fn set_entity_table_row_unchecked(
+        &mut self,
+        row: ArchetypeRow,
+        table_row: TableRow,
+    ) {
+        self.entities
+            .get_mut(row.index())
+            .debug_checked_unwrap()
+            .table_row = table_row;
     }
 
     /// Allocates an entity to the archetype.
@@ -627,7 +634,7 @@ impl Archetype {
     /// in.
     ///
     /// # Safety
-    /// The caller must ensure that `row < self.entity_count()`
+    /// The caller must ensure that `row < self.len()`
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(
         &mut self,

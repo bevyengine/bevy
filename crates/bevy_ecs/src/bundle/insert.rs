@@ -336,15 +336,32 @@ impl<'w> BundleInserter<'w> {
                     );
 
                     if archetype.id() == swapped_location.archetype_id {
-                        archetype
-                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                        // SAFETY: the archetype row from swapped_location must be valid for the target archetype
+                        unsafe {
+                            archetype.set_entity_table_row_unchecked(
+                                swapped_location.archetype_row,
+                                result.table_row,
+                            );
+                        }
                     } else if new_archetype.id() == swapped_location.archetype_id {
-                        new_archetype
-                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                        // SAFETY: the archetype row from swapped_location must be valid for the target archetype
+                        unsafe {
+                            new_archetype.set_entity_table_row_unchecked(
+                                swapped_location.archetype_row,
+                                result.table_row,
+                            );
+                        }
                     } else {
-                        // SAFETY: the only two borrowed archetypes are above and we just did collision checks
-                        (*archetypes_ptr.add(swapped_location.archetype_id.index()))
-                            .set_entity_table_row(swapped_location.archetype_row, result.table_row);
+                        // SAFETY:
+                        // - the only two borrowed archetypes are above and we just did collision checks
+                        // - the archetype row from swapped_location must be valid for the target archetype
+                        unsafe {
+                            (*archetypes_ptr.add(swapped_location.archetype_id.index()))
+                                .set_entity_table_row_unchecked(
+                                    swapped_location.archetype_row,
+                                    result.table_row,
+                                );
+                        }
                     }
                 }
 

@@ -2746,13 +2746,14 @@ impl<'w> EntityWorldMut<'w> {
                     }),
                 );
             }
-            // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
-            //         the current location of the entity.
+            // SAFETY:
+            // - `moved_entity` is valid and the provided `EntityLocation` accurately reflects the current location of the entity.
+            // - `moved_location.archetype_row` must be in bounds.
             unsafe {
                 world
                     .archetypes
                     .get_unchecked_mut(moved_location.archetype_id)
-                    .set_entity_table_row(moved_location.archetype_row, table_row);
+                    .set_entity_table_row_unchecked(moved_location.archetype_row, table_row);
             }
         }
 
