@@ -126,6 +126,12 @@ where
         self.segments = segments;
         self
     }
+
+    /// Apply a function to the inner builder
+    pub fn with_inner(mut self, func: impl Fn(P::Output) -> P::Output) -> Self {
+        self.base_builder = func(self.base_builder);
+        self
+    }
 }
 
 impl ExtrusionBuilder<Circle> {
