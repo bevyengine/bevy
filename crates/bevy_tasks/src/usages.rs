@@ -1,9 +1,18 @@
-use super::TaskPool;
+use super::{TaskPool, TaskPoolBuilder};
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
 
+crate::cfg::bevy_executor! {
+    if {
+        use crate::bevy_executor::Executor;
+    } else {
+        use crate::edge_executor::Executor;
+    }
+}
+
 macro_rules! taskpool {
-    ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
+    ($(#[$attr:meta])* ($static:ident, $executor:ident, $type:ident)) => {
+        static $executor: Executor = Executor::new();
         static $static: OnceLock<$type> = OnceLock::new();
 
         $(#[$attr])*
@@ -12,8 +21,8 @@ macro_rules! taskpool {
 
         impl $type {
             #[doc = concat!(" Gets the global [`", stringify!($type), "`] instance, or initializes it with `f`.")]
-            pub fn get_or_init(f: impl FnOnce() -> TaskPool) -> &'static Self {
-                $static.get_or_init(|| Self(f()))
+            pub fn get_or_init(f: impl FnOnce() -> TaskPoolBuilder) -> &'static Self {
+                $static.get_or_init(|| Self(f().build_static(&$executor)))
             }
 
             #[doc = concat!(" Attempts to get the global [`", stringify!($type), "`] instance, \
@@ -56,7 +65,7 @@ taskpool! {
     /// See [`TaskPool`] documentation for details on Bevy tasks.
     /// [`AsyncComputeTaskPool`] should be preferred if the work does not have to be
     /// completed before the next frame.
-    (COMPUTE_TASK_POOL, ComputeTaskPool)
+    (COMPUTE_TASK_POOL, COMPUTE_EXECUTOR, ComputeTaskPool)
 }
 
 taskpool! {
@@ -64,7 +73,7 @@ taskpool! {
     ///
     /// See [`TaskPool`] documentation for details on Bevy tasks.
     /// Use [`ComputeTaskPool`] if the work must be complete before advancing to the next frame.
-    (ASYNC_COMPUTE_TASK_POOL, AsyncComputeTaskPool)
+    (ASYNC_COMPUTE_TASK_POOL, ASYNC_COMPUTE_EXECUTOR, AsyncComputeTaskPool)
 }
 
 taskpool! {
@@ -72,38 +81,5 @@ taskpool! {
     /// "woken" state)
     ///
     /// See [`TaskPool`] documentation for details on Bevy tasks.
-    (IO_TASK_POOL, IoTaskPool)
-}
-
-crate::cfg::web! {
-    if {} else {
-        /// A function used by `bevy_app` to tick the global tasks pools on the main thread.
-        /// This will run a maximum of 100 local tasks per executor per call to this function.
-        ///
-        /// # Warning
-        ///
-        /// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
-        pub fn tick_global_task_pools_on_main_thread() {
-            COMPUTE_TASK_POOL
-                .get()
-                .unwrap()
-                .with_local_executor(|compute_local_executor| {
-                    ASYNC_COMPUTE_TASK_POOL
-                        .get()
-                        .unwrap()
-                        .with_local_executor(|async_local_executor| {
-                            IO_TASK_POOL
-                                .get()
-                                .unwrap()
-                                .with_local_executor(|io_local_executor| {
-                                    for _ in 0..100 {
-                                        compute_local_executor.try_tick();
-                                        async_local_executor.try_tick();
-                                        io_local_executor.try_tick();
-                                    }
-                                });
-                        });
-                });
-        }
-    }
+    (IO_TASK_POOL, IO_EXECUTOR, IoTaskPool)
 }

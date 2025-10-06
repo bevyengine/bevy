@@ -14,8 +14,8 @@ a single thread and having that thread await the completion of those tasks. This
 generating the tasks from a slice of data. This library is intended for games and makes no attempt to ensure fairness
 or ordering of spawned tasks.
 
-It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
-`async-executor` is based on async-task, a core piece of async-std.
+It is based on a fork of [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
+`async-executor` is based on [`async-task`][async-task], a core piece of [`smol`][smol].
 
 ## Usage
 
@@ -40,4 +40,6 @@ To enable `no_std` support in this crate, you will need to disable default featu
 
 [bevy]: https://bevy.org
 [rayon]: https://github.com/rayon-rs/rayon
-[async-executor]: https://github.com/stjepang/async-executor
+[async-executor]: https://github.com/smol-rs/async-executor
+[smol]: https://github.com/smol-rs/smol
+[async-task]: https://github.com/smol-rs/async-task
