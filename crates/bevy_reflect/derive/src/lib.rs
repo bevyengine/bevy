@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
@@ -16,7 +16,6 @@
 
 extern crate proc_macro;
 
-mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
 mod derive_data;
@@ -32,7 +31,6 @@ mod meta;
 mod reflect_opaque;
 mod registration;
 mod remote;
-mod result_sifter;
 mod serialization;
 mod string_expr;
 mod struct_utility;

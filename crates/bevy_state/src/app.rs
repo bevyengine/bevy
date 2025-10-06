@@ -1,5 +1,5 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{event::Events, schedule::IntoScheduleConfigs, world::FromWorld};
+use bevy_ecs::{message::Messages, schedule::IntoScheduleConfigs, world::FromWorld};
 use bevy_utils::once;
 use log::warn;
 
@@ -102,13 +102,13 @@ impl AppExtStates for SubApp {
         if !self.world().contains_resource::<State<S>>() {
             self.init_resource::<State<S>>()
                 .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
+                .add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling init_state?"
             );
             S::register_state(schedule);
             let state = self.world().resource::<State<S>>().get().clone();
-            self.world_mut().write_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -126,12 +126,12 @@ impl AppExtStates for SubApp {
         if !self.world().contains_resource::<State<S>>() {
             self.insert_resource::<State<S>>(State::new(state.clone()))
                 .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>();
+                .add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling insert_state?"
             );
             S::register_state(schedule);
-            self.world_mut().write_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -140,9 +140,9 @@ impl AppExtStates for SubApp {
             // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
             self.world_mut()
-                .resource_mut::<Events<StateTransitionEvent<S>>>()
+                .resource_mut::<Messages<StateTransitionEvent<S>>>()
                 .clear();
-            self.world_mut().write_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
             });
@@ -155,9 +155,9 @@ impl AppExtStates for SubApp {
         warn_if_no_states_plugin_installed(self);
         if !self
             .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
+            .contains_resource::<Messages<StateTransitionEvent<S>>>()
         {
-            self.add_event::<StateTransitionEvent<S>>();
+            self.add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_computed_state?"
             );
@@ -166,7 +166,7 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().write_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
             });
@@ -183,10 +183,10 @@ impl AppExtStates for SubApp {
         warn_if_no_states_plugin_installed(self);
         if !self
             .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
+            .contains_resource::<Messages<StateTransitionEvent<S>>>()
         {
             self.init_resource::<NextState<S>>();
-            self.add_event::<StateTransitionEvent<S>>();
+            self.add_message::<StateTransitionEvent<S>>();
             let schedule = self.get_schedule_mut(StateTransition).expect(
                 "The `StateTransition` schedule is missing. Did you forget to add StatesPlugin or DefaultPlugins before calling add_sub_state?"
             );
@@ -195,7 +195,7 @@ impl AppExtStates for SubApp {
                 .world()
                 .get_resource::<State<S>>()
                 .map(|s| s.get().clone());
-            self.world_mut().write_event(StateTransitionEvent {
+            self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
             });
@@ -241,7 +241,7 @@ impl AppExtStates for SubApp {
 fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
     if !app
         .world()
-        .contains_resource::<Events<StateTransitionEvent<S>>>()
+        .contains_resource::<Messages<StateTransitionEvent<S>>>()
     {
         let name = core::any::type_name::<S>();
         warn!("State scoped entities are enabled for state `{name}`, but the state wasn't initialized in the app!");
@@ -328,7 +328,7 @@ mod tests {
         state::{State, StateTransition, StateTransitionEvent},
     };
     use bevy_app::App;
-    use bevy_ecs::event::Events;
+    use bevy_ecs::message::Messages;
     use bevy_state_macros::States;
 
     use super::AppExtStates;
@@ -353,7 +353,7 @@ mod tests {
         world.run_schedule(StateTransition);
 
         assert_eq!(world.resource::<State<TestState>>().0, TestState::B);
-        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        let events = world.resource::<Messages<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
         let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();
@@ -373,7 +373,7 @@ mod tests {
         world.run_schedule(StateTransition);
 
         assert_eq!(world.resource::<State<TestState>>().0, TestState::C);
-        let events = world.resource::<Events<StateTransitionEvent<TestState>>>();
+        let events = world.resource::<Messages<StateTransitionEvent<TestState>>>();
         assert_eq!(events.len(), 1);
         let mut reader = events.get_cursor();
         let last = reader.read(events).last().unwrap();

@@ -53,6 +53,7 @@ impl RenderGraphExt for World {
         self
     }
 
+    #[track_caller]
     fn add_render_graph_edges<const N: usize>(
         &mut self,
         sub_graph: impl RenderSubGraph,
@@ -121,6 +122,7 @@ impl RenderGraphExt for SubApp {
         self
     }
 
+    #[track_caller]
     fn add_render_graph_edges<const N: usize>(
         &mut self,
         sub_graph: impl RenderSubGraph,

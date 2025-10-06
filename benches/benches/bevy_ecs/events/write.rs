@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 
-#[derive(BufferedEvent)]
+#[derive(Message)]
 struct BenchEvent<const SIZE: usize>([u8; SIZE]);
 
 impl<const SIZE: usize> Default for BenchEvent<SIZE> {
@@ -10,13 +10,13 @@ impl<const SIZE: usize> Default for BenchEvent<SIZE> {
 }
 
 pub struct Benchmark<const SIZE: usize> {
-    events: Events<BenchEvent<SIZE>>,
+    events: Messages<BenchEvent<SIZE>>,
     count: usize,
 }
 
 impl<const SIZE: usize> Benchmark<SIZE> {
     pub fn new(count: usize) -> Self {
-        let mut events = Events::default();
+        let mut events = Messages::default();
 
         // Force both internal buffers to be allocated.
         for _ in 0..2 {

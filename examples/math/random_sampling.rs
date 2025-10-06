@@ -220,16 +220,16 @@ fn handle_keypress(
 // Handle user mouse input for panning the camera around:
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
-    mut button_events: EventReader<MouseButtonInput>,
+    mut mouse_button_inputs: MessageReader<MouseButtonInput>,
     mut camera_transform: Single<&mut Transform, With<Camera>>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
-    for button_event in button_events.read() {
-        if button_event.button != MouseButton::Left {
+    for mouse_button_input in mouse_button_inputs.read() {
+        if mouse_button_input.button != MouseButton::Left {
             continue;
         }
-        *mouse_pressed = MousePressed(button_event.state.is_pressed());
+        *mouse_pressed = MousePressed(mouse_button_input.state.is_pressed());
     }
 
     // If the mouse is not pressed, just ignore motion events

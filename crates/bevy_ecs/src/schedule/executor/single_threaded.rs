@@ -12,7 +12,7 @@ use crate::{
     schedule::{
         is_apply_deferred, ConditionWithAccess, ExecutorKind, SystemExecutor, SystemSchedule,
     },
-    system::RunSystemError,
+    system::{RunSystemError, ScheduleSystem},
     world::World,
 };
 
@@ -73,8 +73,10 @@ impl SystemExecutor for SingleThreadedExecutor {
             .unwrap_or_default();
 
         for system_index in 0..schedule.systems.len() {
+            let system = &mut schedule.systems[system_index].system;
+
             #[cfg(feature = "trace")]
-            let name = schedule.systems[system_index].system.name();
+            let name = system.name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = name.as_string()).entered();
 
@@ -89,6 +91,8 @@ impl SystemExecutor for SingleThreadedExecutor {
                     &mut schedule.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
+                    true,
                 );
 
                 if !set_conditions_met {
@@ -105,11 +109,11 @@ impl SystemExecutor for SingleThreadedExecutor {
                 &mut schedule.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
+                false,
             );
 
             should_run &= system_conditions_met;
-
-            let system = &mut schedule.systems[system_index].system;
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
@@ -201,6 +205,8 @@ fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: &mut World,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[cfg(feature = "hotpatching")]
     let hotpatch_tick = world
@@ -227,6 +233,8 @@ fn evaluate_and_fold_conditions(
                             ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
+                                system: for_system.name(),
+                                on_set,
                             },
                         );
                     };
