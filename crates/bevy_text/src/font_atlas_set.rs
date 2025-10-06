@@ -6,8 +6,8 @@ use bevy_platform::collections::HashMap;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
-/// The `u32` value is bitcast from the font's `f32` size.
-#[derive(Debug, Hash, PartialEq, Eq)]
+/// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
 
 impl From<&TextFont> for FontAtlasKey {

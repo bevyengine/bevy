@@ -261,10 +261,10 @@ impl TextPipeline {
             computed,
             font_system,
         );
-        if let Err(err) = update_result {
-            self.glyph_info = glyph_info;
-            return Err(err);
-        }
+
+        self.glyph_info = glyph_info;
+
+        update_result?;
 
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
@@ -304,8 +304,8 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = glyph_info[span_index].0;
-                    let font_smoothing = glyph_info[span_index].1;
+                    let font_id = self.glyph_info[span_index].0;
+                    let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
@@ -382,9 +382,6 @@ impl TextPipeline {
 
             result
         });
-
-        // Return the scratch vec.
-        self.glyph_info = glyph_info;
 
         // Check result.
         result?;
