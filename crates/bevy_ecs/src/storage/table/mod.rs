@@ -224,29 +224,33 @@ impl Table {
     pub(crate) unsafe fn swap_disable_unchecked(
         &mut self,
         row: TableRow,
-    ) -> Option<((Entity, TableRow), (Entity, TableRow))> {
+    ) -> ((Entity, TableRow), Option<(Entity, TableRow)>) {
         debug_assert!(row.index_u32() < self.len());
         debug_assert!(row.index_u32() >= self.disabled_entities);
 
-        if row.index_u32() != 0 {
+        if row.index_u32() != self.disabled_entities {
             // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
             // as guaranteed by `allocate`.
-            let other = TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+            let disabled_row =
+                TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
 
             for col in self.columns.values_mut() {
-                col.swap_unchecked(row, other);
+                col.swap_unchecked(row, disabled_row);
             }
 
-            self.entities.swap(row.index(), other.index());
+            self.entities.swap(row.index(), disabled_row.index());
             self.disabled_entities += 1;
 
-            Some((
-                (*self.entities.get_unchecked(other.index()), other),
-                (*self.entities.get_unchecked(row.index()), row),
-            ))
+            (
+                (
+                    *self.entities.get_unchecked(disabled_row.index()),
+                    disabled_row,
+                ),
+                Some((*self.entities.get_unchecked(row.index()), row)),
+            )
         } else {
             self.disabled_entities += 1;
-            None
+            ((*self.entities.get_unchecked(row.index()), row), None)
         }
     }
 

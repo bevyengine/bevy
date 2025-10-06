@@ -2562,6 +2562,76 @@ impl<'w> EntityWorldMut<'w> {
         self.despawn_with_caller(MaybeLocation::caller());
     }
 
+    /// Disable the current entity.
+    ///
+    pub fn disable(self) -> EntityLocation {
+        let world = self.world;
+
+        let location = world
+            .entities
+            .get(self.entity)
+            .expect("entity should exist at this point.");
+
+        let location = {
+            let archetype = &mut world.archetypes[location.archetype_id];
+            let ((disabled_arch, archetype_row), swapped_archetype) =
+                archetype.swap_disable(location.archetype_row);
+
+            // set the correct entity location for the swapped entity; the disabled is set to `None`
+            if let Some((entity, archetype_row)) = swapped_archetype {
+                let entity = entity.id();
+                let swapped_location = world.entities.get(entity).unwrap();
+
+                // SAFETY: TODO
+                unsafe {
+                    world.entities.set(
+                        entity.index(),
+                        Some(EntityLocation {
+                            archetype_row,
+                            ..swapped_location
+                        }),
+                    );
+                }
+            }
+
+            // SAFETY: TODO
+            let ((disabled_table, table_row), swapped_table) = unsafe {
+                world.storages.tables[archetype.table_id()]
+                    .swap_disable_unchecked(disabled_arch.table_row())
+            };
+
+            if let Some((entity, table_row)) = swapped_table {
+                let swapped_location = world.entities.get(entity).unwrap();
+
+                // SAFETY: TODO
+                unsafe {
+                    world.entities.set(
+                        entity.index(),
+                        Some(EntityLocation {
+                            table_row,
+                            ..swapped_location
+                        }),
+                    );
+                }
+            }
+
+            assert_eq!(disabled_table, disabled_arch.id());
+
+            EntityLocation {
+                archetype_row,
+                table_row,
+                ..location
+            }
+        };
+
+        // SAFETY: TODO
+        unsafe {
+            world.entities.set(self.entity.index(), None);
+        }
+
+        location
+    }
+
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
         let location = self.location();
         let world = self.world;

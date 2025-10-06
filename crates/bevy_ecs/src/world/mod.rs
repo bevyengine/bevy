@@ -41,7 +41,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{Entities, Entity, EntityDoesNotExistError},
+    entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
@@ -1437,6 +1437,13 @@ impl World {
         let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
         Ok(())
+    }
+
+    pub fn disable(&mut self, entity: Entity) -> Result<EntityLocation, EntityMutableFetchError> {
+        self.flush();
+
+        let entity = self.get_entity_mut(entity)?;
+        Ok(entity.disable())
     }
 
     /// Clears the internal component tracker state.

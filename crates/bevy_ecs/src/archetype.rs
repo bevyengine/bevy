@@ -327,6 +327,7 @@ impl Edges {
 }
 
 /// Metadata about an [`Entity`] in a [`Archetype`].
+#[derive(Clone, Copy)]
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: TableRow,
@@ -632,6 +633,52 @@ impl Archetype {
     #[inline]
     pub(crate) fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);
+    }
+
+    /// Disables the entity at `row` by swapping it with the first enabled
+    /// entity. Returns the swapped entities with their respective table and
+    /// archetype rows, or `None` if no swap occurred.
+    ///
+    /// # Panics
+    /// This function will panic if `row >= self.entities.len()`
+    #[inline]
+    pub(crate) fn swap_disable(
+        &mut self,
+        row: ArchetypeRow,
+    ) -> (
+        (ArchetypeEntity, ArchetypeRow),
+        Option<(ArchetypeEntity, ArchetypeRow)>,
+    ) {
+        debug_assert!(row.index_u32() < self.len());
+        debug_assert!(row.index_u32() >= self.disabled_entities);
+
+        if row.index_u32() == self.disabled_entities {
+            // no need to swap, just increment the disabled count
+            self.disabled_entities += 1;
+
+            // SAFETY: `row` is guaranteed to be in-bounds.
+            (
+                (unsafe { *self.entities.get_unchecked(row.index()) }, row),
+                None,
+            )
+        } else {
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`, as guaranteed by `allocate`.
+            let disabled_row =
+                ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+
+            self.entities.swap(row.index(), disabled_row.index());
+
+            // SAFETY: Both `row` and `other` are guaranteed to be in-bounds.
+            unsafe {
+                (
+                    (
+                        *self.entities.get_unchecked(disabled_row.index()),
+                        disabled_row,
+                    ),
+                    Some((*self.entities.get_unchecked(row.index()), row)),
+                )
+            }
+        }
     }
 
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
