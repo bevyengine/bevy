@@ -1767,7 +1767,7 @@ pub fn specialize_shadows(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks>,
+    entity_specialization_ticks: Res<EntitySpecializationTicksTable>,
     ticks: SystemChangeTick,
 ) {
     // Record the retained IDs of all shadow views so that we can expire old
@@ -1844,7 +1844,9 @@ pub fn specialize_shadows(
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                     view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                        || entity_tick
+                            .system_tick
+                            .is_newer_than(tick, ticks.this_run())
                 });
                 if !needs_specialization {
                     continue;

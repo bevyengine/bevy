@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicksTable, ErasedMaterialPipelineKey,
     MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
@@ -844,7 +844,7 @@ pub fn specialize_prepass_material_meshes(
         ResMut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>,
         Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks>,
+        Res<EntitySpecializationTicksTable>,
     ),
 ) {
     for (extracted_view, visible_entities, msaa, motion_vector_prepass, deferred_prepass) in &views
@@ -877,7 +877,10 @@ pub fn specialize_prepass_material_meshes(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap()
+                .system_tick;
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
