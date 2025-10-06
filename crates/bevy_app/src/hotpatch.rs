@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 #[cfg(feature = "reflect_auto_register")]
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
-    change_detection::DetectChangesMut, event::EventWriter, system::ResMut, HotPatchChanges,
+    change_detection::DetectChangesMut, message::MessageWriter, system::ResMut, HotPatchChanges,
     HotPatched,
 };
 #[cfg(not(target_family = "wasm"))]
@@ -34,14 +34,15 @@ impl Plugin for HotPatchPlugin {
             sender.send(HotPatched).unwrap();
         }));
 
-        // Adds a system that will read the channel for new `HotPatched` messages, send the event, and update change detection.
+        // Adds a system that will read the channel for new `HotPatched` messages, send the message, and update change detection.
         app.init_resource::<HotPatchChanges>()
-            .add_event::<HotPatched>()
+            .add_message::<HotPatched>()
             .add_systems(
                 Last,
-                move |mut events: EventWriter<HotPatched>, mut res: ResMut<HotPatchChanges>| {
+                move |mut hot_patched_writer: MessageWriter<HotPatched>,
+                      mut res: ResMut<HotPatchChanges>| {
                     if receiver.try_recv().is_ok() {
-                        events.write_default();
+                        hot_patched_writer.write_default();
                         res.set_changed();
                     }
                 },
@@ -53,7 +54,7 @@ impl Plugin for HotPatchPlugin {
             (move |registry: bevy_ecs::system::Res<bevy_ecs::reflect::AppTypeRegistry>| {
                 registry.write().register_derived_types();
             })
-            .run_if(bevy_ecs::schedule::common_conditions::on_event::<HotPatched>),
+            .run_if(bevy_ecs::schedule::common_conditions::on_message::<HotPatched>),
         );
     }
 }

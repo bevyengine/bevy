@@ -817,7 +817,7 @@ pub enum EvaluatorId<'a> {
     Type(TypeId),
 }
 
-/// A low-level trait for use in [`crate::VariableCurve`] that provides fine
+/// A low-level trait for use in [`VariableCurve`](`crate::VariableCurve`) that provides fine
 /// control over how animations are evaluated.
 ///
 /// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
@@ -834,7 +834,7 @@ pub enum EvaluatorId<'a> {
 /// either a (value, weight) pair or empty. *Value* here refers to an instance
 /// of the value being animated: for example, [`Vec3`] in the case of
 /// translation keyframes.  The stack stores intermediate values generated while
-/// evaluating the [`crate::graph::AnimationGraph`], while the blend register
+/// evaluating the [`AnimationGraph`](`crate::graph::AnimationGraph`), while the blend register
 /// stores the result of a blend operation.
 ///
 /// [`Vec3`]: bevy_math::Vec3

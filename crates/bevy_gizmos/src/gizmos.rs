@@ -18,7 +18,7 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
@@ -603,6 +603,59 @@ where
         let [tlf, trf, brf, blf] = rect.map(|vec2| transform.transform_point(vec2.extend(0.5)));
         // Back
         let [tlb, trb, brb, blb] = rect.map(|vec2| transform.transform_point(vec2.extend(-0.5)));
+
+        let strip_positions = [
+            tlf, trf, brf, blf, tlf, // Front
+            tlb, trb, brb, blb, tlb, // Back
+        ];
+        self.linestrip(strip_positions, polymorphic_color);
+
+        let list_positions = [
+            trf, trb, brf, brb, blf, blb, // Front to back
+        ];
+        self.extend_list_positions(list_positions);
+
+        self.add_list_color(polymorphic_color, 6);
+    }
+
+    /// Draw a wireframe aabb in 3D.
+    ///
+    /// This should be called for each frame the aabb needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn aabb_3d(
+        &mut self,
+        aabb: impl Into<Aabb3d>,
+        transform: impl TransformPoint,
+        color: impl Into<Color>,
+    ) {
+        let polymorphic_color: Color = color.into();
+        if !self.enabled {
+            return;
+        }
+        let aabb = aabb.into();
+        let [tlf, trf, brf, blf, tlb, trb, brb, blb] = [
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
+        ]
+        .map(|v| transform.transform_point(v));
 
         let strip_positions = [
             tlf, trf, brf, blf, tlf, // Front

@@ -3,7 +3,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{MovingPtr, OwningPtr};
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
@@ -228,8 +228,14 @@ impl BundleInfo {
     /// which removes the need to look up the [`ArchetypeAfterBundleInsert`](crate::archetype::ArchetypeAfterBundleInsert)
     /// in the archetype graph, which requires ownership of the entity's current archetype.
     ///
+    /// Regardless of how this is used, [`apply_effect`] must be called at most once on `bundle` after this function is
+    /// called if `T::Effect: !NoBundleEffect` before returning to user-space safe code before returning to user-space safe code.
+    /// This is currently only doable via use of [`MovingPtr::partial_move`].
+    ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub(super) unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
@@ -240,14 +246,14 @@ impl BundleInfo {
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-    ) -> T::Effect {
+    ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
+        T::get_components(bundle, &mut |storage_type, component_ptr| {
             let component_id = *self
                 .contributed_component_ids
                 .get_unchecked(bundle_component);
@@ -303,8 +309,6 @@ impl BundleInfo {
                 caller,
             );
         }
-
-        after_effect
     }
 
     /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
@@ -418,7 +422,14 @@ impl Bundles {
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
+    ///
+    /// # Safety
+    ///
+    /// `components` and `storages` must be from the same [`World`] as `self`.
+    ///
+    /// [`World`]: crate::world::World
+    #[deny(unsafe_op_in_unsafe_fn)]
+    pub(crate) unsafe fn register_info<T: Bundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -442,7 +453,14 @@ impl Bundles {
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+    ///
+    /// # Safety
+    ///
+    /// `components` and `storages` must be from the same [`World`] as `self`.
+    ///
+    /// [`World`]: crate::world::World
+    #[deny(unsafe_op_in_unsafe_fn)]
+    pub(crate) unsafe fn register_contributed_bundle_info<T: Bundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -450,7 +468,10 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: as per the guarantees of this function, components and
+            // storages are from the same world as self
+            let explicit_bundle_id = unsafe { self.register_info::<T>(components, storages) };
+
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {

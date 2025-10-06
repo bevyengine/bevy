@@ -1,10 +1,12 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
+//! Note: On Wasm, this example only runs on WebGPU
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
+    core_pipeline::{tonemapping::Tonemapping, Skybox},
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
@@ -87,7 +89,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
             shadows_enabled: true,
             range: 150.0,
             color: RED.into(),
-            intensity: 1000.0,
+            intensity: 10_000.0,
             ..default()
         },
         VolumetricLight,
@@ -102,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     commands.spawn((
         Transform::from_xyz(-1.8, 3.9, -2.7).looking_at(Vec3::ZERO, Vec3::Y),
         SpotLight {
-            intensity: 5000.0, // lumens
+            intensity: 50_000.0, // lumens
             color: Color::WHITE,
             shadows_enabled: true,
             inner_angle: 0.76,

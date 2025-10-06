@@ -220,20 +220,18 @@ fn setup(
         CameraController,
     ));
 
+    // represent the light source as a sphere
+    let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
+
     // light
-    commands
-        .spawn((
-            PointLight {
-                shadows_enabled: true,
-                ..default()
-            },
-            Transform::from_xyz(2.0, 1.0, -1.1),
-        ))
-        .with_children(|commands| {
-            // represent the light source as a sphere
-            let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
-        });
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_xyz(2.0, 1.0, -1.1),
+        children![(Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE)))],
+    ));
 
     // Plane
     commands.spawn((
@@ -297,29 +295,24 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
     // example instructions
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(12),
-                left: px(12),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan(format!(
-                "Parallax depth scale: {parallax_depth_scale:.5}\n"
-            )));
-            p.spawn(TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n")));
-            p.spawn(TextSpan(format!("{parallax_mapping_method}\n")));
-            p.spawn(TextSpan::new("\n\n"));
-            p.spawn(TextSpan::new("Controls:\n"));
-            p.spawn(TextSpan::new("Left click - Change view angle\n"));
-            p.spawn(TextSpan::new(
-                "1/2 - Decrease/Increase parallax depth scale\n",
-            ));
-            p.spawn(TextSpan::new("3/4 - Decrease/Increase layer count\n"));
-            p.spawn(TextSpan::new("Space - Switch parallaxing algorithm\n"));
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![
+            (TextSpan(format!("Parallax depth scale: {parallax_depth_scale:.5}\n"))),
+            (TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n"))),
+            (TextSpan(format!("{parallax_mapping_method}\n"))),
+            (TextSpan::new("\n\n")),
+            (TextSpan::new("Controls:\n")),
+            (TextSpan::new("Left click - Change view angle\n")),
+            (TextSpan::new("1/2 - Decrease/Increase parallax depth scale\n",)),
+            (TextSpan::new("3/4 - Decrease/Increase layer count\n")),
+            (TextSpan::new("Space - Switch parallaxing algorithm\n")),
+        ],
+    ));
 }

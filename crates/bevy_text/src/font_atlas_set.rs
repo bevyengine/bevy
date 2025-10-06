@@ -1,5 +1,5 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
-use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
+use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
@@ -21,17 +21,23 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
     }
+
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
     pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
+    }
+
+    /// Returns the total number of rasterized fonts across all sets.
+    pub fn font_count(&self) -> usize {
+        self.sets.values().map(FontAtlasSet::len).sum()
     }
 }
 
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_events: EventReader<AssetEvent<Font>>,
+    mut font_events: MessageReader<AssetEvent<Font>>,
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
@@ -43,7 +49,7 @@ pub fn remove_dropped_font_atlas_sets(
 /// Identifies a font size and smoothing method in a [`FontAtlasSet`].
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 
 /// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.

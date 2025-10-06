@@ -1096,6 +1096,7 @@ impl Image {
     }
 
     /// Changes the `size` if the total number of data elements (pixels) remains the same.
+    /// If not, returns [`TextureReinterpretationError::IncompatibleSizes`].
     pub fn reinterpret_size(
         &mut self,
         new_size: Extent3d,
@@ -1159,6 +1160,10 @@ impl Image {
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
+    ///
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable into the `layers`.
     pub fn reinterpret_stacked_2d_as_array(
         &mut self,
         layers: u32,
@@ -1170,7 +1175,7 @@ impl Image {
         if self.texture_descriptor.size.depth_or_array_layers != 1 {
             return Err(TextureReinterpretationError::InvalidLayerCount);
         }
-        if self.height() % layers != 0 {
+        if !self.height().is_multiple_of(layers) {
             return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
                 height: self.height(),
                 layers,
@@ -1330,6 +1335,33 @@ impl Image {
         let offset = self.pixel_data_offset(coords);
         let data = self.data.as_mut()?;
         offset.map(|start| &mut data[start..(start + len)])
+    }
+
+    /// Clears the content of the image with the given pixel. The image needs to be initialized on
+    /// the cpu otherwise this is a noop.
+    ///
+    /// This does nothing if the image data is not already initialized
+    pub fn clear(&mut self, pixel: &[u8]) {
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Clear data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            if let Some(data) = self.data.as_mut() {
+                for pixel_data in data.chunks_mut(pixel_size) {
+                    pixel_data.copy_from_slice(pixel);
+                }
+            }
+        }
     }
 
     /// Read the color of a specific pixel (1D texture).
@@ -1782,7 +1814,7 @@ pub enum TranscodeFormat {
     Rgb8,
 }
 
-/// An error that occurs when reinterpreting the image.
+/// An error that occurs when reinterpreting an image.
 #[derive(Error, Debug)]
 pub enum TextureReinterpretationError {
     #[error("incompatible sizes: old = {old:?} new = {new:?}")]
@@ -2190,5 +2222,26 @@ mod test {
             image.get_color_at_3d(0, 0, 1),
             Ok(Color::LinearRgba(GROW_FILL))
         ));
+    }
+
+    #[test]
+    fn image_clear() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));
+
+        image.clear(&[255; 4]);
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
     }
 }

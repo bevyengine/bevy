@@ -1,8 +1,9 @@
 //! Demonstrate how to use animation events.
 
 use bevy::{
+    animation::AnimationEvent,
     color::palettes::css::{ALICE_BLUE, BLACK, CRIMSON},
-    core_pipeline::bloom::Bloom,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
@@ -11,26 +12,26 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, animate_text_opacity)
-        .add_observer(edit_message)
+        .add_observer(on_set_message)
         .run();
 }
 
 #[derive(Component)]
 struct MessageText;
 
-#[derive(EntityEvent, Clone)]
-struct MessageEvent {
+#[derive(AnimationEvent, Clone)]
+struct SetMessage {
     value: String,
     color: Color,
 }
 
-fn edit_message(
-    event: On<MessageEvent>,
+fn on_set_message(
+    set_message: On<SetMessage>,
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
-    text.0 = event.value.clone();
-    color.0 = event.color;
+    text.0 = set_message.value.clone();
+    color.0 = set_message.color;
 }
 
 fn setup(
@@ -72,14 +73,14 @@ fn setup(
     // Add events at the specified time.
     animation.add_event(
         0.0,
-        MessageEvent {
+        SetMessage {
             value: "HELLO".into(),
             color: ALICE_BLUE.into(),
         },
     );
     animation.add_event(
         1.0,
-        MessageEvent {
+        SetMessage {
             value: "BYE".into(),
             color: CRIMSON.into(),
         },

@@ -6,9 +6,9 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
-    event::EventCursor,
     hierarchy::ChildOf,
     lifecycle::RemovedComponentEntity,
+    message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::{In, Local},
@@ -546,7 +546,7 @@ pub fn process_remote_get_resources_request(
 pub fn process_remote_get_components_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<HashMap<ComponentId, MessageCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpGetComponentsParams {
         entity,
@@ -849,7 +849,7 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
                 let all_optionals =
                     entity_ref
                         .archetype()
-                        .components()
+                        .iter_components()
                         .filter_map(|component_id| {
                             let info = world.components().get_info(component_id)?;
                             let type_id = info.type_id()?;
@@ -952,8 +952,7 @@ pub fn process_remote_spawn_entity_request(
 
     let entity = world.spawn_empty();
     let entity_id = entity.id();
-    insert_reflected_components(&type_registry, entity, reflect_components)
-        .map_err(BrpError::component_error)?;
+    insert_reflected_components(entity, reflect_components).map_err(BrpError::component_error)?;
 
     let response = BrpSpawnEntityResponse { entity: entity_id };
     serde_json::to_value(response).map_err(BrpError::internal)
@@ -1010,12 +1009,8 @@ pub fn process_remote_insert_components_request(
     let reflect_components =
         deserialize_components(&type_registry, components).map_err(BrpError::component_error)?;
 
-    insert_reflected_components(
-        &type_registry,
-        get_entity_mut(world, entity)?,
-        reflect_components,
-    )
-    .map_err(BrpError::component_error)?;
+    insert_reflected_components(get_entity_mut(world, entity)?, reflect_components)
+        .map_err(BrpError::component_error)?;
 
     Ok(Value::Null)
 }
@@ -1262,7 +1257,7 @@ pub fn process_remote_list_components_request(
     // If `Some`, return all components of the provided entity.
     if let Some(BrpListComponentsParams { entity }) = params.map(parse).transpose()? {
         let entity = get_entity(world, entity)?;
-        for component_id in entity.archetype().components() {
+        for component_id in entity.archetype().iter_components() {
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
@@ -1310,13 +1305,13 @@ pub fn process_remote_list_resources_request(
 pub fn process_remote_list_components_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<HashMap<ComponentId, MessageCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpListComponentsParams { entity } = parse_some(params)?;
     let entity_ref = get_entity(world, entity)?;
     let mut response = BrpListComponentsWatchingResponse::default();
 
-    for component_id in entity_ref.archetype().components() {
+    for component_id in entity_ref.archetype().iter_components() {
         let ticks = entity_ref
             .get_change_ticks_by_id(component_id)
             .ok_or(BrpError::internal("Failed to get ticks"))?;
@@ -1552,14 +1547,11 @@ fn deserialize_resource(
 /// Given a collection `reflect_components` of reflected component values, insert them into
 /// the given entity (`entity_world_mut`).
 fn insert_reflected_components(
-    type_registry: &TypeRegistry,
     mut entity_world_mut: EntityWorldMut,
     reflect_components: Vec<Box<dyn PartialReflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
-        let reflect_component =
-            get_reflect_component(type_registry, reflected.reflect_type_path())?;
-        reflect_component.insert(&mut entity_world_mut, &*reflected, type_registry);
+        entity_world_mut.insert_reflect(reflected);
     }
 
     Ok(())
@@ -1635,6 +1627,36 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn insert_reflect_only_component() {
+        use bevy_ecs::prelude::Component;
+        use bevy_reflect::Reflect;
+        #[derive(Reflect, Component)]
+        #[reflect(Component)]
+        struct Player {
+            name: String,
+            health: u32,
+        }
+        let components: HashMap<String, Value> = [(
+            String::from("bevy_remote::builtin_methods::tests::Player"),
+            serde_json::json!({"name": "John", "health": 50}),
+        )]
+        .into();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Player>();
+        }
+        let deserialized_components = {
+            let type_reg = atr.read();
+            deserialize_components(&type_reg, components).expect("FAIL")
+        };
+        let mut world = World::new();
+        world.insert_resource(atr);
+        let e = world.spawn_empty();
+        insert_reflected_components(e, deserialized_components).expect("FAIL");
+    }
 
     #[test]
     fn serialization_tests() {

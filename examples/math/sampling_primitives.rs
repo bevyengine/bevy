@@ -3,9 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::tonemapping::Tonemapping,
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
@@ -511,16 +512,16 @@ fn handle_keypress(
 fn handle_mouse(
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mut button_events: EventReader<MouseButtonInput>,
+    mut mouse_button_inputs: MessageReader<MouseButtonInput>,
     mut camera_rig: Single<&mut CameraRig>,
     mut mouse_pressed: ResMut<MousePressed>,
 ) {
     // Store left-pressed state in the MousePressed resource
-    for button_event in button_events.read() {
-        if button_event.button != MouseButton::Left {
+    for mouse_button_input in mouse_button_inputs.read() {
+        if mouse_button_input.button != MouseButton::Left {
             continue;
         }
-        *mouse_pressed = MousePressed(button_event.state.is_pressed());
+        *mouse_pressed = MousePressed(mouse_button_input.state.is_pressed());
     }
 
     if accumulated_mouse_scroll.delta != Vec2::ZERO {

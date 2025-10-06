@@ -143,7 +143,7 @@ macro_rules! plugin_group {
        $($(#[doc = concat!(
             " - [`", stringify!($plugin_group_name), "`](" $(, stringify!($plugin_group_path), "::")*, stringify!($plugin_group_name), ")"
             $(, " - with feature `", $plugin_group_feature, "`")?
-        )]),+)?
+        )])+)?
         $(
             ///
             $(#[doc = $post_doc])+
@@ -559,18 +559,21 @@ mod tests {
     use core::{any::TypeId, fmt::Debug};
 
     use super::PluginGroupBuilder;
-    use crate::{App, NoopPluginGroup, Plugin};
+    use crate::{App, NoopPluginGroup, Plugin, PluginGroup};
 
+    #[derive(Default)]
     struct PluginA;
     impl Plugin for PluginA {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginB;
     impl Plugin for PluginB {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginC;
     impl Plugin for PluginC {
         fn build(&self, _: &mut App) {}
@@ -872,5 +875,31 @@ mod tests {
                 TypeId::of::<PluginC>(),
             ]
         );
+    }
+
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupA {
+            :PluginA
+        }
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupB {
+            :PluginB
+        }
+    }
+    plugin_group! {
+        struct PluginGroupC {
+            :PluginC
+            #[plugin_group]
+            :PluginGroupA,
+            #[plugin_group]
+            :PluginGroupB,
+        }
+    }
+    #[test]
+    fn construct_nested_plugin_groups() {
+        PluginGroupC {}.build();
     }
 }
