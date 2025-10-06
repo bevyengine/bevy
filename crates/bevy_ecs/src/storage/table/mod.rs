@@ -137,7 +137,7 @@ impl TableRow {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
+    columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
 }
 
@@ -150,12 +150,12 @@ impl TableBuilder {
         }
     }
 
-    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
+    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](Column) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.entities.capacity()),
+            Column::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
@@ -174,7 +174,7 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
-/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
@@ -188,7 +188,7 @@ impl TableBuilder {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
 }
 
@@ -482,28 +482,28 @@ impl Table {
         })
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     ///
@@ -670,8 +670,8 @@ impl Table {
         }
     }
 
-    /// Iterates over the [`ThinColumn`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
+    /// Iterates over the [`Column`]s of the [`Table`].
+    pub fn iter_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
 
