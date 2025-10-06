@@ -6,8 +6,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
     entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
+        ContainsEntity, DisabledEntity, Entity, EntityCloner, EntityClonerBuilder,
+        EntityEquivalent, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -2564,7 +2564,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Disable the current entity.
     ///
-    pub fn disable(self) -> EntityLocation {
+    pub fn disable(self) -> DisabledEntity {
         let world = self.world;
 
         let location = world
@@ -2629,7 +2629,10 @@ impl<'w> EntityWorldMut<'w> {
             world.entities.set(self.entity.index(), None);
         }
 
-        location
+        DisabledEntity {
+            entity: self.entity,
+            location,
+        }
     }
 
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {

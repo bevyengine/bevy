@@ -41,7 +41,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{DisabledEntity, Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
@@ -1439,11 +1439,89 @@ impl World {
         Ok(())
     }
 
-    pub fn disable(&mut self, entity: Entity) -> Result<EntityLocation, EntityMutableFetchError> {
+    /// Disables the given `entity`, returning a [`DisabledEntity`] if the
+    /// entity exists and was enabled.
+    pub fn disable(&mut self, entity: Entity) -> Result<DisabledEntity, EntityMutableFetchError> {
         self.flush();
 
         let entity = self.get_entity_mut(entity)?;
         Ok(entity.disable())
+    }
+
+    /// Re-enables a previously disabled entity, returning an [`EntityWorldMut`]
+    /// to it.
+    pub fn enable(&mut self, disabled: DisabledEntity) -> EntityWorldMut<'_> {
+        self.flush();
+
+        let archetype = &self.archetypes[disabled.location.archetype_id];
+        // Find the location of the disabled entity in the archetype by
+        // searching backwards through the disabled entities.
+        // The disabled entity is most likely the last disabled entity, as
+        // is the case when disabled for `entity_scope`.
+        let location = archetype
+            .entities_with_location()
+            .take(archetype.disabled_entities as usize)
+            .rev()
+            .find(|(e, _)| *e == disabled.entity)
+            .map(|(_, location)| location);
+
+        // SAFETY: disabled entity existed when it was disabled, and wasn't
+        // despawned in the meantime.
+        unsafe {
+            self.entities.set(disabled.entity.index(), location);
+        }
+
+        self.entity_mut(disabled.entity)
+    }
+
+    pub fn component_scope<
+        C: Component<Mutability = Mutable>,
+        R,
+        F: FnOnce(Entity, &mut C, &mut World) -> R,
+    >(
+        &mut self,
+        entity: Entity,
+        f: F,
+    ) {
+        self.try_component_scope(entity, f).unwrap_or_else(|| {
+            panic!(
+                "component {} does not exist for entity {entity}",
+                DebugName::type_name::<C>()
+            )
+        });
+    }
+
+    pub fn try_component_scope<
+        C: Component<Mutability = Mutable>,
+        R,
+        F: FnOnce(Entity, &mut C, &mut World) -> R,
+    >(
+        &mut self,
+        entity: Entity,
+        f: F,
+    ) -> Option<R> {
+        self.flush();
+
+        let mut entity_mut = self.get_entity_mut(entity).ok()?;
+        let mut component = {
+            let component = entity_mut.get_mut::<C>()?;
+            // SAFETY: TODO
+            unsafe { core::ptr::read::<C>(&raw const *component) }
+        };
+
+        let disabled = entity_mut.disable();
+
+        let out = f(entity, &mut component, self);
+
+        let mut entity_mut = self.enable(disabled);
+
+        let mut component_mut = entity_mut.get_mut::<C>().unwrap();
+        // SAFETY: TODO
+        unsafe {
+            core::ptr::write::<C>(&raw mut *component_mut, component);
+        }
+
+        Some(out)
     }
 
     /// Clears the internal component tracker state.

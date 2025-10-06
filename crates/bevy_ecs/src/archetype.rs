@@ -395,7 +395,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    disabled_entities: u32,
+    pub(crate) disabled_entities: u32,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
@@ -488,6 +488,12 @@ impl Archetype {
         &self.entities
     }
 
+    /// Fetches the disabled entities contained in this archetype.
+    #[inline]
+    pub fn disabled_entities(&self) -> &[ArchetypeEntity] {
+        &self.entities[..self.disabled_entities as usize]
+    }
+
     /// Get the valid table rows (i.e. non-disabled entities).
     #[inline]
     pub fn archetype_rows(&self) -> Range<u32> {
@@ -499,7 +505,10 @@ impl Archetype {
 
     /// Fetches the entities contained in this archetype.
     #[inline]
-    pub fn entities_with_location(&self) -> impl Iterator<Item = (Entity, EntityLocation)> {
+    pub fn entities_with_location(
+        &self,
+    ) -> impl Iterator<Item = (Entity, EntityLocation)> + DoubleEndedIterator + ExactSizeIterator
+    {
         self.entities.iter().enumerate().map(
             |(archetype_row, &ArchetypeEntity { entity, table_row })| {
                 (
@@ -635,9 +644,11 @@ impl Archetype {
         self.entities.reserve(additional);
     }
 
-    /// Disables the entity at `row` by swapping it with the first enabled
-    /// entity. Returns the swapped entities with their respective table and
-    /// archetype rows, or `None` if no swap occurred.
+    /// Disables or enables the entity at `row` by swapping it with the first
+    /// enabled or disabled entity. Returns the swapped entities with their
+    /// respective table and archetype rows, or `None` if no swap occurred. If a
+    /// swap occurred, the caller is responsible for updating the entity's
+    /// location.
     ///
     /// # Panics
     /// This function will panic if `row >= self.entities.len()`
@@ -650,11 +661,28 @@ impl Archetype {
         Option<(ArchetypeEntity, ArchetypeRow)>,
     ) {
         debug_assert!(row.index_u32() < self.len());
-        debug_assert!(row.index_u32() >= self.disabled_entities);
 
-        if row.index_u32() == self.disabled_entities {
-            // no need to swap, just increment the disabled count
+        let disabled_row = if row.index_u32() >= self.disabled_entities {
+            // the entity is currently enabled, swap it with the first enabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            let disabled_row =
+                ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
             self.disabled_entities += 1;
+
+            disabled_row
+        } else {
+            self.disabled_entities -= 1;
+            // the entity is currently disabled, swap it with the last disabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
+        };
+
+        if row == disabled_row {
+            // the entity is already in the correct position, no swap needed
 
             // SAFETY: `row` is guaranteed to be in-bounds.
             (

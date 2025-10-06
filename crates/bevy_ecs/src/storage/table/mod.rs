@@ -198,7 +198,7 @@ impl Table {
     /// Fetches a read-only slice of the entities stored within the [`Table`].
     #[inline]
     pub fn entities(&self) -> &[Entity] {
-        &self.entities[self.disabled_entities as usize..]
+        &self.entities
     }
 
     /// Get the valid table rows (i.e. non-disabled entities).
@@ -217,7 +217,11 @@ impl Table {
         self.entities.capacity()
     }
 
-    /// Disables the entity at the given row, moving it to the back of the table and returns the entities that were swapped (if any) together with their new `TableRow`.
+    /// Disables or enables the entity at `row` by swapping it with the first
+    /// enabled or disabled entity. Returns the swapped entities with their
+    /// respective table rows, or `None` if no swap occurred. If a
+    /// swap occurred, the caller is responsible for updating the entity's
+    /// location.
     ///
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`) and not disabled.
@@ -226,20 +230,37 @@ impl Table {
         row: TableRow,
     ) -> ((Entity, TableRow), Option<(Entity, TableRow)>) {
         debug_assert!(row.index_u32() < self.len());
-        debug_assert!(row.index_u32() >= self.disabled_entities);
 
-        if row.index_u32() != self.disabled_entities {
+        let disabled_row = if row.index_u32() >= self.disabled_entities {
+            // the entity is currently enabled, swap it with the first enabled entity:
+
             // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
             // as guaranteed by `allocate`.
             let disabled_row =
                 TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+            self.disabled_entities += 1;
 
+            disabled_row
+        } else {
+            self.disabled_entities -= 1;
+            // the entity is currently disabled, swap it with the last disabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
+        };
+
+        if row == disabled_row {
+            // the entity is already in the correct position, no swap needed
+
+            // SAFETY: TODO
+            ((*self.entities.get_unchecked(row.index()), row), None)
+        } else {
             for col in self.columns.values_mut() {
                 col.swap_unchecked(row, disabled_row);
             }
 
             self.entities.swap(row.index(), disabled_row.index());
-            self.disabled_entities += 1;
 
             (
                 (
@@ -248,9 +269,6 @@ impl Table {
                 ),
                 Some((*self.entities.get_unchecked(row.index()), row)),
             )
-        } else {
-            self.disabled_entities += 1;
-            ((*self.entities.get_unchecked(row.index()), row), None)
         }
     }
 
