@@ -2234,6 +2234,33 @@ impl Measured2d for Capsule2d {
     }
 }
 
+/// A 2D shape representing the ring version of a base shape.
+///
+/// The `inner_shape` forms the "hollow" of the `outer_shape`.
+///
+/// The resulting shapes are rings or annular regions.
+/// For example, a circle becomes an annulus.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub struct Ring<P: Primitive2d> {
+    /// The outer shape
+    pub outer_shape: P,
+    /// The inner shape (the same shape of a different size)
+    pub inner_shape: P,
+}
+
+impl<T: Primitive2d> Ring<T> {
+    /// Create a new `Ring<T>` from a given `base_shape` and `depth`
+    pub const fn new(outer_shape: T, inner_shape: T) -> Self {
+        Self {
+            outer_shape,
+            inner_shape,
+        }
+    }
+}
+
+impl<T: Primitive2d> Primitive2d for Ring<T> {}
+
 #[cfg(test)]
 mod tests {
     // Reference values were computed by hand and/or with external tools
