@@ -1767,7 +1767,7 @@ pub fn specialize_shadows(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicksTable>,
+    entity_specialization_ticks: Res<EntitySpecializationTicks>,
     ticks: SystemChangeTick,
 ) {
     // Record the retained IDs of all shadow views so that we can expire old
