@@ -9,10 +9,7 @@ use bevy::{
     image::{CompressedImageFormats, ImageLoaderSettings, ImageTextureViewDimension},
     pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
-    render::{
-        render_resource::{TextureViewDescriptor, TextureViewDimension},
-        renderer::RenderDevice,
-    },
+    render::renderer::RenderDevice,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;

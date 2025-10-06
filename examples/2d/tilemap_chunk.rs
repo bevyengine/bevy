@@ -13,10 +13,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, spawn_fake_player).chain())
-        .add_systems(
-            Update,
-            (update_tilemap, move_player, log_tile),
-        )
+        .add_systems(Update, (update_tilemap, move_player, log_tile))
         .run();
 }
 
@@ -113,7 +110,6 @@ fn move_player(
 
     player.translation.x = origin.lerp(destination, t);
 }
-
 
 fn update_tilemap(
     time: Res<Time>,
