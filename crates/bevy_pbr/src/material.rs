@@ -762,7 +762,7 @@ fn early_sweep_material_instances<M>(
 /// Removes mesh materials from [`RenderMaterialInstances`] when their
 /// [`ViewVisibility`] components are removed.
 ///
-/// This runs after all invocations of [`early_sweep_material_instances`] and is
+/// This runs after all invocations of `early_sweep_material_instances` and is
 /// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
 /// preparation for a new frame.
 pub fn late_sweep_material_instances(
