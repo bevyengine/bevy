@@ -7,30 +7,30 @@ use core::{mem::needs_drop, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.
 ///
-/// Conceptually, a `ThinColumn` is very similar to a type-erased `Box<[T]>`.
+/// Conceptually, a `Column` is very similar to a type-erased `Box<[T]>`.
 /// It also stores the change detection ticks for its components, kept in two separate
 /// contiguous buffers internally. An element shares its data across these buffers by using the
 /// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at index 3).
 ///
-/// Like many other low-level storage types, `ThinColumn` has a limited and highly unsafe
+/// Like many other low-level storage types, `Column` has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
-/// instead of working directly with `ThinColumn`.
+/// instead of working directly with `Column`.
 ///
-/// For performance reasons, `ThinColumn` does not does not store it's capacity and length.
+/// For performance reasons, `Column` does not does not store it's capacity and length.
 /// This type is used by [`Table`] and [`ComponentSparseSet`], where the corresponding capacity
 /// and length can be found.
 ///
 /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
-pub struct ThinColumn {
+pub struct Column {
     pub(super) data: BlobArray,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
 }
 
-impl ThinColumn {
-    /// Create a new [`ThinColumn`] with the given `capacity`.
+impl Column {
+    /// Create a new [`Column`] with the given `capacity`.
     pub fn with_capacity(component_info: &ComponentInfo, capacity: usize) -> Self {
         Self {
             // SAFETY: The components stored in this columns will match the information in `component_info`
@@ -137,7 +137,7 @@ impl ThinColumn {
         data
     }
 
-    /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
+    /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`Column`]
     ///
     /// # Panics
     /// - Panics if the any of the new capacity overflows `isize::MAX` bytes.
@@ -159,7 +159,7 @@ impl ThinColumn {
             .map(|changed_by| changed_by.realloc(current_capacity, new_capacity));
     }
 
-    /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
+    /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`Column`]
     /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
     ///
     /// # Panics
@@ -233,7 +233,7 @@ impl ThinColumn {
     #[inline]
     pub(crate) unsafe fn initialize_from_unchecked(
         &mut self,
-        other: &mut ThinColumn,
+        other: &mut Column,
         other_last_element_index: usize,
         src_row: TableRow,
         dst_row: TableRow,
@@ -302,7 +302,7 @@ impl ThinColumn {
     }
 
     /// Because this method needs parameters, it can't be the implementation of the `Drop` trait.
-    /// The owner of this [`ThinColumn`] must call this method with the correct information.
+    /// The owner of this [`Column`] must call this method with the correct information.
     ///
     /// # Safety
     /// - `len` is indeed the length of the column
@@ -330,16 +330,16 @@ impl ThinColumn {
         self.data.drop_last_element(last_element_index);
     }
 
-    /// Get a slice to the data stored in this [`ThinColumn`].
+    /// Get a slice to the data stored in this [`Column`].
     ///
     /// # Safety
-    /// - `T` must match the type of data that's stored in this [`ThinColumn`]
+    /// - `T` must match the type of data that's stored in this [`Column`]
     /// - `len` must match the actual length of this column (number of elements stored)
     pub unsafe fn get_data_slice<T>(&self, len: usize) -> &[UnsafeCell<T>] {
         self.data.get_sub_slice(len)
     }
 
-    /// Get a slice to the added [`ticks`](Tick) in this [`ThinColumn`].
+    /// Get a slice to the added [`ticks`](Tick) in this [`Column`].
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
@@ -347,7 +347,7 @@ impl ThinColumn {
         self.added_ticks.as_slice(len)
     }
 
-    /// Get a slice to the changed [`ticks`](Tick) in this [`ThinColumn`].
+    /// Get a slice to the changed [`ticks`](Tick) in this [`Column`].
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
@@ -355,7 +355,7 @@ impl ThinColumn {
         self.changed_ticks.as_slice(len)
     }
 
-    /// Get a slice to the calling locations that last changed each value in this [`ThinColumn`]
+    /// Get a slice to the calling locations that last changed each value in this [`Column`]
     ///
     /// # Safety
     /// - `len` must match the actual length of this column (number of elements stored)
