@@ -442,7 +442,7 @@ bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation", "bevy_animation"]
 
-# Enables bevy_mesh morph weight support
+# Enables support for morph target weights in bevy_mesh
 morph = ["bevy_internal/morph"]
 
 # Enable using a shared stdlib for cxx on Android

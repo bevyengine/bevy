@@ -52,7 +52,7 @@ The default feature set enables most of the expected features of a game engine, 
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
-|morph|Enables bevy_mesh morph weight support|
+|morph|Enables support for morph target weights in bevy_mesh|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |reflect_auto_register|Enable automatic reflect registration|
