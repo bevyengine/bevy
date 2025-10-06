@@ -21,10 +21,16 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get(&id)
     }
+
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
     pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
+    }
+
+    /// Returns the total number of rasterized fonts across all sets.
+    pub fn font_count(&self) -> usize {
+        self.sets.values().map(FontAtlasSet::len).sum()
     }
 }
 
@@ -43,7 +49,7 @@ pub fn remove_dropped_font_atlas_sets(
 /// Identifies a font size and smoothing method in a [`FontAtlasSet`].
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
-#[derive(Debug, Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq, Copy, Clone)]
 pub struct FontAtlasKey(pub u32, pub FontSmoothing);
 
 /// A map of font sizes to their corresponding [`FontAtlas`]es, for a given font face.

@@ -20,7 +20,7 @@ impl Prepare for TestCommand {
             PreparedCommand::new::<Self>(
                 cmd!(
                     sh,
-                    "cargo test --workspace --lib --bins --tests {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"
+                    "cargo test --workspace --lib --bins --tests --features bevy_ecs/track_location {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"
                 ),
                 "Please fix failing tests in output above.",
             ),

@@ -2670,9 +2670,6 @@ impl<'w> EntityWorldMut<'w> {
                             table_row: swapped_location.table_row,
                         }),
                     );
-                    world
-                        .entities
-                        .mark_spawn_despawn(swapped_entity.index(), caller, change_tick);
                 }
             }
             table_row = remove_result.table_row;
@@ -2702,13 +2699,18 @@ impl<'w> EntityWorldMut<'w> {
                         table_row,
                     }),
                 );
-                world
-                    .entities
-                    .mark_spawn_despawn(moved_entity.index(), caller, change_tick);
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
+
+        // SAFETY: `self.entity` is a valid entity index
+        unsafe {
+            world
+                .entities
+                .mark_spawn_despawn(self.entity.index(), caller, change_tick);
+        }
+
         world.flush();
     }
 
@@ -6739,5 +6741,63 @@ mod tests {
                 b: false,
             }
         );
+    }
+
+    #[test]
+    fn spawned_after_swap_remove() {
+        #[derive(Component)]
+        struct Marker;
+
+        let mut world = World::new();
+        let id1 = world.spawn(Marker).id();
+        let _id2 = world.spawn(Marker).id();
+        let id3 = world.spawn(Marker).id();
+
+        let e1_spawned = world.entity(id1).spawned_by();
+
+        let spawn = world.entity(id3).spawned_by();
+        world.entity_mut(id1).despawn();
+        let e1_despawned = world.entities().entity_get_spawned_or_despawned_by(id1);
+
+        // These assertions are only possible if the `track_location` feature is enabled
+        if let (Some(e1_spawned), Some(e1_despawned)) =
+            (e1_spawned.into_option(), e1_despawned.into_option())
+        {
+            assert!(e1_despawned.is_some());
+            assert_ne!(Some(e1_spawned), e1_despawned);
+        }
+
+        let spawn_after = world.entity(id3).spawned_by();
+        assert_eq!(spawn, spawn_after);
+    }
+
+    #[test]
+    fn spawned_by_set_before_flush() {
+        #[derive(Component)]
+        #[component(on_despawn = on_despawn)]
+        struct C;
+
+        fn on_despawn(mut world: DeferredWorld, context: HookContext) {
+            let spawned = world.entity(context.entity).spawned_by();
+            world.commands().queue(move |world: &mut World| {
+                // The entity has finished despawning...
+                assert!(world.get_entity(context.entity).is_err());
+                let despawned = world
+                    .entities()
+                    .entity_get_spawned_or_despawned_by(context.entity);
+                // These assertions are only possible if the `track_location` feature is enabled
+                if let (Some(spawned), Some(despawned)) =
+                    (spawned.into_option(), despawned.into_option())
+                {
+                    // ... so ensure that `despawned_by` has been written
+                    assert!(despawned.is_some());
+                    assert_ne!(Some(spawned), despawned);
+                }
+            });
+        }
+
+        let mut world = World::new();
+        let original = world.spawn(C).id();
+        world.despawn(original);
     }
 }
