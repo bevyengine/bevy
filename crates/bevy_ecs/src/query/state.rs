@@ -1417,6 +1417,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             // SAFETY: We only access table data that has been registered in `self.component_access`.
+
+            use core::ops::Range;
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
             let mut batch_queue = ArrayVec::new();
@@ -1444,8 +1446,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             };
 
             // submit single storage larger than batch_size
-            let submit_single = |count, storage_id: StorageId| {
-                for offset in (0..count).step_by(batch_size as usize) {
+            let submit_single = |range: Range<u32>, storage_id: StorageId| {
+                let count = range.len() as u32;
+                for offset in range.step_by(batch_size as usize) {
                     let mut func = func.clone();
                     let init_accum = init_accum.clone();
                     let len = batch_size.min(count - offset);
@@ -1461,29 +1464,29 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 }
             };
 
-            let storage_entity_count = |storage_id: StorageId| -> u32 {
+            let storage_entity_rows = |storage_id: StorageId| -> Range<u32> {
                 if self.is_dense {
-                    tables[storage_id.table_id].entity_count()
+                    tables[storage_id.table_id].table_rows()
                 } else {
-                    archetypes[storage_id.archetype_id].len()
+                    archetypes[storage_id.archetype_id].archetype_rows()
                 }
             };
 
             for storage_id in &self.matched_storage_ids {
-                let count = storage_entity_count(*storage_id);
+                let range = storage_entity_rows(*storage_id);
 
                 // skip empty storage
-                if count == 0 {
+                if range.is_empty() {
                     continue;
                 }
                 // immediately submit large storage
-                if count >= batch_size {
-                    submit_single(count, *storage_id);
+                if range.len() as u32 >= batch_size {
+                    submit_single(range, *storage_id);
                     continue;
                 }
                 // merge small storage
                 batch_queue.push(*storage_id);
-                queue_entity_count += count;
+                queue_entity_count += range.len() as u32;
 
                 // submit batch_queue
                 if queue_entity_count >= batch_size || batch_queue.is_full() {

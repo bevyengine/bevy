@@ -32,7 +32,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{
     hash::Hash,
-    ops::{Index, IndexMut, RangeFrom},
+    ops::{Index, IndexMut, Range, RangeFrom},
 };
 use nonmax::NonMaxU32;
 
@@ -394,6 +394,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
+    disabled_entities: u32,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
@@ -453,6 +454,7 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
+            disabled_entities: 0,
             components: archetype_components.into_immutable(),
             edges: Default::default(),
             flags,
@@ -483,6 +485,15 @@ impl Archetype {
     #[inline]
     pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
+    }
+
+    /// Get the valid table rows (i.e. non-disabled entities).
+    #[inline]
+    pub fn archetype_rows(&self) -> Range<u32> {
+        // - No entity row may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // - self.disabled_entities <= self.len()
+        self.disabled_entities..self.len()
     }
 
     /// Fetches the entities contained in this archetype.
@@ -648,6 +659,12 @@ impl Archetype {
         // No entity may have more than one archetype row, so there are no duplicates,
         // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
+    }
+
+    /// Gets the number of entities that belong to the archetype, without disabled entities.
+    #[inline]
+    pub fn entity_count(&self) -> u32 {
+        self.len() - self.disabled_entities
     }
 
     /// Checks if the archetype has any entities.

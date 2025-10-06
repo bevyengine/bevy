@@ -148,7 +148,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: Matched table IDs are guaranteed to still exist.
             let table = unsafe { self.tables.get(table_id).debug_checked_unwrap() };
 
-            let range = range.unwrap_or(0..table.entity_count());
+            let range = range.unwrap_or(table.table_rows());
             accum =
                 // SAFETY:
                 // - The fetched table matches both D and F
@@ -163,11 +163,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             // SAFETY: Matched table IDs are guaranteed to still exist.
             let table = unsafe { self.tables.get(archetype.table_id()).debug_checked_unwrap() };
 
-            let range = range.unwrap_or(0..archetype.len());
+            let range = range.unwrap_or(archetype.archetype_rows());
 
             // When an archetype and its table have equal entity counts, dense iteration can be safely used.
             // this leverages cache locality to optimize performance.
-            if table.entity_count() == archetype.len() {
+            if table.entity_count() == archetype.entity_count() {
                 accum =
                 // SAFETY:
                 // - The fetched archetype matches both D and F
@@ -345,7 +345,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
         let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
         debug_assert!(
-            archetype.len() == table.entity_count(),
+            archetype.entity_count() == table.entity_count(),
             "archetype and its table must have the same length. "
         );
 
@@ -930,14 +930,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
     {
         let mut accum = init;
         // Empty any remaining uniterated values from the current table/archetype
-        while self.cursor.current_row != self.cursor.current_len {
+        while !self.cursor.current_range.is_empty() {
             let Some(item) = self.next() else { break };
             accum = func(accum, item);
         }
 
         for id in self.cursor.storage_id_iter.clone().copied() {
             // SAFETY:
-            // - The range(None) is equivalent to [0, storage.entity_count)
+            // - The range(None) is equivalent to storage.rows
             accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
         }
         accum
@@ -2365,10 +2365,8 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
     filter: F::Fetch<'w>,
-    // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
-    current_len: u32,
-    // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
-    current_row: u32,
+    // remaining range of the table or archetype being iterated over, depending on whether both `D`'s and `F`'s fetches are dense
+    current_range: Range<u32>,
 }
 
 impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> {
@@ -2380,8 +2378,7 @@ impl<D: QueryData, F: QueryFilter> Clone for QueryIterationCursor<'_, '_, D, F> 
             archetype_entities: self.archetype_entities,
             fetch: self.fetch.clone(),
             filter: self.filter.clone(),
-            current_len: self.current_len,
-            current_row: self.current_row,
+            current_range: self.current_range.clone(),
         }
     }
 }
@@ -2420,8 +2417,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             archetype_entities: &[],
             storage_id_iter: query_state.matched_storage_ids.iter(),
             is_dense: query_state.is_dense,
-            current_len: 0,
-            current_row: 0,
+            current_range: 0..0,
         }
     }
 
@@ -2433,8 +2429,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
             storage_id_iter: self.storage_id_iter.clone(),
-            current_len: self.current_len,
-            current_row: self.current_row,
+            current_range: 0..0,
         }
     }
 
@@ -2445,8 +2440,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// dropped to prevent aliasing mutable references.
     #[inline]
     unsafe fn peek_last(&mut self, query_state: &'s QueryState<D, F>) -> Option<D::Item<'w, 's>> {
-        if self.current_row > 0 {
-            let index = self.current_row - 1;
+        if self.current_range.start > 0 {
+            let index = self.current_range.start - 1;
             if self.is_dense {
                 // SAFETY: This must have been called previously in `next` as `current_row > 0`
                 let entity = unsafe { self.table_entities.get_unchecked(index as usize) };
@@ -2494,9 +2489,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
         } else {
             // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
-            unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
+            unsafe {
+                ids.map(|id| archetypes[id.archetype_id].entity_count())
+                    .sum()
+            }
         };
-        remaining_matched + self.current_len - self.current_row
+        remaining_matched + self.current_range.len() as u32
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
@@ -2517,7 +2515,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         if self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
-                if self.current_row == self.current_len {
+                let Some(next) = self.current_range.next() else {
                     let table_id = self.storage_id_iter.next()?.table_id;
                     let table = tables.get(table_id).debug_checked_unwrap();
                     if table.is_empty() {
@@ -2530,18 +2528,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         F::set_table(&mut self.filter, &query_state.filter_state, table);
                     }
                     self.table_entities = table.entities();
-                    self.current_len = table.entity_count();
-                    self.current_row = 0;
-                }
+                    self.current_range = table.table_rows();
+
+                    continue;
+                };
 
                 // SAFETY: set_table was called prior.
                 // `current_row` is a table row in range of the current table, because if it was not, then the above would have been executed.
-                let entity =
-                    unsafe { self.table_entities.get_unchecked(self.current_row as usize) };
+                let entity = unsafe { self.table_entities.get_unchecked(next as usize) };
                 // SAFETY: The row is less than the u32 len, so it must not be max.
-                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
+                let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(next)) };
                 if !F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row) {
-                    self.current_row += 1;
                     continue;
                 }
 
@@ -2553,12 +2550,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let item =
                     unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, *entity, row) };
 
-                self.current_row += 1;
                 return Some(item);
             }
         } else {
             loop {
-                if self.current_row == self.current_len {
+                let Some(next) = self.current_range.next() else {
                     let archetype_id = self.storage_id_iter.next()?.archetype_id;
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
                     if archetype.is_empty() {
@@ -2582,23 +2578,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         );
                     }
                     self.archetype_entities = archetype.entities();
-                    self.current_len = archetype.len();
-                    self.current_row = 0;
-                }
+                    self.current_range = archetype.archetype_rows();
+
+                    continue;
+                };
 
                 // SAFETY: set_archetype was called prior.
                 // `current_row` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity = unsafe {
-                    self.archetype_entities
-                        .get_unchecked(self.current_row as usize)
-                };
+                let archetype_entity =
+                    unsafe { self.archetype_entities.get_unchecked(next as usize) };
                 if !F::filter_fetch(
                     &query_state.filter_state,
                     &mut self.filter,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
                 ) {
-                    self.current_row += 1;
                     continue;
                 }
 
@@ -2615,7 +2609,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                         archetype_entity.table_row(),
                     )
                 };
-                self.current_row += 1;
+
                 return Some(item);
             }
         }

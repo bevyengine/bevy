@@ -1,7 +1,13 @@
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
+use core::{
+    alloc::Layout,
+    cell::UnsafeCell,
+    num::NonZeroUsize,
+    ops::{Bound, Range, RangeBounds},
+    ptr::NonNull,
+};
 
 /// A flat, type-erased data storage type.
 ///
@@ -175,6 +181,49 @@ impl BlobArray {
             self.drop = None;
             let size = self.item_layout.size();
             for i in 0..len {
+                // SAFETY:
+                // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                // * `size` is a multiple of the erased type's alignment,
+                //   so adding a multiple of `size` will preserve alignment.
+                // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                // SAFETY: `item` was obtained from this `BlobArray`, so its underlying type must match `drop`.
+                unsafe { drop(item) };
+            }
+            self.drop = Some(drop);
+        }
+    }
+
+    /// Clears the array, i.e. removing (and dropping) all of the elements in the range.
+    /// Note that this method has no effect on the allocated capacity of the vector.
+    ///
+    /// Note that this method will behave exactly the same as [`Vec::drain`].
+    ///
+    /// # Safety
+    /// - For every element with index `i`, if `range.contains(i)`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
+    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `range` is correct.)
+    ///
+    /// [`Vec::drain`]: alloc::vec::Vec::drain
+    pub unsafe fn clear_range(&mut self, range: impl RangeBounds<usize>) {
+        let map_bound_or = |bounds: Bound<&usize>, or: usize, start: bool| match (bounds, start) {
+            (Bound::Included(&b), true) => b,
+            (Bound::Included(&b), false) => b.checked_add(1).expect("range end overflowed"),
+            (Bound::Excluded(&b), true) => b.checked_add(1).expect("range start overflowed"),
+            (Bound::Excluded(&b), false) => b,
+            (Bound::Unbounded, _) => or,
+        };
+
+        let range = map_bound_or(range.start_bound(), 0, true)
+            ..map_bound_or(range.end_bound(), self.capacity, false);
+
+        #[cfg(debug_assertions)]
+        debug_assert!(self.capacity >= range.end);
+        if let Some(drop) = self.drop {
+            // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
+            // accidentally drop elements twice in the event of a drop impl panicking.
+            self.drop = None;
+            let size = self.item_layout.size();
+            for i in range {
                 // SAFETY:
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
                 // * `size` is a multiple of the erased type's alignment,
