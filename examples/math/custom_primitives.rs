@@ -22,8 +22,9 @@ use bevy::{
 };
 
 const HEART: Heart = Heart::new(0.5);
-const EXTRUSION: Extrusion<Heart> = Extrusion {
-    base_shape: Heart::new(0.5),
+const HEART_RING: Ring<Heart> = Ring::new(Heart::new(0.8), Heart::new(0.6));
+const EXTRUSION: Extrusion<Ring<Heart>> = Extrusion {
+    base_shape: HEART_RING,
     half_depth: 0.5,
 };
 
@@ -135,7 +136,7 @@ fn setup(
     // Spawn the 2D heart
     commands.spawn((
         // We can use the methods defined on the `MeshBuilder` to customize the mesh.
-        Mesh3d(meshes.add(HEART.mesh().resolution(50))),
+        Mesh3d(meshes.add(HEART_RING.mesh().with_inner(|heart| heart.resolution(50)))),
         MeshMaterial3d(materials.add(StandardMaterial {
             emissive: RED.into(),
             base_color: RED.into(),
@@ -148,7 +149,13 @@ fn setup(
     // Spawn an extrusion of the heart.
     commands.spawn((
         // We can set a custom resolution for the round parts of the extrusion as well.
-        Mesh3d(meshes.add(EXTRUSION.mesh().resolution(50))),
+        Mesh3d(
+            meshes.add(
+                EXTRUSION
+                    .mesh()
+                    .with_inner(|heart| heart.with_inner(|heart| heart.resolution(50))),
+            ),
+        ),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.into(),
             ..Default::default()
