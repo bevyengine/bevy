@@ -39,7 +39,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics #bevy_ecs_path::entity::MapEntities for #struct_name #type_generics #where_clause {
-            fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(&mut self, mapper: &mut M) {
+            fn map_entities<MAPENT: #bevy_ecs_path::entity::EntityMapper>(&mut self, mapper: &mut MAPENT) {
                 #map_entities_impl
             }
         }
