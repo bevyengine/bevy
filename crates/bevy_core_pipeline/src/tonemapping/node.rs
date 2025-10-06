@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{TonemappingLuts, TonemappingPipeline, ViewTonemappingPipeline};
+#[cfg(feature = "tonemapping_luts")]
+use crate::tonemapping::TonemappingLuts;
+use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
@@ -89,10 +91,16 @@ impl ViewNode for TonemappingNode {
                 bind_group
             }
             cached_bind_group => {
+                #[cfg(feature = "tonemapping_luts")]
                 let tonemapping_luts = world.resource::<TonemappingLuts>();
 
-                let lut_bindings =
-                    get_lut_bindings(gpu_images, tonemapping_luts, tonemapping, fallback_image);
+                let lut_bindings = get_lut_bindings(
+                    gpu_images,
+                    #[cfg(feature = "tonemapping_luts")]
+                    tonemapping_luts,
+                    tonemapping,
+                    fallback_image,
+                );
 
                 let bind_group = render_context.render_device().create_bind_group(
                     None,
