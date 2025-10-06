@@ -32,7 +32,7 @@ impl Plugin for UpscalingPlugin {
 }
 
 #[derive(Component)]
-pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
+pub struct ViewUpscalingPipeline(pub CachedRenderPipelineId);
 
 fn prepare_view_upscaling_pipelines(
     mut commands: Commands,
