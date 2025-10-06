@@ -19,7 +19,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     // We want to raise a compile time error when the generic lifetimes
     // are not bound to 'static lifetime
-    let non_static_lifetime_error: Option<syn::Error> = ast
+    let non_static_lifetime_error = ast
         .generics
         .lifetimes()
         .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
