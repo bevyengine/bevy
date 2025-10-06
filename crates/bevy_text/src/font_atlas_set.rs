@@ -25,7 +25,7 @@ impl From<&TextFont> for FontAtlasKey {
 pub struct FontAtlasSet(HashMap<FontAtlasKey, Vec<FontAtlas>>);
 
 impl FontAtlasSet {
-    /// Checks if the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es for the font identified by the given [`FontAtlasKey`].
+    /// Checks whether the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es for the font identified by the given [`FontAtlasKey`].
     pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_key: &FontAtlasKey) -> bool {
         self.get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
