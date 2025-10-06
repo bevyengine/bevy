@@ -5,7 +5,6 @@ use alloc::sync::Arc;
 use std::{
     io::Error,
     path::{Path, PathBuf},
-    sync::Mutex,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -39,7 +38,10 @@ use bevy_mesh::{
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
 use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::Mutex,
+};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
@@ -584,7 +586,7 @@ impl GltfLoader {
 
         let default_sampler = match settings.default_sampler.as_ref() {
             Some(sampler) => sampler,
-            None => &loader.default_sampler.lock().unwrap().clone(),
+            None => &loader.default_sampler.lock().clone(),
         };
         // We collect handles to ensure loaded images from paths are not unloaded before they are used elsewhere
         // in the loader. This prevents "reloads", but it also prevents dropping the is_srgb context on reload.

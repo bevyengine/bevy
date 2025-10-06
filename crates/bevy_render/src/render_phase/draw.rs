@@ -7,9 +7,10 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
+use bevy_platform::sync::RwLock;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use derive_more::Deref;
 use thiserror::Error;
 use variadics_please::all_tuples;
 
@@ -110,10 +111,13 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     }
 }
 
-/// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
+/// Stores all draw functions for the [`PhaseItem`] type behind a reader-writer lock.
 ///
-/// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
-#[derive(Resource)]
+/// This type dereferences to a [`RwLock`]. To access the draw functions, the `read` and
+/// `write` methods are used to obtain a lock on the internal state.
+///
+/// [`RwLock`]: bevy_platform::sync::RwLock
+#[derive(Resource, Deref)]
 pub struct DrawFunctions<P: PhaseItem> {
     internal: RwLock<DrawFunctionsInternal<P>>,
 }
@@ -126,20 +130,6 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
                 indices: Default::default(),
             }),
         }
-    }
-}
-
-impl<P: PhaseItem> DrawFunctions<P> {
-    /// Accesses the draw functions in read mode.
-    pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.read().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Accesses the draw functions in write mode.
-    pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 

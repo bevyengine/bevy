@@ -11,7 +11,7 @@ pub use barrier::{Barrier, BarrierWaitResult};
 pub use lazy_lock::LazyLock;
 pub use mutex::{Mutex, MutexGuard};
 pub use once::{Once, OnceLock, OnceState};
-pub use poison::{LockResult, PoisonError, TryLockError, TryLockResult};
+pub use poison::{TryLockError, TryLockResult};
 pub use rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 crate::cfg::alloc! {

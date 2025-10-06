@@ -136,10 +136,9 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use std::sync::Mutex;
 use tracing::warn;
 
-use bevy_platform::collections::HashMap;
+use bevy_platform::{collections::HashMap, sync::Mutex};
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
@@ -170,7 +169,7 @@ impl DefaultGltfImageSampler {
 
     /// Returns the current default [`ImageSamplerDescriptor`].
     pub fn get(&self) -> ImageSamplerDescriptor {
-        self.0.lock().unwrap().clone()
+        self.0.lock().clone()
     }
 
     /// Makes a clone of internal [`Arc`] pointer.
@@ -185,7 +184,7 @@ impl DefaultGltfImageSampler {
     /// Doesn't apply to samplers already built on top of it, i.e. `GltfLoader`'s output.
     /// Assets need to manually be reloaded.
     pub fn set(&self, descriptor: &ImageSamplerDescriptor) {
-        *self.0.lock().unwrap() = descriptor.clone();
+        *self.0.lock() = descriptor.clone();
     }
 }
 

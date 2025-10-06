@@ -1,8 +1,5 @@
 use alloc::borrow::Cow;
-use bevy_platform::{
-    collections::HashMap,
-    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
+use bevy_platform::collections::HashMap;
 use core::fmt::Debug;
 
 use crate::func::{
@@ -330,27 +327,6 @@ impl FunctionRegistry {
 impl Debug for FunctionRegistry {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_set().entries(self.functions.values()).finish()
-    }
-}
-
-/// A synchronized wrapper around a [`FunctionRegistry`].
-#[derive(Clone, Default, Debug)]
-pub struct FunctionRegistryArc {
-    /// The wrapped [`FunctionRegistry`].
-    pub internal: Arc<RwLock<FunctionRegistry>>,
-}
-
-impl FunctionRegistryArc {
-    /// Takes a read lock on the underlying [`FunctionRegistry`].
-    pub fn read(&self) -> RwLockReadGuard<'_, FunctionRegistry> {
-        self.internal.read().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    /// Takes a write lock on the underlying [`FunctionRegistry`].
-    pub fn write(&self) -> RwLockWriteGuard<'_, FunctionRegistry> {
-        self.internal
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 

@@ -1,14 +1,12 @@
 //! Types that enable reflection support.
 
-use core::{
-    any::TypeId,
-    ops::{Deref, DerefMut},
-};
+use core::{any::TypeId, ops::Deref};
 
 use crate::{resource::Resource, world::World};
+#[cfg(feature = "reflect_functions")]
+use bevy_reflect::func::FunctionRegistry;
 use bevy_reflect::{
-    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,
-    TypeRegistry, TypeRegistryArc,
+    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry,
 };
 
 mod bundle;
@@ -18,6 +16,7 @@ mod from_world;
 mod map_entities;
 mod resource;
 
+use bevy_platform::sync::{Arc, RwLock};
 use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
@@ -28,22 +27,15 @@ pub use resource::{ReflectResource, ReflectResourceFns};
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.
-#[derive(Resource, Clone, Default)]
-pub struct AppTypeRegistry(pub TypeRegistryArc);
+#[derive(Resource, Clone, Default, Debug)]
+pub struct AppTypeRegistry(Arc<RwLock<TypeRegistry>>);
 
 impl Deref for AppTypeRegistry {
-    type Target = TypeRegistryArc;
+    type Target = RwLock<TypeRegistry>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for AppTypeRegistry {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
@@ -65,23 +57,15 @@ impl AppTypeRegistry {
 /// [`FunctionRegistry`]: bevy_reflect::func::FunctionRegistry
 #[cfg(feature = "reflect_functions")]
 #[derive(Resource, Clone, Default)]
-pub struct AppFunctionRegistry(pub bevy_reflect::func::FunctionRegistryArc);
+pub struct AppFunctionRegistry(Arc<RwLock<FunctionRegistry>>);
 
 #[cfg(feature = "reflect_functions")]
 impl Deref for AppFunctionRegistry {
-    type Target = bevy_reflect::func::FunctionRegistryArc;
+    type Target = RwLock<FunctionRegistry>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[cfg(feature = "reflect_functions")]
-impl DerefMut for AppFunctionRegistry {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
