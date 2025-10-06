@@ -3,12 +3,15 @@
 use core::ops::Deref;
 
 use crate::{
+    component::ComponentId,
     entity::MapEntities,
     entity_disabling::Internal,
     lifecycle::HookContext,
-    prelude::{Component, ReflectComponent},
+    prelude::{Component, Entity, ReflectComponent},
+    storage::SparseSet,
     world::DeferredWorld,
 };
+use bevy_platform::cell::SyncUnsafeCell;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 // The derive macro for the `Resource` trait
@@ -85,6 +88,50 @@ pub use bevy_ecs_macros::Resource;
 )]
 pub trait Resource: Send + Sync + 'static + MapEntities {}
 
+/// A cache that links each `ComponentId` from a resource to the corresponding entity.
+#[derive(Default)]
+pub struct ResourceCache(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+
+impl ResourceCache {
+    fn inner(&self) -> &SparseSet<ComponentId, Entity> {
+        // SAFETY: pointer was just created, so it's convertible
+        unsafe { &*self.0.get() }
+    }
+
+    fn inner_mut(&mut self) -> &mut SparseSet<ComponentId, Entity> {
+        self.0.get_mut()
+    }
+
+    pub(crate) fn get(&self, id: ComponentId) -> Option<&Entity> {
+        self.inner().get(id)
+    }
+
+    pub(crate) fn contains(&self, id: ComponentId) -> bool {
+        self.inner().contains(id)
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.inner().len()
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.inner_mut().clear();
+    }
+
+    pub(crate) fn entities(&self) -> impl Iterator<Item = &Entity> {
+        self.inner().values()
+    }
+
+    /// Returns an iterator visiting all component/entity pairs in arbitrary order, with references to the values.
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Entity)> {
+        self.inner().iter()
+    }
+
+    pub(crate) fn component_ids(&self) -> &[ComponentId] {
+        self.inner().indices()
+    }
+}
+
 /// A component that contains the resource of type `T`.
 ///
 /// When creating a resource, a [`ResourceComponent`] is inserted on a new entity in the world.
@@ -109,15 +156,11 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
         let offending_entity = *world.resource_entities.get(context.component_id).unwrap();
         deferred_world.commands().entity(offending_entity).despawn();
     }
+
     // we update the cache
+    let cache = deferred_world.as_unsafe_world_cell().resource_entities();
     // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
-    unsafe {
-        deferred_world
-            .as_unsafe_world_cell()
-            .world_mut()
-            .resource_entities
-            .insert(context.component_id, context.entity);
-    }
+    unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
 }
 
 pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
@@ -126,14 +169,9 @@ pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookCon
     if let Some(entity) = world.resource_entities.get(context.component_id)
         && *entity == context.entity
     {
+        let cache = deferred_world.as_unsafe_world_cell().resource_entities();
         // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
-        unsafe {
-            deferred_world
-                .as_unsafe_world_cell()
-                .world_mut()
-                .resource_entities
-                .remove(context.component_id);
-        }
+        unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
     }
 }
 

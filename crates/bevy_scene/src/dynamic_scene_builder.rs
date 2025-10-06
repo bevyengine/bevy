@@ -356,7 +356,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (resource_id, entity) in self.original_world.resource_entities.iter() {
+        for (resource_id, entity) in self.original_world.resource_entities().iter() {
             if (Some(*resource_id) == original_world_dqf_id)
                 || (Some(*resource_id) == original_world_atr_id)
             {

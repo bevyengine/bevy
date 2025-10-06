@@ -50,9 +50,9 @@ use crate::{
     prelude::{Add, Despawn, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{Resource, ResourceComponent},
+    resource::{Resource, ResourceCache, ResourceComponent},
     schedule::{Schedule, ScheduleLabel, Schedules},
-    storage::{ResourceData, SparseSet, Storages},
+    storage::{ResourceData, Storages},
     system::Commands,
     world::{
         command_queue::RawCommandQueue,
@@ -97,8 +97,7 @@ pub struct World {
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
     pub(crate) removed_components: RemovedComponentMessages,
-    /// Internal cache matching the component ids of resources to the corresponding entity.
-    pub resource_entities: SparseSet<ComponentId, Entity>,
+    pub(crate) resource_entities: ResourceCache,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -225,6 +224,12 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
+    }
+
+    /// Retrieves this world's [`ResourceCache`].
+    #[inline]
+    pub fn resource_entities(&self) -> &ResourceCache {
+        &self.resource_entities
     }
 
     /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
@@ -3062,7 +3067,7 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let resource_entities: Vec<Entity> = self.resource_entities.values().copied().collect();
+        let resource_entities: Vec<Entity> = self.resource_entities.entities().copied().collect();
         for entity in resource_entities {
             self.despawn(entity);
         }
@@ -3261,7 +3266,7 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids: Vec<ComponentId> = self.resource_entities.indices().to_vec();
+        let component_ids: Vec<ComponentId> = self.resource_entities.component_ids().to_vec();
         component_ids.into_iter().filter_map(|component_id| {
             let component_info = self.components().get_info(component_id)?;
             let resource = self.get_resource_by_id(component_id)?;

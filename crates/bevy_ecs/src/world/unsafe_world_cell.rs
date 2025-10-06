@@ -12,8 +12,8 @@ use crate::{
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReleaseStateQueryData},
-    resource::{Resource, ResourceComponent},
-    storage::{ComponentSparseSet, SparseSet, Storages, Table},
+    resource::{Resource, ResourceCache, ResourceComponent},
+    storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
 use bevy_platform::sync::atomic::Ordering;
@@ -332,7 +332,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves this world's resource-entity map.
     #[inline]
-    pub fn resource_entities(self) -> &'w SparseSet<ComponentId, Entity> {
+    pub fn resource_entities(self) -> &'w ResourceCache {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.resource_entities
