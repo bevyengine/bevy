@@ -32,7 +32,7 @@ impl FontAtlasSet {
     }
 }
 
-/// System that automatically frees the unused texture atlases when a font asset is removed.
+/// A system that automatically frees unused texture atlases when a font asset is removed.
 pub fn free_unused_font_atlases_system(
     mut font_atlas_sets: ResMut<FontAtlasSet>,
     mut font_events: MessageReader<AssetEvent<Font>>,
