@@ -3,7 +3,7 @@
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
 #import bevy_pbr::utils::octahedral_decode
-#import bevy_render::view::View
+#import bevy_render::view::{View, depth_ndc_to_view_z}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
 struct ResolvedGPixel {
@@ -40,18 +40,7 @@ fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32, view_size: vec2<f
 fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position: vec3<f32>, normal: vec3<f32>, other_normal: vec3<f32>, view: View) -> bool {
     // https://developer.download.nvidia.com/video/gputechconf/gtc/2020/presentations/s22699-fast-denoising-with-self-stabilizing-recurrent-blurs.pdf#page=45
     let tangent_plane_distance = abs(dot(normal, other_world_position - world_position));
-    let view_z = -depth_ndc_to_view_z(depth, view);
+    let view_z = -depth_ndc_to_view_z(depth, view.clip_from_view, view.view_from_clip);
 
     return tangent_plane_distance / view_z > 0.003 || dot(normal, other_normal) < 0.906;
-}
-
-fn depth_ndc_to_view_z(ndc_depth: f32, view: View) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
-    return -view.clip_from_view[3][2]() / ndc_depth;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
-    return -(view.clip_from_view[3][2] - ndc_depth) / view.clip_from_view[2][2];
-#else
-    let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
-#endif
 }
