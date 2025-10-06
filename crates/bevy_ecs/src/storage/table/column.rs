@@ -3,8 +3,6 @@ use crate::{
     change_detection::MaybeLocation,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
-use alloc::vec::Vec;
-use bevy_ptr::PtrMut;
 use core::{mem::needs_drop, ops::RangeBounds, panic::Location};
 
 /// A type-erased contiguous container for data of a homogeneous type.

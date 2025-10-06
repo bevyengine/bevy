@@ -447,7 +447,7 @@ impl Drop for ComponentSparseSet {
         self.entities.clear();
         // SAFETY: `cap` and `len` are correct. `dense` is never accessed again after this call.
         unsafe {
-            self.dense.drop(self.entities.capacity(), len);
+            self.dense.drop(self.entities.capacity(), len, ..len);
         }
     }
 }
