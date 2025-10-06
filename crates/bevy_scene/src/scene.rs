@@ -106,7 +106,7 @@ impl Scene {
         // Ensure that all scene entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
-            for scene_entity in archetype.entities() {
+            for scene_entity in archetype.enabled_entities() {
                 entity_map
                     .entry(scene_entity.id())
                     .or_insert_with(|| world.spawn_empty().id());
@@ -114,7 +114,7 @@ impl Scene {
         }
 
         for archetype in self.world.archetypes().iter() {
-            for scene_entity in archetype.entities() {
+            for scene_entity in archetype.enabled_entities() {
                 let entity = *entity_map
                     .get(&scene_entity.id())
                     .expect("should have previously spawned an entity");

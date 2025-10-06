@@ -488,10 +488,10 @@ impl Archetype {
         &self.entities
     }
 
-    /// Fetches the disabled entities contained in this archetype.
+    /// Fetches the enabled entities contained in this archetype.
     #[inline]
-    pub fn disabled_entities(&self) -> &[ArchetypeEntity] {
-        &self.entities[..self.disabled_entities as usize]
+    pub fn enabled_entities(&self) -> &[ArchetypeEntity] {
+        &self.entities[self.disabled_entities as usize..]
     }
 
     /// Get the valid table rows (i.e. non-disabled entities).
@@ -507,8 +507,7 @@ impl Archetype {
     #[inline]
     pub fn entities_with_location(
         &self,
-    ) -> impl Iterator<Item = (Entity, EntityLocation)> + DoubleEndedIterator + ExactSizeIterator
-    {
+    ) -> impl DoubleEndedIterator<Item = (Entity, EntityLocation)> + ExactSizeIterator {
         self.entities.iter().enumerate().map(
             |(archetype_row, &ArchetypeEntity { entity, table_row })| {
                 (

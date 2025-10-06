@@ -60,7 +60,7 @@ impl DynamicScene {
                 world
                     .archetypes()
                     .iter()
-                    .flat_map(bevy_ecs::archetype::Archetype::entities)
+                    .flat_map(bevy_ecs::archetype::Archetype::enabled_entities)
                     .map(bevy_ecs::archetype::ArchetypeEntity::id),
             )
             .extract_resources()
