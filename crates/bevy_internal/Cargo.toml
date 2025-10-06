@@ -209,6 +209,9 @@ animation = [
   "bevy_gltf?/bevy_animation",
 ]
 
+# Enables support for morph target weights in bevy_mesh
+morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
+
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_camera"]

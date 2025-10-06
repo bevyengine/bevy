@@ -10,7 +10,10 @@ use super::{
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-use bevy_asset::{Asset, Handle, RenderAssetUsages};
+#[cfg(feature = "morph")]
+use bevy_asset::Handle;
+use bevy_asset::{Asset, RenderAssetUsages};
+#[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 #[cfg(feature = "serialize")]
@@ -127,7 +130,9 @@ pub struct Mesh {
     #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    #[cfg(feature = "morph")]
     morph_targets: Option<Handle<Image>>,
+    #[cfg(feature = "morph")]
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
@@ -230,7 +235,9 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            #[cfg(feature = "morph")]
             morph_targets: None,
+            #[cfg(feature = "morph")]
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
@@ -1231,55 +1238,6 @@ impl Mesh {
         }
     }
 
-    /// Whether this mesh has morph targets.
-    pub fn has_morph_targets(&self) -> bool {
-        self.morph_targets.is_some()
-    }
-
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
-        self.morph_targets = Some(morph_targets);
-    }
-
-    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
-        self.morph_targets.as_ref()
-    }
-
-    /// Consumes the mesh and returns a mesh with the given [morph targets].
-    ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    #[must_use]
-    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
-        self.set_morph_targets(morph_targets);
-        self
-    }
-
-    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
-    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
-        self.morph_target_names = Some(names);
-    }
-
-    /// Consumes the mesh and returns a mesh with morph target names.
-    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
-    #[must_use]
-    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
-        self.set_morph_target_names(names);
-        self
-    }
-
-    /// Gets a list of all morph target names, if they exist.
-    pub fn morph_target_names(&self) -> Option<&[String]> {
-        self.morph_target_names.as_deref()
-    }
-
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
@@ -1401,6 +1359,58 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+}
+
+#[cfg(feature = "morph")]
+impl Mesh {
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+        self.morph_targets.as_ref()
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
     }
 }
 

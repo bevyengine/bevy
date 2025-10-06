@@ -8,6 +8,7 @@ mod conversions;
 mod index;
 mod mesh;
 mod mikktspace;
+#[cfg(feature = "morph")]
 pub mod morph;
 pub mod primitives;
 pub mod skinning;
@@ -28,10 +29,10 @@ pub use wgpu_types::VertexFormat;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[cfg(feature = "morph")]
+    pub use crate::morph::MorphWeights;
     #[doc(hidden)]
-    pub use crate::{
-        morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d,
-    };
+    pub use crate::{primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d};
 }
 
 bitflags! {
