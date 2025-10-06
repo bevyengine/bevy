@@ -16,8 +16,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -229,7 +230,7 @@ impl TextPipeline {
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
-        font_atlas_sets: &mut FontAtlasSets,
+        font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
@@ -322,15 +323,21 @@ impl TextPipeline {
                         layout_glyph
                     };
 
-                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
-
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                    let font_atlases = font_atlas_set
+                        .entry(FontAtlasKey(
+                            font_id,
+                            physical_glyph.cache_key.font_size_bits,
+                            font_smoothing,
+                        ))
+                        .or_default();
+
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
                         .map(Ok)
                         .unwrap_or_else(|| {
-                            font_atlas_set.add_glyph_to_atlas(
+                            add_glyph_to_atlas(
+                                font_atlases,
                                 texture_atlases,
                                 textures,
                                 &mut font_system.0,
