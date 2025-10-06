@@ -146,6 +146,7 @@ fn demo_3(world: &mut World) {
             // SAFETY:
             // - No drop command is required
             // - The component will store [u8; size], which is Send + Sync
+            // - fragmenting_value_vtable is None
             let descriptor = unsafe {
                 ComponentDescriptor::new_with_layout(
                     name.to_string(),
@@ -154,6 +155,7 @@ fn demo_3(world: &mut World) {
                     None,
                     false,
                     ComponentCloneBehavior::Default,
+                    None,
                 )
             };
 

@@ -6,13 +6,17 @@ use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{
+        Component, ComponentId, Components, ComponentsRegistrator, FragmentingValueBorrowed,
+        StorageType,
+    },
     world::EntityWorldMut,
 };
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+// - `Bundle::get_fragmenting_values` uses only the passed in `Components` to create `FragmentingValueBorrowed`
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
@@ -20,6 +24,26 @@ unsafe impl<C: Component> Bundle for C {
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
+    }
+
+    #[inline]
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        components: &Components,
+        values: &mut impl FnMut(FragmentingValueBorrowed<'a>),
+    ) {
+        if let Some(component) = FragmentingValueBorrowed::from_component(components, self) {
+            values(component);
+        }
+    }
+
+    #[inline]
+    fn count_fragmenting_values() -> usize {
+        if TypeId::of::<C>() == TypeId::of::<C::Key>() {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -77,6 +101,23 @@ macro_rules! tuple_impl {
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
+            }
+
+            fn get_fragmenting_values<'a>(&'a self, components: &Components, values: &mut impl FnMut(FragmentingValueBorrowed<'a>)) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = &self;
+                $(
+                    $name.get_fragmenting_values(components, &mut *values);
+                )*
+
+            }
+
+            #[inline(always)]
+            fn count_fragmenting_values() -> usize {
+                0 $(+ <$name as Bundle>::count_fragmenting_values())*
             }
         }
 

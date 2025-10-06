@@ -22,11 +22,13 @@
 
 mod blob_array;
 mod blob_vec;
+mod fragmenting_value;
 mod resource;
 mod sparse_set;
 mod table;
 mod thin_array_ptr;
 
+pub use fragmenting_value::*;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
@@ -45,6 +47,8 @@ pub struct Storages {
     pub resources: Resources<true>,
     /// Backing storage for `!Send` resources.
     pub non_send_resources: Resources<false>,
+    /// Backing storage for fragmenting value components.
+    pub fragmenting_values: FragmentingValuesStorage,
 }
 
 impl Storages {
