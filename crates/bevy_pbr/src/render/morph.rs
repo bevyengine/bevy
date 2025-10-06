@@ -129,7 +129,7 @@ pub fn extract_morphs(
         let weights = morph_weights.weights();
         let legal_weights = weights
             .iter()
-            .chain(iter::repeat(&0))
+            .chain(iter::repeat(&0.0))
             .take(MAX_MORPH_WEIGHTS)
             .copied();
         uniform.current_buffer.extend(legal_weights);
