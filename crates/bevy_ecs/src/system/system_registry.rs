@@ -995,8 +995,9 @@ mod tests {
         use crate::system::RegisteredSystemError;
         use alloc::string::ToString;
 
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
+
         fn system(_: Res<T>) {}
 
         let mut world = World::new();
