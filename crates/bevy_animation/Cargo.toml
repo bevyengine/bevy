@@ -16,7 +16,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", optional = true, features = [
   "morph",
 ] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
