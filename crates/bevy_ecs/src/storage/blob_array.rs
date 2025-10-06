@@ -403,6 +403,35 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
+    /// This method will swap two elements in the array.
+    ///
+    /// # Safety
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
+    #[inline]
+    pub unsafe fn swap_unchecked_nonoverlapping(
+        &mut self,
+        index_to_remove: usize,
+        index_to_keep: usize,
+    ) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+            debug_assert_ne!(index_to_keep, index_to_remove);
+        }
+        debug_assert_ne!(index_to_keep, index_to_remove);
+        core::ptr::swap_nonoverlapping::<u8>(
+            self.get_unchecked_mut(index_to_keep).as_ptr(),
+            self.get_unchecked_mut(index_to_remove).as_ptr(),
+            self.item_layout.size(),
+        );
+    }
+
     /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
@@ -418,18 +447,7 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
-            debug_assert_ne!(index_to_keep, index_to_remove);
-        }
-        debug_assert_ne!(index_to_keep, index_to_remove);
-        core::ptr::swap_nonoverlapping::<u8>(
-            self.get_unchecked_mut(index_to_keep).as_ptr(),
-            self.get_unchecked_mut(index_to_remove).as_ptr(),
-            self.item_layout.size(),
-        );
+        self.swap_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
         // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
         self.get_unchecked_mut(index_to_keep).promote()

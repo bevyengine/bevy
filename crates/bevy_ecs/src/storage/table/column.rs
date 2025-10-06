@@ -43,6 +43,23 @@ impl Column {
         }
     }
 
+    /// Swap the two elements.
+    ///
+    /// # Safety
+    /// - `a.as_usize()` < `len`
+    /// - `b.as_usize()` < `len`
+    /// - `a` != `b`
+    pub(crate) unsafe fn swap_unchecked(&mut self, a: TableRow, b: TableRow) {
+        let a = a.index();
+        let b = b.index();
+        self.data.swap_unchecked_nonoverlapping(a, b);
+        self.added_ticks.swap_unchecked_nonoverlapping(a, b);
+        self.changed_ticks.swap_unchecked_nonoverlapping(a, b);
+        self.changed_by.as_mut().map(|changed_by| {
+            changed_by.swap_unchecked_nonoverlapping(a, b);
+        });
+    }
+
     /// Swap-remove and drop the removed element, but the component at `row` must not be the last element.
     ///
     /// # Safety
