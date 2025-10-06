@@ -1474,10 +1474,41 @@ impl World {
         self.entity_mut(disabled.entity)
     }
 
+    /// Temporarily disables the requested entity from this [`World`], runs
+    /// custom user code with a mutable reference to the entity's component of
+    /// type `C`, then re-enables the entity before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a component of an
+    /// entity and the rest of the [`World`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_component_scope`](Self::try_component_scope) instead if you want to handle this case.
+    /// Panics if the world is replaced during the execution of the closure.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A(u32);
+    /// #[derive(Component)]
+    /// struct B(u32);
+    /// let mut world = World::new();
+    /// let scoped_entity = world.spawn(A(1)).id();
+    /// let entity = world.spawn(B(1)).id();
+    ///
+    /// world.component_scope(scoped_entity, |world, _, a: &mut A| {
+    ///     assert!(world.get_mut::<A>(scoped_entity).is_none());
+    ///     let b = world.get_mut::<B>(entity).unwrap();
+    ///     a.0 += b.0;
+    /// });
+    /// assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 2);
+    /// ```
     pub fn component_scope<
         C: Component<Mutability = Mutable>,
         R,
-        F: FnOnce(Entity, &mut C, &mut World) -> R,
+        F: FnOnce(&mut World, Entity, &mut C) -> R,
     >(
         &mut self,
         entity: Entity,
@@ -1491,10 +1522,18 @@ impl World {
         });
     }
 
+    /// Temporarily disables the requested entity from this [`World`], runs
+    /// custom user code with a mutable reference to the entity's component of
+    /// type `C`, then re-enables the entity before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a component of an
+    /// entity and the rest of the [`World`].
+    ///
+    /// See also [`component_scope`](Self::component_scope).
     pub fn try_component_scope<
         C: Component<Mutability = Mutable>,
         R,
-        F: FnOnce(Entity, &mut C, &mut World) -> R,
+        F: FnOnce(&mut World, Entity, &mut C) -> R,
     >(
         &mut self,
         entity: Entity,
@@ -1502,6 +1541,7 @@ impl World {
     ) -> Option<R> {
         self.flush();
 
+        let world_id = self.id();
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
         let mut component = {
             let component = entity_mut.get_mut::<C>()?;
@@ -1511,7 +1551,13 @@ impl World {
 
         let disabled = entity_mut.disable();
 
-        let out = f(entity, &mut component, self);
+        let out = f(self, entity, &mut component);
+
+        assert_eq!(
+            self.id(),
+            world_id,
+            "World was replaced during component scope"
+        );
 
         let mut entity_mut = self.enable(disabled);
 
