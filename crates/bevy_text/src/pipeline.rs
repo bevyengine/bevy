@@ -13,11 +13,11 @@ use bevy_math::{Rect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
+use cosmic_text::{Attrs, Buffer, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, TextPlugin,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -30,9 +30,40 @@ pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
     fn default() -> Self {
+        Self::new_with_settings(&TextPlugin::default())
+    }
+}
+
+impl CosmicFontSystem {
+    /// Creates a new, wrapped [`cosmic_text::FontSystem`].
+    ///
+    /// The option to load system fonts is typically provided via the values in [`TextPlugin`].
+    pub fn new_with_settings(plugin_settings: &TextPlugin) -> Self {
         let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
-        let db = cosmic_text::fontdb::Database::new();
-        // TODO: consider using `cosmic_text::FontSystem::new()` (load system fonts by default)
+        let mut db = cosmic_text::fontdb::Database::new();
+        if plugin_settings.load_system_fonts {
+            db.load_system_fonts();
+        }
+        if let Some(family_serif) = &plugin_settings.family_serif {
+            db.set_serif_family(family_serif.to_string());
+        }
+
+        if let Some(family_sans_serif) = &plugin_settings.family_sans_serif {
+            db.set_serif_family(family_sans_serif.to_string());
+        }
+
+        if let Some(family_cursive) = &plugin_settings.family_cursive {
+            db.set_serif_family(family_cursive.to_string());
+        }
+
+        if let Some(family_fantasy) = &plugin_settings.family_fantasy {
+            db.set_serif_family(family_fantasy.to_string());
+        }
+
+        if let Some(family_monospace) = &plugin_settings.family_monospace {
+            db.set_serif_family(family_monospace.to_string());
+        }
+
         Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
     }
 }
@@ -140,7 +171,8 @@ impl TextPipeline {
                 font_system,
                 &mut self.map_handle_to_font_id,
                 fonts,
-            );
+            )
+            .ok_or(TextError::NoSuchFont)?;
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -493,34 +525,65 @@ pub fn load_font_to_fontdb(
     font_system: &mut cosmic_text::FontSystem,
     map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
     fonts: &Assets<Font>,
-) -> FontFaceInfo {
+) -> Option<FontFaceInfo> {
     let font_handle = text_font.font.clone();
-    let (face_id, family_name) = map_handle_to_font_id
-        .entry(font_handle.id())
-        .or_insert_with(|| {
+
+    let (face_id, family_name) = match map_handle_to_font_id.get_mut(&font_handle.id()) {
+        Some((face_id, family_name)) => (face_id, family_name),
+        None => {
             let font = fonts.get(font_handle.id()).expect(
                 "Tried getting a font that was not available, probably due to not being loaded yet",
             );
-            let data = Arc::clone(&font.data);
-            let ids = font_system
-                .db_mut()
-                .load_font_source(cosmic_text::fontdb::Source::Binary(data));
 
-            // TODO: it is assumed this is the right font face
-            let face_id = *ids.last().unwrap();
+            let face_id = match font {
+                Font::Data(data) => {
+                    let data = Arc::clone(data);
+
+                    let ids = font_system
+                        .db_mut()
+                        .load_font_source(cosmic_text::fontdb::Source::Binary(data));
+
+                    // TODO: it is assumed this is the right font face
+                    *ids.last().unwrap()
+                }
+                Font::Query {
+                    families,
+                    weight,
+                    stretch,
+                    style,
+                } => {
+                    let families = families
+                        .iter()
+                        .map(|family| family.as_fontdb_family())
+                        .collect::<Vec<_>>();
+                    let query = cosmic_text::fontdb::Query {
+                        families: &families,
+                        weight: *weight,
+                        stretch: *stretch,
+                        style: *style,
+                    };
+
+                    font_system.db().query(&query)?
+                }
+            };
+
             let face = font_system.db().face(face_id).unwrap();
             let family_name = Arc::from(face.families[0].0.as_str());
 
+            map_handle_to_font_id.insert(font_handle.id(), (face_id, family_name));
+            let (face_id, family_name) = map_handle_to_font_id.get_mut(&font_handle.id()).unwrap();
             (face_id, family_name)
-        });
+        }
+    };
+
     let face = font_system.db().face(*face_id).unwrap();
 
-    FontFaceInfo {
+    Some(FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
         weight: face.weight,
         family_name: family_name.clone(),
-    }
+    })
 }
 
 /// Translates [`TextFont`] to [`Attrs`].
@@ -533,7 +596,7 @@ fn get_attrs<'a>(
 ) -> Attrs<'a> {
     Attrs::new()
         .metadata(span_index)
-        .family(Family::Name(&face_info.family_name))
+        .family(cosmic_text::Family::Name(&face_info.family_name))
         .stretch(face_info.stretch)
         .style(face_info.style)
         .weight(face_info.weight)
