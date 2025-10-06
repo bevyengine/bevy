@@ -1,5 +1,4 @@
 //! A framework for inheritable font styles.
-use bevy_app::{Propagate, PropagateOver};
 use bevy_asset::{AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
@@ -17,7 +16,7 @@ use crate::{handle_or_path::HandleOrPath, theme::ThemedText};
 /// downward to any child text entity that has the [`ThemedText`] marker.
 #[derive(Component, Default, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-#[require(ThemedText, PropagateOver::<TextFont>::default())]
+#[require(ThemedText)]
 pub struct InheritableFont {
     /// The font handle or path.
     pub font: HandleOrPath<Font>,
@@ -57,10 +56,10 @@ pub(crate) fn on_changed_font(
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
         }
     {
-        commands.entity(insert.entity).insert(Propagate(TextFont {
+        commands.entity(insert.entity).insert(TextFont {
             font,
             font_size: style.font_size,
             ..Default::default()
-        }));
+        });
     }
 }

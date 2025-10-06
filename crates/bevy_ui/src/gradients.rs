@@ -602,6 +602,7 @@ impl RadialGradientShape {
         scale_factor: f32,
         physical_size: Vec2,
         physical_target_size: Vec2,
+        rem: f32,
     ) -> Vec2 {
         let half_size = 0.5 * physical_size;
         match self {
@@ -617,13 +618,13 @@ impl RadialGradientShape {
             ),
             RadialGradientShape::Circle(radius) => Vec2::splat(
                 radius
-                    .resolve(scale_factor, physical_size.x, physical_target_size)
+                    .resolve(scale_factor, physical_size.x, physical_target_size, rem)
                     .unwrap_or(0.),
             ),
             RadialGradientShape::Ellipse(x, y) => Vec2::new(
-                x.resolve(scale_factor, physical_size.x, physical_target_size)
+                x.resolve(scale_factor, physical_size.x, physical_target_size, rem)
                     .unwrap_or(0.),
-                y.resolve(scale_factor, physical_size.y, physical_target_size)
+                y.resolve(scale_factor, physical_size.y, physical_target_size, rem)
                     .unwrap_or(0.),
             ),
         }

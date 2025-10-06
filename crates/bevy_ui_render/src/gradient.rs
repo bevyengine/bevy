@@ -304,11 +304,12 @@ fn compute_color_stops(
     target_size: Vec2,
     scratch: &mut Vec<(LinearRgba, f32, f32)>,
     extracted_color_stops: &mut Vec<(LinearRgba, f32, f32)>,
+    rem: f32,
 ) {
     // resolve the physical distances of explicit stops and sort them
     scratch.extend(stops.iter().filter_map(|stop| {
         stop.point
-            .resolve(scale_factor, length, target_size)
+            .resolve(scale_factor, length, target_size, rem)
             .ok()
             .map(|physical_point| (stop.color.to_linear(), physical_point, stop.hint))
     }));
@@ -443,6 +444,7 @@ pub fn extract_gradients(
                             target.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
+                            target.rem(),
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
@@ -474,6 +476,7 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            target.rem(),
                         );
 
                         let size = shape.resolve(
@@ -481,6 +484,7 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            target.rem(),
                         );
 
                         let length = size.x;
@@ -493,6 +497,7 @@ pub fn extract_gradients(
                             target.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
+                            target.rem(),
                         );
 
                         extracted_gradients.items.push(ExtractedGradient {
@@ -524,6 +529,7 @@ pub fn extract_gradients(
                             target.scale_factor(),
                             uinode.size,
                             target.physical_size().as_vec2(),
+                            target.rem(),
                         );
                         let range_start = extracted_color_stops.0.len();
 

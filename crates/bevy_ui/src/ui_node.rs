@@ -2544,8 +2544,9 @@ impl BorderRadius {
         scale_factor: f32,
         min_length: f32,
         viewport_size: Vec2,
+        rem: f32,
     ) -> f32 {
-        if let Ok(radius) = radius.resolve(scale_factor, min_length, viewport_size) {
+        if let Ok(radius) = radius.resolve(scale_factor, min_length, viewport_size, rem) {
             radius.clamp(0., 0.5 * min_length)
         } else {
             0.
@@ -2559,6 +2560,7 @@ impl BorderRadius {
         scale_factor: f32,
         node_size: Vec2,
         viewport_size: Vec2,
+        rem: f32,
     ) -> ResolvedBorderRadius {
         let length = node_size.x.min(node_size.y);
         ResolvedBorderRadius {
@@ -2567,24 +2569,28 @@ impl BorderRadius {
                 scale_factor,
                 length,
                 viewport_size,
+                rem,
             ),
             top_right: Self::resolve_single_corner(
                 self.top_right,
                 scale_factor,
                 length,
                 viewport_size,
+                rem,
             ),
             bottom_left: Self::resolve_single_corner(
                 self.bottom_left,
                 scale_factor,
                 length,
                 viewport_size,
+                rem,
             ),
             bottom_right: Self::resolve_single_corner(
                 self.bottom_right,
                 scale_factor,
                 length,
                 viewport_size,
+                rem,
             ),
         }
     }
@@ -2833,6 +2839,8 @@ pub struct ComputedUiRenderTargetInfo {
     pub(crate) scale_factor: f32,
     /// The size of the target camera's viewport in physical pixels.
     pub(crate) physical_size: UVec2,
+    /// The root nodes font size
+    pub(crate) rem: f32,
 }
 
 impl Default for ComputedUiRenderTargetInfo {
@@ -2840,6 +2848,7 @@ impl Default for ComputedUiRenderTargetInfo {
         Self {
             scale_factor: 1.,
             physical_size: UVec2::ZERO,
+            rem: 10.,
         }
     }
 }
@@ -2857,6 +2866,10 @@ impl ComputedUiRenderTargetInfo {
     /// Returns the size of the target camera's viewport in logical pixels.
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
+    }
+
+    pub const fn rem(&self) -> f32 {
+        self.rem
     }
 }
 

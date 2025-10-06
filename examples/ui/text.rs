@@ -4,7 +4,7 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::GOLD,
+    color::palettes::css::{GOLD, NAVY},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
 };
@@ -48,7 +48,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             right: px(5),
             ..default()
         },
+        TextColor::WHITE,
         AnimatedText,
+    ));
+
+    commands.spawn((
+        Node {
+            justify_self: JustifySelf::Center,
+            align_self: AlignSelf::Center,
+            height: Val::Rem(1.5),
+            ..default()
+        },
+        BackgroundColor(NAVY.into()),
+        children![Text::new("Rem!")],
     ));
 
     // Text with multiple sections
