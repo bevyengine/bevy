@@ -1416,9 +1416,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
-            // SAFETY: We only access table data that has been registered in `self.component_access`.
-
             use core::ops::Range;
+
+            // SAFETY: We only access table data that has been registered in `self.component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
             let mut batch_queue = ArrayVec::new();

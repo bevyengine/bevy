@@ -174,10 +174,9 @@ impl BlobArray {
     /// [`Vec::drain`]: alloc::vec::Vec::drain
     pub unsafe fn clear_range(&mut self, range: impl RangeBounds<usize>) {
         let map_bound_or = |bounds: Bound<&usize>, or: usize, start: bool| match (bounds, start) {
-            (Bound::Included(&b), true) => b,
+            (Bound::Included(&b), true) | (Bound::Excluded(&b), false) => b,
             (Bound::Included(&b), false) => b.checked_add(1).expect("range end overflowed"),
             (Bound::Excluded(&b), true) => b.checked_add(1).expect("range start overflowed"),
-            (Bound::Excluded(&b), false) => b,
             (Bound::Unbounded, _) => or,
         };
 
