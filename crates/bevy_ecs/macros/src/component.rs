@@ -25,8 +25,23 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
+    let map_entities_impl = map_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        Ident::new("self", Span::call_site()),
+        false,
+        false,
+        None,
+    );
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
+        }
+
+        impl #impl_generics #bevy_ecs_path::entity::MapEntities for #struct_name #type_generics #where_clause {
+            fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(&mut self, mapper: &mut M) {
+                #map_entities_impl
+            }
         }
     })
 }

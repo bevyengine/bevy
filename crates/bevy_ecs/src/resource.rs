@@ -3,6 +3,7 @@
 use core::ops::Deref;
 
 use crate::{
+    entity::MapEntities,
     entity_disabling::Internal,
     lifecycle::HookContext,
     prelude::{Component, ReflectComponent},
@@ -82,7 +83,7 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Send + Sync + 'static + MapEntities {}
 
 /// A component that contains the resource of type `T`.
 ///
@@ -99,7 +100,7 @@ pub trait Resource: Send + Sync + 'static {}
 #[require(IsResource, Internal)]
 #[component(on_add = on_add_hook, on_remove = on_remove_hook)]
 #[repr(transparent)]
-pub struct ResourceComponent<R: Resource>(pub R);
+pub struct ResourceComponent<R: Resource>(#[entities] pub R);
 
 pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
     let world = deferred_world.deref();
