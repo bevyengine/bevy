@@ -154,7 +154,9 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
     if world.resource_entities.contains(context.component_id) {
         // the resource already exists and we need to overwrite it
         let offending_entity = *world.resource_entities.get(context.component_id).unwrap();
-        deferred_world.commands().entity(offending_entity).despawn();
+        if context.entity != offending_entity {
+            deferred_world.commands().entity(offending_entity).despawn();
+        }
     }
 
     // we update the cache
