@@ -134,7 +134,8 @@ fn update_bloom_settings(
                 "(U/J) Threshold softness: {:.2}\n",
                 bloom.prefilter.threshold_softness
             ));
-            text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
+            text.push_str(&format!("(I/K) Horizontal scale: {:.2}\n", bloom.scale.x));
+            text.push_str(&format!("(P) High quality: {}\n", bloom.high_quality));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -205,6 +206,10 @@ fn update_bloom_settings(
                 bloom.scale.x += dt * 2.0;
             }
             bloom.scale.x = bloom.scale.x.clamp(0.0, 8.0);
+
+            if keycode.just_pressed(KeyCode::KeyP) {
+                bloom.high_quality = !bloom.high_quality;
+            }
         }
 
         (entity, None) => {

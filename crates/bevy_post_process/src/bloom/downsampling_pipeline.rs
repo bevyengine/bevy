@@ -40,6 +40,7 @@ pub struct BloomDownsamplingPipelineKeys {
     prefilter: bool,
     first_downsample: bool,
     uniform_scale: bool,
+    high_quality: bool,
 }
 
 /// The uniform struct extracted from [`Bloom`] attached to a Camera.
@@ -79,8 +80,9 @@ pub fn init_bloom_downsampling_pipeline(
     let sampler = render_device.create_sampler(&SamplerDescriptor {
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_u: AddressMode::ClampToBorder,
+        address_mode_v: AddressMode::ClampToBorder,
+        border_color: Some(SamplerBorderColor::TransparentBlack),
         ..Default::default()
     });
 
@@ -108,6 +110,10 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
 
         if key.first_downsample {
             shader_defs.push("FIRST_DOWNSAMPLE".into());
+        }
+
+        if !key.high_quality {
+            shader_defs.push("FAST_BLUR".into());
         }
 
         if key.prefilter {
@@ -161,6 +167,7 @@ pub fn prepare_downsampling_pipeline(
                 prefilter,
                 first_downsample: false,
                 uniform_scale: bloom.scale == Vec2::ONE,
+                high_quality: bloom.high_quality,
             },
         );
 
@@ -171,6 +178,7 @@ pub fn prepare_downsampling_pipeline(
                 prefilter,
                 first_downsample: true,
                 uniform_scale: bloom.scale == Vec2::ONE,
+                high_quality: bloom.high_quality,
             },
         );
 
