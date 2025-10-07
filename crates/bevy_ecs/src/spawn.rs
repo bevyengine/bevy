@@ -2,10 +2,10 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleImpl, DynamicBundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, BundleImpl, DynamicBundle, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
+    relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
