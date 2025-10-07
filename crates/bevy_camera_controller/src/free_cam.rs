@@ -118,7 +118,7 @@ impl Default for FreeCam {
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
             walk_speed: 5.0,
             run_speed: 15.0,
-            scroll_factor: 0.1,
+            scroll_factor: 0.5,
             friction: 0.5,
             pitch: 0.0,
             yaw: 0.0,
