@@ -6,7 +6,6 @@ use bevy::{
     prelude::*,
 };
 
-use bevy::{light::ShadowFilteringMethod, prelude::*};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)

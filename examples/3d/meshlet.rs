@@ -9,7 +9,7 @@ use bevy::{
     prelude::*,
     render::render_resource::AsBindGroup,
 };
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::f32::consts::PI;
 
 const ASSET_URL: &str =
     "https://github.com/bevyengine/bevy_asset_files/raw/9bf88c42b9d06a3634eed633d90ce5fab02c31da/meshlet/bunny.meshlet_mesh";
