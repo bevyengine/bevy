@@ -3,7 +3,7 @@
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
-    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
