@@ -247,6 +247,12 @@ pub struct AssetPlugin {
     /// Most use cases should leave this set to [`None`] and enable a specific watcher feature such as `file_watcher` to enable
     /// watching for dev-scenarios.
     pub watch_for_changes_override: Option<bool>,
+    /// If set, will override the default "use asset processor" setting. By default "use asset
+    /// processor" will be `false` unless the `asset_processor` cargo feature is set.
+    ///
+    /// Most use cases should leave this set to [`None`] and enable the `asset_processor` cargo
+    /// feature.
+    pub use_asset_processor_override: Option<bool>,
     /// The [`AssetMode`] to use for this server.
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
@@ -332,6 +338,7 @@ impl Default for AssetPlugin {
             file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
+            use_asset_processor_override: None,
             meta_check: AssetMetaCheck::default(),
             unapproved_path_mode: UnapprovedPathMode::default(),
         }
@@ -360,10 +367,9 @@ impl Plugin for AssetPlugin {
             embedded.register_source(&mut sources);
         }
         {
-            let mut watch = cfg!(feature = "watch");
-            if let Some(watch_override) = self.watch_for_changes_override {
-                watch = watch_override;
-            }
+            let watch = self
+                .watch_for_changes_override
+                .unwrap_or(cfg!(feature = "watch"));
             match self.mode {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
@@ -378,8 +384,10 @@ impl Plugin for AssetPlugin {
                     ));
                 }
                 AssetMode::Processed => {
-                    #[cfg(feature = "asset_processor")]
-                    {
+                    let use_asset_processor = self
+                        .use_asset_processor_override
+                        .unwrap_or(cfg!(feature = "asset_processor"));
+                    if use_asset_processor {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
@@ -395,9 +403,7 @@ impl Plugin for AssetPlugin {
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
-                    }
-                    #[cfg(not(feature = "asset_processor"))]
-                    {
+                    } else {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
@@ -705,14 +711,16 @@ mod tests {
         handle::Handle,
         io::{
             gated::{GateOpener, GatedReader},
-            memory::{Dir, MemoryAssetReader},
+            memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
             AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId,
             AssetWatcher, Reader,
         },
         loader::{AssetLoader, LoadContext},
-        Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
-        UntypedHandle,
+        saver::AssetSaver,
+        transformer::{AssetTransformer, TransformedAsset},
+        Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetMode,
+        AssetPath, AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState,
+        UnapprovedPathMode, UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -733,8 +741,9 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::TypePath;
-    use core::time::Duration;
+    use core::{marker::PhantomData, time::Duration};
     use crossbeam_channel::Sender;
+    use futures_lite::AsyncWriteExt;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
@@ -2231,5 +2240,316 @@ mod tests {
             );
             Some(())
         });
+    }
+
+    #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+    #[allow(
+        unused,
+        reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
+    )]
+    struct AppWithProcessor {
+        app: App,
+        source_dir: Dir,
+        processed_dir: Dir,
+    }
+
+    #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+    #[allow(
+        unused,
+        reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
+    )]
+    fn create_app_with_asset_processor() -> AppWithProcessor {
+        let mut app = App::new();
+        let source_dir = Dir::default();
+        let processed_dir = Dir::default();
+
+        let source_memory_reader = MemoryAssetReader {
+            root: source_dir.clone(),
+        };
+        let processed_memory_reader = MemoryAssetReader {
+            root: processed_dir.clone(),
+        };
+        let processed_memory_writer = MemoryAssetWriter {
+            root: processed_dir.clone(),
+        };
+
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build()
+                .with_reader(move || Box::new(source_memory_reader.clone()))
+                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                mode: AssetMode::Processed,
+                use_asset_processor_override: Some(true),
+                ..Default::default()
+            },
+        ));
+
+        AppWithProcessor {
+            app,
+            source_dir,
+            processed_dir,
+        }
+    }
+
+    #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+    #[allow(
+        unused,
+        reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
+    )]
+    struct CoolTextSaver;
+
+    impl AssetSaver for CoolTextSaver {
+        type Asset = CoolText;
+        type Settings = ();
+        type OutputLoader = CoolTextLoader;
+        type Error = std::io::Error;
+
+        async fn save(
+            &self,
+            writer: &mut crate::io::Writer,
+            asset: crate::saver::SavedAsset<'_, Self::Asset>,
+            _: &Self::Settings,
+        ) -> Result<(), Self::Error> {
+            let ron = CoolTextRon {
+                text: asset.text.clone(),
+                sub_texts: asset
+                    .iter_labels()
+                    .map(|label| asset.get_labeled::<SubText, _>(label).unwrap().text.clone())
+                    .collect(),
+                dependencies: asset
+                    .dependencies
+                    .iter()
+                    .map(|handle| handle.path().unwrap().path())
+                    .map(|path| path.to_str().unwrap().to_string())
+                    .collect(),
+                // NOTE: We can't handle embedded dependencies in any way, since we need to write to
+                // another file to do so.
+                embedded_dependencies: vec![],
+            };
+            let ron = ron::ser::to_string(&ron).unwrap();
+            writer.write_all(ron.as_bytes()).await?;
+            Ok(())
+        }
+    }
+
+    #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+    #[allow(
+        unused,
+        reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
+    )]
+    // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
+    // closure cannot be used (since we need to include the name of the transformer in the meta
+    // file).
+    struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
+
+    trait MutateAsset<A: Asset>: Send + Sync + 'static {
+        fn mutate(&self, asset: &mut A);
+    }
+
+    impl<M: MutateAsset<A>, A: Asset> RootAssetTransformer<M, A> {
+        #[expect(clippy::allow_attributes, reason = "this is only sometimes unused")]
+        #[allow(
+            unused,
+            reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
+        )]
+        fn new(m: M) -> Self {
+            Self(m, PhantomData)
+        }
+    }
+
+    impl<M: MutateAsset<A>, A: Asset> AssetTransformer for RootAssetTransformer<M, A> {
+        type AssetInput = A;
+        type AssetOutput = A;
+        type Error = std::io::Error;
+        type Settings = ();
+
+        async fn transform<'a>(
+            &'a self,
+            mut asset: TransformedAsset<A>,
+            _settings: &'a Self::Settings,
+        ) -> Result<TransformedAsset<A>, Self::Error> {
+            self.0.mutate(asset.get_mut());
+            Ok(asset)
+        }
+    }
+
+    #[cfg(feature = "multi_threaded")]
+    use crate::processor::{AssetProcessor, LoadTransformAndSave};
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn no_meta_or_default_processor_copies_asset() {
+        // Assets without a meta file or a default processor should still be accessible in the
+        // processed path. Note: This isn't exactly the desired property - we don't want the assets
+        // to be copied to the processed directory. We just want these assets to still be loadable
+        // if we no longer have the source directory. This could be done with a symlink instead of a
+        // copy.
+
+        let AppWithProcessor {
+            mut app,
+            source_dir,
+            processed_dir,
+        } = create_app_with_asset_processor();
+
+        let path = Path::new("abc.cool.ron");
+        let source_asset = r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        source_dir.insert_asset_text(path, source_asset);
+
+        // Start the app, which also starts the asset processor.
+        app.update();
+
+        // Wait for all processing to finish.
+        bevy_tasks::block_on(
+            app.world()
+                .resource::<AssetProcessor>()
+                .data()
+                .wait_until_finished(),
+        );
+
+        let processed_asset = processed_dir.get_asset(path).unwrap();
+        let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+        assert_eq!(processed_asset, source_asset);
+    }
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn asset_processor_transforms_asset_default_processor() {
+        let AppWithProcessor {
+            mut app,
+            source_dir,
+            processed_dir,
+        } = create_app_with_asset_processor();
+
+        struct AddText;
+
+        impl MutateAsset<CoolText> for AddText {
+            fn mutate(&self, text: &mut CoolText) {
+                text.text.push_str("_def");
+            }
+        }
+
+        type CoolTextProcessor = LoadTransformAndSave<
+            CoolTextLoader,
+            RootAssetTransformer<AddText, CoolText>,
+            CoolTextSaver,
+        >;
+        app.register_asset_loader(CoolTextLoader)
+            .register_asset_processor(CoolTextProcessor::new(
+                RootAssetTransformer::new(AddText),
+                CoolTextSaver,
+            ))
+            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+        let path = Path::new("abc.cool.ron");
+        source_dir.insert_asset_text(
+            path,
+            r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+        );
+
+        // Start the app, which also starts the asset processor.
+        app.update();
+
+        // Wait for all processing to finish.
+        bevy_tasks::block_on(
+            app.world()
+                .resource::<AssetProcessor>()
+                .data()
+                .wait_until_finished(),
+        );
+
+        let processed_asset = processed_dir.get_asset(path).unwrap();
+        let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+        assert_eq!(
+            processed_asset,
+            r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        );
+    }
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn asset_processor_transforms_asset_with_meta() {
+        let AppWithProcessor {
+            mut app,
+            source_dir,
+            processed_dir,
+        } = create_app_with_asset_processor();
+
+        struct AddText;
+
+        impl MutateAsset<CoolText> for AddText {
+            fn mutate(&self, text: &mut CoolText) {
+                text.text.push_str("_def");
+            }
+        }
+
+        type CoolTextProcessor = LoadTransformAndSave<
+            CoolTextLoader,
+            RootAssetTransformer<AddText, CoolText>,
+            CoolTextSaver,
+        >;
+        app.register_asset_loader(CoolTextLoader)
+            .register_asset_processor(CoolTextProcessor::new(
+                RootAssetTransformer::new(AddText),
+                CoolTextSaver,
+            ));
+
+        let path = Path::new("abc.cool.ron");
+        source_dir.insert_asset_text(
+            path,
+            r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+        );
+        source_dir.insert_meta_text(path, r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::tests::RootAssetTransformer<bevy_asset::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#);
+
+        // Start the app, which also starts the asset processor.
+        app.update();
+
+        // Wait for all processing to finish.
+        bevy_tasks::block_on(
+            app.world()
+                .resource::<AssetProcessor>()
+                .data()
+                .wait_until_finished(),
+        );
+
+        let processed_asset = processed_dir.get_asset(path).unwrap();
+        let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+        assert_eq!(
+            processed_asset,
+            r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        );
     }
 }
