@@ -102,6 +102,8 @@ The default feature set enables most of the expected features of a game engine, 
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
+|gamepad|Gamepad support. Automatically enabled by `bevy_gilrs`.|
+|gestures|Gestures support. Automatically enabled by `bevy_window`.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
@@ -110,9 +112,11 @@ The default feature set enables most of the expected features of a game engine, 
 |https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|keyboard|Keyboard support. Automatically enabled by `bevy_window`.|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
+|mouse|Mouse support. Automatically enabled by `bevy_window`.|
 |mp3|MP3 audio format support|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
@@ -140,6 +144,7 @@ The default feature set enables most of the expected features of a game engine, 
 |symphonia-wav|WAV audio format support (through symphonia)|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
+|touch|Touch support. Automatically enabled by `bevy_window`.|
 |trace|Tracing support|
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
