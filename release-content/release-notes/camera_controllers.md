@@ -1,7 +1,7 @@
 ---
 title: First-party camera controllers
 authors: ["@alice-i-cecile"]
-pull_requests: [20215]
+pull_requests: [20215, 21450]
 ---
 
 To understand a scene, you must look at it through the lens of a camera: explore it, and interact with it.
