@@ -2562,17 +2562,11 @@ impl<'w> EntityWorldMut<'w> {
         self.despawn_with_caller(MaybeLocation::caller());
     }
 
-    /// Disable the current entity.
-    ///
-    pub fn disable(self) -> DisabledEntity {
-        let world = self.world;
+    pub(crate) fn swap_disable(self) -> Self {
+        let location = self.location();
+        let Self { world, entity, .. } = self;
 
-        let location = world
-            .entities
-            .get(self.entity)
-            .expect("entity should exist at this point.");
-
-        let location = {
+        let _location = {
             let archetype = &mut world.archetypes[location.archetype_id];
             let ((disabled_arch, archetype_row), swapped_archetype) =
                 archetype.swap_disable(location.archetype_row);
@@ -2634,14 +2628,68 @@ impl<'w> EntityWorldMut<'w> {
             }
         };
 
+        Self {
+            world,
+            entity,
+            location: None,
+        }
+    }
+
+    /// Enable a previously disabled entity.
+    ///
+    /// # Panics
+    /// If the entity is not currently disabled.
+    pub fn enable(world: &'w mut World, disabled: DisabledEntity) -> Self {
+        let DisabledEntity {
+            entity,
+            archetype_id,
+        } = disabled;
+        assert!(
+            world.entities.get(entity).is_none(),
+            "entity should not have a location at this point."
+        );
+
+        let archetype = &mut world.archetypes[archetype_id];
+        // Find the location of the disabled entity in the archetype by
+        // searching backwards through the disabled entities.
+        // The disabled entity is most likely the last disabled entity, as
+        // is the case when disabled for `entity_scope`.
+        let location = archetype
+            .entities_with_location()
+            .take(archetype.disabled_entities as usize)
+            .rev()
+            .find(|(e, _)| *e == entity)
+            .map(|(_, location)| location);
+
+        Self {
+            world,
+            entity,
+            location,
+        }
+        .swap_disable()
+    }
+
+    /// Disable the current entity.
+    ///
+    /// # Panics
+    /// If the entity is not currently enabled.
+    pub fn disable(mut self) -> DisabledEntity {
+        let location = self
+            .world
+            .entities
+            .get(self.entity)
+            .expect("entity should exist at this point.");
+
+        self = self.swap_disable();
+
         // SAFETY: TODO
         unsafe {
-            world.entities.set(self.entity.index(), None);
+            self.world.entities.set(self.entity.index(), None);
         }
 
         DisabledEntity {
             entity: self.entity,
-            location,
+            archetype_id: location.archetype_id,
         }
     }
 

@@ -758,7 +758,7 @@ impl Table {
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
-            unsafe { column.clear(len) };
+            unsafe { column.clear(len, self.disabled_entities as usize..len) };
         }
     }
 

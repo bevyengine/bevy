@@ -1453,25 +1453,7 @@ impl World {
     pub fn enable(&mut self, disabled: DisabledEntity) -> EntityWorldMut<'_> {
         self.flush();
 
-        let archetype = &self.archetypes[disabled.location.archetype_id];
-        // Find the location of the disabled entity in the archetype by
-        // searching backwards through the disabled entities.
-        // The disabled entity is most likely the last disabled entity, as
-        // is the case when disabled for `entity_scope`.
-        let location = archetype
-            .entities_with_location()
-            .take(archetype.disabled_entities as usize)
-            .rev()
-            .find(|(e, _)| *e == disabled.entity)
-            .map(|(_, location)| location);
-
-        // SAFETY: disabled entity existed when it was disabled, and wasn't
-        // despawned in the meantime.
-        unsafe {
-            self.entities.set(disabled.entity.index(), location);
-        }
-
-        self.entity_mut(disabled.entity)
+        EntityWorldMut::enable(self, disabled)
     }
 
     /// Temporarily disables the requested entity from this [`World`], runs

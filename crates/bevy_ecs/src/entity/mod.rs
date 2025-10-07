@@ -1323,9 +1323,9 @@ pub type EntityIdLocation = Option<EntityLocation>;
 pub struct DisabledEntity {
     /// The disabled entity.
     pub entity: Entity,
-    /// The location of the entity after it was disabled.
-    /// This may not necessarily be it's location when it is re-enabled.
-    pub location: EntityLocation,
+    /// The archetype this entity belongs to. This is used to look up the entity
+    /// for re-enabling.
+    pub archetype_id: ArchetypeId,
 }
 
 #[cfg(test)]
