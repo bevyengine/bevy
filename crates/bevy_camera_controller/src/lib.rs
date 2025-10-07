@@ -1,4 +1,4 @@
-//! An official Bevy plugin for camera controllers,
+//! An home for first-party camera controllers for Bevy,
 //! used for moving the camera around your scene.
 //!
 //! This crate serves two key purposes:
