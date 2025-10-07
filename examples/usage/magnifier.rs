@@ -150,7 +150,7 @@ fn update_sub_view(
     let viewport_pos = cursor - viewport_half_size;
     viewport.physical_position = viewport_pos.as_uvec2();
 
-    // Normalise the position to the 0..1 range the sub view expects
+    // Normalize the position to the 0..1 range the sub view expects
     let mut offset = cursor / window_size;
 
     // A subview scale of 1.0 makes the full window image visible within the much smaller viewport (i.e. very "zoomed out").
@@ -166,7 +166,7 @@ fn update_sub_view(
     // is actually the projection of the other camera (that renders the background image).
     // This means we must ensure that at least one of the axes of the projections of both of these cameras is the same,
     // so that we get the correct result from specifying the fraction of the "full view" we want as the fraction that the sub view uses.
-    // Fortunately, this is already the case for us, as both projections were initialised with all the same default parameters,
+    // Fortunately, this is already the case for us, as both projections were initialized with all the same default parameters,
     // except the aspect ratio. The aspect ratio only affects the x axis, so we pick the y axis instead.
     let scale = size.y;
 
