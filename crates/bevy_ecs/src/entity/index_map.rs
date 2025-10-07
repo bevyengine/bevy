@@ -17,6 +17,7 @@ use core::{
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+pub use indexmap::map::Entry;
 use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
 
 use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};

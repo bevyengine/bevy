@@ -114,11 +114,11 @@ macro_rules! impl_reflect_for_hashset {
                     $crate::kind::ReflectKind::Set
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_>  {
                     $crate::kind::ReflectRef::Set(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_>  {
                     $crate::kind::ReflectMut::Set(self)
                 }
 

@@ -76,7 +76,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,
@@ -209,7 +209,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(BufferBinding {
             buffer: self.buffer()?,
             offset: 0,

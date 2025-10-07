@@ -1,10 +1,9 @@
-use crate::schedule::graph::node::GraphNodeId;
-
-use super::DiGraph;
 use alloc::vec::Vec;
-use core::hash::BuildHasher;
-use core::num::NonZeroUsize;
+use core::{hash::BuildHasher, num::NonZeroUsize};
+
 use smallvec::SmallVec;
+
+use crate::schedule::graph::{DiGraph, GraphNodeId};
 
 /// Create an iterator over *strongly connected components* using Algorithm 3 in
 /// [A Space-Efficient Algorithm for Finding Strongly Connected Components][1] by David J. Pierce,

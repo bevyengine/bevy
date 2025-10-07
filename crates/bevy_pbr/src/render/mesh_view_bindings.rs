@@ -17,7 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -41,8 +41,7 @@ use crate::{
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{
-        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
-        IRRADIANCE_VOLUMES_ARE_USABLE,
+        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
@@ -684,8 +683,8 @@ pub fn prepare_mesh_view_bind_groups(
             entries =
                 entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
 
-            if has_oit {
-                if let (
+            if has_oit
+                && let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),
                     Some(oit_settings_binding),
@@ -693,13 +692,13 @@ pub fn prepare_mesh_view_bind_groups(
                     oit_buffers.layers.binding(),
                     oit_buffers.layer_ids.binding(),
                     oit_buffers.settings.binding(),
-                ) {
-                    entries = entries.extend_with_indices((
-                        (26, oit_layers_binding.clone()),
-                        (27, oit_layer_ids_binding.clone()),
-                        (28, oit_settings_binding.clone()),
-                    ));
-                }
+                )
+            {
+                entries = entries.extend_with_indices((
+                    (26, oit_layers_binding.clone()),
+                    (27, oit_layer_ids_binding.clone()),
+                    (28, oit_settings_binding.clone()),
+                ));
             }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();

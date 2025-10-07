@@ -41,6 +41,8 @@ struct DirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;

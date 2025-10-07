@@ -2,8 +2,10 @@
 
 use bevy::{
     camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    anti_alias::taa::TemporalAntiAliasing,
     core_pipeline::Skybox,
     image::CompressedImageFormats,
+    pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
@@ -68,6 +70,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
     commands.spawn((
         Camera3d::default(),
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
+        ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         FreeCamController::default(),
         Skybox {
@@ -149,7 +154,9 @@ fn asset_loaded(
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
-            image.reinterpret_stacked_2d_as_array(image.height() / image.width());
+            image
+                .reinterpret_stacked_2d_as_array(image.height() / image.width())
+                .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..default()

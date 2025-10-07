@@ -31,7 +31,7 @@ impl SceneHandle {
     }
 }
 
-#[cfg(not(feature = "animation"))]
+#[cfg(not(feature = "gltf_animation"))]
 const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
@@ -41,7 +41,7 @@ Scene Controls:
     compile with "--features animation" for animation controls.
 "#;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 const INSTRUCTIONS: &str = "
 Scene Controls:
     L           - animate light direction
@@ -217,17 +217,17 @@ fn camera_tracker(
 
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
-        if let Some(e) = camera_tracker.active_camera() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = false;
-            }
+        if let Some(e) = camera_tracker.active_camera()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = false;
         }
 
         // enable next active camera
-        if let Some(e) = camera_tracker.set_next_active() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = true;
-            }
+        if let Some(e) = camera_tracker.set_next_active()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = true;
         }
     }
 }

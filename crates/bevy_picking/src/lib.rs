@@ -17,12 +17,11 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: On<Pointer<Click>>| {
-//!         println!("I was just clicked!");
-//!         // Get the underlying pointer event data
-//!         let click_event: &Pointer<Click> = trigger.event();
+//!     .observe(|mut event: On<Pointer<Click>>| {
+//!         // Read the underlying pointer event data
+//!         println!("Pointer {:?} was just clicked!", event.pointer_id);
 //!         // Stop the event from bubbling up the entity hierarchy
-//!         trigger.propagate(false);
+//!         event.propagate(false);
 //!     });
 //! ```
 //!
@@ -33,7 +32,7 @@
 //! ## Expressive Events
 //!
 //! Although the events in this module (see [`events`]) can be listened to with normal
-//! `EventReader`s, using observers is often more expressive, with less boilerplate. This is because
+//! `MessageReader`s, using observers is often more expressive, with less boilerplate. This is because
 //! observers allow you to attach event handling logic to specific entities, as well as make use of
 //! event bubbling.
 //!
@@ -48,23 +47,22 @@
 //! # use bevy_ecs::prelude::*;
 //! # use bevy_transform::prelude::*;
 //! # use bevy_picking::prelude::*;
-//! # #[derive(BufferedEvent)]
+//! # #[derive(Message)]
 //! # struct Greeting;
 //! fn setup(mut commands: Commands) {
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|trigger: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
-//!             let drag = trigger.event();
+//!         .observe(|drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!             let mut transform = transforms.get_mut(drag.entity).unwrap();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: On<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.target());
-//!             commands.entity(trigger.target()).despawn();
+//!         .observe(|click: On<Pointer<Click>>, mut commands: Commands| {
+//!             println!("Entity {} goes BOOM!", click.entity);
+//!             commands.entity(click.entity).despawn();
 //!         })
-//!         .observe(|trigger: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.write(Greeting);
+//!         .observe(|over: On<Pointer<Over>>, mut greetings: MessageWriter<Greeting>| {
+//!             greetings.write(Greeting);
 //!         });
 //! }
 //! ```
@@ -285,7 +283,7 @@ pub type PickSet = PickingSystems;
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
-/// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
+/// The picking backend is responsible to turn an input, into a [`PointerHits`](`crate::backend::PointerHits`)
 /// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::On`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
@@ -371,12 +369,12 @@ impl Plugin for PickingPlugin {
         app.init_resource::<PickingSettings>()
             .init_resource::<pointer::PointerMap>()
             .init_resource::<backend::ray::RayMap>()
-            .add_event::<pointer::PointerInput>()
-            .add_event::<backend::PointerHits>()
+            .add_message::<pointer::PointerInput>()
+            .add_message::<backend::PointerHits>()
             // Rather than try to mark all current and future backends as ambiguous with each other,
             // we allow them to send their hits in any order. These are later sorted, so submission
             // order doesn't matter. See `PointerHits` docs for caveats.
-            .allow_ambiguous_resource::<Events<backend::PointerHits>>()
+            .allow_ambiguous_resource::<Messages<backend::PointerHits>>()
             .add_systems(
                 PreUpdate,
                 (
@@ -396,7 +394,7 @@ impl Plugin for PickingPlugin {
                 First,
                 (PickingSystems::Input, PickingSystems::PostInput)
                     .after(bevy_time::TimeSystems)
-                    .after(bevy_ecs::event::EventUpdateSystems)
+                    .after(bevy_ecs::message::MessageUpdateSystems)
                     .chain(),
             )
             .configure_sets(
@@ -409,16 +407,7 @@ impl Plugin for PickingPlugin {
                     PickingSystems::Last,
                 )
                     .chain(),
-            )
-            .register_type::<PickingSettings>()
-            .register_type::<Pickable>()
-            .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::Hovered>()
-            .register_type::<pointer::PointerId>()
-            .register_type::<pointer::PointerLocation>()
-            .register_type::<pointer::PointerPress>()
-            .register_type::<pointer::PointerInteraction>()
-            .register_type::<backend::ray::RayId>();
+            );
     }
 }
 
@@ -434,21 +423,21 @@ impl Plugin for InteractionPlugin {
         app.init_resource::<hover::HoverMap>()
             .init_resource::<hover::PreviousHoverMap>()
             .init_resource::<PointerState>()
-            .add_event::<Pointer<Cancel>>()
-            .add_event::<Pointer<Click>>()
-            .add_event::<Pointer<Press>>()
-            .add_event::<Pointer<DragDrop>>()
-            .add_event::<Pointer<DragEnd>>()
-            .add_event::<Pointer<DragEnter>>()
-            .add_event::<Pointer<Drag>>()
-            .add_event::<Pointer<DragLeave>>()
-            .add_event::<Pointer<DragOver>>()
-            .add_event::<Pointer<DragStart>>()
-            .add_event::<Pointer<Move>>()
-            .add_event::<Pointer<Out>>()
-            .add_event::<Pointer<Over>>()
-            .add_event::<Pointer<Release>>()
-            .add_event::<Pointer<Scroll>>()
+            .add_message::<Pointer<Cancel>>()
+            .add_message::<Pointer<Click>>()
+            .add_message::<Pointer<Press>>()
+            .add_message::<Pointer<DragDrop>>()
+            .add_message::<Pointer<DragEnd>>()
+            .add_message::<Pointer<DragEnter>>()
+            .add_message::<Pointer<Drag>>()
+            .add_message::<Pointer<DragLeave>>()
+            .add_message::<Pointer<DragOver>>()
+            .add_message::<Pointer<DragStart>>()
+            .add_message::<Pointer<Move>>()
+            .add_message::<Pointer<Out>>()
+            .add_message::<Pointer<Over>>()
+            .add_message::<Pointer<Release>>()
+            .add_message::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
                 (

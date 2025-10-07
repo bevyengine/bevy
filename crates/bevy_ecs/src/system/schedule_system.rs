@@ -1,7 +1,7 @@
 use bevy_utils::prelude::DebugName;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::Result,
     query::FilteredAccessSet,
     system::{input::SystemIn, BoxedSystem, RunSystemError, System, SystemInput},
@@ -90,7 +90,7 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system.initialize(world)
     }
 
@@ -187,7 +187,7 @@ where
         self.system.validate_param_unsafe(world)
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         if self.value.is_none() {
             self.value = Some(T::from_world(world));
         }

@@ -67,8 +67,7 @@ pub struct DelayedComponentPlugin;
 
 impl Plugin for DelayedComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<DelayedComponentTimer>()
-            .add_systems(Update, tick_timers);
+        app.add_systems(Update, tick_timers);
     }
 }
 
@@ -107,7 +106,9 @@ struct DelayedComponentTimer(Timer);
 struct DelayedComponent<B: Bundle>(B);
 
 #[derive(EntityEvent)]
-struct Unwrap;
+struct Unwrap {
+    entity: Entity,
+}
 
 fn tick_timers(
     mut commands: Commands,
@@ -118,20 +119,18 @@ fn tick_timers(
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            commands
-                .entity(entity)
-                .remove::<DelayedComponentTimer>()
-                .trigger(Unwrap);
+            commands.entity(entity).remove::<DelayedComponentTimer>();
+            commands.trigger(Unwrap { entity });
         }
     }
 }
 
-fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
-    if let Ok(mut target) = world.get_entity_mut(trigger.target()) {
-        if let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>() {
-            target.insert(bundle);
-        }
+fn unwrap<B: Bundle>(event: On<Unwrap>, world: &mut World) {
+    if let Ok(mut target) = world.get_entity_mut(event.event_target())
+        && let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>()
+    {
+        target.insert(bundle);
     }
 
-    world.despawn(trigger.observer());
+    world.despawn(event.observer());
 }

@@ -19,6 +19,7 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Wireframe,
+        StartMainPassPostProcessing,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -33,7 +34,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-pub use bevy_camera::Camera2d;
+use bevy_camera::{Camera, Camera2d};
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -53,7 +54,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
@@ -80,8 +81,7 @@ pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera2d>()
-            .register_required_components::<Camera2d, DebandDither>()
+        app.register_required_components::<Camera2d, DebandDither>()
             .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
                 CameraRenderGraph::new(Core2d)
             })
@@ -119,6 +119,7 @@ impl Plugin for Core2dPlugin {
                 Node2d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
@@ -129,6 +130,7 @@ impl Plugin for Core2dPlugin {
                     Node2d::MainOpaquePass,
                     Node2d::MainTransparentPass,
                     Node2d::EndMainPass,
+                    Node2d::StartMainPassPostProcessing,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,

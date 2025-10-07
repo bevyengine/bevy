@@ -75,6 +75,8 @@ fn copysign(a: f32, b: f32) -> f32 {
 //
 // https://jcgt.org/published/0006/01/01/paper.pdf
 // this method of constructing a basis from a vec3 is also used by `glam::Vec3::any_orthonormal_pair`
+// the construction of the orthonormal basis up and right vectors here needs to precisely match the rust
+// implementation in bevy_light/spot_light.rs:spot_light_world_from_view
 fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
     let sign = copysign(1.0, z_basis.z);
     let a = -1.0 / (sign + z_basis.z);
@@ -95,6 +97,32 @@ fn sphere_intersects_plane_half_space(
     sphere_radius: f32
 ) -> bool {
     return dot(plane, sphere_center) + sphere_radius > 0.0;
+}
+
+// Returns the distances along the ray to its intersections with a sphere
+// centered at the origin.
+//
+// r: distance from the sphere center to the ray origin
+// mu: cosine of the zenith angle
+// sphere_radius: radius of the sphere
+//
+// Returns vec2(t0, t1). If there is no intersection, returns vec2(-1.0).
+fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
+    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
+    
+    // No intersection
+    if discriminant < 0.0 {
+        return vec2(-1.0);
+    }
+    
+    let q = -r * mu;
+    let sqrt_discriminant = sqrt(discriminant);
+    
+    // Return both intersection distances
+    return vec2(
+        q - sqrt_discriminant,
+        q + sqrt_discriminant
+    );
 }
 
 // pow() but safe for NaNs/negatives

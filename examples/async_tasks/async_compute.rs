@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
+use futures_timer::Delay;
 use rand::Rng;
 use std::time::Duration;
 
@@ -59,10 +60,10 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
-                    let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
+                    let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
-                    async_std::task::sleep(duration).await;
+                    Delay::new(duration).await;
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
@@ -89,15 +90,13 @@ fn spawn_tasks(mut commands: Commands) {
                                 Mesh3d(box_mesh_handle),
                                 MeshMaterial3d(box_material_handle),
                                 transform,
-                            ))
-                            // Task is complete, so remove task component from entity
-                            .remove::<ComputeTransform>();
+                            ));
                     });
 
                     command_queue
                 });
 
-                // Spawn new entity and add our new task as a component
+                // Add our new task as a component
                 commands.entity(entity).insert(ComputeTransform(task));
             }
         }
@@ -108,11 +107,16 @@ fn spawn_tasks(mut commands: Commands) {
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
 /// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
-fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
-    for mut task in &mut transform_tasks {
+fn handle_tasks(
+    mut commands: Commands,
+    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
+) {
+    for (entity, mut task) in &mut transform_tasks {
         if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
             // append the returned command queue to have it execute later
             commands.append(&mut commands_queue);
+            // Task is complete, so remove task component from entity
+            commands.entity(entity).remove::<ComputeTransform>();
         }
     }
 }
@@ -120,7 +124,7 @@ fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeT
 /// This system is only used to setup light and camera for the environment
 fn setup_env(mut commands: Commands) {
     // Used to center camera on spawned cubes
-    let offset = if NUM_CUBES % 2 == 0 {
+    let offset = if NUM_CUBES.is_multiple_of(2) {
         (NUM_CUBES / 2) as f32 - 0.5
     } else {
         (NUM_CUBES / 2) as f32
