@@ -29,7 +29,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
-|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
@@ -51,6 +50,7 @@ The default feature set enables most of the expected features of a game engine, 
 |gltf_animation|Enable glTF animation loading|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|mesh_picking|Provides an implementation for picking meshes|
 |morph|Enables support for morph target weights in bevy_mesh|
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|

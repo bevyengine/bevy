@@ -314,10 +314,7 @@ bevy_remote = ["dep:bevy_remote", "serialize"]
 bevy_picking = ["dep:bevy_picking"]
 
 # Provides a mesh picking backend
-bevy_mesh_picking_backend = [
-  "bevy_picking",
-  "bevy_picking/bevy_mesh_picking_backend",
-]
+mesh_picking = ["bevy_picking", "bevy_picking/mesh_picking"]
 
 # Provides a sprite picking backend
 sprite_picking = ["bevy_picking", "bevy_sprite/bevy_picking"]

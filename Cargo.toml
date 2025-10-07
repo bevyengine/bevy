@@ -142,7 +142,6 @@ default = [
   "bevy_gltf",
   "bevy_input_focus",
   "bevy_log",
-  "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
   "bevy_render",
@@ -165,6 +164,7 @@ default = [
   "default_font",
   "hdr",
   "ktx2",
+  "mesh_picking",
   "morph",
   "morph_animation",
   "multi_threaded",
@@ -187,7 +187,7 @@ default = [
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
+mesh_picking = ["bevy_internal/mesh_picking"]
 
 # Provides an implementation for picking sprites
 sprite_picking = ["bevy_internal/sprite_picking"]
@@ -2276,7 +2276,7 @@ wasm = false
 name = "error_handling"
 path = "examples/ecs/error_handling.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["mesh_picking"]
 
 [package.metadata.example.error_handling]
 name = "Error handling"
@@ -4351,7 +4351,7 @@ wasm = false
 name = "mesh_picking"
 path = "examples/picking/mesh_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_mesh_picking_backend"]
+required-features = ["mesh_picking"]
 
 [package.metadata.example.mesh_picking]
 name = "Mesh Picking"
