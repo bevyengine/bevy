@@ -2600,6 +2600,8 @@ impl<'w> EntityWorldMut<'w> {
                     .swap_disable_unchecked(disabled_arch.table_row())
             };
 
+            archetype.set_entity_table_row(archetype_row, table_row);
+
             if let Some((entity, table_row)) = swapped_table {
                 let swapped_location = world.entities.get(entity).unwrap();
 
@@ -2613,6 +2615,7 @@ impl<'w> EntityWorldMut<'w> {
                         }),
                     );
                 }
+                archetype.set_entity_table_row(swapped_location.archetype_row, table_row);
             }
 
             assert_eq!(disabled_table, disabled_arch.id());
