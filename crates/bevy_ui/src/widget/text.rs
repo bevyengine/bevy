@@ -6,7 +6,7 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
     reflect::ReflectComponent,
@@ -193,15 +193,13 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
     mut computed: Mut<ComputedTextBlock>,
     font_system: &mut CosmicFontSystem,
-    viewport_size: Vec2,
-    default_font_size: f32,
 ) {
     match text_pipeline.create_text_measure(
         entity,
@@ -211,8 +209,6 @@ fn create_text_measure<'a>(
         &block,
         computed.as_mut(),
         font_system,
-        viewport_size,
-        default_font_size,
     ) {
         Ok(measure) => {
             if block.linebreak == LineBreak::NoWrap {
@@ -257,10 +253,9 @@ pub fn measure_text_system(
         &ComputedNode,
         Ref<TextRoot>,
     )>,
-    text_query: Query<(&Text, &ComputedTextStyle)>,
+    text_query: Query<(&Text, &ComputedTextStyle, &ComputedFontSize)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
-    default_text_style: Res<DefaultTextStyle>,
 ) {
     for (
         entity,
@@ -285,13 +280,11 @@ pub fn measure_text_system(
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style, font_size)| {
+                        (entity, 0, text.0.as_str(), style, font_size.0)
+                    })
                     .ok()
             });
-
-            let default_font_size = default_text_style
-                .font_size
-                .eval(computed_target.logical_size(), 20.);
 
             create_text_measure(
                 entity,
@@ -304,8 +297,6 @@ pub fn measure_text_system(
                 text_flags,
                 computed,
                 &mut font_system,
-                computed_target.logical_size(),
-                default_font_size,
             );
         }
     }
@@ -327,9 +318,7 @@ fn queue_text<'a>(
     computed: &mut ComputedTextBlock,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
-    viewport_size: Vec2,
-    default_font_size: f32,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -358,8 +347,6 @@ fn queue_text<'a>(
         computed,
         font_system,
         swash_cache,
-        viewport_size,
-        default_font_size,
     ) {
         Err(TextError::NoSuchFont) => {
             // There was an error processing the text layout, try again next frame
@@ -397,34 +384,18 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         &TextRoot,
-        &ComputedUiRenderTargetInfo,
     )>,
-    mut text_query: Query<(&Text, &ComputedTextStyle, &mut ComputedFontSize)>,
+    text_query: Query<(&Text, &ComputedTextStyle, &ComputedFontSize)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
-    default_text_style: Res<DefaultTextStyle>,
 ) {
-    for (node, block, text_layout_info, text_flags, mut computed, text_root, target_info) in
-        &mut text_root_query
+    for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
     {
-        let default_font_size = default_text_style
-            .font_size
-            .eval(target_info.logical_size(), 20.);
-
         if node.is_changed() || text_flags.needs_recompute {
-            for &entity in text_root.0.iter() {
-                if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
-                    computed_size.0 = style
-                        .font_size()
-                        .eval(target_info.logical_size(), default_font_size)
-                        * node.inverse_scale_factor.recip();
-                }
-            }
-
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style, _)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style, size)| (entity, 0, text.0.as_str(), style, size.0))
                     .ok()
             });
 
@@ -444,9 +415,30 @@ pub fn text_system(
                 &mut font_system,
                 &mut swash_cache,
                 spans,
-                target_info.logical_size(),
-                default_font_size,
             );
         }
+    }
+}
+
+pub fn resolve_ui_text_font_sizes(
+    default_text_style: Res<DefaultTextStyle>,
+    mut query: Query<(
+        &mut ComputedTextStyle,
+        &mut ComputedUiRenderTargetInfo,
+        &mut ComputedFontSize,
+    )>,
+) {
+    for (style, target, mut size) in query.iter_mut() {
+        let default_font_size = default_text_style
+            .font_size
+            .eval(target.logical_size(), 20.);
+        let new_size = target.scale_factor
+            * style
+                .font_size()
+                .eval(target.logical_size(), default_font_size);
+        if size.0 != new_size {
+            println!("new_size = {}", new_size);
+        }
+        size.set_if_neq(ComputedFontSize(new_size));
     }
 }

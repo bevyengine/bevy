@@ -229,7 +229,11 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
-            (update_text_roots::<Text>, widget::measure_text_system)
+            (
+                widget::resolve_ui_text_font_sizes,
+                update_text_roots::<Text>,
+                widget::measure_text_system,
+            )
                 .chain()
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.

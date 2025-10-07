@@ -7,6 +7,7 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::query::With;
 use bevy_ecs::{
@@ -135,7 +136,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(&Text2d, &ComputedTextStyle, &mut ComputedFontSize)>,
+    text_query: Query<(&Text2d, &ComputedTextStyle, &ComputedFontSize)>,
     mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
@@ -147,7 +148,6 @@ pub fn update_text2d_layout(
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
-    default_text_style: Res<DefaultTextStyle>,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -176,24 +176,23 @@ pub fn update_text2d_layout(
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
-        let (scale_factor, viewport_size) =
-            if entity_mask == previous_mask && 0. < previous_scale_factor {
-                (previous_scale_factor, previous_viewport_size)
-            } else {
-                // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
-                // render targets with different scale factors, then we use the maximum of the scale factors.
-                let Some((scale_factor, mask, viewport_size)) = target_scale_factors
-                    .iter()
-                    .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
-                    .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
-                else {
-                    continue;
-                };
-                previous_scale_factor = *scale_factor;
-                previous_viewport_size = *viewport_size;
-                previous_mask = mask;
-                (*scale_factor, *viewport_size)
+        let (scale_factor, _) = if entity_mask == previous_mask && 0. < previous_scale_factor {
+            (previous_scale_factor, previous_viewport_size)
+        } else {
+            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+            // render targets with different scale factors, then we use the maximum of the scale factors.
+            let Some((scale_factor, mask, viewport_size)) = target_scale_factors
+                .iter()
+                .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
+                .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
+            else {
+                continue;
             };
+            previous_scale_factor = *scale_factor;
+            previous_viewport_size = *viewport_size;
+            previous_mask = mask;
+            (*scale_factor, *viewport_size)
+        };
 
         if scale_factor != text_layout_info.scale_factor
             || text_root.is_changed()
@@ -210,19 +209,10 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
-            let default_font_size = default_text_style.font_size.eval(viewport_size, 20.);
-
-            for &entity in text_root.0.iter() {
-                if let Ok((_, style, mut computed_size)) = text_query.get_mut(entity) {
-                    computed_size.0 =
-                        style.font_size().eval(viewport_size, default_font_size) * scale_factor;
-                }
-            }
-
             let spans = text_root.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style, _)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style, size)| (entity, 0, text.0.as_str(), style, size.0))
                     .ok()
             });
 
@@ -240,8 +230,6 @@ pub fn update_text2d_layout(
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,
-                viewport_size,
-                default_font_size,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -298,6 +286,65 @@ pub fn calculate_bounds_text2d(
         } else {
             commands.entity(entity).try_insert(new_aabb);
         }
+    }
+}
+
+pub fn resolve_text2d_font_sizes(
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers, Vec2)>>,
+    default_text_style: Res<DefaultTextStyle>,
+    mut query: Query<(
+        &mut ComputedTextStyle,
+        Option<&RenderLayers>,
+        &mut ComputedFontSize,
+    )>,
+    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
+) {
+    target_scale_factors.clear();
+    target_scale_factors.extend(
+        camera_query
+            .iter()
+            .filter(|(_, visible_entities, _)| {
+                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
+            })
+            .filter_map(|(camera, _, maybe_camera_mask)| {
+                camera.target_scaling_factor().map(|scale_factor| {
+                    (
+                        scale_factor,
+                        maybe_camera_mask.cloned().unwrap_or_default(),
+                        camera.logical_viewport_size().unwrap_or_default(),
+                    )
+                })
+            }),
+    );
+
+    let mut previous_scale_factor = 0.;
+    let mut previous_viewport_size = Vec2::ZERO;
+    let mut previous_mask = &RenderLayers::none();
+    for (style, maybe_entity_mask, mut size) in query.iter_mut() {
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
+
+        let (scale_factor, viewport_size) =
+            if entity_mask == previous_mask && 0. < previous_scale_factor {
+                (previous_scale_factor, previous_viewport_size)
+            } else {
+                // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+                // render targets with different scale factors, then we use the maximum of the scale factors.
+                let Some((scale_factor, mask, viewport_size)) = target_scale_factors
+                    .iter()
+                    .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
+                    .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
+                else {
+                    continue;
+                };
+                previous_scale_factor = *scale_factor;
+                previous_viewport_size = *viewport_size;
+                previous_mask = mask;
+                (*scale_factor, *viewport_size)
+            };
+
+        let default_font_size = default_text_style.font_size.eval(viewport_size, 20.);
+        let new_size = scale_factor * style.font_size().eval(viewport_size, default_font_size);
+        size.set_if_neq(ComputedFontSize(new_size));
     }
 }
 

@@ -85,15 +85,13 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
-        viewport_size: Vec2,
-        default_font_size: f32,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -109,7 +107,7 @@ impl TextPipeline {
 
         computed.entities.clear();
 
-        for (span_index, (entity, depth, span, style)) in text_spans.enumerate() {
+        for (span_index, (entity, depth, span, style, font_size)) in text_spans.enumerate() {
             // Save this span entity in the computed text block.
             computed.entities.push(TextEntity { entity, depth });
 
@@ -130,7 +128,6 @@ impl TextPipeline {
 
                 return Err(TextError::NoSuchFont);
             }
-            let font_size = style.font_size.eval(viewport_size, default_font_size);
 
             // Get max font size for use in cosmic Metrics.
             max_font_size = max_font_size.max(font_size);
@@ -223,7 +220,7 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
@@ -233,8 +230,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
-        viewport_size: Vec2,
-        default_font_size: f32,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.section_rects.clear();
@@ -246,7 +241,7 @@ impl TextPipeline {
         // Extract font ids from the iterator while traversing it.
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, text_style)| {
+        let text_spans = text_spans.inspect(|(_, _, _, text_style, _)| {
             glyph_info.push((text_style.font, text_style.font_smoothing));
         });
 
@@ -259,8 +254,6 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
-            viewport_size,
-            default_font_size,
         );
         if let Err(err) = update_result {
             self.glyph_info = glyph_info;
@@ -396,13 +389,11 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
         scale_factor: f64,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
-        viewport_size: Vec2,
-        default_font_size: f32,
     ) -> Result<TextMeasureInfo, TextError> {
         const MIN_WIDTH_CONTENT_BOUNDS: TextBounds = TextBounds::new_horizontal(0.0);
 
@@ -419,8 +410,6 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
-            viewport_size,
-            default_font_size,
         )?;
 
         let buffer = &mut computed.buffer;

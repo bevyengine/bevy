@@ -498,10 +498,16 @@ pub fn update_text_roots<T: Component>(
         Has<Children>,
         Ref<T>,
         Ref<ComputedTextStyle>,
+        Ref<ComputedFontSize>,
     )>,
-    children_query: Query<(Option<&Children>, Ref<T>, Ref<ComputedTextStyle>)>,
+    children_query: Query<(
+        Option<&Children>,
+        Ref<T>,
+        Ref<ComputedTextStyle>,
+        Ref<ComputedFontSize>,
+    )>,
 ) {
-    for (entity, maybe_child_of, maybe_text_root, has_children, text, style) in
+    for (entity, maybe_child_of, maybe_text_root, has_children, text, style, font_size) in
         text_node_query.iter_mut()
     {
         if maybe_child_of.is_none_or(|parent| !children_query.contains(parent.get())) {
@@ -512,7 +518,7 @@ pub fn update_text_roots<T: Component>(
                 let new_text_root = TextRoot(smallvec::smallvec![entity]);
                 if let Some(mut text_root) = maybe_text_root {
                     text_root.set_if_neq(new_text_root);
-                    if text.is_changed() || style.is_changed() {
+                    if text.is_changed() || style.is_changed() || font_size.is_changed() {
                         text_root.set_changed();
                     }
                 } else {
@@ -531,13 +537,21 @@ pub fn update_text_roots<T: Component>(
 
         fn walk_text_descendants<T: Component>(
             target: Entity,
-            query: &Query<(Option<&Children>, Ref<T>, Ref<ComputedTextStyle>)>,
+            query: &Query<(
+                Option<&Children>,
+                Ref<T>,
+                Ref<ComputedTextStyle>,
+                Ref<ComputedFontSize>,
+            )>,
             spans: &mut Vec<Entity>,
             changed: &mut bool,
         ) {
             spans.push(target);
-            if let Ok((children, text, style)) = query.get(target) {
-                *changed |= text.is_changed() || style.is_changed();
+            if let Ok((children, text, style, size)) = query.get(target) {
+                *changed |= text.is_changed() || style.is_changed() || size.is_changed();
+                if size.is_changed() {
+                    println!("size change");
+                }
                 if let Some(children) = children {
                     for child in children {
                         walk_text_descendants(*child, query, spans, changed);
