@@ -42,7 +42,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
@@ -62,6 +61,7 @@ The default feature set enables most of the expected features of a game engine, 
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|ui_picking|Provides an implementation for picking UI|
 |vorbis|OGG/VORBIS audio format support|
 |wayland|Wayland display server support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|

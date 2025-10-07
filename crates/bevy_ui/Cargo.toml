@@ -54,7 +54,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_platform/serialize",
 ]
-bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
+bevy_picking = ["dep:bevy_picking", "dep:uuid"]
 
 # Experimental features
 ghost_nodes = []
