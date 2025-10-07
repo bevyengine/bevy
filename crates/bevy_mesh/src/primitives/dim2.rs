@@ -1347,6 +1347,17 @@ impl<P> MeshBuilder for RingMeshBuilder<P>
 where
     P: Primitive2d + Meshable,
 {
+    /// Builds a [`Mesh`] based on the configuration in `self`.
+    ///
+    /// # Panics
+    ///
+    /// It is assumed that the inner and outer meshes have the same number of vertices.
+    /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
+    /// a different number of vertices for the inner and outer instances of the primitive.
+    ///
+    /// It is assumed that the `primitive_topology` of the mesh returned by
+    /// the underlying builder is [`PrimitiveTopology::TriangleList`]
+    /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
     fn build(&self) -> Mesh {
         if let Some(RingMeshBuilderVertexAttributes {
             outer_uvs,
@@ -1409,8 +1420,7 @@ where
             .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
             .with_inserted_indices(Indices::U32(indices))
         } else {
-            // The shape vertex counts don't match
-            panic!("Outer and inner shapes should have the same vertex counts");
+            panic!("The inner and outer meshes should have the same number of vertices, and have required attributes");
         }
     }
 }
@@ -1420,11 +1430,22 @@ where
     P: Primitive2d + Meshable,
     P::Output: Extrudable,
 {
+    /// A list of the indices each representing a part of the perimeter of the mesh.
+    ///
+    /// # Panics
+    ///
+    /// It is assumed that the inner and outer meshes have the same number of vertices.
+    /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
+    /// a different number of vertices for the inner and outer instances of the primitive.
+    ///
+    /// It is assumed that the `primitive_topology` of the mesh returned by
+    /// the underlying builder is [`PrimitiveTopology::TriangleList`]
+    /// and that the mesh has [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes.
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         let outer_vertex_count = self
             .get_vertex_attributes()
             .filter(|r| r.outer_positions.len() == r.inner_positions.len())
-            .expect("Outer and inner shapes should have the same vertex counts")
+            .expect("The inner and outer meshes should have the same number of vertices, and have required attributes")
             .outer_positions
             .len();
 
