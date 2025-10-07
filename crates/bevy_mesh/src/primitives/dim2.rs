@@ -1323,6 +1323,17 @@ where
         let mut outer = self.outer_shape_builder.build();
         let mut inner = self.inner_shape_builder.build();
 
+        assert_eq!(
+            outer.primitive_topology(),
+            PrimitiveTopology::TriangleList,
+            "PrimitiveTopology must be a TriangleList, mesh builder not compatible"
+        );
+        assert_eq!(
+            inner.primitive_topology(),
+            PrimitiveTopology::TriangleList,
+            "PrimitiveTopology must be a TriangleList, mesh builder not compatible"
+        );
+
         Some(RingMeshBuilderVertexAttributes {
             outer_positions: mem::take(get_positions(&mut outer)?),
             inner_positions: mem::take(get_positions(&mut inner)?),
@@ -1350,6 +1361,8 @@ where
     /// Builds a [`Mesh`] based on the configuration in `self`.
     ///
     /// # Panics
+    ///
+    /// Panics if the following assumptions are not met.
     ///
     /// It is assumed that the inner and outer meshes have the same number of vertices.
     /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
@@ -1433,6 +1446,8 @@ where
     /// A list of the indices each representing a part of the perimeter of the mesh.
     ///
     /// # Panics
+    ///
+    /// Panics if the following assumptions are not met.
     ///
     /// It is assumed that the inner and outer meshes have the same number of vertices.
     /// If not, then the [`MeshBuilder`] of the underlying 2d primitive has generated
