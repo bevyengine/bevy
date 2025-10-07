@@ -20,7 +20,7 @@ use bevy_input::mouse::{
 use bevy_input::ButtonInput;
 use bevy_log::info;
 use bevy_math::{EulerRot, Quat, Vec2, Vec3};
-use bevy_time::Time;
+use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
 
@@ -148,8 +148,8 @@ Freecam Controls:
 ///
 /// to the [`FreeCamController`] settings.
 /// Reads inputs and then moves the camera entity according
-    time: Res<Time<Real>>,
 pub fn run_freecam_controller(
+    time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,

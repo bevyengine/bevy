@@ -2,7 +2,7 @@
 
 use bevy::{
     camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
-    pbr::ShadowFilteringMethod,
+    light::ShadowFilteringMethod,
     prelude::*,
 };
 

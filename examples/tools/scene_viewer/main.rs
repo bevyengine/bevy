@@ -11,8 +11,8 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     camera::primitives::{Aabb, Sphere},
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,

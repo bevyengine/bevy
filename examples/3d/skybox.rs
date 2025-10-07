@@ -1,8 +1,8 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
 use bevy::{
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     anti_alias::taa::TemporalAntiAliasing,
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,

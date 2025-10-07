@@ -2,8 +2,8 @@
 
 use argh::FromArgs;
 use bevy::{
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     camera::CameraMainTextureUsages,
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
