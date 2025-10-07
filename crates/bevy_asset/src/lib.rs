@@ -2837,4 +2837,207 @@ mod tests {
 )"#
         );
     }
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn asset_processor_loading_can_read_source_assets() {
+        let AppWithProcessor {
+            mut app,
+            source_dir,
+            processed_dir,
+        } = create_app_with_asset_processor();
+
+        #[derive(Serialize, Deserialize)]
+        struct FakeGltfxData {
+            // These are the file paths to the gltfs.
+            gltfs: Vec<String>,
+        }
+
+        #[derive(Asset, TypePath)]
+        struct FakeGltfx {
+            gltfs: Vec<FakeGltf>,
+        }
+
+        #[derive(TypePath)]
+        struct FakeGltfxLoader;
+
+        impl AssetLoader for FakeGltfxLoader {
+            type Asset = FakeGltfx;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                use std::io::{Error, ErrorKind};
+
+                let mut buf = vec![];
+                reader.read_to_end(&mut buf).await?;
+
+                let gltfx_data: FakeGltfxData = ron::de::from_bytes(&buf)
+                    .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
+
+                let mut gltfs = vec![];
+                for gltf in gltfx_data.gltfs.into_iter() {
+                    // gltfx files come from "generic" software that doesn't know anything about
+                    // Bevy, so it needs to load the source assets to make sense.
+                    let gltf = load_context
+                        .loader()
+                        .immediate()
+                        .load(gltf)
+                        .await
+                        .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
+                    gltfs.push(gltf.take());
+                }
+
+                Ok(FakeGltfx { gltfs })
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["gltfx"]
+            }
+        }
+
+        // The asset processor currently requires multi_threaded.
+        #[cfg(feature = "multi_threaded")]
+        #[derive(TypePath)]
+        struct GltfxToBsn;
+
+        // The asset processor currently requires multi_threaded.
+        #[cfg(feature = "multi_threaded")]
+        impl AssetTransformer for GltfxToBsn {
+            type AssetInput = FakeGltfx;
+            type AssetOutput = FakeBsn;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn transform<'a>(
+                &'a self,
+                mut asset: TransformedAsset<Self::AssetInput>,
+                _settings: &'a Self::Settings,
+            ) -> Result<TransformedAsset<Self::AssetOutput>, Self::Error> {
+                let gltfx = asset.get_mut();
+
+                // Merge together all the gltfs from the gltfx into one big bsn.
+                let bsn = gltfx.gltfs.drain(..).fold(
+                    FakeBsn {
+                        parent_bsn: None,
+                        nodes: Default::default(),
+                    },
+                    |mut bsn, gltf| {
+                        for (key, value) in gltf.gltf_nodes {
+                            bsn.nodes.insert(key, value);
+                        }
+                        bsn
+                    },
+                );
+
+                Ok(asset.replace_asset(bsn))
+            }
+        }
+
+        // This processor loads a gltf file, converts it to BSN and then saves out the BSN.
+        type GltfProcessor = LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>;
+        // This processor loads a gltfx file (including its gltf files) and converts it to BSN.
+        type GltfxProcessor = LoadTransformAndSave<FakeGltfxLoader, GltfxToBsn, FakeBsnSaver>;
+        app.register_asset_loader(FakeGltfLoader)
+            .register_asset_loader(FakeGltfxLoader)
+            .register_asset_loader(FakeBsnLoader)
+            .register_asset_processor(GltfProcessor::new(GltfToBsn, FakeBsnSaver))
+            .register_asset_processor(GltfxProcessor::new(GltfxToBsn, FakeBsnSaver))
+            .set_default_asset_processor::<GltfProcessor>("gltf")
+            .set_default_asset_processor::<GltfxProcessor>("gltfx");
+
+        let gltf_path_1 = Path::new("abc.gltf");
+        source_dir.insert_asset_text(
+            gltf_path_1,
+            r#"(
+    gltf_nodes: {
+        "name": "thing",
+        "position": "123",
+    }
+)"#,
+        );
+        let gltf_path_2 = Path::new("def.gltf");
+        source_dir.insert_asset_text(
+            gltf_path_2,
+            r#"(
+    gltf_nodes: {
+        "velocity": "456",
+        "color": "red",
+    }
+)"#,
+        );
+
+        let gltfx_path = Path::new("xyz.gltfx");
+        source_dir.insert_asset_text(
+            gltfx_path,
+            r#"(
+    gltfs: ["abc.gltf", "def.gltf"],
+)"#,
+        );
+
+        // Start the app, which also starts the asset processor.
+        app.update();
+
+        // Wait for all processing to finish.
+        bevy_tasks::block_on(
+            app.world()
+                .resource::<AssetProcessor>()
+                .data()
+                .wait_until_finished(),
+        );
+
+        // Sanity check that the two gltf files were actually processed.
+        let processed_gltf_1 = processed_dir.get_asset(gltf_path_1).unwrap();
+        let processed_gltf_1 = str::from_utf8(processed_gltf_1.value()).unwrap();
+        assert_eq!(
+            processed_gltf_1,
+            r#"(
+    parent_bsn: None,
+    nodes: {
+        "name": "thing",
+        "position": "123",
+    },
+)"#
+        );
+        let processed_gltf_2 = processed_dir.get_asset(gltf_path_2).unwrap();
+        let processed_gltf_2 = str::from_utf8(processed_gltf_2.value()).unwrap();
+        assert_eq!(
+            processed_gltf_2,
+            r#"(
+    parent_bsn: None,
+    nodes: {
+        "color": "red",
+        "velocity": "456",
+    },
+)"#
+        );
+
+        // The processed gltfx should have been able to load and merge the gltfs despite them having
+        // been processed into bsn.
+
+        // Blocked on https://github.com/bevyengine/bevy/issues/21269. This is the actual assertion.
+        //         let processed_gltfx = processed_dir.get_asset(gltfx_path).unwrap();
+        //         let processed_gltfx = str::from_utf8(processed_gltfx.value()).unwrap();
+        //         assert_eq!(
+        //             processed_gltfx,
+        //             r#"(
+        //     parent_bsn: None,
+        //     nodes: {
+        //         "color": "red",
+        //         "name": "thing",
+        //         "position": "123",
+        //         "velocity": "456",
+        //     },
+        // )"#
+        //         );
+
+        // This assertion exists to "prove" that this problem exists.
+        assert!(processed_dir.get_asset(gltfx_path).is_none());
+    }
 }
