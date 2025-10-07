@@ -82,9 +82,9 @@ enum ShapeActive {
     Heart,
     /// The 2D heart ring shape is displayed
     Ring,
-    /// The 3D shape is displayed
+    /// The 3D extruded heart shape is displayed
     Extrusion,
-    /// The 3D shape is displayed
+    /// The 3D extruded heart ring shape is displayed
     RingExtrusion,
 }
 
