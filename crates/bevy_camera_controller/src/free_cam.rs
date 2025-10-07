@@ -10,7 +10,7 @@
 //! allowing the user to move around the scene with a keyboard and mouse
 //! for debugging and development purposes.
 
-use bevy_app::{App, Plugin, Update};
+use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_input::keyboard::KeyCode;
@@ -34,7 +34,11 @@ pub struct FreeCamPlugin;
 
 impl Plugin for FreeCamPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, run_freecam_controller);
+        // This ordering is required so that both fixed update and update systems can see the results correctly
+        app.add_systems(
+            RunFixedMainLoop,
+            run_freecam_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+        );
     }
 }
 
