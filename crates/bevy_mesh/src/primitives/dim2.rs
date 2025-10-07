@@ -900,13 +900,13 @@ impl MeshBuilder for RhombusMeshBuilder {
         let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
         let positions = vec![
             [hhd, 0.0, 0.0],
-            [-hhd, 0.0, 0.0],
             [0.0, vhd, 0.0],
+            [-hhd, 0.0, 0.0],
             [0.0, -vhd, 0.0],
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
-        let uvs = vec![[1.0, 0.5], [0.0, 0.5], [0.5, 0.0], [0.5, 1.0]];
-        let indices = Indices::U32(vec![1, 0, 2, 1, 3, 0]);
+        let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
+        let indices = Indices::U32(vec![0, 1, 2, 2, 3, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
@@ -922,7 +922,7 @@ impl MeshBuilder for RhombusMeshBuilder {
 impl Extrudable for RhombusMeshBuilder {
     fn perimeter(&self) -> Vec<PerimeterSegment> {
         vec![PerimeterSegment::Flat {
-            indices: vec![0, 2, 1, 3, 0],
+            indices: vec![0, 1, 2, 3, 0],
         }]
     }
 }
