@@ -2302,6 +2302,7 @@ mod tests {
         unused,
         reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
     )]
+    #[derive(TypePath)]
     struct CoolTextSaver;
 
     impl AssetSaver for CoolTextSaver {
@@ -2343,12 +2344,13 @@ mod tests {
         unused,
         reason = "We only use this for asset processor tests, which are only compiled with the `multi_threaded` feature."
     )]
+    #[derive(TypePath)]
     // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
     // closure cannot be used (since we need to include the name of the transformer in the meta
     // file).
     struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-    trait MutateAsset<A: Asset>: Send + Sync + 'static {
+    trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
         fn mutate(&self, asset: &mut A);
     }
 
@@ -2426,6 +2428,19 @@ mod tests {
 
     // The asset processor currently requires multi_threaded.
     #[cfg(feature = "multi_threaded")]
+    #[derive(TypePath)]
+    struct AddText;
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    impl MutateAsset<CoolText> for AddText {
+        fn mutate(&self, text: &mut CoolText) {
+            text.text.push_str("_def");
+        }
+    }
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
     #[test]
     fn asset_processor_transforms_asset_default_processor() {
         let AppWithProcessor {
@@ -2433,14 +2448,6 @@ mod tests {
             source_dir,
             processed_dir,
         } = create_app_with_asset_processor();
-
-        struct AddText;
-
-        impl MutateAsset<CoolText> for AddText {
-            fn mutate(&self, text: &mut CoolText) {
-                text.text.push_str("_def");
-            }
-        }
 
         type CoolTextProcessor = LoadTransformAndSave<
             CoolTextLoader,
@@ -2494,13 +2501,67 @@ mod tests {
             processed_dir,
         } = create_app_with_asset_processor();
 
-        struct AddText;
+        type CoolTextProcessor = LoadTransformAndSave<
+            CoolTextLoader,
+            RootAssetTransformer<AddText, CoolText>,
+            CoolTextSaver,
+        >;
+        app.register_asset_loader(CoolTextLoader)
+            .register_asset_processor(CoolTextProcessor::new(
+                RootAssetTransformer::new(AddText),
+                CoolTextSaver,
+            ));
 
-        impl MutateAsset<CoolText> for AddText {
-            fn mutate(&self, text: &mut CoolText) {
-                text.text.push_str("_def");
-            }
-        }
+        let path = Path::new("abc.cool.ron");
+        source_dir.insert_asset_text(
+            path,
+            r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+        );
+        source_dir.insert_meta_text(path, r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::tests::RootAssetTransformer<bevy_asset::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#);
+
+        // Start the app, which also starts the asset processor.
+        app.update();
+
+        // Wait for all processing to finish.
+        bevy_tasks::block_on(
+            app.world()
+                .resource::<AssetProcessor>()
+                .data()
+                .wait_until_finished(),
+        );
+
+        let processed_asset = processed_dir.get_asset(path).unwrap();
+        let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+        assert_eq!(
+            processed_asset,
+            r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        );
+    }
+
+    // The asset processor currently requires multi_threaded.
+    #[cfg(feature = "multi_threaded")]
+    #[test]
+    fn asset_processor_transforms_asset_with_short_path_meta() {
+        let AppWithProcessor {
+            mut app,
+            source_dir,
+            processed_dir,
+        } = create_app_with_asset_processor();
 
         type CoolTextProcessor = LoadTransformAndSave<
             CoolTextLoader,
@@ -2526,7 +2587,7 @@ mod tests {
         source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::tests::RootAssetTransformer<bevy_asset::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::tests::CoolTextSaver>",
+        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
