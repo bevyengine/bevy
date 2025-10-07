@@ -308,8 +308,8 @@ meshlet_processor = ["bevy_pbr?/meshlet_processor"]
 bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a collection of prebuilt camera controllers
-bevy_camera_controllers = ["dep:bevy_camera_controllers"]
-free_cam = ["bevy_camera_controllers/free_cam"]
+bevy_camera_controller = ["dep:bevy_camera_controller"]
+free_cam = ["bevy_camera_controller/free_cam"]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
@@ -474,7 +474,7 @@ bevy_log = { path = "../bevy_log", version = "0.18.0-dev", optional = true }
 bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.18.0-dev", features = [
   "bevy_reflect",
 ] }
-bevy_camera_controllers = { path = "../bevy_camera_controllers", optional = true, version = "0.18.0-dev", default-features = false }
+bevy_camera_controller = { path = "../bevy_camera_controller", optional = true, version = "0.18.0-dev", default-features = false }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.18.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.18.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.18.0-dev" }
