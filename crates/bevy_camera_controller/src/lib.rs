@@ -39,8 +39,4 @@
 #![warn(missing_docs)]
 
 #[cfg(feature = "free_cam")]
-mod free_cam;
-
-// Re-exports to reduce stutter when importing types
-#[cfg(feature = "free_cam")]
-pub use free_cam::*;
+pub mod free_cam;

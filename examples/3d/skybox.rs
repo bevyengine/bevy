@@ -2,7 +2,7 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera_controller::{FreeCam, FreeCamPlugin},
+    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,
