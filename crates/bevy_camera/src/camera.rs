@@ -133,7 +133,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// Suppose you have a camera with a square viewport, looking at a grid of digits.
 /// The camera's projection is configured so the entire grid is visible on screen.
 ///
-/// ```
+/// ```text
 /// ┌─────────┐
 /// │ 0 1 2 3 │
 /// │ 4 5 6 7 │
@@ -147,7 +147,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// of the frustum would remain in place, so it would be the top-left quarter of the grid that gets projected to the camera's
 /// viewport.
 ///
-/// ```
+/// ```text
 /// ┌──────────
 /// │ 0     1
 /// │
@@ -160,7 +160,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// middle of the camera's original view. Given that the camera was originally configured so that its view perfectly lined up
 /// with the grid, this means the top-left corner of the frustum would appear to be moved to the middle of the grid.
 ///
-/// ```
+/// ```text
 ///           │
 ///   A     B │
 ///           │
@@ -172,7 +172,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// Now suppose that the sub view's offset was changed to `(1.0, 0.0)`. This would move the top-left corner of the view to the
 /// top-right corner of the grid, putting the grid off-screen.
 ///
-/// ```
+/// ```text
 /// ┐
 /// │
 /// │
@@ -185,7 +185,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// position of the center of the view, rather than the top-left corner. We can do that by subtracting half the scale from it.
 /// With a scale of `0.5`, and a desired offset of `(0.5, 0.5)` for the center of the view, the offset to use would be `(0.25, 0.25)`.
 ///
-/// ```
+/// ```text
 ///            
 ///   5     6  
 ///            
