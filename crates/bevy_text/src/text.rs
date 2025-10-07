@@ -549,9 +549,6 @@ pub fn update_text_roots<T: Component>(
             spans.push(target);
             if let Ok((children, text, style, size)) = query.get(target) {
                 *changed |= text.is_changed() || style.is_changed() || size.is_changed();
-                if size.is_changed() {
-                    println!("size change");
-                }
                 if let Some(children) = children {
                     for child in children {
                         walk_text_descendants(*child, query, spans, changed);
