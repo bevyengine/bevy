@@ -2566,7 +2566,7 @@ impl<'w> EntityWorldMut<'w> {
         let location = self.location();
         let Self { world, entity, .. } = self;
 
-        let _location = {
+        let location = {
             let archetype = &mut world.archetypes[location.archetype_id];
             let ((disabled_arch, archetype_row), swapped_archetype) =
                 archetype.swap_disable(location.archetype_row);
@@ -2631,7 +2631,7 @@ impl<'w> EntityWorldMut<'w> {
         Self {
             world,
             entity,
-            location: None,
+            location: Some(location),
         }
     }
 
@@ -2661,12 +2661,21 @@ impl<'w> EntityWorldMut<'w> {
             .find(|(e, _)| *e == entity)
             .map(|(_, location)| location);
 
-        Self {
+        let entity_mut = Self {
             world,
             entity,
             location,
         }
-        .swap_disable()
+        .swap_disable();
+
+        // SAFETY: TODO
+        unsafe {
+            entity_mut
+                .world
+                .entities
+                .set(entity_mut.entity.index(), entity_mut.location);
+        }
+        entity_mut
     }
 
     /// Disable the current entity.
