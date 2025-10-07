@@ -190,7 +190,9 @@ pub fn run_freecam_controller(
 
     let amount = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
+        MouseScrollUnit::Pixel => {
+            accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
+        }
     };
     scroll += amount;
     controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
