@@ -293,7 +293,7 @@ fn build_setting_row(
     inc: SettingsButton,
     value: f32,
     asset_server: &Res<AssetServer>,
-) -> impl Bundle {
+) -> impl Bundle + use<> {
     let value_text = match setting_type {
         SettingType::Shape => SHAPES[value as usize % SHAPES.len()].0.to_string(),
         SettingType::Count => format!("{}", value as usize),
