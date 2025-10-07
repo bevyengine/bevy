@@ -3419,7 +3419,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn get(&self) -> &T {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
+        // SAFETY: If we have an OccupiedComponentEntry the component must exist.
         unsafe { self.entity_world.get::<T>().debug_checked_unwrap() }
     }
 
@@ -3466,7 +3466,7 @@ impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
     /// ```
     #[inline]
     pub fn take(self) -> T {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
+        // SAFETY: If we have an OccupiedComponentEntry the component must exist.
         unsafe { self.entity_world.take().debug_checked_unwrap() }
     }
 }
@@ -3501,7 +3501,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
+        // SAFETY: If we have an OccupiedComponentEntry the component must exist.
         unsafe { self.entity_world.get_mut::<T>().debug_checked_unwrap() }
     }
 
@@ -3530,7 +3530,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// ```
     #[inline]
     pub fn into_mut(self) -> Mut<'a, T> {
-        // SAFETY: If we have an OccupiedEntry the component must exist.
+        // SAFETY: If we have an OccupiedComponentEntry the component must exist.
         unsafe { self.entity_world.get_mut().debug_checked_unwrap() }
     }
 }
