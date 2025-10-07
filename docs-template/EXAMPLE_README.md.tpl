@@ -11,6 +11,12 @@ To run an example, use the command `cargo run --example <Example>`, and add the 
 cargo run --features wayland --example hello_world
 ```
 
+Because the engine builds with wayland by default, if your system uses x11, you need to add `--no-default-features` flag. Run using this command:
+
+```sh
+cargo run --no-default-features --features x11 --example hello_world
+```
+
 **⚠️ Note: for users of releases on crates.io!**
 
 There are often large differences and incompatible API changes between the latest [crates.io](https://crates.io/crates/bevy) release and the development version of Bevy in the git main branch!
