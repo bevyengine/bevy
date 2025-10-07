@@ -6940,4 +6940,31 @@ mod tests {
         let original = world.spawn(C).id();
         world.despawn(original);
     }
+
+    #[test]
+    fn component_scope() {
+        #[derive(Component)]
+        struct A(u32);
+        #[derive(Component)]
+        struct B(u32);
+        #[derive(Component)]
+        struct C(u32);
+        let mut world = World::new();
+        let scoped_entity = world.spawn((A(1), C(42))).id();
+        let entity = world.spawn(B(1)).id();
+
+        world.component_scope(scoped_entity, |world, _, a: &mut A| {
+            assert!(world.get_mut::<A>(scoped_entity).is_none());
+
+            let mut query = world.query::<&A>();
+            assert!(query.iter(world).next().is_none());
+            let mut query = world.query::<&C>();
+            assert!(query.iter(world).next().is_none());
+
+            let b = world.get_mut::<B>(entity).unwrap();
+            a.0 += b.0;
+        });
+        assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 2);
+        assert_eq!(world.get::<C>(scoped_entity).unwrap().0, 42);
+    }
 }
