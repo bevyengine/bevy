@@ -30,7 +30,8 @@ fn main() {
     app.run();
 }
 
-const X_EXTENT: f32 = 900.;
+const X_EXTENT: f32 = 1000.;
+const Y_EXTENT: f32 = 150.;
 
 fn setup(
     mut commands: Commands,
@@ -76,7 +77,70 @@ fn setup(
             Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
                 -X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * X_EXTENT,
+                Y_EXTENT / 2.,
                 0.0,
+            ),
+        ));
+    }
+
+    let rings = [
+        meshes.add(Ring::new(Circle::new(50.0), Circle::new(45.0))),
+        meshes.add(Ring::new(
+            CircularSector::new(50.0, 1.0),
+            CircularSector::new(45.0, 1.0),
+        )),
+        meshes.add(Ring::new(
+            CircularSegment::new(50.0, 1.25),
+            CircularSegment::new(45.0, 1.25),
+        )),
+        meshes.add(Ring::new(
+            Ellipse::new(25.0, 50.0),
+            Ellipse::new(20.0, 45.0),
+        )),
+        meshes.add(Ring::new(Circle::new(50.0), Circle::new(25.0))),
+        meshes.add(Ring::new(
+            Capsule2d::new(25.0, 50.0),
+            Capsule2d::new(20.0, 50.0),
+        )),
+        meshes.add(Ring::new(
+            Rhombus::new(75.0, 100.0),
+            Rhombus::new(65.0, 90.0),
+        )),
+        meshes.add(Ring::new(
+            Rectangle::new(50.0, 100.0),
+            Rectangle::new(40.0, 90.0),
+        )),
+        meshes.add(Ring::new(
+            RegularPolygon::new(50.0, 6),
+            RegularPolygon::new(45.0, 6),
+        )),
+        meshes.add(Ring::new(
+            Triangle2d::new(
+                Vec2::Y * 50.0,
+                Vec2::new(-50.0, -50.0),
+                Vec2::new(50.0, -50.0),
+            ),
+            Triangle2d::new(
+                Vec2::Y * 45.0,
+                Vec2::new(-45.0, -45.0),
+                Vec2::new(45.0, -45.0),
+            ),
+        )),
+    ];
+    // Allow for 2 empty spaces
+    let num_rings = rings.len() + 2;
+
+    for (i, shape) in rings.into_iter().enumerate() {
+        // Distribute colors evenly across the rainbow.
+        let color = Color::hsl(360. * i as f32 / num_rings as f32, 0.95, 0.7);
+
+        commands.spawn((
+            Mesh2d(shape),
+            MeshMaterial2d(materials.add(color)),
+            Transform::from_xyz(
+                // Distribute shapes from -X_EXTENT/2 to +X_EXTENT/2.
+                -X_EXTENT / 2. + i as f32 / (num_rings - 1) as f32 * X_EXTENT,
+                -Y_EXTENT / 2.,
                 0.0,
             ),
         ));
