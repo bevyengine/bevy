@@ -274,7 +274,8 @@ impl AssetProcessor {
 
             for source in self.data.sources.iter_processed() {
                 if let Some(receiver) = source.event_receiver() {
-                    for event in receiver.try_iter() {
+                    // TODO: Handle TryRecvError::Closed.
+                    while let Ok(event) = receiver.try_recv() {
                         if !started_processing {
                             self.set_state(ProcessorState::Processing).await;
                             started_processing = true;
