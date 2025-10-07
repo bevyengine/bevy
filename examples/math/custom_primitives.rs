@@ -61,7 +61,7 @@ const PROJECTION_2D: Projection = Projection::Orthographic(OrthographicProjectio
 const TRANSFORM_3D: Transform = Transform {
     translation: Vec3::ZERO,
     // The camera is pointing at the 3D shape
-    rotation: Quat::from_xyzw(-0.14521316, -0.0, -0.0, 0.98940045),
+    rotation: Quat::from_xyzw(-0.2669336, -0.0, -0.0, 0.96371484),
     scale: Vec3::ONE,
 };
 // The projection used for the camera in 3D
@@ -206,7 +206,7 @@ fn setup(
             base_color: RED.into(),
             ..Default::default()
         })),
-        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Transform::from_xyz(0., -3., -5.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
         Visibility::Hidden,
         ShapeActive::Extrusion,
@@ -226,7 +226,7 @@ fn setup(
             base_color: RED.into(),
             ..Default::default()
         })),
-        Transform::from_xyz(0., -3., -10.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        Transform::from_xyz(0., -3., -5.).with_rotation(Quat::from_rotation_x(-PI / 4.)),
         Shape3d,
         Visibility::Hidden,
         ShapeActive::RingExtrusion,
