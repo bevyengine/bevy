@@ -2615,7 +2615,8 @@ impl<'w> EntityWorldMut<'w> {
                         }),
                     );
                 }
-                archetype.set_entity_table_row(swapped_location.archetype_row, table_row);
+                world.archetypes[swapped_location.archetype_id]
+                    .set_entity_table_row(swapped_location.archetype_row, table_row);
             }
 
             assert_eq!(disabled_table, disabled_arch.id());
