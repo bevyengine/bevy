@@ -12,7 +12,7 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::{FreeCam, FreeCamPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,

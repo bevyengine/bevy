@@ -4,7 +4,7 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    camera_controller::free_cam::FreeCam, gltf::Gltf, input::common_conditions::input_just_pressed,
+    camera_controller::FreeCam, gltf::Gltf, input::common_conditions::input_just_pressed,
     prelude::*, scene::InstanceId,
 };
 

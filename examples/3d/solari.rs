@@ -3,7 +3,7 @@
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::{FreeCam, FreeCamPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,

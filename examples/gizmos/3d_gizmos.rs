@@ -1,7 +1,7 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
 use bevy::{
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::{FreeCam, FreeCamPlugin},
     color::palettes::css::*,
     prelude::*,
 };
