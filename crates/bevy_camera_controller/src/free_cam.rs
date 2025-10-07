@@ -49,7 +49,7 @@ impl Plugin for FreeCamPlugin {
 /// Scales mouse motion into yaw/pitch movement.
 ///
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly 1.0 / 180.0,
-/// but I'm guessing it is a misunderstanding between degrees/radians and then sticking with
+/// but we're guessing it is a misunderstanding between degrees/radians and then sticking with
 /// it because it felt nice.
 const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
