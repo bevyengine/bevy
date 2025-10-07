@@ -323,7 +323,7 @@ bevy_mesh_picking_backend = [
 sprite_picking = ["bevy_picking", "bevy_sprite/bevy_picking"]
 
 # Provides a UI picking backend
-bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
+ui_picking = ["bevy_picking", "bevy_ui/bevy_picking"]
 
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]

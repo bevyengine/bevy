@@ -158,7 +158,6 @@ default = [
   "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_ui_picking_backend",
   "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
@@ -175,6 +174,7 @@ default = [
   "sprite_picking",
   "sysinfo_plugin",
   "tonemapping_luts",
+  "ui_picking",
   "vorbis",
   "webgl2",
   "x11",
@@ -193,7 +193,7 @@ bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
 sprite_picking = ["bevy_internal/sprite_picking"]
 
 # Provides an implementation for picking UI
-bevy_ui_picking_backend = ["bevy_internal/bevy_ui_picking_backend"]
+ui_picking = ["bevy_internal/ui_picking"]
 
 # Provides a debug overlay for bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
