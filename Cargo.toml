@@ -154,12 +154,10 @@ default = [
   "bevy_light",
   "bevy_shader",
   "bevy_sprite",
-  "bevy_sprite_picking_backend",
   "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
-  "bevy_ui_picking_backend",
   "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
@@ -173,8 +171,10 @@ default = [
   "png",
   "reflect_auto_register",
   "smaa_luts",
+  "sprite_picking",
   "sysinfo_plugin",
   "tonemapping_luts",
+  "ui_picking",
   "vorbis",
   "webgl2",
   "x11",
@@ -190,10 +190,10 @@ default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_internal/bevy_sprite_picking_backend"]
+sprite_picking = ["bevy_internal/sprite_picking"]
 
 # Provides an implementation for picking UI
-bevy_ui_picking_backend = ["bevy_internal/bevy_ui_picking_backend"]
+ui_picking = ["bevy_internal/ui_picking"]
 
 # Provides a debug overlay for bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
@@ -290,6 +290,12 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
+
+# Provides a collection of prebuilt camera controllers
+bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
+
+# Enables the free cam from bevy_camera_controller
+free_cam = ["bevy_internal/free_cam"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
@@ -1175,6 +1181,7 @@ wasm = true
 name = "decal"
 path = "examples/3d/decal.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.decal]
 name = "Decal"
@@ -1286,6 +1293,7 @@ wasm = true
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.shadow_biases]
 name = "Shadow Biases"
@@ -1308,6 +1316,7 @@ wasm = true
 name = "skybox"
 path = "examples/3d/skybox.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -3211,6 +3220,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -3986,6 +3996,7 @@ wasm = true
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
@@ -4390,7 +4401,7 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_sprite_picking_backend"]
+required-features = ["sprite_picking"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
@@ -4617,18 +4628,6 @@ name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "camera_controller"
-path = "examples/helpers/camera_controller.rs"
-doc-scrape-examples = true
-crate-type = ["lib"]
-
-[package.metadata.example.camera_controller]
-name = "Camera Controller"
-description = "Example Free-Cam Styled Camera Controller"
-category = "Helpers"
-wasm = true
 
 [[example]]
 name = "widgets"
