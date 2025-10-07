@@ -24,8 +24,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev", default-f
 bevy_window = { path = "../bevy_window", version = "0.18.0-dev", default-features = false }
 
 [features]
-default = ["std", "bevy_reflect"]
-std = ["bevy_math/std", "bevy_reflect?/std"]
+default = ["bevy_reflect"]
 bevy_reflect = ["dep:bevy_reflect"]
 libm = ["bevy_math/libm"]
 
