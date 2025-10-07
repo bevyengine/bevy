@@ -4,12 +4,11 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    camera_controller::free_cam::FreeCam, gltf::Gltf, input::common_conditions::input_just_pressed,
+    prelude::*, scene::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
-
-use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -200,8 +199,8 @@ fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<FreeCam>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<FreeCam>)>,
         Query<&mut Camera>,
     )>,
 ) {

@@ -291,6 +291,12 @@ bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
+# Provides a collection of prebuilt camera controllers
+bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
+
+# Enables the free cam from bevy_camera_controller
+free_cam = ["bevy_internal/free_cam"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -1160,6 +1166,7 @@ wasm = true
 name = "decal"
 path = "examples/3d/decal.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.decal]
 name = "Decal"
@@ -1271,6 +1278,7 @@ wasm = true
 name = "shadow_biases"
 path = "examples/3d/shadow_biases.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.shadow_biases]
 name = "Shadow Biases"
@@ -1293,6 +1301,7 @@ wasm = true
 name = "skybox"
 path = "examples/3d/skybox.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.skybox]
 name = "Skybox"
@@ -3196,6 +3205,7 @@ wasm = false
 name = "scene_viewer"
 path = "examples/tools/scene_viewer/main.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -3971,6 +3981,7 @@ wasm = true
 name = "3d_gizmos"
 path = "examples/gizmos/3d_gizmos.rs"
 doc-scrape-examples = true
+required-features = ["free_cam"]
 
 [package.metadata.example.3d_gizmos]
 name = "3D Gizmos"
@@ -4602,18 +4613,6 @@ name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
-
-[[example]]
-name = "camera_controller"
-path = "examples/helpers/camera_controller.rs"
-doc-scrape-examples = true
-crate-type = ["lib"]
-
-[package.metadata.example.camera_controller]
-name = "Camera Controller"
-description = "Example Free-Cam Styled Camera Controller"
-category = "Helpers"
-wasm = true
 
 [[example]]
 name = "widgets"
