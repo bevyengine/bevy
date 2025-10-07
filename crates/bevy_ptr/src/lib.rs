@@ -807,7 +807,10 @@ impl<T, A: IsAligned> Drop for MovingPtr<'_, T, A> {
     }
 }
 
+// These traits aren't auto-implemented as `MovingPtr` contains a raw pointer:
+// SAFETY: MovingPtr<T> owns the value it points to and so it is `Send` if `T` is `Send`.
 unsafe impl<T: Send, A: IsAligned> Send for MovingPtr<'_, T, A> {}
+// SAFETY: MovingPtr<T> owns the value it points to and so it is `Sync` if `T` is `Sync`.
 unsafe impl<T: Sync, A: IsAligned> Sync for MovingPtr<'_, T, A> {}
 
 impl<'a, A: IsAligned> Ptr<'a, A> {
