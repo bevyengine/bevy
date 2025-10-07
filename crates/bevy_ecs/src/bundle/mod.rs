@@ -214,12 +214,16 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync {
     fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>>;
 }
 
-/// Returns the `TypeId` of the bundle `T`.
+/// Retrieves the `TypeId` of the bundle type. Used for registering bundles.
+///
+/// See also [`bundle_id_of_val`] for retrieving the bundle id without naming the type.
 pub fn bundle_id_of<T: Bundle>() -> TypeId {
     typeid::of::<T>()
 }
 
-/// Returns the `TypeId` of the bundle type of the value `val`.
+/// Retrieves the `TypeId` of a bundle when the type may not be easily named. Used for registering bundles.
+///
+/// See also [`bundle_id_of`] for retrieving the bundle id without an instance of the bundle.
 pub fn bundle_id_of_val<T: Bundle>(val: T) -> TypeId {
     _ = val;
     typeid::of::<T>()
