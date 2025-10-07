@@ -324,10 +324,7 @@ bevy_mesh_picking_backend = [
 ]
 
 # Provides a sprite picking backend
-bevy_sprite_picking_backend = [
-  "bevy_picking",
-  "bevy_sprite/bevy_sprite_picking_backend",
-]
+sprite_picking = ["bevy_picking", "bevy_sprite/bevy_picking"]
 
 # Provides a UI picking backend
 bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]

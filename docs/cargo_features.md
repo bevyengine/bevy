@@ -37,7 +37,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_sprite|Provides sprite functionality|
-|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
@@ -58,6 +57,7 @@ The default feature set enables most of the expected features of a game engine, 
 |png|PNG image format support|
 |reflect_auto_register|Enable automatic reflect registration|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
+|sprite_picking|Provides an implementation for picking sprites|
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
