@@ -59,7 +59,7 @@ const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 /// to your [`App`] to enable freecam controls.
 #[derive(Component)]
 pub struct FreeCam {
-    /// Enables this [`FreeCamController`] when `true`.
+    /// Enables this [`FreeCam`] when `true`.
     pub enabled: bool,
     /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
     pub initialized: bool,
@@ -77,8 +77,8 @@ pub struct FreeCam {
     pub key_up: KeyCode,
     /// [`KeyCode`] for down translation.
     pub key_down: KeyCode,
-    /// [`KeyCode`] to use [`run_speed`](FreeCamController::run_speed) instead of
-    /// [`walk_speed`](FreeCamController::walk_speed) for translation.
+    /// [`KeyCode`] to use [`run_speed`](FreeCam::run_speed) instead of
+    /// [`walk_speed`](FreeCam::walk_speed) for translation.
     pub key_run: KeyCode,
     /// [`MouseButton`] for grabbing the mouse focus.
     pub mouse_key_cursor_grab: MouseButton,
@@ -88,16 +88,16 @@ pub struct FreeCam {
     pub walk_speed: f32,
     /// Multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCamController::walk_speed)
-    /// and [`run_speed`](FreeCamController::run_speed).
+    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCam::walk_speed)
+    /// and [`run_speed`](FreeCam::run_speed).
     pub scroll_factor: f32,
-    /// Friction factor used to exponentially decay [`velocity`](FreeCamController::velocity) over time.
+    /// Friction factor used to exponentially decay [`velocity`](FreeCam::velocity) over time.
     pub friction: f32,
-    /// This [`FreeCamController`]'s pitch rotation.
+    /// This [`FreeCam`]'s pitch rotation.
     pub pitch: f32,
-    /// This [`FreeCamController`]'s yaw rotation.
+    /// This [`FreeCam`]'s yaw rotation.
     pub yaw: f32,
-    /// This [`FreeCamController`]'s translation velocity.
+    /// This [`FreeCam`]'s translation velocity.
     pub velocity: Vec3,
 }
 
