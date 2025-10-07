@@ -293,6 +293,8 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
+
+# Enables the free cam from bevy_camera_controller
 free_cam = ["bevy_internal/free_cam"]
 
 # Enable the Bevy Remote Protocol
