@@ -5,10 +5,14 @@
 //! as they allow the user to move freely in all directions,
 //! which can be disorienting, and they can clip through objects and terrain.
 //!
-//! Fly cams are a kind of free cam, designed for fluid "flying" movement.
-//! This particular free cam is optimized for precise control,
-//! allowing the user to move around the scene with a keyboard and mouse
-//! for debugging, development and CAD-flavored applications.
+//! You may have heard of a "fly cam" before,
+//! which are a kind of free cam designed for fluid "flying" movement and quickly surveying large areas.
+//! By contrast, the default settings of this particular free cam are optimized for precise control.
+//!
+//! To use this controller, add [`FreeCamPlugin`] to your app,
+//! and [`FreeCam`] to your camera entity.
+//!
+//! To configure the settings of this controller, modify the fields of the [`FreeCam`] component.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
