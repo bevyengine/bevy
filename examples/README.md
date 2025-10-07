@@ -164,6 +164,7 @@ Example | Description
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
+[Magnifier](../examples/usage/magnifier.rs) | Demonstrates magnifying part of the screen with CameraSubView
 [Manual Material Implementation](../examples/3d/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
@@ -594,7 +595,6 @@ Example | Description
 --- | ---
 [Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
 [Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
-[Magnifier](../examples/usage/magnifier.rs) | Demonstrates magnifying part of the screen with CameraSubView
 
 ### Window
 

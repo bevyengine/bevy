@@ -198,7 +198,7 @@ pub struct MainPassResolutionOverride(pub UVec2);
 ///            
 /// ```
 ///
-/// See the "camera_sub_view" example for more information.
+/// See the `camera_sub_view` example for more information.
 ///
 /// ## [`SubViewSourceProjection`]
 ///
@@ -402,7 +402,7 @@ pub enum ViewportConversionError {
     #[error("computed coordinate beyond `Camera`'s far plane")]
     PastFarPlane,
     /// The Normalized Device Coordinates could not be computed because the `camera_transform`, the
-    /// `world_position`, or the projection matrix defined by [`Projection`](super::projection::Projection)
+    /// `world_position`, or the projection matrix defined by [`Projection`]
     /// contained `NAN` (see [`world_to_ndc`][Camera::world_to_ndc] and [`ndc_to_world`][Camera::ndc_to_world]).
     #[error("found NaN while computing NDC")]
     InvalidData,
@@ -572,7 +572,7 @@ impl Camera {
             .map(|t: &RenderTargetInfo| t.scale_factor)
     }
 
-    /// The projection matrix computed using this camera's [`Projection`](super::projection::Projection).
+    /// The projection matrix computed using this camera's [`Projection`].
     #[inline]
     pub fn clip_from_view(&self) -> Mat4 {
         self.computed.clip_from_view
@@ -792,7 +792,7 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
-    /// [`Projection`](super::projection::Projection) contain `NAN`.
+    /// [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
@@ -818,7 +818,7 @@ impl Camera {
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
     /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
-    /// [`Projection`](super::projection::Projection) contain `NAN`.
+    /// [`Projection`] contain `NAN`.
     ///
     /// # Panics
     ///
