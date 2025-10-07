@@ -49,7 +49,7 @@ struct Shape;
 
 const SHAPES_X_EXTENT: f32 = 14.0;
 const EXTRUSION_X_EXTENT: f32 = 16.0;
-const Z_EXTENT: f32 = 5.0;
+const Z_EXTENT: f32 = 8.0;
 
 fn setup(
     mut commands: Commands,
@@ -90,6 +90,44 @@ fn setup(
         meshes.add(Extrusion::new(Triangle2d::default(), 1.)),
     ];
 
+    let ring_extrusions = [
+        meshes.add(Extrusion::new(
+            Ring::new(Rectangle::default(), Rectangle::new(0.8, 0.8)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(Capsule2d::default(), Capsule2d::new(0.4, 1.0)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(Circle::new(1.0), Circle::new(0.5)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(Circle::default(), Circle::new(0.4)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(Ellipse::default(), Ellipse::new(0.9, 0.4)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(RegularPolygon::default(), RegularPolygon::new(0.4, 6)),
+            1.,
+        )),
+        meshes.add(Extrusion::new(
+            Ring::new(
+                Triangle2d::default(),
+                Triangle2d::new(
+                    Vec2::new(0.0, 0.4),
+                    Vec2::new(-0.4, -0.45),
+                    Vec2::new(0.4, -0.45),
+                ),
+            ),
+            1.,
+        )),
+    ];
+
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
@@ -115,6 +153,23 @@ fn setup(
             Transform::from_xyz(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
+                2.0,
+                0.0,
+            )
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+            Shape,
+        ));
+    }
+
+    let num_ring_extrusions = ring_extrusions.len();
+
+    for (i, shape) in ring_extrusions.into_iter().enumerate() {
+        commands.spawn((
+            Mesh3d(shape),
+            MeshMaterial3d(debug_material.clone()),
+            Transform::from_xyz(
+                -EXTRUSION_X_EXTENT / 2.
+                    + i as f32 / (num_ring_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
                 -Z_EXTENT / 2.,
             )
