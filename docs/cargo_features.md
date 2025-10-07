@@ -1,4 +1,5 @@
 <!-- MD041 - This file will be included in docs and should not start with a top header -->
+<!-- Use 'cargo run -p build-templated-pages -- update features' to generate this file -->
 <!-- markdownlint-disable-file MD041 -->
 
 ## Cargo Features
