@@ -565,7 +565,7 @@ mod tests {
             .observe(|_: On<EntityEventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |event: On<EntityEventA>, mut res: ResMut<Order>| {
-            assert_eq!(event.event_target().entity(), entity);
+            assert_eq!(event.event_target(), entity);
             res.observed("a_2");
         });
 
@@ -719,7 +719,7 @@ mod tests {
             move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
 
-                assert_eq!(event.event_target().entity(), parent);
+                assert_eq!(event.event_target(), parent);
                 assert_eq!(event.original_event_target(), child);
             },
         );
@@ -727,7 +727,7 @@ mod tests {
         world.entity_mut(child).observe(
             move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-                assert_eq!(event.event_target().entity(), child);
+                assert_eq!(event.event_target(), child);
                 assert_eq!(event.original_event_target(), child);
             },
         );
@@ -937,7 +937,7 @@ mod tests {
 
         world.add_observer(
             |event: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(event.event_target().entity()).is_ok() {
+                if query.get(event.event_target()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1127,7 +1127,7 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|event: On<EntityEventA>| {
-                assert_eq!(event.target(), event.event_target().entity());
+                assert_eq!(event.target(), event.event_target());
             })
             .id();
         world.trigger(EntityEventA(entity));
