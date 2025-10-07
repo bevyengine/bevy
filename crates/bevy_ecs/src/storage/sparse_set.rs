@@ -245,6 +245,11 @@ impl ComponentSparseSet {
                 TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
             };
 
+            if dense_row == disabled_row {
+                // nothing to do, the entity is already in the correct section
+                return;
+            }
+
             // SAFETY: TODO
             unsafe {
                 self.dense.swap_unchecked(dense_row, disabled_row);
