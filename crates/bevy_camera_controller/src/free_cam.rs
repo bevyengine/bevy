@@ -8,7 +8,7 @@
 //! Fly cams are a kind of free cam, designed for fluid "flying" movement.
 //! This particular free cam is optimized for precise control,
 //! allowing the user to move around the scene with a keyboard and mouse
-//! for debugging and development purposes.
+//! for debugging, development and CAD-flavored applications.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
