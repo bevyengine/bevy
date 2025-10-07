@@ -57,6 +57,8 @@ impl<C: Component> DynamicBundle for C {
     unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
+// SAFETY: `MovingPtr` forwards its implementation of `Bundle` to another
+// `Bundle`, so it is correct if that impl is correct
 unsafe impl<T: BundleImpl> BundleImpl for MovingPtr<'_, T> {
     type Name = <T as BundleImpl>::Name;
 
@@ -81,7 +83,11 @@ impl<T: DynamicBundle> DynamicBundle for MovingPtr<'_, T> {
         T::get_components(this, func);
     }
 
+    // SAFETY: `MovingPtr` forwards its implementation of `apply_effect` to another
+    // `DynamicBundle`, so it is correct if that impl is correct
     unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        // SAFETY: the `MovingPtr` is still init, but it's inner value may no
+        // longer be fully init
         let this = unsafe {
             core::mem::transmute::<MaybeUninit<MovingPtr<'_, T>>, MovingPtr<'_, MaybeUninit<T>>>(
                 ptr.read(),
