@@ -1482,10 +1482,7 @@ where
                             let outer_perimeter_vertex_count = outer_vertex_count as u32;
                             indices.reverse();
                             for i in &mut indices {
-                                *i += outer_perimeter_vertex_count as u32;
-                                // if *i > 2 * outer_perimeter_vertex_count {
-                                //     *i -= 2 * outer_perimeter_vertex_count;
-                                // }
+                                *i += outer_perimeter_vertex_count;
                             }
                             indices
                         },
@@ -1495,10 +1492,7 @@ where
                             let outer_perimeter_vertex_count = outer_vertex_count as u32;
                             indices.reverse();
                             for i in &mut indices {
-                                *i += outer_perimeter_vertex_count as u32;
-                                // if *i > 2 * outer_perimeter_vertex_count {
-                                //     *i -= 2 * outer_perimeter_vertex_count;
-                                // }
+                                *i += outer_perimeter_vertex_count;
                             }
                             indices
                         },
