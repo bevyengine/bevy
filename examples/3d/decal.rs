@@ -3,7 +3,7 @@
 
 use bevy::{
     anti_alias::fxaa::Fxaa,
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
@@ -44,7 +44,7 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        FreeCamController::default(),
+        FreeCam::default(),
         // Must enable the depth prepass to render forward decals
         DepthPrepass,
         // Must disable MSAA to use decals on WebGPU

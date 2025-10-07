@@ -1,7 +1,7 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
 use bevy::{
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     light::ShadowFilteringMethod,
     prelude::*,
 };
@@ -69,7 +69,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-        FreeCamController::default(),
+        FreeCam::default(),
         ShadowFilteringMethod::Hardware2x2,
     ));
 

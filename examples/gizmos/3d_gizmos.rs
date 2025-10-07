@@ -1,7 +1,7 @@
 //! This example demonstrates Bevy's immediate mode drawing API intended for visual debugging.
 
 use bevy::{
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     color::palettes::css::*,
     prelude::*,
 };
@@ -52,7 +52,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0., 1.5, 6.).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamController::default(),
+        FreeCam::default(),
     ));
     // plane
     commands.spawn((

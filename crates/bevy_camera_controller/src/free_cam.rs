@@ -48,7 +48,7 @@ pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 /// Add this component to a [`Camera`] entity and add [`FreeCamPlugin`]
 /// to your [`App`] to enable freecam controls.
 #[derive(Component)]
-pub struct FreeCamController {
+pub struct FreeCam {
     /// Enables this [`FreeCamController`] when `true`.
     pub enabled: bool,
     /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
@@ -91,7 +91,7 @@ pub struct FreeCamController {
     pub velocity: Vec3,
 }
 
-impl Default for FreeCamController {
+impl Default for FreeCam {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -117,7 +117,7 @@ impl Default for FreeCamController {
     }
 }
 
-impl fmt::Display for FreeCamController {
+impl fmt::Display for FreeCam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -157,7 +157,7 @@ pub fn run_freecam_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut FreeCamController), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut FreeCam), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 

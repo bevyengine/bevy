@@ -12,7 +12,7 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,
@@ -175,7 +175,7 @@ fn setup_scene_after_load(
         projection.far = projection.far.max(size * 10.0);
 
         let walk_speed = size * 3.0;
-        let camera_controller = FreeCamController {
+        let camera_controller = FreeCam {
             walk_speed,
             run_speed: 3.0 * walk_speed,
             ..default()

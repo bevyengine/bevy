@@ -2,7 +2,7 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCamController::default(),
+        FreeCam::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,

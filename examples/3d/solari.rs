@@ -3,7 +3,7 @@
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
-    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
+    camera_controllers::free_cam::{FreeCam, FreeCamPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -115,7 +115,7 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        FreeCamController {
+        FreeCam {
             walk_speed: 3.0,
             run_speed: 10.0,
             ..Default::default()
