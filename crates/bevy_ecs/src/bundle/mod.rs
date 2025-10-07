@@ -211,7 +211,7 @@ pub unsafe trait BundleImpl: DynamicBundle + Send + Sync {
 
 /// Retrieves the `TypeId` of the bundle type. Used for registering bundles.
 ///
-/// See also [`Bundle::type_id_of_val`] for retrieving the bundle id without naming the type.
+/// See also [`bundle_id_of_val`] for retrieving the bundle id without naming the type.
 // TODO: make this const in rust 1.92
 pub fn bundle_id_of<T: BundleImpl>() -> TypeId {
     TypeId::of::<T::Name>()
@@ -219,7 +219,7 @@ pub fn bundle_id_of<T: BundleImpl>() -> TypeId {
 
 /// Retrieves the `TypeId` of a bundle when the type may not be easily named. Used for registering bundles.
 ///
-/// See also [`Bundle::type_id`] for retrieving the bundle id without an instance of the bundle.
+/// See also [`bundle_id_of`] for retrieving the bundle id without an instance of the bundle.
 // TODO: make this const in rust 1.92
 pub fn bundle_id_of_val<T: BundleImpl>(_: &T) -> TypeId {
     TypeId::of::<T::Name>()
@@ -388,7 +388,7 @@ pub trait DynamicBundle: Sized {
     ///
     /// For implementors:
     ///  - Implementors of this function must convert `ptr` into pointers to individual components stored within
-    ///    `Self` and call `func` on each of them in exactly the same order as [`Bundle::get_component_ids`] and
+    ///    `Self` and call `func` on each of them in exactly the same order as [`BundleImpl::get_component_ids`] and
     ///    [`BundleFromComponents::from_components`].
     ///  - If any part of `ptr` is to be accessed in `apply_effect`, it must *not* be dropped at any point in this
     ///    function. Calling [`bevy_ptr::deconstruct_moving_ptr`] in this function automatically ensures this.
