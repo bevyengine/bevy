@@ -62,6 +62,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             (Text::new("one"), FontSize::Rem(1.)),
             (Text::new("two"), FontSize::Rem(2.)),
             (Text::new("three"), FontSize::Rem(3.)),
+            (Text::new("calc"), FontSize::Calc(|calc| 3. * calc.rem())),
+            (
+                Text::new("calc"),
+                FontSize::Calc(|calc| 3. * calc.rem() + 0.1 * calc.vh()),
+            ),
         ],
     ));
 

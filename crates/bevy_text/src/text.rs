@@ -234,8 +234,7 @@ impl InheritableTextStyle for FontFace {
 ///
 /// A new font atlas is generated for every combination of font handle and scaled font size
 /// which can have a strong performance impact.
-#[derive(Component, Copy, Clone, Debug, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, Clone)]
+#[derive(Component, Copy, Clone, Debug)]
 pub enum FontSize {
     /// Font Size in logical pixels.
     Px(f32),
@@ -249,6 +248,56 @@ pub enum FontSize {
     VMin(f32),
     /// Font Size relative to the larger of the viewport width and viewport height.
     VMax(f32),
+    /// Calculated font size
+    Calc(fn(FontCalc) -> f32),
+}
+
+impl PartialEq for FontSize {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Px(l0), Self::Px(r0)) => l0 == r0,
+            (Self::Rem(l0), Self::Rem(r0)) => l0 == r0,
+            (Self::Vw(l0), Self::Vw(r0)) => l0 == r0,
+            (Self::Vh(l0), Self::Vh(r0)) => l0 == r0,
+            (Self::VMin(l0), Self::VMin(r0)) => l0 == r0,
+            (Self::VMax(l0), Self::VMax(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
+/// Calculated font size
+#[derive(Copy, Clone)]
+pub struct FontCalc {
+    viewport_size: Vec2,
+    default_font_size: f32,
+}
+
+impl FontCalc {
+    /// Size relative to default font size
+    pub fn rem(&self) -> f32 {
+        self.default_font_size
+    }
+
+    /// Viewport width
+    pub fn vw(&self) -> f32 {
+        self.viewport_size.x
+    }
+
+    /// Viewport height
+    pub fn vh(&self) -> f32 {
+        self.viewport_size.y
+    }
+
+    /// Minimum of viewport width and height
+    pub fn vmin(&self) -> f32 {
+        self.viewport_size.min_element()
+    }
+
+    /// Maximum of viewport width and height
+    pub fn vmax(&self) -> f32 {
+        self.viewport_size.max_element()
+    }
 }
 
 impl FontSize {
@@ -267,6 +316,10 @@ impl FontSize {
             FontSize::Vh(s) => viewport_size.y * s,
             FontSize::VMin(s) => viewport_size.min_element() * s,
             FontSize::VMax(s) => viewport_size.max_element() * s,
+            FontSize::Calc(f) => f(FontCalc {
+                viewport_size,
+                default_font_size,
+            }),
         }
     }
 }
