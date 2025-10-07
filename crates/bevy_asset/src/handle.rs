@@ -268,6 +268,13 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
     }
 }
 
+impl<A: Asset> From<Uuid> for Handle<A> {
+    #[inline]
+    fn from(uuid: Uuid) -> Self {
+        Handle::Uuid(uuid, PhantomData)
+    }
+}
+
 /// An untyped variant of [`Handle`], which internally stores the [`Asset`] type information at runtime
 /// as a [`TypeId`] instead of encoding it in the compile-time type. This allows handles across [`Asset`] types
 /// to be stored together and compared.
@@ -624,6 +631,15 @@ mod tests {
 
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);
+    }
+
+    #[test]
+    fn from_uuid() {
+        let uuid = UUID_1;
+        let handle: Handle<TestAsset> = uuid.into();
+
+        assert!(handle.is_uuid());
+        assert_eq!(handle.id(), AssetId::Uuid { uuid });
     }
 
     /// `PartialReflect::reflect_clone`/`PartialReflect::to_dynamic` should increase the strong count of a strong handle
