@@ -309,7 +309,7 @@ unsafe impl<
                 break;
             }
 
-            *event.event_target_mut() = current_entity;
+            event.set_event_target(current_entity);
             // SAFETY:
             // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
             // - the passed in event pointer comes from `event`, which is an `Event`
