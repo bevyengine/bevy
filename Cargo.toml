@@ -154,7 +154,6 @@ default = [
   "bevy_light",
   "bevy_shader",
   "bevy_sprite",
-  "bevy_sprite_picking_backend",
   "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
@@ -173,6 +172,7 @@ default = [
   "png",
   "reflect_auto_register",
   "smaa_luts",
+  "sprite_picking",
   "sysinfo_plugin",
   "tonemapping_luts",
   "vorbis",
@@ -190,7 +190,7 @@ default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = ["bevy_internal/bevy_sprite_picking_backend"]
+sprite_picking = ["bevy_internal/sprite_picking"]
 
 # Provides an implementation for picking UI
 bevy_ui_picking_backend = ["bevy_internal/bevy_ui_picking_backend"]
@@ -4375,7 +4375,7 @@ wasm = true
 name = "sprite_picking"
 path = "examples/picking/sprite_picking.rs"
 doc-scrape-examples = true
-required-features = ["bevy_sprite_picking_backend"]
+required-features = ["sprite_picking"]
 
 [package.metadata.example.sprite_picking]
 name = "Sprite Picking"
