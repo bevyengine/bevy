@@ -109,6 +109,7 @@ pub struct InputSystems;
 pub type InputSystem = InputSystems;
 
 impl Plugin for InputPlugin {
+    #[allow(unused, reason = "all features could be disabled")]
     fn build(&self, app: &mut App) {
         #[cfg(feature = "keyboard")]
         app.add_message::<KeyboardInput>()
