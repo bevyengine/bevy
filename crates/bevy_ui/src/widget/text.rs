@@ -18,7 +18,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
-    Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    Font, FontAtlasSet, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextRoot,
 };
 use taffy::style::AvailableSpace;
@@ -436,9 +436,6 @@ pub fn resolve_ui_text_font_sizes(
             * style
                 .font_size()
                 .eval(target.logical_size(), default_font_size);
-        if size.0 != new_size {
-            println!("new_size = {}", new_size);
-        }
         size.set_if_neq(ComputedFontSize(new_size));
     }
 }

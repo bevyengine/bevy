@@ -1,8 +1,12 @@
-use crate::{Font, FontAtlas, FontSmoothing, TextFont};
+use crate::{ComputedFontSize, ComputedTextStyle, Font, FontAtlas, FontSmoothing};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
-use bevy_platform::collections::HashMap;
+use bevy_ecs::{
+    message::MessageReader,
+    resource::Resource,
+    system::{Local, Query, ResMut},
+};
+use bevy_platform::collections::{HashMap, HashSet};
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
@@ -59,7 +63,7 @@ pub fn free_unused_font_atlases(
 ) {
     // collect keys for all fonts currently in use by a text entity
     active_fonts.extend(active_font_query.iter().map(|(style, font_size)| {
-        FontAtlasKey(style.font.id(), font_size.0.to_bits(), style.font_smoothing)
+        FontAtlasKey(style.font, font_size.0.to_bits(), style.font_smoothing)
     }));
 
     // remove any keys for fonts in use from the least recently used list
@@ -76,7 +80,7 @@ pub fn free_unused_font_atlases(
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
     let number_of_fonts_to_free = font_atlas_set
-        .font_count()
+        .len()
         .saturating_sub(max_fonts.0)
         .min(least_recently_used.len());
     for font_atlas_key in least_recently_used.drain(..number_of_fonts_to_free) {

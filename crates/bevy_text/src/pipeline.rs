@@ -16,8 +16,8 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, style::ComputedTextStyle,
-    ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontAtlasSets, FontFace, FontSmoothing,
-    Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout,
+    ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontFace, FontSmoothing, Justify,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]

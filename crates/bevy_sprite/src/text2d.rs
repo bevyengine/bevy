@@ -23,7 +23,7 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
-    Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    Font, FontAtlasSet, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
     TextPipeline, TextRoot,
 };
 use bevy_transform::components::Transform;

@@ -88,7 +88,7 @@ impl Plugin for SpritePlugin {
             (
                 resolve_text2d_font_sizes,
                 update_text_roots::<Text2d>,
-                update_text2d_layout.after(bevy_text::remove_dropped_font_atlas_sets),
+                update_text2d_layout.after(bevy_text::free_unused_font_atlases_system),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
