@@ -244,11 +244,11 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         },
         children![
-            TextSpan::default(),
-            TextSpan::default(),
-            TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"),
-            TextSpan::new("3/4: -/+ sample count (blur quality)\n"),
-            TextSpan::new("Spacebar: cycle camera\n"),
+            Text::default(),
+            Text::default(),
+            Text::new("1/2: -/+ shutter angle (blur amount)\n"),
+            Text::new("3/4: -/+ sample count (blur quality)\n"),
+            Text::new("Spacebar: cycle camera\n"),
         ],
     ));
 }

@@ -2,7 +2,7 @@ use crate::{
     experimental::UiChildren,
     prelude::{Button, Label},
     ui_transform::UiGlobalTransform,
-    widget::{ImageNode, TextUiReader},
+    widget::{ImageNode, Text},
     ComputedNode,
 };
 use bevy_a11y::AccessibilityNode;
@@ -17,19 +17,17 @@ use bevy_ecs::{
 
 use accesskit::{Node, Rect, Role};
 use bevy_camera::CameraUpdateSystems;
+use bevy_text::{ComputedTextStyleUpdateSystems, TextRoot};
 
 fn calc_label(
-    text_reader: &mut TextUiReader,
+    text_query: &Query<&Text>,
     children: impl Iterator<Item = Entity>,
 ) -> Option<Box<str>> {
     let mut name = None;
     for child in children {
-        let values = text_reader
-            .iter(child)
-            .map(|(_, _, text, _, _)| text.into())
-            .collect::<Vec<String>>();
-        if !values.is_empty() {
-            name = Some(values.join(" "));
+        let values = text_query.get(child).map(|text| text.0.clone());
+        if let Ok(values) = values {
+            name = Some(values);
         }
     }
     name.map(String::into_boxed_str)
@@ -58,7 +56,7 @@ fn button_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
     ui_children: UiChildren,
-    mut text_reader: TextUiReader,
+    mut text_reader: Query<&Text>,
 ) {
     for (entity, accessible) in &mut query {
         let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -88,7 +86,7 @@ fn image_changed(
         (Changed<ImageNode>, Without<Button>),
     >,
     ui_children: UiChildren,
-    mut text_reader: TextUiReader,
+    mut text_reader: Query<&Text>,
 ) {
     for (entity, accessible) in &mut query {
         let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
@@ -114,12 +112,16 @@ fn image_changed(
 fn label_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
-    mut text_reader: TextUiReader,
+    root_query: Query<&TextRoot>,
+    text_reader: Query<&Text>,
 ) {
     for (entity, accessible) in &mut query {
-        let values = text_reader
-            .iter(entity)
-            .map(|(_, _, text, _, _)| text.into())
+        let values = root_query
+            .get(entity)
+            .unwrap()
+            .0
+            .iter()
+            .map(|entity| text_reader.get(*entity).ok().unwrap().0.clone())
             .collect::<Vec<String>>();
         let label = Some(values.join(" ").into_boxed_str());
         if let Some(mut accessible) = accessible {
@@ -154,9 +156,8 @@ impl Plugin for AccessibilityPlugin {
                     .after(CameraUpdateSystems)
                     // the listed systems do not affect calculated size
                     .ambiguous_with(crate::ui_stack_system),
-                button_changed,
-                image_changed,
-                label_changed,
+                (button_changed, image_changed, label_changed)
+                    .before(ComputedTextStyleUpdateSystems),
             ),
         );
     }

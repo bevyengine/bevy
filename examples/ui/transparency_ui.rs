@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 1"),
-                        TextFont {
+                        FontFace {
                             font: font_handle.clone(),
                             font_size: 33.0,
                             ..default()
@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent.spawn((
                         Text::new("Button 2"),
-                        TextFont {
+                        FontFace {
                             font: font_handle.clone(),
                             font_size: 33.0,
                             ..default()

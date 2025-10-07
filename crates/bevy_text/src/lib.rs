@@ -39,8 +39,8 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod pipeline;
+mod style;
 mod text;
-mod text_access;
 
 pub use bounds::*;
 pub use error::*;
@@ -50,8 +50,8 @@ pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
+pub use style::*;
 pub use text::*;
-pub use text_access::*;
 
 /// The text prelude.
 ///
@@ -59,7 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        ComputedTextStyle, DefaultTextStyle, Font, FontFace, FontSize, FontSmoothing, Justify,
+        LineBreak, LineHeight, TextColor, TextError, TextLayout, TextStyle,
     };
 }
 
@@ -86,6 +87,10 @@ pub struct Text2dUpdateSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
 pub type Update2dText = Text2dUpdateSystems;
 
+/// System set in [`PostUpdate`] where all text styles are updated.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct ComputedTextStyleUpdateSystems;
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
@@ -94,12 +99,36 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
+            .init_resource::<DefaultTextStyle>()
+            .init_resource::<MaxFonts>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
+                (
+                    update_from_inherited_text_style_sources::<FontFace>,
+                    update_reparented_inherited_styles::<FontFace>,
+                    propagate_inherited_styles::<FontFace>,
+                    update_from_inherited_text_style_sources::<TextColor>,
+                    update_reparented_inherited_styles::<TextColor>,
+                    propagate_inherited_styles::<TextColor>,
+                    update_from_inherited_text_style_sources::<FontSize>,
+                    update_reparented_inherited_styles::<FontSize>,
+                    propagate_inherited_styles::<FontSize>,
+                    update_from_inherited_text_style_sources::<LineHeight>,
+                    update_reparented_inherited_styles::<LineHeight>,
+                    propagate_inherited_styles::<LineHeight>,
+                    update_from_inherited_text_style_sources::<FontSmoothing>,
+                    update_reparented_inherited_styles::<FontSmoothing>,
+                    propagate_inherited_styles::<FontSmoothing>,
+                    update_computed_text_styles,
+                )
+                    .chain()
+                    .in_set(ComputedTextStyleUpdateSystems),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(
+                PostUpdate,
+                (free_unused_font_atlases_system.before(AssetEventSystems),),
+            )
+            .add_systems(Last, (trim_cosmic_cache, free_unused_font_atlases));
 
         #[cfg(feature = "default_font")]
         {

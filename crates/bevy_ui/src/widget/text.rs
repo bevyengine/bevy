@@ -6,10 +6,9 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
     world::{Mut, Ref},
@@ -18,9 +17,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
+    Font, FontAtlasSet, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextRoot,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -51,7 +50,7 @@ impl Default for TextNodeFlags {
 /// Adding [`Text`] to an entity will pull in required components for setting up a UI text node.
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](bevy_text::TextSpan) for the component used by children of entities with [`Text`].
+/// a [`ComputedTextBlock`].
 ///
 /// Note that [`Transform`](bevy_transform::components::Transform) on this entity is managed automatically by the UI layout system.
 ///
@@ -61,7 +60,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, FontFace, TextColor};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -73,11 +72,8 @@ impl Default for TextNodeFlags {
 /// // With non-default style.
 /// world.spawn((
 ///     Text::new("hello world!"),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
+///     FontFace(font_handle.clone()),
+///     FontSize(60.0),
 ///     TextColor(BLUE.into()),
 /// ));
 ///
@@ -89,13 +85,13 @@ impl Default for TextNodeFlags {
 ///
 /// // With spans
 /// world.spawn(Text::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text::new("world"));
+///     parent.spawn((Text::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(Node, TextLayout, ComputedTextStyle, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
 impl Text {
@@ -105,26 +101,9 @@ impl Text {
     }
 }
 
-impl TextRoot for Text {}
-
-impl TextSpanAccess for Text {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for Text {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
 impl From<String> for Text {
     fn from(value: String) -> Self {
-        Self(value)
+        Text(value)
     }
 }
 
@@ -149,12 +128,6 @@ impl Default for TextShadow {
         }
     }
 }
-
-/// UI alias for [`TextReader`].
-pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
-
-/// UI alias for [`TextWriter`].
-pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
@@ -220,7 +193,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -270,38 +243,54 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_query: Query<
-        (
-            Entity,
-            Ref<TextLayout>,
-            &mut ContentSize,
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
-        ),
-        With<Node>,
-    >,
-    mut text_reader: TextUiReader,
+    mut text_root_query: Query<(
+        Entity,
+        Ref<TextLayout>,
+        &mut ContentSize,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
+        Ref<ComputedUiRenderTargetInfo>,
+        &ComputedNode,
+        Ref<TextRoot>,
+    )>,
+    text_query: Query<(&Text, &ComputedTextStyle, &ComputedFontSize)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-        &mut text_query
+    for (
+        entity,
+        block,
+        content_size,
+        text_flags,
+        computed,
+        computed_target,
+        computed_node,
+        text_root,
+    ) in &mut text_root_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
         if 1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            || text_root.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
         {
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style, font_size)| {
+                        (entity, 0, text.0.as_str(), style, font_size.0)
+                    })
+                    .ok()
+            });
+
             create_text_measure(
                 entity,
                 &fonts,
                 computed_target.scale_factor.into(),
-                text_reader.iter(entity),
+                spans,
                 block,
                 &mut text_pipeline,
                 content_size,
@@ -314,8 +303,7 @@ pub fn measure_text_system(
 }
 
 #[inline]
-fn queue_text(
-    entity: Entity,
+fn queue_text<'a>(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_set: &mut FontAtlasSet,
@@ -328,9 +316,9 @@ fn queue_text(
     mut text_flags: Mut<TextNodeFlags>,
     text_layout_info: Mut<TextLayoutInfo>,
     computed: &mut ComputedTextBlock,
-    text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a ComputedTextStyle, f32)>,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -349,7 +337,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
-        text_reader.iter(entity),
+        spans,
         scale_factor.into(),
         block,
         physical_node_size,
@@ -389,22 +377,29 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
-        Entity,
+    mut text_root_query: Query<(
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
+        &TextRoot,
     )>,
-    mut text_reader: TextUiReader,
+    text_query: Query<(&Text, &ComputedTextStyle, &ComputedFontSize)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (node, block, text_layout_info, text_flags, mut computed, text_root) in &mut text_root_query
+    {
         if node.is_changed() || text_flags.needs_recompute {
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style, size)| (entity, 0, text.0.as_str(), style, size.0))
+                    .ok()
+            });
+
             queue_text(
-                entity,
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_set,
@@ -417,10 +412,30 @@ pub fn text_system(
                 text_flags,
                 text_layout_info,
                 computed.as_mut(),
-                &mut text_reader,
                 &mut font_system,
                 &mut swash_cache,
+                spans,
             );
         }
+    }
+}
+
+pub fn resolve_ui_text_font_sizes(
+    default_text_style: Res<DefaultTextStyle>,
+    mut query: Query<(
+        &mut ComputedTextStyle,
+        &mut ComputedUiRenderTargetInfo,
+        &mut ComputedFontSize,
+    )>,
+) {
+    for (style, target, mut size) in query.iter_mut() {
+        let default_font_size = default_text_style
+            .font_size
+            .eval(target.logical_size(), 20.);
+        let new_size = target.scale_factor
+            * style
+                .font_size()
+                .eval(target.logical_size(), default_font_size);
+        size.set_if_neq(ComputedFontSize(new_size));
     }
 }

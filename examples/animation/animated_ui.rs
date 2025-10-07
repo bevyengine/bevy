@@ -47,7 +47,7 @@ impl AnimationInfo {
         animation_clip.add_curve_to_target(
             animation_target_id,
             AnimatableCurve::new(
-                animated_field!(TextFont::font_size),
+                animated_field!(FontSize::Px(font_size)),
                 AnimatableKeyframeCurve::new(
                     [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
                         .into_iter()
@@ -141,11 +141,8 @@ fn setup(
     let player = entity.id();
     entity.insert(children![(
         Text::new("Bevy"),
-        TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 24.0,
-            ..default()
-        },
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize::Px(24.0),
         TextColor(Color::Srgba(Srgba::RED)),
         TextLayout::new_with_justify(Justify::Center),
         animation_target_id,

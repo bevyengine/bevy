@@ -1,6 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
+    widget::Text,
     BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, LayoutConfig,
     Node, Outline, OverflowAxis, ScrollPosition,
 };
@@ -9,7 +10,7 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::Added,
+    query::{Added, Or, With, Without},
     system::{Query, ResMut},
     world::Ref,
 };
@@ -19,7 +20,7 @@ use bevy_sprite::BorderRect;
 use thiserror::Error;
 use ui_surface::UiSurface;
 
-use bevy_text::ComputedTextBlock;
+use bevy_text::{ComputedTextBlock, TextRoot};
 
 use bevy_text::CosmicFontSystem;
 
@@ -74,23 +75,29 @@ pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     ui_children: UiChildren,
-    mut node_query: Query<(
-        Entity,
-        Ref<Node>,
-        Option<&mut ContentSize>,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
+    mut node_query: Query<
+        (
+            Entity,
+            Ref<Node>,
+            Option<&mut ContentSize>,
+            Ref<ComputedUiRenderTargetInfo>,
+        ),
+        Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
+    >,
     added_node_query: Query<(), Added<Node>>,
-    mut node_update_query: Query<(
-        &mut ComputedNode,
-        &UiTransform,
-        &mut UiGlobalTransform,
-        &Node,
-        Option<&LayoutConfig>,
-        Option<&BorderRadius>,
-        Option<&Outline>,
-        Option<&ScrollPosition>,
-    )>,
+    mut node_update_query: Query<
+        (
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            &Node,
+            Option<&LayoutConfig>,
+            Option<&BorderRadius>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+        ),
+        Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
+    >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut removed_children: RemovedComponents<Children>,
@@ -192,16 +199,19 @@ pub fn ui_layout_system(
         inherited_use_rounding: bool,
         target_size: Vec2,
         mut inherited_transform: Affine2,
-        node_update_query: &mut Query<(
-            &mut ComputedNode,
-            &UiTransform,
-            &mut UiGlobalTransform,
-            &Node,
-            Option<&LayoutConfig>,
-            Option<&BorderRadius>,
-            Option<&Outline>,
-            Option<&ScrollPosition>,
-        )>,
+        node_update_query: &mut Query<
+            (
+                &mut ComputedNode,
+                &UiTransform,
+                &mut UiGlobalTransform,
+                &Node,
+                Option<&LayoutConfig>,
+                Option<&BorderRadius>,
+                Option<&Outline>,
+                Option<&ScrollPosition>,
+            ),
+            Or<(Without<Text>, (With<Text>, With<TextRoot>))>,
+        >,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,

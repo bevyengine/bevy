@@ -24,10 +24,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
-    let text_font = TextFont {
-        font_size: 13.,
-        ..default()
-    };
+    let font_size = FontSize::Px(13.);
 
     commands
         .spawn((
@@ -54,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BackgroundColor(RED.into()),
                 ))
                 .with_children(|parent| {
-                    parent.spawn((Text::new("Size!"), text_font, TextColor::BLACK));
+                    parent.spawn((Text::new("Size!"), font_size, TextColor::BLACK));
                 });
             parent.spawn((
                 Node {

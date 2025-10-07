@@ -40,14 +40,7 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         // Text where we display current resolution
-        .with_child((
-            Text::new("Resolution"),
-            TextFont {
-                font_size: 42.0,
-                ..default()
-            },
-            ResolutionText,
-        ));
+        .with_child((Text::new("Resolution"), FontSize::Px(42.0), ResolutionText));
 }
 
 /// This system shows how to request the window to a new resolution

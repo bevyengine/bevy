@@ -23,7 +23,7 @@ fn setup(
     // Camera
     commands.spawn(Camera2d);
 
-    let text_font = TextFont::default();
+    let text_font = FontFace::default();
 
     let texture_handle = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let texture_atlas = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
@@ -57,11 +57,11 @@ fn setup(
             parent
                 .spawn((Text::new("press "), text_font.clone()))
                 .with_child((
-                    TextSpan::new("space"),
+                    Text::new("space"),
                     TextColor(YELLOW.into()),
                     text_font.clone(),
                 ))
-                .with_child((TextSpan::new(" to advance frames"), text_font));
+                .with_child((Text::new(" to advance frames"), text_font));
         });
 }
 

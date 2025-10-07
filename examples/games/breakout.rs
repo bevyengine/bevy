@@ -210,7 +210,7 @@ fn setup(
     // Scoreboard
     commands.spawn((
         Text::new("Score: "),
-        TextFont {
+        FontFace {
             font_size: SCOREBOARD_FONT_SIZE,
             ..default()
         },
@@ -223,8 +223,8 @@ fn setup(
             ..default()
         },
         children![(
-            TextSpan::default(),
-            TextFont {
+            Text::default(),
+            FontFace {
                 font_size: SCOREBOARD_FONT_SIZE,
                 ..default()
             },

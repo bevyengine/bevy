@@ -7,7 +7,9 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -20,9 +22,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    ComputedFontSize, ComputedTextBlock, ComputedTextStyle, CosmicFontSystem, DefaultTextStyle,
+    Font, FontAtlasSet, LineBreak, SwashCache, TextBounds, TextError, TextLayout, TextLayoutInfo,
+    TextPipeline, TextRoot,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -45,7 +47,7 @@ use core::any::TypeId;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, FontFace, TextColor, TextSpan};
 /// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -57,11 +59,8 @@ use core::any::TypeId;
 /// // With non-default style.
 /// world.spawn((
 ///     Text2d::new("hello world!"),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
+///     FontFace(font_handle.clone()),
+///     FontSize::Px(60.0),
 ///     TextColor(BLUE.into()),
 /// ));
 ///
@@ -73,20 +72,19 @@ use core::any::TypeId;
 ///
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text2d::new("world"));
+///     parent.spawn((Text2d::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     TextLayout,
-    TextFont,
-    TextColor,
     TextBounds,
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedTextStyle,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -98,35 +96,6 @@ impl Text2d {
         Self(text.into())
     }
 }
-
-impl TextRoot for Text2d {}
-
-impl TextSpanAccess for Text2d {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for Text2d {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for Text2d {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-/// 2d alias for [`TextReader`].
-pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
-
-/// 2d alias for [`TextWriter`].
-pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// Adds a shadow behind `Text2d` text
 ///
@@ -158,7 +127,7 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers, Vec2)>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
@@ -167,15 +136,16 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
+    text_query: Query<(&Text2d, &ComputedTextStyle, &ComputedFontSize)>,
+    mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        Ref<TextRoot>,
     )>,
-    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -188,37 +158,44 @@ pub fn update_text2d_layout(
             })
             .filter_map(|(camera, _, maybe_camera_mask)| {
                 camera.target_scaling_factor().map(|scale_factor| {
-                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
+                    (
+                        scale_factor,
+                        maybe_camera_mask.cloned().unwrap_or_default(),
+                        camera.logical_viewport_size().unwrap_or_default(),
+                    )
                 })
             }),
     );
 
     let mut previous_scale_factor = 0.;
+    let mut previous_viewport_size = Vec2::ZERO;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, text_root) in
+        &mut text_root_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
-        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
-            previous_scale_factor
+        let (scale_factor, _) = if entity_mask == previous_mask && 0. < previous_scale_factor {
+            (previous_scale_factor, previous_viewport_size)
         } else {
             // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
             // render targets with different scale factors, then we use the maximum of the scale factors.
-            let Some((scale_factor, mask)) = target_scale_factors
+            let Some((scale_factor, mask, viewport_size)) = target_scale_factors
                 .iter()
-                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
-                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
+                .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
+                .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
             else {
                 continue;
             };
             previous_scale_factor = *scale_factor;
+            previous_viewport_size = *viewport_size;
             previous_mask = mask;
-            *scale_factor
+            (*scale_factor, *viewport_size)
         };
 
         if scale_factor != text_layout_info.scale_factor
+            || text_root.is_changed()
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
@@ -232,11 +209,18 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let spans = text_root.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style, size)| (entity, 0, text.0.as_str(), style, size.0))
+                    .ok()
+            });
+
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                text_reader.iter(entity),
+                spans,
                 scale_factor as f64,
                 &block,
                 text_bounds,
@@ -278,7 +262,11 @@ pub fn calculate_bounds_text2d(
             &TextBounds,
             Option<&mut Aabb>,
         ),
-        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+        (
+            Changed<TextLayoutInfo>,
+            Without<NoFrustumCulling>,
+            With<TextRoot>,
+        ),
     >,
 ) {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
@@ -301,6 +289,65 @@ pub fn calculate_bounds_text2d(
     }
 }
 
+pub fn resolve_text2d_font_sizes(
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers, Vec2)>>,
+    default_text_style: Res<DefaultTextStyle>,
+    mut query: Query<(
+        &mut ComputedTextStyle,
+        Option<&RenderLayers>,
+        &mut ComputedFontSize,
+    )>,
+    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
+) {
+    target_scale_factors.clear();
+    target_scale_factors.extend(
+        camera_query
+            .iter()
+            .filter(|(_, visible_entities, _)| {
+                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
+            })
+            .filter_map(|(camera, _, maybe_camera_mask)| {
+                camera.target_scaling_factor().map(|scale_factor| {
+                    (
+                        scale_factor,
+                        maybe_camera_mask.cloned().unwrap_or_default(),
+                        camera.logical_viewport_size().unwrap_or_default(),
+                    )
+                })
+            }),
+    );
+
+    let mut previous_scale_factor = 0.;
+    let mut previous_viewport_size = Vec2::ZERO;
+    let mut previous_mask = &RenderLayers::none();
+    for (style, maybe_entity_mask, mut size) in query.iter_mut() {
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
+
+        let (scale_factor, viewport_size) =
+            if entity_mask == previous_mask && 0. < previous_scale_factor {
+                (previous_scale_factor, previous_viewport_size)
+            } else {
+                // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+                // render targets with different scale factors, then we use the maximum of the scale factors.
+                let Some((scale_factor, mask, viewport_size)) = target_scale_factors
+                    .iter()
+                    .filter(|(_, camera_mask, _)| camera_mask.intersects(entity_mask))
+                    .max_by_key(|(scale_factor, _, _)| FloatOrd(*scale_factor))
+                else {
+                    continue;
+                };
+                previous_scale_factor = *scale_factor;
+                previous_viewport_size = *viewport_size;
+                previous_mask = mask;
+                (*scale_factor, *viewport_size)
+            };
+
+        let default_font_size = default_text_style.font_size.eval(viewport_size, 20.);
+        let new_size = scale_factor * style.font_size().eval(viewport_size, default_font_size);
+        size.set_if_neq(ComputedFontSize(new_size));
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -309,7 +356,8 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::*;
+    use bevy_text::{update_computed_text_styles, DefaultTextStyle};
 
     use super::*;
 
@@ -325,11 +373,27 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
+            .init_resource::<DefaultTextStyle>()
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d>,
+                    update_from_inherited_text_style_sources::<FontFace>,
+                    update_reparented_inherited_styles::<FontFace>,
+                    propagate_inherited_styles::<FontFace>,
+                    update_from_inherited_text_style_sources::<TextColor>,
+                    update_reparented_inherited_styles::<TextColor>,
+                    propagate_inherited_styles::<TextColor>,
+                    update_from_inherited_text_style_sources::<FontSize>,
+                    update_reparented_inherited_styles::<FontSize>,
+                    propagate_inherited_styles::<FontSize>,
+                    update_from_inherited_text_style_sources::<LineHeight>,
+                    update_reparented_inherited_styles::<LineHeight>,
+                    propagate_inherited_styles::<LineHeight>,
+                    update_from_inherited_text_style_sources::<FontSmoothing>,
+                    update_reparented_inherited_styles::<FontSmoothing>,
+                    propagate_inherited_styles::<FontSmoothing>,
+                    update_computed_text_styles,
+                    update_text_roots::<Text2d>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

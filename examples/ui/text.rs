@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::FontSize,
 };
 
 fn main() {
@@ -32,12 +33,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 67.0,
-            ..default()
-        },
+        // This font is loaded and will be used instead of the default font.
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize::Px(67.0),
         TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
@@ -48,7 +46,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             right: px(5),
             ..default()
         },
+        TextColor::WHITE,
         AnimatedText,
+    ));
+
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(250),
+            left: px(250),
+            column_gap: px(10.),
+            ..default()
+        },
+        children![
+            (Text::new("one"), FontSize::Rem(1.)),
+            (Text::new("two"), FontSize::Rem(2.)),
+            (Text::new("three"), FontSize::Rem(3.)),
+            (Text::new("calc"), FontSize::Calc(|calc| 3. * calc.rem())),
+            (
+                Text::new("calc"),
+                FontSize::Calc(|calc| 3. * calc.rem() + 0.1 * calc.vh()),
+            ),
+        ],
     ));
 
     // Text with multiple sections
@@ -56,37 +75,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             // Create a Text with multiple child spans.
             Text::new("FPS: "),
-            TextFont {
-                // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 42.0,
-                ..default()
-            },
+            // This font is loaded and will be used instead of the default font.
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize::Px(42.0),
         ))
-        .with_child((
-            TextSpan::default(),
+        .with_children(|parent| {
+            let mut entity_commands = parent.spawn((Text::new("0"), FpsText));
             if cfg!(feature = "default_font") {
-                (
-                    TextFont {
-                        font_size: 33.0,
-                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
-                    },
+                entity_commands.insert((
+                    // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
+                    FontSize::Px(33.),
                     TextColor(GOLD.into()),
-                )
+                    FpsText,
+                ));
             } else {
-                (
+                entity_commands.insert((
                     // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 33.0,
-                        ..Default::default()
-                    },
+                    FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
+                    FontSize::Px(33.),
                     TextColor(GOLD.into()),
-                )
-            },
-            FpsText,
-        ));
+                    FpsText,
+                ));
+            };
+        });
 
     #[cfg(feature = "default_font")]
     commands.spawn((
@@ -104,10 +115,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     #[cfg(not(feature = "default_font"))]
     commands.spawn((
         Text::new("Default font disabled"),
-        TextFont {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            ..default()
-        },
+        FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(5),
@@ -132,7 +140,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Anim
 
 fn text_update_system(
     diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut TextSpan, With<FpsText>>,
+    mut query: Query<&mut Text, With<FpsText>>,
 ) {
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)

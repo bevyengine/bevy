@@ -176,10 +176,7 @@ fn setup_image_viewer_scene(
 
     commands.spawn((
         Text::new("Drag and drop an HDR or EXR file"),
-        TextFont {
-            font_size: 36.0,
-            ..default()
-        },
+        FontSize::Px(36.),
         TextColor(Color::BLACK),
         TextLayout::new_with_justify(Justify::Center),
         Node {

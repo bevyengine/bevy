@@ -153,10 +153,7 @@ fn setup_scene(
         ))
         .with_child((
             Text::new("Test Button"),
-            TextFont {
-                font_size: 30.0,
-                ..default()
-            },
+            FontSize::Px(30.),
             TextColor::BLACK,
             TextLayout::new_with_justify(Justify::Center),
         ));

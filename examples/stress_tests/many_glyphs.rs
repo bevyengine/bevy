@@ -66,10 +66,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let text_font = TextFont {
-        font_size: 4.,
-        ..Default::default()
-    };
+    let font_sizetext_font = FontSize::Px(4.);
     let text_block = TextLayout {
         justify: Justify::Left,
         linebreak: LineBreak::AnyCharacter,
@@ -89,14 +86,18 @@ fn setup(mut commands: Commands, args: Res<Args>) {
                         width: px(1000),
                         ..Default::default()
                     })
-                    .with_child((Text(text_string.clone()), text_font.clone(), text_block));
+                    .with_child((
+                        Text(text_string.clone()),
+                        font_sizetext_font.clone(),
+                        text_block,
+                    ));
             });
     }
 
     if !args.no_text2d {
         commands.spawn((
             Text2d::new(text_string),
-            text_font.clone(),
+            font_sizetext_font.clone(),
             TextColor(RED.into()),
             bevy::sprite::Anchor::CENTER,
             TextBounds::new_horizontal(1000.),

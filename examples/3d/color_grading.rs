@@ -291,10 +291,7 @@ fn add_help_text(
 ) {
     commands.spawn((
         Text::new(create_help_text(currently_selected_option)),
-        TextFont {
-            font: font.clone(),
-            ..default()
-        },
+        FontFace(font.clone()),
         Node {
             position_type: PositionType::Absolute,
             left: px(12),
@@ -309,11 +306,8 @@ fn add_help_text(
 fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
-        TextFont {
-            font: font.clone(),
-            font_size: 15.0,
-            ..default()
-        },
+        FontFace(font.clone()),
+        FontSize::Px(15.),
         TextColor(color),
     )
 }
@@ -521,6 +515,7 @@ fn handle_button_presses(
 
 /// Updates the state of the UI based on the current state.
 fn update_ui_state(
+    mut commands: Commands,
     mut buttons: Query<(
         &mut BackgroundColor,
         &mut BorderColor,
@@ -528,7 +523,6 @@ fn update_ui_state(
     )>,
     button_text: Query<(Entity, &ColorGradingOptionWidget), (With<Text>, Without<HelpText>)>,
     help_text: Single<Entity, With<HelpText>>,
-    mut writer: TextUiWriter,
     cameras: Single<Ref<ColorGrading>>,
     currently_selected_option: Res<SelectedColorGradingOption>,
 ) {
@@ -560,22 +554,20 @@ fn update_ui_state(
             Color::WHITE
         };
 
-        writer.for_each_color(entity, |mut text_color| {
-            text_color.0 = color;
-        });
+        commands.entity(entity).insert(TextColor(color));
 
         // Update the displayed value, if this is the currently-selected option.
         if widget.widget_type == ColorGradingOptionWidgetType::Value
             && *currently_selected_option == widget.option
         {
-            writer.for_each_text(entity, |mut text| {
-                text.clone_from(&value_label);
-            });
+            commands.entity(entity).insert(Text::new(&value_label));
         }
     }
 
     // Update the help text.
-    *writer.text(*help_text, 0) = create_help_text(&currently_selected_option);
+    commands
+        .entity(*help_text)
+        .insert(Text(create_help_text(&currently_selected_option)));
 }
 
 /// Creates the help text at the top left of the window.

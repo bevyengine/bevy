@@ -43,15 +43,15 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         children![
-            TextSpan::new("Click to toggle IME. Press return to start a new line.\n\n",),
-            TextSpan::new("IME Enabled: "),
-            TextSpan::new("false\n"),
-            TextSpan::new("IME Active:  "),
-            TextSpan::new("false\n"),
-            TextSpan::new("IME Buffer:  "),
+            Text::new("Click to toggle IME. Press return to start a new line.\n\n",),
+            Text::new("IME Enabled: "),
+            Text::new("false\n"),
+            Text::new("IME Active:  "),
+            Text::new("false\n"),
+            Text::new("IME Buffer:  "),
             (
-                TextSpan::new("\n"),
-                TextFont {
+                Text::new("\n"),
+                FontFace {
                     font: font.clone(),
                     ..default()
                 },
@@ -61,7 +61,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn((
         Text2d::new(""),
-        TextFont {
+        FontFace {
             font,
             font_size: 100.0,
             ..default()
@@ -132,7 +132,7 @@ fn listen_ime_events(
 fn listen_keyboard_input_events(
     mut commands: Commands,
     mut keyboard_input_reader: MessageReader<KeyboardInput>,
-    edit_text: Single<(&mut Text2d, &TextFont), (Without<Node>, Without<Bubble>)>,
+    edit_text: Single<(&mut Text2d, &FontFace), (Without<Node>, Without<Bubble>)>,
 ) {
     let (mut text, style) = edit_text.into_inner();
     for keyboard_input in keyboard_input_reader.read() {

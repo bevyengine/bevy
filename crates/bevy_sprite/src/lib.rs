@@ -28,7 +28,7 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
-    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter};
+    pub use crate::text2d::Text2d;
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -44,6 +44,8 @@ use bevy_camera::{
     visibility::VisibilitySystems,
 };
 use bevy_mesh::{Mesh, Mesh2d};
+#[cfg(feature = "bevy_text")]
+use bevy_text::update_text_roots;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use sprite::*;
@@ -84,15 +86,16 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (
-                bevy_text::detect_text_needs_rerender::<Text2d>,
-                update_text2d_layout
-                    .after(bevy_camera::CameraUpdateSystems)
-                    .after(bevy_text::free_unused_font_atlases_system),
+                resolve_text2d_font_sizes,
+                update_text_roots::<Text2d>,
+                update_text2d_layout.after(bevy_text::free_unused_font_atlases_system),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
                 .in_set(bevy_text::Text2dUpdateSystems)
-                .after(bevy_app::AnimationSystems),
+                .after(bevy_text::ComputedTextStyleUpdateSystems)
+                .after(bevy_app::AnimationSystems)
+                .after(bevy_camera::CameraUpdateSystems),
         );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]

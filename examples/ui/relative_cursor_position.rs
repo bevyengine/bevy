@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             parent.spawn((
                 Text::new("(0.0, 0.0)"),
-                TextFont {
+                FontFace {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 33.0,
                     ..default()

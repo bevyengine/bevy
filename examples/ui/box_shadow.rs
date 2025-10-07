@@ -274,11 +274,8 @@ fn setup(
                     SettingsButton::Reset,
                     children![(
                         Text::new("Reset"),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
+                        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                        FontSize::Px(16.0),
                     )],
                 )],
             ),
@@ -308,6 +305,8 @@ fn build_setting_row(
             height: px(32),
             ..default()
         },
+        FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+        FontSize::Px(16.0),
         children![
             (
                 Node {
@@ -317,14 +316,7 @@ fn build_setting_row(
                     ..default()
                 },
                 // Attach SettingType to the value label node, not the parent row
-                children![(
-                    Text::new(setting_type.label()),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 16.0,
-                        ..default()
-                    },
-                )],
+                children![(Text::new(setting_type.label()),)],
             ),
             (
                 Button,
@@ -345,11 +337,7 @@ fn build_setting_row(
                     } else {
                         "-"
                     }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 18.0,
-                        ..default()
-                    },
+                    FontSize::Px(18.0),
                 )],
             ),
             (
@@ -362,17 +350,7 @@ fn build_setting_row(
                     ..default()
                 },
                 BorderRadius::all(px(6)),
-                children![{
-                    (
-                        Text::new(value_text),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        setting_type,
-                    )
-                }],
+                children![{ (Text::new(value_text), setting_type,) }],
             ),
             (
                 Button,
@@ -392,11 +370,7 @@ fn build_setting_row(
                     } else {
                         "+"
                     }),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 18.0,
-                        ..default()
-                    },
+                    FontSize::Px(18.0),
                 )],
             ),
         ],
