@@ -28,7 +28,7 @@ use core::{f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
 ///
-/// Use [`FreeCamController`] to add a freecam controller to a camera entity,
+/// Use [`FreeCam`] to add a freecam controller to a camera entity,
 /// and change its values to customize the controls and change its behavior.
 pub struct FreeCamPlugin;
 
@@ -38,10 +38,12 @@ impl Plugin for FreeCamPlugin {
     }
 }
 
+/// Scales mouse motion into yaw/pitch movement.
+///
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly 1.0 / 180.0,
 /// but I'm guessing it is a misunderstanding between degrees/radians and then sticking with
 /// it because it felt nice.
-pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
+const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
 /// Freecam controller settings and state.
 ///
@@ -146,8 +148,8 @@ Freecam Controls:
 
 /// This system is typically added via the [`FreeCamPlugin`].
 ///
-/// to the [`FreeCamController`] settings.
 /// Reads inputs and then moves the camera entity according
+/// to the settings given in [`FreeCam`].
 pub fn run_freecam_controller(
     time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
