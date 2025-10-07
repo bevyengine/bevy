@@ -654,6 +654,70 @@ fn asset_processor_transforms_asset_with_meta() {
     );
 }
 
+#[test]
+fn asset_processor_transforms_asset_with_short_path_meta() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(AddText("_def".into())),
+            CoolTextSaver,
+        ));
+
+    let guard = source_gate.write_blocking();
+
+    let path = Path::new("abc.cool.ron");
+    source_dir.insert_asset_text(
+        path,
+        r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+    );
+    source_dir.insert_meta_text(path, r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#);
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let processed_asset = processed_dir.get_asset(path).unwrap();
+    let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+    assert_eq!(
+        processed_asset,
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
+    );
+}
+
 #[derive(Asset, TypePath, Serialize, Deserialize)]
 struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
