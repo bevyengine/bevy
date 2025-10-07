@@ -309,10 +309,10 @@ impl Column {
     /// # Safety
     /// - `len` must match the actual length of the column
     /// -   The caller must not use the elements this column's data until [`initializing`](Self::initialize) it again (set `len` to 0).
-    pub(crate) unsafe fn clear(&mut self, len: usize) {
+    pub(crate) unsafe fn clear(&mut self, len: usize, range: impl RangeBounds<usize>) {
         self.added_ticks.clear_elements(len);
         self.changed_ticks.clear_elements(len);
-        self.data.clear_range(..len);
+        self.data.clear_range(range);
         self.changed_by
             .as_mut()
             .map(|changed_by| changed_by.clear_elements(len));

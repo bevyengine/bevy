@@ -2594,6 +2594,12 @@ impl<'w> EntityWorldMut<'w> {
                 }
             }
 
+            for component_id in archetype.sparse_set_components() {
+                // set must have existed for the component to be added.
+                let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
+                sparse_set.swap_disable(self.entity);
+            }
+
             // SAFETY: TODO
             let ((disabled_table, table_row), swapped_table) = unsafe {
                 world.storages.tables[archetype.table_id()]

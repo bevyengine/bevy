@@ -128,6 +128,7 @@ pub struct ComponentSparseSet {
     entities: Vec<EntityRow>,
     #[cfg(debug_assertions)]
     entities: Vec<Entity>,
+    disabled_entities: u32,
     sparse: SparseArray<EntityRow, TableRow>,
 }
 
@@ -140,13 +141,17 @@ impl ComponentSparseSet {
             dense: Column::with_capacity(component_info, entities.capacity()),
             entities,
             sparse: Default::default(),
+            disabled_entities: 0,
         }
     }
 
     /// Removes all of the values stored within.
     pub(crate) fn clear(&mut self) {
         // SAFETY: This is using the size of the ComponentSparseSet.
-        unsafe { self.dense.clear(self.len()) };
+        unsafe {
+            self.dense
+                .clear(self.len(), self.disabled_entities as usize..self.len());
+        }
         self.entities.clear();
         self.sparse.clear();
     }
@@ -215,6 +220,55 @@ impl ComponentSparseSet {
             self.sparse.insert(entity.row(), table_row);
 
             core::mem::forget(_guard);
+        }
+    }
+
+    /// Swaps the dense indices of the entity into the disabled section.
+    pub fn swap_disable(&mut self, entity: Entity) {
+        if let Some(&dense_row) = self.sparse.get(entity.row()) {
+            let disabled_row = if dense_row.index_u32() >= self.disabled_entities {
+                // the entity is currently enabled, swap it with the first enabled entity:
+
+                // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+                // as guaranteed by `insert`.
+                let disabled_row =
+                    TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+                self.disabled_entities += 1;
+
+                disabled_row
+            } else {
+                self.disabled_entities -= 1;
+                // the entity is currently disabled, swap it with the last disabled entity:
+
+                // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+                // as guaranteed by `insert`.
+                TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
+            };
+
+            // SAFETY: TODO
+            unsafe {
+                self.dense.swap_unchecked(dense_row, disabled_row);
+                self.entities.swap(dense_row.index(), disabled_row.index());
+
+                let row_index = self.entities.get_unchecked(dense_row.index());
+                #[cfg(debug_assertions)]
+                let row_index = row_index.row();
+                #[cfg(not(debug_assertions))]
+                let row_index = *row_index;
+
+                *self.sparse.get_mut(row_index).debug_checked_unwrap() = dense_row;
+
+                let disabled_row_index = self.entities.get_unchecked(dense_row.index());
+                #[cfg(debug_assertions)]
+                let disabled_row_index = disabled_row_index.row();
+                #[cfg(not(debug_assertions))]
+                let disabled_row_index = *disabled_row_index;
+
+                *self
+                    .sparse
+                    .get_mut(disabled_row_index)
+                    .debug_checked_unwrap() = disabled_row;
+            }
         }
     }
 
@@ -447,7 +501,11 @@ impl Drop for ComponentSparseSet {
         self.entities.clear();
         // SAFETY: `cap` and `len` are correct. `dense` is never accessed again after this call.
         unsafe {
-            self.dense.drop(self.entities.capacity(), len, ..len);
+            self.dense.drop(
+                self.entities.capacity(),
+                len,
+                self.disabled_entities as usize..len,
+            );
         }
     }
 }
