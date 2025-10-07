@@ -15,8 +15,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, style::ComputedTextStyle, ComputedTextBlock, Font, FontAtlasSets, FontFace,
-    FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout,
+    add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, style::ComputedTextStyle,
+    ComputedTextBlock, Font, FontAtlasKey, FontAtlasSet, FontAtlasSets, FontFace, FontSmoothing,
+    Justify, LineBreak, PositionedGlyph, TextBounds, TextEntity, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -224,7 +225,7 @@ impl TextPipeline {
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
-        font_atlas_sets: &mut FontAtlasSets,
+        font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
@@ -255,10 +256,10 @@ impl TextPipeline {
             computed,
             font_system,
         );
-        if let Err(err) = update_result {
-            self.glyph_info = glyph_info;
-            return Err(err);
-        }
+
+        self.glyph_info = glyph_info;
+
+        update_result?;
 
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
@@ -298,8 +299,8 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = glyph_info[span_index].0;
-                    let font_smoothing = glyph_info[span_index].1;
+                    let font_id = self.glyph_info[span_index].0;
+                    let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
@@ -317,15 +318,21 @@ impl TextPipeline {
                         layout_glyph
                     };
 
-                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
-
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                    let font_atlases = font_atlas_set
+                        .entry(FontAtlasKey(
+                            font_id,
+                            physical_glyph.cache_key.font_size_bits,
+                            font_smoothing,
+                        ))
+                        .or_default();
+
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
                         .map(Ok)
                         .unwrap_or_else(|| {
-                            font_atlas_set.add_glyph_to_atlas(
+                            add_glyph_to_atlas(
+                                font_atlases,
                                 texture_atlases,
                                 textures,
                                 &mut font_system.0,
@@ -370,9 +377,6 @@ impl TextPipeline {
 
             result
         });
-
-        // Return the scratch vec.
-        self.glyph_info = glyph_info;
 
         // Check result.
         result?;

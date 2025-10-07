@@ -23,7 +23,7 @@
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
@@ -95,7 +95,7 @@ impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
-            .init_resource::<FontAtlasSets>()
+            .init_resource::<FontAtlasSet>()
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
@@ -126,7 +126,7 @@ impl Plugin for TextPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (remove_dropped_font_atlas_sets.before(AssetEventSystems),),
+                (free_unused_font_atlases_system.before(AssetEventSystems),),
             )
             .add_systems(Last, (trim_cosmic_cache, free_unused_font_atlases));
 

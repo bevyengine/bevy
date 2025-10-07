@@ -306,7 +306,7 @@ pub fn measure_text_system(
 fn queue_text<'a>(
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_sets: &mut FontAtlasSets,
+    font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
@@ -341,7 +341,7 @@ fn queue_text<'a>(
         scale_factor.into(),
         block,
         physical_node_size,
-        font_atlas_sets,
+        font_atlas_set,
         texture_atlases,
         textures,
         computed,
@@ -375,7 +375,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_root_query: Query<(
         Ref<ComputedNode>,
@@ -402,7 +402,7 @@ pub fn text_system(
             queue_text(
                 &fonts,
                 &mut text_pipeline,
-                &mut font_atlas_sets,
+                &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
                 node.inverse_scale_factor.recip(),

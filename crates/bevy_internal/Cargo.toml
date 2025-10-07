@@ -201,13 +201,14 @@ webgpu = [
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
-# Enable animation support, and glTF animation loading
-animation = [
-  "bevy_animation",
-  "bevy_mesh",
-  "bevy_color",
-  "bevy_gltf?/bevy_animation",
-]
+# Enable glTF animation loading
+gltf_animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+
+# Enables support for morph target weights in bevy_mesh
+morph = ["bevy_mesh?/morph", "bevy_render?/morph"]
+
+# Enables bevy_mesh and bevy_animation morph weight support
+morph_animation = ["morph", "bevy_animation?/bevy_mesh"]
 
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
@@ -220,6 +221,8 @@ bevy_text = [
 ]
 bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_animation = ["dep:bevy_animation", "bevy_mesh"]
+bevy_mikktspace = ["bevy_mesh?/bevy_mikktspace"]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
