@@ -2377,9 +2377,10 @@ impl<'w> EntityWorldMut<'w> {
         let retained_bundle = self.world.register_bundle_info::<T>();
         let archetypes = &mut self.world.archetypes;
 
-        // SAFETY: `retained_bundle` exists as we just registered it.
-        let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
+        let retained_bundle_info = self.world.bundles.get(retained_bundle);
         let old_archetype = archetypes.get_mut(old_location.archetype_id);
+        // SAFETY: `retained_bundle` exists as we just registered it.
+        let retained_bundle_info = unsafe { retained_bundle_info.debug_checked_unwrap() };
         // SAFETY: The old location must have pointed to a valid archetype to be moved from.
         let old_archetype = unsafe { old_archetype.debug_checked_unwrap() };
 

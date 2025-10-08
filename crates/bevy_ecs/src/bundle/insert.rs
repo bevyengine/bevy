@@ -56,9 +56,9 @@ impl<'w> BundleInserter<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
-        let bundle_id = bundle_info.id();
+        let bundle_info = world.bundles.get(bundle_id);
+        // SAFETY: Caller must ensure that bundle_id is valid within world.bundles.
+        let bundle_info = unsafe { bundle_info.debug_checked_unwrap() };
         // SAFETY:
         //  - `components` is the same one passed into the `bundle_info`'s constructor.
         //  - Caller must ensure `archetype_id` must exist in `world.archetypes`.

@@ -60,7 +60,9 @@ impl<'w> BundleRemover<'w> {
         bundle_id: BundleId,
         require_all: bool,
     ) -> Option<Self> {
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get(bundle_id);
+        // SAFETY: Caller must ensure that bundle_id is valid within world.bundles.
+        let bundle_info = unsafe { bundle_info.debug_checked_unwrap() };
         // SAFETY: Caller ensures archetype and bundle ids are correct.
         let (new_archetype_id, is_new_created) = unsafe {
             bundle_info.remove_bundle_from_archetype(

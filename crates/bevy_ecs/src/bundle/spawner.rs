@@ -44,7 +44,9 @@ impl<'w> BundleSpawner<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get(bundle_id);
+        // SAFETY: The caller must ensure that bundle_id is valid within world.bundles, so this cannot be None
+        let bundle_info = unsafe { bundle_info.debug_checked_unwrap() };
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
