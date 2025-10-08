@@ -250,7 +250,7 @@ impl ComponentSparseSet {
                 return;
             }
 
-            // SAFETY: TODO
+            // SAFETY: both dense_row and disabled_row are guaranteed to be valid indices
             unsafe {
                 self.dense.swap_unchecked(dense_row, disabled_row);
                 self.entities.swap(dense_row.index(), disabled_row.index());
@@ -261,6 +261,7 @@ impl ComponentSparseSet {
                 #[cfg(not(debug_assertions))]
                 let row_index = *row_index;
 
+                // row_index exists in the sparse array.
                 *self.sparse.get_mut(row_index).debug_checked_unwrap() = dense_row;
 
                 let disabled_row_index = self.entities.get_unchecked(dense_row.index());
@@ -269,6 +270,7 @@ impl ComponentSparseSet {
                 #[cfg(not(debug_assertions))]
                 let disabled_row_index = *disabled_row_index;
 
+                // disabled_row_index exists in the sparse array.
                 *self
                     .sparse
                     .get_mut(disabled_row_index)

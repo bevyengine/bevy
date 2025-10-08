@@ -2576,7 +2576,7 @@ impl<'w> EntityWorldMut<'w> {
                 let entity = entity.id();
                 let swapped_location = world.entities.get(entity).unwrap();
 
-                // SAFETY: TODO
+                // SAFETY: `entity` is a valid entity, whose archetype row was just swapped
                 unsafe {
                     world.entities.set(
                         entity.index(),
@@ -2594,7 +2594,7 @@ impl<'w> EntityWorldMut<'w> {
                 sparse_set.swap_disable(self.entity);
             }
 
-            // SAFETY: TODO
+            // SAFETY: `disabled_arch.table_row()` is an in-bounds row as provided by the archetype
             let ((disabled_table, table_row), swapped_table) = unsafe {
                 world.storages.tables[archetype.table_id()]
                     .swap_disable_unchecked(disabled_arch.table_row())
@@ -2605,7 +2605,7 @@ impl<'w> EntityWorldMut<'w> {
             if let Some((entity, table_row)) = swapped_table {
                 let swapped_location = world.entities.get(entity).unwrap();
 
-                // SAFETY: TODO
+                // SAFETY: `entity` is a valid entity, whose table row was just swapped
                 unsafe {
                     world.entities.set(
                         entity.index(),
@@ -2668,7 +2668,8 @@ impl<'w> EntityWorldMut<'w> {
         }
         .swap_disable();
 
-        // SAFETY: TODO
+        // SAFETY: `entity` is a valid entity, and the entity was either just
+        // swapped into this location or was already in it.
         unsafe {
             entity_mut
                 .world
@@ -2691,7 +2692,8 @@ impl<'w> EntityWorldMut<'w> {
 
         self = self.swap_disable();
 
-        // SAFETY: TODO
+        // SAFETY: entity is a valid entity, that has no location anymore due to
+        // being disabled.
         unsafe {
             self.world.entities.set(self.entity.index(), None);
         }

@@ -253,7 +253,7 @@ impl Table {
         if row == disabled_row {
             // the entity is already in the correct position, no swap needed
 
-            // SAFETY: TODO
+            // SAFETY: row index is guaranteed to be valid by the caller.
             ((*self.entities.get_unchecked(row.index()), row), None)
         } else {
             for col in self.columns.values_mut() {

@@ -1527,7 +1527,8 @@ impl World {
         let mut entity_mut = self.get_entity_mut(entity).ok()?;
         let mut component = {
             let component = entity_mut.get_mut::<C>()?;
-            // SAFETY: TODO
+            // SAFETY: component contains a &mut reference, so it must be
+            // aligned and valid for reads
             unsafe { core::ptr::read::<C>(&raw const *component) }
         };
 
@@ -1544,7 +1545,8 @@ impl World {
         let mut entity_mut = self.enable(disabled);
 
         let mut component_mut = entity_mut.get_mut::<C>().unwrap();
-        // SAFETY: TODO
+        // SAFETY: component contains a &mut reference, so it must be
+        // aligned and valid for writes
         unsafe {
             core::ptr::write::<C>(&raw mut *component_mut, component);
         }
