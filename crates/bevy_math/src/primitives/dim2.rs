@@ -2239,8 +2239,16 @@ impl Measured2d for Capsule2d {
 ///
 /// The `inner_shape` forms the "hollow" of the `outer_shape`.
 ///
-/// The resulting shapes are rings or annular regions.
+/// The resulting shapes are rings or hollow shapes.
 /// For example, a circle becomes an annulus.
+///
+/// # Warning
+///
+/// The `outer_shape` must contain the `inner_shape` for the generated meshes to be accurate.
+///
+/// If there are vertices in the `inner_shape` that escape the `outer_shape`
+/// (for example, if the `inner_shape` is in fact larger),
+/// it may result in incorrect geometries.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Ring<P: Primitive2d> {
@@ -2251,7 +2259,9 @@ pub struct Ring<P: Primitive2d> {
 }
 
 impl<P: Primitive2d> Ring<P> {
-    /// Create a new `Ring` from a given `base_shape` and `depth`
+    /// Create a new `Ring` from a given `outer_shape` and `inner_shape`.
+    ///
+    /// If the primitive implements [`Inset`] and you would like a uniform thickness, consider using [`ToRing::to_ring`]
     pub const fn new(outer_shape: P, inner_shape: P) -> Self {
         Self {
             outer_shape,
