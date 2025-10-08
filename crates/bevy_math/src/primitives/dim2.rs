@@ -468,11 +468,11 @@ impl Measured2d for CircularSegment {
 }
 
 impl CircularSegment {
-    /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
+    /// Create a new [`CircularSegment`] from a `radius`, and a `half_angle` in radians.
     #[inline]
-    pub const fn new(radius: f32, angle: f32) -> Self {
+    pub const fn new(radius: f32, half_angle: f32) -> Self {
         Self {
-            arc: Arc2d::new(radius, angle),
+            arc: Arc2d::new(radius, half_angle),
         }
     }
 
