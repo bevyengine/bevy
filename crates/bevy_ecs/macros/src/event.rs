@@ -142,6 +142,19 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     } else {
         quote! {#bevy_ecs_path::event::EntityTrigger}
     };
+
+    let set_entity_event_target_impl = if propagate {
+        quote! {
+            impl #impl_generics #bevy_ecs_path::event::SetEntityEventTarget for #struct_name #type_generics #where_clause {
+                fn set_event_target(&mut self, entity: #bevy_ecs_path::entity::Entity) {
+                    self.#entity_field = Into::into(entity);
+                }
+            }
+        }
+    } else {
+        quote! {}
+    };
+
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
             type Trigger<'a> = #trigger;
@@ -151,12 +164,9 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
             fn event_target(&self) -> #bevy_ecs_path::entity::Entity {
                 #bevy_ecs_path::entity::ContainsEntity::entity(&self.#entity_field)
             }
-
-            fn set_event_target(&mut self, entity: #bevy_ecs_path::entity::Entity) {
-                self.#entity_field = Into::into(entity);
-            }
         }
 
+        #set_entity_event_target_impl
     })
 }
 

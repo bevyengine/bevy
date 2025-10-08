@@ -1,3 +1,4 @@
+use crate::event::SetEntityEventTarget;
 use crate::{
     component::ComponentId,
     entity::Entity,
@@ -267,7 +268,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> fmt::Debug
 // - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
 unsafe impl<
         const AUTO_PROPAGATE: bool,
-        E: EntityEvent + for<'a> Event<Trigger<'a> = Self>,
+        E: EntityEvent + SetEntityEventTarget + for<'a> Event<Trigger<'a> = Self>,
         T: Traversal<E>,
     > Trigger<E> for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {

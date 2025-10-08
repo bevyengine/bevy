@@ -284,6 +284,16 @@ pub trait Event: Send + Sync + Sized + 'static {
 pub trait EntityEvent: Event {
     /// The [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     fn event_target(&self) -> Entity;
+}
+
+/// A trait which is used to set the target of an [`EntityEvent`].
+///
+/// By default, entity events are immutable; meaning their target does not change during the lifetime of the event. However, some events
+/// may require mutable access to provide features such as event propagation.
+///
+/// You should never need to implement this trait manually if you use `#[derive(EntityEvent)]`. It is automatically implemented for you if you
+/// use `#[entity_event(propagate)]`.
+pub trait SetEntityEventTarget: EntityEvent {
     /// Sets the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     ///
     /// Note: In general, this should not be called from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
@@ -972,8 +982,15 @@ mod tests {
             }
         }
 
-        // Lame :(
-        impl From<Entity> for Entitoid {
+        struct MutableEntitoid(Entity);
+
+        impl ContainsEntity for MutableEntitoid {
+            fn entity(&self) -> Entity {
+                self.0
+            }
+        }
+
+        impl From<Entity> for MutableEntitoid {
             fn from(value: Entity) -> Self {
                 Self(value)
             }
@@ -983,7 +1000,17 @@ mod tests {
         struct A(Entity);
 
         #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct AP(Entity);
+
+        #[derive(EntityEvent)]
         struct B {
+            entity: Entity,
+        }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct BP {
             entity: Entity,
         }
 
@@ -994,12 +1021,31 @@ mod tests {
         }
 
         #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct CP {
+            #[event_target]
+            target: Entity,
+        }
+
+        #[derive(EntityEvent)]
         struct D(Entitoid);
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct DP(Entitoid);
 
         #[derive(EntityEvent)]
         struct E {
             entity: Entitoid,
         }
+
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct EP {
+        //     entity: Entitoid,
+        // }
 
         #[derive(EntityEvent)]
         struct F {
@@ -1007,16 +1053,35 @@ mod tests {
             target: Entitoid,
         }
 
+        // SHOULD NOT COMPILE:
+        // #[derive(EntityEvent)]
+        // #[entity_event(propagate)]
+        // struct FP {
+        //     #[event_target]
+        //     target: Entitoid,
+        // }
+
+        #[derive(EntityEvent)]
+        #[entity_event(propagate)]
+        struct G {
+            entity: MutableEntitoid,
+        }
+
         let mut world = World::new();
         let entity = world.spawn_empty().id();
 
         world.entity_mut(entity).trigger(A);
+        world.entity_mut(entity).trigger(AP);
 
         // Lame :(
         world.entity_mut(entity).trigger(|entity| B { entity });
+        world.entity_mut(entity).trigger(|entity| BP { entity });
         world
             .entity_mut(entity)
             .trigger(|entity| C { target: entity });
+        world
+            .entity_mut(entity)
+            .trigger(|entity| CP { target: entity });
         world
             .entity_mut(entity)
             .trigger(|entity| D(Entitoid(entity)));
@@ -1025,6 +1090,9 @@ mod tests {
         });
         world.entity_mut(entity).trigger(|entity| F {
             target: Entitoid(entity),
+        });
+        world.entity_mut(entity).trigger(|entity| G {
+            entity: MutableEntitoid(entity),
         });
 
         // No asserts; test just needs to compile
