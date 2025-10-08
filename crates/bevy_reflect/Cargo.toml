@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "smallvec", "debug", "auto_register_inventory"]
+default = ["std", "smallvec", "indexmap", "debug", "auto_register_inventory"]
 
 # Features
 
@@ -35,6 +35,9 @@ glam = ["dep:glam"]
 
 ## Adds reflection support to `hashbrown` types.
 hashbrown = ["dep:hashbrown"]
+
+## Adds reflection support to `indexmap` types.
+indexmap = ["dep:indexmap"]
 
 ## Adds reflection support to `petgraph` types.
 petgraph = ["dep:petgraph", "std"]
@@ -116,6 +119,7 @@ smallvec = { version = "1", default-features = false, optional = true }
 glam = { version = "0.30.7", default-features = false, features = [
   "serde",
 ], optional = true }
+indexmap = { version = "2.5.0", default-features = false, optional = true }
 petgraph = { version = "0.8", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
