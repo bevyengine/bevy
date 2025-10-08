@@ -196,7 +196,6 @@ pub fn run_freecam_controller(
     scroll += amount;
     // By using exponentiation we ensure that this scales up and down smoothly
     // regardless of the amount of scrolling processed per frame
-    // bevy_math::powf is used for cross-platform determinism because why not
     controller.walk_speed *= powf(1.0 + controller.scroll_factor, scroll);
     controller.run_speed = controller.walk_speed * 3.0;
 
