@@ -147,6 +147,7 @@ impl ResourceCache {
 #[require(IsResource, Internal)]
 #[component(on_add = on_add_hook, on_remove = on_remove_hook)]
 #[repr(transparent)]
+// This has an #[entities] annotation because `R` may be a struct which contains entities
 pub struct ResourceComponent<R: Resource>(#[entities] pub R);
 
 pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
