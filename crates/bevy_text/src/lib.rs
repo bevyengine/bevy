@@ -40,7 +40,6 @@ mod font_loader;
 mod glyph;
 mod pipeline;
 mod text;
-mod text_access;
 
 pub use bounds::*;
 pub use error::*;
@@ -51,16 +50,13 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
-pub use text_access::*;
 
 /// The text prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
-    };
+    pub use crate::{Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout};
 }
 
 use bevy_app::prelude::*;
@@ -94,7 +90,6 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
                 free_unused_font_atlases_system.before(AssetEventSystems),

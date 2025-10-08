@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -160,48 +160,6 @@ impl TextLayout {
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
         self
-    }
-}
-
-/// A span of text in a tree of spans.
-///
-/// A `TextSpan` is only valid when it exists as a child of a parent that has either `Text` or
-/// `Text2d`. The parent's `Text` / `Text2d` component contains the base text content. Any children
-/// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
-/// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
-/// but each node has its own [`TextFont`] and [`TextColor`].
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
-pub struct TextSpan(pub String);
-
-impl TextSpan {
-    /// Makes a new text span component.
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(text.into())
-    }
-}
-
-impl TextSpanComponent for TextSpan {}
-
-impl TextSpanAccess for TextSpan {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
-impl From<&str> for TextSpan {
-    fn from(value: &str) -> Self {
-        Self(String::from(value))
-    }
-}
-
-impl From<String> for TextSpan {
-    fn from(value: String) -> Self {
-        Self(value)
     }
 }
 
