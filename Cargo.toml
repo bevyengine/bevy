@@ -1313,7 +1313,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari", "https"]
+required-features = ["bevy_solari", "https", "free_cam"]
 
 [package.metadata.example.solari]
 name = "Solari"
