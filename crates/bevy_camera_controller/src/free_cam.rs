@@ -23,7 +23,7 @@ use bevy_input::mouse::{
 };
 use bevy_input::ButtonInput;
 use bevy_log::info;
-use bevy_math::{EulerRot, Quat, Vec2, Vec3};
+use bevy_math::{ops, EulerRot, Quat, StableInterpolate, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
 use bevy_window::{CursorGrabMode, CursorOptions, Window};
@@ -119,7 +119,7 @@ impl Default for FreeCam {
             walk_speed: 5.0,
             run_speed: 15.0,
             scroll_factor: 0.5,
-            friction: 0.5,
+            friction: 10.0,
             pitch: 0.0,
             yaw: 0.0,
             velocity: Vec3::ZERO,
@@ -243,8 +243,8 @@ pub fn run_freecam_controller(
         };
         controller.velocity = axis_input.normalize() * max_speed;
     } else {
-        let friction = controller.friction.clamp(0.0, 1.0);
-        controller.velocity *= 1.0 - friction;
+        let friction = controller.friction.clamp(0.0, f32::MAX);
+        controller.velocity.smooth_nudge(&Vec3::ZERO, friction, dt);
         if controller.velocity.length_squared() < 1e-6 {
             controller.velocity = Vec3::ZERO;
         }
