@@ -71,8 +71,9 @@ impl<'w> BundleInserter<'w> {
         );
 
         let inserter = if new_archetype_id == archetype_id {
-            // SAFETY: Caller must ensure `archetype_id` must exist in `world.archetypes`.
-            let archetype = world.archetypes.get_unchecked_mut(archetype_id);
+            let archetype = world.archetypes.get_mut(archetype_id);
+            // SAFETY: Caller guarantees that `archetype_id` must be valid.
+            let archetype = unsafe { archetype.debug_checked_unwrap() };
             // SAFETY: The edge is assured to be initialized when we called `insert_bundle_into_archetype`
             let archetype_after_insert = unsafe {
                 archetype
@@ -496,7 +497,9 @@ impl BundleInfo {
         let mut added = Vec::new();
         let mut existing = Vec::new();
 
-        let current_archetype = archetypes.get_unchecked_mut(archetype_id);
+        let current_archetype = archetypes.get_mut(archetype_id);
+        // SAFETY: Caller guarantees that `archetype_id` must be valid.
+        let current_archetype = unsafe { current_archetype.debug_checked_unwrap() };
         for component_id in self.iter_explicit_components() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Existing);
@@ -587,7 +590,8 @@ impl BundleInfo {
 
             // Add an edge from the old archetype to the new archetype.
             archetypes
-                .get_unchecked_mut(archetype_id)
+                .get_mut(archetype_id)
+                .debug_checked_unwrap()
                 .edges_mut()
                 .cache_archetype_after_bundle_insert(
                     self.id,

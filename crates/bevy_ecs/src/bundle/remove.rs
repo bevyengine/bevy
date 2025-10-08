@@ -296,11 +296,11 @@ impl<'w> BundleRemover<'w> {
                     }),
                 );
 
+                let archetype = world.archetypes.get_mut(swapped_location.archetype_id);
                 // SAFETY: The row provided by swapped_location must be in bounds.
                 unsafe {
-                    world
-                        .archetypes
-                        .get_unchecked_mut(swapped_location.archetype_id)
+                    archetype
+                        .debug_checked_unwrap()
                         .set_entity_table_row_unchecked(
                             swapped_location.archetype_row,
                             location.table_row,
@@ -369,8 +369,9 @@ impl BundleInfo {
             let mut next_sparse_set_components;
             let next_table_id;
             {
+                let current_archetype = archetypes.get_mut(archetype_id);
                 // SAFETY: Caller guarantees that `archetype_id` must be valid.
-                let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
+                let current_archetype = unsafe { current_archetype.debug_checked_unwrap() };
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
@@ -426,8 +427,9 @@ impl BundleInfo {
             );
             (Some(new_archetype_id), is_new_created)
         };
+        let current_archetype = archetypes.get_mut(archetype_id);
         // SAFETY: Caller guarantees that `archetype_id` must be valid.
-        let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
+        let current_archetype = unsafe { current_archetype.debug_checked_unwrap() };
         // Cache the result in an edge.
         if intersection {
             current_archetype

@@ -53,13 +53,12 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
         );
 
+        let archetype = world.archetypes.get_mut(new_archetype_id);
         // SAFETY: The archetypes was just created in `insert_bundle_into_archetype`
-        let archetype = world.archetypes.get_unchecked_mut(new_archetype_id);
-        let table = world
-            .storages
-            .tables
-            .get_mut(archetype.table_id())
-            .debug_checked_unwrap();
+        let archetype = unsafe { archetype.debug_checked_unwrap() };
+        let table = world.storages.tables.get_mut(archetype.table_id());
+        // SAFETY: The archetype must point to a valid table.
+        let table = unsafe { table.debug_checked_unwrap() };
         let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),

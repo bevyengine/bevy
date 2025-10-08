@@ -2379,8 +2379,9 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `retained_bundle` exists as we just registered it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
+        let old_archetype = archetypes.get_mut(old_location.archetype_id);
         // SAFETY: The old location must have pointed to a valid archetype to be moved from.
-        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
+        let old_archetype = unsafe { old_archetype.debug_checked_unwrap() };
 
         // PERF: this could be stored in an Archetype Edge
         let to_remove = &old_archetype
@@ -2680,9 +2681,10 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = world.change_tick();
 
         {
+            let archetype = world.archetypes.get_mut(location.archetype_id);
             // SAFETY: The entity's location is directly fetched from Enttities, so it's guaranteed
             // to be valid.
-            let archetype = unsafe { world.archetypes.get_unchecked_mut(location.archetype_id) };
+            let archetype = unsafe { archetype.debug_checked_unwrap() };
             // SAFETY: The entity's location is directly fetched from Enttities, so it's archetype
             // row is guaranteed to be valid.
             let remove_result = unsafe { archetype.swap_remove_unchecked(location.archetype_row) };
@@ -2746,13 +2748,13 @@ impl<'w> EntityWorldMut<'w> {
                     }),
                 );
             }
+            let archetype = world.archetypes.get_mut(moved_location.archetype_id);
             // SAFETY:
             // - `moved_entity` is valid and the provided `EntityLocation` accurately reflects the current location of the entity.
             // - `moved_location.archetype_row` must be in bounds.
             unsafe {
-                world
-                    .archetypes
-                    .get_unchecked_mut(moved_location.archetype_id)
+                archetype
+                    .debug_checked_unwrap()
                     .set_entity_table_row_unchecked(moved_location.archetype_row, table_row);
             }
         }

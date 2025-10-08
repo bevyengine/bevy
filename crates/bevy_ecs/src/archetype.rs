@@ -896,12 +896,9 @@ impl Archetypes {
 
     /// Fetches an mutable reference to an [`Archetype`] using its
     /// ID.
-    ///
-    /// # Safety
-    /// `id` must be valid.
     #[inline]
-    pub(crate) unsafe fn get_unchecked_mut(&mut self, id: ArchetypeId) -> &mut Archetype {
-        self.archetypes.get_mut(id.index()).debug_checked_unwrap()
+    pub(crate) fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
+        self.archetypes.get_mut(id.index())
     }
 
     /// # Safety
