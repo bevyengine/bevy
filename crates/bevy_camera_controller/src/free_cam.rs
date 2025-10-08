@@ -23,6 +23,7 @@ use bevy_input::mouse::{
 };
 use bevy_input::ButtonInput;
 use bevy_log::info;
+use bevy_math::ops::powf;
 use bevy_math::{EulerRot, Quat, Vec2, Vec3};
 use bevy_time::{Real, Time};
 use bevy_transform::prelude::Transform;
@@ -195,7 +196,8 @@ pub fn run_freecam_controller(
     scroll += amount;
     // By using exponentiation we ensure that this scales up and down smoothly
     // regardless of the amount of scrolling processed per frame
-    controller.walk_speed *= (controller.scroll_factor + 1.0).powf(scroll);
+    // bevy_math::powf is used for cross-platform determinism because why not
+    controller.walk_speed *= powf(1.0 + controller.scroll_factor, scroll);
     controller.run_speed = controller.walk_speed * 3.0;
 
     // Handle key input
