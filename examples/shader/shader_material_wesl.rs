@@ -1,5 +1,6 @@
 //! A shader that uses the WESL shading language.
 
+use bevy::asset::embedded_asset;
 use bevy::{
     mesh::MeshVertexBufferLayoutRef,
     pbr::{MaterialPipeline, MaterialPipelineKey},
@@ -12,7 +13,8 @@ use bevy::{
 };
 
 /// This example uses shader source files from the assets subdirectory
-const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.wesl";
+const FRAGMENT_SHADER_ASSET_PATH: &str =
+    "embedded://shader_material_wesl/files/custom_material.wesl";
 
 fn main() {
     App::new()
@@ -37,13 +39,36 @@ pub struct CustomMaterialPlugin;
 #[derive(Resource)]
 struct UtilityShader(Handle<Shader>);
 
+#[expect(
+    dead_code,
+    reason = "used to kept a strong handle, shader is referenced by the material"
+)]
+#[derive(Resource)]
+struct VertexAttrShader(Handle<Shader>);
+
+#[expect(
+    dead_code,
+    reason = "used to kept a strong handle, shader is referenced by the material"
+)]
+#[derive(Resource)]
+struct CustomMaterialImportShader(Handle<Shader>);
+
 impl Plugin for CustomMaterialPlugin {
     fn build(&self, app: &mut App) {
-        let handle = app
-            .world_mut()
-            .resource_mut::<AssetServer>()
-            .load::<Shader>("shaders/util.wesl");
-        app.insert_resource(UtilityShader(handle));
+        embedded_asset!(app, "examples/shader", "files/custom_material.wesl");
+        embedded_asset!(app, "examples/shader", "files/vertex_attr.wesl");
+        embedded_asset!(app, "examples/shader", "files/util.wesl");
+
+        let asset_server = app.world_mut().resource_mut::<AssetServer>();
+        let utils_handle =
+            asset_server.load::<Shader>("embedded://shader_material_wesl/files/util.wesl");
+        let vertex_attr_handle =
+            asset_server.load::<Shader>("embedded://shader_material_wesl/files/vertex_attr.wesl");
+        let custom_material_import_handle =
+            asset_server.load::<Shader>("shaders/custom_material_import.wesl");
+        app.insert_resource(UtilityShader(utils_handle))
+            .insert_resource(VertexAttrShader(vertex_attr_handle))
+            .insert_resource(CustomMaterialImportShader(custom_material_import_handle));
     }
 }
 
