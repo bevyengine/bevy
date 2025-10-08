@@ -21,8 +21,7 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -99,17 +98,6 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {}
-
-impl TextSpanAccess for Text2d {
-    fn read_span(&self) -> &str {
-        self.as_str()
-    }
-    fn write_span(&mut self) -> &mut String {
-        &mut *self
-    }
-}
-
 impl From<&str> for Text2d {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -121,12 +109,6 @@ impl From<String> for Text2d {
         Self(value)
     }
 }
-
-/// 2d alias for [`TextReader`].
-pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
-
-/// 2d alias for [`TextWriter`].
-pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// Adds a shadow behind `Text2d` text
 ///
@@ -167,7 +149,7 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
+    mut text_root_query: Query<(
         Entity,
         Option<&RenderLayers>,
         Ref<TextLayout>,
@@ -175,7 +157,6 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -197,7 +178,7 @@ pub fn update_text2d_layout(
     let mut previous_mask = &RenderLayers::none();
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
+        &mut text_root_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
