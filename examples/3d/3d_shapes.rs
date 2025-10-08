@@ -20,7 +20,7 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::SILVER,
-    input::common_conditions::input_toggle_active,
+    input::common_conditions::{input_just_pressed, input_toggle_active},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
@@ -37,6 +37,7 @@ fn main() {
             Update,
             (
                 rotate.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                advance_rows.run_if(input_just_pressed(KeyCode::Tab)),
                 #[cfg(not(target_arch = "wasm32"))]
                 toggle_wireframe,
             ),
@@ -49,7 +50,7 @@ fn main() {
 struct Shape;
 
 const SHAPES_X_EXTENT: f32 = 14.0;
-const EXTRUSION_X_EXTENT: f32 = 16.0;
+const EXTRUSION_X_EXTENT: f32 = 14.0;
 const Z_EXTENT: f32 = 8.0;
 
 fn setup(
@@ -92,41 +93,16 @@ fn setup(
     ];
 
     let ring_extrusions = [
-        meshes.add(Extrusion::new(
-            Ring::new(Rectangle::default(), Rectangle::new(0.8, 0.8)),
-            1.,
-        )),
-        meshes.add(Extrusion::new(
-            Ring::new(Capsule2d::default(), Capsule2d::new(0.4, 1.0)),
-            1.,
-        )),
+        meshes.add(Extrusion::new(Rectangle::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(Capsule2d::default().to_ring(0.1), 1.)),
         meshes.add(Extrusion::new(
             Ring::new(Circle::new(1.0), Circle::new(0.5)),
             1.,
         )),
-        meshes.add(Extrusion::new(
-            Ring::new(Circle::default(), Circle::new(0.4)),
-            1.,
-        )),
-        meshes.add(Extrusion::new(
-            Ring::new(Ellipse::default(), Ellipse::new(0.9, 0.4)),
-            1.,
-        )),
-        meshes.add(Extrusion::new(
-            Ring::new(RegularPolygon::default(), RegularPolygon::new(0.4, 6)),
-            1.,
-        )),
-        meshes.add(Extrusion::new(
-            Ring::new(
-                Triangle2d::default(),
-                Triangle2d::new(
-                    Vec2::new(0.0, 0.4),
-                    Vec2::new(-0.4, -0.45),
-                    Vec2::new(0.4, -0.45),
-                ),
-            ),
-            1.,
-        )),
+        meshes.add(Extrusion::new(Circle::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(Ellipse::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(RegularPolygon::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(Triangle2d::default().to_ring(0.1), 1.)),
     ];
 
     let num_shapes = shapes.len();
@@ -138,10 +114,11 @@ fn setup(
             Transform::from_xyz(
                 -SHAPES_X_EXTENT / 2. + i as f32 / (num_shapes - 1) as f32 * SHAPES_X_EXTENT,
                 2.0,
-                Z_EXTENT / 2.,
+                Row::Front.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
+            Row::Front,
         ));
     }
 
@@ -155,10 +132,11 @@ fn setup(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
-                0.0,
+                Row::Middle.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
+            Row::Middle,
         ));
     }
 
@@ -172,10 +150,11 @@ fn setup(
                 -EXTRUSION_X_EXTENT / 2.
                     + i as f32 / (num_ring_extrusions - 1) as f32 * EXTRUSION_X_EXTENT,
                 2.0,
-                -Z_EXTENT / 2.,
+                Row::Rear.z(),
             )
             .with_rotation(Quat::from_rotation_x(-PI / 4.)),
             Shape,
+            Row::Rear,
         ));
     }
 
@@ -201,7 +180,10 @@ fn setup(
         Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
-    let mut text = "Press 'R' to pause/resume rotation".to_string();
+    let mut text = "\
+        Press 'R' to pause/resume rotation\n\
+        Press 'Tab' to cycle through rows"
+        .to_string();
     #[cfg(not(target_arch = "wasm32"))]
     text.push_str("\nPress 'Space' to toggle wireframes");
 
@@ -258,5 +240,37 @@ fn toggle_wireframe(
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         wireframe_config.global = !wireframe_config.global;
+    }
+}
+
+#[derive(Component, Clone, Copy)]
+enum Row {
+    Front,
+    Middle,
+    Rear,
+}
+
+impl Row {
+    fn z(self) -> f32 {
+        match self {
+            Row::Front => Z_EXTENT / 2.,
+            Row::Middle => 0.,
+            Row::Rear => -Z_EXTENT / 2.,
+        }
+    }
+
+    fn advance(self) -> Self {
+        match self {
+            Row::Front => Row::Rear,
+            Row::Middle => Row::Front,
+            Row::Rear => Row::Middle,
+        }
+    }
+}
+
+fn advance_rows(mut shapes: Query<(&mut Row, &mut Transform), With<Shape>>) {
+    for (mut row, mut transform) in &mut shapes {
+        *row = row.advance();
+        transform.translation.z = row.z();
     }
 }
