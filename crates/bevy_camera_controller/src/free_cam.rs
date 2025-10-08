@@ -106,7 +106,7 @@ impl Default for FreeCam {
         Self {
             enabled: true,
             initialized: false,
-            sensitivity: 1.0,
+            sensitivity: 0.2,
             key_forward: KeyCode::KeyW,
             key_back: KeyCode::KeyS,
             key_left: KeyCode::KeyA,
