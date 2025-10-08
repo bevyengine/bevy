@@ -1509,6 +1509,162 @@ mod tests {
     }
 
     #[test]
+    fn strong_handles_keep_asset_info() {
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        let (mut app, gated) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        gated.open("dep.cool.ron");
+
+        let server = app.world().resource::<AssetServer>().clone();
+
+        let id = {
+            let handle = server.load("dep.cool.ron");
+
+            let a_id = handle.id();
+            run_app_until(&mut app, |world| {
+                _ = get::<CoolText>(world, a_id)?;
+                let (load, _, _) = server.get_load_states(a_id).unwrap();
+                assert!(load.is_loaded());
+                Some(())
+            });
+
+            a_id
+        };
+
+        // handle is dropped, then immediately re-acquired
+        {
+            let handle = app
+                .world_mut()
+                .resource_mut::<Assets<CoolText>>()
+                .get_strong_handle(id)
+                .expect("should be able to get strong handle");
+            app.update();
+
+            {
+                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
+                assert!(text.is_some());
+
+                assert!(server.is_loaded(handle.id()));
+            }
+        }
+
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world().resource::<Assets<CoolText>>().get(id).is_none(),
+            "asset handles were dropped, so it should have been dropped last update"
+        );
+
+        assert!(!server.is_loaded(id));
+    }
+
+    #[test]
+    fn no_duplicate_assets() {
+        let dir = Dir::default();
+        dir.insert_asset_text(Path::new("dep.cool.ron"), SIMPLE_TEXT);
+
+        let (mut app, gated) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        gated.open("dep.cool.ron");
+
+        let server = app.world().resource::<AssetServer>().clone();
+        {
+            let handle = server.load("dep.cool.ron");
+
+            let a_id = handle.id();
+            run_app_until(&mut app, |world| {
+                _ = get::<CoolText>(world, a_id)?;
+                let (load, _, _) = server.get_load_states(a_id).unwrap();
+                assert!(load.is_loaded());
+                Some(())
+            });
+
+            let handle = {
+                let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+                texts
+                    .get_strong_handle(handle.id())
+                    .expect("should be able to get strong handle")
+            };
+
+            app.update();
+
+            {
+                let handle2 = server.load::<CoolText>("dep.cool.ron");
+                assert!(
+                    handle.id() == handle2.id(),
+                    "loading the same asset twice should return the same handle"
+                );
+
+                match (handle, handle2) {
+                    (Handle::Strong(a), Handle::Strong(b)) => {
+                        assert!(
+                            Arc::ptr_eq(&a, &b),
+                            "loading the same asset twice should return the same handle"
+                        );
+                    }
+                    (a, b) => {
+                        panic!("expected strong handles, got {a:?} and {b:?}");
+                    }
+                }
+            }
+        };
+    }
+
+    #[test]
+    fn get_strong_handle_for_uuid_asset() {
+        let dir = Dir::default();
+        let dep_path = "dep.cool.ron";
+
+        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
+
+        let (mut app, gate_opener) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        gate_opener.open(dep_path);
+
+        const HANDLE: Handle<CoolText> =
+            crate::uuid_handle!("ce63ee34-86b4-11f0-b522-525400724c91");
+        {
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+            texts.insert(&HANDLE, CoolText::default()).unwrap();
+        }
+        app.update();
+
+        let id = {
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+            let handle = texts.get_strong_handle(HANDLE.id()).unwrap();
+            {
+                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
+                assert!(text.is_some());
+            }
+            handle.id()
+        };
+
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world().resource::<Assets<CoolText>>().get(id).is_some(),
+            "asset has a uuid handle, so it should not have been dropped last update"
+        );
+    }
+
+    #[test]
     fn manual_asset_management() {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
