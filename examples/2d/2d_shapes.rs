@@ -42,6 +42,7 @@ fn main() {
 
 const X_EXTENT: f32 = 1000.;
 const Y_EXTENT: f32 = 150.;
+const THICKNESS: f32 = 5.0;
 
 fn setup(
     mut commands: Commands,
@@ -94,27 +95,27 @@ fn setup(
     }
 
     let rings = [
-        meshes.add(Circle::new(50.0).to_ring(5.0)),
+        meshes.add(Circle::new(50.0).to_ring(THICKNESS)),
         // this visually produces an arc segment but this is not technically accurate
         meshes.add(Ring::new(
             CircularSector::new(50.0, 1.0),
             CircularSector::new(45.0, 1.0),
         )),
-        meshes.add(CircularSegment::new(50.0, 1.25).to_ring(5.0)),
-        meshes.add(Ellipse::new(25.0, 50.0).to_ring(5.0)),
+        meshes.add(CircularSegment::new(50.0, 1.25).to_ring(THICKNESS)),
+        meshes.add(Ellipse::new(25.0, 50.0).to_ring(THICKNESS)),
         // this is equivalent to the Annulus::new(25.0, 50.0) above
         meshes.add(Ring::new(Circle::new(50.0), Circle::new(25.0))),
-        meshes.add(Capsule2d::new(25.0, 50.0).to_ring(5.0)),
-        meshes.add(Rhombus::new(75.0, 100.0).to_ring(5.0)),
-        meshes.add(Rectangle::new(50.0, 100.0).to_ring(5.0)),
-        meshes.add(RegularPolygon::new(50.0, 6).to_ring(5.0)),
+        meshes.add(Capsule2d::new(25.0, 50.0).to_ring(THICKNESS)),
+        meshes.add(Rhombus::new(75.0, 100.0).to_ring(THICKNESS)),
+        meshes.add(Rectangle::new(50.0, 100.0).to_ring(THICKNESS)),
+        meshes.add(RegularPolygon::new(50.0, 6).to_ring(THICKNESS)),
         meshes.add(
             Triangle2d::new(
                 Vec2::Y * 50.0,
                 Vec2::new(-50.0, -50.0),
                 Vec2::new(50.0, -50.0),
             )
-            .to_ring(5.0),
+            .to_ring(THICKNESS),
         ),
     ];
     // Allow for 2 empty spaces

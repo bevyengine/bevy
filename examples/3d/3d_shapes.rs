@@ -52,6 +52,7 @@ struct Shape;
 const SHAPES_X_EXTENT: f32 = 14.0;
 const EXTRUSION_X_EXTENT: f32 = 14.0;
 const Z_EXTENT: f32 = 8.0;
+const THICKNESS: f32 = 0.1;
 
 fn setup(
     mut commands: Commands,
@@ -93,16 +94,19 @@ fn setup(
     ];
 
     let ring_extrusions = [
-        meshes.add(Extrusion::new(Rectangle::default().to_ring(0.1), 1.)),
-        meshes.add(Extrusion::new(Capsule2d::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(Rectangle::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(Capsule2d::default().to_ring(THICKNESS), 1.)),
         meshes.add(Extrusion::new(
             Ring::new(Circle::new(1.0), Circle::new(0.5)),
             1.,
         )),
-        meshes.add(Extrusion::new(Circle::default().to_ring(0.1), 1.)),
-        meshes.add(Extrusion::new(Ellipse::default().to_ring(0.1), 1.)),
-        meshes.add(Extrusion::new(RegularPolygon::default().to_ring(0.1), 1.)),
-        meshes.add(Extrusion::new(Triangle2d::default().to_ring(0.1), 1.)),
+        meshes.add(Extrusion::new(Circle::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(Ellipse::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(
+            RegularPolygon::default().to_ring(THICKNESS),
+            1.,
+        )),
+        meshes.add(Extrusion::new(Triangle2d::default().to_ring(THICKNESS), 1.)),
     ];
 
     let num_shapes = shapes.len();
