@@ -94,48 +94,28 @@ fn setup(
     }
 
     let rings = [
-        meshes.add(Ring::new(Circle::new(50.0), Circle::new(45.0))),
+        meshes.add(Circle::new(50.0).to_ring(5.0)),
+        // this visually produces an arc segment but this is not technically accurate
         meshes.add(Ring::new(
             CircularSector::new(50.0, 1.0),
             CircularSector::new(45.0, 1.0),
         )),
-        meshes.add(Ring::new(
-            CircularSegment::new(50.0, 1.25),
-            CircularSegment::new(45.0, 1.25),
-        )),
-        meshes.add(Ring::new(
-            Ellipse::new(25.0, 50.0),
-            Ellipse::new(20.0, 45.0),
-        )),
+        meshes.add(CircularSegment::new(50.0, 1.25).to_ring(5.0)),
+        meshes.add(Ellipse::new(25.0, 50.0).to_ring(5.0)),
+        // this is equivalent to the Annulus::new(25.0, 50.0) above
         meshes.add(Ring::new(Circle::new(50.0), Circle::new(25.0))),
-        meshes.add(Ring::new(
-            Capsule2d::new(25.0, 50.0),
-            Capsule2d::new(20.0, 50.0),
-        )),
-        meshes.add(Ring::new(
-            Rhombus::new(75.0, 100.0),
-            Rhombus::new(65.0, 90.0),
-        )),
-        meshes.add(Ring::new(
-            Rectangle::new(50.0, 100.0),
-            Rectangle::new(40.0, 90.0),
-        )),
-        meshes.add(Ring::new(
-            RegularPolygon::new(50.0, 6),
-            RegularPolygon::new(45.0, 6),
-        )),
-        meshes.add(Ring::new(
+        meshes.add(Capsule2d::new(25.0, 50.0).to_ring(5.0)),
+        meshes.add(Rhombus::new(75.0, 100.0).to_ring(5.0)),
+        meshes.add(Rectangle::new(50.0, 100.0).to_ring(5.0)),
+        meshes.add(RegularPolygon::new(50.0, 6).to_ring(5.0)),
+        meshes.add(
             Triangle2d::new(
                 Vec2::Y * 50.0,
                 Vec2::new(-50.0, -50.0),
                 Vec2::new(50.0, -50.0),
-            ),
-            Triangle2d::new(
-                Vec2::Y * 45.0,
-                Vec2::new(-45.0, -45.0),
-                Vec2::new(45.0, -45.0),
-            ),
-        )),
+            )
+            .to_ring(5.0),
+        ),
     ];
     // Allow for 2 empty spaces
     let num_rings = rings.len() + 2;
