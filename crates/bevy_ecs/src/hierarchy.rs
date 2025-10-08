@@ -283,9 +283,10 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
-    /// Removes all the children from this entity.
+    /// Removes all the parent-child relationships from this entity.
+    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children)
     /// See also [`clear_related`](Self::clear_related)
-    pub fn clear_children(&mut self) -> &mut Self {
+    pub fn detach_all_children(&mut self) -> &mut Self {
         self.clear_related::<ChildOf>()
     }
 
@@ -307,13 +308,15 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(&[child])
     }
 
-    /// Removes the relationship between this entity and the given entities.
-    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+    /// Removes the parent-child relationship between this entity and the given entities.
+    /// Does not despawn the child.
+    pub fn detach_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
     }
 
-    /// Removes the relationship between this entity and the given entity.
-    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
+    /// Removes the parent-child relationship between this entity and the given entity.
+    /// Does not despawn the child.
+    pub fn detach_child(&mut self, child: Entity) -> &mut Self {
         self.remove_related::<ChildOf>(&[child])
     }
 
@@ -374,9 +377,10 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(children)
     }
 
-    /// Removes all the children from this entity.
+    /// Removes all the parent-child relationships from this entity.
+    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children)
     /// See also [`clear_related`](Self::clear_related)
-    pub fn clear_children(&mut self) -> &mut Self {
+    pub fn detach_all_children(&mut self) -> &mut Self {
         self.clear_related::<ChildOf>()
     }
 
@@ -397,13 +401,15 @@ impl<'a> EntityCommands<'a> {
         self.add_related::<ChildOf>(&[child])
     }
 
-    /// Removes the relationship between this entity and the given entities.
-    pub fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
+    /// Removes the parent-child relationship between this entity and the given entities.
+    /// Does not despawn the children.
+    pub fn detach_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
     }
 
-    /// Removes the relationship between this entity and the given entity.
-    pub fn remove_child(&mut self, child: Entity) -> &mut Self {
+    /// Removes the parent-child relationship between this entity and the given entity.
+    /// Does not despawn the child.
+    pub fn detach_child(&mut self, child: Entity) -> &mut Self {
         self.remove_related::<ChildOf>(&[child])
     }
 
@@ -731,7 +737,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_children() {
+    fn detach_children() {
         let mut world = World::new();
         let child1 = world.spawn_empty().id();
         let child2 = world.spawn_empty().id();
@@ -740,7 +746,7 @@ mod tests {
 
         let mut root = world.spawn_empty();
         root.add_children(&[child1, child2, child3, child4]);
-        root.remove_children(&[child2, child3]);
+        root.detach_children(&[child2, child3]);
         let root = root.id();
 
         let hierarchy = get_hierarchy(&world, root);
@@ -751,7 +757,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_child() {
+    fn detach_child() {
         let mut world = World::new();
         let child1 = world.spawn_empty().id();
         let child2 = world.spawn_empty().id();
@@ -759,7 +765,7 @@ mod tests {
 
         let mut root = world.spawn_empty();
         root.add_children(&[child1, child2, child3]);
-        root.remove_child(child2);
+        root.detach_child(child2);
         let root = root.id();
 
         let hierarchy = get_hierarchy(&world, root);
