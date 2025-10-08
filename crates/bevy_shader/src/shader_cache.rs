@@ -371,6 +371,14 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         let pipelines_to_queue = self.clear(id);
         if let Some(shader) = self.shaders.remove(&id) {
             self.import_path_shaders.remove(shader.import_path());
+
+            #[cfg(feature = "shader_format_wesl")]
+            if let Source::Wesl(_) = shader.source
+                && let ShaderImport::AssetPath(path) = shader.import_path()
+            {
+                self.asset_paths
+                    .remove(&wesl_module_path_from_asset_path(path));
+            }
         }
 
         pipelines_to_queue
@@ -378,7 +386,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 }
 
 #[cfg(feature = "shader_format_wesl")]
-pub struct ShaderResolver<'a> {
+struct ShaderResolver<'a> {
     asset_paths: &'a HashMap<wesl::ModulePath, AssetId<Shader>>,
     shaders: &'a HashMap<AssetId<Shader>, Shader>,
 }
