@@ -23,7 +23,7 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy_ui_widgets::{Slider, SliderRange, SliderStep, SliderThumb, SliderValue, TrackClick};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},

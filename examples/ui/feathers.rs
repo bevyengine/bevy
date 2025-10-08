@@ -13,7 +13,7 @@ use bevy::{
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins, FocusIndicator,
     },
-    input_focus::tab_navigation::TabGroup,
+    input_focus::tab_navigation::{TabGroup, TabIndex},
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{

@@ -7,7 +7,7 @@
 //! and note that there are still "user experience" issues with this API.
 
 use bevy::{
-    color::palettes::basic::*,
+    color::palettes::{self, basic::*},
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin, InputFocus,

@@ -80,7 +80,7 @@ fn spawn_focus_rings(
                 FocusOutline,
                 GlobalZIndex(100),
                 Outline {
-                    color: theme.color(tokens::FOCUS_RING),
+                    color: theme.color(&tokens::FOCUS_RING),
                     width: Val::Px(2.0),
                     offset: Val::Px(2.0),
                 },
