@@ -193,7 +193,9 @@ pub fn run_freecam_controller(
         MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
     };
     scroll += amount;
-    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
+    // By using exponentiation we ensure that this scales up and down smoothly
+    // regardless of the amount of scrolling processed per frame
+    controller.walk_speed *= (controller.scroll_factor + 1.0).powf(scroll);
     controller.run_speed = controller.walk_speed * 3.0;
 
     // Handle key input
