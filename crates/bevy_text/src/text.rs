@@ -407,111 +407,89 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
-/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
-///
-/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
-    changed_roots: Query<
+/// Text root
+#[derive(Component, PartialEq)]
+pub struct TextRoot(pub SmallVec<[Entity; 1]>);
+
+/// Update text roots
+pub fn update_text_roots<T: Component>(
+    mut parents: Local<Vec<Entity>>,
+    mut spans: Local<Vec<Entity>>,
+    mut commands: Commands,
+    mut text_node_query: Query<(
         Entity,
-        (
-            Or<(
-                Changed<Root>,
-                Changed<TextFont>,
-                Changed<TextLayout>,
-                Changed<Children>,
-            )>,
-            With<Root>,
-            With<TextFont>,
-            With<TextLayout>,
-        ),
-    >,
-    changed_spans: Query<
-        (Entity, Option<&ChildOf>, Has<TextLayout>),
-        (
-            Or<(
-                Changed<TextSpan>,
-                Changed<TextFont>,
-                Changed<Children>,
-                Changed<ChildOf>, // Included to detect broken text block hierarchies.
-                Added<TextLayout>,
-            )>,
-            With<TextSpan>,
-            With<TextFont>,
-        ),
-    >,
-    mut computed: Query<(
         Option<&ChildOf>,
-        Option<&mut ComputedTextBlock>,
-        Has<TextSpan>,
+        Option<&mut TextRoot>,
+        Has<Children>,
+        Ref<T>,
+        Ref<TextFont>,
     )>,
+    children_query: Query<(Option<&Children>, Ref<T>, Ref<TextFont>)>,
 ) {
-    // Root entity:
-    // - Root component changed.
-    // - TextFont on root changed.
-    // - TextLayout changed.
-    // - Root children changed (can include additions and removals).
-    for root in changed_roots.iter() {
-        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
-            continue;
-        };
-        computed.needs_rerender = true;
+    for (entity, maybe_child_of, maybe_text_root, has_children, text, style, font_size) in
+        text_node_query.iter_mut()
+    {
+        if maybe_child_of.is_none_or(|parent| !children_query.contains(parent.get())) {
+            // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
+            if has_children {
+                parents.push(entity);
+            } else {
+                let new_text_root = TextRoot(smallvec::smallvec![entity]);
+                if let Some(mut text_root) = maybe_text_root {
+                    text_root.set_if_neq(new_text_root);
+                    if text.is_changed() || style.is_changed() || font_size.is_changed() {
+                        text_root.set_changed();
+                    }
+                } else {
+                    commands.entity(entity).insert(new_text_root);
+                }
+            }
+        } else if maybe_text_root.is_some() {
+            // Not a root. Remove `TextRoot` component, if present.
+            commands.entity(entity).remove::<TextRoot>();
+        }
     }
 
-    // Span entity:
-    // - Span component changed.
-    // - Span TextFont changed.
-    // - Span children changed (can include additions and removals).
-    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
-        if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
+    for root_entity in parents.drain(..) {
+        spans.clear();
+        let mut changed = false;
+
+        fn walk_text_descendants<T: Component>(
+            target: Entity,
+            query: &Query<(
+                Option<&Children>,
+                Ref<T>,
+                Ref<ComputedTextStyle>,
+                Ref<ComputedFontSize>,
+            )>,
+            spans: &mut Vec<Entity>,
+            changed: &mut bool,
+        ) {
+            spans.push(target);
+            if let Ok((children, text, style, size)) = query.get(target) {
+                *changed |= text.is_changed() || style.is_changed() || size.is_changed();
+                if let Some(children) = children {
+                    for child in children {
+                        walk_text_descendants(*child, query, spans, changed);
+                    }
+                }
+            }
         }
 
-        let Some(span_child_of) = maybe_span_child_of else {
-            once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
-            ));
-            continue;
-        };
-        let mut parent: Entity = span_child_of.parent();
+        walk_text_descendants(root_entity, &children_query, &mut spans, &mut changed);
 
-        // Search for the nearest ancestor with ComputedTextBlock.
-        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
-        // is outweighed by the expense of tracking visited spans.
-        loop {
-            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
-                    component that points at non-existent entity {}; this warning only prints once",
-                    entity, parent));
-                break;
-            };
-            if let Some(mut computed) = maybe_computed {
-                computed.needs_rerender = true;
-                break;
+        if let Ok((_, _, Some(mut text_root), ..)) = text_node_query.get_mut(root_entity) {
+            if text_root.0.as_slice() != spans.as_slice() {
+                text_root.0.clear();
+                text_root.0.extend(spans.iter().copied());
             }
-            if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
-                span component or a ComputedTextBlock component; this warning only prints once",
-                    entity, parent));
-                break;
+            if changed {
+                text_root.set_changed();
             }
-            let Some(next_child_of) = maybe_child_of else {
-                once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
-                    entity,
-                    core::any::type_name::<Root>()
-                ));
-                break;
-            };
-            parent = next_child_of.parent();
+        } else {
+            commands
+                .entity(root_entity)
+                .insert(TextRoot(SmallVec::from_slice(&spans)));
         }
     }
 }
