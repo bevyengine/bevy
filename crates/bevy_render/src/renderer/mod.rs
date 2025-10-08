@@ -163,7 +163,7 @@ fn find_adapter_by_name(
             continue;
         }
 
-        if info.name.to_lowercase().contains(adapter_name.to_lowercase()) {
+        if info.name.to_lowercase().contains(&adapter_name.to_lowercase()) {
             return Some(adapter);
         }
     }
