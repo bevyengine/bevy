@@ -20,6 +20,7 @@ use bevy::pbr::wireframe::{WireframeConfig, WireframePlugin};
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::basic::SILVER,
+    input::common_conditions::input_toggle_active,
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
@@ -35,7 +36,7 @@ fn main() {
         .add_systems(
             Update,
             (
-                rotate,
+                rotate.run_if(input_toggle_active(true, KeyCode::KeyR)),
                 #[cfg(not(target_arch = "wasm32"))]
                 toggle_wireframe,
             ),
@@ -200,9 +201,12 @@ fn setup(
         Transform::from_xyz(0.0, 7., 14.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
     ));
 
+    let mut text = "Press 'R' to pause/resume rotation".to_string();
     #[cfg(not(target_arch = "wasm32"))]
+    text.push_str("\nPress 'Space' to toggle wireframes");
+
     commands.spawn((
-        Text::new("Press space to toggle wireframes"),
+        Text::new(text),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),

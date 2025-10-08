@@ -13,9 +13,12 @@
 //! You can toggle wireframes with the space bar except on wasm. Wasm does not support
 //! `POLYGON_MODE_LINE` on the gpu.
 
-use bevy::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::sprite_render::{Wireframe2dConfig, Wireframe2dPlugin};
+use bevy::{
+    input::common_conditions::input_just_pressed,
+    sprite_render::{Wireframe2dConfig, Wireframe2dPlugin},
+};
+use bevy::{input::common_conditions::input_toggle_active, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -26,7 +29,14 @@ fn main() {
     ))
     .add_systems(Startup, setup);
     #[cfg(not(target_arch = "wasm32"))]
-    app.add_systems(Update, toggle_wireframe);
+    app.add_systems(
+        Update,
+        toggle_wireframe.run_if(input_just_pressed(KeyCode::Space)),
+    );
+    app.add_systems(
+        Update,
+        rotate.run_if(input_toggle_active(false, KeyCode::KeyR)),
+    );
     app.run();
 }
 
@@ -146,9 +156,12 @@ fn setup(
         ));
     }
 
+    let mut text = "Press 'R' to pause/resume rotation".to_string();
     #[cfg(not(target_arch = "wasm32"))]
+    text.push_str("\nPress 'Space' to toggle wireframes");
+
     commands.spawn((
-        Text::new("Press space to toggle wireframes"),
+        Text::new(text),
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
@@ -159,11 +172,12 @@ fn setup(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn toggle_wireframe(
-    mut wireframe_config: ResMut<Wireframe2dConfig>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-) {
-    if keyboard.just_pressed(KeyCode::Space) {
-        wireframe_config.global = !wireframe_config.global;
+fn toggle_wireframe(mut wireframe_config: ResMut<Wireframe2dConfig>) {
+    wireframe_config.global = !wireframe_config.global;
+}
+
+fn rotate(mut query: Query<&mut Transform, With<Mesh2d>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.rotate_z(time.delta_secs() / 2.0);
     }
 }

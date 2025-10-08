@@ -10,7 +10,7 @@ use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
     color::palettes::css::{RED, WHITE},
-    input::common_conditions::input_just_pressed,
+    input::common_conditions::{input_just_pressed, input_toggle_active},
     math::{
         bounding::{
             Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
@@ -140,21 +140,28 @@ fn main() {
         .add_systems(
             Update,
             (
-                (rotate_2d_shapes, bounding_shapes_2d)
+                (
+                    rotate_2d_shapes.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                    bounding_shapes_2d,
+                )
                     .run_if(state_in_one_of([ShapeActive::Heart, ShapeActive::Ring])),
-                (rotate_3d_shapes, bounding_shapes_3d).run_if(state_in_one_of([
-                    ShapeActive::Extrusion,
-                    ShapeActive::RingExtrusion,
-                ])),
+                (
+                    rotate_3d_shapes.run_if(input_toggle_active(true, KeyCode::KeyR)),
+                    bounding_shapes_3d,
+                )
+                    .run_if(state_in_one_of([
+                        ShapeActive::Extrusion,
+                        ShapeActive::RingExtrusion,
+                    ])),
                 update_bounding_shape.run_if(input_just_pressed(KeyCode::KeyB)),
-                switch_shapes.run_if(input_just_pressed(KeyCode::Space)),
+                switch_shapes.run_if(input_just_pressed(KeyCode::Tab)),
             ),
         );
 
     #[cfg(not(target_family = "wasm"))]
     app.add_systems(
         Update,
-        toggle_wireframes.run_if(input_just_pressed(KeyCode::Tab)),
+        toggle_wireframes.run_if(input_just_pressed(KeyCode::Space)),
     );
 
     app.run();
@@ -244,10 +251,12 @@ fn setup(
         Transform::from_xyz(8.0, 12.0, 1.0),
     ));
 
-    let mut text = "Press 'B' to toggle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
-            Press 'Space' to cycle between 2d and 3d shapes".to_string();
+    let mut text = "\
+        Press 'B' to cycle between no bounding shapes, bounding boxes (AABBs) and bounding spheres / circles\n\
+        Press 'Tab' to cycle between 2D and 3D shapes\n\
+        Press 'R' to pause/resume rotation".to_string();
     #[cfg(not(target_family = "wasm"))]
-    text.push_str("\nPress 'Tab' to toggle display of wireframes");
+    text.push_str("\nPress 'Space' to toggle display of wireframes");
     // Example instructions
     commands.spawn((
         Text::new(text),
