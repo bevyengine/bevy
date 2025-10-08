@@ -1427,7 +1427,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet", "https"]
+required-features = ["meshlet", "https", "free_cam"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
