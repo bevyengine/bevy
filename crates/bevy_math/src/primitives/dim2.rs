@@ -6,6 +6,7 @@ use thiserror::Error;
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
+    primitives::Inset,
     Dir2, InvalidDirectionError, Isometry2d, Ray2d, Rot2, Vec2,
 };
 
@@ -2249,9 +2250,9 @@ pub struct Ring<P: Primitive2d> {
     pub inner_shape: P,
 }
 
-impl<T: Primitive2d> Ring<T> {
-    /// Create a new `Ring<T>` from a given `base_shape` and `depth`
-    pub const fn new(outer_shape: T, inner_shape: T) -> Self {
+impl<P: Primitive2d> Ring<P> {
+    /// Create a new `Ring` from a given `base_shape` and `depth`
+    pub const fn new(outer_shape: P, inner_shape: P) -> Self {
         Self {
             outer_shape,
             inner_shape,
@@ -2260,6 +2261,34 @@ impl<T: Primitive2d> Ring<T> {
 }
 
 impl<T: Primitive2d> Primitive2d for Ring<T> {}
+
+impl<P: Primitive2d + Clone + Inset> Ring<P> {
+    /// Generate a `Ring` from a given `primitive` and a `thickness`.
+    pub fn from_primitive_and_thickness(primitive: P, thickness: f32) -> Self {
+        let hollow = primitive.clone().inset(thickness);
+        Ring::new(primitive, hollow)
+    }
+}
+
+/// Provides a convenience method for converting a primitive to a [`Ring`], with a given thickness.
+///
+/// The primitive must implement [`Inset`].
+pub trait ToRing: Primitive2d + Inset
+where
+    Self: Sized,
+{
+    /// Construct a `Ring`
+    fn to_ring(self, thickness: f32) -> Ring<Self>;
+}
+
+impl<P> ToRing for P
+where
+    P: Primitive2d + Clone + Inset,
+{
+    fn to_ring(self, thickness: f32) -> Ring<Self> {
+        Ring::from_primitive_and_thickness(self, thickness)
+    }
+}
 
 #[cfg(test)]
 mod tests {
