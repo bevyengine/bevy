@@ -1,4 +1,5 @@
 use crate::{
+    ops,
     primitives::{
         Capsule2d, Circle, CircularSegment, Ellipse, Primitive2d, Rectangle, RegularPolygon,
         Rhombus, Triangle2d,
@@ -44,7 +45,7 @@ impl Inset for Triangle2d {
             let half_angle_bac = unit_vector_ab.angle_to(unit_vector_ac) / 2.0;
             let mean = (unit_vector_ab + unit_vector_ac) / 2.0;
             let direction = mean.normalize();
-            let magnitude = distance / half_angle_bac.sin();
+            let magnitude = distance / ops::sin(half_angle_bac);
             a + direction * magnitude
         }
 
@@ -61,9 +62,9 @@ impl Inset for Triangle2d {
 impl Inset for Rhombus {
     fn inset(mut self, distance: f32) -> Self {
         let [half_width, half_height] = self.half_diagonals.into();
-        let angle = (half_height / half_width).atan();
-        let x_offset = distance / angle.sin();
-        let y_offset = distance / angle.cos();
+        let angle = ops::atan(half_height / half_width);
+        let x_offset = distance / ops::sin(angle);
+        let y_offset = distance / ops::cos(angle);
         self.half_diagonals -= Vec2::new(x_offset, y_offset);
         self
     }
@@ -89,7 +90,7 @@ impl Inset for CircularSegment {
         let radius = old_arc.radius - distance;
         let apothem = old_arc.apothem() + distance;
         // https://en.wikipedia.org/wiki/Circular_segment
-        let half_angle = (apothem / radius).acos();
+        let half_angle = ops::acos(apothem / radius);
         Self::new(radius, half_angle)
     }
 }
@@ -97,7 +98,7 @@ impl Inset for CircularSegment {
 impl Inset for RegularPolygon {
     fn inset(mut self, distance: f32) -> Self {
         let half_angle = self.internal_angle_radians() / 2.0;
-        let offset = distance / half_angle.sin();
+        let offset = distance / ops::sin(half_angle);
         self.circumcircle.radius -= offset;
         self
     }
