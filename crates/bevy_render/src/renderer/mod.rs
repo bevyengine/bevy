@@ -163,7 +163,7 @@ fn find_adapter_by_name(
             continue;
         }
 
-        if info.name.eq_ignore_ascii_case(adapter_name) {
+        if info.name.to_lowercase().contains(adapter_name.to_lowercase()) {
             return Some(adapter);
         }
     }
