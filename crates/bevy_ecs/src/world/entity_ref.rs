@@ -5350,9 +5350,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
+    use alloc::{sync::Arc, vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+    use core::sync::atomic::{AtomicU32, Ordering};
     use std::sync::OnceLock;
 
     use crate::component::Tick;
@@ -6939,6 +6940,95 @@ mod tests {
         let mut world = World::new();
         let original = world.spawn(C).id();
         world.despawn(original);
+    }
+
+    #[test]
+    fn disabled_no_drop() {
+        #[derive(Component)]
+        struct A(Arc<AtomicU32>);
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct ASparse(Arc<AtomicU32>);
+
+        #[derive(Component)]
+        struct B(Arc<AtomicU32>);
+
+        impl Drop for A {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for ASparse {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for B {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let a = Arc::new(AtomicU32::new(0));
+        let b = Arc::new(AtomicU32::new(0));
+
+        let mut world = World::new();
+        let e = world.spawn((A(a.clone()), ASparse(a.clone()))).id();
+        _ = world.spawn(B(b.clone())).id();
+        world.entity_mut(e).disable();
+
+        assert_eq!(a.load(Ordering::SeqCst), 0);
+        assert_eq!(b.load(Ordering::SeqCst), 0);
+        drop(world);
+        assert_eq!(a.load(Ordering::SeqCst), 0);
+        assert_eq!(b.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn component_scope_drop() {
+        #[derive(Component)]
+        struct A(u32, Arc<AtomicU32>);
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct ASparse((), Arc<AtomicU32>);
+
+        #[derive(Component)]
+        struct B((), Arc<AtomicU32>);
+
+        impl Drop for A {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for ASparse {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for B {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let a = Arc::new(AtomicU32::new(0));
+        let b = Arc::new(AtomicU32::new(0));
+
+        let mut world = World::new();
+        let scoped_entity = world.spawn((A(1, a.clone()), ASparse((), a.clone()))).id();
+        _ = world.spawn(B((), b.clone())).id();
+
+        world.component_scope(scoped_entity, |_, _, a: &mut A| {
+            assert_eq!(a.1.load(Ordering::SeqCst), 0);
+            *a = A(3, a.1.clone());
+        });
+
+        assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 3);
+        assert_eq!(a.load(Ordering::SeqCst), 1);
+        assert_eq!(b.load(Ordering::SeqCst), 0);
+        drop(world);
+        assert_eq!(a.load(Ordering::SeqCst), 3);
+        assert_eq!(b.load(Ordering::SeqCst), 1);
     }
 
     #[test]
