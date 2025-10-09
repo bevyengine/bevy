@@ -4128,6 +4128,18 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "freecam_controller"
+path = "examples/camera/freecam_controller.rs"
+doc-scrape-examples = true
+required-features = ["bevy_camera_controller", "free_cam"]
+
+[package.metadata.example.freecam_controller]
+name = "Freecam camera controller"
+description = "A freecam camera controller that showcases its basic features"
+category = "Camera"
+wasm = true
+
+[[example]]
 name = "projection_zoom"
 path = "examples/camera/projection_zoom.rs"
 doc-scrape-examples = true
