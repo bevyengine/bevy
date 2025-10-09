@@ -271,6 +271,8 @@ pub struct TextFont {
     pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
+    /// OpenType features for .otf fonts that support them.
+    pub font_features: FontFeatures,
 }
 
 impl TextFont {
@@ -325,7 +327,171 @@ impl Default for TextFont {
             font: Default::default(),
             font_size: 20.0,
             line_height: LineHeight::default(),
+            font_features: FontFeatures::default(),
             font_smoothing: Default::default(),
+        }
+    }
+}
+
+/// OpenType features for .otf fonts that support them.
+///
+/// Examples features include ligatures, small-caps, and fractional number display. For the complete
+/// list of OpenType features, see the spec at
+/// `<https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist>`.
+///
+/// # Usage:
+/// ```
+/// use bevy_text::FontFeatures;
+///
+/// // Create using the builder
+/// let font_features = FontFeatures::builder()
+///   .enable(FontFeatures::STANDARD_LIGATURES)
+///   .set(FontFeatures::WEIGHT, 300)
+///   .build();
+///
+/// // Create from a list
+/// let more_font_features: FontFeatures = [
+///   FontFeatures::STANDARD_LIGATURES,
+///   FontFeatures::OLDSTYLE_FIGURES,
+///   FontFeatures::TABULAR_FIGURES
+/// ].into();
+/// ```
+#[derive(Clone, Debug, Default, Reflect)]
+pub struct FontFeatures {
+    features: Vec<([u8; 4], u32)>,
+}
+
+impl FontFeatures {
+    /// Replaces character combinations like fi, fl with ligatures.
+    pub const STANDARD_LIGATURES: [u8; 4] = *b"liga";
+
+    /// Enables ligatures based on character context.
+    pub const CONTEXTUAL_LIGATURES: [u8; 4] = *b"clig";
+
+    /// Enables optional ligatures for stylistic use (e.g., ct, st).
+    pub const DISCRETIONARY_LIGATURES: [u8; 4] = *b"dlig";
+
+    /// Adjust glyph shapes based on surrounding letters.
+    pub const CONTEXTUAL_ALTERNATES: [u8; 4] = *b"calt";
+
+    /// Use alternate glyph designs.
+    pub const STYLISTIC_ALTERNATES: [u8; 4] = *b"salt";
+
+    /// Replaces lowercase letters with small caps.
+    pub const SMALL_CAPS: [u8; 4] = *b"smcp";
+
+    /// Replaces uppercase letters with small caps.
+    pub const CAPS_TO_SMALL_CAPS: [u8; 4] = *b"c2sc";
+
+    /// Replaces characters with swash versions (often decorative).
+    pub const SWASH: [u8; 4] = *b"swsh";
+
+    /// Enables alternate glyphs for large sizes or titles.
+    pub const TITLING_ALTERNATES: [u8; 4] = *b"titl";
+
+    /// Converts numbers like 1/2 into true fractions (½).
+    pub const FRACTIONS: [u8; 4] = *b"frac";
+
+    /// Formats characters like 1st, 2nd properly.
+    pub const ORDINALS: [u8; 4] = *b"ordn";
+
+    /// Uses a slashed version of zero (0) to differentiate from O.
+    pub const SLASHED_ZERO: [u8; 4] = *b"ordn";
+
+    /// Replaces figures with superscript figures, e.g. for indicating footnotes.
+    pub const SUPERSCRIPT: [u8; 4] = *b"sups";
+
+    /// Replaces figures with subscript figures.
+    pub const SUBSCRIPT: [u8; 4] = *b"subs";
+
+    /// Changes numbers to "oldstyle" form, which fit better in the flow of sentences or other text.
+    pub const OLDSTYLE_FIGURES: [u8; 4] = *b"onum";
+
+    /// Changes numbers to "lining" form, which are better suited for standalone numbers. When
+    /// enabled, the bottom of all numbers will be aligned with each other.
+    pub const LINING_FIGURES: [u8; 4] = *b"lnum";
+
+    /// Changes numbers to be of proportional width. When enabled, numbers may have varying widths.
+    pub const PROPORTIONAL_FIGURES: [u8; 4] = *b"pnum";
+
+    /// Changes numbers to be of uniform (tabular) width. When enabled, all numbers will have the
+    /// same width.
+    pub const TABULAR_FIGURES: [u8; 4] = *b"tnum";
+
+    /// Varies the stroke thickness. Values must be in the range of 0 to 1000.
+    pub const WEIGHT: [u8; 4] = *b"wght";
+
+    /// Varies the width of text from narrower to wider. Must be a value greater than 0. A value of
+    /// 100 is typically considered standard width.
+    pub const WIDTH: [u8; 4] = *b"wdth";
+
+    /// Varies between upright and slanted text. Must be a value greater than -90 and less than +90.
+    /// A value of 0 is upright.
+    pub const SLANT: [u8; 4] = *b"slnt";
+
+    /// Create a new [`FontFeaturesBuilder`].
+    pub fn builder() -> FontFeaturesBuilder {
+        FontFeaturesBuilder::default()
+    }
+}
+
+/// A builder for [`FontFeatures`].
+#[derive(Clone, Default)]
+pub struct FontFeaturesBuilder {
+    features: Vec<([u8; 4], u32)>,
+}
+
+impl FontFeaturesBuilder {
+    /// Enable an OpenType feature.
+    ///
+    /// Most OpenType features are on/off switches, so this is a convenience method that sets the
+    /// feature's value to "1" (enabled). For non-boolean features, see [`FontFeaturesBuilder::set`].
+    pub fn enable(self, feature: [u8; 4]) -> Self {
+        self.set(feature, 1)
+    }
+
+    /// Set an OpenType feature to a specific value.
+    ///
+    /// For most features, the [`FontFeaturesBuilder::enable`] method should be used instead. A few
+    /// features, such as "wght", take numeric values, so this method may be used for these cases.
+    pub fn set(mut self, feature: [u8; 4], value: u32) -> Self {
+        self.features.push((feature, value));
+        self
+    }
+
+    /// Build a [`FontFeatures`] from the values set within this builder.
+    pub fn build(self) -> FontFeatures {
+        FontFeatures {
+            features: self.features,
+        }
+    }
+}
+
+/// Allow [`FontFeatures`] to be built from a list. This is suitable for the standard case when each
+/// listed feature is a boolean type. If any features require a numeric value (like "wght"), use
+/// [`FontFeaturesBuilder`] instead.
+impl<T> From<T> for FontFeatures
+where
+    T: IntoIterator<Item = [u8; 4]>,
+{
+    fn from(value: T) -> Self {
+        FontFeatures {
+            features: value.into_iter().map(|x| (x, 1)).collect(),
+        }
+    }
+}
+
+impl From<&FontFeatures> for cosmic_text::FontFeatures {
+    fn from(font_features: &FontFeatures) -> Self {
+        cosmic_text::FontFeatures {
+            features: font_features
+                .features
+                .iter()
+                .map(|(tag, value)| cosmic_text::Feature {
+                    tag: cosmic_text::FeatureTag::new(tag),
+                    value: *value,
+                })
+                .collect(),
         }
     }
 }
