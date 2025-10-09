@@ -2,7 +2,7 @@ use crate::{Font, TextFont, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
 use cosmic_text::{Buffer, Metrics};
@@ -10,89 +10,293 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::warn;
 
-/// Text root
-#[derive(Component, PartialEq)]
-pub struct TextRoot(pub SmallVec<[Entity; 1]>);
+#[derive(Component, Debug, PartialEq)]
+pub struct TextSection {
+    index: usize,
+    layout_entity: Entity,
+}
+
+#[derive(Component, Debug, PartialEq)]
+pub struct TextSections(SmallVec<[Entity; 1]>);
 
 /// Update text roots
-pub fn update_text_roots<T: Component>(
-    mut parents: Local<Vec<Entity>>,
-    mut spans: Local<Vec<Entity>>,
+pub fn identify_text_roots_system<T: Component, Root: RelationshipTarget, Layout: Relationship>(
     mut commands: Commands,
-    mut text_node_query: Query<(
-        Entity,
-        Option<&ChildOf>,
-        Option<&mut TextRoot>,
-        Has<Children>,
-        Ref<T>,
-        Ref<TextFont>,
-    )>,
-    children_query: Query<(Option<&Children>, Ref<T>, Ref<TextFont>)>,
+    mut text_node_query: Query<(Entity, Option<&ChildOf>, Option<&Root>), With<T>>,
+    parent_query: Query<&T>,
+    non_text_root_query: Query<Entity, (With<Root>, Without<T>)>,
 ) {
-    for (entity, maybe_child_of, maybe_text_root, has_children, text, style, font_size) in
-        text_node_query.iter_mut()
-    {
-        if maybe_child_of.is_none_or(|parent| !children_query.contains(parent.get())) {
-            // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
-            if has_children {
-                parents.push(entity);
-            } else {
-                let new_text_root = TextRoot(smallvec::smallvec![entity]);
-                if let Some(mut text_root) = maybe_text_root {
-                    text_root.set_if_neq(new_text_root);
-                    if text.is_changed() || style.is_changed() || font_size.is_changed() {
-                        text_root.set_changed();
-                    }
-                } else {
-                    commands.entity(entity).insert(new_text_root);
-                }
+    for (entity, maybe_child_of, maybe_root) in text_node_query.iter_mut() {
+        // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
+        if maybe_child_of.is_none_or(|parent| !parent_query.contains(parent.get())) {
+            if maybe_root.is_none() {
+                // Root entity is not already a root
+                commands.spawn(Layout::from(entity));
             }
-        } else if maybe_text_root.is_some() {
-            // Not a root. Remove `TextRoot` component, if present.
-            commands.entity(entity).remove::<TextRoot>();
+        } else if let Some(_) = maybe_root {
+            commands.entity(entity).remove::<Root>();
         }
     }
 
-    for root_entity in parents.drain(..) {
-        spans.clear();
-        let mut changed = false;
+    for entity in non_text_root_query.iter() {
+        commands.entity(entity).remove::<Root>();
+    }
+}
 
-        fn walk_text_descendants<T: Component>(
-            target: Entity,
-            query: &Query<(
-                Option<&Children>,
-                Ref<T>,
-                Ref<ComputedTextStyle>,
-                Ref<ComputedFontSize>,
-            )>,
-            spans: &mut Vec<Entity>,
-            changed: &mut bool,
-        ) {
-            spans.push(target);
-            if let Ok((children, text, style, size)) = query.get(target) {
-                *changed |= text.is_changed() || style.is_changed() || size.is_changed();
-                if let Some(children) = children {
-                    for child in children {
-                        walk_text_descendants(*child, query, spans, changed);
-                    }
-                }
-            }
-        }
+pub fn identify_text_sections() {}
 
-        walk_text_descendants(root_entity, &children_query, &mut spans, &mut changed);
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Font, TextFont, TextLayoutInfo};
+    use bevy_app::{App, Update};
+    use bevy_asset::Handle;
+    use bevy_color::Color;
+    use bevy_derive::{Deref, DerefMut};
+    use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
+    use bevy_reflect::prelude::*;
+    use bevy_utils::{default, once};
+    use cosmic_text::{Buffer, Metrics};
+    use serde::{Deserialize, Serialize};
+    use smallvec::SmallVec;
+    use tracing::warn;
+    #[derive(Component, Debug, PartialEq, Eq)]
+    #[relationship_target(relationship = TestLayout, linked_spawn)]
+    struct TestRoot(Entity);
 
-        if let Ok((_, _, Some(mut text_root), ..)) = text_node_query.get_mut(root_entity) {
-            if text_root.0.as_slice() != spans.as_slice() {
-                text_root.0.clear();
-                text_root.0.extend(spans.iter().copied());
-            }
-            if changed {
-                text_root.set_changed();
-            }
-        } else {
-            commands
-                .entity(root_entity)
-                .insert(TextRoot(SmallVec::from_slice(&spans)));
-        }
+    #[derive(Component, Debug, PartialEq, Eq)]
+    #[relationship(relationship_target = TestRoot)]
+    struct TestLayout(Entity);
+
+    #[test]
+    pub fn test_identify_text_roots() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let root_id = world.spawn(TextFont::default()).id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let (_, root) = world
+            .query::<(&TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        let target_id = root.0;
+
+        let (layout_id, layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(target_id, layout_id);
+        assert_eq!(root_id, layout.0);
+    }
+
+    #[test]
+    pub fn test_despawn_text_layout_on_despawn_text_root() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let root_id = world.spawn(TextFont::default()).id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let (_, root) = world
+            .query::<(&TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        let target_id = root.0;
+
+        let (layout_id, layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(target_id, layout_id);
+        assert_eq!(root_id, layout.0);
+
+        world.despawn(root_id);
+
+        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 0);
+    }
+
+    #[test]
+    pub fn test_text_children_arent_roots() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let root_id = world
+            .spawn((
+                TextFont::default(),
+                children![TextFont::default(), TextFont::default()],
+            ))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let (_, root) = world
+            .query::<(&TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        let target_id = root.0;
+
+        let (layout_id, layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(target_id, layout_id);
+        assert_eq!(root_id, layout.0);
+    }
+
+    #[test]
+    pub fn test_text_entity_with_non_text_parent_is_a_root() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let non_text_parent_id = world
+            .spawn((children![(
+                TextFont::default(),
+                children![TextFont::default(), TextFont::default()],
+            )],))
+            .id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let (root_id, _, root) = world
+            .query::<(Entity, &TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        assert_ne!(non_text_parent_id, root_id);
+
+        let target_id = root.0;
+
+        let (layout_id, layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(target_id, layout_id);
+        assert_eq!(root_id, layout.0);
+    }
+
+    #[test]
+    pub fn test_a_root_that_gains_a_text_parent_is_no_longer_a_root() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let root_id = world.spawn(TextFont::default()).id();
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let (_, root) = world
+            .query::<(&TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        let target_id = root.0;
+
+        let (layout_id, layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(target_id, layout_id);
+        assert_eq!(root_id, layout.0);
+
+        let parent_id = world.spawn(TextFont::default()).add_child(root_id).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        let (new_root_id, _, root) = world
+            .query::<(Entity, &TextFont, &TestRoot)>()
+            .single(world)
+            .unwrap();
+
+        let root_layout_id = root.0;
+
+        assert_eq!(new_root_id, parent_id);
+        assert_ne!(root_layout_id, layout_id);
+
+        let (new_layout_id, new_layout) = world
+            .query::<(Entity, &TestLayout)>()
+            .single(world)
+            .unwrap();
+
+        assert_eq!(new_layout_id, root_layout_id);
+        assert_eq!(new_layout.0, new_root_id);
+    }
+
+    #[test]
+    pub fn test_a_text_root_that_becomes_non_text_is_not_a_root() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            identify_text_roots_system::<TextFont, TestRoot, TestLayout>,
+        );
+
+        let world = app.world_mut();
+
+        let root_id = world.spawn(TextFont::default()).id();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(world.query::<&TestRoot>().iter(world).count(), 1);
+        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 1);
+
+        world.entity_mut(root_id).remove::<TextFont>();
+
+        app.update();
+        let world = app.world_mut();
+
+        assert_eq!(world.query::<&TestRoot>().iter(world).count(), 0);
+        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 0);
     }
 }
