@@ -7,6 +7,7 @@ pull_requests: [21294]
 `RadioButton` and `RadioGroup` usage remains fully backward compatible.
 
 Improvements:
+
 - Event propagation from user interactions will now be canceled even if
   widgets are disabled. Previously, some relevant event propagation 
   was not properly canceled.
