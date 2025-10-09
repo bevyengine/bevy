@@ -2126,6 +2126,13 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_RESERVED_BITS 	= Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_NOT_SET 				= 0 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM 			= 1 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS 			= 2 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8 	= 3 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT 			= 4 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8 = 5 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
@@ -2159,6 +2166,11 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u64 = 0b11;
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
+
+    const DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS: u64 = 0b111;
+    const DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS: u64 =
+        Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones() as u64
+            + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -2198,6 +2210,34 @@ impl MeshPipelineKey {
             _ => PrimitiveTopology::default(),
         }
     }
+
+	pub fn from_depth_stencil_format(format: TextureFormat) -> Self {
+		match format {
+			TextureFormat::Depth16Unorm 		=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM,
+			TextureFormat::Depth24Plus 			=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS,
+			TextureFormat::Depth24PlusStencil8 	=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8,
+			TextureFormat::Depth32Float 		=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT,
+			TextureFormat::Depth32FloatStencil8 => Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8,
+			_ => panic!("Unsupported depth-stencil format for MeshPipelineKey"),
+		}
+	}
+
+    pub fn depth_stencil_format(&self) -> TextureFormat {
+        let depth_stencil_format_bits = (self.bits()
+            >> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS)
+			& Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS;
+		
+        match depth_stencil_format_bits {
+			x if x == 0 => panic!("Depth-stencil format not set in for pipeline"),
+			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth16Unorm,
+			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth24Plus,
+			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8.bits() 	>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth24PlusStencil8,
+			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth32Float,
+			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8.bits() 	>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth32FloatStencil8,
+			_ => panic!("Invalid depth-stencil format bits in MeshPipelineKey"),
+        }
+    }
+
 }
 
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
