@@ -12,9 +12,10 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::{Anchor, Text2dShadow};
+use bevy_sprite::{Anchor, Text2dLayout, Text2dShadow};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
+    TextSections,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -34,9 +35,11 @@ pub fn extract_text2d_sprite(
             &TextBounds,
             &Anchor,
             Option<&Text2dShadow>,
-            &GlobalTransform,
+            &Text2dLayout,
+            &TextSections,
         )>,
     >,
+    transform_query: Extract<Query<&GlobalTransform>>,
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
@@ -51,9 +54,11 @@ pub fn extract_text2d_sprite(
         text_bounds,
         anchor,
         maybe_shadow,
-        global_transform,
+        relation,
+        sections,
     ) in text2d_query.iter()
     {
+        let global_transform = transform_query.get(**relation).unwrap();
         let scaling = GlobalTransform::from_scale(
             Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
         );

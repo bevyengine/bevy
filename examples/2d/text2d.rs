@@ -141,13 +141,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Transform::from_translation(-1. * Vec3::Z),
             children![
                 (
-                    TextSpan("::".to_string()),
+                    Text2d("::".to_string()),
                     slightly_smaller_text_font.clone(),
                     TextColor(LIGHT_GREY.into()),
                     TextBackgroundColor(DARK_BLUE.into()),
                 ),
                 (
-                    TextSpan(format!("{text_anchor:?} ")),
+                    Text2d(format!("{text_anchor:?} ")),
                     slightly_smaller_text_font.clone(),
                     TextColor(color),
                     TextBackgroundColor(color.darker(0.3)),

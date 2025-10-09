@@ -8,6 +8,8 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::hierarchy::Children;
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -21,10 +23,20 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
+    TextColor, TextError, TextFont, TextIndex, TextLayout, TextLayoutInfo, TextPipeline,
+    TextSections, TextTarget,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
+
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
+#[relationship_target(relationship = Text2dLayout, linked_spawn)]
+pub struct Text2dRoot(Entity);
+
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
+#[relationship(relationship_target = Text2dRoot)]
+#[require(TextLayout, TextBounds, Anchor, TextSections)]
+pub struct Text2dLayout(Entity);
 
 /// The top-level 2D text component.
 ///
@@ -79,14 +91,13 @@ use core::any::TypeId;
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
-    TextLayout,
     TextFont,
     TextColor,
-    TextBounds,
-    Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    TextIndex,
+    TextTarget
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -149,13 +160,16 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_root_query: Query<(
+    renderlayers_query: Query<&RenderLayers>,
+    text_query: Query<(&Text2d, &TextFont)>,
+    mut text_layout_query: Query<(
         Entity,
-        Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &Text2dLayout,
+        &TextSections,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -177,10 +191,10 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_root_query
+    for (entity, block, bounds, text_layout_info, mut computed, relation, sections) in
+        &mut text_layout_query
     {
-        let entity_mask = maybe_entity_mask.unwrap_or_default();
+        let entity_mask = renderlayers_query.get(relation.0).ok().unwrap_or_default();
 
         let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
             previous_scale_factor
@@ -213,11 +227,18 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let spans = sections.0.iter().cloned().filter_map(|entity| {
+                text_query
+                    .get(entity)
+                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
+
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                text_reader.iter(entity),
+                spans,
                 scale_factor as f64,
                 &block,
                 text_bounds,
@@ -305,11 +326,11 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
             .add_systems(
                 Update,
                 (
-                    detect_text_needs_rerender::<Text2d>,
+                    bevy_text::update_text_roots_system::<Text2d, Text2dRoot, Text2dLayout>,
+                    bevy_text::update_text_indices_system::<Text2dRoot>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

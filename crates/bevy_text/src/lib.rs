@@ -51,6 +51,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
+pub use text_hierarchy::*;
 
 /// The text prelude.
 ///

@@ -1,13 +1,15 @@
-use bevy_derive::Deref;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, relationship::Relationship};
 
 use smallvec::SmallVec;
 
+use crate::text;
+
 /// Index of a text entity in a text layout
 #[derive(Component, Debug, PartialEq, Deref, Default)]
 pub struct TextIndex(usize);
-#[derive(Component, Debug, PartialEq, Deref)]
-pub struct TextSections(SmallVec<[Entity; 1]>);
+#[derive(Component, Debug, PartialEq, Deref, DerefMut, Default)]
+pub struct TextSections(pub SmallVec<[Entity; 1]>);
 
 #[derive(Component, Debug, PartialEq, Deref)]
 pub struct TextTarget(Entity);
@@ -46,18 +48,25 @@ pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: 
     }
 }
 
-pub fn update_text_indices<Root: RelationshipTarget>(
+/// update text indices
+pub fn update_text_indices_system<Root: RelationshipTarget>(
     root_query: Query<(Entity, &Root), With<Root>>,
     descendants: Query<&Children, With<TextIndex>>,
     mut text_index_query: Query<(&mut TextIndex, &mut TextTarget)>,
+    mut text_target_query: Query<&mut TextSections>,
 ) {
     for (root_id, root) in root_query.iter() {
         let layout_id = root.iter().next().unwrap();
+        let mut text_sections = text_target_query.get_mut(layout_id).ok().unwrap();
+        text_sections.clear();
+        text_sections.push(root_id);
+
         let (mut index, mut target) = text_index_query.get_mut(root_id).ok().unwrap();
         index.set_if_neq(TextIndex(0));
         target.set_if_neq(TextTarget(layout_id));
 
         for (i, text_id) in descendants.iter_descendants(root_id).enumerate() {
+            text_sections.push(text_id);
             let (mut index, mut target) = text_index_query.get_mut(text_id).ok().unwrap();
             index.set_if_neq(TextIndex(i + 1));
             target.set_if_neq(TextTarget(layout_id));
@@ -77,6 +86,7 @@ mod tests {
 
     #[derive(Component, Debug, PartialEq, Eq)]
     #[relationship(relationship_target = TestRoot)]
+    #[require(TextSections)]
     struct TestLayout(Entity);
 
     #[derive(Component)]
@@ -302,7 +312,7 @@ mod tests {
             Update,
             (
                 update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices::<TestRoot>,
+                update_text_indices_system::<TestRoot>,
             )
                 .chain(),
         );
@@ -328,7 +338,7 @@ mod tests {
             Update,
             (
                 update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices::<TestRoot>,
+                update_text_indices_system::<TestRoot>,
             )
                 .chain(),
         );
@@ -357,7 +367,7 @@ mod tests {
             Update,
             (
                 update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices::<TestRoot>,
+                update_text_indices_system::<TestRoot>,
             )
                 .chain(),
         );
