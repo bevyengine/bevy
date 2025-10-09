@@ -1,7 +1,7 @@
 //! This example showcases the default freecam camera controller.
 //! 
 //! The default freecam controller is useful for exploring large scenes, debugging and editing purposes. To use it,
-//! simply add the [`FreeCamPlugin`] to your [`App`] and attatch the [`FreeCam`] component to the camera entity you
+//! simply add the [`FreeCamPlugin`] to your [`App`] and attach the [`FreeCam`] component to the camera entity you
 //! wish to control.
 //! 
 //! ## Default Controls
@@ -66,7 +66,7 @@ fn spawn_camera(mut commands: Commands) {
         Camera3d::default(),
         Transform::from_xyz(0.0, 1.0, 0.0).looking_to(Vec3::X, Vec3::Y),
         // This component stores all camera settings and state, which is used by the FreeCamPlugin to
-        // control it. These properties can be chagned at runtime, but beware the controller system is
+        // control it. These properties can be changed at runtime, but beware the controller system is
         // constantly using and modifying those values unless the enabled field is false.
         FreeCam {
             sensitivity: 0.2,
