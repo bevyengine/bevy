@@ -135,7 +135,13 @@ default = ["2d", "3d", "ui", "audio", "scene"]
 
 # Features used to build 2D Bevy apps (this includes the bevy_render backend).
 # Add this to your app if you would like the "default" Bevy 2D featureset.
-2d = ["default_platform", "2d_api", "render", "bevy_sprite_render"]
+2d = [
+  "default_platform",
+  "2d_api",
+  "render",
+  "bevy_post_process",
+  "bevy_sprite_render",
+]
 
 # Features used to build 3D Bevy apps (this includes the bevy_render backend).
 # Add this to your app if you would like the "default" Bevy 3D featureset.
@@ -147,6 +153,7 @@ default = ["2d", "3d", "ui", "audio", "scene"]
   "bevy_gltf",
   "bevy_pbr",
   "bevy_post_process",
+  "gltf_animation",
 ]
 
 # Features used to build UI Bevy apps (this includes the bevy_render backend).
@@ -159,7 +166,9 @@ audio = ["bevy_audio", "vorbis"]
 # Features used to compose Bevy scenes.
 scene = ["bevy_scene"]
 
-# The core pieces that most apps need.
+# The core pieces that most apps need. This serves as a baseline feature set for other higher level feature
+# collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like
+# "headless" apps that require no rendering (ex: command line tools, servers, etc).
 default_app = [
   "async_executor",
   "bevy_asset",
@@ -189,6 +198,7 @@ default_platform = [
 
 # Default "render" features. Note that this does not include "render backend" features, such as bevy_render (Bevy's default render backend).
 render_api = [
+  "bevy_animation",
   "bevy_camera",
   "bevy_color",
   "bevy_gizmos",
@@ -215,7 +225,6 @@ render = ["render_api", "bevy_render", "bevy_core_pipeline"]
   "render_api",
   "bevy_light",
   "bevy_mikktspace",
-  "gltf_animation",
   "ktx2",
   "morph_animation",
   "morph",
@@ -229,20 +238,21 @@ render = ["render_api", "bevy_render", "bevy_core_pipeline"]
 ui_api = ["default_app", "render_api", "bevy_ui", "ui_picking"]
 
 # Enable this feature during development to improve the development experience. This adds
-# features like asset hot-reloading, debugging tools, and dynamic linking.
+# features like asset hot-reloading and debugging tools.
 # This should not be enabled for published apps!
+#
+# Note: We recommend also enabling `dynamic_linking` during development as it can significantly improve
+# iteration times.
 dev = [
-  "debug",            # TODO: rename this to something more specific ... this is a "debug ECS names" feature
-  "dynamic_linking",
+  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
   "file_watcher",
-  "embedded_watcher",
 ]
-
-# END SECTION: Default Feature Collections
 
 # Recommended defaults for no_std applications
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
+
+# END SECTION: Default Feature Collections
 
 # Provides an implementation for picking meshes
 mesh_picking = ["bevy_internal/mesh_picking"]
