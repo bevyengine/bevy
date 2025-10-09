@@ -40,10 +40,10 @@ pub fn extract_text2d_sprite(
             &ViewVisibility,
             &TextBounds,
             &Anchor,
+            &GlobalTransform,
             Option<&Text2dShadow>,
         )>,
     >,
-    transform_query: Extract<Query<&GlobalTransform>>,
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
@@ -51,7 +51,7 @@ pub fn extract_text2d_sprite(
     let mut end = start + 1;
 
     for (computed_block, text_layout_info, relation, sections) in text2d_query.iter() {
-        let Ok((main_entity, view_visibility, text_bounds, anchor, maybe_shadow)) =
+        let Ok((main_entity, view_visibility, text_bounds, anchor, global_transform, maybe_shadow)) =
             root_query.get(**relation)
         else {
             continue;
@@ -60,7 +60,6 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let global_transform = transform_query.get(**relation).unwrap();
         let scaling = GlobalTransform::from_scale(
             Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
         );
