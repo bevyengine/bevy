@@ -1,4 +1,4 @@
-use crate::{Font, TextFont, TextLayoutInfo};
+use crate::{text, Font, TextFont, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -10,12 +10,9 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::warn;
 
+/// Index of a text entity in a text layout
 #[derive(Component, Debug, PartialEq)]
-pub struct TextSection {
-    index: usize,
-    layout_entity: Entity,
-}
-
+pub struct TextIndex(usize);
 #[derive(Component, Debug, PartialEq)]
 pub struct TextSections(SmallVec<[Entity; 1]>);
 
@@ -43,7 +40,19 @@ pub fn identify_text_roots_system<T: Component, Root: RelationshipTarget, Layout
     }
 }
 
-pub fn identify_text_sections() {}
+pub fn update_text_indices<Root: RelationshipTarget>(
+    root_query: Query<Entity, With<Root>>,
+    descendants: Query<&Children, With<TextIndex>>,
+    mut text_index_query: Query<&mut TextIndex>,
+) {
+    for root_entity in root_query.iter() {
+        text_index_query.get_mut(root_entity).ok().unwrap().0 = 0;
+
+        for (index, text_entity) in descendants.iter_descendants(root_entity).enumerate() {
+            text_index_query.get_mut(text_entity).ok().unwrap().0 = index;
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
