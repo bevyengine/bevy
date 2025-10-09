@@ -89,15 +89,11 @@ impl Plugin for CameraSettingsPlugin {
 }
 
 #[derive(Component)]
-struct SensitivityText;
-
-#[derive(Component)]
-struct FrictionText;
+struct InfoText;
 
 fn spawn_text(mut commands: Commands) {
     commands
         .spawn((
-            Text::default(),
             Node {
                 position_type: PositionType::Absolute,
                 bottom: px(12),
@@ -105,18 +101,27 @@ fn spawn_text(mut commands: Commands) {
                 ..default()
             },
             children![
-                TextSpan::new("Z/X: decrease/increase sensitivity\n"),
-                TextSpan::new("C/V: decrease/increase friction\n"),
-                TextSpan::new("Current sensitivity: "),
+                Text::new(concat![
+                    "Z/X: decrease/increase sensitivity\n",
+                    "C/V: decrease/increase friction",
+                ]),
+            ],
+        ));
+    
+    // Mutable text marked with component
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(12),
+                left: px(12),
+                ..default()
+            },
+            children![
                 (
-                    SensitivityText,
-                    TextSpan::new("0.0"),
-                ),
-                TextSpan::new("\nCurrent friction: "),
-                (
-                    FrictionText,
-                    TextSpan::new("0.0"),
-                ),
+                    InfoText,
+                    Text::new(""),
+                )
             ],
         ));
 }
@@ -142,17 +147,16 @@ fn update_camera_settings(
 }
 
 fn update_text(
-    mut text_sensitivity_query: Query<&mut TextSpan, (With<SensitivityText>, Without<FrictionText>)>,
-    mut text_friction_query: Query<&mut TextSpan, (Without<SensitivityText>, With<FrictionText>)>,
+    mut text_query: Query<&mut Text, With<InfoText>>,
     camera_query: Query<&FreeCam>,
 ) {
-    let mut text_sensitivity = text_sensitivity_query.single_mut().unwrap();
-    let mut text_friction = text_friction_query.single_mut().unwrap();
+    let mut text = text_query.single_mut().unwrap();
 
     let free_cam = camera_query.single().unwrap();
 
-    text_sensitivity.0 = format!("{:.03}", free_cam.sensitivity);
-    text_friction.0 = format!("{:.01}", free_cam.friction);
+    text.0 = format!("Sensitivity: {:.03}\nFriction: {:.01}\nSpeed: {:.02}",
+        free_cam.sensitivity, free_cam.friction, free_cam.velocity.length(),
+    );
 }
 
 // Plugin that spawns the scene and lighting.
