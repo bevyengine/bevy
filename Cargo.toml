@@ -125,7 +125,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui", "audio", "scene"]
+default = ["2d", "3d", "ui"]
 
 # SECTION: Feature Collections
 # High level scoped collections of features that give the "full" bevy experience,
@@ -134,31 +134,17 @@ default = ["2d", "3d", "ui", "audio", "scene"]
 # need. This can cut down compile times and shrink your final binary size.
 
 # Features used to build 2D Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the "default" Bevy 2D featureset.
-2d = [
-  "default_platform",
-  "2d_api",
-  "render",
-  "bevy_post_process",
-  "bevy_sprite_render",
-]
+# Add this to your app if you would like the "default" 2D Bevy experience.
+2d = ["default_platform", "2d_api", "2d_bevy_render", "ui", "scene", "audio"]
 
 # Features used to build 3D Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the "default" Bevy 3D featureset.
-3d = [
-  "default_platform",
-  "3d_api",
-  "render",
-  "bevy_anti_alias",
-  "bevy_gltf",
-  "bevy_pbr",
-  "bevy_post_process",
-  "gltf_animation",
-]
+# Add this to your app if you would like the "default" 3D Bevy experience.
+3d = ["default_platform", "3d_api", "3d_bevy_render", "ui", "scene", "audio"]
 
 # Features used to build UI Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the "default" Bevy UI featureset.
-ui = ["default_platform", "ui_api", "render", "bevy_ui_render"]
+# Add this to your app if you would like the "default" Bevy UI experience.
+# If you are using Bevy as "just" a UI framework, enable this feature.
+ui = ["default_platform", "ui_api", "ui_bevy_render", "scene", "audio"]
 
 # Features used to build audio Bevy apps.
 audio = ["bevy_audio", "vorbis"]
@@ -211,12 +197,18 @@ render_api = [
   "png",
 ]
 
-# Default "core" featureset for bevy's default renderer: `bevy_render`
-render = ["render_api", "bevy_render", "bevy_core_pipeline"]
-
 # Features used to build 2D Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
 2d_api = ["default_app", "render_api", "bevy_sprite", "sprite_picking"]
+
+# Bevy's built-in 2D renderer, built on top of `bevy_render` 
+2d_bevy_render = [
+  "2d_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_post_process",
+  "bevy_sprite_render",
+]
 
 # Features used to build 3D Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
@@ -233,9 +225,29 @@ render = ["render_api", "bevy_render", "bevy_core_pipeline"]
   "zstd_rust",
 ]
 
+# Bevy's built-in 3D renderer, built on top of `bevy_render` 
+3d_bevy_render = [
+  "3d_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_anti_alias",
+  "bevy_gltf",
+  "bevy_pbr",
+  "bevy_post_process",
+  "gltf_animation",
+]
+
 # Features used to build UI Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
 ui_api = ["default_app", "render_api", "bevy_ui", "ui_picking"]
+
+# Bevy's built-in UI renderer, built on top of `bevy_render` 
+ui_bevy_render = [
+  "ui_api",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_ui_render",
+]
 
 # Enable this feature during development to improve the development experience. This adds
 # features like asset hot-reloading and debugging tools.
