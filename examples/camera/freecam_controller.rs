@@ -48,7 +48,7 @@ fn main() {
         // Plugin that enables freecam functionality
         .add_plugins(FreeCamPlugin)
         // Example code plugins
-        .add_plugins((CameraPlugin, ScenePlugin))
+        .add_plugins((CameraPlugin, CameraSettingsPlugin, ScenePlugin))
         .run();
 }
 
@@ -69,12 +69,90 @@ fn spawn_camera(mut commands: Commands) {
         // control it. These properties can be chagned at runtime, but beware the controller system is
         // constantly using and modifying those values unless the enabled field is false.
         FreeCam {
-            sensitivity: 0.1,
+            sensitivity: 0.2,
+            friction: 25.0,
             walk_speed: 3.0,
             run_speed: 9.0,
             ..default()
         },
     ));
+}
+
+// Plugin that handles camera settings controls and information text
+struct CameraSettingsPlugin;
+impl Plugin for CameraSettingsPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_systems(Startup, spawn_text)
+            .add_systems(Update, (update_camera_settings, update_text));
+    }
+}
+
+#[derive(Component)]
+struct SensitivityText;
+
+#[derive(Component)]
+struct FrictionText;
+
+fn spawn_text(mut commands: Commands) {
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: px(12),
+                left: px(12),
+                ..default()
+            },
+            children![
+                TextSpan::new("Z/X: decrease/increase sensitivity\n"),
+                TextSpan::new("C/V: decrease/increase friction\n"),
+                TextSpan::new("Current sensitivity: "),
+                (
+                    SensitivityText,
+                    TextSpan::new("0.0"),
+                ),
+                TextSpan::new("\nCurrent friction: "),
+                (
+                    FrictionText,
+                    TextSpan::new("0.0"),
+                ),
+            ],
+        ));
+}
+
+fn update_camera_settings(
+    mut camera_query: Query<&mut FreeCam>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    let mut free_cam = camera_query.single_mut().unwrap();
+
+    if input.pressed(KeyCode::KeyZ) {
+        free_cam.sensitivity = (free_cam.sensitivity - 0.005).max(0.005);
+    }
+    if input.pressed(KeyCode::KeyX) {
+        free_cam.sensitivity += 0.005;
+    }
+    if input.pressed(KeyCode::KeyC) {
+        free_cam.friction = (free_cam.friction - 0.2).max(0.0);
+    }
+    if input.pressed(KeyCode::KeyV) {
+        free_cam.friction += 0.2;
+    }
+}
+
+fn update_text(
+    mut text_sensitivity_query: Query<&mut TextSpan, (With<SensitivityText>, Without<FrictionText>)>,
+    mut text_friction_query: Query<&mut TextSpan, (Without<SensitivityText>, With<FrictionText>)>,
+    camera_query: Query<&FreeCam>,
+) {
+    let mut text_sensitivity = text_sensitivity_query.single_mut().unwrap();
+    let mut text_friction = text_friction_query.single_mut().unwrap();
+
+    let free_cam = camera_query.single().unwrap();
+
+    text_sensitivity.0 = format!("{:.03}", free_cam.sensitivity);
+    text_friction.0 = format!("{:.01}", free_cam.friction);
 }
 
 // Plugin that spawns the scene and lighting.
