@@ -277,14 +277,14 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Adds the given children to this entity
+    /// Adds the given children to this entity.
     /// See also [`add_related`](Self::add_related).
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
     }
 
     /// Removes all the parent-child relationships from this entity.
-    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children)
+    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children).
     /// See also [`clear_related`](Self::clear_related)
     pub fn detach_all_children(&mut self) -> &mut Self {
         self.clear_related::<ChildOf>()
@@ -302,14 +302,14 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_related::<ChildOf>(index, &[child])
     }
 
-    /// Adds the given child to this entity
+    /// Adds the given child to this entity.
     /// See also [`add_related`](Self::add_related).
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
     }
 
     /// Removes the parent-child relationship between this entity and the given entities.
-    /// Does not despawn the child.
+    /// Does not despawn the children.
     pub fn detach_children(&mut self, children: &[Entity]) -> &mut Self {
         self.remove_related::<ChildOf>(children)
     }
@@ -372,13 +372,13 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Adds the given children to this entity
+    /// Adds the given children to this entity.
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
         self.add_related::<ChildOf>(children)
     }
 
     /// Removes all the parent-child relationships from this entity.
-    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children)
+    /// To despawn the child entities, instead use [`EntityWorldMut::despawn_children`](EntityWorldMut::despawn_children).
     /// See also [`clear_related`](Self::clear_related)
     pub fn detach_all_children(&mut self) -> &mut Self {
         self.clear_related::<ChildOf>()
@@ -396,7 +396,7 @@ impl<'a> EntityCommands<'a> {
         self.insert_related::<ChildOf>(index, &[child])
     }
 
-    /// Adds the given child to this entity
+    /// Adds the given child to this entity.
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
     }
