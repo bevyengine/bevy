@@ -3067,7 +3067,7 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let resource_entities: Vec<Entity> = self.resource_entities.entities().copied().collect();
+        let resource_entities: Vec<Entity> = self.resource_entities.values().copied().collect();
         for entity in resource_entities {
             self.despawn(entity);
         }
@@ -3266,12 +3266,13 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids: Vec<ComponentId> = self.resource_entities.component_ids().to_vec();
-        component_ids.into_iter().filter_map(|component_id| {
-            let component_info = self.components().get_info(component_id)?;
-            let resource = self.get_resource_by_id(component_id)?;
-            Some((component_info, resource))
-        })
+        self.resource_entities
+            .iter()
+            .filter_map(|(&component_id, &entity)| {
+                let component_info = self.components().get_info(component_id)?;
+                let resource = self.get_entity(entity).ok()?.get_by_id(component_id).ok()?;
+                Some((component_info, resource))
+            })
     }
 
     /// Mutably iterates over all resources in the world.
@@ -3343,7 +3344,8 @@ impl World {
     #[inline]
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
-        let resource_entities = unsafe_world.resource_entities();
+        // Safety: We have exclusive world access
+        let resource_entities = unsafe { unsafe_world.resource_entities() };
         let components = unsafe_world.components();
 
         resource_entities

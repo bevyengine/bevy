@@ -331,8 +331,11 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's resource-entity map.
+    ///
+    /// # Safety
+    /// The caller must have exclusive read or write access to the resources that are updated in the cache.
     #[inline]
-    pub fn resource_entities(self) -> &'w ResourceCache {
+    pub unsafe fn resource_entities(self) -> &'w ResourceCache {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.resource_entities
@@ -467,7 +470,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let entity = self.resource_entities().get(component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
         entity_cell.get_by_id(component_id)
     }
@@ -554,7 +558,8 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<MutUntyped<'w>> {
         self.assert_allows_mutable_access();
 
-        let entity = self.resource_entities().get(component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
         entity_cell.get_mut_by_id(component_id).ok()
     }
@@ -636,7 +641,8 @@ impl<'w> UnsafeWorldCell<'w> {
         TickCells<'w>,
         MaybeLocation<&'w UnsafeCell<&'static Location<'static>>>,
     )> {
-        let entity = self.resource_entities().get(component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let storage_type = self.components().get_info(component_id)?.storage_type();
         let location = self.get_entity(*entity).ok()?.location();
         // SAFETY:

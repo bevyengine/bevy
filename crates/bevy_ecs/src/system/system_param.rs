@@ -811,9 +811,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         };
         match query.single_inner() {
             Ok(_) => Ok(()),
-            Err(_) => Err(SystemParamValidationError::invalid::<Self>(
-                "Resource does not exist",
-            )),
+            Err(QuerySingleError::NoEntities(_)) => Err(
+                SystemParamValidationError::invalid::<Self>("Resource does not exist"),
+            ),
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::invalid::<Self>("There exists more than one Resource"),
+            ),
         }
     }
 
@@ -900,9 +903,12 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         };
         match query.single_inner() {
             Ok(_) => Ok(()),
-            Err(_) => Err(SystemParamValidationError::invalid::<Self>(
-                "Resource does not exist",
-            )),
+            Err(QuerySingleError::NoEntities(_)) => Err(
+                SystemParamValidationError::invalid::<Self>("Resource does not exist"),
+            ),
+            Err(QuerySingleError::MultipleEntities(_)) => Err(
+                SystemParamValidationError::invalid::<Self>("There exists more than one Resource"),
+            ),
         }
     }
 

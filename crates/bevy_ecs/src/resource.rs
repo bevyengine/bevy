@@ -1,6 +1,6 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
 
 use crate::{
     component::ComponentId,
@@ -92,43 +92,18 @@ pub trait Resource: Send + Sync + 'static + MapEntities {}
 #[derive(Default)]
 pub struct ResourceCache(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
 
-impl ResourceCache {
-    fn inner(&self) -> &SparseSet<ComponentId, Entity> {
+impl Deref for ResourceCache {
+    type Target = SparseSet<ComponentId, Entity>;
+
+    fn deref(&self) -> &Self::Target {
         // SAFETY: pointer was just created, so it's convertible
         unsafe { &*self.0.get() }
     }
+}
 
-    fn inner_mut(&mut self) -> &mut SparseSet<ComponentId, Entity> {
+impl DerefMut for ResourceCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.get_mut()
-    }
-
-    pub(crate) fn get(&self, id: ComponentId) -> Option<&Entity> {
-        self.inner().get(id)
-    }
-
-    pub(crate) fn contains(&self, id: ComponentId) -> bool {
-        self.inner().contains(id)
-    }
-
-    pub(crate) fn len(&self) -> usize {
-        self.inner().len()
-    }
-
-    pub(crate) fn clear(&mut self) {
-        self.inner_mut().clear();
-    }
-
-    pub(crate) fn entities(&self) -> impl Iterator<Item = &Entity> {
-        self.inner().values()
-    }
-
-    /// Returns an iterator visiting all component/entity pairs in arbitrary order, with references to the values.
-    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Entity)> {
-        self.inner().iter()
-    }
-
-    pub(crate) fn component_ids(&self) -> &[ComponentId] {
-        self.inner().indices()
     }
 }
 
@@ -160,8 +135,8 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
         }
     }
 
-    // we update the cache
-    let cache = deferred_world.as_unsafe_world_cell().resource_entities();
+    // SAFETY: We have exclusive world access.
+    let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
     // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
     unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
 }
@@ -172,9 +147,10 @@ pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookCon
     if let Some(entity) = world.resource_entities.get(context.component_id)
         && *entity == context.entity
     {
-        let cache = deferred_world.as_unsafe_world_cell().resource_entities();
+        // SAFETY: We have exclusive world access.
+        let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
         // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
-        unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
+        unsafe { &mut *cache.0.get() }.remove(context.component_id);
     }
 }
 
