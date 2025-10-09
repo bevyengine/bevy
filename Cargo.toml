@@ -4128,6 +4128,18 @@ category = "Camera"
 wasm = true
 
 [[example]]
+name = "free_cam_controller"
+path = "examples/camera/free_cam_controller.rs"
+doc-scrape-examples = true
+required-features = ["free_cam"]
+
+[package.metadata.example.free_cam_controller]
+name = "Free cam camera controller"
+description = "Shows the default free cam camera controller."
+category = "Camera"
+wasm = true
+
+[[example]]
 name = "projection_zoom"
 path = "examples/camera/projection_zoom.rs"
 doc-scrape-examples = true
