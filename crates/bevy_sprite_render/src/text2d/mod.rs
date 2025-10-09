@@ -28,15 +28,19 @@ pub fn extract_text2d_sprite(
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
         Query<(
-            Entity,
-            &ViewVisibility,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            &Text2dLayout,
+            &TextSections,
+        )>,
+    >,
+    root_query: Extract<
+        Query<(
+            Entity,
+            &ViewVisibility,
             &TextBounds,
             &Anchor,
             Option<&Text2dShadow>,
-            &Text2dLayout,
-            &TextSections,
         )>,
     >,
     transform_query: Extract<Query<&GlobalTransform>>,
@@ -46,25 +50,20 @@ pub fn extract_text2d_sprite(
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
-    for (
-        main_entity,
-        view_visibility,
-        computed_block,
-        text_layout_info,
-        text_bounds,
-        anchor,
-        maybe_shadow,
-        relation,
-        sections,
-    ) in text2d_query.iter()
-    {
+    for (computed_block, text_layout_info, relation, sections) in text2d_query.iter() {
+        let Ok((main_entity, view_visibility, text_bounds, anchor, maybe_shadow)) =
+            root_query.get(**relation)
+        else {
+            continue;
+        };
+        if !view_visibility.get() {
+            continue;
+        }
+
         let global_transform = transform_query.get(**relation).unwrap();
         let scaling = GlobalTransform::from_scale(
             Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
         );
-        if !view_visibility.get() {
-            continue;
-        }
 
         let size = Vec2::new(
             text_bounds.width.unwrap_or(text_layout_info.size.x),

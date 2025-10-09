@@ -15,12 +15,9 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_text::{Font, TextColor, TextFont};
 use bevy_time::Time;
-use bevy_ui::{
-    widget::{Text, TextUiWriter},
-    FlexDirection, GlobalZIndex, Node, PositionType, Val,
-};
+use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 

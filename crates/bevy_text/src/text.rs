@@ -39,6 +39,7 @@ pub struct TextEntity {
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
+#[require(TextLayoutInfo)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -112,7 +113,6 @@ impl Default for ComputedTextBlock {
 /// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
