@@ -4719,7 +4719,6 @@ name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
-hidden = true
 
 [[example]]
 name = "render_depth_to_texture"
