@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, IterQueryData, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -125,7 +125,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             cursor: self.cursor.reborrow(),
         }
     }
+}
 
+impl<'w, 's, D: IterQueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
     /// from a storage.
     ///
@@ -237,8 +239,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 continue;
             }
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
+            // SAFETY:
+            // - set_table was called prior.
+            // - Caller assures `row` in range of the current archetype.
+            // - Each row is unique, so each entity is only alive once
+            // - `D: IterQueryData`
             let item = D::fetch(
                 &self.query_state.fetch_state,
                 &mut self.cursor.fetch,
@@ -305,8 +310,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 continue;
             }
 
-            // SAFETY: set_archetype was called prior, `index` is an archetype index in range of the current archetype
-            // Caller assures `index` in range of the current archetype.
+            // SAFETY:
+            // - set_archetype was called prior, `index` is an archetype index in range of the current archetype
+            // - Caller assures `index` in range of the current archetype.
+            // - Each row is unique, so each entity is only alive once
+            // - `D: IterQueryData`
             let item = unsafe {
                 D::fetch(
                     &self.query_state.fetch_state,
@@ -382,8 +390,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
                 continue;
             }
 
-            // SAFETY: set_table was called prior.
-            // Caller assures `row` in range of the current archetype.
+            // SAFETY:
+            // - set_table was called prior.
+            // - Caller assures `row` in range of the current archetype.
+            // - Each row is unique, so each entity is only alive once
+            // - `D: IterQueryData`
             let item = D::fetch(
                 &self.query_state.fetch_state,
                 &mut self.cursor.fetch,
@@ -395,7 +406,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         }
         accum
     }
+}
 
+impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Sorts all query items into a new iterator, using the query lens as a key.
     ///
     /// This sort is stable (i.e., does not reorder equal elements).
@@ -902,7 +915,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
     type Item = D::Item<'w, 's>;
 
     #[inline(always)]
@@ -945,7 +958,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> 
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, D: QueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
+impl<'w, 's, D: IterQueryData, F: QueryFilter> FusedIterator for QueryIter<'w, 's, D, F> {}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter> EntitySetIterator for QueryIter<'w, 's, Entity, F> {}
@@ -1038,7 +1051,10 @@ where
     }
 
     /// # Safety
-    /// `entity` must stem from `self.entity_iter`, and not have been passed before.
+    ///
+    /// - `entity` must stem from `self.entity_iter`
+    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
@@ -1068,7 +1084,7 @@ where
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
         // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-        // - fetch is only called once for each entity.
+        // - Caller ensures there are no conflicting items alive
         unsafe {
             D::fetch(
                 &self.query_state.fetch_state,
@@ -1080,7 +1096,7 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: Iterator> Iterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
     I: Iterator<Item = Entity>,
@@ -1090,7 +1106,9 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         let entity = self.entity_iter.next()?;
-        // SAFETY: `entity` is passed from `entity_iter` the first time.
+        // SAFETY:
+        // - `entity` is passed from `entity_iter` the first time.
+        // - `D: IterQueryData`
         unsafe { self.fetch_next(entity).into() }
     }
 
@@ -1099,7 +1117,7 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: Iterator> DoubleEndedIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
     I: DoubleEndedIterator<Item = Entity>,
@@ -1107,12 +1125,14 @@ where
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
         let entity = self.entity_iter.next_back()?;
-        // SAFETY: `entity` is passed from `entity_iter` the first time.
+        // SAFETY:
+        // - `entity` is passed from `entity_iter` the first time.
+        // - `D: IterQueryData`
         unsafe { self.fetch_next(entity).into() }
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: Iterator> ExactSizeIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
     I: ExactSizeIterator<Item = Entity>,
@@ -1120,7 +1140,7 @@ where
 }
 
 // This is correct as [`QuerySortedIter`] returns `None` once exhausted if `entity_iter` does.
-impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> FusedIterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: Iterator> FusedIterator
     for QuerySortedIter<'w, 's, D, F, I>
 where
     I: FusedIterator<Item = Entity>,
@@ -1191,13 +1211,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     }
 
     /// # Safety
-    /// All arguments must stem from the same valid `QueryManyIter`.
     ///
-    /// The lifetime here is not restrictive enough for Fetch with &mut access,
-    /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
-    /// references to the same component, leading to unique reference aliasing.
-    ///
-    /// It is always safe for shared access.
+    /// - All arguments must stem from the same valid `QueryManyIter`.
+    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(
         entity_iter: impl Iterator<Item: EntityEquivalent>,
@@ -1247,7 +1264,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
             } {
                 // SAFETY:
                 // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-                // - fetch is only called once for each entity.
+                // - Caller ensures there are no conflicting items alive
                 return Some(unsafe {
                     D::fetch(&query_state.fetch_state, fetch, entity, location.table_row)
                 });
@@ -1877,11 +1894,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>> 
 /// [`iter_many_unique`]: crate::system::Query::iter_many
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_mut
 /// [`Query`]: crate::system::Query
-pub struct QueryManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>(
+pub struct QueryManyUniqueIter<'w, 's, D: IterQueryData, F: QueryFilter, I: EntitySetIterator>(
     QueryManyIter<'w, 's, D, F, I>,
 );
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: EntitySetIterator>
     QueryManyUniqueIter<'w, 's, D, F, I>
 {
     /// # Safety
@@ -1904,14 +1921,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Iterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: EntitySetIterator> Iterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
     type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
-        // SAFETY: Entities are guaranteed to be unique, thus do not alias.
+        // SAFETY:
+        // - Entities are guaranteed to be unique, thus do not alias.
+        // - `D: IterQueryData`
         unsafe {
             QueryManyIter::<'w, 's, D, F, I>::fetch_next_aliased_unchecked(
                 &mut self.0.entity_iter,
@@ -1932,7 +1951,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Iterator
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> FusedIterator
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: EntitySetIterator> FusedIterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
 }
@@ -1943,7 +1962,7 @@ unsafe impl<'w, 's, F: QueryFilter, I: EntitySetIterator> EntitySetIterator
 {
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Debug
+impl<'w, 's, D: IterQueryData, F: QueryFilter, I: EntitySetIterator> Debug
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -1993,12 +2012,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
     }
 
     /// # Safety
-    /// The lifetime here is not restrictive enough for Fetch with &mut access,
-    /// as calling `fetch_next_aliased_unchecked` multiple times can produce multiple
-    /// references to the same component, leading to unique reference aliasing.
     ///
-    /// It is always safe for shared access.
-    /// `entity` must stem from `self.entity_iter`, and not have been passed before.
+    /// - `entity` must stem from `self.entity_iter`
+    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     #[inline(always)]
     unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
@@ -2028,7 +2045,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
         // The entity list has already been filtered by the query lens, so we forego filtering here.
         // SAFETY:
         // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-        // - fetch is only called once for each entity.
+        // - Caller ensures there are no conflicting items alive
         unsafe {
             D::fetch(
                 &self.query_state.fetch_state,
@@ -2334,7 +2351,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'w, 's, D, F>
+impl<'w, 's, D: IterQueryData, F: QueryFilter> ExactSizeIterator for QueryIter<'w, 's, D, F>
 where
     F: ArchetypeFilter,
 {

@@ -324,6 +324,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     ///   `table_row` must be in the range of the current table and archetype.
     /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
+    /// - If `Self` does not impl `ReadOnlyQueryData`, then there must not be any other `Item`s alive for the current entity
+    /// - If `Self` does not impl `IterQueryData`, then there must not be any other `Item`s alive for *any* entity
     unsafe fn fetch<'w, 's>(
         state: &'s Self::State,
         fetch: &mut Self::Fetch<'w>,
