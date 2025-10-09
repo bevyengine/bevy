@@ -507,6 +507,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         self.validate_world(world.id());
+        D::update_archetypes(&mut self.fetch_state, world);
+        F::update_archetypes(&mut self.filter_state, world);
         if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();
             let old_generation =

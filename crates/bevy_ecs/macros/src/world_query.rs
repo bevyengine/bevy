@@ -171,6 +171,10 @@ pub(crate) fn world_query_impl(
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#named_field_idents, _set_contains_id))*
             }
+
+            fn update_archetypes(_state: &mut Self::State, _world: #path::world::unsafe_world_cell::UnsafeWorldCell) {
+                #(<#field_types>::update_archetypes(&mut _state.#named_field_idents, _world);)*
+            }
         }
     }
 }

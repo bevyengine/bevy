@@ -2364,6 +2364,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        T::update_archetypes(state, world);
+    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -2788,6 +2792,10 @@ macro_rules! impl_anytuple_fetch {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
             }
+
+            fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+                <($(Option<$name>,)*)>::update_archetypes(state, world);
+            }
         }
 
         #[expect(
@@ -2936,6 +2944,10 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
         D::matches_component_set(state, set_contains_id)
+    }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        D::update_archetypes(state, world);
     }
 }
 

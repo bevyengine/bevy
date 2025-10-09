@@ -130,6 +130,10 @@ pub unsafe trait WorldQuery {
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool;
+
+    /// Called when the query state is updating its archetype cache.
+    /// This can be used by nested queries to update their internal archetype caches.
+    fn update_archetypes(_state: &mut Self::State, _world: UnsafeWorldCell) {}
 }
 
 macro_rules! impl_tuple_world_query {
@@ -214,6 +218,11 @@ macro_rules! impl_tuple_world_query {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, set_contains_id))*
+            }
+
+            fn update_archetypes(state: &mut Self::State, _world: UnsafeWorldCell) {
+                let ($($name,)*) = state;
+                $($name::update_archetypes($name, _world);)*
             }
         }
     };
