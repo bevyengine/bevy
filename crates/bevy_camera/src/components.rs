@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
-use wgpu_types::{LoadOp, TextureUsages};
+use wgpu_types::{LoadOp, TextureFormat, TextureUsages};
 
 /// A 2D camera component. Enables the 2D render graph for a [`Camera`].
 #[derive(Component, Default, Reflect, Clone)]
@@ -136,4 +136,47 @@ pub enum ScreenSpaceTransmissionQuality {
     ///
     /// `num_taps` = 32
     Ultra,
+}
+
+/// This component lets you control the [`TextureFormat`] of the DepthStencilTexture generated for the camera
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct DepthStencilFormat(TextureFormat);
+
+impl DepthStencilFormat {
+    /// Stencil format with 8 bit integer stencil.
+	pub const STENCIL8 : Self = Self(TextureFormat::Stencil8);
+    /// Special depth format with 16 bit integer depth.
+	pub const DEPTH16_UNORM : Self = Self(TextureFormat::Depth16Unorm);
+    /// Special depth format with at least 24 bit integer depth.
+	pub const DEPTH24_PLUS : Self = Self(TextureFormat::Depth24Plus);
+    /// Special depth/stencil format with at least 24 bit integer depth and 8 bits integer stencil.
+	pub const DEPTH24_PLUS_STENCIL8 : Self = Self(TextureFormat::Depth24PlusStencil8);
+    /// Special depth format with 32 bit floating point depth.
+	pub const DEPTH32_FLOAT : Self = Self(TextureFormat::Depth32Float);
+    /// Special depth/stencil format with 32 bit floating point depth and 8 bits integer stencil.
+    ///
+    /// wgpu support for [`Features::DEPTH32FLOAT_STENCIL8`] should be checked before using this format.
+	pub const DEPTH32_FLOAT_STENCIL8 : Self = Self(TextureFormat::Depth32FloatStencil8);
+
+	pub fn format(&self) -> TextureFormat {
+		self.0
+	}
+
+	pub fn new(format: TextureFormat) -> Self {
+		Self(format)
+	}
+
+	pub fn supports_stencil(&self) -> bool {
+		matches!(
+			self.0,
+			TextureFormat::Depth24PlusStencil8 | TextureFormat::Depth32FloatStencil8
+		)
+	}
+}
+
+impl Default for DepthStencilFormat {
+	fn default() -> Self {
+		Self(TextureFormat::Depth32Float)
+	}
 }
