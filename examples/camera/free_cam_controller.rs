@@ -1,16 +1,16 @@
 //! This example showcases the default freecam camera controller.
-//! 
+//!
 //! The default freecam controller is useful for exploring large scenes, debugging and editing purposes. To use it,
 //! simply add the [`FreeCamPlugin`] to your [`App`] and attach the [`FreeCam`] component to the camera entity you
 //! wish to control.
-//! 
+//!
 //! ## Default Controls
-//! 
+//!
 //! This controller has a simple 6-axis control scheme, and mouse controls for camera orientation. There are also
 //! bindings for capturing the mouse, both while holding the button and toggle, a run feature that increases the
 //! max speed, and scrolling changes the movement speed. All keybinds can be changed by editing the [`FreeCam`]
 //! component.
-//! 
+//!
 //! | Default Key Binding | Action                 |
 //! |:--------------------|:-----------------------|
 //! | Mouse               | Look around            |
@@ -20,13 +20,13 @@
 //! | QE                  | Vertical movement      |
 //! | Left shift          | Run                    |
 //! | Scroll wheel        | Change movement speed  |
-//! 
+//!
 //! The movement speed, sensitivity and friction can also be changed by the [`FreeCam`] component.
-//! 
+//!
 //! ## Example controls
-//! 
+//!
 //! This example also provides a few extra keybinds to change the camera sensitivity and friction.
-//! 
+//!
 //! | Key Binding | Action               |
 //! |:------------|:---------------------|
 //! | Z           | Decrease sensitivity |
@@ -39,7 +39,7 @@ use std::f32::consts::{FRAC_PI_4, PI};
 use bevy::{
     camera_controller::free_cam::{FreeCam, FreeCamPlugin},
     color::palettes::tailwind,
-    prelude::*
+    prelude::*,
 };
 
 fn main() {
@@ -56,8 +56,7 @@ fn main() {
 struct CameraPlugin;
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Startup, spawn_camera);
+        app.add_systems(Startup, spawn_camera);
     }
 }
 
@@ -82,8 +81,7 @@ fn spawn_camera(mut commands: Commands) {
 struct CameraSettingsPlugin;
 impl Plugin for CameraSettingsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(Startup, spawn_text)
+        app.add_systems(Startup, spawn_text)
             .add_systems(Update, (update_camera_settings, update_text));
     }
 }
@@ -92,44 +90,32 @@ impl Plugin for CameraSettingsPlugin {
 struct InfoText;
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                bottom: px(12),
-                left: px(12),
-                ..default()
-            },
-            children![
-                Text::new(concat![
-                    "Z/X: decrease/increase sensitivity\n",
-                    "C/V: decrease/increase friction",
-                ]),
-            ],
-        ));
-    
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![Text::new(concat![
+            "Z/X: decrease/increase sensitivity\n",
+            "C/V: decrease/increase friction",
+        ]),],
+    ));
+
     // Mutable text marked with component
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(12),
-                left: px(12),
-                ..default()
-            },
-            children![
-                (
-                    InfoText,
-                    Text::new(""),
-                )
-            ],
-        ));
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![(InfoText, Text::new(""),)],
+    ));
 }
 
-fn update_camera_settings(
-    mut camera_query: Query<&mut FreeCam>,
-    input: Res<ButtonInput<KeyCode>>,
-) {
+fn update_camera_settings(mut camera_query: Query<&mut FreeCam>, input: Res<ButtonInput<KeyCode>>) {
     let mut free_cam = camera_query.single_mut().unwrap();
 
     if input.pressed(KeyCode::KeyZ) {
@@ -146,16 +132,16 @@ fn update_camera_settings(
     }
 }
 
-fn update_text(
-    mut text_query: Query<&mut Text, With<InfoText>>,
-    camera_query: Query<&FreeCam>,
-) {
+fn update_text(mut text_query: Query<&mut Text, With<InfoText>>, camera_query: Query<&FreeCam>) {
     let mut text = text_query.single_mut().unwrap();
 
     let free_cam = camera_query.single().unwrap();
 
-    text.0 = format!("Sensitivity: {:.03}\nFriction: {:.01}\nSpeed: {:.02}",
-        free_cam.sensitivity, free_cam.friction, free_cam.velocity.length(),
+    text.0 = format!(
+        "Sensitivity: {:.03}\nFriction: {:.01}\nSpeed: {:.02}",
+        free_cam.sensitivity,
+        free_cam.friction,
+        free_cam.velocity.length(),
     );
 }
 
@@ -163,10 +149,7 @@ fn update_text(
 struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(
-                Startup,
-                (spawn_lights, spawn_world));
+        app.add_systems(Startup, (spawn_lights, spawn_world));
     }
 }
 
@@ -223,7 +206,7 @@ fn spawn_world(
     commands.spawn((
         Mesh3d(floor.clone()),
         MeshMaterial3d(white_material.clone()),
-        Transform::from_xyz(0.0, -0.01, 0.0).with_rotation(Quat::from_rotation_x(PI))
+        Transform::from_xyz(0.0, -0.01, 0.0).with_rotation(Quat::from_rotation_x(PI)),
     ));
     // Blue sphere
     commands.spawn((
@@ -251,6 +234,6 @@ fn spawn_world(
             translation: Vec3::new(3.0, -2.0, 0.0),
             rotation: Quat::from_euler(EulerRot::YXZEx, FRAC_PI_4, FRAC_PI_4, 0.0),
             ..default()
-        }
+        },
     ));
 }
