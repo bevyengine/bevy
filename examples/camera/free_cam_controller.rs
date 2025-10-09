@@ -25,14 +25,18 @@
 //!
 //! ## Example controls
 //!
-//! This example also provides a few extra keybinds to change the camera sensitivity and friction.
+//! This example also provides a few extra keybinds to change the camera sensitivity, friction (how fast the camera
+//! stops), scroll factor (how much scrolling changes speed) and enabling/disabling the controller.
 //!
-//! | Key Binding | Action               |
-//! |:------------|:---------------------|
-//! | Z           | Decrease sensitivity |
-//! | X           | Increase snsitivity  |
-//! | C           | Decrease friction    |
-//! | V           | Increase friction    |
+//! | Key Binding | Action                 |
+//! |:------------|:-----------------------|
+//! | Z           | Decrease sensitivity   |
+//! | X           | Increase snsitivity    |
+//! | C           | Decrease friction      |
+//! | V           | Increase friction      |
+//! | F           | Decrease scroll factor |
+//! | G           | Increase scroll factor |
+//! | B           | Enable/Disable         |
 
 use std::f32::consts::{FRAC_PI_4, PI};
 
@@ -81,7 +85,7 @@ fn spawn_camera(mut commands: Commands) {
 struct CameraSettingsPlugin;
 impl Plugin for CameraSettingsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_text)
+        app.add_systems(PostStartup, spawn_text)
             .add_systems(Update, (update_camera_settings, update_text));
     }
 }
@@ -89,7 +93,19 @@ impl Plugin for CameraSettingsPlugin {
 #[derive(Component)]
 struct InfoText;
 
-fn spawn_text(mut commands: Commands) {
+fn spawn_text(
+    mut commands: Commands,
+    freecam_query: Query<&FreeCam>,
+) {
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(-16),
+            left: px(12),
+            ..default()
+        },
+        children![Text::new(format!("{}", freecam_query.single().unwrap()))],
+    ));
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -99,7 +115,9 @@ fn spawn_text(mut commands: Commands) {
         },
         children![Text::new(concat![
             "Z/X: decrease/increase sensitivity\n",
-            "C/V: decrease/increase friction",
+            "C/V: decrease/increase friction\n",
+            "F/G: decrease/increase scroll factor\n",
+            "B: enable/disable controller",
         ]),],
     ));
 
@@ -108,10 +126,10 @@ fn spawn_text(mut commands: Commands) {
         Node {
             position_type: PositionType::Absolute,
             top: px(12),
-            left: px(12),
+            right: px(12),
             ..default()
         },
-        children![(InfoText, Text::new(""),)],
+        children![(InfoText, Text::new(""))],
     ));
 }
 
@@ -130,6 +148,15 @@ fn update_camera_settings(mut camera_query: Query<&mut FreeCam>, input: Res<Butt
     if input.pressed(KeyCode::KeyV) {
         free_cam.friction += 0.2;
     }
+    if input.pressed(KeyCode::KeyF) {
+        free_cam.scroll_factor = (free_cam.scroll_factor - 0.02).max(0.02);
+    }
+    if input.pressed(KeyCode::KeyG) {
+        free_cam.scroll_factor += 0.02;
+    }
+    if input.just_pressed(KeyCode::KeyB) {
+        free_cam.enabled = !free_cam.enabled;
+    }
 }
 
 fn update_text(mut text_query: Query<&mut Text, With<InfoText>>, camera_query: Query<&FreeCam>) {
@@ -138,9 +165,13 @@ fn update_text(mut text_query: Query<&mut Text, With<InfoText>>, camera_query: Q
     let free_cam = camera_query.single().unwrap();
 
     text.0 = format!(
-        "Sensitivity: {:.03}\nFriction: {:.01}\nSpeed: {:.02}",
+        "Enabled: {},\nSensitivity: {:.03}\nFriction: {:.01}\nScroll factor: {:.02}\nWalk Speed: {:.02}\nRun Speed: {:.02}\nSpeed: {:.02}",
+        free_cam.enabled,
         free_cam.sensitivity,
         free_cam.friction,
+        free_cam.scroll_factor,
+        free_cam.walk_speed,
+        free_cam.run_speed,
         free_cam.velocity.length(),
     );
 }
