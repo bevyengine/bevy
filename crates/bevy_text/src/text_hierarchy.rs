@@ -19,19 +19,23 @@ pub struct TextSections(SmallVec<[Entity; 1]>);
 /// Update text roots
 pub fn identify_text_roots_system<T: Component, Root: RelationshipTarget, Layout: Relationship>(
     mut commands: Commands,
-    mut text_node_query: Query<(Entity, Option<&ChildOf>, Option<&Root>), With<T>>,
+    orphan_query: Query<Entity, (With<T>, Without<ChildOf>, Without<Root>)>,
+    child_query: Query<(Entity, &ChildOf, Has<Root>), With<T>>,
     parent_query: Query<&T>,
     non_text_root_query: Query<Entity, (With<Root>, Without<T>)>,
 ) {
-    for (entity, maybe_child_of, maybe_root) in text_node_query.iter_mut() {
-        // Either the text entity is an orphan, or its parent is not a text entity. It must be a root text entity.
-        if maybe_child_of.is_none_or(|parent| !parent_query.contains(parent.get())) {
-            if maybe_root.is_none() {
-                // Root entity is not already a root
-                commands.spawn(Layout::from(entity));
-            }
-        } else if let Some(_) = maybe_root {
+    for text_orphan in orphan_query.iter() {
+        commands.spawn(Layout::from(text_orphan));
+    }
+
+    for (entity, child_of, has_root) in child_query.iter() {
+        let parent_is_text = parent_query.contains(child_of.get());
+        if parent_is_text && has_root {
+            // entity is not a root
             commands.entity(entity).remove::<Root>();
+        } else if !parent_is_text && !has_root {
+            // Root entity is not already a root
+            commands.spawn(Layout::from(entity));
         }
     }
 
@@ -57,7 +61,7 @@ pub fn update_text_indices<Root: RelationshipTarget>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Font, TextFont, TextLayoutInfo};
+    use crate::TextFont;
     use bevy_app::{App, Update};
     use bevy_asset::Handle;
     use bevy_color::Color;
@@ -67,7 +71,6 @@ mod tests {
     use bevy_utils::{default, once};
     use cosmic_text::{Buffer, Metrics};
     use serde::{Deserialize, Serialize};
-    use smallvec::SmallVec;
     use tracing::warn;
     #[derive(Component, Debug, PartialEq, Eq)]
     #[relationship_target(relationship = TestLayout, linked_spawn)]
