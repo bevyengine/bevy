@@ -1,14 +1,7 @@
-use crate::{text, TextLayoutInfo};
-use bevy_asset::Handle;
-use bevy_color::Color;
-use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
-use bevy_reflect::prelude::*;
-use bevy_utils::{default, once};
-use cosmic_text::{Buffer, Metrics};
-use serde::{Deserialize, Serialize};
+use bevy_derive::Deref;
+use bevy_ecs::{prelude::*, relationship::Relationship};
+
 use smallvec::SmallVec;
-use tracing::warn;
 
 /// Index of a text entity in a text layout
 #[derive(Component, Debug, PartialEq, Deref, Default)]
@@ -76,19 +69,8 @@ pub fn update_text_indices<Root: RelationshipTarget>(
 mod tests {
     use super::*;
     use bevy_app::{App, Update};
-    use bevy_asset::Handle;
-    use bevy_color::Color;
-    use bevy_derive::{Deref, DerefMut};
-    use bevy_ecs::{
-        prelude::*,
-        reflect::ReflectComponent,
-        relationship::{DescendantIter, Relationship},
-    };
-    use bevy_reflect::prelude::*;
-    use bevy_utils::{default, once};
-    use cosmic_text::{Buffer, Metrics};
-    use serde::{Deserialize, Serialize};
-    use tracing::warn;
+    use bevy_ecs::relationship::DescendantIter;
+
     #[derive(Component, Debug, PartialEq, Eq)]
     #[relationship_target(relationship = TestLayout, linked_spawn)]
     struct TestRoot(Entity);
