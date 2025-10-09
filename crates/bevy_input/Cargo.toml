@@ -13,6 +13,13 @@ default = ["std", "bevy_reflect", "bevy_ecs/async_executor", "smol_str"]
 
 # Functionality
 
+## Input sources
+mouse = []
+keyboard = []
+gamepad = []
+touch = []
+gestures = []
+
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
   "dep:bevy_reflect",
