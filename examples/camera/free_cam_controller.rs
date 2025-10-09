@@ -93,10 +93,7 @@ impl Plugin for CameraSettingsPlugin {
 #[derive(Component)]
 struct InfoText;
 
-fn spawn_text(
-    mut commands: Commands,
-    freecam_query: Query<&FreeCam>,
-) {
+fn spawn_text(mut commands: Commands, freecam_query: Query<&FreeCam>) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
