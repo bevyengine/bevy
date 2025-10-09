@@ -1,4 +1,4 @@
-use crate::{Font, TextLayoutInfo};
+use crate::{Font, TextFont, TextLayoutInfo};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
