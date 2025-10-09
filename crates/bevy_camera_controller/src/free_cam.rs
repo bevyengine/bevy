@@ -186,17 +186,25 @@ pub fn run_freecam_controller(
         return;
     }
 
-    let mut scroll = 0.0;
-
     let amount = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
         MouseScrollUnit::Pixel => {
             accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
         }
     };
-    scroll += amount;
-    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
-    controller.run_speed = controller.walk_speed * 3.0;
+
+    if amount != 0.0 {
+        // scale the speed exponentially with the scroll factor as the base.
+        let scroll_plus_one = controller.scroll_factor.max(0.0) + 1.0;
+        let log_speed_plus_one = bevy_math::ops::ln(controller.walk_speed + 1.0);
+        // `factor` will approach but never reach 0 as `walk_speed` approaches 0:
+        // Importantly, we want to avoid ever reaching exactly 0 so we don't get stuck there.
+        let factor = bevy_math::ops::powf(scroll_plus_one, log_speed_plus_one) - 0.999;
+        controller.walk_speed += factor * amount;
+        // avoid negative speeds.
+        controller.walk_speed = controller.walk_speed.clamp(0.0, f32::MAX);
+        controller.run_speed = controller.walk_speed * 3.0;
+    }
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;
