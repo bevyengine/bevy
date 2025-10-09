@@ -478,6 +478,11 @@ macro_rules! impl_or_query_filter {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
+
+            fn update_archetypes(state: &mut Self::State, _world: UnsafeWorldCell) {
+                let ($($filter,)*) = state;
+                $($filter::update_archetypes($filter, _world);)*
+            }
         }
 
         #[expect(

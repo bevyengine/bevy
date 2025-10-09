@@ -332,12 +332,32 @@ pub unsafe trait QueryData: WorldQuery {
     ) -> Self::Item<'w, 's>;
 }
 
+/// A [`QueryData`] for which instances may be alive for different entities concurrently.
+///
+/// This is always the case for queries that only access the current entity,
+/// or that only perform read access on other entities.
+/// Queries may perform mutable access on other entities if they
+/// can prove that the other entities are all distinct,
+/// such as if they are on the appropriate side of a one-to-many or one-to-one relation.
+///
+/// # Safety
+///
+/// This [`QueryData`] must not perform conflicting access when fetched for different entities.
+pub unsafe trait IterQueryData: QueryData {}
+
 /// A [`QueryData`] that is read only.
 ///
 /// # Safety
 ///
 /// This must only be implemented for read-only [`QueryData`]'s.
-pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
+pub unsafe trait ReadOnlyQueryData: IterQueryData<ReadOnly = Self> {}
+
+/// A [`QueryData`] that only accesses data from the current entity.
+///
+/// # Safety
+///
+/// This [`QueryData`] must only access data from the current entity, and not any other entities.
+pub unsafe trait SingleEntityQueryData: IterQueryData {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over
 pub type QueryItem<'w, 's, Q> = <Q as QueryData>::Item<'w, 's>;
@@ -431,8 +451,14 @@ unsafe impl QueryData for Entity {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for Entity {}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for Entity {}
 
 impl ReleaseStateQueryData for Entity {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -521,8 +547,14 @@ unsafe impl QueryData for EntityLocation {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for EntityLocation {}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityLocation {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityLocation {}
 
 impl ReleaseStateQueryData for EntityLocation {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -694,8 +726,14 @@ unsafe impl QueryData for SpawnDetails {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for SpawnDetails {}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for SpawnDetails {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for SpawnDetails {}
 
 impl ReleaseStateQueryData for SpawnDetails {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -810,8 +848,14 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for EntityRef<'_> {}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityRef<'_> {}
 
 impl ReleaseStateQueryData for EntityRef<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -912,6 +956,12 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         unsafe { EntityMut::new(cell) }
     }
 }
+
+/// SAFETY: access is only on the current entity
+unsafe impl IterQueryData for EntityMut<'_> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for EntityMut<'_> {}
 
 impl ReleaseStateQueryData for EntityMut<'_> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1034,8 +1084,14 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
     }
 }
 
-/// SAFETY: Access is read-only.
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for FilteredEntityRef<'_, '_> {}
+
+/// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for FilteredEntityRef<'_, '_> {}
 
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
@@ -1150,6 +1206,12 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     }
 }
 
+/// SAFETY: access is only on the current entity
+unsafe impl IterQueryData for FilteredEntityMut<'_, '_> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for FilteredEntityMut<'_, '_> {}
+
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
@@ -1259,9 +1321,14 @@ where
     }
 }
 
-/// SAFETY: `EntityRefExcept` enforces read-only access to its contained
-/// components.
+/// SAFETY: access is read only and only on the current entity
+unsafe impl<B> IterQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
+
+/// SAFETY: access is read only
 unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<B> SingleEntityQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
@@ -1373,6 +1440,12 @@ where
     }
 }
 
+/// SAFETY: access is only on the current entity
+unsafe impl<B> IterQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<B> SingleEntityQueryData for EntityMutExcept<'_, '_, B> where B: Bundle {}
+
 /// SAFETY:
 /// `update_component_access` does nothing.
 /// This is sound because `fetch` does not access components.
@@ -1457,8 +1530,14 @@ unsafe impl QueryData for &Archetype {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl IterQueryData for &Archetype {}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for &Archetype {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl SingleEntityQueryData for &Archetype {}
 
 impl ReleaseStateQueryData for &Archetype {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1623,8 +1702,14 @@ unsafe impl<T: Component> QueryData for &T {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl<T: Component> IterQueryData for &T {}
+
 /// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for &T {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component> SingleEntityQueryData for &T {}
 
 impl<T: Component> ReleaseStateQueryData for &T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -1829,8 +1914,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     }
 }
 
+/// SAFETY: access is read only and only on the current entity
+unsafe impl<'__w, T: Component> IterQueryData for Ref<'__w, T> {}
+
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<'__w, T: Component> SingleEntityQueryData for Ref<'__w, T> {}
 
 impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2035,6 +2126,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     }
 }
 
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for &mut T {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for &mut T {}
+
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
@@ -2146,6 +2243,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
     }
 }
+
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> IterQueryData for Mut<'_, T> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component<Mutability = Mutable>> SingleEntityQueryData for Mut<'_, T> {}
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2287,8 +2390,14 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     }
 }
 
-/// SAFETY: [`OptionFetch`] is read only because `T` is read only
+/// SAFETY: `Option<T>` is iterable because `T` is iterable
+unsafe impl<T: IterQueryData> IterQueryData for Option<T> {}
+
+/// SAFETY: `Option<T>` is read only because `T` is read only
 unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
+
+/// SAFETY: `Option<T>` only accesses the current entity because `T` only accesses the current entity
+unsafe impl<T: SingleEntityQueryData> SingleEntityQueryData for Option<T> {}
 
 impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2458,8 +2567,14 @@ unsafe impl<T: Component> QueryData for Has<T> {
     }
 }
 
-/// SAFETY: [`Has`] is read only
+/// SAFETY: access is read only and only on the current entity
+unsafe impl<T: Component> IterQueryData for Has<T> {}
+
+/// SAFETY: access is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
+
+/// SAFETY: access is only on the current entity
+unsafe impl<T: Component> SingleEntityQueryData for Has<T> {}
 
 impl<T: Component> ReleaseStateQueryData for Has<T> {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
@@ -2531,8 +2646,16 @@ macro_rules! impl_tuple_query_data {
         }
 
         $(#[$meta])*
+        /// SAFETY: each item in the tuple is iterable
+        unsafe impl<$($name: IterQueryData),*> IterQueryData for ($($name,)*) {}
+
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
+
+        $(#[$meta])*
+        /// SAFETY: each item in the tuple only accesses the current entity
+        unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for ($($name,)*) {}
 
         #[expect(
             clippy::allow_attributes,
@@ -2712,8 +2835,16 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
+        /// SAFETY: each item in the tuple is iterable
+        unsafe impl<$($name: IterQueryData),*> IterQueryData for AnyOf<($($name,)*)> {}
+
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
+
+        $(#[$meta])*
+        /// SAFETY: each item in the tuple only accesses the current entity
+        unsafe impl<$($name: SingleEntityQueryData),*> SingleEntityQueryData for AnyOf<($($name,)*)> {}
 
         #[expect(
             clippy::allow_attributes,
@@ -2828,7 +2959,13 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
 }
 
 /// SAFETY: `NopFetch` never accesses any data
+unsafe impl<D: QueryData> IterQueryData for NopWorldQuery<D> {}
+
+/// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
+
+/// SAFETY: `NopFetch` never accesses any data
+unsafe impl<D: QueryData> SingleEntityQueryData for NopWorldQuery<D> {}
 
 impl<D: QueryData> ReleaseStateQueryData for NopWorldQuery<D> {
     fn release_state<'w>(_item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {}
@@ -2908,8 +3045,14 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     }
 }
 
-/// SAFETY: `PhantomData` never accesses any world data.
+/// SAFETY: `PhantomData` never accesses any data
+unsafe impl<T: ?Sized> IterQueryData for PhantomData<T> {}
+
+/// SAFETY: `PhantomData` never accesses any data
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
+
+/// SAFETY: `PhantomData` never accesses any data
+unsafe impl<T: ?Sized> SingleEntityQueryData for PhantomData<T> {}
 
 impl<T: ?Sized> ReleaseStateQueryData for PhantomData<T> {
     fn release_state<'w>(_item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {}
@@ -3114,6 +3257,9 @@ mod tests {
 
         /// SAFETY: access is read only
         unsafe impl ReadOnlyQueryData for NonReleaseQueryData {}
+
+        /// SAFETY: access is read only
+        unsafe impl IterQueryData for NonReleaseQueryData {}
 
         #[derive(QueryData)]
         pub struct DerivedNonReleaseRead {
