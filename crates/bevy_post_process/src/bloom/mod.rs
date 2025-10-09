@@ -366,8 +366,9 @@ fn prepare_bloom_textures(
                 .ilog2()
                 .clamp(2, bloom.max_mip_count)
                 - 1;
+            // To better predict the mip count, `max_mip_dimension` actually controls the maximum short-side size of the bloom texture.
             let mip_dim_ratio = if viewport.y != 0 && viewport.x != 0 {
-                (bloom.max_mip_dimension as f32 / viewport.as_vec2()).max_element()
+                bloom.max_mip_dimension as f32 / viewport.as_vec2().min_element()
             } else {
                 0.
             };

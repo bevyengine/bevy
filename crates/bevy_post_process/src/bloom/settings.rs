@@ -115,7 +115,7 @@ pub struct Bloom {
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
 
-    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    /// Maximum size of the short side for the largest mipchain texture used in downscaling/upscaling.
     /// Lower values can improve performance but result in more aliasing.
     pub max_mip_dimension: u32,
 
