@@ -40,6 +40,7 @@ mod font_loader;
 mod glyph;
 mod pipeline;
 mod text;
+mod text_hierarchy;
 
 pub use bounds::*;
 pub use error::*;
