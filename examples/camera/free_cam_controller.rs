@@ -31,7 +31,7 @@
 //! | Key Binding | Action                 |
 //! |:------------|:-----------------------|
 //! | Z           | Decrease sensitivity   |
-//! | X           | Increase snsitivity    |
+//! | X           | Increase sensitivity    |
 //! | C           | Decrease friction      |
 //! | V           | Increase friction      |
 //! | F           | Decrease scroll factor |
