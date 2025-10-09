@@ -356,7 +356,7 @@ mod test {
     /// woken by the external thread.
     #[test]
     fn scoped_spawn() {
-        let (sender, recever) = async_channel::unbounded();
+        let (sender, receiver) = async_channel::unbounded();
         let task_pool = TaskPool {};
         let thread = thread::spawn(move || {
             let duration = time::Duration::from_millis(50);
@@ -365,7 +365,7 @@ mod test {
         });
         task_pool.scope(|scope| {
             scope.spawn(async {
-                recever.recv().await
+                receiver.recv().await
             });
         });
     }

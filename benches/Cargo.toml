@@ -17,9 +17,7 @@ criterion = { version = "0.6.0", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
 bevy_math = { path = "../crates/bevy_math" }
-bevy_picking = { path = "../crates/bevy_picking", features = [
-  "bevy_mesh_picking_backend",
-] }
+bevy_picking = { path = "../crates/bevy_picking", features = ["mesh_picking"] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_camera = { path = "../crates/bevy_camera" }
 bevy_mesh = { path = "../crates/bevy_mesh" }
@@ -31,7 +29,10 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = "0.30.1"
+glam = { version = "0.30.7", default-features = false, features = [
+  "std",
+  "rand",
+] }
 rand = "0.9"
 rand_chacha = "0.9"
 nonmax = { version = "0.5", default-features = false }

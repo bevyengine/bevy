@@ -362,9 +362,7 @@ pub struct Camera {
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
-    // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
-    #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
@@ -777,7 +775,7 @@ impl Camera {
 }
 
 /// Control how this [`Camera`] outputs once rendering is completed.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
@@ -889,14 +887,43 @@ pub enum NormalizedRenderTarget {
 pub struct ManualTextureViewHandle(pub u32);
 
 /// A render target that renders to an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect)]
 #[reflect(Clone, PartialEq, Hash)]
 pub struct ImageRenderTarget {
     /// The image to render to.
     pub handle: Handle<Image>,
     /// The scale factor of the render target image, corresponding to the scale
     /// factor for a window target. This should almost always be 1.0.
-    pub scale_factor: FloatOrd,
+    pub scale_factor: f32,
+}
+
+impl Eq for ImageRenderTarget {}
+
+impl PartialEq for ImageRenderTarget {
+    fn eq(&self, other: &Self) -> bool {
+        self.handle == other.handle && FloatOrd(self.scale_factor) == FloatOrd(other.scale_factor)
+    }
+}
+
+impl core::hash::Hash for ImageRenderTarget {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.handle.hash(state);
+        FloatOrd(self.scale_factor).hash(state);
+    }
+}
+
+impl PartialOrd for ImageRenderTarget {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ImageRenderTarget {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.handle
+            .cmp(&other.handle)
+            .then_with(|| FloatOrd(self.scale_factor).cmp(&FloatOrd(other.scale_factor)))
+    }
 }
 
 impl From<Handle<Image>> for RenderTarget {
@@ -909,7 +936,7 @@ impl From<Handle<Image>> for ImageRenderTarget {
     fn from(handle: Handle<Image>) -> Self {
         Self {
             handle,
-            scale_factor: FloatOrd(1.0),
+            scale_factor: 1.0,
         }
     }
 }

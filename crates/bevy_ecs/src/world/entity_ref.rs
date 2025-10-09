@@ -479,6 +479,11 @@ impl<'w> EntityMut<'w> {
         EntityRef::from(self)
     }
 
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.cell
+    }
+
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
@@ -2665,9 +2670,6 @@ impl<'w> EntityWorldMut<'w> {
                             table_row: swapped_location.table_row,
                         }),
                     );
-                    world
-                        .entities
-                        .mark_spawn_despawn(swapped_entity.index(), caller, change_tick);
                 }
             }
             table_row = remove_result.table_row;
@@ -2697,13 +2699,18 @@ impl<'w> EntityWorldMut<'w> {
                         table_row,
                     }),
                 );
-                world
-                    .entities
-                    .mark_spawn_despawn(moved_entity.index(), caller, change_tick);
             }
             world.archetypes[moved_location.archetype_id]
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
+
+        // SAFETY: `self.entity` is a valid entity index
+        unsafe {
+            world
+                .entities
+                .mark_spawn_despawn(self.entity.index(), caller, change_tick);
+        }
+
         world.flush();
     }
 
@@ -3160,16 +3167,23 @@ impl<'w> EntityWorldMut<'w> {
         })
     }
 
-    /// Deprecated. Use [`World::trigger`] instead.
+    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
+    /// See [`EntityCommands::trigger`] for usage examples
+    ///
+    /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
     #[track_caller]
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use World::trigger with an EntityEvent instead."
-    )]
-    pub fn trigger<'t>(&mut self, event: impl EntityEvent<Trigger<'t>: Default>) -> &mut Self {
-        log::warn!("EntityWorldMut::trigger is deprecated and no longer triggers the event for the current EntityWorldMut entity. Use World::trigger instead with an EntityEvent.");
+    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
+        &mut self,
+        event_fn: impl FnOnce(Entity) -> E,
+    ) -> &mut Self {
+        let mut event = (event_fn)(self.entity);
+        let caller = MaybeLocation::caller();
         self.world_scope(|world| {
-            world.trigger(event);
+            world.trigger_ref_with_caller(
+                &mut event,
+                &mut <E::Trigger<'_> as Default>::default(),
+                caller,
+            );
         });
         self
     }
@@ -3819,6 +3833,62 @@ impl ContainsEntity for FilteredEntityRef<'_, '_> {
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
 unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 
+/// Variant of [`FilteredEntityMut`] that can be used to create copies of a [`FilteredEntityMut`], as long
+/// as the user ensures that these won't cause aliasing violations.
+///
+/// This can be useful to mutably query multiple components from a single `FilteredEntityMut`.
+///
+/// ### Example Usage
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, world::{FilteredEntityMut, UnsafeFilteredEntityMut}};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// # #[derive(Component)]
+/// # struct B;
+/// #
+/// # let mut world = World::new();
+/// # world.spawn((A, B));
+/// #
+/// // This gives the `FilteredEntityMut` access to `&mut A` and `&mut B`.
+/// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+///     .data::<(&mut A, &mut B)>()
+///     .build();
+///
+/// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+/// let unsafe_filtered_entity = UnsafeFilteredEntityMut::new_readonly(&filtered_entity);
+/// // SAFETY: the original FilteredEntityMut accesses `&mut A` and the clone accesses `&mut B`, so no aliasing violations occur.
+/// let mut filtered_entity_clone: FilteredEntityMut = unsafe { unsafe_filtered_entity.into_mut() };
+/// let a: Mut<A> = filtered_entity.get_mut().unwrap();
+/// let b: Mut<B> = filtered_entity_clone.get_mut().unwrap();
+/// ```
+#[derive(Copy, Clone)]
+pub struct UnsafeFilteredEntityMut<'w, 's> {
+    entity: UnsafeEntityCell<'w>,
+    access: &'s Access,
+}
+
+impl<'w, 's> UnsafeFilteredEntityMut<'w, 's> {
+    /// Creates a [`UnsafeFilteredEntityMut`] that can be used to have multiple concurrent [`FilteredEntityMut`]s.
+    #[inline]
+    pub fn new_readonly(filtered_entity_mut: &FilteredEntityMut<'w, 's>) -> Self {
+        Self {
+            entity: filtered_entity_mut.entity,
+            access: filtered_entity_mut.access,
+        }
+    }
+
+    /// Returns a new instance of [`FilteredEntityMut`].
+    ///
+    /// # Safety
+    /// - The user must ensure that no aliasing violations occur when using the returned `FilteredEntityMut`.
+    #[inline]
+    pub unsafe fn into_mut(self) -> FilteredEntityMut<'w, 's> {
+        FilteredEntityMut::new(self.entity, self.access)
+    }
+}
+
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
 /// To define the access when used as a [`QueryData`](crate::query::QueryData),
@@ -3842,6 +3912,8 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 /// ```
+///
+/// Also see [`UnsafeFilteredEntityMut`] for a way to bypass borrow-checker restrictions.
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
@@ -3871,6 +3943,11 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     #[inline]
     pub fn as_readonly(&self) -> FilteredEntityRef<'_, 's> {
         FilteredEntityRef::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -3952,9 +4029,61 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_unchecked() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T` or if
+    /// the access does not include write access to `T`.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, world::FilteredEntityMut};
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    ///
+    /// // This gives the `FilteredEntityMut` access to `&mut X` and `&mut Y`.
+    /// let mut query = QueryBuilder::<FilteredEntityMut>::new(&mut world)
+    ///     .data::<(&mut X, &mut Y)>()
+    ///     .build();
+    ///
+    /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
+    ///
+    /// // Get mutable access to two components at once
+    /// // SAFETY: We don't take any other references to `X` from this entity
+    /// let mut x = unsafe { filtered_entity.get_mut_unchecked::<X>() }.unwrap();
+    /// // SAFETY: We don't take any other references to `Y` from this entity
+    /// let mut y = unsafe { filtered_entity.get_mut_unchecked::<Y>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_unchecked<T: Component<Mutability = Mutable>>(
+        &self,
+    ) -> Option<Mut<'_, T>> {
         let id = self
             .entity
             .world()
@@ -3962,7 +4091,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             .get_valid_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
     }
@@ -4042,9 +4172,38 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
     pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        // SAFETY: we use a mutable reference to self, so we cannot use the `FilteredEntityMut` to access
+        // another component
+        unsafe { self.get_mut_by_id_unchecked(component_id) }
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut_by_id`](Self::get_mut_by_id) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_by_id_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
         self.access
             .has_component_write(component_id)
-            // SAFETY: We have write access
+            // SAFETY: We have permission to access the component mutable
+            // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
@@ -4444,6 +4603,11 @@ where
     #[inline]
     pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
         EntityRefExcept::from(self)
+    }
+
+    /// Get access to the underlying [`UnsafeEntityCell`]
+    pub fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
+        self.entity
     }
 
     /// Gets access to the component of type `C` for the current entity. Returns
@@ -6577,5 +6741,63 @@ mod tests {
                 b: false,
             }
         );
+    }
+
+    #[test]
+    fn spawned_after_swap_remove() {
+        #[derive(Component)]
+        struct Marker;
+
+        let mut world = World::new();
+        let id1 = world.spawn(Marker).id();
+        let _id2 = world.spawn(Marker).id();
+        let id3 = world.spawn(Marker).id();
+
+        let e1_spawned = world.entity(id1).spawned_by();
+
+        let spawn = world.entity(id3).spawned_by();
+        world.entity_mut(id1).despawn();
+        let e1_despawned = world.entities().entity_get_spawned_or_despawned_by(id1);
+
+        // These assertions are only possible if the `track_location` feature is enabled
+        if let (Some(e1_spawned), Some(e1_despawned)) =
+            (e1_spawned.into_option(), e1_despawned.into_option())
+        {
+            assert!(e1_despawned.is_some());
+            assert_ne!(Some(e1_spawned), e1_despawned);
+        }
+
+        let spawn_after = world.entity(id3).spawned_by();
+        assert_eq!(spawn, spawn_after);
+    }
+
+    #[test]
+    fn spawned_by_set_before_flush() {
+        #[derive(Component)]
+        #[component(on_despawn = on_despawn)]
+        struct C;
+
+        fn on_despawn(mut world: DeferredWorld, context: HookContext) {
+            let spawned = world.entity(context.entity).spawned_by();
+            world.commands().queue(move |world: &mut World| {
+                // The entity has finished despawning...
+                assert!(world.get_entity(context.entity).is_err());
+                let despawned = world
+                    .entities()
+                    .entity_get_spawned_or_despawned_by(context.entity);
+                // These assertions are only possible if the `track_location` feature is enabled
+                if let (Some(spawned), Some(despawned)) =
+                    (spawned.into_option(), despawned.into_option())
+                {
+                    // ... so ensure that `despawned_by` has been written
+                    assert!(despawned.is_some());
+                    assert_ne!(Some(spawned), despawned);
+                }
+            });
+        }
+
+        let mut world = World::new();
+        let original = world.spawn(C).id();
+        world.despawn(original);
     }
 }

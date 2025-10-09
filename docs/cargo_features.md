@@ -1,4 +1,5 @@
 <!-- MD041 - This file will be included in docs and should not start with a top header -->
+<!-- Use 'cargo run -p build-templated-pages -- update features' to generate this file -->
 <!-- markdownlint-disable-file MD041 -->
 
 ## Cargo Features
@@ -13,9 +14,7 @@ The default feature set enables most of the expected features of a game engine, 
 |-|-|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
-|animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
@@ -30,7 +29,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_light|Provides light types such as point lights, directional lights, spotlights.|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh|Provides a mesh format and some primitive meshing routines.|
-|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
+|bevy_mikktspace|Provides vertex tangent generation for use with bevy_mesh.|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
@@ -38,27 +37,31 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_shader|Provides shaders usable through asset handles.|
 |bevy_sprite|Provides sprite functionality|
-|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
+|gltf_animation|Enable glTF animation loading|
 |hdr|HDR image format support|
 |ktx2|KTX2 compressed texture support|
+|mesh_picking|Provides an implementation for picking meshes|
+|morph|Enables support for morph target weights in bevy_mesh|
+|morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |reflect_auto_register|Enable automatic reflect registration|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
+|sprite_picking|Provides an implementation for picking sprites|
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
+|ui_picking|Provides an implementation for picking UI|
 |vorbis|OGG/VORBIS audio format support|
 |wayland|Wayland display server support|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
@@ -74,6 +77,8 @@ The default feature set enables most of the expected features of a game engine, 
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
+|bevy_animation|Provides animation functionality|
+|bevy_camera_controller|Provides a collection of prebuilt camera controllers|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
@@ -99,6 +104,7 @@ The default feature set enables most of the expected features of a game engine, 
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
+|free_cam|Enables the free cam from bevy_camera_controller|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
