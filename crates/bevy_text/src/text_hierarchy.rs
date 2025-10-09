@@ -48,6 +48,7 @@ pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: 
 
 /// update text indices
 pub fn update_text_indices_system<Root: RelationshipTarget>(
+    mut sections: Local<Vec<Entity>>,
     root_query: Query<(Entity, &Root), With<Root>>,
     descendants: Query<&Children, With<TextIndex>>,
     mut text_index_query: Query<(&mut TextIndex, &mut TextTarget)>,
@@ -55,19 +56,25 @@ pub fn update_text_indices_system<Root: RelationshipTarget>(
 ) {
     for (root_id, root) in root_query.iter() {
         let layout_id = root.iter().next().unwrap();
-        let mut text_sections = text_target_query.get_mut(layout_id).ok().unwrap();
-        text_sections.clear();
-        text_sections.push(root_id);
+        sections.clear();
+        sections.push(root_id);
 
         let (mut index, mut target) = text_index_query.get_mut(root_id).ok().unwrap();
         index.set_if_neq(TextIndex(0));
         target.set_if_neq(TextTarget(layout_id));
 
+        sections.clear();
         for (i, text_id) in descendants.iter_descendants(root_id).enumerate() {
-            text_sections.push(text_id);
+            sections.push(text_id);
             let (mut index, mut target) = text_index_query.get_mut(text_id).ok().unwrap();
             index.set_if_neq(TextIndex(i + 1));
             target.set_if_neq(TextTarget(layout_id));
+        }
+
+        let mut text_sections = text_target_query.get_mut(layout_id).ok().unwrap();
+        if text_sections.as_slice() != sections.as_slice() {
+            text_sections.clear();
+            text_sections.extend(sections.iter().copied());
         }
     }
 }
