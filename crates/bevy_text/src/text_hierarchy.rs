@@ -50,10 +50,18 @@ pub fn update_text_indices<Root: RelationshipTarget>(
     mut text_index_query: Query<&mut TextIndex>,
 ) {
     for root_entity in root_query.iter() {
-        text_index_query.get_mut(root_entity).ok().unwrap().0 = 0;
+        text_index_query
+            .get_mut(root_entity)
+            .ok()
+            .unwrap()
+            .set_if_neq(TextIndex(0));
 
         for (index, text_entity) in descendants.iter_descendants(root_entity).enumerate() {
-            text_index_query.get_mut(text_entity).ok().unwrap().0 = index;
+            text_index_query
+                .get_mut(text_entity)
+                .ok()
+                .unwrap()
+                .set_if_neq(TextIndex(index));
         }
     }
 }
