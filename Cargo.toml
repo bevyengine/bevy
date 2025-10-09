@@ -4133,7 +4133,7 @@ path = "examples/camera/free_cam_controller.rs"
 doc-scrape-examples = true
 required-features = ["free_cam"]
 
-[package.metadata.example.freecam_controller]
+[package.metadata.example.free_cam_controller]
 name = "Free cam camera controller"
 description = "Shows the default free cam camera controller."
 category = "Camera"
