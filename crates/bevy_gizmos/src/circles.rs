@@ -3,9 +3,17 @@
 //! Includes the implementation of [`GizmoBuffer::circle`] and [`GizmoBuffer::circle_2d`],
 //! and assorted support items.
 
-use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
+use crate::{
+    gizmos::GizmoBuffer,
+    prelude::GizmoConfigGroup,
+    primitives::dim2::{GizmoBlueprint2d, GizmoBuilder2d, ToGizmoBlueprint2d},
+};
 use bevy_color::Color;
-use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3};
+use bevy_math::{
+    ops,
+    primitives::{Circle, Ellipse},
+    Isometry2d, Isometry3d, Quat, Vec2, Vec3,
+};
 use core::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;
@@ -95,14 +103,16 @@ where
         isometry: impl Into<Isometry2d>,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, Config, Clear> {
-        Ellipse2dBuilder {
-            gizmos: self,
-            isometry: isometry.into(),
-            half_size,
-            color: color.into(),
-            resolution: DEFAULT_CIRCLE_RESOLUTION,
-        }
+    ) -> GizmoBuilder2d<'_, Ellipse2dBuilder, Config, Clear> {
+        GizmoBuilder2d::new(
+            self,
+            Ellipse2dBuilder {
+                isometry: isometry.into(),
+                half_size,
+                color: color.into(),
+                resolution: DEFAULT_CIRCLE_RESOLUTION,
+            },
+        )
     }
 
     /// Draw a circle in 3D with the given `isometry` applied.
@@ -175,14 +185,16 @@ where
         isometry: impl Into<Isometry2d>,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Ellipse2dBuilder<'_, Config, Clear> {
-        Ellipse2dBuilder {
-            gizmos: self,
-            isometry: isometry.into(),
-            half_size: Vec2::splat(radius),
-            color: color.into(),
-            resolution: DEFAULT_CIRCLE_RESOLUTION,
-        }
+    ) -> GizmoBuilder2d<'_, Ellipse2dBuilder, Config, Clear> {
+        GizmoBuilder2d::new(
+            self,
+            Ellipse2dBuilder {
+                isometry: isometry.into(),
+                half_size: Vec2::splat(radius),
+                color: color.into(),
+                resolution: DEFAULT_CIRCLE_RESOLUTION,
+            },
+        )
     }
 
     /// Draw a wireframe sphere in 3D made out of 3 circles around the axes with the given
@@ -270,44 +282,65 @@ where
 }
 
 /// A builder returned by [`GizmoBuffer::ellipse_2d`].
-pub struct Ellipse2dBuilder<'a, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+pub struct Ellipse2dBuilder {
     isometry: Isometry2d,
     half_size: Vec2,
     color: Color,
     resolution: u32,
 }
 
-impl<Config, Clear> Ellipse2dBuilder<'_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
+impl Ellipse2dBuilder {
     /// Set the number of line-segments used to approximate the geometry of this ellipse.
-    pub fn resolution(mut self, resolution: u32) -> Self {
+    pub fn resolution(&mut self, resolution: u32) -> &mut Self {
         self.resolution = resolution;
         self
     }
 }
 
-impl<Config, Clear> Drop for Ellipse2dBuilder<'_, Config, Clear>
-where
-    Config: GizmoConfigGroup,
-    Clear: 'static + Send + Sync,
-{
-    /// Set the number of line-segments for this ellipse.
-    fn drop(&mut self) {
-        if !self.gizmos.enabled {
-            return;
-        };
-
+impl GizmoBlueprint2d for Ellipse2dBuilder {
+    /// Set the number of line-segments for this ellipse and draw it
+    fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
+    where
+        Config: GizmoConfigGroup,
+        Clear: 'static + Send + Sync,
+    {
         let positions =
             ellipse_inner(self.half_size, self.resolution).map(|vec2| self.isometry * vec2);
-        self.gizmos.linestrip_2d(positions, self.color);
+        gizmos.linestrip_2d(positions, self.color);
+    }
+}
+
+impl ToGizmoBlueprint2d for Circle {
+    type Blueprint2d = Ellipse2dBuilder;
+
+    fn to_blueprint_2d(
+        &self,
+        isometry: impl Into<Isometry2d>,
+        color: impl Into<Color>,
+    ) -> Self::Blueprint2d {
+        Ellipse2dBuilder {
+            isometry: isometry.into(),
+            half_size: Vec2::splat(self.radius),
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
+    }
+}
+
+impl ToGizmoBlueprint2d for Ellipse {
+    type Blueprint2d = Ellipse2dBuilder;
+
+    fn to_blueprint_2d(
+        &self,
+        isometry: impl Into<Isometry2d>,
+        color: impl Into<Color>,
+    ) -> Self::Blueprint2d {
+        Ellipse2dBuilder {
+            isometry: isometry.into(),
+            half_size: self.half_size,
+            color: color.into(),
+            resolution: DEFAULT_CIRCLE_RESOLUTION,
+        }
     }
 }
 
