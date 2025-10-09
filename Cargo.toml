@@ -1313,7 +1313,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari", "https"]
+required-features = ["bevy_solari", "https", "free_cam"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -1427,7 +1427,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet", "https"]
+required-features = ["meshlet", "https", "free_cam"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -4719,7 +4719,6 @@ name = "Feathers Widgets"
 description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
-hidden = true
 
 [[example]]
 name = "render_depth_to_texture"
