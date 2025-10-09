@@ -59,7 +59,7 @@ impl Default for UiDebugOptions {
 
 pub fn extract_debug_overlay(
     mut commands: Commands,
-    debug_options: Extract<Res<UiDebugOptions>>,
+    maybe_debug_options: Extract<Option<Res<UiDebugOptions>>>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
@@ -74,6 +74,10 @@ pub fn extract_debug_overlay(
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
+    let Some(debug_options) = maybe_debug_options.as_ref() else {
+        return;
+    };
+
     if !debug_options.enabled {
         return;
     }

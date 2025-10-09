@@ -84,7 +84,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_solari|Provides raytraced lighting (experimental)|
-|bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
 |compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|

@@ -21,10 +21,8 @@ fn main() {
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update_scroll_position);
-
-    #[cfg(feature = "bevy_ui_debug")]
     app.add_systems(Update, toggle_debug_overlay);
-
+    app.init_resource::<UiDebugOptions>();
     app.run();
 }
 
@@ -81,52 +79,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 Label,
                             ));
 
-                            #[cfg(feature = "bevy_ui_debug")]
-                            {
-                                // Debug overlay text
-                                parent.spawn((
-                                    Text::new("Press Space to toggle debug outlines."),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
-                                    },
-                                    Label,
-                                ));
-
-                                parent.spawn((
-                                    Text::new("V: toggle UI root's visibility"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
-                                    Label,
-                                ));
-
-                                parent.spawn((
-                                    Text::new("S: toggle outlines for hidden nodes"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
-                                    Label,
-                                ));
-                                parent.spawn((
-                                    Text::new("C: toggle outlines for clipped nodes"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
-                                    Label,
-                                ));
-                            }
-                            #[cfg(not(feature = "bevy_ui_debug"))]
+                            // Debug overlay text
                             parent.spawn((
-                                Text::new("Try enabling feature \"bevy_ui_debug\"."),
+                                Text::new("Press Space to toggle debug outlines."),
                                 TextFont {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    ..default()
+                                },
+                                Label,
+                            ));
+
+                            parent.spawn((
+                                Text::new("V: toggle UI root's visibility"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 12.,
+                                    ..default()
+                                },
+                                Label,
+                            ));
+
+                            parent.spawn((
+                                Text::new("S: toggle outlines for hidden nodes"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 12.,
+                                    ..default()
+                                },
+                                Label,
+                            ));
+                            parent.spawn((
+                                Text::new("C: toggle outlines for clipped nodes"),
+                                TextFont {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 12.,
                                     ..default()
                                 },
                                 Label,
@@ -403,7 +389,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-#[cfg(feature = "bevy_ui_debug")]
 // The system that will enable/disable the debug outlines around the nodes
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
