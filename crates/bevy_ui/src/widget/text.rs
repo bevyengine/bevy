@@ -19,8 +19,8 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextSections,
+    TextColor, TextError, TextFont, TextIndex, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextSections, TextTarget,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -104,7 +104,16 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    TextNodeFlags,
+    ContentSize,
+    TextIndex,
+    TextTarget
+)]
 pub struct Text(pub String);
 
 impl Text {
