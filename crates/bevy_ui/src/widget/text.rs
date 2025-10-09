@@ -31,6 +31,7 @@ pub struct TextRoot(Entity);
 
 #[derive(Component, Debug, PartialEq, Eq)]
 #[relationship(relationship_target = TextRoot)]
+#[require(TextLayoutInfo, ComputedTextBlock, TextSections)]
 pub struct TextLayoutNode(Entity);
 
 /// UI text system flags.
