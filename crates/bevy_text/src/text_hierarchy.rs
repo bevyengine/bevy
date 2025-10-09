@@ -3,8 +3,6 @@ use bevy_ecs::{prelude::*, relationship::Relationship};
 
 use smallvec::SmallVec;
 
-use crate::text;
-
 /// Index of a text entity in a text layout
 #[derive(Component, Debug, PartialEq, Deref, Default)]
 pub struct TextIndex(usize);
