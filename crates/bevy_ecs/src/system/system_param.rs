@@ -337,7 +337,9 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World) -> Self::State {
-        QueryState::new(world)
+        // SAFETY: `init_access` calls `update_external_component_access`,
+        // and no other query methods may be called before `init_access`.
+        unsafe { QueryState::new_unchecked(world) }
     }
 
     fn init_access(
@@ -346,15 +348,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        assert_component_access_compatibility(
-            &system_meta.name,
-            DebugName::type_name::<D>(),
-            DebugName::type_name::<F>(),
+        state.update_external_component_access(
+            Some(system_meta.name()),
             component_access_set,
-            &state.component_access,
-            world,
+            world.into(),
         );
-        component_access_set.add(state.component_access.clone());
     }
 
     #[inline]
@@ -370,26 +368,6 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
     }
-}
-
-fn assert_component_access_compatibility(
-    system_name: &DebugName,
-    query_type: DebugName,
-    filter_type: DebugName,
-    system_access: &FilteredAccessSet,
-    current: &FilteredAccess,
-    world: &World,
-) {
-    let conflicts = system_access.get_conflicts_single(current);
-    if conflicts.is_empty() {
-        return;
-    }
-    let mut accesses = conflicts.format_conflict_list(world);
-    // Access list may be empty (if access to all components requested)
-    if !accesses.is_empty() {
-        accesses.push(' ');
-    }
-    panic!("error[B0001]: Query<{}, {}> in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`. See: https://bevy.org/learn/errors/b0001", query_type.shortname(), filter_type.shortname());
 }
 
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
@@ -2684,7 +2662,7 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResources in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }
@@ -2733,7 +2711,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         let combined_access = component_access_set.combined_access();
         let conflicts = combined_access.get_conflicts(access);
         if !conflicts.is_empty() {
-            let accesses = conflicts.format_conflict_list(world);
+            let accesses = conflicts.format_conflict_list(world.into());
             let system_name = &system_meta.name;
             panic!("error[B0002]: FilteredResourcesMut in system {system_name} accesses resources(s){accesses} in a way that conflicts with a previous system parameter. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002");
         }

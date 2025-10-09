@@ -1,5 +1,5 @@
 use crate::component::ComponentId;
-use crate::world::World;
+use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug};
 use derive_more::From;
@@ -991,7 +991,7 @@ impl AccessConflicts {
         }
     }
 
-    pub(crate) fn format_conflict_list(&self, world: &World) -> String {
+    pub(crate) fn format_conflict_list(&self, world: UnsafeWorldCell) -> String {
         match self {
             AccessConflicts::All => String::new(),
             AccessConflicts::Individual(indices) => indices
@@ -1000,7 +1000,7 @@ impl AccessConflicts {
                     format!(
                         "{}",
                         world
-                            .components
+                            .components()
                             .get_name(ComponentId::new(index))
                             .unwrap()
                             .shortname()

@@ -4,7 +4,7 @@ use crate::{
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -2350,6 +2350,15 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         access.extend_access(&intermediate);
     }
 
+    fn update_external_component_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    ) {
+        T::update_external_component_access(state, system_name, component_access_set, world);
+    }
+
     fn init_state(world: &mut World) -> T::State {
         T::init_state(world)
     }
@@ -2781,6 +2790,16 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
+
+            fn update_external_component_access(
+                state: &Self::State,
+                system_name: Option<&str>,
+                component_access_set: &mut FilteredAccessSet,
+                world: UnsafeWorldCell,
+            ) {
+                <($(Option<$name>,)*)>::update_external_component_access(state, system_name, component_access_set, world);
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }

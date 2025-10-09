@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -464,6 +464,16 @@ macro_rules! impl_or_query_filter {
                 new_access.required = core::mem::take(&mut access.required);
 
                 *access = new_access;
+            }
+
+            fn update_external_component_access(
+                state: &Self::State,
+                _system_name: Option<&str>,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: UnsafeWorldCell,
+            ) {
+                let ($($state,)*) = state;
+                $($filter::update_external_component_access($state, _system_name, _component_access_set, _world);)*
             }
 
             fn init_state(world: &mut World) -> Self::State {
