@@ -4131,7 +4131,7 @@ wasm = true
 name = "free_cam_controller"
 path = "examples/camera/free_cam_controller.rs"
 doc-scrape-examples = true
-required-features = ["bevy_camera_controller", "free_cam"]
+required-features = ["free_cam"]
 
 [package.metadata.example.freecam_controller]
 name = "Free cam camera controller"
