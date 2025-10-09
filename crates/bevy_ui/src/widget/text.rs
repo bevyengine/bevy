@@ -25,13 +25,13 @@ use bevy_text::{
 use taffy::style::AvailableSpace;
 use tracing::error;
 
-#[derive(Component, Debug, PartialEq, Eq)]
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
 #[relationship_target(relationship = TextLayoutNode, linked_spawn)]
 pub struct TextRoot(Entity);
 
-#[derive(Component, Debug, PartialEq, Eq)]
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
 #[relationship(relationship_target = TextRoot)]
-#[require(TextLayoutInfo, ComputedTextBlock, TextSections)]
+#[require(TextLayoutInfo, ComputedTextBlock, TextSections, TextNodeFlags)]
 pub struct TextLayoutNode(Entity);
 
 /// UI text system flags.
@@ -264,34 +264,30 @@ pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
     mut text_layout_query: Query<
         (
-            Entity,
-            Ref<TextLayout>,
-            &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
             &TextLayoutNode,
             &TextSections,
         ),
         With<Node>,
     >,
-    mut text_query: Query<(&Text, &TextFont)>,
+    mut text_root_query: Query<(
+        Ref<TextLayout>,
+        Ref<ComputedUiRenderTargetInfo>,
+        &ComputedNode,
+        &mut ContentSize,
+    )>,
+    text_query: Query<(&Text, &TextFont)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (
-        entity,
-        block,
-        content_size,
-        text_flags,
-        computed,
-        computed_target,
-        computed_node,
-        layout_node,
-        sections,
-    ) in &mut text_layout_query
-    {
+    for (text_flags, computed, layout_node, sections) in &mut text_layout_query {
+        let Ok((block, computed_target, computed_node, content_size)) =
+            text_root_query.get_mut(layout_node.0)
+        else {
+            continue;
+        };
+
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
         if 1e-5
@@ -308,7 +304,7 @@ pub fn measure_text_system(
             });
 
             create_text_measure(
-                entity,
+                layout_node.0,
                 &fonts,
                 computed_target.scale_factor.into(),
                 spans,
@@ -408,20 +404,23 @@ pub fn text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Ref<ComputedNode>,
-        &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         &TextSections,
+        &TextLayoutNode,
     )>,
+    root_query: Query<(Ref<ComputedNode>, &TextLayout)>,
     sections_query: Query<(&Text, &TextFont)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed, sections) in
+    for (entity, text_layout_info, text_flags, mut computed, sections, layout_node) in
         &mut text_query
     {
+        let Ok((node, block)) = root_query.get(layout_node.0) else {
+            continue;
+        };
         if node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,

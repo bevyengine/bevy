@@ -24,7 +24,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextLayoutNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -908,11 +908,10 @@ pub fn extract_text_sections(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
-            &ComputedTextBlock,
             &TextColor,
-            &TextLayoutInfo,
         )>,
     >,
+    text_layout_query: Extract<Query<(&ComputedTextBlock, &TextLayoutInfo, &TextLayoutNode)>>,
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -920,18 +919,12 @@ pub fn extract_text_sections(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (
-        entity,
-        uinode,
-        transform,
-        inherited_visibility,
-        clip,
-        camera,
-        computed_block,
-        text_color,
-        text_layout_info,
-    ) in &uinode_query
-    {
+    for (computed_block, text_layout_info, relation) in &text_layout_query {
+        let Ok((entity, uinode, transform, inherited_visibility, clip, camera, text_color)) =
+            uinode_query.get(**relation)
+        else {
+            continue;
+        };
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
