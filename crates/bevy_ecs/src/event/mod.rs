@@ -1063,8 +1063,12 @@ mod tests {
 
         #[derive(EntityEvent)]
         #[entity_event(propagate)]
-        struct G {
-            entity: MutableEntitoid,
+        struct G(MutableEntitoid);
+
+        impl From<Entity> for G {
+            fn from(value: Entity) -> Self {
+                Self(value.into())
+            }
         }
 
         let mut world = World::new();
@@ -1072,28 +1076,19 @@ mod tests {
 
         world.entity_mut(entity).trigger(A);
         world.entity_mut(entity).trigger(AP);
-
-        // Lame :(
-        world.entity_mut(entity).trigger(|entity| B { entity });
-        world.entity_mut(entity).trigger(|entity| BP { entity });
-        world
-            .entity_mut(entity)
-            .trigger(|entity| C { target: entity });
-        world
-            .entity_mut(entity)
-            .trigger(|entity| CP { target: entity });
-        world
-            .entity_mut(entity)
-            .trigger(|entity| D(Entitoid(entity)));
-        world.entity_mut(entity).trigger(|entity| E {
+        world.trigger(B { entity });
+        world.trigger(BP { entity });
+        world.trigger(C { target: entity });
+        world.trigger(CP { target: entity });
+        world.trigger(D(Entitoid(entity)));
+        world.trigger(E {
             entity: Entitoid(entity),
         });
-        world.entity_mut(entity).trigger(|entity| F {
+        world.trigger(F {
             target: Entitoid(entity),
         });
-        world.entity_mut(entity).trigger(|entity| G {
-            entity: MutableEntitoid(entity),
-        });
+        world.trigger(G(MutableEntitoid(entity)));
+        world.entity_mut(entity).trigger(G::from);
 
         // No asserts; test just needs to compile
     }
