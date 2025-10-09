@@ -79,7 +79,11 @@ mod tests {
     use bevy_asset::Handle;
     use bevy_color::Color;
     use bevy_derive::{Deref, DerefMut};
-    use bevy_ecs::{prelude::*, reflect::ReflectComponent, relationship::Relationship};
+    use bevy_ecs::{
+        prelude::*,
+        reflect::ReflectComponent,
+        relationship::{DescendantIter, Relationship},
+    };
     use bevy_reflect::prelude::*;
     use bevy_utils::{default, once};
     use cosmic_text::{Buffer, Metrics};
@@ -361,5 +365,45 @@ mod tests {
             .unwrap();
 
         assert_eq!(index.0, 1);
+    }
+
+    #[test]
+    pub fn test_text_many_children_indices() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            (
+                update_text_roots_system::<Text, TestRoot, TestLayout>,
+                update_text_indices::<TestRoot>,
+            )
+                .chain(),
+        );
+
+        let world = app.world_mut();
+
+        world.spawn((
+            Text,
+            children![Text, (Text, children![Text, Text]), Text, Text],
+        ));
+
+        app.update();
+
+        let world = app.world_mut();
+
+        let parent = world
+            .query_filtered::<Entity, With<TestRoot>>()
+            .single(world)
+            .unwrap();
+
+        let text_children: Vec<Entity> =
+            DescendantIter::new(&world.query::<&Children>().query(world), parent)
+                .into_iter()
+                .collect();
+
+        for (i, child) in text_children.into_iter().enumerate() {
+            let index = world.entity(child).get::<TextIndex>().unwrap().0;
+            assert_eq!(index, i + 1);
+        }
     }
 }
