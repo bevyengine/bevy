@@ -102,7 +102,13 @@ fn setup(
             CircularSector::new(45.0, 1.0),
         )),
         meshes.add(CircularSegment::new(50.0, 1.25).to_ring(THICKNESS)),
-        meshes.add(Ellipse::new(25.0, 50.0).to_ring(THICKNESS)),
+        meshes.add({
+            // This is an approximation; Ellipse does not implement Inset as concentric ellipses do not have parallel curves
+            let outer = Ellipse::new(25.0, 50.0);
+            let mut inner = outer;
+            inner.half_size -= Vec2::splat(THICKNESS);
+            Ring::new(outer, inner)
+        }),
         // this is equivalent to the Annulus::new(25.0, 50.0) above
         meshes.add(Ring::new(Circle::new(50.0), Circle::new(25.0))),
         meshes.add(Capsule2d::new(25.0, 50.0).to_ring(THICKNESS)),

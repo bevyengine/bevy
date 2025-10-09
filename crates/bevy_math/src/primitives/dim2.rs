@@ -794,6 +794,9 @@ mod arc_tests {
 }
 
 /// An ellipse primitive, which is like a circle, but the width and height can be different
+///
+/// Ellipse does not implement [`Inset`] as concentric ellipses do not have parallel curves:
+/// if the ellipse is not a circle, the inset shape is not actually an ellipse (although it may look like one) but can also be a lens-like shape.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

@@ -101,7 +101,16 @@ fn setup(
             1.,
         )),
         meshes.add(Extrusion::new(Circle::default().to_ring(THICKNESS), 1.)),
-        meshes.add(Extrusion::new(Ellipse::default().to_ring(THICKNESS), 1.)),
+        meshes.add(Extrusion::new(
+            {
+                // This is an approximation; Ellipse does not implement Inset as concentric ellipses do not have parallel curves
+                let outer = Ellipse::default();
+                let mut inner = outer;
+                inner.half_size -= Vec2::splat(THICKNESS);
+                Ring::new(outer, inner)
+            },
+            1.,
+        )),
         meshes.add(Extrusion::new(
             RegularPolygon::default().to_ring(THICKNESS),
             1.,

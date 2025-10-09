@@ -1,8 +1,8 @@
 use crate::{
     ops,
     primitives::{
-        Capsule2d, Circle, CircularSegment, Ellipse, Primitive2d, Rectangle, RegularPolygon,
-        Rhombus, Triangle2d,
+        Capsule2d, Circle, CircularSegment, Primitive2d, Rectangle, RegularPolygon, Rhombus,
+        Triangle2d,
     },
     Vec2,
 };
@@ -26,13 +26,6 @@ pub trait Inset: Primitive2d {
 impl Inset for Circle {
     fn inset(mut self, distance: f32) -> Self {
         self.radius -= distance;
-        self
-    }
-}
-
-impl Inset for Ellipse {
-    fn inset(mut self, distance: f32) -> Self {
-        self.half_size -= Vec2::splat(distance);
         self
     }
 }
