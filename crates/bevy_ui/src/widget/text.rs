@@ -219,6 +219,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
+    layout_entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
@@ -231,6 +232,7 @@ fn create_text_measure<'a>(
 ) {
     match text_pipeline.create_text_measure(
         entity,
+        layout_entity,
         fonts,
         spans,
         scale_factor,
@@ -271,26 +273,27 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_layout_query: Query<
+    mut text_layout_query: Query<(
+        Entity,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
+        &TextLayoutNode,
+        &TextSections,
+    )>,
+    mut text_root_query: Query<
         (
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            &TextLayoutNode,
-            &TextSections,
+            Ref<TextLayout>,
+            Ref<ComputedUiRenderTargetInfo>,
+            &ComputedNode,
+            &mut ContentSize,
         ),
         With<Node>,
     >,
-    mut text_root_query: Query<(
-        Ref<TextLayout>,
-        Ref<ComputedUiRenderTargetInfo>,
-        &ComputedNode,
-        &mut ContentSize,
-    )>,
     text_query: Query<(&Text, &TextFont)>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (text_flags, computed, layout_node, sections) in &mut text_layout_query {
+    for (layout_entity, text_flags, computed, layout_node, sections) in &mut text_layout_query {
         let Ok((block, computed_target, computed_node, content_size)) =
             text_root_query.get_mut(layout_node.0)
         else {
@@ -314,6 +317,7 @@ pub fn measure_text_system(
 
             create_text_measure(
                 layout_node.0,
+                layout_entity,
                 &fonts,
                 computed_target.scale_factor.into(),
                 spans,

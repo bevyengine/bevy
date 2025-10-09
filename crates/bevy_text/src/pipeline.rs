@@ -396,6 +396,7 @@ impl TextPipeline {
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,
+        layout_entity: Entity,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
         scale_factor: f64,
@@ -432,7 +433,7 @@ impl TextPipeline {
         Ok(TextMeasureInfo {
             min: min_width_content_size,
             max: max_width_content_size,
-            entity,
+            entity: layout_entity,
         })
     }
 
