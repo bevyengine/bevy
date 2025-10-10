@@ -19,7 +19,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d};
+use bevy_camera::{Camera, Camera2d, Camera3d, DepthStencilFormat};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -756,6 +756,7 @@ pub fn extract_ui_camera_view(
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
+                Option<&DepthStencilFormat>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -764,7 +765,7 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
+    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples, depth_stencil_format) in &query {
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -788,6 +789,9 @@ pub fn extract_ui_camera_view(
             // main 3D or 2D camera, which will have subview index 0.
             let retained_view_entity =
                 RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
+			
+			let depth_stencil_format = depth_stencil_format.unwrap_or(&DepthStencilFormat::default()).format();
+
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
@@ -806,6 +810,7 @@ pub fn extract_ui_camera_view(
                             physical_viewport_rect.size(),
                         )),
                         color_grading: Default::default(),
+						depth_stencil_format
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),

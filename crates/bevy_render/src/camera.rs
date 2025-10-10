@@ -20,8 +20,8 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
-    Projection, RenderTargetInfo, Viewport,
+    ClearColor, ClearColorConfig, DepthStencilFormat, Exposure, ManualTextureViewHandle,
+    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -420,21 +420,26 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            Entity,
-            RenderEntity,
-            &Camera,
-            &CameraRenderGraph,
-            &GlobalTransform,
-            &VisibleEntities,
-            &Frustum,
-            Has<Hdr>,
-            Option<&ColorGrading>,
-            Option<&Exposure>,
-            Option<&TemporalJitter>,
-            Option<&MipBias>,
-            Option<&RenderLayers>,
-            Option<&Projection>,
-            Has<NoIndirectDrawing>,
+            (
+                Entity,
+                RenderEntity,
+                &Camera,
+                &CameraRenderGraph,
+                &GlobalTransform,
+                &VisibleEntities,
+                &Frustum,
+            ),
+            (
+                Has<Hdr>,
+                Option<&ColorGrading>,
+                Option<&Exposure>,
+                Option<&TemporalJitter>,
+                Option<&MipBias>,
+                Option<&RenderLayers>,
+                Option<&Projection>,
+                Option<&DepthStencilFormat>,
+                Has<NoIndirectDrawing>,
+            ),
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -454,21 +459,26 @@ pub fn extract_cameras(
         ViewUniformOffset,
     );
     for (
-        main_entity,
-        render_entity,
-        camera,
-        camera_render_graph,
-        transform,
-        visible_entities,
-        frustum,
-        hdr,
-        color_grading,
-        exposure,
-        temporal_jitter,
-        mip_bias,
-        render_layers,
-        projection,
-        no_indirect_drawing,
+        (
+            main_entity,
+            render_entity,
+            camera,
+            camera_render_graph,
+            transform,
+            visible_entities,
+            frustum,
+        ),
+        (
+            hdr,
+            color_grading,
+            exposure,
+            temporal_jitter,
+            mip_bias,
+            render_layers,
+            projection,
+            depth_stencil_format,
+            no_indirect_drawing,
+        ),
     ) in query.iter()
     {
         if !camera.is_active {
@@ -520,6 +530,8 @@ pub fn extract_cameras(
                     .collect(),
             };
 
+			let depth_stencil_format = depth_stencil_format.unwrap_or(&DepthStencilFormat::default()).format();
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -552,6 +564,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    depth_stencil_format,
                 },
                 render_visible_entities,
                 *frustum,
