@@ -13,7 +13,6 @@ use bevy_ecs::{
     spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
-use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
@@ -63,7 +62,6 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         RadioButton,
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
-        TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {
             font: HandleOrPath::Path(fonts::REGULAR.to_owned()),
