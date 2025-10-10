@@ -5,7 +5,7 @@ pull_requests: [21346]
 
 With the introduction of Resources as Components, there are a couple changes.
 
-# `Components::get_valid_resource_id` and `Components::get_resource_id` are deprecated
+## `Components::get_valid_resource_id` and `Components::get_resource_id` are deprecated
 
 Because resources are registered using the `TypeId` of `ResourceComponent<SomeResource>`, the behavior of these methods changes.
 
@@ -21,7 +21,7 @@ world.components().get_valid_resource_id(TypeId::of::<ResourceComponent<SomeReso
 Since it's confusing to 'get the resource id' when provided a component `TypeId`, these methods are deprecated.
 Instead use `Components::get_id` or `Components::get_valid_id`, if you're passing in `TypeId`s and don't forget to get the `TypeId` of the wrapped resource. If instead instead the type is available, use `Components::resource_id` and `Components::valid_resource_id`.
 
-## Important
+### Important
 
 Non-send resources have not become components. Do not wrap them in `ResourceComponent<_>`.
 
@@ -34,7 +34,7 @@ world.components().get_id(TypeId::of::<NonSendResource>())
 world.components().get_valid_id(TypeId::of::<NonSendResource>())
 ```
 
-# Resources implement `MapEntities` by default
+## Resources implement `MapEntities` by default
 
 A resource now automatically implements `MapEntities` when using the `#[derive(Resource)]` macro.
 To avoid conflicting code, remove `#[derive(MapEntities)]` from every resource.
@@ -51,7 +51,7 @@ struct SomeResource;
 struct SomeResource;
 ```
 
-# Resources aren't auto-registered for reflection
+## Resources aren't auto-registered for reflection
 
 <!--This is the one I'd really like to fix before 0.18 -->
 
@@ -63,14 +63,14 @@ However, since this feature does not work for generic types like `ResourceCompon
 app.register_type::<ResourceComponent<SomeResource>>()
 ```
 
-# `clear_entities` doesn't clear all entities
+## `clear_entities` doesn't clear all entities
 
 As more and more internal engine concepts become entities, the `clear_entities` becomes more and more destructive.
 This is why `World::clear_entities` now only deletes all non-internal entities (for more information look [here](https://docs.rs/bevy/latest/bevy/ecs/entity_disabling/struct.Internal.html)). This means that all observers, one-shot-systems, and - most importantly - resources, remain in the world.
 
 `clear_all` does still clear everything.
 
-# Update to scene serialization
+## Update to scene serialization
 
 Because resources are now entities, we re-use the serialization code for entities for resources.
 Which results in a different data layout.
