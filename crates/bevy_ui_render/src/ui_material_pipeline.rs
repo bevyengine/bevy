@@ -115,8 +115,7 @@ pub struct UiMaterialBatch<M: UiMaterial> {
 pub struct UiMaterialPipeline<M: UiMaterial> {
     pub ui_layout: BindGroupLayout,
     pub view_layout: BindGroupLayout,
-    pub vertex_shader: Handle<Shader>,
-    pub fragment_shader: Handle<Shader>,
+    pub default_shader: Handle<Shader>,
     marker: PhantomData<M>,
 }
 
@@ -146,13 +145,13 @@ where
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: self.vertex_shader.clone(),
+                shader: key.vertex_shader.clone(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
-                shader: self.fragment_shader.clone(),
+                shader: key.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
@@ -195,21 +194,10 @@ pub fn init_ui_material_pipeline<M: UiMaterial>(
         ),
     );
 
-    let load_default = || load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl");
-
     commands.insert_resource(UiMaterialPipeline::<M> {
         ui_layout,
         view_layout,
-        vertex_shader: match M::vertex_shader() {
-            ShaderRef::Default => load_default(),
-            ShaderRef::Handle(handle) => handle,
-            ShaderRef::Path(path) => asset_server.load(path),
-        },
-        fragment_shader: match M::fragment_shader() {
-            ShaderRef::Default => load_default(),
-            ShaderRef::Handle(handle) => handle,
-            ShaderRef::Path(path) => asset_server.load(path),
-        },
+        default_shader: load_embedded_asset!(asset_server.as_ref(), "ui_material.wgsl"),
         marker: PhantomData,
     });
 }
@@ -306,6 +294,8 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
+    pub vertex_shader: Handle<Shader>,
+    pub fragment_shader: Handle<Shader>,
     pub render_entity: Entity,
 }
 
@@ -337,6 +327,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ComputedUiTargetCamera,
         )>,
     >,
+    ui_material_pipeline: Res<UiMaterialPipeline<M>>,
+    asset_server: Extract<Res<AssetServer>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
@@ -349,10 +341,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         }
 
-        // Skip loading materials
-        if !materials.contains(handle) {
+        let Some(material) = materials.get(handle) else {
+            // Skip if the material isn't loaded yet
             continue;
-        }
+        };
+
+        let vertex_shader = match material.vertex_shader() {
+            ShaderRef::Default => ui_material_pipeline.default_shader.clone(),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        };
+        let fragment_shader = match material.fragment_shader() {
+            ShaderRef::Default => ui_material_pipeline.default_shader.clone(),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        };
 
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
@@ -372,6 +375,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),
+            vertex_shader,
+            fragment_shader,
         });
     }
 }
@@ -611,6 +616,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
+                vertex_shader: extracted_uinode.vertex_shader.clone(),
+                fragment_shader: extracted_uinode.fragment_shader.clone(),
                 bind_group_data: material.key.clone(),
             },
         );
