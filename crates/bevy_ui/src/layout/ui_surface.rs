@@ -10,7 +10,10 @@ use bevy_ecs::{
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    layout::convert, BlockContainer, BlockItem, FlexBoxContainer, FlexBoxItem, GridContainer,
+    GridItem, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure,
+};
 use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -74,6 +77,14 @@ impl UiSurface {
         layout_context: &LayoutContext,
         entity: Entity,
         node: &Node,
+        displays: (
+            Option<&BlockItem>,
+            Option<&BlockContainer>,
+            Option<&GridItem>,
+            Option<&GridContainer>,
+            Option<&FlexBoxItem>,
+            Option<&FlexBoxContainer>,
+        ),
         mut new_node_context: Option<NodeMeasure>,
     ) {
         let taffy = &mut self.taffy;
@@ -93,18 +104,18 @@ impl UiSurface {
                 taffy
                     .set_style(
                         taffy_node.id,
-                        convert::from_node(node, layout_context, has_measure),
+                        convert::from_node(node, displays, layout_context, has_measure),
                     )
                     .unwrap();
             }
             Entry::Vacant(entry) => {
                 let taffy_node = if let Some(measure) = new_node_context.take() {
                     taffy.new_leaf_with_context(
-                        convert::from_node(node, layout_context, true),
+                        convert::from_node(node, displays, layout_context, true),
                         measure,
                     )
                 } else {
-                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                    taffy.new_leaf(convert::from_node(node, displays, layout_context, false))
                 };
                 entry.insert(taffy_node.unwrap().into());
             }
