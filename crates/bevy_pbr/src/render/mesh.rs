@@ -2212,33 +2212,45 @@ impl MeshPipelineKey {
         }
     }
 
-	pub fn from_depth_stencil_format(format: TextureFormat) -> Self {
-		match format {
-			TextureFormat::Depth16Unorm 		=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM,
-			TextureFormat::Depth24Plus 			=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS,
-			TextureFormat::Depth24PlusStencil8 	=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8,
-			TextureFormat::Depth32Float 		=> Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT,
-			TextureFormat::Depth32FloatStencil8 => Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8,
-			_ => panic!("Unsupported depth-stencil format for MeshPipelineKey"),
-		}
-	}
-
-    pub fn depth_stencil_format(&self) -> TextureFormat {
-        let depth_stencil_format_bits = (self.bits()
-            >> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS)
-			& Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS;
-		
-        match depth_stencil_format_bits {
-			x if x == 0 => panic!("Depth-stencil format not set in for pipeline"),
-			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth16Unorm,
-			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth24Plus,
-			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8.bits() 	>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth24PlusStencil8,
-			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT.bits() 			>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth32Float,
-			x if x == (Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8.bits() 	>> Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS) & Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS => TextureFormat::Depth32FloatStencil8,
-			_ => panic!("Invalid depth-stencil format bits in MeshPipelineKey"),
+    pub fn from_depth_stencil_format(format: TextureFormat) -> Self {
+        match format {
+            TextureFormat::Depth16Unorm => Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM,
+            TextureFormat::Depth24Plus => Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS,
+            TextureFormat::Depth24PlusStencil8 => {
+                Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8
+            }
+            TextureFormat::Depth32Float => Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT,
+            TextureFormat::Depth32FloatStencil8 => {
+                Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8
+            }
+            _ => panic!("Unsupported depth-stencil format for MeshPipelineKey"),
         }
     }
 
+    pub fn depth_stencil_format(&self) -> TextureFormat {
+        //strip out all bits except the depth-stencil format bits
+        let depth_stencil_format_bits: Self = Self::from_bits_retain(
+            self.bits()
+                & (Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS
+                    << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS),
+        );
+
+        match depth_stencil_format_bits {
+            Self::DEPTH_STENCIL_TEXTURE_NOT_SET => {
+                panic!("Depth-stencil format not set in pipeline key!")
+            }
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM => TextureFormat::Depth16Unorm,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS => TextureFormat::Depth24Plus,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8 => {
+                TextureFormat::Depth24PlusStencil8
+            }
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT => TextureFormat::Depth32Float,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8 => {
+                TextureFormat::Depth32FloatStencil8
+            }
+            _ => panic!("Invalid depth-stencil format bits in MeshPipelineKey"),
+        }
+    }
 }
 
 // Ensure that we didn't overflow the number of bits available in `MeshPipelineKey`.
