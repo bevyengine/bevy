@@ -194,15 +194,8 @@ pub fn run_freecam_controller(
     };
 
     if amount != 0.0 {
-        // scale the speed exponentially with the scroll factor as the base.
-        let scroll_plus_one = controller.scroll_factor.max(0.0) + 1.0;
-        let log_speed_plus_one = bevy_math::ops::ln(controller.walk_speed + 1.0);
-        // `factor` will approach but never reach 0 as `walk_speed` approaches 0:
-        // Importantly, we want to avoid ever reaching exactly 0 so we don't get stuck there.
-        let factor = bevy_math::ops::powf(scroll_plus_one, log_speed_plus_one) - 0.999;
-        controller.walk_speed += factor * amount;
-        // avoid negative speeds.
-        controller.walk_speed = controller.walk_speed.clamp(0.0, f32::MAX);
+        let factor = bevy_math::ops::exp(controller.scroll_factor * amount);
+        controller.walk_speed = (controller.walk_speed * factor).clamp(0.0, f32::MAX);
         controller.run_speed = controller.walk_speed * 3.0;
     }
 
