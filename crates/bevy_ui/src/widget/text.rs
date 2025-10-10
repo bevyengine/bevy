@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextOutput, TextPipeline, TextSection, TextTarget,
+    TextOutput, TextPipeline, TextRoot, TextSection, TextTarget,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -264,19 +264,16 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_layout_query: Query<(
-        Entity,
-        &mut TextNodeFlags,
-        &mut ComputedTextBlock,
-        &TextOutput,
-        &TextEntities,
-    )>,
+    mut text_output_query: Query<(&mut ComputedTextBlock, &TextEntities)>,
     mut text_root_query: Query<
         (
+            Entity,
+            &TextRoot,
             Ref<TextLayout>,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
             &mut ContentSize,
+            &mut TextNodeFlags,
         ),
         With<Node>,
     >,
@@ -284,10 +281,12 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (layout_entity, text_flags, computed, layout_node, sections) in &mut text_layout_query {
-        let Ok((block, computed_target, computed_node, content_size)) =
-            text_root_query.get_mut(layout_node.0)
-        else {
+    for (entity, root, block, computed_target, computed_node, content_size, text_flags) in
+        text_root_query.iter_mut()
+    {
+        println!("measure root: {entity}");
+        let Ok((computed, sections)) = text_output_query.get_mut(root.get()) else {
+            println!("no output");
             continue;
         };
 
@@ -307,8 +306,8 @@ pub fn measure_text_system(
             });
 
             create_text_measure(
-                layout_node.0,
-                layout_entity,
+                entity,
+                root.get(),
                 &fonts,
                 computed_target.scale_factor.into(),
                 spans,
@@ -407,23 +406,21 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
+    mut output_query: Query<(&mut TextLayoutInfo, &mut ComputedTextBlock, &TextEntities)>,
+    mut root_query: Query<(
         Entity,
-        &mut TextLayoutInfo,
         &mut TextNodeFlags,
-        &mut ComputedTextBlock,
-        &TextEntities,
-        &TextOutput,
+        Ref<ComputedNode>,
+        &TextLayout,
+        &TextRoot,
     )>,
-    root_query: Query<(Ref<ComputedNode>, &TextLayout)>,
     sections_query: Query<(&Text, &TextFont)>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, text_layout_info, text_flags, mut computed, sections, layout_node) in
-        &mut text_query
-    {
-        let Ok((node, block)) = root_query.get(layout_node.0) else {
+    for (entity, text_flags, node, block, root) in root_query.iter_mut() {
+        let Ok((text_layout_info, mut computed, sections)) = output_query.get_mut(root.get())
+        else {
             continue;
         };
         if node.is_changed() || text_flags.needs_recompute {

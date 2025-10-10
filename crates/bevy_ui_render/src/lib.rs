@@ -950,6 +950,7 @@ pub fn extract_text_sections(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            println!("{i}");
             if current_span_index != *span_index
                 && let Some(span_entity) = entities.0.get(*span_index)
             {
