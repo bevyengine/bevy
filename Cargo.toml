@@ -211,7 +211,7 @@ default_platform = [
 ]
 
 # Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).
-render_api = [
+common_api = [
   "bevy_animation",
   "bevy_camera",
   "bevy_color",
@@ -226,7 +226,7 @@ render_api = [
 
 # Features used to build 2D Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
-2d_api = ["render_api", "bevy_sprite"]
+2d_api = ["common_api", "bevy_sprite"]
 
 # Bevy's built-in 2D renderer, built on top of `bevy_render` 
 2d_bevy_render = [
@@ -240,7 +240,7 @@ render_api = [
 # Features used to build 3D Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
 3d_api = [
-  "render_api",
+  "common_api",
   "bevy_light",
   "bevy_mikktspace",
   "ktx2",
@@ -265,7 +265,7 @@ render_api = [
 
 # Features used to build UI Bevy apps (does not include a render backend)
 # You generally don't need to worry about this unless you are using a custom renderer.
-ui_api = ["default_app", "render_api", "bevy_ui"]
+ui_api = ["default_app", "common_api", "bevy_ui"]
 
 # Bevy's built-in UI renderer, built on top of `bevy_render` 
 ui_bevy_render = [
