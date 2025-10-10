@@ -133,7 +133,8 @@ pub(crate) fn check(what_to_run: Command) {
 
         let manifest = std::fs::read_to_string("Cargo.toml")
             .unwrap()
-            .parse::<DocumentMut>().unwrap();
+            .parse::<DocumentMut>()
+            .unwrap();
 
         let bevy_version = manifest["package"]["version"].as_str();
 
