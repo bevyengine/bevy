@@ -32,7 +32,7 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{
     hash::Hash,
-    ops::{Index, IndexMut, RangeFrom},
+    ops::{Index, IndexMut, Range, RangeFrom},
 };
 use nonmax::NonMaxU32;
 
@@ -327,6 +327,7 @@ impl Edges {
 }
 
 /// Metadata about an [`Entity`] in a [`Archetype`].
+#[derive(Clone, Copy)]
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: TableRow,
@@ -394,6 +395,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
+    pub(crate) disabled_entities: u32,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
 }
@@ -453,6 +455,7 @@ impl Archetype {
             id,
             table_id,
             entities: Vec::new(),
+            disabled_entities: 0,
             components: archetype_components.into_immutable(),
             edges: Default::default(),
             flags,
@@ -485,9 +488,26 @@ impl Archetype {
         &self.entities
     }
 
+    /// Fetches the enabled entities contained in this archetype.
+    #[inline]
+    pub fn enabled_entities(&self) -> &[ArchetypeEntity] {
+        &self.entities[self.disabled_entities as usize..]
+    }
+
+    /// Get the valid table rows (i.e. non-disabled entities).
+    #[inline]
+    pub fn archetype_rows(&self) -> Range<u32> {
+        // - No entity row may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // - self.disabled_entities <= self.len()
+        self.disabled_entities..self.len()
+    }
+
     /// Fetches the entities contained in this archetype.
     #[inline]
-    pub fn entities_with_location(&self) -> impl Iterator<Item = (Entity, EntityLocation)> {
+    pub fn entities_with_location(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = (Entity, EntityLocation)> + ExactSizeIterator {
         self.entities.iter().enumerate().map(
             |(archetype_row, &ArchetypeEntity { entity, table_row })| {
                 (
@@ -623,6 +643,71 @@ impl Archetype {
         self.entities.reserve(additional);
     }
 
+    /// Disables or enables the entity at `row` by swapping it with the first
+    /// enabled or disabled entity. Returns the swapped entities with their
+    /// respective table and archetype rows, or `None` if no swap occurred. If a
+    /// swap occurred, the caller is responsible for updating the entity's
+    /// location.
+    ///
+    /// # Panics
+    /// This function will panic if `row >= self.entities.len()`
+    #[inline]
+    pub(crate) fn swap_disable(
+        &mut self,
+        row: ArchetypeRow,
+    ) -> (
+        (ArchetypeEntity, ArchetypeRow),
+        Option<(ArchetypeEntity, ArchetypeRow)>,
+    ) {
+        debug_assert!(row.index_u32() < self.len());
+
+        let disabled_row = if row.index_u32() >= self.disabled_entities {
+            // the entity is currently enabled, swap it with the first enabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            let disabled_row =
+                ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+            self.disabled_entities += 1;
+
+            disabled_row
+        } else {
+            self.disabled_entities -= 1;
+            // the entity is currently disabled, swap it with the last disabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
+        };
+
+        if row == disabled_row {
+            // the entity is already in the correct position, no swap needed
+
+            // SAFETY: `row` is guaranteed to be in-bounds.
+            (
+                (unsafe { *self.entities.get_unchecked(row.index()) }, row),
+                None,
+            )
+        } else {
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`, as guaranteed by `allocate`.
+            let disabled_row =
+                ArchetypeRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+
+            self.entities.swap(row.index(), disabled_row.index());
+
+            // SAFETY: Both `row` and `other` are guaranteed to be in-bounds.
+            unsafe {
+                (
+                    (
+                        *self.entities.get_unchecked(disabled_row.index()),
+                        disabled_row,
+                    ),
+                    Some((*self.entities.get_unchecked(row.index()), row)),
+                )
+            }
+        }
+    }
+
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
@@ -648,6 +733,12 @@ impl Archetype {
         // No entity may have more than one archetype row, so there are no duplicates,
         // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
+    }
+
+    /// Gets the number of entities that belong to the archetype, without disabled entities.
+    #[inline]
+    pub fn entity_count(&self) -> u32 {
+        self.len() - self.disabled_entities
     }
 
     /// Checks if the archetype has any entities.

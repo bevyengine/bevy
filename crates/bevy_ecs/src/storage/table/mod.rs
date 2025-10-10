@@ -12,7 +12,7 @@ pub use column::*;
 use core::{
     cell::UnsafeCell,
     num::NonZeroUsize,
-    ops::{Index, IndexMut},
+    ops::{Index, IndexMut, Range},
     panic::Location,
 };
 use nonmax::NonMaxU32;
@@ -166,6 +166,7 @@ impl TableBuilder {
         Table {
             columns: self.columns.into_immutable(),
             entities: self.entities,
+            disabled_entities: 0,
         }
     }
 }
@@ -190,6 +191,7 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
+    disabled_entities: u32,
 }
 
 impl Table {
@@ -199,11 +201,75 @@ impl Table {
         &self.entities
     }
 
+    /// Get the valid table rows (i.e. non-disabled entities).
+    #[inline]
+    pub fn table_rows(&self) -> Range<u32> {
+        // - No entity row may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // - self.disabled_entities <= self.entity_count()
+        self.disabled_entities..self.len()
+    }
+
     /// Get the capacity of this table, in entities.
     /// Note that if an allocation is in process, this might not match the actual capacity of the columns, but it should once the allocation ends.
     #[inline]
     pub fn capacity(&self) -> usize {
         self.entities.capacity()
+    }
+
+    /// Disables or enables the entity at `row` by swapping it with the first
+    /// enabled or disabled entity. Returns the swapped entities with their
+    /// respective table rows, or `None` if no swap occurred. If a
+    /// swap occurred, the caller is responsible for updating the entity's
+    /// location.
+    ///
+    /// # Safety
+    /// `row` must be in-bounds (`row.as_usize()` < `self.len()`) and not disabled.
+    pub(crate) unsafe fn swap_disable_unchecked(
+        &mut self,
+        row: TableRow,
+    ) -> ((Entity, TableRow), Option<(Entity, TableRow)>) {
+        debug_assert!(row.index_u32() < self.len());
+
+        let disabled_row = if row.index_u32() >= self.disabled_entities {
+            // the entity is currently enabled, swap it with the first enabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            let disabled_row =
+                TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) });
+            self.disabled_entities += 1;
+
+            disabled_row
+        } else {
+            self.disabled_entities -= 1;
+            // the entity is currently disabled, swap it with the last disabled entity:
+
+            // SAFETY: `self.disabled_entities` is always less than `u32::MAX`,
+            // as guaranteed by `allocate`.
+            TableRow::new(unsafe { NonMaxU32::new_unchecked(self.disabled_entities) })
+        };
+
+        if row == disabled_row {
+            // the entity is already in the correct position, no swap needed
+
+            // SAFETY: row index is guaranteed to be valid by the caller.
+            ((*self.entities.get_unchecked(row.index()), row), None)
+        } else {
+            for col in self.columns.values_mut() {
+                col.swap_unchecked(row, disabled_row);
+            }
+
+            self.entities.swap(row.index(), disabled_row.index());
+
+            (
+                (
+                    *self.entities.get_unchecked(disabled_row.index()),
+                    disabled_row,
+                ),
+                Some((*self.entities.get_unchecked(row.index()), row)),
+            )
+        }
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -212,8 +278,8 @@ impl Table {
     /// # Safety
     /// `row` must be in-bounds (`row.as_usize()` < `self.len()`)
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: TableRow) -> Option<Entity> {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
+        debug_assert!(row.index_u32() < self.len());
+        let last_element_index = self.len() - 1;
         if row.index_u32() != last_element_index {
             // Instead of checking this condition on every `swap_remove` call, we
             // check it here and use `swap_remove_nonoverlapping`.
@@ -264,8 +330,8 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
+        debug_assert!(row.index_u32() < self.len());
+        let last_element_index = self.len() - 1;
         let is_last = row.index_u32() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -307,8 +373,8 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
+        debug_assert!(row.index_u32() < self.len());
+        let last_element_index = self.len() - 1;
         let is_last = row.index_u32() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -350,8 +416,8 @@ impl Table {
         row: TableRow,
         new_table: &mut Table,
     ) -> TableMoveResult {
-        debug_assert!(row.index_u32() < self.entity_count());
-        let last_element_index = self.entity_count() - 1;
+        debug_assert!(row.index_u32() < self.len());
+        let last_element_index = self.len() - 1;
         let is_last = row.index_u32() == last_element_index;
         let new_row = new_table.allocate(self.entities.swap_remove(row.index()));
         for (component_id, column) in self.columns.iter_mut() {
@@ -381,7 +447,7 @@ impl Table {
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<T>]> {
         self.get_column(component_id)
-            .map(|col| col.get_data_slice(self.entity_count() as usize))
+            .map(|col| col.get_data_slice(self.len() as usize))
     }
 
     /// Get the added ticks of the column matching `component_id` as a slice.
@@ -391,7 +457,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_added_ticks_slice(self.entity_count() as usize) })
+            .map(|col| unsafe { col.get_added_ticks_slice(self.len() as usize) })
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
@@ -401,7 +467,7 @@ impl Table {
     ) -> Option<&[UnsafeCell<Tick>]> {
         self.get_column(component_id)
             // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_changed_ticks_slice(self.entity_count() as usize) })
+            .map(|col| unsafe { col.get_changed_ticks_slice(self.len() as usize) })
     }
 
     /// Fetches the calling locations that last changed the each component
@@ -412,7 +478,7 @@ impl Table {
         MaybeLocation::new_with_flattened(|| {
             self.get_column(component_id)
                 // SAFETY: `self.len()` is guaranteed to be the len of the locations array
-                .map(|col| unsafe { col.get_changed_by_slice(self.entity_count() as usize) })
+                .map(|col| unsafe { col.get_changed_by_slice(self.len() as usize) })
         })
     }
 
@@ -422,7 +488,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
+        (row.index_u32() < self.len()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
@@ -438,7 +504,7 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<&UnsafeCell<Tick>> {
-        (row.index_u32() < self.entity_count()).then_some(
+        (row.index_u32() < self.len()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
@@ -455,7 +521,7 @@ impl Table {
         row: TableRow,
     ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         MaybeLocation::new_with_flattened(|| {
-            (row.index_u32() < self.entity_count()).then_some(
+            (row.index_u32() < self.len()).then_some(
                 // SAFETY: `row.as_usize()` < `len`
                 unsafe {
                     self.get_column(component_id)?
@@ -515,7 +581,7 @@ impl Table {
 
     /// Reserves `additional` elements worth of capacity within the table.
     pub(crate) fn reserve(&mut self, additional: usize) {
-        if (self.capacity() - self.entity_count() as usize) < additional {
+        if (self.capacity() - self.len() as usize) < additional {
             let column_cap = self.capacity();
             self.entities.reserve(additional);
 
@@ -604,7 +670,7 @@ impl Table {
     /// The allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let len = self.entity_count();
+        let len = self.len();
         // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
         // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
         let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
@@ -626,9 +692,15 @@ impl Table {
         row
     }
 
-    /// Gets the number of entities currently being stored in the table.
+    /// Gets the number of entities currently being stored in the table, without disabled entities.
     #[inline]
     pub fn entity_count(&self) -> u32 {
+        self.len() - self.disabled_entities
+    }
+
+    /// Gets the total number of entities currently being stored in the table.
+    #[inline]
+    pub fn len(&self) -> u32 {
         // No entity may have more than one table row, so there are no duplicates,
         // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
@@ -663,7 +735,7 @@ impl Table {
 
     /// Call [`Tick::check_tick`] on all of the ticks in the [`Table`]
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
-        let len = self.entity_count() as usize;
+        let len = self.len() as usize;
         for col in self.columns.values_mut() {
             // SAFETY: `len` is the actual length of the column
             unsafe { col.check_change_ticks(len, check) };
@@ -680,13 +752,13 @@ impl Table {
     /// # Panics
     /// - Panics if any of the components in any of the columns panics while being dropped.
     pub(crate) fn clear(&mut self) {
-        let len = self.entity_count() as usize;
+        let len = self.len() as usize;
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
         self.entities.clear();
         for column in self.columns.values_mut() {
             // SAFETY: we defer `self.entities.clear()` until after clearing the columns,
             // so `self.len()` should match the columns' len
-            unsafe { column.clear(len) };
+            unsafe { column.clear(len, self.disabled_entities as usize..len) };
         }
     }
 
@@ -854,13 +926,14 @@ impl IndexMut<TableId> for Tables {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        let len = self.entity_count() as usize;
+        let len = self.len() as usize;
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {
             // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
-                col.drop(cap, len);
+                // TODO: don't drop disabled entities components
+                col.drop(cap, len, self.disabled_entities as usize..len);
             }
         }
     }

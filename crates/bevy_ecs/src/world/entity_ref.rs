@@ -6,8 +6,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
     entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
+        ContainsEntity, DisabledEntity, Entity, EntityCloner, EntityClonerBuilder,
+        EntityEquivalent, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -2560,6 +2560,148 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn despawn(self) {
         self.despawn_with_caller(MaybeLocation::caller());
+    }
+
+    pub(crate) fn swap_disable(self) -> Self {
+        let location = self.location();
+        let Self { world, entity, .. } = self;
+
+        let location = {
+            let archetype = &mut world.archetypes[location.archetype_id];
+            let ((disabled_arch, archetype_row), swapped_archetype) =
+                archetype.swap_disable(location.archetype_row);
+
+            // set the correct entity location for the swapped entity; the disabled is set to `None`
+            if let Some((entity, archetype_row)) = swapped_archetype {
+                let entity = entity.id();
+                let swapped_location = world.entities.get(entity).unwrap();
+
+                // SAFETY: `entity` is a valid entity, whose archetype row was just swapped
+                unsafe {
+                    world.entities.set(
+                        entity.index(),
+                        Some(EntityLocation {
+                            archetype_row,
+                            ..swapped_location
+                        }),
+                    );
+                }
+            }
+
+            for component_id in archetype.sparse_set_components() {
+                // set must have existed for the component to be added.
+                let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
+                sparse_set.swap_disable(self.entity);
+            }
+
+            // SAFETY: `disabled_arch.table_row()` is an in-bounds row as provided by the archetype
+            let ((disabled_table, table_row), swapped_table) = unsafe {
+                world.storages.tables[archetype.table_id()]
+                    .swap_disable_unchecked(disabled_arch.table_row())
+            };
+
+            archetype.set_entity_table_row(archetype_row, table_row);
+
+            if let Some((entity, table_row)) = swapped_table {
+                let swapped_location = world.entities.get(entity).unwrap();
+
+                // SAFETY: `entity` is a valid entity, whose table row was just swapped
+                unsafe {
+                    world.entities.set(
+                        entity.index(),
+                        Some(EntityLocation {
+                            table_row,
+                            ..swapped_location
+                        }),
+                    );
+                }
+                world.archetypes[swapped_location.archetype_id]
+                    .set_entity_table_row(swapped_location.archetype_row, table_row);
+            }
+
+            assert_eq!(disabled_table, disabled_arch.id());
+
+            EntityLocation {
+                archetype_row,
+                table_row,
+                ..location
+            }
+        };
+
+        Self {
+            world,
+            entity,
+            location: Some(location),
+        }
+    }
+
+    /// Enable a previously disabled entity.
+    ///
+    /// # Panics
+    /// If the entity is not currently disabled.
+    pub fn enable(world: &'w mut World, disabled: DisabledEntity) -> Self {
+        let DisabledEntity {
+            entity,
+            archetype_id,
+        } = disabled;
+        assert!(
+            world.entities.get(entity).is_none(),
+            "entity should not have a location at this point."
+        );
+
+        let archetype = &mut world.archetypes[archetype_id];
+        // Find the location of the disabled entity in the archetype by
+        // searching backwards through the disabled entities.
+        // The disabled entity is most likely the last disabled entity, as
+        // is the case when disabled for `entity_scope`.
+        let location = archetype
+            .entities_with_location()
+            .take(archetype.disabled_entities as usize)
+            .rev()
+            .find(|(e, _)| *e == entity)
+            .map(|(_, location)| location);
+
+        let entity_mut = Self {
+            world,
+            entity,
+            location,
+        }
+        .swap_disable();
+
+        // SAFETY: `entity` is a valid entity, and the entity was either just
+        // swapped into this location or was already in it.
+        unsafe {
+            entity_mut
+                .world
+                .entities
+                .set(entity_mut.entity.index(), entity_mut.location);
+        }
+        entity_mut
+    }
+
+    /// Disable the current entity.
+    ///
+    /// # Panics
+    /// If the entity is not currently enabled.
+    pub fn disable(mut self) -> DisabledEntity {
+        let location = self
+            .world
+            .entities
+            .get(self.entity)
+            .expect("entity should exist at this point.");
+
+        self = self.swap_disable();
+
+        // SAFETY: entity is a valid entity, that has no location anymore due to
+        // being disabled.
+        unsafe {
+            self.world.entities.set(self.entity.index(), None);
+        }
+
+        DisabledEntity {
+            entity: self.entity,
+            archetype_id: location.archetype_id,
+        }
     }
 
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
@@ -5210,9 +5352,10 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
-    use alloc::{vec, vec::Vec};
+    use alloc::{sync::Arc, vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+    use core::sync::atomic::{AtomicU32, Ordering};
     use std::sync::OnceLock;
 
     use crate::component::Tick;
@@ -6799,5 +6942,121 @@ mod tests {
         let mut world = World::new();
         let original = world.spawn(C).id();
         world.despawn(original);
+    }
+
+    #[test]
+    fn disabled_no_drop() {
+        #[derive(Component)]
+        struct A(Arc<AtomicU32>);
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct ASparse(Arc<AtomicU32>);
+
+        #[derive(Component)]
+        struct B(Arc<AtomicU32>);
+
+        impl Drop for A {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for ASparse {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for B {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let a = Arc::new(AtomicU32::new(0));
+        let b = Arc::new(AtomicU32::new(0));
+
+        let mut world = World::new();
+        let e = world.spawn((A(a.clone()), ASparse(a.clone()))).id();
+        _ = world.spawn(B(b.clone())).id();
+        world.entity_mut(e).disable();
+
+        assert_eq!(a.load(Ordering::SeqCst), 0);
+        assert_eq!(b.load(Ordering::SeqCst), 0);
+        drop(world);
+        assert_eq!(a.load(Ordering::SeqCst), 0);
+        assert_eq!(b.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn component_scope_drop() {
+        #[derive(Component)]
+        struct A(u32, Arc<AtomicU32>);
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct ASparse((), Arc<AtomicU32>);
+
+        #[derive(Component)]
+        struct B((), Arc<AtomicU32>);
+
+        impl Drop for A {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for ASparse {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        impl Drop for B {
+            fn drop(&mut self) {
+                self.1.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let a = Arc::new(AtomicU32::new(0));
+        let b = Arc::new(AtomicU32::new(0));
+
+        let mut world = World::new();
+        let scoped_entity = world.spawn((A(1, a.clone()), ASparse((), a.clone()))).id();
+        _ = world.spawn(B((), b.clone())).id();
+
+        world.component_scope(scoped_entity, |_, _, a: &mut A| {
+            assert_eq!(a.1.load(Ordering::SeqCst), 0);
+            *a = A(3, a.1.clone());
+        });
+
+        assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 3);
+        assert_eq!(a.load(Ordering::SeqCst), 1);
+        assert_eq!(b.load(Ordering::SeqCst), 0);
+        drop(world);
+        assert_eq!(a.load(Ordering::SeqCst), 3);
+        assert_eq!(b.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn component_scope() {
+        #[derive(Component)]
+        struct A(u32);
+        #[derive(Component)]
+        struct B(u32);
+        #[derive(Component)]
+        struct C(u32);
+        let mut world = World::new();
+        let scoped_entity = world.spawn((A(1), C(42))).id();
+        let entity = world.spawn(B(1)).id();
+
+        world.component_scope(scoped_entity, |world, _, a: &mut A| {
+            assert!(world.get_mut::<A>(scoped_entity).is_none());
+
+            let mut query = world.query::<&A>();
+            assert!(query.iter(world).next().is_none());
+            let mut query = world.query::<&C>();
+            assert!(query.iter(world).next().is_none());
+
+            let b = world.get_mut::<B>(entity).unwrap();
+            a.0 += b.0;
+        });
+        assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 2);
+        assert_eq!(world.get::<C>(scoped_entity).unwrap().0, 42);
     }
 }

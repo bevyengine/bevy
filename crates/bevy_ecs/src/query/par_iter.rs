@@ -144,7 +144,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 let archetypes = &self.world.archetypes();
                 id_iter
                     // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
+                    .map(|id| unsafe { archetypes[id.archetype_id].entity_count() })
                     .max()
             }
             .map(|v| v as usize)

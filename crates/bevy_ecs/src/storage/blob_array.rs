@@ -1,7 +1,13 @@
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
+use core::{
+    alloc::Layout,
+    cell::UnsafeCell,
+    num::NonZeroUsize,
+    ops::{Bound, RangeBounds},
+    ptr::NonNull,
+};
 
 /// A flat, type-erased data storage type.
 ///
@@ -156,25 +162,35 @@ impl BlobArray {
         }
     }
 
-    /// Clears the array, i.e. removing (and dropping) all of the elements.
+    /// Clears the array, i.e. removing (and dropping) all of the elements in the range.
     /// Note that this method has no effect on the allocated capacity of the vector.
     ///
-    /// Note that this method will behave exactly the same as [`Vec::clear`].
+    /// Note that this method will behave exactly the same as [`Vec::drain`].
     ///
     /// # Safety
-    /// - For every element with index `i`, if `i` < `len`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
-    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `len` is correct.)
+    /// - For every element with index `i`, if `range.contains(i)`: It must be safe to call [`Self::get_unchecked_mut`] with `i`.
+    ///   (If the safety requirements of every method that has been used on `Self` have been fulfilled, the caller just needs to ensure that `range` is correct.)
     ///
-    /// [`Vec::clear`]: alloc::vec::Vec::clear
-    pub unsafe fn clear(&mut self, len: usize) {
+    /// [`Vec::drain`]: alloc::vec::Vec::drain
+    pub unsafe fn clear_range(&mut self, range: impl RangeBounds<usize>) {
+        let map_bound_or = |bounds: Bound<&usize>, or: usize, start: bool| match (bounds, start) {
+            (Bound::Included(&b), true) | (Bound::Excluded(&b), false) => b,
+            (Bound::Included(&b), false) => b.checked_add(1).expect("range end overflowed"),
+            (Bound::Excluded(&b), true) => b.checked_add(1).expect("range start overflowed"),
+            (Bound::Unbounded, _) => or,
+        };
+
+        let range = map_bound_or(range.start_bound(), 0, true)
+            ..map_bound_or(range.end_bound(), self.capacity, false);
+
         #[cfg(debug_assertions)]
-        debug_assert!(self.capacity >= len);
+        debug_assert!(self.capacity >= range.end);
         if let Some(drop) = self.drop {
             // We set `self.drop` to `None` before dropping elements for unwind safety. This ensures we don't
             // accidentally drop elements twice in the event of a drop impl panicking.
             self.drop = None;
             let size = self.item_layout.size();
-            for i in 0..len {
+            for i in range {
                 // SAFETY:
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
                 // * `size` is a multiple of the erased type's alignment,
@@ -194,11 +210,11 @@ impl BlobArray {
     /// # Safety
     /// - `cap` and `len` are indeed the capacity and length of this [`BlobArray`]
     /// - This [`BlobArray`] mustn't be used after calling this method.
-    pub unsafe fn drop(&mut self, cap: usize, len: usize) {
+    pub unsafe fn drop(&mut self, cap: usize, range: impl RangeBounds<usize>) {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, cap);
         if cap != 0 {
-            self.clear(len);
+            self.clear_range(range);
             if !self.is_zst() {
                 let layout =
                     array_layout(&self.item_layout, cap).expect("array layout should be valid");
@@ -403,6 +419,35 @@ impl BlobArray {
         self.get_unchecked_mut(index_to_keep).promote()
     }
 
+    /// This method will swap two elements in the array.
+    ///
+    /// # Safety
+    /// - `index_to_keep` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` must be safe to access (within the bounds of the length of the array).
+    /// - `index_to_remove` != `index_to_keep`
+    /// -  The caller should address the inconsistent state of the array that has occurred after the swap, either:
+    ///     1) initialize a different value in `index_to_keep`
+    ///     2) update the saved length of the array if `index_to_keep` was the last element.
+    #[inline]
+    pub unsafe fn swap_unchecked_nonoverlapping(
+        &mut self,
+        index_to_remove: usize,
+        index_to_keep: usize,
+    ) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > index_to_keep);
+            debug_assert!(self.capacity > index_to_remove);
+            debug_assert_ne!(index_to_keep, index_to_remove);
+        }
+        debug_assert_ne!(index_to_keep, index_to_remove);
+        core::ptr::swap_nonoverlapping::<u8>(
+            self.get_unchecked_mut(index_to_keep).as_ptr(),
+            self.get_unchecked_mut(index_to_remove).as_ptr(),
+            self.item_layout.size(),
+        );
+    }
+
     /// The same as [`Self::swap_remove_unchecked`] but the two elements must non-overlapping.
     ///
     /// # Safety
@@ -418,18 +463,7 @@ impl BlobArray {
         index_to_remove: usize,
         index_to_keep: usize,
     ) -> OwningPtr<'_> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(self.capacity > index_to_keep);
-            debug_assert!(self.capacity > index_to_remove);
-            debug_assert_ne!(index_to_keep, index_to_remove);
-        }
-        debug_assert_ne!(index_to_keep, index_to_remove);
-        core::ptr::swap_nonoverlapping::<u8>(
-            self.get_unchecked_mut(index_to_keep).as_ptr(),
-            self.get_unchecked_mut(index_to_remove).as_ptr(),
-            self.item_layout.size(),
-        );
+        self.swap_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         // Now the element that used to be in index `index_to_remove` is now in index `index_to_keep` (after swap)
         // If we are storing ZSTs than the index doesn't actually matter because the size is 0.
         self.get_unchecked_mut(index_to_keep).promote()

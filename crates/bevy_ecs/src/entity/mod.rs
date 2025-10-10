@@ -1318,6 +1318,16 @@ pub struct EntityLocation {
 /// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
 pub type EntityIdLocation = Option<EntityLocation>;
 
+/// An [`Entity`] that has been disabled. This entity will not be found by queries or accessible via other ECS operations, but it's components are still stored in the ECS.
+/// This is useful for temporarily disabling an entity without fully despawning it or invoking archetype moves. This entity keeps track of its location, so it can be re-enabled later.
+pub struct DisabledEntity {
+    /// The disabled entity.
+    pub entity: Entity,
+    /// The archetype this entity belongs to. This is used to look up the entity
+    /// for re-enabling.
+    pub archetype_id: ArchetypeId,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

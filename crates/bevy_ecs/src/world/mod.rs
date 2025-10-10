@@ -41,7 +41,7 @@ use crate::{
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
         RequiredComponents, RequiredComponentsError, Tick,
     },
-    entity::{Entities, Entity, EntityDoesNotExistError},
+    entity::{DisabledEntity, Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
@@ -1437,6 +1437,121 @@ impl World {
         let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
         Ok(())
+    }
+
+    /// Disables the given `entity`, returning a [`DisabledEntity`] if the
+    /// entity exists and was enabled.
+    pub fn disable(&mut self, entity: Entity) -> Result<DisabledEntity, EntityMutableFetchError> {
+        self.flush();
+
+        let entity = self.get_entity_mut(entity)?;
+        Ok(entity.disable())
+    }
+
+    /// Re-enables a previously disabled entity, returning an [`EntityWorldMut`]
+    /// to it.
+    pub fn enable(&mut self, disabled: DisabledEntity) -> EntityWorldMut<'_> {
+        self.flush();
+
+        EntityWorldMut::enable(self, disabled)
+    }
+
+    /// Temporarily disables the requested entity from this [`World`], runs
+    /// custom user code with a mutable reference to the entity's component of
+    /// type `C`, then re-enables the entity before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a component of an
+    /// entity and the rest of the [`World`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_component_scope`](Self::try_component_scope) instead if you want to handle this case.
+    /// Panics if the world is replaced during the execution of the closure.
+    ///
+    /// # Example
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct A(u32);
+    /// #[derive(Component)]
+    /// struct B(u32);
+    /// let mut world = World::new();
+    /// let scoped_entity = world.spawn(A(1)).id();
+    /// let entity = world.spawn(B(1)).id();
+    ///
+    /// world.component_scope(scoped_entity, |world, _, a: &mut A| {
+    ///     assert!(world.get_mut::<A>(scoped_entity).is_none());
+    ///     let b = world.get_mut::<B>(entity).unwrap();
+    ///     a.0 += b.0;
+    /// });
+    /// assert_eq!(world.get::<A>(scoped_entity).unwrap().0, 2);
+    /// ```
+    pub fn component_scope<
+        C: Component<Mutability = Mutable>,
+        R,
+        F: FnOnce(&mut World, Entity, &mut C) -> R,
+    >(
+        &mut self,
+        entity: Entity,
+        f: F,
+    ) {
+        self.try_component_scope(entity, f).unwrap_or_else(|| {
+            panic!(
+                "component {} does not exist for entity {entity}",
+                DebugName::type_name::<C>()
+            )
+        });
+    }
+
+    /// Temporarily disables the requested entity from this [`World`], runs
+    /// custom user code with a mutable reference to the entity's component of
+    /// type `C`, then re-enables the entity before returning.
+    ///
+    /// This enables safe simultaneous mutable access to both a component of an
+    /// entity and the rest of the [`World`].
+    ///
+    /// See also [`component_scope`](Self::component_scope).
+    pub fn try_component_scope<
+        C: Component<Mutability = Mutable>,
+        R,
+        F: FnOnce(&mut World, Entity, &mut C) -> R,
+    >(
+        &mut self,
+        entity: Entity,
+        f: F,
+    ) -> Option<R> {
+        self.flush();
+
+        let world_id = self.id();
+        let mut entity_mut = self.get_entity_mut(entity).ok()?;
+        let mut component = {
+            let component = entity_mut.get_mut::<C>()?;
+            // SAFETY: component contains a &mut reference, so it must be
+            // aligned and valid for reads
+            unsafe { core::ptr::read::<C>(&raw const *component) }
+        };
+
+        let disabled = entity_mut.disable();
+
+        let out = f(self, entity, &mut component);
+
+        assert_eq!(
+            self.id(),
+            world_id,
+            "World was replaced during component scope"
+        );
+
+        let mut entity_mut = self.enable(disabled);
+
+        let mut component_mut = entity_mut.get_mut::<C>().unwrap();
+        // SAFETY: component contains a &mut reference, so it must be
+        // aligned and valid for writes
+        unsafe {
+            core::ptr::write::<C>(&raw mut *component_mut, component);
+        }
+
+        Some(out)
     }
 
     /// Clears the internal component tracker state.
