@@ -10,7 +10,7 @@ use core::{
     fmt::{Debug, Formatter},
     hash::{BuildHasher, Hash},
     iter::{self, FusedIterator},
-    option, result,
+    option, ptr, result,
 };
 
 use super::{Entity, UniqueEntityEquivalentSlice};
@@ -358,13 +358,14 @@ impl<T: EntityEquivalent + Hash, S: BuildHasher + Default> FromEntitySetIterator
 /// An iterator that yields unique entities.
 ///
 /// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
+#[repr(transparent)]
 pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
     iter: I,
 }
 
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
-    pub fn from_entity_set_iterator<S>(iter: I) -> Self {
+    pub fn from_entity_set_iter<S>(iter: I) -> Self {
         Self { iter }
     }
 }
@@ -375,8 +376,28 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// # Safety
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
-    pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
+    pub unsafe fn from_iter_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    pub unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &*ptr::from_ref(iter).cast() }
+    }
+
+    /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
+    ///
+    /// # Safety
+    /// `iter` must only yield unique elements.
+    /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
+    pub unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
+        // SAFETY: UniqueEntityIter is a transparent wrapper around I.
+        unsafe { &mut *ptr::from_mut(iter).cast() }
     }
 
     /// Returns the inner `I`.
@@ -506,7 +527,7 @@ mod tests {
 
         // SAFETY: SpawnBatchIter is `EntitySetIterator`,
         let mut unique_entity_iter =
-            unsafe { UniqueEntityIter::from_iterator_unchecked(spawn_batch.iter()) };
+            unsafe { UniqueEntityIter::from_iter_unchecked(spawn_batch.iter()) };
 
         let entity_set = unique_entity_iter
             .by_ref()

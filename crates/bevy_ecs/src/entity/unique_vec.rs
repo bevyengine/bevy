@@ -7,6 +7,7 @@ use core::{
         Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
         RangeInclusive, RangeTo, RangeToInclusive,
     },
+    ptr,
 };
 
 use alloc::{
@@ -37,6 +38,7 @@ use super::{
 /// and not recommended.
 ///
 /// When `T` is [`Entity`], use the [`UniqueEntityVec`] alias.
+#[repr(transparent)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniqueEntityEquivalentVec<T: EntityEquivalent>(Vec<T>);
 
@@ -80,6 +82,26 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// `vec` must contain only unique elements.
     pub unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
         Self(vec)
+    }
+
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&Vec<T>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `vec` must contain only unique elements.
+    pub unsafe fn from_vec_ref_unchecked(vec: &Vec<T>) -> &Self {
+        // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
+        unsafe { &*ptr::from_ref(vec).cast() }
+    }
+
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&mut Vec<T>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `vec` must contain only unique elements.
+    pub unsafe fn from_vec_mut_unchecked(vec: &mut Vec<T>) -> &mut Self {
+        // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
+        unsafe { &mut *ptr::from_mut(vec).cast() }
     }
 
     /// Returns the inner [`Vec<T>`].
@@ -331,7 +353,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         R: RangeBounds<usize>,
     {
         // SAFETY: `self` and thus `range` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.drain(range)) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.drain(range)) }
     }
 
     /// Clears the vector, removing all values.
@@ -410,7 +432,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         I: EntitySet<Item = T>,
     {
         // SAFETY: `self` and thus `range` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.splice(range, replace_with)) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.splice(range, replace_with)) }
     }
 }
 
@@ -446,7 +468,7 @@ where
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: `self` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.iter()) }
     }
 }
 
@@ -457,7 +479,7 @@ impl<T: EntityEquivalent> IntoIterator for UniqueEntityEquivalentVec<T> {
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: `self` contains only unique elements.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.into_iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.into_iter()) }
     }
 }
 

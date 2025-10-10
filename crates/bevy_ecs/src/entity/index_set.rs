@@ -46,6 +46,11 @@ impl EntityIndexSet {
         Self(IndexSet::with_capacity_and_hasher(n, EntityHash))
     }
 
+    /// Constructs an `EntityIndexSet` from an [`IndexSet`].
+    pub fn from_index_set(set: IndexSet<Entity, EntityHash>) -> Self {
+        Self(set)
+    }
+
     /// Returns the inner [`IndexSet`].
     pub fn into_inner(self) -> IndexSet<Entity, EntityHash> {
         self.0
@@ -554,6 +559,16 @@ impl Index<usize> for Slice {
 pub struct Iter<'a, S = EntityHash>(set::Iter<'a, Entity>, PhantomData<S>);
 
 impl<'a> Iter<'a> {
+    /// Constructs a [`Iter<'a, S>`] from a [`set::Iter<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub unsafe fn from_iter_unchecked<S>(iter: set::Iter<'a, Entity>) -> Iter<'a, S> {
+        Iter::<'_, S>(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](set::Iter).
     pub fn into_inner(self) -> set::Iter<'a, Entity> {
         self.0
@@ -623,6 +638,16 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 pub struct IntoIter<S = EntityHash>(set::IntoIter<Entity>, PhantomData<S>);
 
 impl IntoIter {
+    /// Constructs a [`IntoIter<S>`] from a [`set::IntoIter`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub unsafe fn from_into_iter_unchecked<S>(into_iter: set::IntoIter<Entity>) -> IntoIter<S> {
+        IntoIter::<S>(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](set::IntoIter).
     pub fn into_inner(self) -> set::IntoIter<Entity> {
         self.0
@@ -695,6 +720,16 @@ unsafe impl EntitySetIterator for IntoIter {}
 pub struct Drain<'a, S = EntityHash>(set::Drain<'a, Entity>, PhantomData<S>);
 
 impl<'a> Drain<'a> {
+    /// Constructs a [`Drain<'a, S>`] from a [`set::Drain<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`IndexSet`] using the `S` hasher.
+    pub unsafe fn from_drain_unchecked<S>(drain: set::Drain<'a, Entity>) -> Drain<'a, S> {
+        Drain::<'_, S>(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](set::Drain).
     pub fn into_inner(self) -> set::Drain<'a, Entity> {
         self.0

@@ -31,6 +31,7 @@ use super::{
 /// and some [`TryFrom`] implementations.
 ///
 /// When `T` is [`Entity`], use [`UniqueEntityArray`].
+#[repr(transparent)]
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct UniqueEntityEquivalentArray<T: EntityEquivalent, const N: usize>([T; N]);
 
@@ -170,7 +171,7 @@ impl<'a, T: EntityEquivalent, const N: usize> IntoIterator
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.iter()) }
     }
 }
 
@@ -181,7 +182,7 @@ impl<T: EntityEquivalent, const N: usize> IntoIterator for UniqueEntityEquivalen
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.into_iter()) }
+        unsafe { UniqueEntityIter::from_iter_unchecked(self.0.into_iter()) }
     }
 }
 

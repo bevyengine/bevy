@@ -49,6 +49,11 @@ impl<V> EntityIndexMap<V> {
         Self(IndexMap::with_capacity_and_hasher(n, EntityHash))
     }
 
+    /// Constructs an `EntityIndexMap` from an [`IndexMap`].
+    pub fn from_index_map(set: IndexMap<Entity, V, EntityHash>) -> Self {
+        Self(set)
+    }
+
     /// Returns the inner [`IndexMap`].
     pub fn into_inner(self) -> IndexMap<Entity, V, EntityHash> {
         self.0
@@ -833,6 +838,16 @@ impl<V> IndexMut<usize> for Slice<V> {
 pub struct Iter<'a, V, S = EntityHash>(map::Iter<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Iter<'a, V> {
+    /// Constructs a [`Iter<'a, V, S>`] from a [`map::Iter<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_iter_unchecked<S>(iter: map::Iter<'a, Entity, V>) -> Iter<'a, V, S> {
+        Iter::<'_, _, S>(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](map::Iter).
     pub fn into_inner(self) -> map::Iter<'a, Entity, V> {
         self.0
@@ -898,6 +913,18 @@ impl<V> Default for Iter<'_, V> {
 pub struct IterMut<'a, V, S = EntityHash>(map::IterMut<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> IterMut<'a, V> {
+    /// Constructs a [`IterMut<'a, V, S>`] from a [`map::IterMut<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter_mut` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_iter_mut_unchecked<S>(
+        iter_mut: map::IterMut<'a, Entity, V>,
+    ) -> IterMut<'a, V, S> {
+        IterMut::<'_, _, S>(iter_mut, PhantomData)
+    }
+
     /// Returns the inner [`IterMut`](map::IterMut).
     pub fn into_inner(self) -> map::IterMut<'a, Entity, V> {
         self.0
@@ -968,6 +995,18 @@ impl<V> Default for IterMut<'_, V> {
 pub struct IntoIter<V, S = EntityHash>(map::IntoIter<Entity, V>, PhantomData<S>);
 
 impl<V> IntoIter<V> {
+    /// Constructs a [`IntoIter<V, S>`] from a [`map::IntoIter<V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_into_iter_unchecked<S>(
+        into_iter: map::IntoIter<Entity, V>,
+    ) -> IntoIter<V, S> {
+        IntoIter::<_, S>(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](map::IntoIter).
     pub fn into_inner(self) -> map::IntoIter<Entity, V> {
         self.0
@@ -1044,6 +1083,16 @@ impl<V> Default for IntoIter<V> {
 pub struct Drain<'a, V, S = EntityHash>(map::Drain<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Drain<'a, V> {
+    /// Constructs a [`Drain<'a, V, S>`] from a [`map::Drain<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_drain_unchecked<S>(drain: map::Drain<'a, Entity, V>) -> Drain<'a, V, S> {
+        Drain::<'_, _, S>(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](map::Drain).
     pub fn into_inner(self) -> map::Drain<'a, Entity, V> {
         self.0
@@ -1100,6 +1149,16 @@ impl<V: Debug> Debug for Drain<'_, V> {
 pub struct Keys<'a, V, S = EntityHash>(map::Keys<'a, Entity, V>, PhantomData<S>);
 
 impl<'a, V> Keys<'a, V> {
+    /// Constructs a [`Keys<'a, V, S>`] from a [`map::Keys<'a, V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `keys` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_keys_unchecked<S>(keys: map::Keys<'a, Entity, V>) -> Keys<'a, V, S> {
+        Keys::<'_, _, S>(keys, PhantomData)
+    }
+
     /// Returns the inner [`Keys`](map::Keys).
     pub fn into_inner(self) -> map::Keys<'a, Entity, V> {
         self.0
@@ -1168,6 +1227,18 @@ unsafe impl<V> EntitySetIterator for Keys<'_, V> {}
 pub struct IntoKeys<V, S = EntityHash>(map::IntoKeys<Entity, V>, PhantomData<S>);
 
 impl<V> IntoKeys<V> {
+    /// Constructs a [`IntoKeys<V, S>`] from a [`map::IntoKeys<V>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_keys` must either be empty, or have been obtained from a
+    /// [`IndexMap`] using the `S` hasher.
+    pub unsafe fn from_into_keys_unchecked<S>(
+        into_keys: map::IntoKeys<Entity, V>,
+    ) -> IntoKeys<V, S> {
+        IntoKeys::<_, S>(into_keys, PhantomData)
+    }
+
     /// Returns the inner [`IntoKeys`](map::IntoKeys).
     pub fn into_inner(self) -> map::IntoKeys<Entity, V> {
         self.0

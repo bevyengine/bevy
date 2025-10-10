@@ -53,6 +53,11 @@ impl EntityHashSet {
         self.0.is_empty()
     }
 
+    /// Constructs an `EntityHashSet` from an [`HashSet`].
+    pub fn from_hash_set(set: HashSet<Entity, EntityHash>) -> Self {
+        Self(set)
+    }
+
     /// Returns the inner [`HashSet`].
     pub fn into_inner(self) -> HashSet<Entity, EntityHash> {
         self.0
@@ -224,6 +229,16 @@ impl From<HashSet<Entity, EntityHash>> for EntityHashSet {
 pub struct Iter<'a, S = EntityHash>(hash_set::Iter<'a, Entity>, PhantomData<S>);
 
 impl<'a> Iter<'a> {
+    /// Constructs a [`Iter<'a, S>`] from a [`hash_set::Iter<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub unsafe fn from_iter_unchecked<S>(iter: hash_set::Iter<'a, Entity>) -> Iter<'a, S> {
+        Iter::<'_, S>(iter, PhantomData)
+    }
+
     /// Returns the inner [`Iter`](hash_set::Iter).
     pub fn into_inner(self) -> hash_set::Iter<'a, Entity> {
         self.0
@@ -279,6 +294,18 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 pub struct IntoIter<S = EntityHash>(hash_set::IntoIter<Entity>, PhantomData<S>);
 
 impl IntoIter {
+    /// Constructs a [`IntoIter<S>`] from a [`hash_set::IntoIter`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `into_iter` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub unsafe fn from_into_iter_unchecked<S>(
+        into_iter: hash_set::IntoIter<Entity>,
+    ) -> IntoIter<S> {
+        IntoIter::<S>(into_iter, PhantomData)
+    }
+
     /// Returns the inner [`IntoIter`](hash_set::IntoIter).
     pub fn into_inner(self) -> hash_set::IntoIter<Entity> {
         self.0
@@ -331,6 +358,16 @@ unsafe impl EntitySetIterator for IntoIter {}
 pub struct Drain<'a, S = EntityHash>(hash_set::Drain<'a, Entity>, PhantomData<S>);
 
 impl<'a> Drain<'a> {
+    /// Constructs a [`Drain<'a, S>`] from a [`hash_set::Drain<'a>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `drain` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub unsafe fn from_drain_unchecked<S>(drain: hash_set::Drain<'a, Entity>) -> Drain<'a, S> {
+        Drain::<'_, S>(drain, PhantomData)
+    }
+
     /// Returns the inner [`Drain`](hash_set::Drain).
     pub fn into_inner(self) -> hash_set::Drain<'a, Entity> {
         self.0
@@ -380,6 +417,18 @@ pub struct ExtractIf<'a, F: FnMut(&Entity) -> bool, S = EntityHash>(
 );
 
 impl<'a, F: FnMut(&Entity) -> bool> ExtractIf<'a, F> {
+    /// Constructs a [`ExtractIf<'a, F, S>`] from a [`hash_set::ExtractIf<'a, F>`] unsafely.
+    ///
+    /// # Safety
+    ///
+    /// `extract_if` must either be empty, or have been obtained from a
+    /// [`hash_set::HashSet`] using the `S` hasher.
+    pub unsafe fn from_extract_if_unchecked<S>(
+        extract_if: hash_set::ExtractIf<'a, Entity, F>,
+    ) -> ExtractIf<'a, F, S> {
+        ExtractIf::<'_, _, S>(extract_if, PhantomData)
+    }
+
     /// Returns the inner [`ExtractIf`](hash_set::ExtractIf).
     pub fn into_inner(self) -> hash_set::ExtractIf<'a, Entity, F> {
         self.0
