@@ -40,6 +40,7 @@ pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: 
     }
 }
 
+/// update text entities lists
 pub fn update_text_entities<T: Component, Layout: Relationship>(
     mut buffer: Local<Vec<Entity>>,
     mut entities_query: Query<(&mut TextEntities, &Layout)>,
@@ -58,7 +59,7 @@ pub fn update_text_entities<T: Component, Layout: Relationship>(
     }
 }
 
-/// update text indices
+/// detect changes
 pub fn detect_changed_text_() {}
 
 #[cfg(test)]

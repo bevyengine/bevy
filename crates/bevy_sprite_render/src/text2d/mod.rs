@@ -14,8 +14,7 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dLayout, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextEntities,
-    TextLayoutInfo,
+    PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextEntities, TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -26,14 +25,7 @@ pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    text2d_query: Extract<
-        Query<(
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-            &Text2dLayout,
-            &TextEntities,
-        )>,
-    >,
+    text2d_query: Extract<Query<(&TextLayoutInfo, &Text2dLayout, &TextEntities)>>,
     root_query: Extract<
         Query<(
             Entity,
@@ -50,7 +42,7 @@ pub fn extract_text2d_sprite(
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
-    for (computed_block, text_layout_info, relation, sections) in text2d_query.iter() {
+    for (text_layout_info, relation, sections) in text2d_query.iter() {
         let Ok((main_entity, view_visibility, text_bounds, anchor, global_transform, maybe_shadow)) =
             root_query.get(**relation)
         else {
