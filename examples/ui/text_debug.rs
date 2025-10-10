@@ -250,6 +250,7 @@ fn change_text_system(
     time: Res<Time>,
     diagnostics: Res<DiagnosticsStore>,
     query: Query<Entity, With<TextChanges>>,
+    mut writer: TextUiWriter,
 ) {
     time_history.push_front(time.elapsed());
     time_history.truncate(120);

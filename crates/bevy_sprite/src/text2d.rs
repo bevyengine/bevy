@@ -22,7 +22,8 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextOutput,
-    TextPipeline, TextRoot, TextSection, TextTarget,
+    TextPipeline, TextReader, TextRoot, TextSection, TextSpan, TextSpanAccess, TextTarget,
+    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -101,6 +102,17 @@ impl Text2d {
     }
 }
 
+impl TextSpan for Text2d {}
+
+impl TextSpanAccess for Text2d {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
+    }
+}
+
 impl From<&str> for Text2d {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -112,6 +124,12 @@ impl From<String> for Text2d {
         Self(value)
     }
 }
+
+/// 2d alias for [`TextReader`].
+pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
+
+/// 2d alias for [`TextWriter`].
+pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
 /// Adds a shadow behind `Text2d` text
 ///

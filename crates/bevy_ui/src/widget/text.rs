@@ -20,12 +20,11 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextRoot, TextSection, TextTarget,
+    TextPipeline, TextReader, TextRoot, TextSection, TextSpan, TextSpanAccess, TextTarget,
+    TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
-
-pub type TextUiWriter<'w, 's> = bevy_text::TextWriter<'w, 's, Text>;
 
 /// UI text system flags.
 ///
@@ -116,6 +115,17 @@ impl Text {
     }
 }
 
+impl TextSpan for Text {}
+
+impl TextSpanAccess for Text {
+    fn read_span(&self) -> &str {
+        self.as_str()
+    }
+    fn write_span(&mut self) -> &mut String {
+        &mut *self
+    }
+}
+
 impl From<&str> for Text {
     fn from(value: &str) -> Self {
         Self(String::from(value))
@@ -127,6 +137,12 @@ impl From<String> for Text {
         Self(value)
     }
 }
+
+/// UI alias for [`TextReader`].
+pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
+
+/// UI alias for [`TextWriter`].
+pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Adds a shadow behind text
 ///

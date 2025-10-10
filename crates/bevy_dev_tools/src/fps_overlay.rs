@@ -224,7 +224,7 @@ fn update_text(
             if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
                 && let Some(value) = fps.smoothed()
             {
-                writer.set_text(entity, 1, format!("{value:.2}"));
+                *writer.text(entity, 1) = format!("{value:.2}");
             }
         }
     }

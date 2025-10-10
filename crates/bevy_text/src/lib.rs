@@ -100,6 +100,7 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
                 (update_text_roots_system, update_text_entities_system)
