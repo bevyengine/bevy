@@ -79,7 +79,7 @@ pub use extract_param::Extract;
 use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshRenderAssetPlugin, MorphPlugin, RenderMesh},
+    mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderAdapterInfo},
@@ -368,7 +368,8 @@ impl Plugin for RenderPlugin {
             ViewPlugin,
             MeshRenderAssetPlugin,
             GlobalsPlugin,
-            MorphPlugin,
+            #[cfg(feature = "morph")]
+            mesh::MorphPlugin,
             TexturePlugin,
             BatchingPlugin {
                 debug_flags: self.debug_flags,

@@ -1,7 +1,5 @@
 use bevy_asset::Assets;
 use bevy_camera::Camera;
-#[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,28 +7,22 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, ResMut},
 };
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 use bevy_ecs::{
     message::MessageReader,
     system::{Commands, Res},
 };
 use bevy_image::{Image, ToExtents};
-#[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_math::Rect;
 use bevy_math::UVec2;
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
     pointer::{Location, PointerId, PointerInput, PointerLocation},
 };
-#[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-#[cfg(feature = "bevy_ui_picking_backend")]
-use uuid::Uuid;
 
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 use crate::UiGlobalTransform;
 use crate::{ComputedNode, Node};
 
@@ -43,8 +35,8 @@ use crate::{ComputedNode, Node};
 #[reflect(Component, Debug)]
 #[require(Node)]
 #[cfg_attr(
-    feature = "bevy_ui_picking_backend",
-    require(PointerId::Custom(Uuid::new_v4()))
+    feature = "bevy_picking",
+    require(PointerId::Custom(uuid::Uuid::new_v4()))
 )]
 pub struct ViewportNode {
     /// The entity representing the [`Camera`] associated with this viewport.
@@ -61,7 +53,7 @@ impl ViewportNode {
     }
 }
 
-#[cfg(feature = "bevy_ui_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 /// Handles viewport picking logic.
 ///
 /// Viewport entities that are being hovered or dragged will have all pointer inputs sent to them.
@@ -80,6 +72,9 @@ pub fn viewport_picking(
     pointer_state: Res<PointerState>,
     mut pointer_inputs: MessageReader<PointerInput>,
 ) {
+    use bevy_camera::NormalizedRenderTarget;
+    use bevy_math::Rect;
+    use bevy_platform::collections::HashMap;
     // Handle hovered entities.
     let mut viewport_picks: HashMap<Entity, PointerId> = hover_map
         .iter()

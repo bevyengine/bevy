@@ -416,6 +416,7 @@ fn prepare_bloom_textures(
 
 #[derive(Component)]
 struct BloomBindGroups {
+    cache_key: (TextureId, BufferId),
     downsampling_bind_groups: Box<[BindGroup]>,
     upsampling_bind_groups: Box<[BindGroup]>,
     sampler: Sampler,
@@ -426,12 +427,22 @@ fn prepare_bloom_bind_groups(
     render_device: Res<RenderDevice>,
     downsampling_pipeline: Res<BloomDownsamplingPipeline>,
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
-    views: Query<(Entity, &BloomTexture)>,
+    views: Query<(Entity, &BloomTexture, Option<&BloomBindGroups>)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
 ) {
     let sampler = &downsampling_pipeline.sampler;
 
-    for (entity, bloom_texture) in &views {
+    for (entity, bloom_texture, bloom_bind_groups) in &views {
+        if let Some(b) = bloom_bind_groups
+            && b.cache_key
+                == (
+                    bloom_texture.texture.texture.id(),
+                    uniforms.buffer().unwrap().id(),
+                )
+        {
+            continue;
+        }
+
         let bind_group_count = bloom_texture.mip_count as usize - 1;
 
         let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
@@ -461,6 +472,10 @@ fn prepare_bloom_bind_groups(
         }
 
         commands.entity(entity).insert(BloomBindGroups {
+            cache_key: (
+                bloom_texture.texture.texture.id(),
+                uniforms.buffer().unwrap().id(),
+            ),
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
             sampler: sampler.clone(),

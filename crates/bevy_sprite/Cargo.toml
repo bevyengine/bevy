@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
+bevy_picking = ["dep:bevy_picking", "bevy_window"]
 bevy_text = ["dep:bevy_text", "bevy_window"]
 
 [dependencies]
