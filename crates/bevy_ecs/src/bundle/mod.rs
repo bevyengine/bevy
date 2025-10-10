@@ -15,7 +15,7 @@ pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
 use bevy_ptr::MovingPtr;
-use core::mem::MaybeUninit;
+use core::{any::TypeId, mem::MaybeUninit};
 pub use info::*;
 
 /// Derive the [`Bundle`] trait
@@ -197,13 +197,28 @@ use bevy_ptr::OwningPtr;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
+pub unsafe trait Bundle: DynamicBundle + Send + Sync {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+}
+
+/// Retrieves the `TypeId` of the bundle type. Used for registering bundles.
+///
+/// See also [`bundle_id_of_val`] for retrieving the bundle id without naming the type.
+pub fn bundle_id_of<T: Bundle>() -> TypeId {
+    typeid::of::<T>()
+}
+
+/// Retrieves the `TypeId` of a bundle when the type may not be easily named. Used for registering bundles.
+///
+/// See also [`bundle_id_of`] for retrieving the bundle id without an instance of the bundle.
+pub fn bundle_id_of_val<T: Bundle>(val: T) -> TypeId {
+    _ = val;
+    typeid::of::<T>()
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.

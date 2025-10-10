@@ -10,6 +10,43 @@ use crate::{
     world::EntityWorldMut,
 };
 
+// SAFETY: `MovingPtr` forwards its implementation of `Bundle` to another `Bundle`, so it is correct if that impl is correct
+unsafe impl<B: Bundle> Bundle for MovingPtr<'_, B> {
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+        B::component_ids(components, ids);
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        B::get_component_ids(components, ids);
+    }
+}
+
+impl<T: DynamicBundle> DynamicBundle for MovingPtr<'_, T> {
+    type Effect = T::Effect;
+
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) {
+        let this = ptr.read();
+
+        T::get_components(this, func);
+    }
+
+    // SAFETY: `MovingPtr` forwards its implementation of `apply_effect` to another
+    // `DynamicBundle`, so it is correct if that impl is correct
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        // SAFETY: the `MovingPtr` is still init, but it's inner value may no
+        // longer be fully init
+        let this = unsafe {
+            core::mem::transmute::<MaybeUninit<MovingPtr<'_, T>>, MovingPtr<'_, MaybeUninit<T>>>(
+                ptr.read(),
+            )
+        };
+        T::apply_effect(this, entity);
+    }
+}
+
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
