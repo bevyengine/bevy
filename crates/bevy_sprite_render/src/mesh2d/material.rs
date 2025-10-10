@@ -283,7 +283,7 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<EntitySpecializationTicks<M>>()
+                .init_resource::<EntitySpecializationTickPair<M>>()
                 .init_resource::<SpecializedMaterial2dPipelineCache<M>>()
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
                 .add_render_command::<AlphaMask2d, DrawMaterial2d<M>>()
@@ -566,7 +566,7 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTickPair<M>>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial2d<M>>>,
     mut specialized_material2d_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
     views: Query<&MainEntity, With<ExtractedView>>,
@@ -608,13 +608,13 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
 }
 
 #[derive(Clone, Resource, Deref, DerefMut, Debug)]
-pub struct EntitySpecializationTicks<M> {
+pub struct EntitySpecializationTickPair<M> {
     #[deref]
     pub entities: MainEntityHashMap<Tick>,
     _marker: PhantomData<M>,
 }
 
-impl<M> Default for EntitySpecializationTicks<M> {
+impl<M> Default for EntitySpecializationTickPair<M> {
     fn default() -> Self {
         Self {
             entities: MainEntityHashMap::default(),
@@ -702,7 +702,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    entity_specialization_ticks: Res<EntitySpecializationTickPair<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     ticks: SystemChangeTick,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,

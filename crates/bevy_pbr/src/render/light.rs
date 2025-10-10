@@ -1844,7 +1844,9 @@ pub fn specialize_shadows(
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                     view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                        || entity_tick
+                            .system_tick
+                            .is_newer_than(tick, ticks.this_run())
                 });
                 if !needs_specialization {
                     continue;
