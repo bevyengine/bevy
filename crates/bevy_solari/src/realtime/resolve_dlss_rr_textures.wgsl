@@ -19,7 +19,7 @@ fn resolve_dlss_rr_textures(@builtin(global_invocation_id) global_id: vec3<u32>)
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
     if depth == 0.0 {
         textureStore(diffuse_albedo, pixel_id, vec4(0.0));
-        textureStore(diffuse_albedo, pixel_id, vec4(0.5));
+        textureStore(specular_albedo, pixel_id, vec4(0.5));
         textureStore(normal_roughness, pixel_id, vec4(0.0));
         textureStore(specular_motion_vectors, pixel_id, vec4(0.0));
         return;
