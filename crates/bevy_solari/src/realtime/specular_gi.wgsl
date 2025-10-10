@@ -16,7 +16,7 @@ struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(8, 8, 1)
-fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
     let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
