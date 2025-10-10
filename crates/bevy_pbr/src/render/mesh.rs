@@ -2229,7 +2229,7 @@ impl MeshPipelineKey {
     }
 
     pub fn depth_stencil_format(&self) -> TextureFormat {
-        //strip out all bits except the depth-stencil format bits
+        // strip out all bits except the depth-stencil format bits
         let depth_stencil_format_bits: Self = Self::from_bits_retain(
             self.bits()
                 & (Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS
