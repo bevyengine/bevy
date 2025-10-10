@@ -50,7 +50,7 @@ impl EntityIndexSet {
 
     /// Constructs an `EntityIndexSet` from an [`IndexSet`].
     #[inline]
-    pub fn from_index_set(set: IndexSet<Entity, EntityHash>) -> Self {
+    pub const fn from_index_set(set: IndexSet<Entity, EntityHash>) -> Self {
         Self(set)
     }
 
@@ -362,7 +362,7 @@ impl Slice {
         reason = "We wish to access the Box API of the inner type, without consuming it."
     )]
     #[inline]
-    pub fn as_boxed_inner(self: &Box<Self>) -> &Box<set::Slice<Entity>> {
+    pub const fn as_boxed_inner(self: &Box<Self>) -> &Box<set::Slice<Entity>> {
         // SAFETY: Slice is a transparent wrapper around indexmap::set::Slice.
         unsafe { &*(ptr::from_ref(self).cast::<Box<set::Slice<Entity>>>()) }
     }
@@ -624,13 +624,13 @@ impl<'a> Iter<'a> {
     /// `iter` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
     #[inline]
-    pub unsafe fn from_iter_unchecked<S>(iter: set::Iter<'a, Entity>) -> Iter<'a, S> {
+    pub const unsafe fn from_iter_unchecked<S>(iter: set::Iter<'a, Entity>) -> Iter<'a, S> {
         Iter::<'_, S>(iter, PhantomData)
     }
 
     /// Returns the inner [`Iter`](set::Iter).
     #[inline]
-    pub fn into_inner(self) -> set::Iter<'a, Entity> {
+    pub const fn into_inner(self) -> set::Iter<'a, Entity> {
         self.0
     }
 
@@ -713,7 +713,9 @@ impl IntoIter {
     /// `into_iter` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
     #[inline]
-    pub unsafe fn from_into_iter_unchecked<S>(into_iter: set::IntoIter<Entity>) -> IntoIter<S> {
+    pub const unsafe fn from_into_iter_unchecked<S>(
+        into_iter: set::IntoIter<Entity>,
+    ) -> IntoIter<S> {
         IntoIter::<S>(into_iter, PhantomData)
     }
 
@@ -805,7 +807,7 @@ impl<'a> Drain<'a> {
     /// `drain` must either be empty, or have been obtained from a
     /// [`IndexSet`] using the `S` hasher.
     #[inline]
-    pub unsafe fn from_drain_unchecked<S>(drain: set::Drain<'a, Entity>) -> Drain<'a, S> {
+    pub const unsafe fn from_drain_unchecked<S>(drain: set::Drain<'a, Entity>) -> Drain<'a, S> {
         Drain::<'_, S>(drain, PhantomData)
     }
 

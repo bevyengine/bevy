@@ -124,7 +124,7 @@ impl<T: EntityEquivalent, const N: usize> UniqueEntityEquivalentArray<T, N> {
 
     /// Returns a reference to the inner array.
     #[inline]
-    pub fn as_inner(&self) -> &[T; N] {
+    pub const fn as_inner(&self) -> &[T; N] {
         &self.0
     }
 
@@ -138,7 +138,7 @@ impl<T: EntityEquivalent, const N: usize> UniqueEntityEquivalentArray<T, N> {
     /// Returns a mutable slice containing the entire array. Equivalent to
     /// `&mut s[..]`.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
+    pub const fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
         // SAFETY: All elements in the original array are unique.
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.0.as_mut_slice()) }
     }

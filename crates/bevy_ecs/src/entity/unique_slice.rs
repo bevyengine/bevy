@@ -1659,7 +1659,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>>
     ///
     /// All elements in each of the slices must be unique.
     #[inline]
-    pub unsafe fn from_slice_iter_unchecked(iter: I) -> Self {
+    pub const unsafe fn from_slice_iter_unchecked(iter: I) -> Self {
         Self { iter }
     }
 
@@ -1671,7 +1671,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>>
 
     /// Returns a reference to the inner `I`.
     #[inline]
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -1682,7 +1682,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>>
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
     #[inline]
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }
@@ -1853,7 +1853,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>>
     ///
     /// All elements in each of the slices must be unique.
     #[inline]
-    pub unsafe fn from_mut_slice_iter_unchecked(iter: I) -> Self {
+    pub const unsafe fn from_mut_slice_iter_unchecked(iter: I) -> Self {
         Self { iter }
     }
 
@@ -1865,7 +1865,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>>
 
     /// Returns a reference to the inner `I`.
     #[inline]
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -1876,7 +1876,7 @@ impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>>
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
     #[inline]
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }

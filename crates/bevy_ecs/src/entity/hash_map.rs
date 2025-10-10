@@ -44,7 +44,7 @@ impl<V> EntityHashMap<V> {
 
     /// Constructs an `EntityHashMap` from an [`HashMap`].
     #[inline]
-    pub fn from_index_map(set: HashMap<Entity, V, EntityHash>) -> Self {
+    pub const fn from_index_map(set: HashMap<Entity, V, EntityHash>) -> Self {
         Self(set)
     }
 
@@ -193,13 +193,15 @@ impl<'a, V> Keys<'a, V> {
     /// `keys` must either be empty, or have been obtained from a
     /// [`hash_map::HashMap`] using the `S` hasher.
     #[inline]
-    pub unsafe fn from_keys_unchecked<S>(keys: hash_map::Keys<'a, Entity, V>) -> Keys<'a, V, S> {
+    pub const unsafe fn from_keys_unchecked<S>(
+        keys: hash_map::Keys<'a, Entity, V>,
+    ) -> Keys<'a, V, S> {
         Keys::<'_, _, S>(keys, PhantomData)
     }
 
     /// Returns the inner [`Keys`](hash_map::Keys).
     #[inline]
-    pub fn into_inner(self) -> hash_map::Keys<'a, Entity, V> {
+    pub const fn into_inner(self) -> hash_map::Keys<'a, Entity, V> {
         self.0
     }
 }
@@ -269,7 +271,7 @@ impl<V> IntoKeys<V> {
     /// `into_keys` must either be empty, or have been obtained from a
     /// [`hash_map::HashMap`] using the `S` hasher.
     #[inline]
-    pub unsafe fn from_into_keys_unchecked<S>(
+    pub const unsafe fn from_into_keys_unchecked<S>(
         into_keys: hash_map::IntoKeys<Entity, V>,
     ) -> IntoKeys<V, S> {
         IntoKeys::<_, S>(into_keys, PhantomData)

@@ -87,7 +87,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// `vec` must contain only unique elements.
     #[inline]
-    pub unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
+    pub const unsafe fn from_vec_unchecked(vec: Vec<T>) -> Self {
         Self(vec)
     }
 
@@ -97,7 +97,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// `vec` must contain only unique elements.
     #[inline]
-    pub unsafe fn from_vec_ref_unchecked(vec: &Vec<T>) -> &Self {
+    pub const unsafe fn from_vec_ref_unchecked(vec: &Vec<T>) -> &Self {
         // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
         unsafe { &*ptr::from_ref(vec).cast() }
     }
@@ -108,7 +108,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// `vec` must contain only unique elements.
     #[inline]
-    pub unsafe fn from_vec_mut_unchecked(vec: &mut Vec<T>) -> &mut Self {
+    pub const unsafe fn from_vec_mut_unchecked(vec: &mut Vec<T>) -> &mut Self {
         // SAFETY: UniqueEntityEquivalentVec is a transparent wrapper around Vec.
         unsafe { &mut *ptr::from_mut(vec).cast() }
     }
@@ -121,7 +121,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
 
     /// Returns a reference to the inner [`Vec<T>`].
     #[inline]
-    pub fn as_vec(&self) -> &Vec<T> {
+    pub const fn as_vec(&self) -> &Vec<T> {
         &self.0
     }
 
@@ -132,7 +132,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     /// The elements of this `Vec` must always remain unique, even while
     /// this mutable reference is live.
     #[inline]
-    pub unsafe fn as_mut_vec(&mut self) -> &mut Vec<T> {
+    pub const unsafe fn as_mut_vec(&mut self) -> &mut Vec<T> {
         &mut self.0
     }
 
@@ -141,7 +141,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::capacity`].
     #[inline]
-    pub fn capacity(&self) -> usize {
+    pub const fn capacity(&self) -> usize {
         self.0.capacity()
     }
 
@@ -208,14 +208,16 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
 
     /// Extracts a slice containing the entire vector.
     #[inline]
-    pub fn as_slice(&self) -> &UniqueEntityEquivalentSlice<T> {
-        self
+    pub const fn as_slice(&self) -> &UniqueEntityEquivalentSlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(self.0.as_slice()) }
     }
 
     /// Extracts a mutable slice of the entire vector.
     #[inline]
-    pub fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
-        self
+    pub const fn as_mut_slice(&mut self) -> &mut UniqueEntityEquivalentSlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(self.0.as_mut_slice()) }
     }
 
     /// Shortens the vector, keeping the first `len` elements and dropping
@@ -232,7 +234,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::as_ptr`].
     #[inline]
-    pub fn as_ptr(&self) -> *const T {
+    pub const fn as_ptr(&self) -> *const T {
         self.0.as_ptr()
     }
     /// Returns a raw mutable pointer to the vector's buffer, or a dangling
@@ -240,7 +242,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::as_mut_ptr`].
     #[inline]
-    pub fn as_mut_ptr(&mut self) -> *mut T {
+    pub const fn as_mut_ptr(&mut self) -> *mut T {
         self.0.as_mut_ptr()
     }
 
@@ -406,7 +408,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::len`].
     #[inline]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.0.len()
     }
 
@@ -414,7 +416,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
     ///
     /// Equivalent to [`Vec::is_empty`].
     #[inline]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
@@ -495,16 +497,14 @@ impl<T: EntityEquivalent> Deref for UniqueEntityEquivalentVec<T> {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(&self.0) }
+        self.as_slice()
     }
 }
 
 impl<T: EntityEquivalent> DerefMut for UniqueEntityEquivalentVec<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: All elements in the original slice are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(&mut self.0) }
+        self.as_mut_slice()
     }
 }
 

@@ -373,7 +373,7 @@ pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
     #[inline]
-    pub fn from_entity_set_iter<S>(iter: I) -> Self {
+    pub const fn from_entity_set_iter<S>(iter: I) -> Self {
         // SAFETY: iter implements `EntitySetIterator`.
         unsafe { Self::from_iter_unchecked(iter) }
     }
@@ -386,7 +386,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
     #[inline]
-    pub unsafe fn from_iter_unchecked(iter: I) -> Self {
+    pub const unsafe fn from_iter_unchecked(iter: I) -> Self {
         Self { iter }
     }
 
@@ -396,7 +396,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
     #[inline]
-    pub unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
+    pub const unsafe fn from_iter_ref_unchecked(iter: &I) -> &Self {
         // SAFETY: UniqueEntityIter is a transparent wrapper around I.
         unsafe { &*ptr::from_ref(iter).cast() }
     }
@@ -407,7 +407,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// `iter` must only yield unique elements.
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
     #[inline]
-    pub unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
+    pub const unsafe fn from_iter_mut_unchecked(iter: &mut I) -> &mut Self {
         // SAFETY: UniqueEntityIter is a transparent wrapper around I.
         unsafe { &mut *ptr::from_mut(iter).cast() }
     }
@@ -420,7 +420,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
 
     /// Returns a reference to the inner `I`.
     #[inline]
-    pub fn as_inner(&self) -> &I {
+    pub const fn as_inner(&self) -> &I {
         &self.iter
     }
 
@@ -431,7 +431,7 @@ impl<I: Iterator<Item: EntityEquivalent>> UniqueEntityIter<I> {
     /// `self` must always contain an iterator that yields unique elements,
     /// even while this reference is live.
     #[inline]
-    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+    pub const unsafe fn as_mut_inner(&mut self) -> &mut I {
         &mut self.iter
     }
 }
