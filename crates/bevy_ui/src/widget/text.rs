@@ -25,15 +25,6 @@ use bevy_text::{
 use taffy::style::AvailableSpace;
 use tracing::error;
 
-#[derive(Component, Debug, PartialEq, Eq, Deref)]
-#[relationship_target(relationship = TextLayoutNode, linked_spawn)]
-pub struct TextRoot(Entity);
-
-#[derive(Component, Debug, PartialEq, Eq, Deref)]
-#[relationship(relationship_target = TextRoot)]
-#[require(TextLayoutInfo, ComputedTextBlock, TextEntities, TextNodeFlags)]
-pub struct TextLayoutNode(Entity);
-
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
