@@ -129,9 +129,9 @@ fn setup(
                 (Text::new(
                     "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
                 )),
-                (TextSpan(format!("{:.1},", light_transform.translation.x))),
-                (TextSpan(format!(" {:.1},", light_transform.translation.y))),
-                (TextSpan(format!(" {:.1}", light_transform.translation.z))),
+                (Text(format!("{:.1},", light_transform.translation.x))),
+                (Text(format!(" {:.1},", light_transform.translation.y))),
+                (Text(format!(" {:.1}", light_transform.translation.z))),
                 (Text::new("]\n")),
             ]
         )],

@@ -176,7 +176,7 @@ mod game {
                         },
                         children![
                             (
-                                TextSpan(format!("quality: {:?}", *display_quality)),
+                                Text(format!("quality: {:?}", *display_quality)),
                                 TextFont {
                                     font_size: 50.0,
                                     ..default()
@@ -192,7 +192,7 @@ mod game {
                                 TextColor(TEXT_COLOR),
                             ),
                             (
-                                TextSpan(format!("volume: {:?}", *volume)),
+                                Text(format!("volume: {:?}", *volume)),
                                 TextFont {
                                     font_size: 50.0,
                                     ..default()

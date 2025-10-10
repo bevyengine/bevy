@@ -221,12 +221,12 @@ fn setup(
         },
         children![
             Text::new("Ambient light is on\n"),
-            TextSpan(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
-            TextSpan(format!(
+            Text(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
+            Text(format!(
                 "Shutter speed: 1/{:.0}s\n",
                 1.0 / parameters.shutter_speed_s
             )),
-            TextSpan(format!(
+            Text(format!(
                 "Sensitivity: ISO {:.0}\n",
                 parameters.sensitivity_iso
             )),

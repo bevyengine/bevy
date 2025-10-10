@@ -23,7 +23,7 @@
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the text entities, generating new [`FontAtlas`]es if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
