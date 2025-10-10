@@ -159,18 +159,45 @@ impl DepthStencilFormat {
     /// wgpu support for `DEPTH32FLOAT_STENCIL8` should be checked before using this format.
     pub const DEPTH32_FLOAT_STENCIL8: Self = Self(TextureFormat::Depth32FloatStencil8);
 
+    /// Returns the underlying `TextureFormat`.
     pub fn format(&self) -> TextureFormat {
         self.0
     }
 
+    /// Creates a new `DepthStencilFormat` from the given `TextureFormat`.
     pub fn new(format: TextureFormat) -> Self {
+        assert!(matches!(
+			format,
+			TextureFormat::Stencil8
+				| TextureFormat::Depth16Unorm
+				| TextureFormat::Depth24Plus
+				| TextureFormat::Depth24PlusStencil8
+				| TextureFormat::Depth32Float
+				| TextureFormat::Depth32FloatStencil8
+		), "Invalid TextureFormat for DepthStencilFormat. Supported formats are: Stencil8, Depth16Unorm, Depth24Plus, Depth24PlusStencil8, Depth32Float, Depth32FloatStencil8");
+
         Self(format)
     }
 
+    /// Returns true if the format supports stencil operations.
     pub fn supports_stencil(&self) -> bool {
         matches!(
             self.0,
-            TextureFormat::Depth24PlusStencil8 | TextureFormat::Depth32FloatStencil8
+            TextureFormat::Depth24PlusStencil8
+                | TextureFormat::Depth32FloatStencil8
+                | TextureFormat::Stencil8
+        )
+    }
+
+    /// Returns true if the format supports depth operations.
+    pub fn supports_depth(&self) -> bool {
+        matches!(
+            self.0,
+            TextureFormat::Depth16Unorm
+                | TextureFormat::Depth24Plus
+                | TextureFormat::Depth24PlusStencil8
+                | TextureFormat::Depth32Float
+                | TextureFormat::Depth32FloatStencil8
         )
     }
 }
