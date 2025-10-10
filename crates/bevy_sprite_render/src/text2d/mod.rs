@@ -14,8 +14,8 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dLayout, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
-    TextSections,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextEntities,
+    TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -31,7 +31,7 @@ pub fn extract_text2d_sprite(
             &ComputedTextBlock,
             &TextLayoutInfo,
             &Text2dLayout,
-            &TextSections,
+            &TextEntities,
         )>,
     >,
     root_query: Extract<
@@ -167,10 +167,10 @@ pub fn extract_text2d_sprite(
             if *span_index != current_span {
                 color = text_colors
                     .get(
-                        computed_block
-                            .entities()
+                        sections
+                            .0
                             .get(*span_index)
-                            .map(|t| t.entity)
+                            .copied()
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))

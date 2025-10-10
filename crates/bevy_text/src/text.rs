@@ -31,10 +31,10 @@ pub struct TextEntity {
     pub depth: usize,
 }
 
-#[derive(Component, Debug, Clone, Reflect, Default)]
+#[derive(Component, Debug, Clone, Reflect, Default, Deref)]
 #[reflect(Component, Debug, Default, Clone)]
 /// Entities for all text spans in the block, including the root-level text.
-pub struct TextEntities(SmallVec<[Entity; 1]>);
+pub struct TextEntities(pub SmallVec<[Entity; 1]>);
 
 /// Computed information for a text block.
 ///
@@ -43,7 +43,7 @@ pub struct TextEntities(SmallVec<[Entity; 1]>);
 /// Automatically updated by 2d and UI text systems.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
-#[require(TextLayoutInfo)]
+#[require(TextLayoutInfo, TextEntities)]
 pub struct ComputedTextBlock {
     /// Buffer for managing text layout and creating [`TextLayoutInfo`].
     ///
@@ -53,10 +53,6 @@ pub struct ComputedTextBlock {
     /// `TextLayoutInfo`.
     #[reflect(ignore, clone)]
     pub(crate) buffer: CosmicBuffer,
-    /// Entities for all text spans in the block, including the root-level text.
-    ///
-    /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
-    pub(crate) entities: SmallVec<[TextEntity; 1]>,
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
@@ -71,14 +67,6 @@ pub struct ComputedTextBlock {
 }
 
 impl ComputedTextBlock {
-    /// Accesses entities in this block.
-    ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
-    /// stored there.
-    pub fn entities(&self) -> &[TextEntity] {
-        &self.entities
-    }
-
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
@@ -102,7 +90,6 @@ impl Default for ComputedTextBlock {
     fn default() -> Self {
         Self {
             buffer: CosmicBuffer::default(),
-            entities: SmallVec::default(),
             needs_rerender: true,
         }
     }

@@ -19,8 +19,8 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextIndex, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextSections, TextTarget,
+    TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextTarget,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -31,7 +31,7 @@ pub struct TextRoot(Entity);
 
 #[derive(Component, Debug, PartialEq, Eq, Deref)]
 #[relationship(relationship_target = TextRoot)]
-#[require(TextLayoutInfo, ComputedTextBlock, TextSections, TextNodeFlags)]
+#[require(TextLayoutInfo, ComputedTextBlock, TextEntities, TextNodeFlags)]
 pub struct TextLayoutNode(Entity);
 
 /// UI text system flags.
@@ -277,7 +277,7 @@ pub fn measure_text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         &TextLayoutNode,
-        &TextSections,
+        &TextEntities,
     )>,
     mut text_root_query: Query<
         (
@@ -384,6 +384,7 @@ fn queue_text(
         computed,
         font_system,
         swash_cache,
+        sections,
     ) {
         Err(TextError::NoSuchFont) => {
             // There was an error processing the text layout, try again next frame
@@ -419,7 +420,7 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        &TextSections,
+        &TextEntities,
         &TextLayoutNode,
     )>,
     root_query: Query<(Ref<ComputedNode>, &TextLayout)>,

@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
     FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
-    TextEntity, TextFont, TextLayout,
+    TextEntities, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -93,6 +93,7 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        //        entities: &mut TextEntities,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -106,11 +107,8 @@ impl TextPipeline {
                 .map(|_| -> (usize, &str, &TextFont, FontFaceInfo) { unreachable!() })
                 .collect();
 
-        computed.entities.clear();
-
         for (span_index, (entity, depth, span, text_font)) in text_spans.enumerate() {
             // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
 
             if span.is_empty() {
                 continue;
@@ -235,6 +233,7 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
+        entities: &[Entity],
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.section_rects.clear();
@@ -281,7 +280,7 @@ impl TextPipeline {
                         Some(section) => {
                             if section != layout_glyph.metadata {
                                 layout_info.section_rects.push((
-                                    computed.entities[section].entity,
+                                    entities[section],
                                     Rect::new(
                                         start,
                                         run.line_top,
@@ -374,7 +373,7 @@ impl TextPipeline {
                 });
             if let Some(section) = current_section {
                 layout_info.section_rects.push((
-                    computed.entities[section].entity,
+                    entities[section],
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                 ));
             }

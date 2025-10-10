@@ -60,7 +60,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextEntities,
+    TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -911,7 +912,14 @@ pub fn extract_text_sections(
             &TextColor,
         )>,
     >,
-    text_layout_query: Extract<Query<(&ComputedTextBlock, &TextLayoutInfo, &TextLayoutNode)>>,
+    text_layout_query: Extract<
+        Query<(
+            &ComputedTextBlock,
+            &TextLayoutInfo,
+            &TextLayoutNode,
+            &TextEntities,
+        )>,
+    >,
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -919,7 +927,7 @@ pub fn extract_text_sections(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (computed_block, text_layout_info, relation) in &text_layout_query {
+    for (computed_block, text_layout_info, relation, entities) in &text_layout_query {
         let Ok((entity, uinode, transform, inherited_visibility, clip, camera, text_color)) =
             uinode_query.get(**relation)
         else {
@@ -951,11 +959,10 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if current_span_index != *span_index
-                && let Some(span_entity) =
-                    computed_block.entities().get(*span_index).map(|t| t.entity)
+                && let Some(span_entity) = entities.0.get(*span_index)
             {
                 color = text_styles
-                    .get(span_entity)
+                    .get(*span_entity)
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
                 current_span_index = *span_index;

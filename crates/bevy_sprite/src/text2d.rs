@@ -167,6 +167,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
         &Text2dLayout,
+        &mut TextEntities,
     )>,
     root_query: Query<(Ref<TextLayout>, Ref<TextBounds>)>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -189,7 +190,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, text_layout_info, mut computed, relation) in &mut text_layout_query {
+    for (entity, text_layout_info, mut computed, relation, entities) in &mut text_layout_query {
         let Ok((block, bounds)) = root_query.get(relation.0) else {
             continue;
         };
@@ -227,23 +228,12 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
-            let spans = computed
-                .entities()
-                .iter()
-                .cloned()
-                .filter_map(|text_entity| {
-                    text_query
-                        .get(entity)
-                        .map(|(text, style)| {
-                            (
-                                text_entity.entity,
-                                text_entity.depth,
-                                text.0.as_str(),
-                                style,
-                            )
-                        })
-                        .ok()
-                });
+            let spans = entities.iter().cloned().filter_map(|text_entity| {
+                text_query
+                    .get(text_entity)
+                    .map(|(text, style)| (text_entity, 0, text.0.as_str(), style))
+                    .ok()
+            });
 
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
@@ -259,6 +249,7 @@ pub fn update_text2d_layout(
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,
+                &entities.0,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the

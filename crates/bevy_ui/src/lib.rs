@@ -230,7 +230,7 @@ fn build_text_interop(app: &mut App) {
         (
             (
                 bevy_text::update_text_roots_system::<Text, widget::TextRoot, widget::TextLayoutNode>,
-                bevy_text::update_text_indices_system::<widget::TextRoot>,
+                bevy_text::update_text_entities::<Text, widget::TextLayoutNode>,
                 widget::measure_text_system,
             )
                 .chain()

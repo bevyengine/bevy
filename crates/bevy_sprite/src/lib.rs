@@ -86,6 +86,7 @@ impl Plugin for SpritePlugin {
             PostUpdate,
             (
                 bevy_text::update_text_roots_system::<Text2d, Text2dRoot, Text2dLayout>,
+                bevy_text::update_text_entities::<Text2d, Text2dLayout>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
                     .after(bevy_text::free_unused_font_atlases_system),

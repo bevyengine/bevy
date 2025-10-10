@@ -1,6 +1,8 @@
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, relationship::Relationship};
 
+use crate::TextEntities;
+
 #[derive(Component, Debug, PartialEq, Deref)]
 pub struct TextTarget(Entity);
 
@@ -35,6 +37,24 @@ pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: 
 
     for id in non_text_root_query.iter() {
         commands.entity(id).remove::<Root>();
+    }
+}
+
+pub fn update_text_entities<T: Component, Layout: Relationship>(
+    mut buffer: Local<Vec<Entity>>,
+    mut entities_query: Query<(&mut TextEntities, &Layout)>,
+    children_query: Query<&Children, With<T>>,
+) {
+    for (mut entities, layout) in entities_query.iter_mut() {
+        buffer.push(layout.get());
+        for entity in children_query.iter_descendants_depth_first(layout.get()) {
+            buffer.push(entity);
+        }
+        if buffer.as_slice() != entities.0.as_slice() {
+            entities.0.clear();
+            entities.0.extend_from_slice(&buffer);
+        }
+        buffer.clear();
     }
 }
 
