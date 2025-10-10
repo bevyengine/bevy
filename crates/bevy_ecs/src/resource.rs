@@ -96,7 +96,11 @@ impl Deref for ResourceCache {
     type Target = SparseSet<ComponentId, Entity>;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: pointer was just created, so it's convertible
+        // SAFETY: There are no other mutable references to the map.
+        // The underlying `SyncUnsafeCell` is never exposed outside this module,
+        // so mutable references are only created by the resource hooks.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
         unsafe { &*self.0.get() }
     }
 }
@@ -137,7 +141,9 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
 
     // SAFETY: We have exclusive world access.
     let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
-    // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
+    // SAFETY: There are no shared references to the map.
+    // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+    // and that would conflict with the `DeferredWorld` passed to the resource hook.
     unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
 }
 
@@ -149,7 +155,9 @@ pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookCon
     {
         // SAFETY: We have exclusive world access.
         let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
-        // SAFETY: We only update a cache and don't perform any structural changes (component adds / removals)
+        // SAFETY: There are no shared references to the map.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
         unsafe { &mut *cache.0.get() }.remove(context.component_id);
     }
 }
