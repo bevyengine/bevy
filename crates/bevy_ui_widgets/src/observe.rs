@@ -5,7 +5,7 @@
 use core::marker::PhantomData;
 
 use bevy_ecs::{
-    bundle::{Bundle, DynamicBundle},
+    bundle::{Bundle, BundleImpl, DynamicBundle},
     event::EntityEvent,
     system::IntoObserverSystem,
 };
@@ -22,8 +22,9 @@ unsafe impl<
         B: Bundle,
         M: Send + Sync + 'static,
         I: IntoObserverSystem<E, B, M> + Send + Sync,
-    > Bundle for AddObserver<E, B, M, I>
+    > BundleImpl for AddObserver<E, B, M, I>
 {
+    type Name = Self;
     #[inline]
     fn component_ids(
         _components: &mut bevy_ecs::component::ComponentsRegistrator,

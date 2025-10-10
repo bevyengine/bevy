@@ -5,15 +5,20 @@ use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 use crate::{
-    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     world::EntityWorldMut,
 };
 
+use super::BundleImpl;
+
+// note: `Component: 'static`, so `C: Bundle`.
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+unsafe impl<C: Component> BundleImpl for C {
+    type Name = C;
+
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
@@ -52,6 +57,46 @@ impl<C: Component> DynamicBundle for C {
     unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
+// SAFETY: `MovingPtr` forwards its implementation of `Bundle` to another
+// `Bundle`, so it is correct if that impl is correct
+unsafe impl<T: BundleImpl> BundleImpl for MovingPtr<'_, T> {
+    type Name = <T as BundleImpl>::Name;
+
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+        T::component_ids(components, ids);
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        T::get_component_ids(components, ids);
+    }
+}
+
+impl<T: DynamicBundle> DynamicBundle for MovingPtr<'_, T> {
+    type Effect = T::Effect;
+
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) {
+        let this = ptr.read();
+
+        T::get_components(this, func);
+    }
+
+    // SAFETY: `MovingPtr` forwards its implementation of `apply_effect` to another
+    // `DynamicBundle`, so it is correct if that impl is correct
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        // SAFETY: the `MovingPtr` is still init, but it's inner value may no
+        // longer be fully init
+        let this = unsafe {
+            core::mem::transmute::<MaybeUninit<MovingPtr<'_, T>>, MovingPtr<'_, MaybeUninit<T>>>(
+                ptr.read(),
+            )
+        };
+        T::apply_effect(this, entity);
+    }
+}
+
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
         #[expect(
@@ -70,13 +115,14 @@ macro_rules! tuple_impl {
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+        unsafe impl<$($name: BundleImpl),*> BundleImpl for ($($name,)*) {
+            type Name = ($(<$name as BundleImpl>::Name,)*);
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+                $(<$name as BundleImpl>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+                $(<$name as BundleImpl>::get_component_ids(components, ids);)*
             }
         }
 
@@ -125,7 +171,7 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$($name: DynamicBundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,

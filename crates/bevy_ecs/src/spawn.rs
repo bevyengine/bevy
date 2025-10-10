@@ -2,10 +2,10 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, BundleImpl, DynamicBundle, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
-    relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
+    relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
@@ -80,16 +80,16 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
                 let Spawn { 0: bundle } = this;
             });
 
-            let r = R::from(entity);
+            let r = (R::from(entity), bundle);
             move_as_ptr!(r);
-            let mut entity = world.spawn_with_caller(r, caller);
+            world.spawn_with_caller(r, caller);
 
-            entity.insert_with_caller(
-                bundle,
-                InsertMode::Replace,
-                caller,
-                RelationshipHookMode::Run,
-            );
+            // entity.insert_with_caller(
+            //     bundle,
+            //     InsertMode::Replace,
+            //     caller,
+            //     RelationshipHookMode::Run,
+            // );
         }
 
         spawn::<B, R>(this, world, entity);
@@ -295,21 +295,22 @@ pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
+unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> BundleImpl
     for SpawnRelatedBundle<R, L>
 {
+    type Name = <R::RelationshipTarget as BundleImpl>::Name;
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as BundleImpl>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as BundleImpl>::get_component_ids(components, ids);
     }
 }
 
@@ -389,19 +390,20 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
-unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+unsafe impl<R: Relationship, B: Bundle> BundleImpl for SpawnOneRelated<R, B> {
+    type Name = <R::RelationshipTarget as BundleImpl>::Name;
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+        <R::RelationshipTarget as BundleImpl>::component_ids(components, ids);
     }
 
     fn get_component_ids(
         components: &crate::component::Components,
         ids: &mut impl FnMut(Option<crate::component::ComponentId>),
     ) {
-        <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
+        <R::RelationshipTarget as BundleImpl>::get_component_ids(components, ids);
     }
 }
 

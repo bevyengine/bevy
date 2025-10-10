@@ -158,7 +158,7 @@ pub struct HotPatchChanges;
 #[cfg(test)]
 mod tests {
     use crate::{
-        bundle::Bundle,
+        bundle::{Bundle, BundleImpl},
         change_detection::Ref,
         component::Component,
         entity::{Entity, EntityMapper},
@@ -250,7 +250,7 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
+        <FooBundle as BundleImpl>::component_ids(&mut world.components_registrator(), &mut |id| {
             ids.push(id);
         });
 
@@ -300,9 +300,12 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        <NestedBundle as BundleImpl>::component_ids(
+            &mut world.components_registrator(),
+            &mut |id| {
+                ids.push(id);
+            },
+        );
 
         assert_eq!(
             ids,
@@ -352,7 +355,7 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
+        <BundleWithIgnored as BundleImpl>::component_ids(
             &mut world.components_registrator(),
             &mut |id| {
                 ids.push(id);
