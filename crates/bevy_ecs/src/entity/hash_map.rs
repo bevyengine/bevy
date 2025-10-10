@@ -36,7 +36,7 @@ impl<V> EntityHashMap<V> {
     ///
     /// Equivalent to [`HashMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`HashMap:with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
+    /// [`HashMap::with_capacity_and_hasher(n, EntityHash)`]: HashMap::with_capacity_and_hasher
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
         Self(HashMap::with_capacity_and_hasher(n, EntityHash))

@@ -369,7 +369,8 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentSlice<T> {
         }
     }
 
-    ///
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the
+    /// beginning of the slice.
     ///
     /// Equivalent to [`[T]::chunks_exact`].
     ///

@@ -58,7 +58,7 @@ pub trait ContainsEntity {
 /// To obtain hash values forming the same total order as [`Entity`], any [`Hasher`] used must be
 /// deterministic and concerning [`Entity`], collisionless.
 /// Standard library hash collections handle collisions with an [`Eq`] fallback, but do not account for
-/// determinism when [`BuildHasher`] is unspecified,.
+/// determinism when [`BuildHasher`] is unspecified.
 ///
 /// [`Hash`]: core::hash::Hash
 /// [`Hasher`]: core::hash::Hasher
@@ -149,12 +149,12 @@ unsafe impl<T: EntityEquivalent> EntityEquivalent for Arc<T> {}
 /// As a consequence, [`into_iter()`] on `EntitySet` will always produce another `EntitySet`.
 ///
 /// Implementing this trait allows for unique query iteration over a list of entities.
-/// See [`iter_many_unique`] and [`iter_many_unique_mut`]
+/// See [`iter_many_unique`] and [`iter_many_unique_mut`].
 ///
 /// Note that there is no guarantee of the [`IntoIterator`] impl being deterministic,
 /// it might return different iterators when called multiple times.
 /// Neither is there a guarantee that the comparison trait impls of `EntitySet` match that
-/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements)
+/// of the respective [`EntitySetIterator`] (or of a [`Vec`] collected from its elements).
 ///
 /// [`Self::IntoIter`]: IntoIterator::IntoIter
 /// [`into_iter()`]: IntoIterator::into_iter

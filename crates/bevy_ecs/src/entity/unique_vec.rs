@@ -91,7 +91,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         Self(vec)
     }
 
-    /// Constructs a `UniqueEntityEquivalentVec` from a [`&Vec<T>`] unsafely.
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&Vec<T>`](Vec) unsafely.
     ///
     /// # Safety
     ///
@@ -102,7 +102,7 @@ impl<T: EntityEquivalent> UniqueEntityEquivalentVec<T> {
         unsafe { &*ptr::from_ref(vec).cast() }
     }
 
-    /// Constructs a `UniqueEntityEquivalentVec` from a [`&mut Vec<T>`] unsafely.
+    /// Constructs a `UniqueEntityEquivalentVec` from a [`&mut Vec<T>`](Vec) unsafely.
     ///
     /// # Safety
     ///

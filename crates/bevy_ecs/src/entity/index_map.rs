@@ -18,7 +18,11 @@ use core::{
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 pub use indexmap::map::Entry;
-use indexmap::map::{self, IndexMap, IntoValues, ValuesMut};
+use indexmap::{
+    self,
+    map::{self, IntoValues, ValuesMut},
+    IndexMap,
+};
 
 use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 
@@ -35,7 +39,7 @@ impl<V> EntityIndexMap<V> {
     ///
     /// Equivalent to [`IndexMap::with_hasher(EntityHash)`].
     ///
-    /// [`IndexMap::with_hasher(EntityHash)`]: IndexMap::with_hasher
+    /// [`IndexMap::with_hasher(EntityHash)`]: indexmap::IndexMap::with_hasher
     #[inline]
     pub const fn new() -> Self {
         Self(IndexMap::with_hasher(EntityHash))
@@ -45,7 +49,7 @@ impl<V> EntityIndexMap<V> {
     ///
     /// Equivalent to [`IndexMap::with_capacity_and_hasher(n, EntityHash)`].
     ///
-    /// [`IndexMap:with_capacity_and_hasher(n, EntityHash)`]: IndexMap::with_capacity_and_hasher
+    /// [`IndexMap::with_capacity_and_hasher(n, EntityHash)`]: indexmap::IndexMap::with_capacity_and_hasher
     #[inline]
     pub fn with_capacity(n: usize) -> Self {
         Self(IndexMap::with_capacity_and_hasher(n, EntityHash))
@@ -1224,7 +1228,7 @@ impl<'a, V> Drain<'a, V> {
         Drain::<'_, _, S>(drain, PhantomData)
     }
 
-    /// Returns the inner [`Drain`](map::Drain).
+    /// Returns the inner [`Drain`](indexmap::map::Drain).
     #[inline]
     pub fn into_inner(self) -> map::Drain<'a, Entity, V> {
         self.0
@@ -1232,7 +1236,7 @@ impl<'a, V> Drain<'a, V> {
 
     /// Returns a slice of the remaining entries in the iterator.
     ///
-    /// Equivalent to [`map::Drain::as_slice`].
+    /// Equivalent to [`map::Drain::as_slice`](`indexmap::map::Drain::as_slice`).
     #[inline]
     pub fn as_slice(&self) -> &Slice<V> {
         // SAFETY: The source IndexMap uses EntityHash.
