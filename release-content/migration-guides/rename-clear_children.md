@@ -1,5 +1,5 @@
 ---
-title: Renamed several `clear_children` to `detach_all_children`
+title: Renamed `clear_children` methods to `detach_all_children`
 pull_requests: [21470]
 ---
 
