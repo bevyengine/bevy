@@ -156,7 +156,7 @@ impl DepthStencilFormat {
     pub const DEPTH32_FLOAT: Self = Self(TextureFormat::Depth32Float);
     /// Special depth/stencil format with 32 bit floating point depth and 8 bits integer stencil.
     ///
-    /// wgpu support for [`Features::DEPTH32FLOAT_STENCIL8`] should be checked before using this format.
+    /// wgpu support for `DEPTH32FLOAT_STENCIL8` should be checked before using this format.
     pub const DEPTH32_FLOAT_STENCIL8: Self = Self(TextureFormat::Depth32FloatStencil8);
 
     pub fn format(&self) -> TextureFormat {
