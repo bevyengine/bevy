@@ -66,7 +66,7 @@ app.register_type::<ResourceComponent<SomeResource>>()
 ## `clear_entities` doesn't clear all entities
 
 As more and more internal engine concepts become entities, the `clear_entities` becomes more and more destructive.
-This is why `World::clear_entities` now only deletes all non-internal entities (for more information look [here](https://docs.rs/bevy/latest/bevy/ecs/entity_disabling/struct.Internal.html)). This means that all observers, one-shot-systems, and - most importantly - resources, remain in the world.
+This is why `World::clear_entities` now only deletes all non-[internal](https://docs.rs/bevy/latest/bevy/ecs/entity_disabling/struct.Internal.html) entities. This means that all observers, one-shot-systems, and - most importantly - resources, remain in the world.
 
 `clear_all` does still clear everything.
 
@@ -75,7 +75,7 @@ This is why `World::clear_entities` now only deletes all non-internal entities (
 Because resources are now entities, we re-use the serialization code for entities for resources.
 Which results in a different data layout.
 
-```
+```json
 // 0.17
 resources: {
   "bevy_scene::serde::tests::MyResource": (
