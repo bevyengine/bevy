@@ -21,8 +21,8 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextIndex, TextLayout, TextLayoutInfo, TextPipeline,
-    TextSections, TextTarget,
+    TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
+    TextTarget,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -33,7 +33,7 @@ pub struct Text2dRoot(Entity);
 
 #[derive(Component, Debug, PartialEq, Eq, Deref)]
 #[relationship(relationship_target = Text2dRoot)]
-#[require(TextLayoutInfo, ComputedTextBlock, TextSections)]
+#[require(TextLayoutInfo, ComputedTextBlock, TextEntities)]
 pub struct Text2dLayout(Entity);
 
 /// The top-level 2D text component.
@@ -94,7 +94,6 @@ pub struct Text2dLayout(Entity);
     Visibility,
     VisibilityClass,
     Transform,
-    TextIndex,
     TextTarget,
     TextBounds,
     TextLayout,
@@ -168,7 +167,6 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
         &Text2dLayout,
-        &TextSections,
     )>,
     root_query: Query<(Ref<TextLayout>, Ref<TextBounds>)>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -191,7 +189,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, text_layout_info, mut computed, relation, sections) in &mut text_layout_query {
+    for (entity, text_layout_info, mut computed, relation) in &mut text_layout_query {
         let Ok((block, bounds)) = root_query.get(relation.0) else {
             continue;
         };
@@ -229,12 +227,23 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
-            let spans = sections.0.iter().cloned().filter_map(|entity| {
-                text_query
-                    .get(entity)
-                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
-                    .ok()
-            });
+            let spans = computed
+                .entities()
+                .iter()
+                .cloned()
+                .filter_map(|text_entity| {
+                    text_query
+                        .get(entity)
+                        .map(|(text, style)| {
+                            (
+                                text_entity.entity,
+                                text_entity.depth,
+                                text.0.as_str(),
+                                style,
+                            )
+                        })
+                        .ok()
+                });
 
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
@@ -331,7 +340,6 @@ mod tests {
                 Update,
                 (
                     bevy_text::update_text_roots_system::<Text2d, Text2dRoot, Text2dLayout>,
-                    bevy_text::update_text_indices_system::<Text2dRoot>,
                     update_text2d_layout,
                     calculate_bounds_text2d,
                 )

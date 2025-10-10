@@ -111,7 +111,6 @@ impl Default for TextNodeFlags {
     TextColor,
     TextNodeFlags,
     ContentSize,
-    TextIndex,
     TextTarget
 )]
 pub struct Text(pub String);

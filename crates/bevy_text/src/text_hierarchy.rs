@@ -1,13 +1,5 @@
-use bevy_derive::{Deref, DerefMut};
+use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, relationship::Relationship};
-
-use smallvec::SmallVec;
-
-/// Index of a text entity in a text layout
-#[derive(Component, Debug, PartialEq, Deref, Default)]
-pub struct TextIndex(usize);
-#[derive(Component, Debug, PartialEq, Deref, DerefMut, Default)]
-pub struct TextSections(pub SmallVec<[Entity; 1]>);
 
 #[derive(Component, Debug, PartialEq, Deref)]
 pub struct TextTarget(Entity);
@@ -47,37 +39,7 @@ pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: 
 }
 
 /// update text indices
-pub fn update_text_indices_system<Root: RelationshipTarget>(
-    mut sections: Local<Vec<Entity>>,
-    root_query: Query<(Entity, &Root), With<Root>>,
-    descendants: Query<&Children, With<TextIndex>>,
-    mut text_index_query: Query<(&mut TextIndex, &mut TextTarget)>,
-    mut text_target_query: Query<&mut TextSections>,
-) {
-    for (root_id, root) in root_query.iter() {
-        let layout_id = root.iter().next().unwrap();
-        sections.clear();
-        sections.push(root_id);
-
-        let (mut index, mut target) = text_index_query.get_mut(root_id).ok().unwrap();
-        index.set_if_neq(TextIndex(0));
-        target.set_if_neq(TextTarget(layout_id));
-
-        sections.clear();
-        for (i, text_id) in descendants.iter_descendants(root_id).enumerate() {
-            sections.push(text_id);
-            let (mut index, mut target) = text_index_query.get_mut(text_id).ok().unwrap();
-            index.set_if_neq(TextIndex(i + 1));
-            target.set_if_neq(TextTarget(layout_id));
-        }
-
-        let mut text_sections = text_target_query.get_mut(layout_id).ok().unwrap();
-        if text_sections.as_slice() != sections.as_slice() {
-            text_sections.clear();
-            text_sections.extend(sections.iter().copied());
-        }
-    }
-}
+pub fn detect_changed_text_() {}
 
 #[cfg(test)]
 mod tests {
@@ -91,11 +53,10 @@ mod tests {
 
     #[derive(Component, Debug, PartialEq, Eq)]
     #[relationship(relationship_target = TestRoot)]
-    #[require(TextSections)]
     struct TestLayout(Entity);
 
     #[derive(Component)]
-    #[require(TextIndex, TextTarget)]
+    #[require(TextTarget)]
     struct Text;
     #[test]
     pub fn test_identify_text_roots() {
@@ -307,100 +268,5 @@ mod tests {
 
         assert_eq!(world.query::<&TestRoot>().iter(world).count(), 0);
         assert_eq!(world.query::<&TestLayout>().iter(world).count(), 0);
-    }
-
-    #[test]
-    pub fn test_text_root_has_index_0() {
-        let mut app = App::new();
-
-        app.add_systems(
-            Update,
-            (
-                update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices_system::<TestRoot>,
-            )
-                .chain(),
-        );
-
-        let world = app.world_mut();
-
-        world.spawn(Text);
-
-        app.update();
-
-        let world = app.world_mut();
-
-        let index = world.query::<&TextIndex>().single(world).unwrap();
-
-        assert_eq!(index.0, 0);
-    }
-
-    #[test]
-    pub fn test_text_only_child_has_index_1() {
-        let mut app = App::new();
-
-        app.add_systems(
-            Update,
-            (
-                update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices_system::<TestRoot>,
-            )
-                .chain(),
-        );
-
-        let world = app.world_mut();
-
-        world.spawn((Text, children![Text]));
-
-        app.update();
-
-        let world = app.world_mut();
-
-        let index = world
-            .query_filtered::<&TextIndex, Without<TestRoot>>()
-            .single(world)
-            .unwrap();
-
-        assert_eq!(index.0, 1);
-    }
-
-    #[test]
-    pub fn test_text_many_children_indices() {
-        let mut app = App::new();
-
-        app.add_systems(
-            Update,
-            (
-                update_text_roots_system::<Text, TestRoot, TestLayout>,
-                update_text_indices_system::<TestRoot>,
-            )
-                .chain(),
-        );
-
-        let world = app.world_mut();
-
-        world.spawn((
-            Text,
-            children![Text, (Text, children![Text, Text]), Text, Text],
-        ));
-
-        app.update();
-
-        let world = app.world_mut();
-
-        let parent = world
-            .query_filtered::<Entity, With<TestRoot>>()
-            .single(world)
-            .unwrap();
-
-        let text_children: Vec<Entity> =
-            DescendantIter::new(&world.query::<&Children>().query(world), parent)
-                .into_iter()
-                .collect();
-
-        for (i, child) in text_children.into_iter().enumerate() {
-            let index = world.entity(child).get::<TextIndex>().unwrap().0;
-            assert_eq!(index, i + 1);
-        }
     }
 }

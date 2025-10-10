@@ -31,6 +31,11 @@ pub struct TextEntity {
     pub depth: usize,
 }
 
+#[derive(Component, Debug, Clone, Reflect, Default)]
+#[reflect(Component, Debug, Default, Clone)]
+/// Entities for all text spans in the block, including the root-level text.
+pub struct TextEntities(SmallVec<[Entity; 1]>);
+
 /// Computed information for a text block.
 ///
 /// See [`TextLayout`].
