@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextOutput, TextPipeline, TextRoot, TextSection, TextTarget,
+    TextPipeline, TextRoot, TextSection, TextTarget,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -209,8 +209,7 @@ impl Measure for TextMeasure {
 
 #[inline]
 fn create_text_measure<'a>(
-    entity: Entity,
-    layout_entity: Entity,
+    output_entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
@@ -222,8 +221,7 @@ fn create_text_measure<'a>(
     font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
-        entity,
-        layout_entity,
+        output_entity,
         fonts,
         spans,
         scale_factor,
@@ -267,7 +265,6 @@ pub fn measure_text_system(
     mut text_output_query: Query<(&mut ComputedTextBlock, Ref<TextEntities>)>,
     mut text_root_query: Query<
         (
-            Entity,
             &TextRoot,
             Ref<TextLayout>,
             Ref<ComputedUiRenderTargetInfo>,
@@ -281,7 +278,7 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, root, block, computed_target, computed_node, content_size, text_flags) in
+    for (root, block, computed_target, computed_node, content_size, text_flags) in
         text_root_query.iter_mut()
     {
         let Ok((computed, sections)) = text_output_query.get_mut(root.get()) else {
@@ -305,7 +302,6 @@ pub fn measure_text_system(
             });
 
             create_text_measure(
-                entity,
                 root.get(),
                 &fonts,
                 computed_target.scale_factor.into(),
@@ -323,7 +319,6 @@ pub fn measure_text_system(
 
 #[inline]
 fn queue_text(
-    entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
     font_atlas_set: &mut FontAtlasSet,
@@ -411,7 +406,6 @@ pub fn text_system(
         Ref<TextEntities>,
     )>,
     mut root_query: Query<(
-        Entity,
         &mut TextNodeFlags,
         Ref<ComputedNode>,
         &TextLayout,
@@ -421,14 +415,13 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, text_flags, node, block, root) in root_query.iter_mut() {
+    for (text_flags, node, block, root) in root_query.iter_mut() {
         let Ok((text_layout_info, mut computed, entities)) = output_query.get_mut(root.get())
         else {
             continue;
         };
         if node.is_changed() || entities.is_changed() || text_flags.needs_recompute {
             queue_text(
-                entity,
                 &fonts,
                 &mut text_pipeline,
                 &mut font_atlas_set,
