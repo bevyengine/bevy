@@ -809,7 +809,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
+    for (entity, camera, view, _, camera_3d, msaa) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -828,7 +828,7 @@ pub fn prepare_core_3d_depth_textures(
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,
-                    format: CORE_3D_DEPTH_FORMAT,
+                    format: view.depth_stencil_format,
                     usage,
                     view_formats: &[],
                 };
@@ -1029,7 +1029,7 @@ pub fn prepare_prepass_textures(
                         mip_level_count: 1,
                         sample_count: msaa.samples(),
                         dimension: TextureDimension::D2,
-                        format: CORE_3D_DEPTH_FORMAT,
+                        format: view.depth_stencil_format,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING

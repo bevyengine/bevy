@@ -13,7 +13,7 @@ use crate::{
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::{Camera, Camera3d};
-use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
+use bevy_core_pipeline::{deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -591,7 +591,7 @@ impl PrepassPipeline {
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: mesh_key.depth_stencil_format(),
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
