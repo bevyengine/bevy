@@ -296,13 +296,30 @@ impl Plugin for SmaaPlugin {
 
         #[cfg(feature = "smaa_luts")]
         let smaa_luts = {
+            use bevy_asset::RenderAssetUsages;
+            use bevy_image::ImageLoaderSettings;
+
             // Load the two lookup textures. These are compressed textures in KTX2 format.
             embedded_asset!(app, "SMAAAreaLUT.ktx2");
             embedded_asset!(app, "SMAASearchLUT.ktx2");
 
             SmaaLuts {
-                area_lut: load_embedded_asset!(app, "SMAAAreaLUT.ktx2"),
-                search_lut: load_embedded_asset!(app, "SMAASearchLUT.ktx2"),
+                area_lut: load_embedded_asset!(
+                    app,
+                    "SMAAAreaLUT.ktx2",
+                    |settings: &mut ImageLoaderSettings| {
+                        settings.is_srgb = false;
+                        settings.asset_usage = RenderAssetUsages::RENDER_WORLD;
+                    }
+                ),
+                search_lut: load_embedded_asset!(
+                    app,
+                    "SMAASearchLUT.ktx2",
+                    |settings: &mut ImageLoaderSettings| {
+                        settings.is_srgb = false;
+                        settings.asset_usage = RenderAssetUsages::RENDER_WORLD;
+                    }
+                ),
             }
         };
         #[cfg(not(feature = "smaa_luts"))]
