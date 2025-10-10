@@ -19,7 +19,12 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (animate_translation, animate_rotation, animate_scale),
+            (
+                animate_translation,
+                animate_rotation,
+                animate_scale,
+                update_count,
+            ),
         )
         .run();
 }
@@ -49,6 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TextLayout::new_with_justify(text_justification),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
+        CounterMarker,
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
@@ -201,5 +207,15 @@ fn animate_scale(
         let scale = (ops::sin(time.elapsed_secs()) + 1.1) * 2.0;
         transform.scale.x = scale;
         transform.scale.y = scale;
+    }
+}
+
+#[derive(Component)]
+struct CounterMarker;
+
+fn update_count(mut local: Local<u32>, mut query: Query<&mut Text2d, With<CounterMarker>>) {
+    *local += 1;
+    for mut t in query.iter_mut() {
+        t.0 = format!("count: {}", *local);
     }
 }

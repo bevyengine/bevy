@@ -228,6 +228,7 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
+            bevy_text::detect_text_needs_rerender::<Text>,
             widget::measure_text_system
                 .after(bevy_text::TextUpdateSystems)
                 .in_set(UiSystems::Content)

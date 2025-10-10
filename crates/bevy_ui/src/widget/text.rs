@@ -264,7 +264,7 @@ fn create_text_measure<'a>(
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
-    mut text_output_query: Query<(&mut ComputedTextBlock, &TextEntities)>,
+    mut text_output_query: Query<(&mut ComputedTextBlock, Ref<TextEntities>)>,
     mut text_root_query: Query<
         (
             Entity,
@@ -295,6 +295,7 @@ pub fn measure_text_system(
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
+            || sections.is_changed()
         {
             let spans = sections.0.iter().cloned().filter_map(|entity| {
                 text_query
@@ -352,10 +353,10 @@ fn queue_text(
         // `scale_factor` is already multiplied by `UiScale`
         TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
     };
-    let spans = sections.iter().cloned().filter_map(|entity| {
+    let spans = sections.iter().cloned().filter_map(|text_entity| {
         text_query
-            .get(entity)
-            .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+            .get(text_entity)
+            .map(|(text, style)| (text_entity, 0, text.0.as_str(), style))
             .ok()
     });
 
@@ -404,7 +405,11 @@ pub fn text_system(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut output_query: Query<(&mut TextLayoutInfo, &mut ComputedTextBlock, &TextEntities)>,
+    mut output_query: Query<(
+        &mut TextLayoutInfo,
+        &mut ComputedTextBlock,
+        Ref<TextEntities>,
+    )>,
     mut root_query: Query<(
         Entity,
         &mut TextNodeFlags,
@@ -417,11 +422,11 @@ pub fn text_system(
     mut swash_cache: ResMut<SwashCache>,
 ) {
     for (entity, text_flags, node, block, root) in root_query.iter_mut() {
-        let Ok((text_layout_info, mut computed, sections)) = output_query.get_mut(root.get())
+        let Ok((text_layout_info, mut computed, entities)) = output_query.get_mut(root.get())
         else {
             continue;
         };
-        if node.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || entities.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
                 &fonts,
@@ -439,7 +444,7 @@ pub fn text_system(
                 &sections_query,
                 &mut font_system,
                 &mut swash_cache,
-                &sections.0,
+                &entities.0,
             );
         }
     }

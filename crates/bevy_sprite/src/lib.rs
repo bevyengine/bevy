@@ -85,6 +85,7 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (
+                bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
                     .after(bevy_text::free_unused_font_atlases_system),

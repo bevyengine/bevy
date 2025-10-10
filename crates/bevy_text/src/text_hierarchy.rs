@@ -60,10 +60,11 @@ pub fn update_text_roots_system(
 /// update text entities lists
 pub fn update_text_entities_system(
     mut buffer: Local<Vec<Entity>>,
-    mut entities_query: Query<(&mut TextEntities, &TextOutput)>,
+    mut entities_query: Query<(Entity, &mut TextEntities, &TextOutput)>,
+    mut targets_query: Query<&mut TextTarget>,
     children_query: Query<&Children, With<TextSection>>,
 ) {
-    for (mut entities, layout) in entities_query.iter_mut() {
+    for (output_entity, mut entities, layout) in entities_query.iter_mut() {
         buffer.push(layout.get());
         for entity in children_query.iter_descendants_depth_first(layout.get()) {
             buffer.push(entity);
@@ -71,13 +72,27 @@ pub fn update_text_entities_system(
         if buffer.as_slice() != entities.0.as_slice() {
             entities.0.clear();
             entities.0.extend_from_slice(&buffer);
+
+            let mut targets_iter = targets_query.iter_many_mut(entities.0.as_slice());
+            while let Some(mut target) = targets_iter.fetch_next() {
+                target.0 = output_entity;
+            }
         }
         buffer.clear();
     }
 }
 
 /// detect changes
-pub fn detect_changed_text_() {}
+pub fn detect_text_needs_rerender<T: Component>(
+    text_query: Query<&TextTarget, Or<(Changed<T>, Changed<crate::TextFont>)>>,
+    mut output_query: Query<&mut ComputedTextBlock>,
+) {
+    for target in text_query.iter() {
+        if let Ok(mut computed) = output_query.get_mut(target.0) {
+            computed.needs_rerender = true;
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
