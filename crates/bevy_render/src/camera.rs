@@ -530,7 +530,9 @@ pub fn extract_cameras(
                     .collect(),
             };
 
-			let depth_stencil_format = depth_stencil_format.unwrap_or(&DepthStencilFormat::default()).format();
+            let depth_stencil_format = depth_stencil_format
+                .unwrap_or(&DepthStencilFormat::default())
+                .format();
 
             let mut commands = commands.entity(render_entity);
             commands.insert((

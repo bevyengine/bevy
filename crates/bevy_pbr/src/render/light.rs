@@ -1339,7 +1339,7 @@ pub fn prepare_lights(
                         clip_from_view: cube_face_projection,
                         hdr: false,
                         color_grading: Default::default(),
-						depth_stencil_format: CORE_3D_DEPTH_FORMAT,
+                        depth_stencil_format: CORE_3D_DEPTH_FORMAT,
                     },
                     *frustum,
                     LightEntity::Point {
@@ -1442,7 +1442,7 @@ pub fn prepare_lights(
                     clip_from_world: None,
                     hdr: false,
                     color_grading: Default::default(),
-					depth_stencil_format: CORE_3D_DEPTH_FORMAT,
+                    depth_stencil_format: CORE_3D_DEPTH_FORMAT,
                 },
                 *spot_light_frustum.unwrap(),
                 LightEntity::Spot { light_entity },
@@ -1588,7 +1588,7 @@ pub fn prepare_lights(
                         clip_from_world: Some(cascade.clip_from_world),
                         hdr: false,
                         color_grading: Default::default(),
-						depth_stencil_format: CORE_3D_DEPTH_FORMAT,
+                        depth_stencil_format: CORE_3D_DEPTH_FORMAT,
                     },
                     frustum,
                     LightEntity::Directional {
@@ -1869,9 +1869,11 @@ pub fn specialize_shadows(
                     continue;
                 };
 
-                let mut mesh_key = *light_key 
-					| MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
-					| MeshPipelineKey::from_depth_stencil_format(extracted_view_light.depth_stencil_format);
+                let mut mesh_key = *light_key
+                    | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                    | MeshPipelineKey::from_depth_stencil_format(
+                        extracted_view_light.depth_stencil_format,
+                    );
 
                 // Even though we don't use the lightmap in the shadow map, the
                 // `SetMeshBindGroup` render command will bind the data for it. So

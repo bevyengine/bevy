@@ -302,7 +302,7 @@ pub struct ExtractedView {
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
-	pub depth_stencil_format: TextureFormat,
+    pub depth_stencil_format: TextureFormat,
 }
 
 impl ExtractedView {

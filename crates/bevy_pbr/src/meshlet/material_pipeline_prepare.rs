@@ -288,9 +288,9 @@ pub fn prepare_material_meshlet_meshes_prepass(
         (normal_prepass, motion_vector_prepass, deferred_prepass),
     ) in &mut views
     {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(1) 
-		| MeshPipelineKey::from_hdr(view.hdr)
-        | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(1)
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

@@ -314,7 +314,7 @@ fn queue_line_gizmos_3d(
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr)
-			| MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -433,7 +433,7 @@ fn queue_line_joint_gizmos_3d(
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr)
-			| MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

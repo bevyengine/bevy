@@ -32,10 +32,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;
 
-use crate::{
-    prepass::PreviousViewUniforms,
-    skybox::prepass::init_skybox_prepass_pipeline,
-};
+use crate::{prepass::PreviousViewUniforms, skybox::prepass::init_skybox_prepass_pipeline};
 
 pub mod prepass;
 
