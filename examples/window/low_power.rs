@@ -197,7 +197,7 @@ pub(crate) mod test_setup {
             ModeText,
             children![
                 Text::new("Press space bar to cycle modes\n"),
-                (TextSpan::default(), TextColor(LIME.into())),
+                (Text::default(), TextColor(LIME.into())),
                 (Text::new("\nFrame: "), TextColor(YELLOW.into())),
                 (Text::new(""), TextColor(YELLOW.into())),
             ],
