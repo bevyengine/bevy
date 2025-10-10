@@ -19,7 +19,7 @@ use bevy_sprite::BorderRect;
 use thiserror::Error;
 use ui_surface::UiSurface;
 
-use bevy_text::{ComputedTextBlock, TextRoot, TextSection, TextSpan};
+use bevy_text::{ComputedTextBlock, TextRoot, TextSection};
 
 use bevy_text::CosmicFontSystem;
 
