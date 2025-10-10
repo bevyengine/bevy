@@ -127,14 +127,7 @@ unused_qualifications = "warn"
 [features]
 default = ["2d", "3d", "ui"]
 
-# SECTION: Feature Collections
-# High level scoped collections of features that give the full bevy experience,
-# but scoped to a specific domain. These are then combined together to form the default Bevy feature set.
-# These exist to be paired with `default-features = false`, enabling compiling only the subset of Bevy that you
-# need. This can cut down compile times and shrink your final binary size.
-
-# Features used to build 2D Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the default 2D Bevy experience.
+# Features used to build 2D Bevy apps (this includes the bevy_render backend). Add this to your app if you would like the default 2D Bevy experience.
 2d = [
   "default_app",
   "default_platform",
@@ -146,8 +139,7 @@ default = ["2d", "3d", "ui"]
   "picking",
 ]
 
-# Features used to build 3D Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the default 3D Bevy experience.
+# Features used to build 3D Bevy apps (this includes the bevy_render backend). Add this to your app if you would like the default 3D Bevy experience.
 3d = [
   "default_app",
   "default_platform",
@@ -159,9 +151,7 @@ default = ["2d", "3d", "ui"]
   "picking",
 ]
 
-# Features used to build UI Bevy apps (this includes the bevy_render backend).
-# Add this to your app if you would like the "default" Bevy UI experience.
-# If you are using Bevy as a UI framework, enable this feature.
+# Features used to build UI Bevy apps (this includes the bevy_render backend). Add this to your app if you would like the default Bevy UI experience. If you are using Bevy as a UI framework, enable this feature.
 ui = [
   "default_app",
   "default_platform",
@@ -181,9 +171,7 @@ scene = ["bevy_scene"]
 # Enables picking functionality
 picking = ["bevy_picking", "mesh_picking", "sprite_picking", "ui_picking"]
 
-# The core pieces that most apps need. This serves as a baseline feature set for other higher level feature
-# collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like
-# headless apps that require no rendering (ex: command line tools, servers, etc).
+# The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).
 default_app = [
   "async_executor",
   "bevy_asset",
@@ -224,8 +212,7 @@ common_api = [
   "png",
 ]
 
-# Features used to build 2D Bevy apps (does not include a render backend)
-# You generally don't need to worry about this unless you are using a custom renderer.
+# Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 2d_api = ["common_api", "bevy_sprite"]
 
 # Bevy's built-in 2D renderer, built on top of `bevy_render` 
@@ -237,8 +224,7 @@ common_api = [
   "bevy_sprite_render",
 ]
 
-# Features used to build 3D Bevy apps (does not include a render backend)
-# You generally don't need to worry about this unless you are using a custom renderer.
+# Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 3d_api = [
   "common_api",
   "bevy_light",
@@ -263,8 +249,7 @@ common_api = [
   "gltf_animation",
 ]
 
-# Features used to build UI Bevy apps (does not include a render backend)
-# You generally don't need to worry about this unless you are using a custom renderer.
+# Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 ui_api = ["default_app", "common_api", "bevy_ui"]
 
 # Bevy's built-in UI renderer, built on top of `bevy_render` 
@@ -275,12 +260,7 @@ ui_bevy_render = [
   "bevy_ui_render",
 ]
 
-# Enable this feature during development to improve the development experience. This adds
-# features like asset hot-reloading and debugging tools.
-# This should not be enabled for published apps!
-#
-# Note: We recommend also enabling `dynamic_linking` during development as it can significantly improve
-# iteration times.
+# Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
   "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
@@ -289,8 +269,6 @@ dev = [
 
 # Recommended defaults for no_std applications
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
-
-# END SECTION: Default Feature Collections
 
 # Provides an implementation for picking meshes
 mesh_picking = ["bevy_internal/mesh_picking"]
