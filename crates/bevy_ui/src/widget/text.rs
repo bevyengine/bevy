@@ -20,7 +20,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
     TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextTarget,
+    TextOutput, TextPipeline, TextSection, TextTarget,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -102,7 +102,8 @@ impl Default for TextNodeFlags {
     TextColor,
     TextNodeFlags,
     ContentSize,
-    TextTarget
+    TextTarget,
+    TextSection
 )]
 pub struct Text(pub String);
 
@@ -267,7 +268,7 @@ pub fn measure_text_system(
         Entity,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
-        &TextLayoutNode,
+        &TextOutput,
         &TextEntities,
     )>,
     mut text_root_query: Query<
@@ -412,7 +413,7 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
         &TextEntities,
-        &TextLayoutNode,
+        &TextOutput,
     )>,
     root_query: Query<(Ref<ComputedNode>, &TextLayout)>,
     sections_query: Query<(&Text, &TextFont)>,

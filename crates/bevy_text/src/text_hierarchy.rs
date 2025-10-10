@@ -1,7 +1,29 @@
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, relationship::Relationship};
 
-use crate::TextEntities;
+use crate::{ComputedTextBlock, TextEntities, TextFont, TextLayoutInfo};
+
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
+#[relationship_target(relationship = TextOutput, linked_spawn)]
+/// Root text element
+pub struct TextRoot(Entity);
+
+impl TextRoot {
+    /// getter
+    pub fn get(&self) -> Entity {
+        self.0
+    }
+}
+
+#[derive(Component, Default, Copy, Clone)]
+/// Text marker component
+pub struct TextSection;
+
+#[derive(Component, Debug, PartialEq, Eq, Deref)]
+#[relationship(relationship_target = TextRoot)]
+#[require(TextLayoutInfo, ComputedTextBlock, TextEntities)]
+/// Output text element
+pub struct TextOutput(pub Entity);
 
 #[derive(Component, Debug, PartialEq, Deref)]
 pub struct TextTarget(Entity);
@@ -13,38 +35,38 @@ impl Default for TextTarget {
 }
 
 /// Update text roots
-pub fn update_text_roots_system<T: Component, Root: RelationshipTarget, Layout: Relationship>(
+pub fn update_text_roots_system(
     mut commands: Commands,
-    orphan_query: Query<Entity, (With<T>, Without<ChildOf>, Without<Root>)>,
-    child_query: Query<(Entity, &ChildOf, Has<Root>), With<T>>,
-    parent_query: Query<&T>,
-    non_text_root_query: Query<Entity, (With<Root>, Without<T>)>,
+    orphan_query: Query<Entity, (With<TextSection>, Without<ChildOf>, Without<TextSection>)>,
+    child_query: Query<(Entity, &ChildOf, Has<TextSection>), With<TextFont>>,
+    parent_query: Query<&TextSection>,
+    non_text_root_query: Query<Entity, (With<TextRoot>, Without<TextSection>)>,
 ) {
     for orphan_id in orphan_query.iter() {
-        commands.spawn(Layout::from(orphan_id));
+        commands.spawn(TextOutput(orphan_id));
     }
 
     for (child_id, child_of, has_root) in child_query.iter() {
         let parent_is_text = parent_query.contains(child_of.get());
         if parent_is_text && has_root {
             // entity is not a root
-            commands.entity(child_id).remove::<Root>();
+            commands.entity(child_id).remove::<TextRoot>();
         } else if !parent_is_text && !has_root {
             // Root entity is not already a root
-            commands.spawn(Layout::from(child_id));
+            commands.spawn(TextOutput(child_id));
         }
     }
 
     for id in non_text_root_query.iter() {
-        commands.entity(id).remove::<Root>();
+        commands.entity(id).remove::<TextRoot>();
     }
 }
 
 /// update text entities lists
-pub fn update_text_entities<T: Component, Layout: Relationship>(
+pub fn update_text_entities_system(
     mut buffer: Local<Vec<Entity>>,
-    mut entities_query: Query<(&mut TextEntities, &Layout)>,
-    children_query: Query<&Children, With<T>>,
+    mut entities_query: Query<(&mut TextEntities, &TextOutput)>,
+    children_query: Query<&Children, With<TextSection>>,
 ) {
     for (mut entities, layout) in entities_query.iter_mut() {
         buffer.push(layout.get());
@@ -77,16 +99,13 @@ mod tests {
     struct TestLayout(Entity);
 
     #[derive(Component)]
-    #[require(TextTarget)]
+    #[require(TextTarget, TextSection)]
     struct Text;
     #[test]
     pub fn test_identify_text_roots() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 
@@ -113,10 +132,7 @@ mod tests {
     pub fn test_despawn_text_layout_on_despawn_text_root() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 
@@ -147,10 +163,7 @@ mod tests {
     pub fn test_text_children_arent_roots() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 
@@ -177,10 +190,7 @@ mod tests {
     pub fn test_text_entity_with_non_text_parent_is_a_root() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 
@@ -214,10 +224,7 @@ mod tests {
     pub fn test_a_root_that_gains_a_text_parent_is_no_longer_a_root() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 
@@ -267,10 +274,7 @@ mod tests {
     pub fn test_a_text_root_that_becomes_non_text_is_not_a_root() {
         let mut app = App::new();
 
-        app.add_systems(
-            Update,
-            update_text_roots_system::<Text, TestRoot, TestLayout>,
-        );
+        app.add_systems(Update, update_text_roots_system);
 
         let world = app.world_mut();
 

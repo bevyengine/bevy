@@ -228,12 +228,8 @@ fn build_text_interop(app: &mut App) {
     app.add_systems(
         PostUpdate,
         (
-            (
-                bevy_text::update_text_roots_system::<Text, widget::TextRoot, widget::TextLayoutNode>,
-                bevy_text::update_text_entities::<Text, widget::TextLayoutNode>,
-                widget::measure_text_system,
-            )
-                .chain()
+            widget::measure_text_system
+                .after(bevy_text::TextUpdateSystems)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
                 //.ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
@@ -245,6 +241,7 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::text_system
+                .after(bevy_text::TextUpdateSystems)
                 .in_set(UiSystems::PostLayout)
                 .after(bevy_text::free_unused_font_atlases_system)
                 .before(bevy_asset::AssetEventSystems)

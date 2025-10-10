@@ -76,6 +76,10 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 #[derive(Default)]
 pub struct TextPlugin;
 
+/// System set in [`PostUpdate`] where all text update systems are executed.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct TextUpdateSystems;
+
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
@@ -92,6 +96,12 @@ impl Plugin for TextPlugin {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
+            .add_systems(
+                PostUpdate,
+                (update_text_roots_system, update_text_entities_system)
+                    .chain()
+                    .in_set(TextUpdateSystems),
+            )
             .add_systems(
                 PostUpdate,
                 free_unused_font_atlases_system.before(AssetEventSystems),

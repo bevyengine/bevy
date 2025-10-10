@@ -85,14 +85,13 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             (
-                bevy_text::update_text_roots_system::<Text2d, Text2dRoot, Text2dLayout>,
-                bevy_text::update_text_entities::<Text2d, Text2dLayout>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
                     .after(bevy_text::free_unused_font_atlases_system),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
+                .after(bevy_text::TextUpdateSystems)
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );

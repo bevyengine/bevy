@@ -24,7 +24,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextLayoutNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -60,8 +60,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextEntities,
-    TextLayoutInfo,
+    PositionedGlyph, TextBackgroundColor, TextColor, TextEntities, TextLayoutInfo, TextOutput,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -912,14 +911,7 @@ pub fn extract_text_sections(
             &TextColor,
         )>,
     >,
-    text_layout_query: Extract<
-        Query<(
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-            &TextLayoutNode,
-            &TextEntities,
-        )>,
-    >,
+    text_layout_query: Extract<Query<(&TextLayoutInfo, &TextOutput, &TextEntities)>>,
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -927,7 +919,7 @@ pub fn extract_text_sections(
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (computed_block, text_layout_info, relation, entities) in &text_layout_query {
+    for (text_layout_info, relation, entities) in &text_layout_query {
         let Ok((entity, uinode, transform, inherited_visibility, clip, camera, text_color)) =
             uinode_query.get(**relation)
         else {

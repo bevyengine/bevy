@@ -12,9 +12,10 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::{Anchor, Text2dLayout, Text2dShadow};
+use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
     PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextEntities, TextLayoutInfo,
+    TextOutput,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -25,7 +26,7 @@ pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    text2d_query: Extract<Query<(&TextLayoutInfo, &Text2dLayout, &TextEntities)>>,
+    text2d_query: Extract<Query<(&TextLayoutInfo, &TextOutput, &TextEntities)>>,
     root_query: Extract<
         Query<(
             Entity,
