@@ -373,7 +373,7 @@ pub struct UniqueEntityIter<I: Iterator<Item: EntityEquivalent>> {
 impl<I: EntitySetIterator> UniqueEntityIter<I> {
     /// Constructs a `UniqueEntityIter` from an [`EntitySetIterator`].
     #[inline]
-    pub const fn from_entity_set_iter<S>(iter: I) -> Self {
+    pub const fn from_entity_set_iter(iter: I) -> Self {
         // SAFETY: iter implements `EntitySetIterator`.
         unsafe { Self::from_iter_unchecked(iter) }
     }

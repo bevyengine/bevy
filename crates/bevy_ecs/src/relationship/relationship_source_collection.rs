@@ -262,7 +262,7 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 
     fn len(&self) -> usize {
-        self.len()
+        self.deref().len()
     }
 
     fn clear(&mut self) {

@@ -45,12 +45,6 @@ impl EntityHashSet {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
     }
 
-    /// Returns the number of elements in the set.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
     /// Returns `true` if the set contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {

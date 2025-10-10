@@ -158,16 +158,14 @@ impl<T: EntityEquivalent, const N: usize> Deref for UniqueEntityEquivalentArray<
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked(&self.0) }
+        self.as_slice()
     }
 }
 
 impl<T: EntityEquivalent, const N: usize> DerefMut for UniqueEntityEquivalentArray<T, N> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: All elements in the original array are unique.
-        unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(&mut self.0) }
+        self.as_mut_slice()
     }
 }
 
