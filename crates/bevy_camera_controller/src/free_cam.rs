@@ -182,7 +182,18 @@ pub fn run_freecam_controller(
         controller.initialized = true;
         info!("{}", *controller);
     }
+
     if !controller.enabled {
+        // don't keep the cursor grabbed if the controller was disabled.
+        if *toggle_cursor_grab || *mouse_cursor_grab {
+            *toggle_cursor_grab = false;
+            *mouse_cursor_grab = false;
+
+            for (_, mut cursor_options) in &mut windows {
+                cursor_options.grab_mode = CursorGrabMode::None;
+                cursor_options.visible = true;
+            }
+        }
         return;
     }
 
