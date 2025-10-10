@@ -55,7 +55,7 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 ### Feature List
 
-This is the complete `bevy` cargo feature list (sorted by name):
+This is the complete `bevy` cargo feature list, without "profiles" or "collections" (sorted by name):
 
 |Feature|Description|
 |-|-|
