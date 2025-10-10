@@ -2,7 +2,7 @@ use core::{iter, mem};
 
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
-use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
+use bevy_mesh::morph::{MeshMorphWeights};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -11,6 +11,7 @@ use bevy_render::{
     Extract,
 };
 use bytemuck::NoUninit;
+use crate::GlobalSkinnedMeshSettings;
 
 #[derive(Component)]
 pub struct MorphIndex {
@@ -109,6 +110,7 @@ fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
 pub fn extract_morphs(
     morph_indices: ResMut<MorphIndices>,
     uniform: ResMut<MorphUniforms>,
+    skinned_mesh_settings: Res<GlobalSkinnedMeshSettings>,
     query: Extract<Query<(Entity, &ViewVisibility, &MeshMorphWeights)>>,
 ) {
     // Borrow check workaround.
@@ -127,7 +129,7 @@ pub fn extract_morphs(
         }
         let start = uniform.current_buffer.len();
         let weights = morph_weights.weights();
-        let legal_weights = weights.iter().take(MAX_MORPH_WEIGHTS).copied();
+        let legal_weights = weights.iter().take(skinned_mesh_settings.max_morph_weights).copied();
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 

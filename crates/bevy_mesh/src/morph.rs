@@ -13,9 +13,6 @@ const MAX_TEXTURE_WIDTH: u32 = 2048;
 // Vec3 has 3 components, Mat2 has 4 components.
 const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 
-/// Max target count available for [morph targets](MorphWeights).
-pub const MAX_MORPH_WEIGHTS: usize = 64;
-
 #[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
     #[error(
@@ -27,12 +24,6 @@ pub enum MorphBuildError {
         vertex_count: usize,
         component_count: u32,
     },
-    #[error(
-        "Bevy only supports up to {} morph targets (individual poses), tried to \
-        create a model with {target_count} morph targets",
-        MAX_MORPH_WEIGHTS
-    )]
-    TooManyTargets { target_count: usize },
 }
 
 /// An image formatted for use with [`MorphWeights`] for rendering the morph target.
@@ -55,9 +46,6 @@ impl MorphTargetImage {
     ) -> Result<Self, MorphBuildError> {
         let max = MAX_TEXTURE_WIDTH;
         let target_count = targets.len();
-        if target_count > MAX_MORPH_WEIGHTS {
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
         let component_count = (vertex_count * MorphAttributes::COMPONENT_COUNT) as u32;
         let Some((Rect(width, height), padding)) = lowest_2d(component_count, max) else {
             return Err(MorphBuildError::TooManyAttributes {
@@ -123,10 +111,6 @@ impl MorphWeights {
         weights: Vec<f32>,
         first_mesh: Option<Handle<Mesh>>,
     ) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
         Ok(MorphWeights {
             weights,
             first_mesh,
@@ -164,10 +148,6 @@ pub struct MeshMorphWeights {
 
 impl MeshMorphWeights {
     pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
         Ok(MeshMorphWeights { weights })
     }
     pub fn weights(&self) -> &[f32] {

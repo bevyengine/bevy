@@ -38,7 +38,7 @@ use bevy_mesh::{
 };
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
-use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
+use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
@@ -870,17 +870,6 @@ impl GltfLoader {
                             .joints()
                             .map(|joint| nodes.get(&joint.index()).unwrap().clone())
                             .collect();
-
-                        if joints.len() > MAX_JOINTS {
-                            warn!(
-                                "The glTF skin {} has {} joints, but the maximum supported is {}",
-                                skin.name()
-                                    .map(ToString::to_string)
-                                    .unwrap_or_else(|| skin.index().to_string()),
-                                joints.len(),
-                                MAX_JOINTS
-                            );
-                        }
 
                         let gltf_skin = GltfSkin::new(
                             &skin,
