@@ -25,6 +25,7 @@ pub struct TextSection;
 /// Output text element
 pub struct TextOutput(pub Entity);
 
+/// Output target id
 #[derive(Component, Debug, PartialEq, Deref)]
 pub struct TextTarget(Entity);
 

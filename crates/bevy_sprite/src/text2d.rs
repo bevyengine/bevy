@@ -227,7 +227,7 @@ pub fn update_text2d_layout(
             let spans = entities.iter().cloned().filter_map(|text_entity| {
                 text_query
                     .get(text_entity)
-                    .map(|(text, style)| (text_entity, 0, text.0.as_str(), style))
+                    .map(|(text, style)| (text_entity, text.0.as_str(), style))
                     .ok()
             });
 

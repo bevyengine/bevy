@@ -212,7 +212,7 @@ fn create_text_measure<'a>(
     output_entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont)>,
+    spans: impl Iterator<Item = (Entity, &'a str, &'a TextFont)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -297,7 +297,7 @@ pub fn measure_text_system(
             let spans = sections.0.iter().cloned().filter_map(|entity| {
                 text_query
                     .get(entity)
-                    .map(|(text, style)| (entity, 0, text.0.as_str(), style))
+                    .map(|(text, style)| (entity, text.0.as_str(), style))
                     .ok()
             });
 
@@ -351,7 +351,7 @@ fn queue_text(
     let spans = sections.iter().cloned().filter_map(|text_entity| {
         text_query
             .get(text_entity)
-            .map(|(text, style)| (text_entity, 0, text.0.as_str(), style))
+            .map(|(text, style)| (text_entity, text.0.as_str(), style))
             .ok()
     });
 
