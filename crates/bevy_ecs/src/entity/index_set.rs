@@ -25,7 +25,7 @@ use bevy_platform::prelude::Box;
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
-pub struct EntityIndexSet(pub(crate) IndexSet<Entity, EntityHash>);
+pub struct EntityIndexSet(IndexSet<Entity, EntityHash>);
 
 impl EntityIndexSet {
     /// Creates an empty `EntityIndexSet`.

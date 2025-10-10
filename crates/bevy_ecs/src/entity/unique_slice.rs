@@ -1522,7 +1522,7 @@ pub struct UniqueEntityEquivalentSliceIter<
     T: EntityEquivalent + 'a,
     I: Iterator<Item = &'a [T]>,
 > {
-    pub(crate) iter: I,
+    iter: I,
 }
 
 impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a [T]>>
@@ -1705,7 +1705,7 @@ pub struct UniqueEntityEquivalentSliceIterMut<
     T: EntityEquivalent + 'a,
     I: Iterator<Item = &'a mut [T]>,
 > {
-    pub(crate) iter: I,
+    iter: I,
 }
 
 impl<'a, T: EntityEquivalent + 'a, I: Iterator<Item = &'a mut [T]>>

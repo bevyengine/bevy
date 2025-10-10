@@ -28,7 +28,7 @@ use bevy_platform::prelude::Box;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone)]
-pub struct EntityIndexMap<V>(pub(crate) IndexMap<Entity, V, EntityHash>);
+pub struct EntityIndexMap<V>(IndexMap<Entity, V, EntityHash>);
 
 impl<V> EntityIndexMap<V> {
     /// Creates an empty `EntityIndexMap`.

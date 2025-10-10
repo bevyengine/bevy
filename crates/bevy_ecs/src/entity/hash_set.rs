@@ -22,7 +22,7 @@ use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetItera
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct EntityHashSet(pub(crate) HashSet<Entity, EntityHash>);
+pub struct EntityHashSet(HashSet<Entity, EntityHash>);
 
 impl EntityHashSet {
     /// Creates an empty `EntityHashSet`.
@@ -207,6 +207,12 @@ impl FromEntitySetIterator<Entity> for EntityHashSet {
             }
             set
         })
+    }
+}
+
+impl From<HashSet<Entity, EntityHash>> for EntityHashSet {
+    fn from(value: HashSet<Entity, EntityHash>) -> Self {
+        Self(value)
     }
 }
 

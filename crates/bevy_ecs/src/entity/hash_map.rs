@@ -19,7 +19,7 @@ use super::{Entity, EntityEquivalent, EntityHash, EntitySetIterator};
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
+pub struct EntityHashMap<V>(HashMap<Entity, V, EntityHash>);
 
 impl<V> EntityHashMap<V> {
     /// Creates an empty `EntityHashMap`.
@@ -110,6 +110,12 @@ impl<V, const N: usize> From<[(Entity, V); N]> for EntityHashMap<V> {
 impl<V> FromIterator<(Entity, V)> for EntityHashMap<V> {
     fn from_iter<I: IntoIterator<Item = (Entity, V)>>(iterable: I) -> Self {
         Self(HashMap::from_iter(iterable))
+    }
+}
+
+impl<V> From<HashMap<Entity, V, EntityHash>> for EntityHashMap<V> {
+    fn from(value: HashMap<Entity, V, EntityHash>) -> Self {
+        Self(value)
     }
 }
 
