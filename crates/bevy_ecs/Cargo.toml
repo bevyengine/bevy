@@ -8,7 +8,7 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["ecs", "game", "bevy"]
 categories = ["game-engines", "data-structures"]
-rust-version = "1.86.0"
+rust-version = "1.89.0"
 
 [features]
 default = ["std", "bevy_reflect", "async_executor", "backtrace"]
