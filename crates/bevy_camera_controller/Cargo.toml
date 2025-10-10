@@ -7,7 +7,7 @@ homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "input", "camera", "control"]
-rust-version = "1.85.0"
+rust-version = "1.90.0"
 
 [dependencies]
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
