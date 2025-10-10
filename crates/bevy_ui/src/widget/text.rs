@@ -25,6 +25,8 @@ use bevy_text::{
 use taffy::style::AvailableSpace;
 use tracing::error;
 
+pub type TextUiWriter<'w, 's> = bevy_text::TextWriter<'w, 's, Text>;
+
 /// UI text system flags.
 ///
 /// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.

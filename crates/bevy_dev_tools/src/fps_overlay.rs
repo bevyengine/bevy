@@ -17,7 +17,10 @@ use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont};
 use bevy_time::Time;
-use bevy_ui::{widget::Text, FlexDirection, GlobalZIndex, Node, PositionType, Val};
+use bevy_ui::{
+    widget::{Text, TextUiWriter},
+    FlexDirection, GlobalZIndex, Node, PositionType, Val,
+};
 use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 
@@ -221,7 +224,7 @@ fn update_text(
             if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
                 && let Some(value) = fps.smoothed()
             {
-                *writer.text(entity, 1) = format!("{value:.2}");
+                writer.set_text(entity, 1, format!("{value:.2}"));
             }
         }
     }

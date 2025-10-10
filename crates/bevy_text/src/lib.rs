@@ -40,6 +40,7 @@ mod font_loader;
 mod glyph;
 mod pipeline;
 mod text;
+mod text_access;
 mod text_hierarchy;
 
 pub use bounds::*;
@@ -51,6 +52,7 @@ pub use font_loader::*;
 pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
+pub use text_access::*;
 pub use text_hierarchy::*;
 
 /// The text prelude.
@@ -58,7 +60,9 @@ pub use text_hierarchy::*;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout};
+    pub use crate::{
+        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextWriter,
+    };
 }
 
 use bevy_app::prelude::*;
