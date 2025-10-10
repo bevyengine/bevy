@@ -1869,8 +1869,9 @@ pub fn specialize_shadows(
                     continue;
                 };
 
-                let mut mesh_key =
-                    *light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+                let mut mesh_key = *light_key 
+					| MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+					| MeshPipelineKey::from_depth_stencil_format(extracted_view_light.depth_stencil_format);
 
                 // Even though we don't use the lightmap in the shadow map, the
                 // `SetMeshBindGroup` render command will bind the data for it. So

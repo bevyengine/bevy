@@ -780,7 +780,9 @@ pub fn check_prepass_views_need_specialization(
     ticks: SystemChangeTick,
 ) {
     for (view, msaa, depth_prepass, normal_prepass, motion_vector_prepass) in views.iter_mut() {
-        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
+		
         if depth_prepass.is_some() {
             view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }

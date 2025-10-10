@@ -344,7 +344,8 @@ pub fn check_views_need_specialization(
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

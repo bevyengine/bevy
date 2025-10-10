@@ -477,6 +477,7 @@ pub fn prepare_deferred_lighting_pipelines(
         }
 
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
+		view_key |= MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
