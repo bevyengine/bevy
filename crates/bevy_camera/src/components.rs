@@ -1,4 +1,5 @@
 use crate::{primitives::Frustum, Camera, CameraProjection, OrthographicProjection, Projection};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -139,7 +140,7 @@ pub enum ScreenSpaceTransmissionQuality {
 }
 
 /// This component lets you control the [`TextureFormat`] of the `DepthStencilTexture` that is passed to the render pipelines of this camera
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct DepthStencilFormat(TextureFormat);
 
