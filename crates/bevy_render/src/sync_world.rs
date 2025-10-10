@@ -119,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component, Default, Clone]]
+#[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 

@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_macro_utils::ResultSifter;
 use quote::{format_ident, quote, ToTokens};
-use syn::token::Comma;
+use syn::{token::Comma, MacroDelimiter};
 
 use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
 use crate::field_attributes::CloneBehavior;
@@ -197,7 +197,16 @@ impl<'a> ReflectDerive<'a> {
         for attribute in &input.attrs {
             match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    if let MacroDelimiter::Paren(_) = meta_list.delimiter {
+                        container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    } else {
+                        return Err(syn::Error::new(
+                            meta_list.delimiter.span().join(),
+                            format_args!(
+                                "`#[{REFLECT_ATTRIBUTE_NAME}(\"...\")]` must use parentheses `(` and `)`"
+                            ),
+                        ));
+                    }
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
                     let syn::Expr::Lit(syn::ExprLit {

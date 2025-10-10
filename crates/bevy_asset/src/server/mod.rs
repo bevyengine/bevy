@@ -830,7 +830,10 @@ impl AssetServer {
                     fetched_handle
                 };
 
-                self.send_loaded_asset(base_asset_id, loaded_asset);
+                self.send_asset_event(InternalAssetEvent::Loaded {
+                    id: base_asset_id,
+                    loaded_asset,
+                });
                 Ok(final_handle)
             }
             Err(err) => {
@@ -842,16 +845,6 @@ impl AssetServer {
                 Err(err)
             }
         }
-    }
-
-    /// Sends a load event for the given `loaded_asset` and does the same recursively for all
-    /// labeled assets.
-    fn send_loaded_asset(&self, id: UntypedAssetId, mut loaded_asset: ErasedLoadedAsset) {
-        for (_, labeled_asset) in loaded_asset.labeled_assets.drain() {
-            self.send_loaded_asset(labeled_asset.handle.id(), labeled_asset.asset);
-        }
-
-        self.send_asset_event(InternalAssetEvent::Loaded { id, loaded_asset });
     }
 
     /// Kicks off a reload of the asset stored at the given path. This will only reload the asset if it currently loaded.
