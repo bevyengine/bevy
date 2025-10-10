@@ -21,8 +21,9 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    TextColor, TextEntities, TextError, TextFont, TextLayout, TextLayoutInfo, TextOutput,
+    TextPipeline, TextReader, TextRoot, TextSection, TextSpan, TextSpanAccess, TextTarget,
+    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -33,7 +34,7 @@ use core::any::TypeId;
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See `TextSpan` for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextBlock`].
 ///
 /// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
@@ -45,7 +46,7 @@ use core::any::TypeId;
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor};
 /// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -73,21 +74,23 @@ use core::any::TypeId;
 ///
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text2d::new("world"));
+///     parent.spawn((Text2d::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
-    TextLayout,
     TextFont,
     TextColor,
-    TextBounds,
-    Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    TextTarget,
+    TextBounds,
+    TextLayout,
+    Anchor,
+    TextSection
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -99,7 +102,7 @@ impl Text2d {
     }
 }
 
-impl TextRoot for Text2d {}
+impl TextSpan for Text2d {}
 
 impl TextSpanAccess for Text2d {
     fn read_span(&self) -> &str {
@@ -167,15 +170,19 @@ pub fn update_text2d_layout(
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
-    mut text_query: Query<(
+    text_query: Query<(&Text2d, &TextFont)>,
+    root_query: Query<(
         Entity,
-        Option<&RenderLayers>,
+        &TextRoot,
         Ref<TextLayout>,
         Ref<TextBounds>,
+        Option<&RenderLayers>,
+    )>,
+    mut text_output_query: Query<(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
+        &mut TextEntities,
     )>,
-    mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
@@ -196,10 +203,13 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
-        &mut text_query
-    {
-        let entity_mask = maybe_entity_mask.unwrap_or_default();
+    for (entity, root, block, bounds, maybe_render_layers) in root_query.iter() {
+        let Ok((text_layout_info, mut computed, entities)) = text_output_query.get_mut(root.get())
+        else {
+            continue;
+        };
+
+        let entity_mask = maybe_render_layers.unwrap_or_default();
 
         let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
             previous_scale_factor
@@ -232,11 +242,18 @@ pub fn update_text2d_layout(
                 height: bounds.height.map(|height| height * scale_factor),
             };
 
+            let spans = entities.iter().cloned().filter_map(|text_entity| {
+                text_query
+                    .get(text_entity)
+                    .map(|(text, style)| (text_entity, text.0.as_str(), style))
+                    .ok()
+            });
+
             let text_layout_info = text_layout_info.into_inner();
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
-                text_reader.iter(entity),
+                spans,
                 scale_factor as f64,
                 &block,
                 text_bounds,
@@ -246,6 +263,7 @@ pub fn update_text2d_layout(
                 computed.as_mut(),
                 &mut font_system,
                 &mut swash_cache,
+                &entities.0,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
@@ -270,18 +288,17 @@ pub fn update_text2d_layout(
 /// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_camera::visibility::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
-    mut text_to_update_aabb: Query<
-        (
-            Entity,
-            &TextLayoutInfo,
-            &Anchor,
-            &TextBounds,
-            Option<&mut Aabb>,
-        ),
-        (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
+    text_to_update_aabb: Query<(&TextLayoutInfo, &TextOutput), Changed<TextLayoutInfo>>,
+    mut text_bounds_query: Query<
+        (&TextBounds, Option<&mut Aabb>, &Anchor),
+        Without<NoFrustumCulling>,
     >,
 ) {
-    for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+    for (layout_info, relation) in &text_to_update_aabb {
+        let Ok((text_bounds, aabb, anchor)) = text_bounds_query.get_mut(relation.0) else {
+            continue;
+        };
+
         let size = Vec2::new(
             text_bounds.width.unwrap_or(layout_info.size.x),
             text_bounds.height.unwrap_or(layout_info.size.y),
@@ -296,7 +313,7 @@ pub fn calculate_bounds_text2d(
         if let Some(mut aabb) = aabb {
             *aabb = new_aabb;
         } else {
-            commands.entity(entity).try_insert(new_aabb);
+            commands.entity(**relation).try_insert(new_aabb);
         }
     }
 }
@@ -309,7 +326,6 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -325,15 +341,9 @@ mod tests {
             .init_resource::<TextPipeline>()
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
-            .init_resource::<TextIterScratch>()
             .add_systems(
                 Update,
-                (
-                    detect_text_needs_rerender::<Text2d>,
-                    update_text2d_layout,
-                    calculate_bounds_text2d,
-                )
-                    .chain(),
+                (update_text2d_layout, calculate_bounds_text2d).chain(),
             );
 
         let mut visible_entities = VisibleEntities::default();

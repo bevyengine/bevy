@@ -154,10 +154,10 @@ fn print_logs(
                 Text::default(),
                 children![
                     (
-                        TextSpan::new(format!("{:5} ", log_message.level)),
+                        Text::new(format!("{:5} ", log_message.level)),
                         TextColor(level_color(&log_message.level)),
                     ),
-                    TextSpan::new(&log_message.message),
+                    Text::new(&log_message.message),
                 ],
             ));
         }
