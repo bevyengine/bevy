@@ -4362,7 +4362,7 @@ where
         C: Component,
     {
         let components = self.entity.world().components();
-        let id = components.valid_component_id::<C>()?;
+        let id = components.get_valid_id(TypeId::of::<C>())?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -4382,7 +4382,7 @@ where
         C: Component,
     {
         let components = self.entity.world().components();
-        let id = components.valid_component_id::<C>()?;
+        let id = components.get_valid_id(TypeId::of::<C>())?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
@@ -4642,7 +4642,7 @@ where
         C: Component<Mutability = Mutable>,
     {
         let components = self.entity.world().components();
-        let id = components.valid_component_id::<C>()?;
+        let id = components.get_valid_id(TypeId::of::<C>())?;
         if bundle_contains_component::<B>(components, id) {
             None
         } else {
