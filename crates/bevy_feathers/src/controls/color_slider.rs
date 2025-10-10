@@ -283,10 +283,10 @@ fn update_slider_pos(
     q_children: Query<&Children>,
     mut q_slider_thumb: Query<&mut Node, With<ColorSliderThumb>>,
 ) {
-    for (slider_ent, value, range) in q_sliders.iter_mut() {
+    for (slider_ent, SliderValue(value), range) in q_sliders.iter_mut() {
         for child in q_children.iter_descendants(slider_ent) {
             if let Ok(mut thumb_node) = q_slider_thumb.get_mut(child) {
-                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_node.left = Val::Percent(range.thumb_position(*value) * 100.0);
             }
         }
     }

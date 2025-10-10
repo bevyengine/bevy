@@ -368,11 +368,14 @@ fn demo_root() -> impl Scene {
 
 fn update_colors(
     colors: Res<DemoWidgetStates>,
-    mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
-    swatches: Query<(&SwatchType, &Children), With<ColorSwatch>>,
+    mut sliders: Query<(Entity, Ref<ColorSlider>, &mut SliderBaseColor)>,
+    swatches: Query<(Ref<SwatchType>, &Children), With<ColorSwatch>>,
     mut commands: Commands,
 ) {
-    if colors.is_changed() {
+    // Check to see if sliders or swatches were added after resource has changed.
+    let sliders_added = sliders.iter().any(|(_, slider, _)| slider.is_added());
+    let swatches_added = swatches.iter().any(|(swatch, _)| swatch.is_added());
+    if colors.is_changed() || sliders_added || swatches_added {
         for (slider_ent, slider, mut base) in sliders.iter_mut() {
             match slider.channel {
                 ColorChannel::Red => {
@@ -423,7 +426,7 @@ fn update_colors(
         for (swatch_type, children) in swatches.iter() {
             commands
                 .entity(children[0])
-                .insert(BackgroundColor(match swatch_type {
+                .insert(BackgroundColor(match *swatch_type {
                     SwatchType::Rgb => colors.rgb_color.into(),
                     SwatchType::Hsl => colors.hsl_color.into(),
                 }));
