@@ -229,7 +229,8 @@ impl<V> FusedIterator for Keys<'_, V> {}
 impl<V> Clone for Keys<'_, V> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Keys`.
+        unsafe { Self::from_keys_unchecked(self.0.clone()) }
     }
 }
 
@@ -242,7 +243,8 @@ impl<V: Debug> Debug for Keys<'_, V> {
 impl<V> Default for Keys<'_, V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Keys` is empty.
+        unsafe { Self::from_keys_unchecked(Default::default()) }
     }
 }
 
@@ -314,7 +316,8 @@ impl<V: Debug> Debug for IntoKeys<V> {
 impl<V> Default for IntoKeys<V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoKeys` is empty.
+        unsafe { Self::from_into_keys_unchecked(Default::default()) }
     }
 }
 

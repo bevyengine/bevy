@@ -174,7 +174,8 @@ impl<T: EntityEquivalent, const N: usize> DerefMut for UniqueEntityEquivalentArr
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentArray<T, 0> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(Default::default()) }
     }
 }
 
@@ -396,42 +397,48 @@ impl<T: EntityEquivalent, const N: usize> IndexMut<RangeToInclusive<usize>>
 impl<T: EntityEquivalent + Clone> From<&[T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     #[inline]
     fn from(value: &[T; 1]) -> Self {
-        Self(value.clone())
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&[T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     #[inline]
     fn from(value: &[T; 0]) -> Self {
-        Self(value.clone())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     #[inline]
     fn from(value: &mut [T; 1]) -> Self {
-        Self(value.clone())
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent + Clone> From<&mut [T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     #[inline]
     fn from(value: &mut [T; 0]) -> Self {
-        Self(value.clone())
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value.clone()) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 1]> for UniqueEntityEquivalentArray<T, 1> {
     #[inline]
     fn from(value: [T; 1]) -> Self {
-        Self(value)
+        // SAFETY: An array with 1 element cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value) }
     }
 }
 
 impl<T: EntityEquivalent> From<[T; 0]> for UniqueEntityEquivalentArray<T, 0> {
     #[inline]
     fn from(value: [T; 0]) -> Self {
-        Self(value)
+        // SAFETY: An empty array cannot contain duplicates.
+        unsafe { Self::from_array_unchecked(value) }
     }
 }
 

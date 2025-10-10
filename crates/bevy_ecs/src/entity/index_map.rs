@@ -995,7 +995,8 @@ impl<V> FusedIterator for Iter<'_, V> {}
 impl<V> Clone for Iter<'_, V> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -1008,7 +1009,8 @@ impl<V: Debug> Debug for Iter<'_, V> {
 impl<V> Default for Iter<'_, V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -1098,7 +1100,8 @@ impl<V: Debug> Debug for IterMut<'_, V> {
 impl<V> Default for IterMut<'_, V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IterMut` is empty.
+        unsafe { Self::from_iter_mut_unchecked(Default::default()) }
     }
 }
 
@@ -1179,7 +1182,8 @@ impl<V> FusedIterator for IntoIter<V> {}
 impl<V: Clone> Clone for IntoIter<V> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `IntoIter`.
+        unsafe { Self::from_into_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -1195,7 +1199,8 @@ impl<V: Debug> Debug for IntoIter<V> {
 impl<V> Default for IntoIter<V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
@@ -1337,7 +1342,8 @@ impl<V> Index<usize> for Keys<'_, V> {
 impl<V> Clone for Keys<'_, V> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Keys`.
+        unsafe { Self::from_keys_unchecked(self.0.clone()) }
     }
 }
 
@@ -1350,7 +1356,8 @@ impl<V: Debug> Debug for Keys<'_, V> {
 impl<V> Default for Keys<'_, V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Keys` is empty.
+        unsafe { Self::from_keys_unchecked(Default::default()) }
     }
 }
 
@@ -1425,7 +1432,8 @@ impl<V: Debug> Debug for IntoKeys<V> {
 impl<V> Default for IntoKeys<V> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoKeys` is empty.
+        unsafe { Self::from_into_keys_unchecked(Default::default()) }
     }
 }
 

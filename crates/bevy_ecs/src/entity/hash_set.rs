@@ -291,7 +291,8 @@ impl FusedIterator for Iter<'_> {}
 impl Clone for Iter<'_> {
     #[inline]
     fn clone(&self) -> Self {
-        Self(self.0.clone(), PhantomData)
+        // SAFETY: We are cloning an already valid `Iter`.
+        unsafe { Self::from_iter_unchecked(self.0.clone()) }
     }
 }
 
@@ -304,7 +305,8 @@ impl Debug for Iter<'_> {
 impl Default for Iter<'_> {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `Iter` is empty.
+        unsafe { Self::from_iter_unchecked(Default::default()) }
     }
 }
 
@@ -373,7 +375,8 @@ impl Debug for IntoIter {
 impl Default for IntoIter {
     #[inline]
     fn default() -> Self {
-        Self(Default::default(), PhantomData)
+        // SAFETY: `IntoIter` is empty.
+        unsafe { Self::from_into_iter_unchecked(Default::default()) }
     }
 }
 
