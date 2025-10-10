@@ -89,8 +89,8 @@ impl Default for TextNodeFlags {
 ///
 /// // With spans
 /// world.spawn(Text::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text::new("world"));
+///     parent.spawn((Text::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]

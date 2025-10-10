@@ -293,7 +293,7 @@ fn setup_sticks(
                     TextWithAxes { x_axis, y_axis },
                     children![
                         (TextSpan(format!("{:.3}", 0.)), style.clone()),
-                        (TextSpan::new(", "), style.clone()),
+                        (Text::new(", "), style.clone()),
                         (TextSpan(format!("{:.3}", 0.)), style),
                     ]
                 ),
@@ -369,7 +369,7 @@ fn setup_connected(mut commands: Commands) {
             ..default()
         },
         ConnectedGamepadsText,
-        children![TextSpan::new("None")],
+        children![Text::new("None")],
     ));
 }
 

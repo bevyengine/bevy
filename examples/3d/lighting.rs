@@ -220,7 +220,7 @@ fn setup(
             ..default()
         },
         children![
-            TextSpan::new("Ambient light is on\n"),
+            Text::new("Ambient light is on\n"),
             TextSpan(format!("Aperture: f/{:.0}\n", parameters.aperture_f_stops,)),
             TextSpan(format!(
                 "Shutter speed: 1/{:.0}s\n",
@@ -230,15 +230,15 @@ fn setup(
                 "Sensitivity: ISO {:.0}\n",
                 parameters.sensitivity_iso
             )),
-            TextSpan::new("\n\n"),
-            TextSpan::new("Controls\n"),
-            TextSpan::new("---------------\n"),
-            TextSpan::new("Arrow keys - Move objects\n"),
-            TextSpan::new("Space - Toggle ambient light\n"),
-            TextSpan::new("1/2 - Decrease/Increase aperture\n"),
-            TextSpan::new("3/4 - Decrease/Increase shutter speed\n"),
-            TextSpan::new("5/6 - Decrease/Increase sensitivity\n"),
-            TextSpan::new("R - Reset exposure"),
+            Text::new("\n\n"),
+            Text::new("Controls\n"),
+            Text::new("---------------\n"),
+            Text::new("Arrow keys - Move objects\n"),
+            Text::new("Space - Toggle ambient light\n"),
+            Text::new("1/2 - Decrease/Increase aperture\n"),
+            Text::new("3/4 - Decrease/Increase shutter speed\n"),
+            Text::new("5/6 - Decrease/Increase sensitivity\n"),
+            Text::new("R - Reset exposure"),
         ],
     ));
 

@@ -149,7 +149,7 @@ fn build_ui(
 
             // Add a text section for displaying the cursor for this system
             text_spans.push((
-                TextSpan::new("   "),
+                Text::new("   "),
                 TextFont::default(),
                 TextColor(FONT_COLOR),
             ));

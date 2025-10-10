@@ -73,8 +73,8 @@ use core::any::TypeId;
 ///
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
-///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+///     parent.spawn(Text2d::new("world"));
+///     parent.spawn((Text2d::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]

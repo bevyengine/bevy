@@ -172,7 +172,7 @@ fn setup(
                 FpsText,
                 Pickable::IGNORE,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .with_child((Text::default(), overlay_config.text_config.clone()));
 
             let font_size = overlay_config.text_config.font_size;
             p.spawn((
