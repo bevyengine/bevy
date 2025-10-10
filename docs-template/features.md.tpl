@@ -39,9 +39,9 @@ collections to build your own "profile" equivalent, without needing to manually 
 
 ### Feature List
 
-This is the complete `bevy` cargo feature list (sorted by name):
+This is the complete `bevy` cargo feature list, without "profiles" or "collections" (sorted by name):
 
 |Feature|Description|
 |-|-|
-{% for feature in sorted_features %}|{{ feature.name }}|{{ feature.description }}|
-{% endfor %}
+{% for feature in sorted_features %}{% if feature.is_collection == False and feature.is_profile == False %}|{{ feature.name }}|{{ feature.description }}|
+{% endif %}{% endfor %}

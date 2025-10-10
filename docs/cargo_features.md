@@ -4,12 +4,12 @@
 
 ## Cargo Features
 
-Bevy exposes many features to customize the engine. Enabling them adds functionality but may come at the cost of longer compilation times
+Bevy exposes many Cargo features to customize the engine. Enabling them adds functionality but may come at the cost of longer compilation times
 and extra dependencies.
 
 ### Profiles
 
-"Profiles" are high-level collections of cargo features that give the full bevy experience, but scoped to a specific domain.
+"Profiles" are high-level collections of cargo features that provide the full Bevy experience, but scoped to a specific domain.
 These exist to be paired with `default-features = false`, enabling compiling only the subset of Bevy that you need.
 This can cut down compile times and shrink your final binary size.
 
@@ -59,12 +59,6 @@ This is the complete `bevy` cargo feature list (sorted by name):
 
 |Feature|Description|
 |-|-|
-|2d|The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.|
-|2d_api|Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|2d_bevy_render|Bevy's built-in 2D renderer, built on top of `bevy_render` |
-|3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
-|3d_api|Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|3d_bevy_render|Bevy's built-in 3D renderer, built on top of `bevy_render` |
 |accesskit_unix|Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android-native-activity|Android NativeActivity support. Legacy, should be avoided for most new Android games.|
@@ -72,7 +66,6 @@ This is the complete `bevy` cargo feature list (sorted by name):
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|audio|Features used to build audio Bevy apps.|
 |basis-universal|Basis Universal compressed texture support|
 |bevy_animation|Provides animation functionality|
 |bevy_anti_alias|Provides various anti aliasing solutions|
@@ -113,20 +106,14 @@ This is the complete `bevy` cargo feature list (sorted by name):
 |bevy_winit|winit window and input backend|
 |bluenoise_texture|Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere|
 |bmp|BMP image format support|
-|common_api|Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).|
 |compressed_image_saver|Enables compressed KTX2 UASTC texture output on the asset processor|
 |critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |custom_cursor|Enable winit custom cursor support|
 |dds|DDS compressed texture support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
-|default|The full default Bevy experience. This is a combination of the following profiles: 2d, 3d, ui|
-|default_app|The core pieces that most apps need. This serves as a baseline feature set for other higher level feature collections (such as "2d" and "3d"). It is also useful as a baseline feature set for scenarios like headless apps that require no rendering (ex: command line tools, servers, etc).|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
-|default_no_std|Recommended defaults for no_std applications|
-|default_platform|These are platform support features, such as OS support/features, windowing and input backends, etc.|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
-|dev|Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!|
 |dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
@@ -164,7 +151,6 @@ This is the complete `bevy` cargo feature list (sorted by name):
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
-|picking|Enables picking functionality|
 |png|PNG image format support|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
@@ -173,7 +159,6 @@ This is the complete `bevy` cargo feature list (sorted by name):
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
-|scene|Features used to compose Bevy scenes.|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
@@ -198,9 +183,6 @@ This is the complete `bevy` cargo feature list (sorted by name):
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
-|ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
-|ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
-|ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render` |
 |ui_picking|Provides an implementation for picking UI|
 |vorbis|OGG/VORBIS audio format support|
 |wav|WAV audio format support|
