@@ -1,7 +1,7 @@
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, relationship::Relationship};
 
-use crate::{ComputedTextBlock, TextEntities, TextFont, TextLayoutInfo};
+use crate::{ComputedTextBlock, TextEntities, TextLayoutInfo};
 
 #[derive(Component, Debug, PartialEq, Eq, Deref)]
 #[relationship_target(relationship = TextOutput, linked_spawn)]
@@ -37,10 +37,9 @@ impl Default for TextTarget {
 /// Update text roots
 pub fn update_text_roots_system(
     mut commands: Commands,
-    orphan_query: Query<Entity, (With<TextSection>, Without<ChildOf>, Without<TextSection>)>,
-    child_query: Query<(Entity, &ChildOf, Has<TextSection>), With<TextFont>>,
+    orphan_query: Query<Entity, (With<TextSection>, Without<ChildOf>, Without<TextRoot>)>,
+    child_query: Query<(Entity, &ChildOf, Has<TextRoot>), With<TextSection>>,
     parent_query: Query<&TextSection>,
-    non_text_root_query: Query<Entity, (With<TextRoot>, Without<TextSection>)>,
 ) {
     for orphan_id in orphan_query.iter() {
         commands.spawn(TextOutput(orphan_id));
@@ -55,10 +54,6 @@ pub fn update_text_roots_system(
             // Root entity is not already a root
             commands.spawn(TextOutput(child_id));
         }
-    }
-
-    for id in non_text_root_query.iter() {
-        commands.entity(id).remove::<TextRoot>();
     }
 }
 
@@ -88,15 +83,6 @@ pub fn detect_changed_text_() {}
 mod tests {
     use super::*;
     use bevy_app::{App, Update};
-    use bevy_ecs::relationship::DescendantIter;
-
-    #[derive(Component, Debug, PartialEq, Eq)]
-    #[relationship_target(relationship = TestLayout, linked_spawn)]
-    struct TestRoot(Entity);
-
-    #[derive(Component, Debug, PartialEq, Eq)]
-    #[relationship(relationship_target = TestRoot)]
-    struct TestLayout(Entity);
 
     #[derive(Component)]
     #[require(TextTarget, TextSection)]
@@ -115,12 +101,12 @@ mod tests {
 
         let world = app.world_mut();
 
-        let (_, root) = world.query::<(&Text, &TestRoot)>().single(world).unwrap();
+        let (_, root) = world.query::<(&Text, &TextRoot)>().single(world).unwrap();
 
         let target_id = root.0;
 
         let (layout_id, layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -142,12 +128,12 @@ mod tests {
 
         let world = app.world_mut();
 
-        let (_, root) = world.query::<(&Text, &TestRoot)>().single(world).unwrap();
+        let (_, root) = world.query::<(&Text, &TextRoot)>().single(world).unwrap();
 
         let target_id = root.0;
 
         let (layout_id, layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -156,7 +142,7 @@ mod tests {
 
         world.despawn(root_id);
 
-        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 0);
+        assert_eq!(world.query::<&TextOutput>().iter(world).count(), 0);
     }
 
     #[test]
@@ -173,12 +159,12 @@ mod tests {
 
         let world = app.world_mut();
 
-        let (_, root) = world.query::<(&Text, &TestRoot)>().single(world).unwrap();
+        let (_, root) = world.query::<(&Text, &TextRoot)>().single(world).unwrap();
 
         let target_id = root.0;
 
         let (layout_id, layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -203,7 +189,7 @@ mod tests {
         let world = app.world_mut();
 
         let (root_id, _, root) = world
-            .query::<(Entity, &Text, &TestRoot)>()
+            .query::<(Entity, &Text, &TextRoot)>()
             .single(world)
             .unwrap();
 
@@ -212,7 +198,7 @@ mod tests {
         let target_id = root.0;
 
         let (layout_id, layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -234,12 +220,12 @@ mod tests {
 
         let world = app.world_mut();
 
-        let (_, root) = world.query::<(&Text, &TestRoot)>().single(world).unwrap();
+        let (_, root) = world.query::<(&Text, &TextRoot)>().single(world).unwrap();
 
         let target_id = root.0;
 
         let (layout_id, layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -252,7 +238,7 @@ mod tests {
         let world = app.world_mut();
 
         let (new_root_id, _, root) = world
-            .query::<(Entity, &Text, &TestRoot)>()
+            .query::<(Entity, &Text, &TextRoot)>()
             .single(world)
             .unwrap();
 
@@ -262,7 +248,7 @@ mod tests {
         assert_ne!(root_layout_id, layout_id);
 
         let (new_layout_id, new_layout) = world
-            .query::<(Entity, &TestLayout)>()
+            .query::<(Entity, &TextOutput)>()
             .single(world)
             .unwrap();
 
@@ -271,27 +257,55 @@ mod tests {
     }
 
     #[test]
-    pub fn test_a_text_root_that_becomes_non_text_is_not_a_root() {
+    pub fn test_text_entities_contains_root() {
         let mut app = App::new();
 
-        app.add_systems(Update, update_text_roots_system);
+        app.add_systems(
+            Update,
+            (update_text_roots_system, update_text_entities_system).chain(),
+        );
 
         let world = app.world_mut();
 
-        let root_id = world.spawn(Text).id();
+        let id = world.spawn(Text).id();
 
         app.update();
+
         let world = app.world_mut();
 
-        assert_eq!(world.query::<&TestRoot>().iter(world).count(), 1);
-        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 1);
+        let entities = world.query::<&TextEntities>().single(world).unwrap();
 
-        world.entity_mut(root_id).remove::<Text>();
+        assert_eq!(entities.len(), 1);
+        assert_eq!(entities.0[0], id);
+    }
+
+    #[test]
+    pub fn test_number_of_texts_and_length_of_text_entities_is_equal() {
+        let mut app = App::new();
+
+        app.add_systems(
+            Update,
+            (update_text_roots_system, update_text_entities_system)
+                .chain()
+                .chain(),
+        );
+
+        let world = app.world_mut();
+        world.spawn((
+            Text,
+            children![Text, (Text, children![Text, Text]), Text, Text],
+        ));
 
         app.update();
-        let world = app.world_mut();
 
-        assert_eq!(world.query::<&TestRoot>().iter(world).count(), 0);
-        assert_eq!(world.query::<&TestLayout>().iter(world).count(), 0);
+        let world = app.world_mut();
+        let sections = world.query::<&TextEntities>().single(world).unwrap();
+        assert_eq!(sections.len(), 7);
+
+        app.update();
+
+        let world = app.world_mut();
+        let sections = world.query::<&TextEntities>().single(world).unwrap();
+        assert_eq!(sections.len(), 7);
     }
 }
