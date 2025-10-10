@@ -134,29 +134,29 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// #[derive(EntityEvent)]
 /// struct Explode(#[event_target] Entity);
 /// ```
-/// 
+///
 /// You may also use any type which implements [`ContainsEntity`](crate::entity::ContainsEntity) as the event target:
-/// 
+///
 /// ```
-/// # use bevy_ecs::prelude::*; 
+/// # use bevy_ecs::prelude::*;
 /// struct Bomb(Entity);
-/// 
+///
 /// impl ContainsEntity for Bomb {
 ///     fn entity(&self) -> Entity {
 ///         self.0
 ///     }
 /// }
-/// 
+///
 /// #[derive(EntityEvent)]
 /// struct Explode(Bomb);
 /// ```
-/// 
+///
 /// By default, an [`EntityEvent`] is immutable. This means the event data, including the target, does not change while the event
 /// is triggered. However, to support event propagation, your event must also implement the [`SetEntityEventTarget`] trait.
-/// 
-/// This trait is automatically implemented for you if you enable event propagation: 
+///
+/// This trait is automatically implemented for you if you enable event propagation:
 /// ```
-/// # use bevy_ecs::prelude::*; 
+/// # use bevy_ecs::prelude::*;
 /// #[derive(EntityEvent)]
 /// #[entity_event(propagate)]
 /// struct Explode(Entity);
