@@ -716,6 +716,9 @@ mod tests {
             AssetWatcher, Reader,
         },
         loader::{AssetLoader, LoadContext},
+        processor::{
+            AssetProcessor, LogEntry, ProcessorTransactionLog, ProcessorTransactionLogFactory,
+        },
         saver::AssetSaver,
         transformer::{AssetTransformer, TransformedAsset},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetMode,
@@ -741,6 +744,7 @@ mod tests {
         sync::Mutex,
     };
     use bevy_reflect::TypePath;
+    use bevy_tasks::BoxedFuture;
     use core::{marker::PhantomData, time::Duration};
     use crossbeam_channel::Sender;
     use futures_lite::AsyncWriteExt;
@@ -2289,6 +2293,52 @@ mod tests {
             },
         ));
 
+        /// A dummy transaction log factory that just creates [`FakeTransactionLog`].
+        struct FakeTransactionLogFactory;
+
+        impl ProcessorTransactionLogFactory for FakeTransactionLogFactory {
+            fn read(&self) -> BoxedFuture<'_, Result<Vec<LogEntry>, BevyError>> {
+                Box::pin(async move { Ok(vec![]) })
+            }
+
+            fn create_new_log(
+                &self,
+            ) -> BoxedFuture<'_, Result<Box<dyn ProcessorTransactionLog>, BevyError>> {
+                Box::pin(async move { Ok(Box::new(FakeTransactionLog) as _) })
+            }
+        }
+
+        /// A dummy transaction log that just drops every log.
+        // TODO: In the future it's possible for us to have a test of the transaction log, so making
+        // this more complex may be necessary.
+        struct FakeTransactionLog;
+
+        impl ProcessorTransactionLog for FakeTransactionLog {
+            fn begin_processing<'a>(
+                &'a mut self,
+                asset: &'a AssetPath<'_>,
+            ) -> BoxedFuture<'a, Result<(), BevyError>> {
+                Box::pin(async move { Ok(()) })
+            }
+
+            fn end_processing<'a>(
+                &'a mut self,
+                asset: &'a AssetPath<'_>,
+            ) -> BoxedFuture<'a, Result<(), BevyError>> {
+                Box::pin(async move { Ok(()) })
+            }
+
+            fn unrecoverable(&mut self) -> BoxedFuture<'_, Result<(), BevyError>> {
+                Box::pin(async move { Ok(()) })
+            }
+        }
+
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .set_log_factory(Box::new(FakeTransactionLogFactory))
+            .unwrap();
+
         AppWithProcessor {
             app,
             source_dir,
@@ -2379,7 +2429,7 @@ mod tests {
     }
 
     #[cfg(feature = "multi_threaded")]
-    use crate::processor::{AssetProcessor, LoadTransformAndSave};
+    use crate::processor::LoadTransformAndSave;
 
     // The asset processor currently requires multi_threaded.
     #[cfg(feature = "multi_threaded")]
