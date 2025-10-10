@@ -2141,7 +2141,7 @@ bitflags::bitflags! {
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
             Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
-			Self::DEPTH_STENCIL_TEXTURE_FORMAT_RESERVED_BITS.bits();
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_RESERVED_BITS.bits();
     }
 }
 
