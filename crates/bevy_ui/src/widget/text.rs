@@ -284,9 +284,7 @@ pub fn measure_text_system(
     for (entity, root, block, computed_target, computed_node, content_size, text_flags) in
         text_root_query.iter_mut()
     {
-        println!("measure root: {entity}");
         let Ok((computed, sections)) = text_output_query.get_mut(root.get()) else {
-            println!("no output");
             continue;
         };
 
