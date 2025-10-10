@@ -23,7 +23,6 @@ bevy = { version = "0.17", default-features = false, features = ["2d"] }
 |-|-|
 {% for feature in features %}{% if feature.is_profile %}|{{ feature.name }}|{{ feature.description }}|
 {% endif %}{% endfor %}
-
 By default, the `bevy` crate enables the {% for feature in features %}{% if feature.is_default %}`{{ feature.name }}`{% endif %}{% endfor %} features.
 
 ### Collections
@@ -36,7 +35,6 @@ collections to build your own "profile" equivalent, without needing to manually 
 |-|-|
 {% for feature in features %}{% if feature.is_collection %}|{{ feature.name }}|{{ feature.description }}|
 {% endif %}{% endfor %}
-
 ### Feature List
 
 This is the complete `bevy` cargo feature list, without "profiles" or "collections" (sorted by name):

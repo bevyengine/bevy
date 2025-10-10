@@ -26,7 +26,6 @@ bevy = { version = "0.17", default-features = false, features = ["2d"] }
 |3d|The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.|
 |ui|The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.|
 
-
 By default, the `bevy` crate enables the  features.
 
 ### Collections
@@ -51,7 +50,6 @@ collections to build your own "profile" equivalent, without needing to manually 
 |ui_api|Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.|
 |ui_bevy_render|Bevy's built-in UI renderer, built on top of `bevy_render` |
 |default_no_std|Recommended defaults for no_std applications|
-
 
 ### Feature List
 
