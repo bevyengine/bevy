@@ -326,6 +326,7 @@ impl<'w> ComponentsRegistrator<'w> {
             // SAFETY:
             // - The IsResource component id matches
             // - The constructor constructs an IsResource
+            // - The id is valid because the component was just registered
             unsafe {
                 let _ = self.components.register_required_components::<IsResource>(
                     id,

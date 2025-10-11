@@ -139,7 +139,7 @@ pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContex
         deferred_world.commands().entity(offending_entity).despawn();
     }
 
-    // SAFETY: We have exclusive world access.
+    // SAFETY: We have exclusive world access (as long as we don't make structural changes).
     let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
     // SAFETY: There are no shared references to the map.
     // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
@@ -153,7 +153,7 @@ pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookCon
     if let Some(entity) = world.resource_entities.get(context.component_id)
         && *entity == context.entity
     {
-        // SAFETY: We have exclusive world access.
+        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
         let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
         // SAFETY: There are no shared references to the map.
         // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),

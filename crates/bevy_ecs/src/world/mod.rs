@@ -3073,7 +3073,6 @@ impl World {
         }
         self.resource_entities.clear();
         self.storages.non_send_resources.clear();
-        self.storages.non_send_resources.clear();
     }
 
     /// Registers all of the components in the given [`Bundle`] and returns both the component
