@@ -475,9 +475,10 @@ impl Bundles {
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
-                    // SAFETY: `explicit_bundle_id` is valid and defined above
                     let contributed = self
-                        .get_unchecked(explicit_bundle_id)
+                        .get(explicit_bundle_id)
+                        // SAFETY: `explicit_bundle_id` is valid as it was just registered above
+                        .debug_checked_unwrap()
                         .contributed_components();
                     (contributed.as_ptr(), contributed.len())
                 };
@@ -488,12 +489,6 @@ impl Bundles {
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
         }
-    }
-
-    /// # Safety
-    /// A [`BundleInfo`] with the given [`BundleId`] must have been initialized for this instance of `Bundles`.
-    pub(crate) unsafe fn get_unchecked(&self, id: BundleId) -> &BundleInfo {
-        self.bundle_infos.get_unchecked(id.0)
     }
 
     /// # Safety

@@ -10,6 +10,7 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
+    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -43,7 +44,9 @@ impl<'w> BundleSpawner<'w> {
         bundle_id: BundleId,
         change_tick: Tick,
     ) -> Self {
-        let bundle_info = world.bundles.get_unchecked(bundle_id);
+        let bundle_info = world.bundles.get(bundle_id);
+        // SAFETY: The caller must ensure that bundle_id is valid within world.bundles, so this cannot be None
+        let bundle_info = unsafe { bundle_info.debug_checked_unwrap() };
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
@@ -52,8 +55,12 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
         );
 
-        let archetype = &mut world.archetypes[new_archetype_id];
-        let table = &mut world.storages.tables[archetype.table_id()];
+        let archetype = world.archetypes.get_mut(new_archetype_id);
+        // SAFETY: The archetypes was just created in `insert_bundle_into_archetype`
+        let archetype = unsafe { archetype.debug_checked_unwrap() };
+        let table = world.storages.tables.get_mut(archetype.table_id());
+        // SAFETY: The archetype must point to a valid table.
+        let table = unsafe { table.debug_checked_unwrap() };
         let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),

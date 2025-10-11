@@ -59,9 +59,6 @@ impl<T> ThinArrayPtr<T> {
     /// # Panics
     /// - Panics if the new capacity overflows `isize::MAX` bytes.
     /// - Panics if the allocation causes an out-of-memory error.
-    ///
-    /// # Panics
-    /// - Panics if the new capacity overflows `usize`
     pub fn alloc(&mut self, capacity: NonZeroUsize) {
         self.set_capacity(capacity.get());
         if size_of::<T>() != 0 {
