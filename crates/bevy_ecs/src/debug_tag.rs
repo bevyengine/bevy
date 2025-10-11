@@ -1,12 +1,11 @@
 //! XXX TODO: Document.
 
 use crate::component::Component;
-
-use alloc::{borrow::Cow, string::String};
+use alloc::borrow::Cow;
 
 #[cfg(feature = "serialize")]
 use {
-    alloc::string::ToString,
+    alloc::string::{String, ToString},
     serde::{
         de::{Error, Visitor},
         Deserialize, Deserializer, Serialize, Serializer,
@@ -130,5 +129,46 @@ impl core::fmt::Debug for DebugTag {
         f.write_str(DEBUG_TAG_DISABLED)?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::format;
+
+    #[test]
+    fn test_debug_format() {
+        #[cfg(feature = "debug_tag")]
+        let expected = "hello";
+
+        #[cfg(not(feature = "debug_tag"))]
+        let expected = DEBUG_TAG_DISABLED;
+
+        let tag = DebugTag::new(expected);
+
+        assert_eq!(format!("{tag:?}"), expected);
+    }
+}
+
+#[cfg(all(test, feature = "serialize"))]
+mod serde_tests {
+    use super::*;
+    use serde_test::{assert_ser_tokens, Token};
+
+    #[test]
+    fn test_serde() {
+        #[cfg(feature = "debug_tag")]
+        let expected = "hello";
+
+        #[cfg(not(feature = "debug_tag"))]
+        let expected = DEBUG_TAG_DISABLED;
+
+        let tag = DebugTag::new(expected);
+        let tokens = &[Token::String(expected)];
+
+        // TODO: Also test deserialization? We can't use `serde_test::assert_de_tokens`
+        // as it requires the value to be `PartialEq`.
+        assert_ser_tokens(&tag, tokens);
     }
 }
