@@ -25,12 +25,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// XXX TODO: Document
 #[derive(Component, Clone)]
 #[cfg_attr(
-    all(feature = "debug_tag", feature = "bevy_reflect"),
+    feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Component, Default, Debug, Clone, /*TODO? Hash, PartialEq*/)
+    reflect(Component, Default, Debug, Clone)
 )]
 #[cfg_attr(
-    all(feature = "debug_tag", feature = "serialize", feature = "bevy_reflect"),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
 pub struct DebugTag {
