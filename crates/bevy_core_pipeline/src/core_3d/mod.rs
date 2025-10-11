@@ -47,9 +47,6 @@ pub mod graph {
     }
 }
 
-// PERF: vulkan docs recommend using 24 bit depth for better performance
-pub const CORE_3D_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
-
 /// True if multisampled depth textures are supported on this platform.
 ///
 /// In theory, Naga supports depth textures on WebGL 2. In practice, it doesn't,

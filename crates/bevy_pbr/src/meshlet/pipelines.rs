@@ -1,7 +1,7 @@
 use super::resource_manager::ResourceManager;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DownsampleDepthShader,
+    experimental::mip_generation::DownsampleDepthShader,
     FullscreenShader,
 };
 use bevy_ecs::{
@@ -431,7 +431,7 @@ pub fn init_meshlet_pipelines(
             layout: vec![resolve_depth_layout],
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: TextureFormat::Depth32Float,	//TODO: make this dependent on views depth stencil format
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Always,
                 stencil: StencilState::default(),
@@ -451,7 +451,7 @@ pub fn init_meshlet_pipelines(
             layout: vec![resolve_depth_shadow_view_layout],
             vertex: vertex_state.clone(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: TextureFormat::Depth32Float,	//TODO: make this dependent on views depth stencil format
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::Always,
                 stencil: StencilState::default(),

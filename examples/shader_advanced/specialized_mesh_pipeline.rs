@@ -9,7 +9,7 @@
 use bevy::{
     asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey},
     ecs::component::Tick,
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
@@ -245,7 +245,7 @@ impl SpecializedMeshPipeline for CustomMeshPipeline {
             // Note that if your view has no depth buffer this will need to be
             // changed.
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: mesh_key.depth_stencil_format(),
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: default(),
