@@ -34,14 +34,21 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct DebugTag {
     #[cfg(feature = "debug_tag")]
-    name: Cow<'static, str>,
+    tag: Cow<'static, str>,
 }
 
 impl DebugTag {
     /// XXX TODO: Document
-    pub fn new(_name: impl Into<Cow<'static, str>>) -> Self {
+    #[cfg_attr(
+        not(feature = "debug_tag"),
+        expect(
+            unused_variables,
+            reason = "The value will be ignored if the `debug_tag` feature is not enabled"
+        )
+    )]
+    pub fn new(tag: impl Into<Cow<'static, str>>) -> Self {
         #[cfg(feature = "debug_tag")]
-        let out = Self { name: _name.into() };
+        let out = Self { tag: tag.into() };
 
         #[cfg(not(feature = "debug_tag"))]
         let out = Self {};
@@ -78,7 +85,7 @@ impl Default for DebugTag {
 impl Serialize for DebugTag {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         #[cfg(feature = "debug_tag")]
-        let out = serializer.serialize_str(&self.name);
+        let out = serializer.serialize_str(&self.tag);
 
         // XXX TODO: Think this through. Any potential for issues if it's serialized
         // when disabled but then deserialized when enabled? Depends on use cases.
@@ -123,7 +130,7 @@ impl core::fmt::Debug for DebugTag {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         #[cfg(feature = "debug_tag")]
-        f.write_str(self.name.as_ref())?;
+        f.write_str(self.tag.as_ref())?;
 
         #[cfg(not(feature = "debug_tag"))]
         f.write_str(DEBUG_TAG_DISABLED)?;
