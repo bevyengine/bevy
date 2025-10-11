@@ -196,8 +196,8 @@ pub fn run_freecam_controller(
     if amount != 0.0 {
         let factor = bevy_math::ops::exp(controller.scroll_factor * amount);
         controller.walk_speed = (controller.walk_speed * factor).clamp(0.0, f32::MAX);
-        controller.run_speed = controller.walk_speed * 3.0;
     }
+    controller.run_speed = controller.walk_speed * 3.0;
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;
