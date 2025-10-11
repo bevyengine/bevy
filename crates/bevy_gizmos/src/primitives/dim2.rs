@@ -32,24 +32,25 @@ const INFINITE_LEN: f32 = 100_000.0;
 /// A trait for rendering 2D geometric primitives (`P`) with [`GizmoBuffer`].
 ///
 /// When implementing `GizmoPrimitive2d<P>`, if you require a builder `MyBuilder` to set non-default values,
-/// implement [`GizmoBlueprint2d`] for the builder `MyBuilder` and set `type Output<'a> = GizmoBuilder2d<'a, MyBuilder, Config, Clear>` ([`GizmoBuilder2d`]).
+/// implement [`GizmoBlueprint2d`] for the builder `MyBuilder` and set `type Output<'builder, 'primitive> = GizmoBuilder2d<'builder, MyBuilder, Config, Clear>` ([`GizmoBuilder2d`]).
 ///
-/// If you don't require a custom builder you can use [`NoConfigBuilder2d`] (`type Output<'a> = GizmoBuilder2d<'a, NoConfigBuilder2d<P>, Config, Clear>`)
+/// If you don't require a custom builder you can use [`NoConfigBuilder2d`] (`type Output<'builder, 'primitive> = GizmoBuilder2d<'builder, NoConfigBuilder2d<P>, Config, Clear>`)
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
     ///
-    /// If you do not require a builder, you can set `type Output<'a> = ()`.
-    type Output<'a>
+    /// If you do not require a builder, you can set `type Output<'builder, 'primitive> = ()`.
+    type Output<'builder, 'primitive>
     where
-        Self: 'a;
+        Self: 'builder,
+        P: 'primitive;
 
     /// Renders a 2D primitive with its associated details.
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &P,
+        primitive: &'primitive P,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_>;
+    ) -> Self::Output<'_, 'primitive>;
 }
 
 /// A type that provides the data to construct a Gizmo.
@@ -65,14 +66,18 @@ pub trait GizmoBlueprint2d {
 
 /// A type that generates a builder `Blueprint2d`
 pub trait ToGizmoBlueprint2d {
-    /// The builder type
-    type Blueprint2d: GizmoBlueprint2d;
+    /// The builder type.
+    ///
+    /// Supports borrowing the data from the primitive if required
+    type Blueprint2d<'primitive>: GizmoBlueprint2d
+    where
+        Self: 'primitive;
     /// Construct the builder type
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d;
+    ) -> Self::Blueprint2d<'_>;
 }
 
 /// This is essentially a scope guard that runs the inner builder's [`GizmoBlueprint2d::build_2d`] method on drop.
@@ -80,29 +85,30 @@ pub trait ToGizmoBlueprint2d {
 /// Provides access to the "blueprint" via the `Deref`/`DerefMut` traits for configuration purposes.
 ///
 /// See the documentation for [`GizmoPrimitive2d`].
-pub struct GizmoBuilder2d<'a, Blueprint, Config, Clear>
+pub struct GizmoBuilder2d<'builder, Blueprint, Config, Clear>
 where
     Blueprint: GizmoBlueprint2d,
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut GizmoBuffer<Config, Clear>,
+    gizmos: &'builder mut GizmoBuffer<Config, Clear>,
     data: Blueprint,
 }
 
-impl<'a, Blueprint, Config, Clear> GizmoBuilder2d<'a, Blueprint, Config, Clear>
+impl<'builder, Blueprint, Config, Clear> GizmoBuilder2d<'builder, Blueprint, Config, Clear>
 where
     Blueprint: GizmoBlueprint2d,
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
     /// Construct a new `GizmoBuilder` from a `GizmoBuffer` and `Data` that implements `Primitive2dGizmoBuilder`
-    pub fn new(gizmos: &'a mut GizmoBuffer<Config, Clear>, data: Blueprint) -> Self {
+    pub fn new(gizmos: &'builder mut GizmoBuffer<Config, Clear>, data: Blueprint) -> Self {
         Self { gizmos, data }
     }
 }
 
-impl<'a, Blueprint, Config, Clear> core::ops::Deref for GizmoBuilder2d<'a, Blueprint, Config, Clear>
+impl<'builder, Blueprint, Config, Clear> core::ops::Deref
+    for GizmoBuilder2d<'builder, Blueprint, Config, Clear>
 where
     Blueprint: GizmoBlueprint2d,
     Config: GizmoConfigGroup,
@@ -115,8 +121,8 @@ where
     }
 }
 
-impl<'a, Blueprint, Config, Clear> core::ops::DerefMut
-    for GizmoBuilder2d<'a, Blueprint, Config, Clear>
+impl<'builder, Blueprint, Config, Clear> core::ops::DerefMut
+    for GizmoBuilder2d<'builder, Blueprint, Config, Clear>
 where
     Blueprint: GizmoBlueprint2d,
     Config: GizmoConfigGroup,
@@ -127,7 +133,7 @@ where
     }
 }
 
-impl<'a, Blueprint, Config, Clear> Drop for GizmoBuilder2d<'a, Blueprint, Config, Clear>
+impl<'builder, Blueprint, Config, Clear> Drop for GizmoBuilder2d<'builder, Blueprint, Config, Clear>
 where
     Blueprint: GizmoBlueprint2d,
     Config: GizmoConfigGroup,
@@ -171,17 +177,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Dir2>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Dir2>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Dir2,
+        primitive: &'primitive Dir2,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -199,13 +205,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Dir2> {
 }
 
 impl ToGizmoBlueprint2d for Dir2 {
-    type Blueprint2d = NoConfigBuilder2d<Dir2>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Dir2>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -217,17 +223,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Arc2d>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Arc2d>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Arc2d,
+        primitive: &'primitive Arc2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -251,13 +257,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Arc2d> {
 }
 
 impl ToGizmoBlueprint2d for Arc2d {
-    type Blueprint2d = NoConfigBuilder2d<Arc2d>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Arc2d>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -269,17 +275,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, crate::circles::Ellipse2dBuilder, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, crate::circles::Ellipse2dBuilder, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Circle,
+        primitive: &'primitive Circle,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         self.circle_2d(isometry, primitive.radius, color)
     }
 }
@@ -293,17 +299,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<CircularSector>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<CircularSector>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &CircularSector,
+        primitive: &'primitive CircularSector,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -342,13 +348,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<CircularSector> {
 }
 
 impl ToGizmoBlueprint2d for CircularSector {
-    type Blueprint2d = NoConfigBuilder2d<CircularSector>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<CircularSector>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -360,17 +366,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<CircularSegment>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<CircularSegment>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &CircularSegment,
+        primitive: &'primitive CircularSegment,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -400,13 +406,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<CircularSegment> {
 }
 
 impl ToGizmoBlueprint2d for CircularSegment {
-    type Blueprint2d = NoConfigBuilder2d<CircularSegment>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<CircularSegment>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -418,17 +424,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, crate::circles::Ellipse2dBuilder, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, crate::circles::Ellipse2dBuilder, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d<'a>(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Ellipse,
+        primitive: &'primitive Ellipse,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         self.ellipse_2d(isometry, primitive.half_size, color)
     }
 }
@@ -473,17 +479,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, Annulus2dBuilder, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, Annulus2dBuilder, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Annulus,
+        primitive: &'primitive Annulus,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -514,13 +520,13 @@ impl GizmoBlueprint2d for Annulus2dBuilder {
 }
 
 impl ToGizmoBlueprint2d for Annulus {
-    type Blueprint2d = Annulus2dBuilder;
+    type Blueprint2d<'primitive> = Annulus2dBuilder;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         Annulus2dBuilder {
             isometry: isometry.into(),
             inner_radius: self.inner_circle.radius,
@@ -539,17 +545,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Rhombus>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Rhombus>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Rhombus,
+        primitive: &'primitive Rhombus,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -573,13 +579,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Rhombus> {
 }
 
 impl ToGizmoBlueprint2d for Rhombus {
-    type Blueprint2d = NoConfigBuilder2d<Rhombus>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Rhombus>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -591,17 +597,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Capsule2d>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Capsule2d>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Capsule2d,
+        primitive: &'primitive Capsule2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -653,13 +659,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Capsule2d> {
 }
 
 impl ToGizmoBlueprint2d for Capsule2d {
-    type Blueprint2d = NoConfigBuilder2d<Capsule2d>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Capsule2d>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -689,17 +695,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, Line2dBuilder, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, Line2dBuilder, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Line2d,
+        primitive: &'primitive Line2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -731,13 +737,13 @@ impl GizmoBlueprint2d for Line2dBuilder {
 }
 
 impl ToGizmoBlueprint2d for Line2d {
-    type Blueprint2d = Line2dBuilder;
+    type Blueprint2d<'primitive> = Line2dBuilder;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         Line2dBuilder {
             direction: self.direction,
             isometry: isometry.into(),
@@ -754,17 +760,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Plane2d>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Plane2d>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Plane2d,
+        primitive: &'primitive Plane2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -807,13 +813,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Plane2d> {
 }
 
 impl ToGizmoBlueprint2d for Plane2d {
-    type Blueprint2d = NoConfigBuilder2d<Plane2d>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Plane2d>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -860,29 +866,29 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, Segment2dBuilder, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, Segment2dBuilder, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Segment2d,
+        primitive: &'primitive Segment2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
 
 impl ToGizmoBlueprint2d for Segment2d {
-    type Blueprint2d = Segment2dBuilder;
+    type Blueprint2d<'primitive> = Segment2dBuilder;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         Segment2dBuilder {
             point1: self.point1(),
             point2: self.point2(),
@@ -901,23 +907,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Polyline2d>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<&'primitive Polyline2d>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Polyline2d,
+        primitive: &'primitive Polyline2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
-        // TODO: evaluate performance cost of clone here
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
 
-impl GizmoBlueprint2d for NoConfigBuilder2d<Polyline2d> {
+impl<'primitive> GizmoBlueprint2d for NoConfigBuilder2d<&'primitive Polyline2d> {
     fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
     where
         Config: GizmoConfigGroup,
@@ -935,15 +940,14 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Polyline2d> {
 }
 
 impl ToGizmoBlueprint2d for Polyline2d {
-    type Blueprint2d = NoConfigBuilder2d<Polyline2d>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<&'primitive Polyline2d>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
-        // TODO: evaluate performance cost of clone here
-        NoConfigBuilder2d::new(self.clone(), isometry, color)
+    ) -> Self::Blueprint2d<'_> {
+        NoConfigBuilder2d::new(self, isometry, color)
     }
 }
 
@@ -954,17 +958,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Triangle2d>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Triangle2d>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Triangle2d,
+        primitive: &'primitive Triangle2d,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -982,13 +986,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Triangle2d> {
 }
 
 impl ToGizmoBlueprint2d for Triangle2d {
-    type Blueprint2d = NoConfigBuilder2d<Triangle2d>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Triangle2d>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -1000,17 +1004,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Rectangle>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<Rectangle>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Rectangle,
+        primitive: &'primitive Rectangle,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -1034,13 +1038,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Rectangle> {
 }
 
 impl ToGizmoBlueprint2d for Rectangle {
-    type Blueprint2d = NoConfigBuilder2d<Rectangle>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<Rectangle>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -1052,22 +1056,22 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<Polygon>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<&'primitive Polygon>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &Polygon,
+        primitive: &'primitive Polygon,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
 
-impl GizmoBlueprint2d for NoConfigBuilder2d<Polygon> {
+impl<'primitive> GizmoBlueprint2d for NoConfigBuilder2d<&'primitive Polygon> {
     fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
     where
         Config: GizmoConfigGroup,
@@ -1095,15 +1099,14 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<Polygon> {
 }
 
 impl ToGizmoBlueprint2d for Polygon {
-    type Blueprint2d = NoConfigBuilder2d<Polygon>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<&'primitive Polygon>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
-        // TODO: evaluate performance cost of clone
-        NoConfigBuilder2d::new(self.clone(), isometry, color)
+    ) -> Self::Blueprint2d<'_> {
+        NoConfigBuilder2d::new(self, isometry, color)
     }
 }
 
@@ -1114,17 +1117,17 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    type Output<'a>
-        = GizmoBuilder2d<'a, NoConfigBuilder2d<RegularPolygon>, Config, Clear>
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<'builder, NoConfigBuilder2d<RegularPolygon>, Config, Clear>
     where
-        Self: 'a;
+        Self: 'builder;
 
-    fn primitive_2d(
+    fn primitive_2d<'primitive>(
         &mut self,
-        primitive: &RegularPolygon,
+        primitive: &'primitive RegularPolygon,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Output<'_> {
+    ) -> Self::Output<'_, 'primitive> {
         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
     }
 }
@@ -1149,13 +1152,13 @@ impl GizmoBlueprint2d for NoConfigBuilder2d<RegularPolygon> {
 }
 
 impl ToGizmoBlueprint2d for RegularPolygon {
-    type Blueprint2d = NoConfigBuilder2d<RegularPolygon>;
+    type Blueprint2d<'primitive> = NoConfigBuilder2d<RegularPolygon>;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         NoConfigBuilder2d::new(*self, isometry, color)
     }
 }
@@ -1182,15 +1185,15 @@ impl ToGizmoBlueprint2d for RegularPolygon {
 //     Clear: 'static + Send + Sync,
 //     GizmoBuffer<Config, Clear>: GizmoPrimitive2d<P>,
 // {
-//     type Output<'a> =
-//         GizmoBuilder2d<'a, RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>, Config, Clear>;
+//     type Output<'builder, 'primitive> =
+//         GizmoBuilder2d<'builder, RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>, Config, Clear>;
 
-//     fn primitive_2d(
+//     fn primitive_2d<'primitive>(
 //         &mut self,
-//         primitive: &Ring<P>,
+//         primitive: 'primitive &Ring<P>,
 //         isometry: impl Into<Isometry2d>,
 //         color: impl Into<Color>,
-//     ) -> Self::Output<'_> {
+//     ) -> Self::Output<'_, 'primitive> {
 //         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
 //     }
 // }
@@ -1213,13 +1216,13 @@ impl ToGizmoBlueprint2d for RegularPolygon {
 // where
 //     P: ToGizmoBlueprint2d,
 // {
-//     type Blueprint2d = RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>;
+//     type Blueprint2d<'primitive> = RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>;
 
 //     fn to_blueprint_2d(
 //         &self,
 //         isometry: impl Into<Isometry2d>,
 //         color: impl Into<Color>,
-//     ) -> Self::Blueprint2d {
+//     ) -> Self::Blueprint2d<'_> {
 //         let isometry = isometry.into();
 //         let color = color.into();
 //         RingBuilder {

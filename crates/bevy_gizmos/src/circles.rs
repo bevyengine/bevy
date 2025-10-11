@@ -311,13 +311,13 @@ impl GizmoBlueprint2d for Ellipse2dBuilder {
 }
 
 impl ToGizmoBlueprint2d for Circle {
-    type Blueprint2d = Ellipse2dBuilder;
+    type Blueprint2d<'primitive> = Ellipse2dBuilder;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         Ellipse2dBuilder {
             isometry: isometry.into(),
             half_size: Vec2::splat(self.radius),
@@ -328,13 +328,13 @@ impl ToGizmoBlueprint2d for Circle {
 }
 
 impl ToGizmoBlueprint2d for Ellipse {
-    type Blueprint2d = Ellipse2dBuilder;
+    type Blueprint2d<'primitive> = Ellipse2dBuilder;
 
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
         color: impl Into<Color>,
-    ) -> Self::Blueprint2d {
+    ) -> Self::Blueprint2d<'_> {
         Ellipse2dBuilder {
             isometry: isometry.into(),
             half_size: self.half_size,
