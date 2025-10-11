@@ -125,7 +125,7 @@ impl ScatteringMedium {
                     absorption: Vec3::splat(3.996e-6),
                     scattering: Vec3::splat(0.444e-6),
                     falloff: Falloff::Exponential { scale: 83.5 },
-                    phase: PhaseFunction::Mie { bias: 0.8 },
+                    phase: PhaseFunction::Mie { asymmetry: 0.8 },
                 },
                 ScatteringTerm {
                     absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
@@ -142,33 +142,62 @@ impl ScatteringMedium {
     }
 }
 
+///
 #[derive(Default, Clone)]
 pub struct ScatteringTerm {
+    /// This term's optical obsorption density, or how much light of each wavelength
+    /// it absorbs per meter.
+    ///
+    /// units: m^-1
     pub absorption: Vec3,
+    /// This term's optical scattering density, or how much light of each wavelength
+    /// it scatters per meter.
+    ///
+    /// units: m^-1
     pub scattering: Vec3,
+    /// This term's falloff distribution.
     pub falloff: Falloff,
+    /// This term's [phase function], which determines the character of how it
+    /// scatters light. See the docs on [`PhaseFunction`] for more info.
+    ///
+    /// [phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions
     pub phase: PhaseFunction,
 }
 
+/// A
 #[derive(Default, Clone)]
 pub enum Falloff {
+    /// A simple linear falloff function, which essentially
+    /// passes the falloff parameter through unchanged.
     #[default]
     Linear,
+    /// An exponential falloff function with adjustable strength.
     Exponential {
+        /// The falloff parameter value at which the falloff
+        /// strength will be 1/e
         scale: f32,
     },
+    /// A tent-shaped falloff function, which produces a triangular
+    /// peak at the center and linearly falls off to either side.
     Tent {
+        /// The center of the tent function peak
+        ///
+        /// domain: [0, 1]
         center: f32,
+        /// The total width of the tent function peak
+        ///
+        /// domain: [0, 1]
         width: f32,
     },
     /// A falloff function defined by a custom curve.
     ///
-    /// domain: [0, 1),
+    /// domain: [0, 1],
     /// range: [0, 1],
     Curve(Arc<dyn Curve<f32> + Send + Sync>),
 }
 
 impl Falloff {
+    /// Returns a falloff function corresponding to a custom curve.
     pub fn from_curve(curve: impl Curve<f32> + Send + Sync + 'static) -> Self {
         Self::Curve(Arc::new(curve))
     }
@@ -190,18 +219,44 @@ impl Falloff {
     }
 }
 
-// TODO: make more clear how phase functions really represent the scattering characteristics of
-// their media, and the link to whether it should be wavelength-dependent or not.
+// TODO: research if absorption is also always wavelength (in)dependent,
+// or if only scattering is.
 
 /// Describes how likely a medium is to scatter light in a given direction.
 #[derive(Clone)]
 pub enum PhaseFunction {
+    /// A phase function that scatters light evenly in all directions.
     Isotropic,
+
+    /// A phase function which represents [Rayleigh scattering].
+    ///
+    /// Rayleigh scattering occurs naturally for particles much smaller than
+    /// the wavelengths of visible light, such as gas molecules in the atmosphere.
+    /// It's generally wavelength-dependent, where shorter wavelengths are scattered
+    /// more strongly, so [scattering](ScatteringMedium::scattering) should have
+    /// higher values for blue than green and green than red.
+    ///
+    /// [Rayleigh scattering]: https://en.wikipedia.org/wiki/Rayleigh_scattering
     Rayleigh,
+
+    /// The [Henyey-Greenstein phase function], which approximates [Mie scattering].
+    ///
+    /// Mie scattering occurs naturally for spherical particles of dust
+    /// and aerosols roughly the same size as the wavelengths of visible light,
+    /// so it's useful for representing dust or sea spray for example.
+    /// It's generally wavelength-independent, so [absorption](ScatteringMedium::absorption)
+    /// and [scattering](ScatteringMedium::scattering) should be set to greyscale values.
+    ///
+    /// [Mie scattering]: https://en.wikipedia.org/wiki/Mie_scattering
+    /// [Henyey-Greenstein phase function]: https://www.oceanopticsbook.info/view/scattering/level-2/the-henyey-greenstein-phase-function
     Mie {
+        /// Whether the Mie scattering function is biased towards scattering
+        /// light forwards (asymmetry > 0) or backwards (asymmetry < 0).
+        ///
         /// domain: [-1, 1]
-        bias: f32,
+        asymmetry: f32,
     },
+
     /// A phase function defined by a custom curve, where the input
     /// is the cosine of the angle between the incoming light ray
     /// and the scattered light ray, and the output is the fraction
@@ -234,9 +289,9 @@ impl PhaseFunction {
         match self {
             PhaseFunction::Isotropic => FRAC_4_PI,
             PhaseFunction::Rayleigh => FRAC_3_16_PI * (1.0 + neg_l_dot_v * neg_l_dot_v),
-            PhaseFunction::Mie { bias } => {
-                let denom = 1.0 + bias.squared() - 2.0 * bias * neg_l_dot_v;
-                FRAC_4_PI * (1.0 - bias.squared()) / (denom * denom.sqrt())
+            PhaseFunction::Mie { asymmetry } => {
+                let denom = 1.0 + asymmetry.squared() - 2.0 * asymmetry * neg_l_dot_v;
+                FRAC_4_PI * (1.0 - asymmetry.squared()) / (denom * denom.sqrt())
             }
             PhaseFunction::Curve(curve) => curve.sample(neg_l_dot_v).unwrap_or(0.0),
         }
@@ -245,7 +300,7 @@ impl PhaseFunction {
 
 impl Default for PhaseFunction {
     fn default() -> Self {
-        Self::Mie { bias: 0.8 }
+        Self::Mie { asymmetry: 0.8 }
     }
 }
 
