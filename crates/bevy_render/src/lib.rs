@@ -99,7 +99,7 @@ use bevy_ecs::{
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::PrimaryWindow;
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
@@ -111,6 +111,7 @@ use render_asset::{
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
+use view::surface_target::SurfaceTargetSource;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -315,9 +316,9 @@ impl Plugin for RenderPlugin {
                         future_render_resources_wrapper.clone(),
                     ));
 
-                    let primary_window = app
+                    let primary_window_surface_target_source = app
                         .world_mut()
-                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+                        .query_filtered::<&SurfaceTargetSource, With<PrimaryWindow>>()
                         .single(app.world())
                         .ok()
                         .cloned();
@@ -334,7 +335,7 @@ impl Plugin for RenderPlugin {
                     let async_renderer = async move {
                         let render_resources = renderer::initialize_renderer(
                             backends,
-                            primary_window,
+                            primary_window_surface_target_source,
                             &settings,
                             #[cfg(feature = "raw_vulkan_init")]
                             raw_vulkan_init_settings,

@@ -44,9 +44,7 @@ pub mod prelude {
     };
 }
 
-use alloc::sync::Arc;
 use bevy_app::prelude::*;
-use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -126,10 +124,7 @@ impl Plugin for WindowPlugin {
 
         if let Some(primary_window) = &self.primary_window {
             let mut entity_commands = app.world_mut().spawn(primary_window.clone());
-            entity_commands.insert((
-                PrimaryWindow,
-                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
-            ));
+            entity_commands.insert(PrimaryWindow);
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
             }
