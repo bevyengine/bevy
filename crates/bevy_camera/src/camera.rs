@@ -958,7 +958,7 @@ pub struct CameraMainTextureConfig {
     /// Main texture size. Default: [`None`], i.e. the physical size of the camera.
     pub size: Option<UVec2>,
     /// Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT`] | [`TextureUsages::TEXTURE_BINDING`] | [`TextureUsages::COPY_SRC`].
-    pub usages: TextureUsages,
+    pub usage: TextureUsages,
 }
 
 impl Default for CameraMainTextureConfig {
@@ -967,7 +967,7 @@ impl Default for CameraMainTextureConfig {
             sdr_format: TextureFormat::bevy_default(),
             hdr_format: TextureFormat::Rgba16Float,
             size: None,
-            usages: TextureUsages::RENDER_ATTACHMENT
+            usage: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
         }

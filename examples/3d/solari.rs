@@ -125,7 +125,7 @@ fn setup(
         ),
         // Msaa::Off and main texture usages with STORAGE_BINDING are required for Solari
         CameraMainTextureConfig {
-            usages: CameraMainTextureConfig::default().usages | TextureUsages::STORAGE_BINDING,
+            usage: CameraMainTextureConfig::default().usage | TextureUsages::STORAGE_BINDING,
             ..Default::default()
         },
         Msaa::Off,

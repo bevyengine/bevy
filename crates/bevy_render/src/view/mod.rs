@@ -1073,7 +1073,7 @@ pub fn prepare_view_targets(
         let main_texture_size = texture_config.size.unwrap_or(target_size);
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_config.usages, msaa))
+            .entry((camera.target.clone(), texture_config.usage, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
@@ -1082,7 +1082,7 @@ pub fn prepare_view_targets(
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
-                    usage: texture_config.usages,
+                    usage: texture_config.usage,
                     view_formats: match main_texture_format {
                         TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                         TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
