@@ -2,10 +2,11 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, CameraMainTextureFormat, CameraMainTextureUsages, ClearColor,
-    ClearColorConfig, Exposure, MainPassResolutionOverride, NormalizedRenderTarget,
+    primitives::Frustum, CameraMainTextureConfig, ClearColor, ClearColorConfig, Exposure,
+    MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
+use glam::UVec2;
 pub use visibility::*;
 pub use window::*;
 
@@ -606,6 +607,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
+    main_texture_size: UVec2,
     hdr: bool,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
@@ -809,6 +811,11 @@ impl ViewTarget {
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
+    }
+
+    #[inline]
+    pub fn main_texture_size(&self) -> UVec2 {
+        self.main_texture_size
     }
 
     /// Returns `true` if the view target is using HDR rendering.
@@ -1035,15 +1042,14 @@ pub fn prepare_view_targets(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &CameraMainTextureUsages,
-        &CameraMainTextureFormat,
+        &CameraMainTextureConfig,
         Has<Hdr>,
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, texture_usage, texture_format, hdr, msaa) in cameras.iter() {
+    for (entity, camera, texture_config, hdr, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
             continue;
@@ -1054,9 +1060,9 @@ pub fn prepare_view_targets(
         };
 
         let main_texture_format = if hdr {
-            texture_format.hdr_format
+            texture_config.hdr_format
         } else {
-            texture_format.sdr_format
+            texture_config.sdr_format
         };
 
         let clear_color = match camera.clear_color {
@@ -1065,17 +1071,19 @@ pub fn prepare_view_targets(
             _ => Some(clear_color_global.0),
         };
 
+        let main_texture_size = texture_config.size.unwrap_or(target_size);
+
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, msaa))
+            .entry((camera.target.clone(), texture_config.usages, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size: target_size.to_extents(),
+                    size: main_texture_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
-                    usage: texture_usage.0,
+                    usage: texture_config.usages,
                     view_formats: match main_texture_format {
                         TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                         TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
@@ -1101,7 +1109,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size: target_size.to_extents(),
+                            size: main_texture_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
@@ -1130,6 +1138,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
+            main_texture_size,
             out_texture: out_attachment.clone(),
             hdr,
         });

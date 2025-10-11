@@ -19,9 +19,9 @@ use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
 use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
-    Camera, Camera2d, Camera3d, CameraMainTextureFormat, CameraMainTextureUsages, CameraOutputMode,
-    CameraUpdateSystems, ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle,
-    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
+    Camera, Camera2d, Camera3d, CameraMainTextureConfig, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
+    Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -59,8 +59,7 @@ impl Plugin for CameraPlugin {
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
-                ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-                ExtractComponentPlugin::<CameraMainTextureFormat>::default(),
+                ExtractComponentPlugin::<CameraMainTextureConfig>::default(),
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -100,7 +99,8 @@ impl ExtractResource for ClearColor {
         source.clone()
     }
 }
-impl ExtractComponent for CameraMainTextureUsages {
+
+impl ExtractComponent for CameraMainTextureConfig {
     type QueryData = &'static Self;
     type QueryFilter = ();
     type Out = Self;
@@ -109,15 +109,7 @@ impl ExtractComponent for CameraMainTextureUsages {
         Some(*item)
     }
 }
-impl ExtractComponent for CameraMainTextureFormat {
-    type QueryData = &'static Self;
-    type QueryFilter = ();
-    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::QueryData>) -> Option<Self::Out> {
-        Some(*item)
-    }
-}
 impl ExtractComponent for Camera2d {
     type QueryData = &'static Self;
     type QueryFilter = With<Camera>;
@@ -435,7 +427,7 @@ pub struct CameraQuery<'a> {
     transform: &'a GlobalTransform,
     visible_entities: &'a VisibleEntities,
     frustum: &'a Frustum,
-    camera_main_texture_format: &'a CameraMainTextureFormat,
+    camera_main_texture_config: &'a CameraMainTextureConfig,
     hdr: Has<Hdr>,
     color_grading: Option<&'a ColorGrading>,
     exposure: Option<&'a Exposure>,
@@ -473,7 +465,7 @@ pub fn extract_cameras(
         transform,
         visible_entities,
         frustum,
-        camera_main_texture_format,
+        camera_main_texture_config,
         hdr,
         color_grading,
         exposure,
@@ -565,9 +557,9 @@ pub fn extract_cameras(
                     ),
                     color_grading,
                     target_format: if hdr {
-                        camera_main_texture_format.hdr_format
+                        camera_main_texture_config.hdr_format
                     } else {
-                        camera_main_texture_format.sdr_format
+                        camera_main_texture_config.sdr_format
                     },
                     hdr,
                 },

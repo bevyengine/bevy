@@ -79,7 +79,7 @@ use bevy_render::{
     experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
-    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
+    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity, ViewTarget},
 };
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
@@ -781,13 +781,14 @@ pub fn prepare_core_3d_depth_textures(
         Entity,
         &ExtractedCamera,
         &ExtractedView,
+        &ViewTarget,
         Option<&DepthPrepass>,
         &Camera3d,
         &Msaa,
     )>,
 ) {
     let mut render_target_usage = <HashMap<_, _>>::default();
-    for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
+    for (_, camera, extracted_view, _view_target, depth_prepass, camera_3d, _msaa) in &views_3d {
         if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -809,11 +810,7 @@ pub fn prepare_core_3d_depth_textures(
     }
 
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, _, _, camera_3d, msaa) in &views_3d {
-        let Some(physical_target_size) = camera.physical_target_size else {
-            continue;
-        };
-
+    for (entity, camera, _, view_target, _, camera_3d, msaa) in &views_3d {
         let cached_texture = textures
             .entry((camera.target.clone(), msaa))
             .or_insert_with(|| {
@@ -824,7 +821,7 @@ pub fn prepare_core_3d_depth_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: view_target.main_texture_size().to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

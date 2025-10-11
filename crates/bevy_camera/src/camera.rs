@@ -344,8 +344,7 @@ pub enum ViewportConversionError {
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     Frustum,
-    CameraMainTextureUsages,
-    CameraMainTextureFormat,
+    CameraMainTextureConfig,
     VisibleEntities,
     Transform,
     Visibility
@@ -948,43 +947,29 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// This component lets you control the main texture generated for the camera
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureUsages(pub TextureUsages);
-
-impl Default for CameraMainTextureUsages {
-    fn default() -> Self {
-        Self(
-            TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-        )
-    }
-}
-
-impl CameraMainTextureUsages {
-    pub fn with(mut self, usages: TextureUsages) -> Self {
-        self.0 |= usages;
-        self
-    }
-}
-
-/// This component lets you control the [`TextureFormat`] field of the main texture generated for the camera
-///
-/// By default, bevy will use [`TextureFormat::Rgba8UnormSrgb`] for sdr and [`TextureFormat::Rgba16Float`] for hdr.
-#[derive(Component, Clone, Copy, Reflect)]
-#[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureFormat {
+pub struct CameraMainTextureConfig {
+    // Main texture format when Hdr is off. Default: [`TextureFormat::bevy_default()`].
     pub sdr_format: TextureFormat,
+    // Main texture format when Hdr is on. Default: [`TextureFormat::Rgba16Float`].
     pub hdr_format: TextureFormat,
+    // Main texture size. Default: [`None`], i.e. the physical size of the camera.
+    pub size: Option<UVec2>,
+    // Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC`].
+    pub usages: TextureUsages,
 }
 
-impl Default for CameraMainTextureFormat {
+impl Default for CameraMainTextureConfig {
     fn default() -> Self {
         Self {
             sdr_format: TextureFormat::bevy_default(),
             hdr_format: TextureFormat::Rgba16Float,
+            size: None,
+            usages: TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
         }
     }
 }

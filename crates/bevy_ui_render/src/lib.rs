@@ -19,7 +19,7 @@ pub mod ui_texture_slice_pipeline;
 mod debug_overlay;
 
 use bevy_camera::visibility::InheritedVisibility;
-use bevy_camera::{Camera, Camera2d, Camera3d, CameraMainTextureFormat};
+use bevy_camera::{Camera, Camera2d, Camera3d, CameraMainTextureConfig};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
@@ -753,7 +753,7 @@ pub fn extract_ui_camera_view(
                 Entity,
                 RenderEntity,
                 &Camera,
-                &CameraMainTextureFormat,
+                &CameraMainTextureConfig,
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
@@ -769,7 +769,7 @@ pub fn extract_ui_camera_view(
         main_entity,
         render_entity,
         camera,
-        camera_main_texture_format,
+        camera_main_texture_config,
         hdr,
         ui_anti_alias,
         shadow_samples,
@@ -812,9 +812,9 @@ pub fn extract_ui_camera_view(
                         clip_from_world: None,
                         hdr,
                         target_format: if hdr {
-                            camera_main_texture_format.hdr_format
+                            camera_main_texture_config.hdr_format
                         } else {
-                            camera_main_texture_format.sdr_format
+                            camera_main_texture_config.sdr_format
                         },
                         viewport: UVec4::from((
                             physical_viewport_rect.min,
