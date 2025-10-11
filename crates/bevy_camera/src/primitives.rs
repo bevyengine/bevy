@@ -317,10 +317,10 @@ impl Frustum {
         let mut half_spaces = [HalfSpace::default(); 6];
 
         let row0 = clip_from_world.row(0);
-        let row1= clip_from_world.row(1);
+        let row1 = clip_from_world.row(1);
         let row2 = clip_from_world.row(2);
         let row3 = clip_from_world.row(3);
-        
+
         half_spaces[Self::LEFT_PLANE_IDX] = HalfSpace::new(row3 + row0);
         half_spaces[Self::RIGHT_PLANE_IDX] = HalfSpace::new(row3 - row0);
         half_spaces[Self::BOTTOM_PLANE_IDX] = HalfSpace::new(row3 + row1);
@@ -357,7 +357,6 @@ impl Frustum {
         intersect_far: bool,
     ) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center).extend(1.0);
-
 
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
             if (idx == Self::NEAR_PLANE_IDX && !intersect_near)
