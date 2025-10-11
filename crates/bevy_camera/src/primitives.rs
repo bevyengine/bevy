@@ -275,11 +275,20 @@ pub struct Frustum {
 }
 
 impl Frustum {
+    const LEFT_PLANE_IDX: usize = 0;
+    const RIGHT_PLANE_IDX: usize = 1;
+    const BOTTOM_PLANE_IDX: usize = 2;
+    const TOP_PLANE_IDX: usize = 3;
+    const NEAR_PLANE_IDX: usize = 4;
+    const FAR_PLANE_IDX: usize = 5;
+
+    const INACTIVE_HALF_SPACE: Vec4 = Vec4::new(0.0, 0.0, 0.0, f32::MAX);
+
     /// Returns a frustum derived from `clip_from_world`.
     #[inline]
     pub fn from_clip_from_world(clip_from_world: &Mat4) -> Self {
         let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
-        frustum.half_spaces[5] = HalfSpace::new(clip_from_world.row(2));
+        frustum.half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(clip_from_world.row(2));
         frustum
     }
 
@@ -294,7 +303,7 @@ impl Frustum {
     ) -> Self {
         let mut frustum = Frustum::from_clip_from_world_no_far(clip_from_world);
         let far_center = *view_translation - far * *view_backward;
-        frustum.half_spaces[5] =
+        frustum.half_spaces[Self::FAR_PLANE_IDX] =
             HalfSpace::new(view_backward.extend(-view_backward.dot(far_center)));
         frustum
     }
@@ -307,15 +316,17 @@ impl Frustum {
     fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
         let row3 = clip_from_world.row(3);
         let mut half_spaces = [HalfSpace::default(); 6];
-        for (i, half_space) in half_spaces.iter_mut().enumerate().take(5) {
-            let row = clip_from_world.row(i / 2);
-            *half_space = HalfSpace::new(if (i & 1) == 0 && i != 4 {
-                row3 + row
-            } else {
-                row3 - row
-            });
-        }
-        half_spaces[5] = HalfSpace::new(Vec4::new(0.0, 0.0, 0.0, f32::MAX));
+
+        let row0 = clip_from_world.row(0);
+        let row1= clip_from_world.row(1);
+        let row2 = clip_from_world.row(2);
+        
+        half_spaces[Self::LEFT_PLANE_IDX] = HalfSpace::new(row3 + row0);
+        half_spaces[Self::RIGHT_PLANE_IDX] = HalfSpace::new(row3 - row0);
+        half_spaces[Self::BOTTOM_PLANE_IDX] = HalfSpace::new(row3 + row1);
+        half_spaces[Self::TOP_PLANE_IDX] = HalfSpace::new(row3 - row1);
+        half_spaces[Self::NEAR_PLANE_IDX] = HalfSpace::new(row3 + row2);
+        half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(Self::INACTIVE_HALF_SPACE);
         Self { half_spaces }
     }
 
@@ -323,8 +334,12 @@ impl Frustum {
     #[inline]
     pub fn intersects_sphere(&self, sphere: &Sphere, intersect_far: bool) -> bool {
         let sphere_center = sphere.center.extend(1.0);
-        let max = if intersect_far { 6 } else { 5 };
-        for half_space in &self.half_spaces[..max] {
+        let max = if intersect_far {
+            Self::FAR_PLANE_IDX
+        } else {
+            Self::NEAR_PLANE_IDX
+        };
+        for half_space in &self.half_spaces[..=max] {
             if half_space.normal_d().dot(sphere_center) + sphere.radius <= 0.0 {
                 return false;
             }
@@ -342,11 +357,12 @@ impl Frustum {
         intersect_far: bool,
     ) -> bool {
         let aabb_center_world = world_from_local.transform_point3a(aabb.center).extend(1.0);
+
+
         for (idx, half_space) in self.half_spaces.into_iter().enumerate() {
-            if idx == 4 && !intersect_near {
-                continue;
-            }
-            if idx == 5 && !intersect_far {
+            if (idx == Self::NEAR_PLANE_IDX && !intersect_near)
+                || (idx == Self::FAR_PLANE_IDX && !intersect_far)
+            {
                 continue;
             }
             let p_normal = half_space.normal();
