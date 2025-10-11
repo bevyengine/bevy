@@ -24,6 +24,7 @@
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
 //!
 
+use bevy::ecs::resource::ResourceComponent;
 use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
 use core::time::Duration;
 use std::{fs::File, io::Write};
@@ -35,6 +36,7 @@ use std::{fs::File, io::Write};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .register_type::<ResourceComponent<ResourceA>>()
         .add_systems(
             Startup,
             (save_scene_system, load_scene_system, infotext_system),
