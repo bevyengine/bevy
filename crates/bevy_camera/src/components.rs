@@ -27,8 +27,6 @@ pub struct Camera3d {
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
-    /// The format of the depth/stencil texture created for the main 3d pass.
-    pub depth_stencil_format: DepthStencilFormat,
     /// How many individual steps should be performed in the `Transmissive3d` pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
@@ -61,7 +59,6 @@ impl Default for Camera3d {
         Self {
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
-            depth_stencil_format: Default::default(),
             screen_space_specular_transmission_steps: 1,
             screen_space_specular_transmission_quality: Default::default(),
         }
@@ -143,7 +140,7 @@ pub enum ScreenSpaceTransmissionQuality {
 
 /// A wrapper around `TextureFormat` that restricts the format to depth/stencil formats only.
 /// Defaults to [`TextureFormat::Depth32Float`].
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Component, Reflect, Serialize, Deserialize, Clone, Debug, Default)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub enum DepthStencilFormat {
     Stencil8,

@@ -422,7 +422,7 @@ pub fn extract_cameras(
         Query<(
             Entity,
             RenderEntity,
-            (&Camera, Option<&Camera3d>),
+            (&Camera, &DepthStencilFormat),
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
@@ -456,7 +456,7 @@ pub fn extract_cameras(
     for (
         main_entity,
         render_entity,
-        (camera, camera_3d),
+        (camera, depth_stencil_format),
         camera_render_graph,
         transform,
         visible_entities,
@@ -520,11 +520,6 @@ pub fn extract_cameras(
                     .collect(),
             };
 
-            let depth_stencil_format: TextureFormat = camera_3d
-                .map(|c| c.depth_stencil_format.clone())
-                .unwrap_or(DepthStencilFormat::default())
-                .into();
-
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -557,7 +552,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
-                    depth_stencil_format,
+                    depth_stencil_format: depth_stencil_format.clone().into(),
                 },
                 render_visible_entities,
                 *frustum,

@@ -1,4 +1,4 @@
-use crate::primitives::Frustum;
+use crate::{primitives::Frustum, DepthStencilFormat};
 
 use super::{
     visibility::{Visibility, VisibleEntities},
@@ -347,7 +347,8 @@ pub enum ViewportConversionError {
     CameraMainTextureUsages,
     VisibleEntities,
     Transform,
-    Visibility
+    Visibility,
+	DepthStencilFormat
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
