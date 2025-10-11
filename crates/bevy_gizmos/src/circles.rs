@@ -6,7 +6,7 @@
 use crate::{
     gizmos::GizmoBuffer,
     prelude::GizmoConfigGroup,
-    primitives::dim2::{GizmoBlueprint2d, GizmoBuilder2d, ToGizmoBlueprint2d},
+    primitives::dim2::{GizmoAssembler, GizmoBlueprint, ToGizmoBlueprint2d},
 };
 use bevy_color::Color;
 use bevy_math::{
@@ -103,8 +103,8 @@ where
         isometry: impl Into<Isometry2d>,
         half_size: Vec2,
         color: impl Into<Color>,
-    ) -> GizmoBuilder2d<'_, Ellipse2dBuilder, Config, Clear> {
-        GizmoBuilder2d::new(
+    ) -> GizmoAssembler<'_, Ellipse2dBuilder, Config, Clear> {
+        GizmoAssembler::new(
             self,
             Ellipse2dBuilder {
                 isometry: isometry.into(),
@@ -185,8 +185,8 @@ where
         isometry: impl Into<Isometry2d>,
         radius: f32,
         color: impl Into<Color>,
-    ) -> GizmoBuilder2d<'_, Ellipse2dBuilder, Config, Clear> {
-        GizmoBuilder2d::new(
+    ) -> GizmoAssembler<'_, Ellipse2dBuilder, Config, Clear> {
+        GizmoAssembler::new(
             self,
             Ellipse2dBuilder {
                 isometry: isometry.into(),
@@ -297,9 +297,9 @@ impl Ellipse2dBuilder {
     }
 }
 
-impl GizmoBlueprint2d for Ellipse2dBuilder {
+impl GizmoBlueprint for Ellipse2dBuilder {
     /// Set the number of line-segments for this ellipse and draw it
-    fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
+    fn build<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
     where
         Config: GizmoConfigGroup,
         Clear: 'static + Send + Sync,
