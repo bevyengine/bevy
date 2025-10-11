@@ -197,16 +197,17 @@ pub fn run_freecam_controller(
         return;
     }
 
-    let mut scroll = 0.0;
-
     let amount = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
         MouseScrollUnit::Pixel => {
             accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
         }
     };
-    scroll += amount;
-    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
+
+    if amount != 0.0 {
+        let factor = bevy_math::ops::exp(controller.scroll_factor * amount);
+        controller.walk_speed = (controller.walk_speed * factor).clamp(0.0, f32::MAX);
+    }
     controller.run_speed = controller.walk_speed * 3.0;
 
     // Handle key input
