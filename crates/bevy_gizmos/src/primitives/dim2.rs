@@ -60,7 +60,9 @@ pub trait GizmoPrimitive2d<P: Primitive2d> {
 ///
 /// See the documentation for [`GizmoPrimitive2d`].
 pub trait GizmoBlueprint2d {
-    /// This is run on drop of [`GizmoBuilder2d`] to update the `gizmos`
+    /// Queue the gizmo drawing instructions into the [`GizmoBuffer`].
+    ///
+    /// When using [`GizmoPrimitive2d`], this is run on drop of [`GizmoBuilder2d`].
     fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
     where
         Config: GizmoConfigGroup,
@@ -95,15 +97,16 @@ where
     }
 }
 
-/// A type that generates a builder `Blueprint2d`
+/// A type that generates a blueprint `Blueprint2d`
 pub trait ToGizmoBlueprint2d {
-    /// The builder type.
+    /// The blueprint type.
     ///
     /// Supports borrowing the data from the primitive if required
     type Blueprint2d<'primitive>: GizmoBlueprint2d
     where
         Self: 'primitive;
-    /// Construct the builder type
+
+    /// Construct the blueprint type
     fn to_blueprint_2d(
         &self,
         isometry: impl Into<Isometry2d>,
@@ -111,7 +114,7 @@ pub trait ToGizmoBlueprint2d {
     ) -> Self::Blueprint2d<'_>;
 }
 
-/// This is essentially a scope guard that runs the inner builder's [`GizmoBlueprint2d::build_2d`] method on drop.
+/// This is essentially a scope guard that runs the inner blueprint's [`GizmoBlueprint2d::build_2d`] method on drop.
 ///
 /// Provides access to the "blueprint" via the `Deref`/`DerefMut` traits for configuration purposes.
 ///
@@ -123,7 +126,7 @@ where
     Clear: 'static + Send + Sync,
 {
     gizmos: &'builder mut GizmoBuffer<Config, Clear>,
-    data: Blueprint,
+    blueprint: Blueprint,
 }
 
 impl<'builder, Blueprint, Config, Clear> GizmoBuilder2d<'builder, Blueprint, Config, Clear>
@@ -132,9 +135,9 @@ where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Construct a new `GizmoBuilder` from a `GizmoBuffer` and `Data` that implements `Primitive2dGizmoBuilder`
-    pub fn new(gizmos: &'builder mut GizmoBuffer<Config, Clear>, data: Blueprint) -> Self {
-        Self { gizmos, data }
+    /// Construct a new `GizmoBuilder` from a `GizmoBuffer` and `Blueprint` that implements `Primitive2dGizmoBuilder`
+    pub fn new(gizmos: &'builder mut GizmoBuffer<Config, Clear>, blueprint: Blueprint) -> Self {
+        Self { gizmos, blueprint }
     }
 
     /// Consume the builder, which will immediately drop it, running the [`GizmoBlueprint2d::build_2d`] method.
@@ -151,7 +154,7 @@ where
     type Target = Blueprint;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.blueprint
     }
 }
 
@@ -163,7 +166,7 @@ where
     Clear: 'static + Send + Sync,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        &mut self.blueprint
     }
 }
 
@@ -174,22 +177,22 @@ where
     Clear: 'static + Send + Sync,
 {
     fn drop(&mut self) {
-        let GizmoBuilder2d { gizmos, data } = self;
+        let GizmoBuilder2d { gizmos, blueprint } = self;
         if !gizmos.enabled {
             return;
         }
-        data.build_2d(gizmos);
+        blueprint.build_2d(gizmos);
     }
 }
 
 /// A simple "builder" without configuration options that simply wraps a primitive.
 /// This is useful to avoid boilerplate for [`GizmoBlueprint2d`], [`ToGizmoBlueprint2d`] and [`GizmoPrimitive2d`] trait implementations.
 pub struct NoConfigBuilder2d<P> {
-    /// The primitive provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or  [`GizmoPrimitive2d::primitive_2d`]
+    /// The primitive provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or [`GizmoPrimitive2d::primitive_2d`]
     pub primitive: P,
-    /// The isometry provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or  [`GizmoPrimitive2d::primitive_2d`]
+    /// The isometry provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or [`GizmoPrimitive2d::primitive_2d`]
     pub isometry: Isometry2d,
-    /// The color provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or  [`GizmoPrimitive2d::primitive_2d`]
+    /// The color provided by the caller in [`ToGizmoBlueprint2d::to_blueprint_2d`] or [`GizmoPrimitive2d::primitive_2d`]
     pub color: Color,
 }
 
