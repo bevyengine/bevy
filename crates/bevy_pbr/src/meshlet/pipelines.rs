@@ -6,6 +6,7 @@ use bevy_ecs::{
     system::{Commands, Res},
     world::World,
 };
+use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::*;
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -29,8 +30,8 @@ pub struct MeshletPipelines {
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_shadow_view: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_shadow_view_unclipped: CachedRenderPipelineId,
-    resolve_depth: CachedRenderPipelineId,
-    resolve_depth_shadow_view: CachedRenderPipelineId,
+    depth_resolve_pipelines:
+        HashMap<TextureFormat, (CachedRenderPipelineId, CachedRenderPipelineId)>,
     resolve_material_depth: CachedRenderPipelineId,
     remap_1d_to_2d_dispatch: Option<CachedComputePipelineId>,
     fill_counts: CachedComputePipelineId,
@@ -76,10 +77,6 @@ pub fn init_meshlet_pipelines(
         .clone();
     let visibility_buffer_raster_shadow_view_layout = resource_manager
         .visibility_buffer_raster_shadow_view_bind_group_layout
-        .clone();
-    let resolve_depth_layout = resource_manager.resolve_depth_bind_group_layout.clone();
-    let resolve_depth_shadow_view_layout = resource_manager
-        .resolve_depth_shadow_view_bind_group_layout
         .clone();
     let resolve_material_depth_layout = resource_manager
         .resolve_material_depth_bind_group_layout
@@ -422,46 +419,7 @@ pub fn init_meshlet_pipelines(
                 }),
                 ..default()
             }),
-
-        resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("meshlet_resolve_depth_pipeline".into()),
-            layout: vec![resolve_depth_layout],
-            vertex: vertex_state.clone(),
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float, //TODO: make this dependent on views depth stencil format
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
-            fragment: Some(FragmentState {
-                shader: resolve_render_targets.clone(),
-                shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
-                entry_point: Some("resolve_depth".into()),
-                ..default()
-            }),
-            ..default()
-        }),
-
-        resolve_depth_shadow_view: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("meshlet_resolve_depth_pipeline".into()),
-            layout: vec![resolve_depth_shadow_view_layout],
-            vertex: vertex_state.clone(),
-            depth_stencil: Some(DepthStencilState {
-                format: TextureFormat::Depth32Float, //TODO: make this dependent on views depth stencil format
-                depth_write_enabled: true,
-                depth_compare: CompareFunction::Always,
-                stencil: StencilState::default(),
-                bias: DepthBiasState::default(),
-            }),
-            fragment: Some(FragmentState {
-                shader: resolve_render_targets.clone(),
-                entry_point: Some("resolve_depth".into()),
-                ..default()
-            }),
-            ..default()
-        }),
-
+        depth_resolve_pipelines: HashMap::new(),
         resolve_material_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("meshlet_resolve_material_depth_pipeline".into()),
             layout: vec![resolve_material_depth_layout],
@@ -516,6 +474,7 @@ pub fn init_meshlet_pipelines(
 impl MeshletPipelines {
     pub fn get(
         world: &World,
+        depth_stencil_format: TextureFormat,
     ) -> Option<(
         &ComputePipeline,
         &ComputePipeline,
@@ -542,6 +501,17 @@ impl MeshletPipelines {
     )> {
         let pipeline_cache = world.get_resource::<PipelineCache>()?;
         let pipeline = world.get_resource::<Self>()?;
+
+        let (depth_resolve_pipeline_id, depth_resolve_pipeline_shadow_view_id) = pipeline
+            .depth_resolve_pipelines
+            .get(&depth_stencil_format)
+            .cloned()?;
+
+        let depth_resolve_pipeline =
+            pipeline_cache.get_render_pipeline(depth_resolve_pipeline_id)?;
+        let depth_resolve_pipeline_shadow_view =
+            pipeline_cache.get_render_pipeline(depth_resolve_pipeline_shadow_view_id)?;
+
         Some((
             pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer)?,
             pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer_shadow_view)?,
@@ -564,8 +534,8 @@ impl MeshletPipelines {
             pipeline_cache.get_render_pipeline(
                 pipeline.visibility_buffer_hardware_raster_shadow_view_unclipped,
             )?,
-            pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
-            pipeline_cache.get_render_pipeline(pipeline.resolve_depth_shadow_view)?,
+            depth_resolve_pipeline,
+            depth_resolve_pipeline_shadow_view,
             pipeline_cache.get_render_pipeline(pipeline.resolve_material_depth)?,
             match pipeline.remap_1d_to_2d_dispatch {
                 Some(id) => Some(pipeline_cache.get_compute_pipeline(id)?),
@@ -573,5 +543,73 @@ impl MeshletPipelines {
             },
             pipeline_cache.get_compute_pipeline(pipeline.fill_counts)?,
         ))
+    }
+
+	/// Prepares depth resolve pipelines for the given depth stencil format if they do not already exist.
+    pub fn prepare_depth_resolve_pipeline(
+        &mut self,
+        resource_manager: &ResourceManager,
+        fullscreen_shader: &FullscreenShader,
+        asset_server: &AssetServer,
+        pipeline_cache: &PipelineCache,
+        depth_stencil_format: TextureFormat,
+    ) {
+        let vertex_state = fullscreen_shader.to_vertex_state();
+        let resolve_render_targets =
+            load_embedded_asset!(asset_server, "resolve_render_targets.wgsl");
+
+        let resolve_depth_layout = resource_manager.resolve_depth_bind_group_layout.clone();
+        let resolve_depth_shadow_view_layout = resource_manager
+            .resolve_depth_shadow_view_bind_group_layout
+            .clone();
+
+		if self.depth_resolve_pipelines.contains_key(&depth_stencil_format) {
+			return;
+		}
+
+        let resolve_depth_id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+            label: Some("meshlet_resolve_depth_pipeline".into()),
+            layout: vec![resolve_depth_layout],
+            vertex: vertex_state.clone(),
+            depth_stencil: Some(DepthStencilState {
+                format: depth_stencil_format,
+                depth_write_enabled: true,
+                depth_compare: CompareFunction::Always,
+                stencil: StencilState::default(),
+                bias: DepthBiasState::default(),
+            }),
+            fragment: Some(FragmentState {
+                shader: resolve_render_targets.clone(),
+                shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                entry_point: Some("resolve_depth".into()),
+                ..default()
+            }),
+            ..default()
+        });
+
+        let resolve_depth_shadow_view =
+            pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("meshlet_resolve_depth_pipeline".into()),
+                layout: vec![resolve_depth_shadow_view_layout],
+                vertex: vertex_state.clone(),
+                depth_stencil: Some(DepthStencilState {
+                    format: depth_stencil_format,
+                    depth_write_enabled: true,
+                    depth_compare: CompareFunction::Always,
+                    stencil: StencilState::default(),
+                    bias: DepthBiasState::default(),
+                }),
+                fragment: Some(FragmentState {
+                    shader: resolve_render_targets.clone(),
+                    entry_point: Some("resolve_depth".into()),
+                    ..default()
+                }),
+                ..default()
+            });
+
+		self.depth_resolve_pipelines.insert(
+			depth_stencil_format,
+			(resolve_depth_id, resolve_depth_shadow_view),
+		);
     }
 }

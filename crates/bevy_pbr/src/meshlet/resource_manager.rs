@@ -1,9 +1,11 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
-use crate::ShadowView;
+use crate::{meshlet::pipelines::MeshletPipelines, ShadowView};
+use bevy_asset::AssetServer;
 use bevy_camera::{visibility::RenderLayers, Camera3d};
 use bevy_core_pipeline::{
     experimental::mip_generation::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},
+    FullscreenShader,
 };
 use bevy_ecs::{
     component::Component,
@@ -20,6 +22,7 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniform, ViewUniforms},
 };
+use bevy_utils::default;
 use binding_types::*;
 use core::iter;
 
@@ -513,6 +516,10 @@ pub struct MeshletViewBindGroups {
 pub fn prepare_meshlet_per_frame_resources(
     mut resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
+    mut meshlet_pipelines: ResMut<MeshletPipelines>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+    pipeline_cache: Res<PipelineCache>,
     views: Query<(
         Entity,
         &ExtractedView,
@@ -560,8 +567,16 @@ pub fn prepare_meshlet_per_frame_resources(
     };
 
     for (view_entity, view, render_layers, (_, shadow_view)) in &views {
-        let not_shadow_view = shadow_view.is_none();
+        // make sure depth stencil pipelines for each view format are prepared
+        meshlet_pipelines.prepare_depth_resolve_pipeline(
+            resource_manager.as_ref(),
+            fullscreen_shader.as_ref(),
+            asset_server.as_ref(),
+            pipeline_cache.as_ref(),
+            view.depth_stencil_format,
+        );
 
+        let not_shadow_view = shadow_view.is_none();
         let instance_visibility = instance_manager
             .view_instance_visibility
             .entry(view_entity)

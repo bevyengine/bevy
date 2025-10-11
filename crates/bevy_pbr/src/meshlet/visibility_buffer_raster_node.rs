@@ -100,7 +100,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             resolve_material_depth_pipeline,
             remap_1d_to_2d_dispatch_pipeline,
             fill_counts_pipeline,
-        )) = MeshletPipelines::get(world)
+        )) = MeshletPipelines::get(world, view_depth.texture.format())
         else {
             return Ok(());
         };
