@@ -21,7 +21,7 @@ use bevy_math::{
     Dir2, Isometry2d, Rot2, Vec2,
 };
 
-use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup, GizmoAsset};
 
 // some magic number since using directions as offsets will result in lines of length 1 pixel
 const MIN_LINE_LEN: f32 = 50.0;
@@ -65,6 +65,14 @@ pub trait GizmoBlueprint2d {
     where
         Config: GizmoConfigGroup,
         Clear: 'static + Send + Sync;
+}
+
+impl<B: GizmoBlueprint2d> From<B> for GizmoAsset {
+    fn from(mut value: B) -> Self {
+        let mut asset = GizmoAsset::new();
+        value.build_2d(&mut asset);
+        asset
+    }
 }
 
 /// A type that generates a builder `Blueprint2d`
@@ -1398,5 +1406,118 @@ mod tests {
         builder_ring_rhombus.build_2d(&mut gizmos);
         builder_ring_segment_2d.build_2d(&mut gizmos);
         builder_ring_triangle_2d.build_2d(&mut gizmos);
+    }
+
+    #[test]
+    fn can_generate_assets() {
+        let isometry = Isometry2d::default();
+        let color = Color::default();
+
+        let annulus = Annulus::default();
+        let arc_2d = Arc2d::default();
+        let capsule_2d = Capsule2d::default();
+        let circle = Circle::default();
+        let circular_sector = CircularSector::default();
+        let circular_segment = CircularSegment::default();
+        let ellipse = Ellipse::default();
+        let line_2d = Line2d { direction: Dir2::X };
+        let plane_2d = Plane2d::default();
+        let polygon = Polygon::new([Vec2::X, Vec2::Y, Vec2::NEG_X]);
+        let polyline_2d = Polyline2d::default();
+        let rectangle = Rectangle::default();
+        let regular_polygon = RegularPolygon::default();
+        let rhombus = Rhombus::default();
+        let segment_2d = Segment2d::default();
+        let triangle_2d = Triangle2d::default();
+
+        let builder_annulus = annulus.to_blueprint_2d(isometry, color).into();
+        let builder_arc_2d = arc_2d.to_blueprint_2d(isometry, color).into();
+        let builder_capsule_2d = capsule_2d.to_blueprint_2d(isometry, color).into();
+        let builder_circle = circle.to_blueprint_2d(isometry, color).into();
+        let builder_circular_sector = circular_sector.to_blueprint_2d(isometry, color).into();
+        let builder_circular_segment = circular_segment.to_blueprint_2d(isometry, color).into();
+        let builder_ellipse = ellipse.to_blueprint_2d(isometry, color).into();
+        let builder_line_2d = line_2d.to_blueprint_2d(isometry, color).into();
+        let builder_plane_2d = plane_2d.to_blueprint_2d(isometry, color).into();
+        let builder_polygon = polygon.to_blueprint_2d(isometry, color).into();
+        let builder_polyline_2d = polyline_2d.to_blueprint_2d(isometry, color).into();
+        let builder_rectangle = rectangle.to_blueprint_2d(isometry, color).into();
+        let builder_regular_polygon = regular_polygon.to_blueprint_2d(isometry, color).into();
+        let builder_rhombus = rhombus.to_blueprint_2d(isometry, color).into();
+        let builder_segment_2d = segment_2d.to_blueprint_2d(isometry, color).into();
+        let builder_triangle_2d = triangle_2d.to_blueprint_2d(isometry, color).into();
+
+        let ring_annulus = Ring::new(annulus, annulus);
+        let ring_arc_2d = Ring::new(arc_2d, arc_2d);
+        let ring_capsule_2d = Ring::new(capsule_2d, capsule_2d);
+        let ring_circle = Ring::new(circle, circle);
+        let ring_circular_sector = Ring::new(circular_sector, circular_sector);
+        let ring_circular_segment = Ring::new(circular_segment, circular_segment);
+        let ring_ellipse = Ring::new(ellipse, ellipse);
+        let ring_line_2d = Ring::new(line_2d, line_2d);
+        let ring_plane_2d = Ring::new(plane_2d, plane_2d);
+        let ring_polygon = Ring::new(polygon.clone(), polygon.clone());
+        let ring_polyline_2d = Ring::new(polyline_2d.clone(), polyline_2d.clone());
+        let ring_rectangle = Ring::new(rectangle, rectangle);
+        let ring_regular_polygon = Ring::new(regular_polygon, regular_polygon);
+        let ring_rhombus = Ring::new(rhombus, rhombus);
+        let ring_segment_2d = Ring::new(segment_2d, segment_2d);
+        let ring_triangle_2d = Ring::new(triangle_2d, triangle_2d);
+
+        let builder_ring_annulus = ring_annulus.to_blueprint_2d(isometry, color).into();
+        let builder_ring_arc_2d = ring_arc_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_capsule_2d = ring_capsule_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_circle = ring_circle.to_blueprint_2d(isometry, color).into();
+        let builder_ring_circular_sector =
+            ring_circular_sector.to_blueprint_2d(isometry, color).into();
+        let builder_ring_circular_segment = ring_circular_segment
+            .to_blueprint_2d(isometry, color)
+            .into();
+        let builder_ring_ellipse = ring_ellipse.to_blueprint_2d(isometry, color).into();
+        let builder_ring_line_2d = ring_line_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_plane_2d = ring_plane_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_polygon = ring_polygon.to_blueprint_2d(isometry, color).into();
+        let builder_ring_polyline_2d = ring_polyline_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_rectangle = ring_rectangle.to_blueprint_2d(isometry, color).into();
+        let builder_ring_regular_polygon =
+            ring_regular_polygon.to_blueprint_2d(isometry, color).into();
+        let builder_ring_rhombus = ring_rhombus.to_blueprint_2d(isometry, color).into();
+        let builder_ring_segment_2d = ring_segment_2d.to_blueprint_2d(isometry, color).into();
+        let builder_ring_triangle_2d = ring_triangle_2d.to_blueprint_2d(isometry, color).into();
+
+        let _assets: Vec<GizmoAsset> = vec![
+            builder_annulus,
+            builder_arc_2d,
+            builder_capsule_2d,
+            builder_circle,
+            builder_circular_sector,
+            builder_circular_segment,
+            builder_ellipse,
+            builder_line_2d,
+            builder_plane_2d,
+            builder_polygon,
+            builder_polyline_2d,
+            builder_rectangle,
+            builder_regular_polygon,
+            builder_rhombus,
+            builder_segment_2d,
+            builder_triangle_2d,
+            builder_ring_annulus,
+            builder_ring_arc_2d,
+            builder_ring_capsule_2d,
+            builder_ring_circle,
+            builder_ring_circular_sector,
+            builder_ring_circular_segment,
+            builder_ring_ellipse,
+            builder_ring_line_2d,
+            builder_ring_plane_2d,
+            builder_ring_polygon,
+            builder_ring_polyline_2d,
+            builder_ring_rectangle,
+            builder_ring_regular_polygon,
+            builder_ring_rhombus,
+            builder_ring_segment_2d,
+            builder_ring_triangle_2d,
+        ];
     }
 }
