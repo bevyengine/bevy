@@ -131,12 +131,12 @@ pub struct ResourceComponent<R: Resource>(#[entities] pub R);
 
 pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
     let world = deferred_world.deref();
-    if world.resource_entities.contains(context.component_id) {
+
+    if let Some(&offending_entity) = world.resource_entities.get(context.component_id)
+        && offending_entity != context.entity
+    {
         // the resource already exists and we need to overwrite it
-        let offending_entity = *world.resource_entities.get(context.component_id).unwrap();
-        if context.entity != offending_entity {
-            deferred_world.commands().entity(offending_entity).despawn();
-        }
+        deferred_world.commands().entity(offending_entity).despawn();
     }
 
     // SAFETY: We have exclusive world access.

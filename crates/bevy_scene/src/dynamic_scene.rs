@@ -64,6 +64,8 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
+        let is_resource_id = world.component_id::<IsResource>();
+
         DynamicSceneBuilder::from_world(world)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
@@ -71,13 +73,9 @@ impl DynamicScene {
                 world
                     .archetypes()
                     .iter()
+                    .filter(|archetype| is_resource_id.is_none_or(|id| !archetype.contains(id)))
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
-                    .map(bevy_ecs::archetype::ArchetypeEntity::id)
-                    .filter(|id| {
-                        world
-                            .get_entity(*id)
-                            .is_ok_and(|entity| !entity.contains::<IsResource>())
-                    }),
+                    .map(bevy_ecs::archetype::ArchetypeEntity::id),
             )
             .extract_resources()
             .build()
