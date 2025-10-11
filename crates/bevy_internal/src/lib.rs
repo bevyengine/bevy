@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -29,6 +29,8 @@ pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_camera")]
 pub use bevy_camera as camera;
+#[cfg(feature = "bevy_camera_controller")]
+pub use bevy_camera_controller as camera_controller;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]

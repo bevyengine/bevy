@@ -1,37 +1,67 @@
-//! A freecam-style camera controller plugin.
-//! To use in your own application:
-//! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
-//! - Attach the [`CameraController`] component to an entity with a [`Camera3d`].
+//! A camera controller that allows the user to move freely around the scene.
 //!
-//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
+//! Free cams are helpful for exploring large scenes, level editors and for debugging.
+//! They are rarely useful as-is for gameplay,
+//! as they allow the user to move freely in all directions,
+//! which can be disorienting, and they can clip through objects and terrain.
+//!
+//! You may have heard of a "fly cam" before,
+//! which are a kind of free cam designed for fluid "flying" movement and quickly surveying large areas.
+//! By contrast, the default settings of this particular free cam are optimized for precise control.
+//!
+//! To use this controller, add [`FreeCamPlugin`] to your app,
+//! and [`FreeCam`] to your camera entity.
+//!
+//! To configure the settings of this controller, modify the fields of the [`FreeCam`] component.
 
-use bevy::{
-    input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
-    prelude::*,
-    window::{CursorGrabMode, CursorOptions},
+use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
+use bevy_camera::Camera;
+use bevy_ecs::prelude::*;
+use bevy_input::keyboard::KeyCode;
+use bevy_input::mouse::{
+    AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseScrollUnit,
 };
-use std::{f32::consts::*, fmt};
+use bevy_input::ButtonInput;
+use bevy_log::info;
+use bevy_math::{EulerRot, Quat, StableInterpolate, Vec2, Vec3};
+use bevy_time::{Real, Time};
+use bevy_transform::prelude::Transform;
+use bevy_window::{CursorGrabMode, CursorOptions, Window};
+
+use core::{f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
-pub struct CameraControllerPlugin;
+///
+/// Use [`FreeCam`] to add a freecam controller to a camera entity,
+/// and change its values to customize the controls and change its behavior.
+pub struct FreeCamPlugin;
 
-impl Plugin for CameraControllerPlugin {
+impl Plugin for FreeCamPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, run_camera_controller);
+        // This ordering is required so that both fixed update and update systems can see the results correctly
+        app.add_systems(
+            RunFixedMainLoop,
+            run_freecam_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+        );
     }
 }
 
+/// Scales mouse motion into yaw/pitch movement.
+///
 /// Based on Valorant's default sensitivity, not entirely sure why it is exactly 1.0 / 180.0,
-/// but I'm guessing it is a misunderstanding between degrees/radians and then sticking with
+/// but we're guessing it is a misunderstanding between degrees/radians and then sticking with
 /// it because it felt nice.
-pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
+const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
-/// Camera controller [`Component`].
+/// Freecam controller settings and state.
+///
+/// Add this component to a [`Camera`] entity and add [`FreeCamPlugin`]
+/// to your [`App`] to enable freecam controls.
 #[derive(Component)]
-pub struct CameraController {
-    /// Enables this [`CameraController`] when `true`.
+pub struct FreeCam {
+    /// Enables this [`FreeCam`] when `true`.
     pub enabled: bool,
-    /// Indicates if this controller has been initialized by the [`CameraControllerPlugin`].
+    /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
     pub initialized: bool,
     /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
@@ -47,8 +77,8 @@ pub struct CameraController {
     pub key_up: KeyCode,
     /// [`KeyCode`] for down translation.
     pub key_down: KeyCode,
-    /// [`KeyCode`] to use [`run_speed`](CameraController::run_speed) instead of
-    /// [`walk_speed`](CameraController::walk_speed) for translation.
+    /// [`KeyCode`] to use [`run_speed`](FreeCam::run_speed) instead of
+    /// [`walk_speed`](FreeCam::walk_speed) for translation.
     pub key_run: KeyCode,
     /// [`MouseButton`] for grabbing the mouse focus.
     pub mouse_key_cursor_grab: MouseButton,
@@ -58,25 +88,25 @@ pub struct CameraController {
     pub walk_speed: f32,
     /// Multiplier for running translation speed.
     pub run_speed: f32,
-    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](CameraController::walk_speed)
-    /// and [`run_speed`](CameraController::run_speed).
+    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCam::walk_speed)
+    /// and [`run_speed`](FreeCam::run_speed).
     pub scroll_factor: f32,
-    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over time.
+    /// Friction factor used to exponentially decay [`velocity`](FreeCam::velocity) over time.
     pub friction: f32,
-    /// This [`CameraController`]'s pitch rotation.
+    /// This [`FreeCam`]'s pitch rotation.
     pub pitch: f32,
-    /// This [`CameraController`]'s yaw rotation.
+    /// This [`FreeCam`]'s yaw rotation.
     pub yaw: f32,
-    /// This [`CameraController`]'s translation velocity.
+    /// This [`FreeCam`]'s translation velocity.
     pub velocity: Vec3,
 }
 
-impl Default for CameraController {
+impl Default for FreeCam {
     fn default() -> Self {
         Self {
             enabled: true,
             initialized: false,
-            sensitivity: 1.0,
+            sensitivity: 0.2,
             key_forward: KeyCode::KeyW,
             key_back: KeyCode::KeyS,
             key_left: KeyCode::KeyA,
@@ -88,8 +118,8 @@ impl Default for CameraController {
             keyboard_key_toggle_cursor_grab: KeyCode::KeyM,
             walk_speed: 5.0,
             run_speed: 15.0,
-            scroll_factor: 0.1,
-            friction: 0.5,
+            scroll_factor: 0.5,
+            friction: 40.0,
             pitch: 0.0,
             yaw: 0.0,
             velocity: Vec3::ZERO,
@@ -97,7 +127,7 @@ impl Default for CameraController {
     }
 }
 
-impl fmt::Display for CameraController {
+impl fmt::Display for FreeCam {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -124,7 +154,11 @@ Freecam Controls:
     }
 }
 
-fn run_camera_controller(
+/// This system is typically added via the [`FreeCamPlugin`].
+///
+/// Reads inputs and then moves the camera entity according
+/// to the settings given in [`FreeCam`].
+pub fn run_freecam_controller(
     time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
@@ -133,7 +167,7 @@ fn run_camera_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut FreeCam), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 
@@ -148,7 +182,18 @@ fn run_camera_controller(
         controller.initialized = true;
         info!("{}", *controller);
     }
+
     if !controller.enabled {
+        // don't keep the cursor grabbed if the controller was disabled.
+        if *toggle_cursor_grab || *mouse_cursor_grab {
+            *toggle_cursor_grab = false;
+            *mouse_cursor_grab = false;
+
+            for (_, mut cursor_options) in &mut windows {
+                cursor_options.grab_mode = CursorGrabMode::None;
+                cursor_options.visible = true;
+            }
+        }
         return;
     }
 
@@ -156,7 +201,9 @@ fn run_camera_controller(
 
     let amount = match accumulated_mouse_scroll.unit {
         MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
-        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
+        MouseScrollUnit::Pixel => {
+            accumulated_mouse_scroll.delta.y / MouseScrollUnit::SCROLL_UNIT_CONVERSION_FACTOR
+        }
     };
     scroll += amount;
     controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
@@ -207,8 +254,8 @@ fn run_camera_controller(
         };
         controller.velocity = axis_input.normalize() * max_speed;
     } else {
-        let friction = controller.friction.clamp(0.0, 1.0);
-        controller.velocity *= 1.0 - friction;
+        let friction = controller.friction.clamp(0.0, f32::MAX);
+        controller.velocity.smooth_nudge(&Vec3::ZERO, friction, dt);
         if controller.velocity.length_squared() < 1e-6 {
             controller.velocity = Vec3::ZERO;
         }

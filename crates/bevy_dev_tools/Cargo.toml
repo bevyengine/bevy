@@ -19,6 +19,7 @@ bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
 bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.18.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.18.0-dev" }
@@ -33,7 +34,7 @@ bevy_state = { path = "../bevy_state", version = "0.18.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-ron = { version = "0.10", optional = true }
+ron = { version = "0.11", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
