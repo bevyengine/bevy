@@ -31,14 +31,17 @@ const INFINITE_LEN: f32 = 100_000.0;
 
 /// A trait for rendering 2D geometric primitives (`P`) with [`GizmoBuffer`].
 ///
+/// This trait is implemented for [`GizmoBuffer`].
+///
 /// When implementing `GizmoPrimitive2d<P>`, if you require a builder `MyBuilder` to set non-default values,
 /// implement [`GizmoBlueprint2d`] for the builder `MyBuilder` and set `type Output<'builder, 'primitive> = GizmoBuilder2d<'builder, MyBuilder, Config, Clear>` ([`GizmoBuilder2d`]).
 ///
 /// If you don't require a custom builder you can use [`NoConfigBuilder2d`] (`type Output<'builder, 'primitive> = GizmoBuilder2d<'builder, NoConfigBuilder2d<P>, Config, Clear>`)
+///
+/// Note that gizmos are queued when the [`Gizmo2dBuilder`] that wraps the [`GizmoBlueprint2d`] is dropped, e.g. when it goes out of scope.
+/// If you want to queue them immediately you can call [`.immediate()`](GizmoBuilder2d::immediate) which will consume the builder.
 pub trait GizmoPrimitive2d<P: Primitive2d> {
     /// The output of `primitive_2d`. This is a builder to set non-default values.
-    ///
-    /// If you do not require a builder, you can set `type Output<'builder, 'primitive> = ()`.
     type Output<'builder, 'primitive>
     where
         Self: 'builder,
