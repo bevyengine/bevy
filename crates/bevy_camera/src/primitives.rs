@@ -314,12 +314,12 @@ impl Frustum {
     /// Returns a frustum derived from `view_projection`,
     /// without a far plane.
     fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
-        let row3 = clip_from_world.row(3);
         let mut half_spaces = [HalfSpace::default(); 6];
 
         let row0 = clip_from_world.row(0);
         let row1= clip_from_world.row(1);
         let row2 = clip_from_world.row(2);
+        let row3 = clip_from_world.row(3);
         
         half_spaces[Self::LEFT_PLANE_IDX] = HalfSpace::new(row3 + row0);
         half_spaces[Self::RIGHT_PLANE_IDX] = HalfSpace::new(row3 - row0);
