@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::{primitives::Frustum, Camera, CameraProjection, OrthographicProjection, Projection};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
@@ -28,6 +30,8 @@ pub struct Camera3d {
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
+	/// The format of the depth/stencil texture created for the main 3d pass.
+	pub depth_stencil_format: DepthStencilFormat,
     /// How many individual steps should be performed in the `Transmissive3d` pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
@@ -60,6 +64,7 @@ impl Default for Camera3d {
         Self {
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
+			depth_stencil_format: Default::default(),
             screen_space_specular_transmission_steps: 1,
             screen_space_specular_transmission_quality: Default::default(),
         }
@@ -139,72 +144,34 @@ pub enum ScreenSpaceTransmissionQuality {
     Ultra,
 }
 
-/// This component lets you control the [`TextureFormat`] of the `DepthStencilTexture` that is passed to the render pipelines of this camera
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct DepthStencilFormat(TextureFormat);
-
-impl DepthStencilFormat {
-    /// Stencil format with 8 bit integer stencil.
-    pub const STENCIL8: Self = Self(TextureFormat::Stencil8);
-    /// Special depth format with 16 bit integer depth.
-    pub const DEPTH16_UNORM: Self = Self(TextureFormat::Depth16Unorm);
-    /// Special depth format with at least 24 bit integer depth.
-    pub const DEPTH24_PLUS: Self = Self(TextureFormat::Depth24Plus);
-    /// Special depth/stencil format with at least 24 bit integer depth and 8 bits integer stencil.
-    pub const DEPTH24_PLUS_STENCIL8: Self = Self(TextureFormat::Depth24PlusStencil8);
-    /// Special depth format with 32 bit floating point depth.
-    pub const DEPTH32_FLOAT: Self = Self(TextureFormat::Depth32Float);
-    /// Special depth/stencil format with 32 bit floating point depth and 8 bits integer stencil.
-    ///
-    /// wgpu support for `DEPTH32FLOAT_STENCIL8` should be checked before using this format.
-    pub const DEPTH32_FLOAT_STENCIL8: Self = Self(TextureFormat::Depth32FloatStencil8);
-
-    /// Returns the underlying `TextureFormat`.
-    pub fn format(&self) -> TextureFormat {
-        self.0
-    }
-
-    /// Creates a new `DepthStencilFormat` from the given `TextureFormat`.
-    pub fn new(format: TextureFormat) -> Self {
-        assert!(matches!(
-			format,
-			TextureFormat::Stencil8
-				| TextureFormat::Depth16Unorm
-				| TextureFormat::Depth24Plus
-				| TextureFormat::Depth24PlusStencil8
-				| TextureFormat::Depth32Float
-				| TextureFormat::Depth32FloatStencil8
-		), "Invalid TextureFormat for DepthStencilFormat. Supported formats are: Stencil8, Depth16Unorm, Depth24Plus, Depth24PlusStencil8, Depth32Float, Depth32FloatStencil8");
-
-        Self(format)
-    }
-
-    /// Returns true if the format supports stencil operations.
-    pub fn supports_stencil(&self) -> bool {
-        matches!(
-            self.0,
-            TextureFormat::Depth24PlusStencil8
-                | TextureFormat::Depth32FloatStencil8
-                | TextureFormat::Stencil8
-        )
-    }
-
-    /// Returns true if the format supports depth operations.
-    pub fn supports_depth(&self) -> bool {
-        matches!(
-            self.0,
-            TextureFormat::Depth16Unorm
-                | TextureFormat::Depth24Plus
-                | TextureFormat::Depth24PlusStencil8
-                | TextureFormat::Depth32Float
-                | TextureFormat::Depth32FloatStencil8
-        )
-    }
+/// A wrapper around `TextureFormat` that restricts the format to depth/stencil formats only.
+/// Defaults to [`TextureFormat::Depth32Float`].
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub enum DepthStencilFormat {
+	Stencil8,
+	Depth16Unorm,
+	Depth24Plus,
+	Depth24PlusStencil8,
+	Depth32Float,
+	Depth32FloatStencil8,
 }
 
 impl Default for DepthStencilFormat {
     fn default() -> Self {
-        Self(TextureFormat::Depth32Float)
+		DepthStencilFormat::Depth32Float
     }
+}
+
+impl From<DepthStencilFormat> for TextureFormat {
+	fn from(format: DepthStencilFormat) -> Self {
+		match format {
+			DepthStencilFormat::Stencil8 => TextureFormat::Stencil8,
+			DepthStencilFormat::Depth16Unorm => TextureFormat::Depth16Unorm,
+			DepthStencilFormat::Depth24Plus => TextureFormat::Depth24Plus,
+			DepthStencilFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
+			DepthStencilFormat::Depth32Float => TextureFormat::Depth32Float,
+			DepthStencilFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
+		}
+	}
 }

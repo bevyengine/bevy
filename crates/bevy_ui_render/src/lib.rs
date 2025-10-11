@@ -752,11 +752,10 @@ pub fn extract_ui_camera_view(
             (
                 Entity,
                 RenderEntity,
-                &Camera,
+                (&Camera, Option<&Camera3d>),
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
-                Option<&DepthStencilFormat>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -768,11 +767,10 @@ pub fn extract_ui_camera_view(
     for (
         main_entity,
         render_entity,
-        camera,
+        (camera, camera_3d),
         hdr,
         ui_anti_alias,
         shadow_samples,
-        depth_stencil_format,
     ) in &query
     {
         // ignore inactive cameras
@@ -799,9 +797,10 @@ pub fn extract_ui_camera_view(
             let retained_view_entity =
                 RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
 
-            let depth_stencil_format = depth_stencil_format
-                .unwrap_or(&DepthStencilFormat::default())
-                .format();
+            let depth_stencil_format: TextureFormat = camera_3d
+                .map(|c| c.depth_stencil_format.clone())
+                .unwrap_or(DepthStencilFormat::default())
+                .into();
 
             // Creates the UI view.
             let ui_camera_view = commands

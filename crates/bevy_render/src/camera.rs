@@ -420,26 +420,21 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
-            (
-                Entity,
-                RenderEntity,
-                &Camera,
-                &CameraRenderGraph,
-                &GlobalTransform,
-                &VisibleEntities,
-                &Frustum,
-            ),
-            (
-                Has<Hdr>,
-                Option<&ColorGrading>,
-                Option<&Exposure>,
-                Option<&TemporalJitter>,
-                Option<&MipBias>,
-                Option<&RenderLayers>,
-                Option<&Projection>,
-                Option<&DepthStencilFormat>,
-                Has<NoIndirectDrawing>,
-            ),
+            Entity,
+            RenderEntity,
+            (&Camera, Option<&Camera3d>),
+            &CameraRenderGraph,
+            &GlobalTransform,
+            &VisibleEntities,
+            &Frustum,
+            Has<Hdr>,
+            Option<&ColorGrading>,
+            Option<&Exposure>,
+            Option<&TemporalJitter>,
+            Option<&MipBias>,
+            Option<&RenderLayers>,
+            Option<&Projection>,
+            Has<NoIndirectDrawing>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -459,26 +454,21 @@ pub fn extract_cameras(
         ViewUniformOffset,
     );
     for (
-        (
-            main_entity,
-            render_entity,
-            camera,
-            camera_render_graph,
-            transform,
-            visible_entities,
-            frustum,
-        ),
-        (
-            hdr,
-            color_grading,
-            exposure,
-            temporal_jitter,
-            mip_bias,
-            render_layers,
-            projection,
-            depth_stencil_format,
-            no_indirect_drawing,
-        ),
+        main_entity,
+        render_entity,
+        (camera, camera_3d),
+        camera_render_graph,
+        transform,
+        visible_entities,
+        frustum,
+        hdr,
+        color_grading,
+        exposure,
+        temporal_jitter,
+        mip_bias,
+        render_layers,
+        projection,
+        no_indirect_drawing,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -530,9 +520,10 @@ pub fn extract_cameras(
                     .collect(),
             };
 
-            let depth_stencil_format = depth_stencil_format
-                .unwrap_or(&DepthStencilFormat::default())
-                .format();
+            let depth_stencil_format: TextureFormat = camera_3d
+                .map(|c| c.depth_stencil_format.clone())
+                .unwrap_or(DepthStencilFormat::default())
+                .into();
 
             let mut commands = commands.entity(render_entity);
             commands.insert((
