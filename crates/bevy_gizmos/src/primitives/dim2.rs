@@ -15,8 +15,8 @@ use bevy_color::Color;
 use bevy_math::{
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-        Triangle2d,
+        Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring,
+        Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Rot2, Vec2,
 };
@@ -1165,72 +1165,82 @@ impl ToGizmoBlueprint2d for RegularPolygon {
 
 // ring
 
-// /// Build a gizmo from a [`Ring<Primitive2d>`](Ring)
-// ///
-// /// `RingBuilder` is an example of a "composite" builder
-// pub struct RingBuilder<B>
-// where
-//     B: GizmoBlueprint2d,
-// {
-//     /// The builder for the outer shape
-//     pub outer_builder: B,
-//     /// The builder for the inner shape
-//     pub inner_builder: B,
-// }
+/// Build a gizmo from a [`Ring<Primitive2d>`](Ring)
+///
+/// `RingBuilder` is an example of a "composite" builder
+pub struct RingBuilder<B>
+where
+    B: GizmoBlueprint2d,
+{
+    /// The builder for the outer shape
+    pub outer_builder: B,
+    /// The builder for the inner shape
+    pub inner_builder: B,
+}
 
-// impl<P, Config, Clear> GizmoPrimitive2d<Ring<P>> for GizmoBuffer<Config, Clear>
-// where
-//     P: Primitive2d + ToGizmoBlueprint2d,
-//     Config: GizmoConfigGroup,
-//     Clear: 'static + Send + Sync,
-//     GizmoBuffer<Config, Clear>: GizmoPrimitive2d<P>,
-// {
-//     type Output<'builder, 'primitive> =
-//         GizmoBuilder2d<'builder, RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>, Config, Clear>;
+impl<P, Config, Clear> GizmoPrimitive2d<Ring<P>> for GizmoBuffer<Config, Clear>
+where
+    P: Primitive2d + ToGizmoBlueprint2d,
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+    GizmoBuffer<Config, Clear>: GizmoPrimitive2d<P>,
+{
+    type Output<'builder, 'primitive>
+        = GizmoBuilder2d<
+        'builder,
+        RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d<'primitive>>,
+        Config,
+        Clear,
+    >
+    where
+        P: 'primitive;
 
-//     fn primitive_2d<'primitive>(
-//         &mut self,
-//         primitive: 'primitive &Ring<P>,
-//         isometry: impl Into<Isometry2d>,
-//         color: impl Into<Color>,
-//     ) -> Self::Output<'_, 'primitive> {
-//         GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
-//     }
-// }
+    fn primitive_2d<'primitive>(
+        &mut self,
+        primitive: &'primitive Ring<P>,
+        isometry: impl Into<Isometry2d>,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_, 'primitive> {
+        GizmoBuilder2d::new(self, primitive.to_blueprint_2d(isometry, color))
+    }
+}
 
-// impl<B> GizmoBlueprint2d for RingBuilder<B>
-// where
-//     B: GizmoBlueprint2d,
-// {
-//     fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
-//     where
-//         Config: GizmoConfigGroup,
-//         Clear: 'static + Send + Sync,
-//     {
-//         self.outer_builder.build_2d(gizmos);
-//         self.inner_builder.build_2d(gizmos);
-//     }
-// }
+impl<B> GizmoBlueprint2d for RingBuilder<B>
+where
+    B: GizmoBlueprint2d,
+{
+    fn build_2d<Config, Clear>(&mut self, gizmos: &mut GizmoBuffer<Config, Clear>)
+    where
+        Config: GizmoConfigGroup,
+        Clear: 'static + Send + Sync,
+    {
+        self.outer_builder.build_2d(gizmos);
+        self.inner_builder.build_2d(gizmos);
+    }
+}
 
-// impl<P> ToGizmoBlueprint2d for Ring<P>
-// where
-//     P: ToGizmoBlueprint2d,
-// {
-//     type Blueprint2d<'primitive> = RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d>;
+impl<P> ToGizmoBlueprint2d for Ring<P>
+where
+    P: ToGizmoBlueprint2d + Primitive2d,
+{
+    type Blueprint2d<'primitive>
+        = RingBuilder<<P as ToGizmoBlueprint2d>::Blueprint2d<'primitive>>
+    where
+        P: 'primitive;
 
-//     fn to_blueprint_2d(
-//         &self,
-//         isometry: impl Into<Isometry2d>,
-//         color: impl Into<Color>,
-//     ) -> Self::Blueprint2d<'_> {
-//         let isometry = isometry.into();
-//         let color = color.into();
-//         RingBuilder {
-//             outer_builder: self.outer_shape.to_blueprint_2d(isometry, color),
-//             inner_builder: self.inner_shape.to_blueprint_2d(isometry, color),
-//         }
-//     }
-// }
+    fn to_blueprint_2d(
+        &self,
+        isometry: impl Into<Isometry2d>,
+        color: impl Into<Color>,
+    ) -> Self::Blueprint2d<'_> {
+        let isometry = isometry.into();
+        let color = color.into();
+        RingBuilder {
+            outer_builder: self.outer_shape.to_blueprint_2d(isometry, color),
+            inner_builder: self.inner_shape.to_blueprint_2d(isometry, color),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
