@@ -348,7 +348,7 @@ pub enum ViewportConversionError {
     VisibleEntities,
     Transform,
     Visibility,
-	DepthStencilFormat
+    DepthStencilFormat
 )]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].

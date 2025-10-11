@@ -22,7 +22,6 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, ViewUniform, ViewUniforms},
 };
-use bevy_utils::default;
 use binding_types::*;
 use core::iter;
 

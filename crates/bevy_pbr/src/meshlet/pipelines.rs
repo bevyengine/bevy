@@ -545,7 +545,7 @@ impl MeshletPipelines {
         ))
     }
 
-	/// Prepares depth resolve pipelines for the given depth stencil format if they do not already exist.
+    /// Prepares depth resolve pipelines for the given depth stencil format if they do not already exist.
     pub fn prepare_depth_resolve_pipeline(
         &mut self,
         resource_manager: &ResourceManager,
@@ -563,9 +563,12 @@ impl MeshletPipelines {
             .resolve_depth_shadow_view_bind_group_layout
             .clone();
 
-		if self.depth_resolve_pipelines.contains_key(&depth_stencil_format) {
-			return;
-		}
+        if self
+            .depth_resolve_pipelines
+            .contains_key(&depth_stencil_format)
+        {
+            return;
+        }
 
         let resolve_depth_id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("meshlet_resolve_depth_pipeline".into()),
@@ -607,9 +610,9 @@ impl MeshletPipelines {
                 ..default()
             });
 
-		self.depth_resolve_pipelines.insert(
-			depth_stencil_format,
-			(resolve_depth_id, resolve_depth_shadow_view),
-		);
+        self.depth_resolve_pipelines.insert(
+            depth_stencil_format,
+            (resolve_depth_id, resolve_depth_shadow_view),
+        );
     }
 }
