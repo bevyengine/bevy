@@ -65,7 +65,10 @@ use bevy_platform::{
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use thiserror::Error;
 use tracing::{debug, error, trace, warn};
 
@@ -100,7 +103,13 @@ pub struct AssetProcessor {
 /// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
-    log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
+    /// The factory that creates the transaction log.
+    ///
+    /// Note: we use a regular Mutex instead of an async mutex since we expect users to only set
+    /// this once, and before the asset processor starts - there is no reason to await (and it
+    /// avoids needing to use [`block_on`](bevy_tasks::block_on) to set the factory).
+    log_factory: Mutex<Option<Box<dyn ProcessorTransactionLogFactory>>>,
+    log: async_lock::RwLock<Option<Box<dyn ProcessorTransactionLog>>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
     default_processors: RwLock<HashMap<Box<str>, &'static str>>,
@@ -175,7 +184,13 @@ impl AssetProcessor {
     async fn log_unrecoverable(&self) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.unrecoverable().await.unwrap();
+        log.unrecoverable()
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::UnrecoverableError,
+                error,
+            })
+            .unwrap();
     }
 
     /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`AssetProcessor::log_end_processing`],
@@ -183,14 +198,26 @@ impl AssetProcessor {
     async fn log_begin_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.begin_processing(path).await.unwrap();
+        log.begin_processing(path)
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::BeginProcessing(path.clone_owned()),
+                error,
+            })
+            .unwrap();
     }
 
     /// Logs the end of an asset being successfully processed. See [`AssetProcessor::log_begin_processing`].
     async fn log_end_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.end_processing(path).await.unwrap();
+        log.end_processing(path)
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::EndProcessing(path.clone_owned()),
+                error,
+            })
+            .unwrap();
     }
 
     /// Starts the processor in a background thread.
@@ -996,7 +1023,16 @@ impl AssetProcessor {
     }
 
     async fn validate_transaction_log_and_recover(&self) {
-        if let Err(err) = ProcessorTransactionLog::validate().await {
+        let log_factory = self
+            .data
+            .log_factory
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            // Take the log factory to indicate we've started and this should disable setting a new
+            // log factory.
+            .take()
+            .expect("the asset processor only starts once");
+        if let Err(err) = validate_transaction_log(log_factory.as_ref()).await {
             let state_is_valid = match err {
                 ValidateLogError::ReadLogError(err) => {
                     error!("Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}");
@@ -1074,7 +1110,7 @@ impl AssetProcessor {
             }
         }
         let mut log = self.data.log.write().await;
-        *log = match ProcessorTransactionLog::new().await {
+        *log = match log_factory.create_new_log().await {
             Ok(log) => Some(log),
             Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}", err),
         };
@@ -1098,11 +1134,34 @@ impl AssetProcessorData {
             initialized_sender,
             initialized_receiver,
             state: async_lock::RwLock::new(ProcessorState::Initializing),
+            log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),
             asset_infos: Default::default(),
             default_processors: Default::default(),
         }
+    }
+
+    /// Sets the transaction log factory for the processor.
+    ///
+    /// If this is called after asset processing has begun (in the `Startup` schedule), it will
+    /// return an error. If not called, the default transaction log will be used.
+    pub fn set_log_factory(
+        &self,
+        factory: Box<dyn ProcessorTransactionLogFactory>,
+    ) -> Result<(), SetTransactionLogFactoryError> {
+        let mut log_factory = self
+            .log_factory
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if log_factory.is_none() {
+            // This indicates the asset processor has already started, so setting the factory does
+            // nothing here.
+            return Err(SetTransactionLogFactoryError::AlreadyInUse);
+        }
+
+        *log_factory = Some(factory);
+        Ok(())
     }
 
     /// Returns a future that will not finish until the path has been processed.
@@ -1496,4 +1555,11 @@ pub enum InitializeError {
     FailedToReadDestinationPaths(AssetReaderError),
     #[error("Failed to validate asset log: {0}")]
     ValidateLogError(#[from] ValidateLogError),
+}
+
+/// An error when attempting to set the transaction log factory.
+#[derive(Error, Debug)]
+pub enum SetTransactionLogFactoryError {
+    #[error("Transaction log is already in use so setting the factory does nothing")]
+    AlreadyInUse,
 }
