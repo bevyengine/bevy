@@ -41,7 +41,7 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     camera::CameraRenderGraph,
     render_phase::PhaseItemBatchSetKey,
-    view::{ExtractedView, RetainedViewEntity},
+    view::{ExtractedView, RetainedViewEntity, ViewTarget},
 };
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
@@ -468,17 +468,16 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<
+        (Entity, &ExtractedCamera, &ExtractedView, &ViewTarget, &Msaa),
+        (With<Camera2d>,),
+    >,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (view, camera, extracted_view, msaa) in &views_2d {
+    for (view, camera, extracted_view, view_target, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
         {
-            continue;
-        };
-
-        let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
@@ -488,7 +487,7 @@ pub fn prepare_core_2d_depth_textures(
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
                     // The size of the depth texture
-                    size: physical_target_size.to_extents(),
+                    size: view_target.main_texture_size().to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

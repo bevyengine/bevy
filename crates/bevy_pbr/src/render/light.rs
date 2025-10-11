@@ -19,6 +19,7 @@ use bevy_ecs::{
     prelude::*,
     system::lifetimeless::Read,
 };
+use bevy_image::BevyDefault;
 use bevy_light::cascade::Cascade;
 use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
 use bevy_light::cluster::GlobalVisibleClusterableObjects;
@@ -1338,6 +1339,7 @@ pub fn prepare_lights(
                         clip_from_world: None,
                         clip_from_view: cube_face_projection,
                         hdr: false,
+                        target_format: TextureFormat::bevy_default(),
                         color_grading: Default::default(),
                     },
                     *frustum,
@@ -1440,6 +1442,7 @@ pub fn prepare_lights(
                     clip_from_view: spot_projection,
                     clip_from_world: None,
                     hdr: false,
+                    target_format: TextureFormat::bevy_default(),
                     color_grading: Default::default(),
                 },
                 *spot_light_frustum.unwrap(),
@@ -1585,6 +1588,7 @@ pub fn prepare_lights(
                         clip_from_view: cascade.clip_from_cascade,
                         clip_from_world: Some(cascade.clip_from_world),
                         hdr: false,
+                        target_format: TextureFormat::bevy_default(),
                         color_grading: Default::default(),
                     },
                     frustum,

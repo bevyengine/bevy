@@ -1,6 +1,5 @@
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
 use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_resource::{
@@ -8,7 +7,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    view::{ViewTarget, ViewUniform},
+    view::ViewUniform,
 };
 use bevy_shader::Shader;
 use bevy_utils::default;
@@ -53,7 +52,7 @@ pub fn init_ui_pipeline(
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
-    pub hdr: bool,
+    pub target_format: TextureFormat,
     pub anti_alias: bool,
 }
 
@@ -99,11 +98,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
+                    format: key.target_format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

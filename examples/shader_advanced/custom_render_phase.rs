@@ -513,7 +513,7 @@ fn queue_custom_meshes(
         // Create the key based on the view.
         // In this case we only care about MSAA and HDR
         let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         let rangefinder = view.rangefinder3d();
         // Since our phase can work on any 3d mesh we can reuse the default mesh 3d filter
