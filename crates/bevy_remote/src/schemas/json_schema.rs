@@ -396,8 +396,8 @@ mod tests {
         let (_, schema) = export_type(&foo_registration, &SchemaTypesMetadata::default());
 
         assert!(
-            !schema.reflect_types.contains(&"Component".to_owned()),
-            "Should not be a component"
+            schema.reflect_types.contains(&"Component".to_owned()),
+            "Should be a component" // Resources are Components
         );
         assert!(
             schema.reflect_types.contains(&"Resource".to_owned()),
@@ -599,6 +599,7 @@ mod tests {
           "reflectTypes": [
             "Resource",
             "Default",
+            "Component",
           ],
           "kind": "Struct",
           "type": "object",
