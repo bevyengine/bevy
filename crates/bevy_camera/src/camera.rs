@@ -947,17 +947,17 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the main texture generated for the camera
+/// This component lets you control the main texture generated for the camera.
 #[derive(Component, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct CameraMainTextureConfig {
-    // Main texture format when Hdr is off. Default: [`TextureFormat::bevy_default()`].
+    /// Main texture format when Hdr is off. Default: [`TextureFormat::bevy_default()`].
     pub sdr_format: TextureFormat,
-    // Main texture format when Hdr is on. Default: [`TextureFormat::Rgba16Float`].
+    /// Main texture format when Hdr is on. Default: [`TextureFormat::Rgba16Float`].
     pub hdr_format: TextureFormat,
-    // Main texture size. Default: [`None`], i.e. the physical size of the camera.
+    /// Main texture size. Default: [`None`], i.e. the physical size of the camera.
     pub size: Option<UVec2>,
-    // Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_SRC`].
+    /// Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT`] | [`TextureUsages::TEXTURE_BINDING`] | [`TextureUsages::COPY_SRC`].
     pub usages: TextureUsages,
 }
 
