@@ -117,7 +117,10 @@ pub fn prepare_skybox_prepass_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
     pipeline: Res<SkyboxPrepassPipeline>,
-    views: Query<(Entity, Has<NormalPrepass>, &Msaa, &ExtractedView), (With<Skybox>, With<MotionVectorPrepass>)>,
+    views: Query<
+        (Entity, Has<NormalPrepass>, &Msaa, &ExtractedView),
+        (With<Skybox>, With<MotionVectorPrepass>),
+    >,
 ) {
     for (entity, normal_prepass, msaa, extracted_view) in &views {
         let pipeline_key = SkyboxPrepassPipelineKey {

@@ -1,7 +1,4 @@
-use std::ops::Deref;
-
 use crate::{primitives::Frustum, Camera, CameraProjection, OrthographicProjection, Projection};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::prelude::{GlobalTransform, Transform};
@@ -30,8 +27,8 @@ pub struct Camera3d {
     pub depth_load_op: Camera3dDepthLoadOp,
     /// The texture usages for the depth texture created for the main 3d pass.
     pub depth_texture_usages: Camera3dDepthTextureUsage,
-	/// The format of the depth/stencil texture created for the main 3d pass.
-	pub depth_stencil_format: DepthStencilFormat,
+    /// The format of the depth/stencil texture created for the main 3d pass.
+    pub depth_stencil_format: DepthStencilFormat,
     /// How many individual steps should be performed in the `Transmissive3d` pass.
     ///
     /// Roughly corresponds to how many “layers of transparency” are rendered for screen space
@@ -64,7 +61,7 @@ impl Default for Camera3d {
         Self {
             depth_load_op: Default::default(),
             depth_texture_usages: TextureUsages::RENDER_ATTACHMENT.into(),
-			depth_stencil_format: Default::default(),
+            depth_stencil_format: Default::default(),
             screen_space_specular_transmission_steps: 1,
             screen_space_specular_transmission_quality: Default::default(),
         }
@@ -146,32 +143,27 @@ pub enum ScreenSpaceTransmissionQuality {
 
 /// A wrapper around `TextureFormat` that restricts the format to depth/stencil formats only.
 /// Defaults to [`TextureFormat::Depth32Float`].
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub enum DepthStencilFormat {
-	Stencil8,
-	Depth16Unorm,
-	Depth24Plus,
-	Depth24PlusStencil8,
-	Depth32Float,
-	Depth32FloatStencil8,
-}
-
-impl Default for DepthStencilFormat {
-    fn default() -> Self {
-		DepthStencilFormat::Depth32Float
-    }
+    Stencil8,
+    Depth16Unorm,
+    Depth24Plus,
+    Depth24PlusStencil8,
+    #[default]
+    Depth32Float,
+    Depth32FloatStencil8,
 }
 
 impl From<DepthStencilFormat> for TextureFormat {
-	fn from(format: DepthStencilFormat) -> Self {
-		match format {
-			DepthStencilFormat::Stencil8 => TextureFormat::Stencil8,
-			DepthStencilFormat::Depth16Unorm => TextureFormat::Depth16Unorm,
-			DepthStencilFormat::Depth24Plus => TextureFormat::Depth24Plus,
-			DepthStencilFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
-			DepthStencilFormat::Depth32Float => TextureFormat::Depth32Float,
-			DepthStencilFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
-		}
-	}
+    fn from(format: DepthStencilFormat) -> Self {
+        match format {
+            DepthStencilFormat::Stencil8 => TextureFormat::Stencil8,
+            DepthStencilFormat::Depth16Unorm => TextureFormat::Depth16Unorm,
+            DepthStencilFormat::Depth24Plus => TextureFormat::Depth24Plus,
+            DepthStencilFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
+            DepthStencilFormat::Depth32Float => TextureFormat::Depth32Float,
+            DepthStencilFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
+        }
+    }
 }

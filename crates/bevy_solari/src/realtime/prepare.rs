@@ -72,7 +72,7 @@ pub fn prepare_solari_lighting_resources(
         (
             Entity,
             &ExtractedCamera,
-			&ExtractedView,
+            &ExtractedView,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
         ),
@@ -82,7 +82,7 @@ pub fn prepare_solari_lighting_resources(
         (
             Entity,
             &ExtractedCamera,
-			&ExtractedView,
+            &ExtractedView,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
             Has<Dlss<DlssRayReconstructionFeature>>,
