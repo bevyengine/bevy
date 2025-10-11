@@ -12,7 +12,7 @@ use bevy::{
         primitives::Aabb,
         visibility::{self, VisibilityClass},
     },
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey},
     ecs::{
         component::Tick,
         query::ROQueryItem,
@@ -329,7 +329,7 @@ impl FromWorld for CustomPhasePipeline {
             // Note that if your view has no depth buffer this will need to be
             // changed.
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: TextureFormat::Depth32Float,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::Always,
                 stencil: default(),

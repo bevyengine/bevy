@@ -6,7 +6,7 @@ use bevy_camera::{
     Camera, Camera3d, Projection,
 };
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
     oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
     prepass::MotionVectorPrepass,
@@ -344,7 +344,8 @@ pub fn check_views_need_specialization(
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_hdr(view.hdr)
+            | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -2126,13 +2127,21 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_RESERVED_BITS 	= Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_NOT_SET 				= 0 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM 			= 1 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS 			= 2 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8 	= 3 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT 			= 4 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
+        const DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8 = 5 << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits() |
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_RESERVED_BITS.bits();
     }
 }
 
@@ -2159,6 +2168,11 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u64 = 0b11;
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
+
+    const DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS: u64 = 0b111;
+    const DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS: u64 =
+        Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS.count_ones() as u64
+            + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -2196,6 +2210,46 @@ impl MeshPipelineKey {
             x if x == PrimitiveTopology::TriangleList as u64 => PrimitiveTopology::TriangleList,
             x if x == PrimitiveTopology::TriangleStrip as u64 => PrimitiveTopology::TriangleStrip,
             _ => PrimitiveTopology::default(),
+        }
+    }
+
+    pub fn from_depth_stencil_format(format: TextureFormat) -> Self {
+        match format {
+            TextureFormat::Depth16Unorm => Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM,
+            TextureFormat::Depth24Plus => Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS,
+            TextureFormat::Depth24PlusStencil8 => {
+                Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8
+            }
+            TextureFormat::Depth32Float => Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT,
+            TextureFormat::Depth32FloatStencil8 => {
+                Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8
+            }
+            _ => panic!("Unsupported depth-stencil format for MeshPipelineKey"),
+        }
+    }
+
+    pub fn depth_stencil_format(&self) -> TextureFormat {
+        // strip out all bits except the depth-stencil format bits
+        let depth_stencil_format_bits: Self = Self::from_bits_retain(
+            self.bits()
+                & (Self::DEPTH_STENCIL_TEXTURE_FORMAT_MASK_BITS
+                    << Self::DEPTH_STENCIL_TEXTURE_FORMAT_SHIFT_BITS),
+        );
+
+        match depth_stencil_format_bits {
+            Self::DEPTH_STENCIL_TEXTURE_NOT_SET => {
+                panic!("Depth-stencil format not set in pipeline key!")
+            }
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_16UNORM => TextureFormat::Depth16Unorm,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS => TextureFormat::Depth24Plus,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_24PLUS_STENCIL8 => {
+                TextureFormat::Depth24PlusStencil8
+            }
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT => TextureFormat::Depth32Float,
+            Self::DEPTH_STENCIL_TEXTURE_FORMAT_32FLOAT_STENCIL8 => {
+                TextureFormat::Depth32FloatStencil8
+            }
+            _ => panic!("Invalid depth-stencil format bits in MeshPipelineKey"),
         }
     }
 }
@@ -2620,7 +2674,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 ..default()
             },
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: key.depth_stencil_format(),
                 depth_write_enabled,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
