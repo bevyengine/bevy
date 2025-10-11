@@ -84,6 +84,8 @@ enum PrimitiveSelected {
     Arc,
     CircularSector,
     CircularSegment,
+    CircleRing,
+    TriangleRing,
 }
 
 impl std::fmt::Display for PrimitiveSelected {
@@ -91,6 +93,8 @@ impl std::fmt::Display for PrimitiveSelected {
         let name = match self {
             PrimitiveSelected::RectangleAndCuboid => String::from("Rectangle/Cuboid"),
             PrimitiveSelected::CircleAndSphere => String::from("Circle/Sphere"),
+            PrimitiveSelected::CircleRing => String::from("Circle (Ring)"),
+            PrimitiveSelected::TriangleRing => String::from("Triangle (Ring)"),
             other => format!("{other:?}"),
         };
         write!(f, "{name}")
@@ -98,7 +102,7 @@ impl std::fmt::Display for PrimitiveSelected {
 }
 
 impl PrimitiveSelected {
-    const ALL: [Self; 19] = [
+    const ALL: [Self; 21] = [
         Self::RectangleAndCuboid,
         Self::CircleAndSphere,
         Self::Ellipse,
@@ -118,6 +122,8 @@ impl PrimitiveSelected {
         Self::Arc,
         Self::CircularSector,
         Self::CircularSegment,
+        Self::CircleRing,
+        Self::TriangleRing,
     ];
 
     fn next(self) -> Self {
@@ -138,7 +144,61 @@ impl PrimitiveSelected {
             .nth(1)
             .unwrap()
     }
+
+    fn mesh_2d(self) -> Option<Mesh> {
+        match self {
+            PrimitiveSelected::RectangleAndCuboid => Some(RECTANGLE.mesh().build()),
+            PrimitiveSelected::CircleAndSphere => Some(CIRCLE.mesh().build()),
+            PrimitiveSelected::Ellipse => Some(ELLIPSE.mesh().build()),
+            PrimitiveSelected::Triangle => Some(TRIANGLE_2D.mesh().build()),
+            PrimitiveSelected::Plane => None,
+            PrimitiveSelected::Line => None,
+            PrimitiveSelected::Segment => None,
+            PrimitiveSelected::Polyline => None,
+            PrimitiveSelected::Polygon => None,
+            PrimitiveSelected::RegularPolygon => Some(REGULAR_POLYGON.mesh().build()),
+            PrimitiveSelected::Capsule => Some(CAPSULE_2D.mesh().build()),
+            PrimitiveSelected::Cylinder => None,
+            PrimitiveSelected::Cone => None,
+            PrimitiveSelected::ConicalFrustum => None,
+            PrimitiveSelected::Torus => Some(ANNULUS.mesh().build()),
+            PrimitiveSelected::Tetrahedron => None,
+            PrimitiveSelected::Arc => None,
+            PrimitiveSelected::CircularSector => Some(CIRCULAR_SECTOR.mesh().build()),
+            PrimitiveSelected::CircularSegment => Some(CIRCULAR_SEGMENT.mesh().build()),
+            PrimitiveSelected::CircleRing => Some(CIRCLE.to_ring(INSET).mesh().build()),
+            PrimitiveSelected::TriangleRing => Some(TRIANGLE_2D.to_ring(INSET).mesh().build()),
+        }
+    }
+
+    fn mesh_3d(self) -> Option<Mesh> {
+        match self {
+            PrimitiveSelected::RectangleAndCuboid => Some(CUBOID.mesh().build()),
+            PrimitiveSelected::CircleAndSphere => Some(SPHERE.mesh().build()),
+            PrimitiveSelected::Ellipse => None,
+            PrimitiveSelected::Triangle => Some(TRIANGLE_3D.mesh().build()),
+            PrimitiveSelected::Plane => Some(PLANE_3D.mesh().build()),
+            PrimitiveSelected::Line => None,
+            PrimitiveSelected::Segment => None,
+            PrimitiveSelected::Polyline => None,
+            PrimitiveSelected::Polygon => None,
+            PrimitiveSelected::RegularPolygon => None,
+            PrimitiveSelected::Capsule => Some(CAPSULE_3D.mesh().build()),
+            PrimitiveSelected::Cylinder => Some(CYLINDER.mesh().build()),
+            PrimitiveSelected::Cone => None,
+            PrimitiveSelected::ConicalFrustum => None,
+            PrimitiveSelected::Torus => Some(TORUS.mesh().build()),
+            PrimitiveSelected::Tetrahedron => Some(TETRAHEDRON.mesh().build()),
+            PrimitiveSelected::Arc => None,
+            PrimitiveSelected::CircularSector => None,
+            PrimitiveSelected::CircularSegment => None,
+            PrimitiveSelected::CircleRing => None,
+            PrimitiveSelected::TriangleRing => None,
+        }
+    }
 }
+
+const INSET: f32 = 20.0;
 
 const SMALL_2D: f32 = 50.0;
 const BIG_2D: f32 = 100.0;
@@ -418,54 +478,68 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::CircleAndSphere => {
             gizmos.primitive_2d(&CIRCLE, isometry, color);
         }
-        PrimitiveSelected::Ellipse => drop(gizmos.primitive_2d(&ELLIPSE, isometry, color)),
-        PrimitiveSelected::Triangle => gizmos.primitive_2d(&TRIANGLE_2D, isometry, color),
-        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color),
-        PrimitiveSelected::Line => drop(gizmos.primitive_2d(&LINE2D, isometry, color)),
-        PrimitiveSelected::Segment => {
-            drop(gizmos.primitive_2d(&SEGMENT_2D, isometry, color));
-        }
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(
-            &Polyline2d {
-                vertices: vec![
-                    Vec2::new(-BIG_2D, -SMALL_2D),
-                    Vec2::new(-SMALL_2D, SMALL_2D),
-                    Vec2::new(SMALL_2D, -SMALL_2D),
-                    Vec2::new(BIG_2D, SMALL_2D),
-                ],
-            },
-            isometry,
-            color,
-        ),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(
-            &Polygon {
-                vertices: vec![
-                    Vec2::new(-BIG_2D, -SMALL_2D),
-                    Vec2::new(BIG_2D, -SMALL_2D),
-                    Vec2::new(BIG_2D, SMALL_2D),
-                    Vec2::new(0.0, 0.0),
-                    Vec2::new(-BIG_2D, SMALL_2D),
-                ],
-            },
-            isometry,
-            color,
-        ),
-        PrimitiveSelected::RegularPolygon => {
-            gizmos.primitive_2d(&REGULAR_POLYGON, isometry, color);
-        }
-        PrimitiveSelected::Capsule => gizmos.primitive_2d(&CAPSULE_2D, isometry, color),
+        PrimitiveSelected::Ellipse => gizmos.primitive_2d(&ELLIPSE, isometry, color).immediate(),
+        PrimitiveSelected::Triangle => gizmos
+            .primitive_2d(&TRIANGLE_2D, isometry, color)
+            .immediate(),
+        PrimitiveSelected::Plane => gizmos.primitive_2d(&PLANE_2D, isometry, color).immediate(),
+        PrimitiveSelected::Line => gizmos.primitive_2d(&LINE2D, isometry, color).immediate(),
+        PrimitiveSelected::Segment => gizmos
+            .primitive_2d(&SEGMENT_2D, isometry, color)
+            .immediate(),
+        PrimitiveSelected::Polyline => gizmos
+            .primitive_2d(
+                &Polyline2d {
+                    vertices: vec![
+                        Vec2::new(-BIG_2D, -SMALL_2D),
+                        Vec2::new(-SMALL_2D, SMALL_2D),
+                        Vec2::new(SMALL_2D, -SMALL_2D),
+                        Vec2::new(BIG_2D, SMALL_2D),
+                    ],
+                },
+                isometry,
+                color,
+            )
+            .immediate(),
+        PrimitiveSelected::Polygon => gizmos
+            .primitive_2d(
+                &Polygon {
+                    vertices: vec![
+                        Vec2::new(-BIG_2D, -SMALL_2D),
+                        Vec2::new(BIG_2D, -SMALL_2D),
+                        Vec2::new(BIG_2D, SMALL_2D),
+                        Vec2::new(0.0, 0.0),
+                        Vec2::new(-BIG_2D, SMALL_2D),
+                    ],
+                },
+                isometry,
+                color,
+            )
+            .immediate(),
+        PrimitiveSelected::RegularPolygon => gizmos
+            .primitive_2d(&REGULAR_POLYGON, isometry, color)
+            .immediate(),
+        PrimitiveSelected::Capsule => gizmos
+            .primitive_2d(&CAPSULE_2D, isometry, color)
+            .immediate(),
         PrimitiveSelected::Cylinder => {}
         PrimitiveSelected::Cone => {}
         PrimitiveSelected::ConicalFrustum => {}
-        PrimitiveSelected::Torus => drop(gizmos.primitive_2d(&ANNULUS, isometry, color)),
+        PrimitiveSelected::Torus => gizmos.primitive_2d(&ANNULUS, isometry, color).immediate(),
         PrimitiveSelected::Tetrahedron => {}
-        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, isometry, color),
-        PrimitiveSelected::CircularSector => {
-            gizmos.primitive_2d(&CIRCULAR_SECTOR, isometry, color);
-        }
-        PrimitiveSelected::CircularSegment => {
-            gizmos.primitive_2d(&CIRCULAR_SEGMENT, isometry, color);
-        }
+        PrimitiveSelected::Arc => gizmos.primitive_2d(&ARC, isometry, color).immediate(),
+        PrimitiveSelected::CircularSector => gizmos
+            .primitive_2d(&CIRCULAR_SECTOR, isometry, color)
+            .immediate(),
+        PrimitiveSelected::CircularSegment => gizmos
+            .primitive_2d(&CIRCULAR_SEGMENT, isometry, color)
+            .immediate(),
+        PrimitiveSelected::CircleRing => gizmos
+            .primitive_2d(&CIRCLE.to_ring(INSET), isometry, color)
+            .immediate(),
+        PrimitiveSelected::TriangleRing => gizmos
+            .primitive_2d(&TRIANGLE_2D.to_ring(INSET), isometry, color)
+            .immediate(),
     }
 }
 
@@ -492,40 +566,23 @@ fn spawn_primitive_2d(
     const POSITION: Vec3 = Vec3::new(LEFT_RIGHT_OFFSET_2D, 0.0, 0.0);
     let material: Handle<ColorMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim2;
-    [
-        Some(RECTANGLE.mesh().build()),
-        Some(CIRCLE.mesh().build()),
-        Some(ELLIPSE.mesh().build()),
-        Some(TRIANGLE_2D.mesh().build()),
-        None, // plane
-        None, // line
-        None, // segment
-        None, // polyline
-        None, // polygon
-        Some(REGULAR_POLYGON.mesh().build()),
-        Some(CAPSULE_2D.mesh().build()),
-        None, // cylinder
-        None, // cone
-        None, // conical frustum
-        Some(ANNULUS.mesh().build()),
-        None, // tetrahedron
-    ]
-    .into_iter()
-    .zip(PrimitiveSelected::ALL)
-    .for_each(|(maybe_mesh, state)| {
-        if let Some(mesh) = maybe_mesh {
-            commands.spawn((
-                MeshDim2,
-                PrimitiveData {
-                    camera_mode,
-                    primitive_state: state,
-                },
-                Mesh2d(meshes.add(mesh)),
-                MeshMaterial2d(material.clone()),
-                Transform::from_translation(POSITION),
-            ));
-        }
-    });
+    PrimitiveSelected::ALL
+        .map(|primitive| (primitive.mesh_2d(), primitive))
+        .into_iter()
+        .for_each(|(maybe_mesh, state)| {
+            if let Some(mesh) = maybe_mesh {
+                commands.spawn((
+                    MeshDim2,
+                    PrimitiveData {
+                        camera_mode,
+                        primitive_state: state,
+                    },
+                    Mesh2d(meshes.add(mesh)),
+                    MeshMaterial2d(material.clone()),
+                    Transform::from_translation(POSITION),
+                ));
+            }
+        });
 }
 
 fn spawn_primitive_3d(
@@ -536,40 +593,23 @@ fn spawn_primitive_3d(
     const POSITION: Vec3 = Vec3::new(-LEFT_RIGHT_OFFSET_3D, 0.0, 0.0);
     let material: Handle<StandardMaterial> = materials.add(Color::WHITE);
     let camera_mode = CameraActive::Dim3;
-    [
-        Some(CUBOID.mesh().build()),
-        Some(SPHERE.mesh().build()),
-        None, // ellipse
-        Some(TRIANGLE_3D.mesh().build()),
-        Some(PLANE_3D.mesh().build()),
-        None, // line
-        None, // segment
-        None, // polyline
-        None, // polygon
-        None, // regular polygon
-        Some(CAPSULE_3D.mesh().build()),
-        Some(CYLINDER.mesh().build()),
-        None, // cone
-        None, // conical frustum
-        Some(TORUS.mesh().build()),
-        Some(TETRAHEDRON.mesh().build()),
-    ]
-    .into_iter()
-    .zip(PrimitiveSelected::ALL)
-    .for_each(|(maybe_mesh, state)| {
-        if let Some(mesh) = maybe_mesh {
-            commands.spawn((
-                MeshDim3,
-                PrimitiveData {
-                    camera_mode,
-                    primitive_state: state,
-                },
-                Mesh3d(meshes.add(mesh)),
-                MeshMaterial3d(material.clone()),
-                Transform::from_translation(POSITION),
-            ));
-        }
-    });
+    PrimitiveSelected::ALL
+        .map(|primitive| (primitive.mesh_3d(), primitive))
+        .into_iter()
+        .for_each(|(maybe_mesh, state)| {
+            if let Some(mesh) = maybe_mesh {
+                commands.spawn((
+                    MeshDim3,
+                    PrimitiveData {
+                        camera_mode,
+                        primitive_state: state,
+                    },
+                    Mesh3d(meshes.add(mesh)),
+                    MeshMaterial3d(material.clone()),
+                    Transform::from_translation(POSITION),
+                ));
+            }
+        });
 }
 
 fn update_primitive_meshes(
@@ -653,14 +693,16 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::RectangleAndCuboid => {
             gizmos.primitive_3d(&CUBOID, isometry, color);
         }
-        PrimitiveSelected::CircleAndSphere => drop(
+        PrimitiveSelected::CircleAndSphere => {
             gizmos
                 .primitive_3d(&SPHERE, isometry, color)
-                .resolution(resolution),
-        ),
+                .resolution(resolution);
+        }
         PrimitiveSelected::Ellipse => {}
         PrimitiveSelected::Triangle => gizmos.primitive_3d(&TRIANGLE_3D, isometry, color),
-        PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
+        PrimitiveSelected::Plane => {
+            gizmos.primitive_3d(&PLANE_3D, isometry, color);
+        }
         PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, isometry, color),
         PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, isometry, color),
         PrimitiveSelected::Polyline => gizmos.primitive_3d(
@@ -677,37 +719,37 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         ),
         PrimitiveSelected::Polygon => {}
         PrimitiveSelected::RegularPolygon => {}
-        PrimitiveSelected::Capsule => drop(
+        PrimitiveSelected::Capsule => {
             gizmos
                 .primitive_3d(&CAPSULE_3D, isometry, color)
-                .resolution(resolution),
-        ),
-        PrimitiveSelected::Cylinder => drop(
+                .resolution(resolution);
+        }
+        PrimitiveSelected::Cylinder => {
             gizmos
                 .primitive_3d(&CYLINDER, isometry, color)
-                .resolution(resolution),
-        ),
-        PrimitiveSelected::Cone => drop(
+                .resolution(resolution);
+        }
+        PrimitiveSelected::Cone => {
             gizmos
                 .primitive_3d(&CONE, isometry, color)
-                .resolution(resolution),
-        ),
+                .resolution(resolution);
+        }
         PrimitiveSelected::ConicalFrustum => {
             gizmos.primitive_3d(&CONICAL_FRUSTUM, isometry, color);
         }
-
-        PrimitiveSelected::Torus => drop(
+        PrimitiveSelected::Torus => {
             gizmos
                 .primitive_3d(&TORUS, isometry, color)
                 .minor_resolution(resolution)
-                .major_resolution(resolution),
-        ),
+                .major_resolution(resolution);
+        }
         PrimitiveSelected::Tetrahedron => {
             gizmos.primitive_3d(&TETRAHEDRON, isometry, color);
         }
-
         PrimitiveSelected::Arc => {}
         PrimitiveSelected::CircularSector => {}
         PrimitiveSelected::CircularSegment => {}
+        PrimitiveSelected::CircleRing => {}
+        PrimitiveSelected::TriangleRing => {}
     }
 }
