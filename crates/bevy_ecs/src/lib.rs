@@ -78,6 +78,7 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
         component::Component,
+        debug_tag::DebugTag,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
         event::{EntityEvent, Event, EventReader, EventWriter, Events},
