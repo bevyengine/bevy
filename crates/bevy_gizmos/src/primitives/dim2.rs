@@ -108,6 +108,9 @@ where
     pub fn new(gizmos: &'builder mut GizmoBuffer<Config, Clear>, data: Blueprint) -> Self {
         Self { gizmos, data }
     }
+
+    /// Consume the builder, which will immediately drop it, running the [`GizmoBlueprint2d::build_2d`] method.
+    pub fn immediate(self) {}
 }
 
 impl<'builder, Blueprint, Config, Clear> core::ops::Deref
