@@ -309,6 +309,8 @@ impl<'w> ComponentsRegistrator<'w> {
     // This ensures that a resource registered with a custom descriptor functions as expected.
     // Panics if the component is not registered.
     // This has no effect on non-send resources.
+    //
+    // Panics if the id isn't registered or valid.
     fn add_resource_hooks_and_required_components(&mut self, id: ComponentId) {
         if self
             .get_info(id)
@@ -323,10 +325,13 @@ impl<'w> ComponentsRegistrator<'w> {
             hooks.on_remove(crate::resource::on_remove_hook);
 
             let is_resource_id = self.register_component::<IsResource>();
+
+            assert!(self.is_id_valid(id));
+
             // SAFETY:
             // - The IsResource component id matches
             // - The constructor constructs an IsResource
-            // - The id is valid because the component was just registered
+            // - The id is valid, otherwise the assert would have panicked
             unsafe {
                 let _ = self.components.register_required_components::<IsResource>(
                     id,
