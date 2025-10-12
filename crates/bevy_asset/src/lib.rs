@@ -733,7 +733,6 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use async_channel::Receiver;
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         message::MessageCursor,
@@ -2084,11 +2083,15 @@ mod tests {
         );
     }
 
-    /// A loader that waits on a channel before completing the load.
+    /// A loader that notifies a sender when the loader has started, and blocks on a receiver to
+    /// simulate a long asset loader.
     // Note: we can't just use the GatedReader, since currently we hold the handle until after
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
-    struct GatedLoader(Receiver<()>);
+    struct GatedLoader {
+        in_loader_sender: async_channel::Sender<()>,
+        gate_receiver: async_channel::Receiver<()>,
+    }
 
     impl AssetLoader for GatedLoader {
         type Asset = TestAsset;
@@ -2101,7 +2104,8 @@ mod tests {
             _settings: &Self::Settings,
             _load_context: &mut LoadContext<'_>,
         ) -> Result<Self::Asset, Self::Error> {
-            let _ = self.0.recv().await;
+            self.in_loader_sender.send_blocking(()).unwrap();
+            let _ = self.gate_receiver.recv().await;
             Ok(TestAsset)
         }
 
@@ -2121,10 +2125,14 @@ mod tests {
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
-        let (sender, receiver) = async_channel::bounded(1);
+        let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
+        let (gate_sender, gate_receiver) = async_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
-            .register_asset_loader(GatedLoader(receiver));
+            .register_asset_loader(GatedLoader {
+                in_loader_sender,
+                gate_receiver,
+            });
 
         let path = Path::new("abc.ron");
         dir.insert_asset_text(path, "blah");
@@ -2136,6 +2144,9 @@ mod tests {
         assert!(asset_server.get_load_state(&handle).unwrap().is_loading());
         app.update();
 
+        // Make sure we are inside the loader before continuing.
+        in_loader_receiver.recv_blocking().unwrap();
+
         let asset_id = handle.id();
         // Dropping the handle and doing another update should result in the load being cancelled.
         drop(handle);
@@ -2143,7 +2154,7 @@ mod tests {
         assert!(asset_server.get_load_state(asset_id).is_none());
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
-        sender.send_blocking(()).unwrap();
+        gate_sender.send_blocking(()).unwrap();
         for _ in 0..10 {
             app.update();
             for message in app
@@ -2170,10 +2181,14 @@ mod tests {
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
-        let (sender, receiver) = async_channel::bounded(1);
+        let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
+        let (gate_sender, gate_receiver) = async_channel::bounded(1);
 
         app.init_asset::<TestAsset>()
-            .register_asset_loader(GatedLoader(receiver));
+            .register_asset_loader(GatedLoader {
+                in_loader_sender,
+                gate_receiver,
+            });
 
         let path = Path::new("abc.ron");
         dir.insert_asset_text(path, "blah");
@@ -2187,6 +2202,9 @@ mod tests {
         assert!(asset_server.get_load_state(&handle).unwrap().is_loading());
         app.update();
 
+        // Make sure we are inside the loader before continuing.
+        in_loader_receiver.recv_blocking().unwrap();
+
         let asset_id = handle.id();
         // Dropping the handle and doing another update should result in the load being cancelled.
         drop(handle);
@@ -2194,7 +2212,7 @@ mod tests {
         assert!(asset_server.get_load_state(asset_id).is_none());
 
         // Unblock the loader and then update a few times, showing that the asset never loads.
-        sender.send_blocking(()).unwrap();
+        gate_sender.send_blocking(()).unwrap();
         for _ in 0..10 {
             app.update();
             for message in app
