@@ -5,7 +5,8 @@ use crate::{
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{
-        FilteredAccess, IterQueryData, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery,
+        FilteredAccess, IterQueryData, QueryCombinationIter, QueryIter, QueryParIter,
+        SingleEntityQueryData, WorldQuery,
     },
     storage::{SparseSetIndex, TableId},
     system::Query,
@@ -631,7 +632,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
     /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
     /// best used through a [`Query`]
-    pub fn transmute<'a, NewD: QueryData>(
+    pub fn transmute<'a, NewD: SingleEntityQueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
     ) -> QueryState<NewD> {
@@ -642,7 +643,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// as self but with a new type signature.
     ///
     /// Panics if `NewD` or `NewF` require accesses that this query does not have.
-    pub fn transmute_filtered<'a, NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_filtered<'a, NewD: SingleEntityQueryData, NewF: QueryFilter>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
     ) -> QueryState<NewD, NewF> {
@@ -716,7 +717,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// ## Panics
     ///
     /// Will panic if `NewD` contains accesses not in `Q` or `OtherQ`.
-    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+    pub fn join<'a, OtherD: QueryData, NewD: SingleEntityQueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
         other: &QueryState<OtherD>,
@@ -734,7 +735,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         &self,

@@ -4,7 +4,10 @@ use crate::{
     bundle::Bundle,
     component::Tick,
     entity::{ContainsEntity, Entities, Entity, EntityEquivalent, EntitySet, EntitySetIterator},
-    query::{ArchetypeFilter, DebugCheckedUnwrap, IterQueryData, QueryState, StorageId},
+    query::{
+        ArchetypeFilter, DebugCheckedUnwrap, IterQueryData, QueryState, SingleEntityQueryData,
+        StorageId,
+    },
     storage::{Table, TableRow, Tables},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -521,7 +524,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -578,7 +581,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -642,7 +645,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_by<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedIter<
@@ -674,7 +677,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable_by<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedIter<
@@ -766,7 +769,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
@@ -799,7 +802,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
@@ -834,7 +837,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_cached_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedIter<
@@ -864,7 +867,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    fn sort_impl<L: ReadOnlyQueryData + 'w>(
+    fn sort_impl<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         f: impl FnOnce(&mut Vec<(L::Item<'_, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
@@ -1389,7 +1392,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
     ) -> QuerySortedManyIter<
         'w,
@@ -1447,7 +1450,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
     ) -> QuerySortedManyIter<
         'w,
@@ -1512,7 +1515,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_by<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
@@ -1543,7 +1546,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///
     /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
     /// called on [`QueryManyIter`] before.
-    pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
+    pub fn sort_unstable_by<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         mut compare: impl FnMut(&L::Item<'_, '_>, &L::Item<'_, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
@@ -1637,7 +1640,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
@@ -1669,7 +1672,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///
     /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
     /// called on [`QueryManyIter`] before.
-    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
@@ -1703,7 +1706,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///
     /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
     /// called on [`QueryManyIter`] before.
-    pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
+    pub fn sort_by_cached_key<L: ReadOnlyQueryData + SingleEntityQueryData + 'w, K>(
         self,
         mut f: impl FnMut(&L::Item<'_, '_>) -> K,
     ) -> QuerySortedManyIter<
@@ -1732,7 +1735,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     ///
     /// Unlike the sort methods on [`QueryIter`], this does NOT panic if `next`/`fetch_next` has been
     /// called on [`QueryManyIter`] before.
-    fn sort_impl<L: ReadOnlyQueryData + 'w>(
+    fn sort_impl<L: ReadOnlyQueryData + SingleEntityQueryData + 'w>(
         self,
         f: impl FnOnce(&mut Vec<(L::Item<'_, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<

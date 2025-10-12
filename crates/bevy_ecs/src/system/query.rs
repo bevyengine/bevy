@@ -8,7 +8,7 @@ use crate::{
         DebugCheckedUnwrap, IterQueryData, NopWorldQuery, QueryCombinationIter, QueryData,
         QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter,
         QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
-        ReadOnlyQueryData,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -2217,16 +2217,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #     prelude::*,
     /// #     archetype::Archetype,
     /// #     entity::EntityLocation,
-    /// #     query::{QueryData, QueryFilter},
+    /// #     query::{QueryData, QueryFilter, SingleEntityQueryData},
     /// #     world::{FilteredEntityMut, FilteredEntityRef},
     /// # };
     /// # use std::marker::PhantomData;
     /// #
-    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: SingleEntityQueryData>() {
     /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
     /// # }
     /// #
-    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: SingleEntityQueryData, NewF: QueryFilter>() {
     /// #     let mut world = World::new();
     /// #     // Make sure all components in the new query are initialized
     /// #     let state = world.query_filtered::<NewD, NewF>();
@@ -2287,7 +2287,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
     /// ```
     #[track_caller]
-    pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
+    pub fn transmute_lens<NewD: SingleEntityQueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
 
@@ -2343,7 +2343,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`transmute_lens`](Self::transmute_lens) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_inner<NewD: QueryData>(self) -> QueryLens<'w, NewD> {
+    pub fn transmute_lens_inner<NewD: SingleEntityQueryData>(self) -> QueryLens<'w, NewD> {
         self.transmute_lens_filtered_inner::<NewD, ()>()
     }
 
@@ -2357,7 +2357,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
     /// are in the type signature.
     #[track_caller]
-    pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
         self.reborrow().transmute_lens_filtered_inner()
@@ -2378,7 +2378,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`transmute_lens_filtered`](Self::transmute_lens_filtered) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_filtered_inner<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered_inner<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         self,
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
@@ -2391,7 +2391,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
-    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
+    pub fn as_query_lens(&mut self) -> QueryLens<'_, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens()
     }
 
@@ -2400,7 +2403,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`as_query_lens`](Self::as_query_lens) to convert to a lens using a mutable borrow of the [`Query`].
-    pub fn into_query_lens(self) -> QueryLens<'w, D> {
+    pub fn into_query_lens(self) -> QueryLens<'w, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens_inner()
     }
 
@@ -2458,7 +2464,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
     /// See [`Self::transmute_lens`] for more details.
-    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+    pub fn join<'a, OtherD: QueryData, NewD: SingleEntityQueryData>(
         &'a mut self,
         other: &'a mut Query<OtherD>,
     ) -> QueryLens<'a, NewD> {
@@ -2485,7 +2491,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`join`](Self::join) to join using a mutable borrow of the [`Query`].
-    pub fn join_inner<OtherD: QueryData, NewD: QueryData>(
+    pub fn join_inner<OtherD: QueryData, NewD: SingleEntityQueryData>(
         self,
         other: Query<'w, '_, OtherD>,
     ) -> QueryLens<'w, NewD> {
@@ -2503,7 +2509,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         &'a mut self,
@@ -2527,7 +2533,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn join_filtered_inner<
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         self,
@@ -2650,7 +2656,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
     }
 }
 
-impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
+impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
     for QueryLens<'q, Q, F>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
