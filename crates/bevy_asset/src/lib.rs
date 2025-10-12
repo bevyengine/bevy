@@ -733,6 +733,7 @@ mod tests {
         vec,
         vec::Vec,
     };
+    use async_channel::Receiver;
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         message::MessageCursor,
@@ -2081,6 +2082,132 @@ mod tests {
                 .insert(asset_id, TestAsset),
             Err(InvalidGenerationError::Removed { index })
         );
+    }
+
+    /// A loader that waits on a channel before completing the load.
+    // Note: we can't just use the GatedReader, since currently we hold the handle until after
+    // we've selected the reader. The GatedReader blocks this process, so we need to wait until
+    // we gate in the loader instead.
+    struct GatedLoader(Receiver<()>);
+
+    impl AssetLoader for GatedLoader {
+        type Asset = TestAsset;
+        type Error = std::io::Error;
+        type Settings = ();
+
+        async fn load(
+            &self,
+            _reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            _load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let _ = self.0.recv().await;
+            Ok(TestAsset)
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["ron"]
+        }
+    }
+
+    #[test]
+    fn dropping_handle_while_loading_cancels_load() {
+        let dir = Dir::default();
+        let mut app = App::new();
+        let reader = MemoryAssetReader { root: dir.clone() };
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        let (sender, receiver) = async_channel::bounded(1);
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(GatedLoader(receiver));
+
+        let path = Path::new("abc.ron");
+        dir.insert_asset_text(path, "blah");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        // Start loading the asset. This load will get blocked by the gate.
+        let handle = asset_server.load::<TestAsset>(path);
+        assert!(asset_server.get_load_state(&handle).unwrap().is_loading());
+        app.update();
+
+        let asset_id = handle.id();
+        // Dropping the handle and doing another update should result in the load being cancelled.
+        drop(handle);
+        app.update();
+        assert!(asset_server.get_load_state(asset_id).is_none());
+
+        // Unblock the loader and then update a few times, showing that the asset never loads.
+        sender.send_blocking(()).unwrap();
+        for _ in 0..10 {
+            app.update();
+            for message in app
+                .world()
+                .resource::<Messages<AssetEvent<TestAsset>>>()
+                .iter_current_update_messages()
+            {
+                match message {
+                    AssetEvent::Unused { .. } => {}
+                    message => panic!("No asset events are allowed: {message:?}"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn dropping_subasset_handle_while_loading_cancels_load() {
+        let dir = Dir::default();
+        let mut app = App::new();
+        let reader = MemoryAssetReader { root: dir.clone() };
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+        )
+        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+
+        let (sender, receiver) = async_channel::bounded(1);
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(GatedLoader(receiver));
+
+        let path = Path::new("abc.ron");
+        dir.insert_asset_text(path, "blah");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        // Start loading the subasset. This load will get blocked by the gate.
+        // Note: it doesn't matter that the subasset doesn't actually end up existing, since the
+        // asset system doesn't know that until after the load completes, which we cancel anyway.
+        let handle = asset_server.load::<TestAsset>("abc.ron#sub");
+        assert!(asset_server.get_load_state(&handle).unwrap().is_loading());
+        app.update();
+
+        let asset_id = handle.id();
+        // Dropping the handle and doing another update should result in the load being cancelled.
+        drop(handle);
+        app.update();
+        assert!(asset_server.get_load_state(asset_id).is_none());
+
+        // Unblock the loader and then update a few times, showing that the asset never loads.
+        sender.send_blocking(()).unwrap();
+        for _ in 0..10 {
+            app.update();
+            for message in app
+                .world()
+                .resource::<Messages<AssetEvent<TestAsset>>>()
+                .iter_current_update_messages()
+            {
+                match message {
+                    AssetEvent::Unused { .. } => {}
+                    message => panic!("No asset events are allowed: {message:?}"),
+                }
+            }
+        }
     }
 
     // Creates a basic app with the default asset source engineered to get back the asset event
