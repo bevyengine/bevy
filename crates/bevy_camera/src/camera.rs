@@ -85,7 +85,7 @@ impl Viewport {
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
     ) -> Option<Self> {
         if let Some(override_size) = main_pass_resolution_override {
-            let mut vp = viewport.map_or_else(|| Self::default(), |v| v.clone());
+            let mut vp = viewport.map_or_else(Self::default, Self::clone);
             vp.physical_size = **override_size;
             Some(vp)
         } else {
