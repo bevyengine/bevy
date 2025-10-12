@@ -275,14 +275,9 @@ pub struct Frustum {
 }
 
 impl Frustum {
-    const LEFT_PLANE_IDX: usize = 0;
-    const RIGHT_PLANE_IDX: usize = 1;
-    const BOTTOM_PLANE_IDX: usize = 2;
-    const TOP_PLANE_IDX: usize = 3;
-    const NEAR_PLANE_IDX: usize = 4;
+    pub const NEAR_PLANE_IDX: usize = 4;
     const FAR_PLANE_IDX: usize = 5;
-
-    const INACTIVE_HALF_SPACE: Vec4 = Vec4::new(0.0, 0.0, 0.0, f32::MAX);
+    const INACTIVE_HALF_SPACE: Vec4 = Vec4::new(0.0, 0.0, 0.0, f32::INFINITY);
 
     /// Returns a frustum derived from `clip_from_world`.
     #[inline]
@@ -314,20 +309,21 @@ impl Frustum {
     /// Returns a frustum derived from `view_projection`,
     /// without a far plane.
     fn from_clip_from_world_no_far(clip_from_world: &Mat4) -> Self {
-        let mut half_spaces = [HalfSpace::default(); 6];
-
         let row0 = clip_from_world.row(0);
         let row1 = clip_from_world.row(1);
         let row2 = clip_from_world.row(2);
         let row3 = clip_from_world.row(3);
 
-        half_spaces[Self::LEFT_PLANE_IDX] = HalfSpace::new(row3 + row0);
-        half_spaces[Self::RIGHT_PLANE_IDX] = HalfSpace::new(row3 - row0);
-        half_spaces[Self::BOTTOM_PLANE_IDX] = HalfSpace::new(row3 + row1);
-        half_spaces[Self::TOP_PLANE_IDX] = HalfSpace::new(row3 - row1);
-        half_spaces[Self::NEAR_PLANE_IDX] = HalfSpace::new(row3 + row2);
-        half_spaces[Self::FAR_PLANE_IDX] = HalfSpace::new(Self::INACTIVE_HALF_SPACE);
-        Self { half_spaces }
+        Self {
+            half_spaces: [
+                HalfSpace::new(row3 + row0),
+                HalfSpace::new(row3 - row0),
+                HalfSpace::new(row3 + row1),
+                HalfSpace::new(row3 - row1),
+                HalfSpace::new(row3 + row2),
+                HalfSpace::new(Self::INACTIVE_HALF_SPACE),
+            ],
+        }
     }
 
     /// Checks if a sphere intersects the frustum.
