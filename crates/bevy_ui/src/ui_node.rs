@@ -9,6 +9,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -2859,6 +2860,15 @@ impl ComputedUiRenderTargetInfo {
         self.physical_size.as_vec2() / self.scale_factor
     }
 }
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+pub struct UiContainTarget(pub Entity);
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+#[require(crate::ui_surface::UiSurface, Transform)]
+pub struct UiContain;
 
 #[cfg(test)]
 mod tests {

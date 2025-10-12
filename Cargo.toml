@@ -160,6 +160,7 @@ ui = [
   "scene",
   "audio",
   "picking",
+  "bevy_ui_contain"
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
@@ -281,6 +282,9 @@ ui_picking = ["bevy_internal/ui_picking"]
 
 # Provides a debug overlay for bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
+
+# Provides a free Transform transform for bevy UI
+bevy_ui_contain = ["bevy_internal/bevy_ui_contain"]
 
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
@@ -3974,6 +3978,11 @@ wasm = true
 [[example]]
 name = "ui_material"
 path = "examples/ui/ui_material.rs"
+doc-scrape-examples = true
+
+[[example]]
+name = "ui_contain"
+path = "examples/ui/ui_contain.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_material]

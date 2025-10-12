@@ -324,7 +324,7 @@ pub fn queue_shadows(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let Ok(view) = camera_views.get(default_camera_view.ui_camera) else {
             continue;
         };
 
@@ -353,6 +353,42 @@ pub fn queue_shadows(
             index,
             indexed: true,
         });
+
+        #[cfg(feature = "bevy_ui_contain")]
+        {
+            let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
+                continue;
+            };
+
+            let Some(transparent_phase) =
+                transparent_render_phases.get_mut(&view.retained_view_entity)
+            else {
+                continue;
+            };
+
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &box_shadow_pipeline,
+                BoxShadowPipelineKey {
+                    hdr: view.hdr,
+                    samples: shadow_samples.copied().unwrap_or_default().0,
+                },
+            );
+
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (entity, extracted_shadow.main_entity),
+                sort_key: FloatOrd(
+                    extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW,
+                ),
+
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: true,
+            });
+        }
     }
 }
 

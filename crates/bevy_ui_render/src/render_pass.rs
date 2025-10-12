@@ -87,10 +87,21 @@ impl Node for UiPassNode {
             .ui_camera_view_query
             .get_manual(world, input_view_entity)
         {
-            ui_camera_view.0
+            ui_camera_view.ui_camera
         } else {
             input_view_entity
         };
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let view_entity_contain = if let Ok(ui_camera_view) = self
+            .ui_camera_view_query
+            .get_manual(world, input_view_entity)
+        {
+            ui_camera_view.ui_contain
+        } else {
+            input_view_entity
+        };
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui"),
             color_attachments: &[Some(target.get_unsampled_color_attachment())],
@@ -104,6 +115,11 @@ impl Node for UiPassNode {
             render_pass.set_camera_viewport(viewport);
         }
         if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the ui phase {err:?}");
+        }
+
+        #[cfg(feature = "bevy_ui_contain")]
+        if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity_contain) {
             error!("Error encountered while rendering the ui phase {err:?}");
         }
 
