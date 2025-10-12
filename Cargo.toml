@@ -381,6 +381,9 @@ bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
 # Enables the free cam from bevy_camera_controller
 free_cam = ["bevy_internal/free_cam"]
 
+# Enables the pan cam from bevy_camera_controller
+pan_cam = ["bevy_internal/pan_cam"]
+
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
 
@@ -4825,4 +4828,16 @@ doc-scrape-examples = true
 name = "Render Depth to Texture"
 description = "Demonstrates how to use depth-only cameras"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pan_cam"
+path = "examples/helpers/pan_cam.rs"
+doc-scrape-examples = true
+required-features = ["pan_cam"]
+
+[package.metadata.example.pan_cam]
+name = "Pan Cam"
+description = "Example Pan-Cam Styled Camera Controller for 2D scenes"
+category = "Helpers"
 wasm = true

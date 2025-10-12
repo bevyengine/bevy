@@ -30,6 +30,7 @@ libm = ["bevy_math/libm"]
 
 # Camera controllers
 free_cam = []
+pan_cam = []
 
 [lints]
 workspace = true
