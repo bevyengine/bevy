@@ -7,6 +7,7 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
@@ -20,9 +21,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    ComputedFont, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasKey, FontAtlasSet, LineBreak,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -87,6 +88,7 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedFont,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -175,6 +177,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
+    mut computed_font_query: Query<&mut ComputedFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -258,6 +261,17 @@ pub fn update_text2d_layout(
                 Ok(()) => {
                     text_layout_info.scale_factor = scale_factor;
                     text_layout_info.size *= scale_factor.recip();
+
+                    for (section_entity, _, _, font, _) in text_reader.iter(entity) {
+                        if let Ok(mut computed_font) = computed_font_query.get_mut(section_entity) {
+                            let key = FontAtlasKey(
+                                font.font.id(),
+                                (scale_factor * font.font_size).to_bits(),
+                                font.font_smoothing,
+                            );
+                            computed_font.set_if_neq(ComputedFont(Some(key)));
+                        }
+                    }
                 }
             }
         }
