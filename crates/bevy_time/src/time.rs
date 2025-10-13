@@ -381,9 +381,9 @@ impl<CONTEXT: Default, STEP: TimeDuration> Time<CONTEXT, STEP> {
 
     /// Returns a copy of this clock as fully generic clock without context.
     #[inline]
-    pub fn as_generic(&self) -> Time<(), STEP> {
+    pub fn as_other<OtherContext: Default>(&self) -> Time<OtherContext, STEP> {
         Time {
-            context: (),
+            context: OtherContext::default(),
             wrap_period: self.wrap_period,
             delta: self.delta,
             elapsed: self.elapsed,
