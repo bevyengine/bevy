@@ -115,11 +115,8 @@ impl Time<SteppedTimeTravel, u32> {
     /// Recede the time by a specific amount.
     pub fn recede_by(&mut self, delta: u32) {
         self.delta = delta;
-        self.precompute.update_delta(self.delta);
         self.elapsed -= delta;
-        self.precompute.update_elapsed(self.elapsed);
         self.elapsed_wrapped = u32::wrap(self.elapsed, self.wrap_period);
-        self.precompute.update_elapsed_wrapped(self.elapsed_wrapped);
     }
 }
 
