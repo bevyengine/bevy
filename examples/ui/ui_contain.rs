@@ -16,16 +16,42 @@ fn setup(mut commands: Commands) {
 
     let uicontain = commands.spawn(UiContain).id();
 
-    commands.spawn((
-        Node {
-            width: px(200.0),
-            height: px(200.0),
-            border: px(4.0).all(),
-            ..Default::default()
-        },
-        BorderColor::all(Srgba::RED),
-        UiContainTarget(uicontain),
-    ));
+    commands
+        .spawn((
+            Node {
+                width: px(200.0),
+                height: px(200.0),
+                border: px(4.0).all(),
+                ..Default::default()
+            },
+            BorderColor {
+                top: Srgba::BLUE.into(),
+                right: Srgba::GREEN.into(),
+                bottom: Srgba::RED.into(),
+                left: Srgba::WHITE.into(),
+            },
+            UiContainTarget(uicontain),
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Node {
+                        width: px(150.0),
+                        height: px(150.0),
+                        border: px(4.0).all(),
+                        justify_self: JustifySelf::Center,
+                        ..Default::default()
+                    },
+                    BorderColor {
+                        top: Srgba::BLUE.into(),
+                        right: Srgba::GREEN.into(),
+                        bottom: Srgba::RED.into(),
+                        left: Srgba::WHITE.into(),
+                    },
+                    UiContainTarget(uicontain),
+                ))
+                .with_child((Text::new("node text "), UiContainTarget(uicontain)));
+        });
 
     commands.spawn((
         Node {
@@ -34,10 +60,17 @@ fn setup(mut commands: Commands) {
             border: px(4.0).all(),
             ..Default::default()
         },
-        BorderColor::all(Srgba::BLUE),
+        BorderColor {
+            top: Srgba::BLUE.into(),
+            right: Srgba::GREEN.into(),
+            bottom: Srgba::RED.into(),
+            left: Srgba::WHITE.into(),
+        },
     ));
 
     commands.spawn((
+        Text2d::new("sprite"),
+        TextColor(Srgba::RED.into()),
         Sprite {
             custom_size: Some(Vec2::splat(50.0)),
             ..Default::default()

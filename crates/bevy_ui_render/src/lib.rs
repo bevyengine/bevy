@@ -42,6 +42,8 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_math::Mat2;
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -70,6 +72,8 @@ use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
+#[cfg(feature = "bevy_ui_contain")]
+use std::f32::consts::PI;
 
 use graph::{NodeUi, SubGraphUi};
 pub use pipeline::*;
@@ -195,6 +199,10 @@ impl Default for BoxShadowSamples {
         Self(4)
     }
 }
+
+#[cfg(feature = "bevy_ui_contain")]
+pub const UI_WORLD_MAT2: Mat2 =
+    Mat2::from_cols(Vec2::new(1.0, 8.742278e-8), Vec2::new(8.742278e-8, -1.0));
 
 /// Deprecated alias for [`RenderUiSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
@@ -439,10 +447,10 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 }
 
 #[cfg(not(feature = "bevy_ui_contain"))]
-type IsContainTarget = ();
+type IsContainFeature = ();
 
 #[cfg(feature = "bevy_ui_contain")]
-type IsContainTarget = Has<UiContainTarget>;
+type IsContainFeature = Has<UiContainTarget>;
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
@@ -456,7 +464,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -486,13 +494,23 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform = transform.into();
+
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
             clip: clip.map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
-            transform: transform.into(),
+            transform,
             item: ExtractedUiItem::Node {
                 color: background_color.0.into(),
                 rect: Rect {
@@ -526,7 +544,7 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -556,6 +574,16 @@ pub fn extract_uinode_images(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform: Affine2 = transform.into();
 
         let atlas_rect = image
             .texture_atlas
@@ -592,7 +620,7 @@ pub fn extract_uinode_images(
             clip: clip.map(|clip| clip.clip),
             image: image.image.id(),
             extracted_camera_entity,
-            transform: transform.into(),
+            transform,
             item: ExtractedUiItem::Node {
                 color: image.color.into(),
                 rect,
@@ -623,7 +651,7 @@ pub fn extract_uinode_borders(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -671,6 +699,16 @@ pub fn extract_uinode_borders(
             ];
             let mut completed_flags = 0;
 
+            #[cfg(feature = "bevy_ui_contain")]
+            let transform = if _is_contain_target {
+                Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+            } else {
+                transform.affine()
+            };
+
+            #[cfg(not(feature = "bevy_ui_contain"))]
+            let transform: Affine2 = transform.into();
+
             for (i, &color) in border_colors.iter().enumerate() {
                 if color.is_fully_transparent() {
                     continue;
@@ -694,7 +732,7 @@ pub fn extract_uinode_borders(
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
-                    transform: transform.into(),
+                    transform,
                     item: ExtractedUiItem::Node {
                         color,
                         rect: Rect {
@@ -946,7 +984,7 @@ pub fn extract_viewport_nodes(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ViewportNode,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -972,13 +1010,24 @@ pub fn extract_viewport_nodes(
             continue;
         };
 
+        
         let Some(image) = camera_query
-            .get(viewport_node.camera)
-            .ok()
-            .and_then(|camera| camera.target.as_image())
+        .get(viewport_node.camera)
+        .ok()
+        .and_then(|camera| camera.target.as_image())
         else {
             continue;
         };
+        
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform: Affine2 = transform.into();
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
@@ -986,7 +1035,7 @@ pub fn extract_viewport_nodes(
             clip: clip.map(|clip| clip.clip),
             image: image.id(),
             extracted_camera_entity,
-            transform: transform.into(),
+            transform,
             item: ExtractedUiItem::Node {
                 color: LinearRgba::WHITE,
                 rect: Rect {
@@ -1022,7 +1071,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -1055,6 +1104,13 @@ pub fn extract_text_sections(
         };
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            transform
+        };
 
         let mut color = text_color.0.to_linear();
 
@@ -1131,7 +1187,7 @@ pub fn extract_text_shadows(
             Option<&CalculatedClip>,
             &TextLayoutInfo,
             &TextShadow,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -1165,6 +1221,13 @@ pub fn extract_text_shadows(
             * Affine2::from_translation(
                 -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
             );
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let node_transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            node_transform
+        };
 
         for (
             i,
@@ -1222,7 +1285,7 @@ pub fn extract_text_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
@@ -1251,6 +1314,13 @@ pub fn extract_text_background_colors(
 
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if _is_contain_target {
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * transform.translation)
+        } else {
+            transform
+        };
 
         for &(section_entity, rect) in text_layout_info.section_rects.iter() {
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {

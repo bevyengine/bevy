@@ -358,7 +358,7 @@ pub fn extract_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
-            IsContainTarget,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -430,6 +430,7 @@ pub fn extract_gradients(
                     });
                     continue;
                 }
+
                 match gradient {
                     Gradient::Linear(LinearGradient {
                         color_space,
