@@ -254,8 +254,9 @@ impl Plugin for MeshRenderPlugin {
                     );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
+                let cpu_batched_instance_buffer = no_gpu_preprocessing::BatchedInstanceBuffer::<
+                    MeshUniform,
+                >::new(&render_device.limits());
                 render_app
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
@@ -271,7 +272,7 @@ impl Plugin for MeshRenderPlugin {
 
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+                GpuArrayBuffer::<MeshUniform>::batch_size(&render_device.limits())
             {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -1853,13 +1854,15 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             shader,
-            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
+                &render_device.limits(),
+            ),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
                 &render_device,
                 &render_adapter,
             ),
-            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
         }
     }
 }
@@ -3043,7 +3046,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_byte_offset
-            && skins_use_uniform_buffers(&render_device)
+            && skins_use_uniform_buffers(&render_device.limits())
         {
             dynamic_offsets[offset_count] = current_skin_index.byte_offset;
             offset_count += 1;
@@ -3056,7 +3059,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device)
+            if skins_use_uniform_buffers(&render_device.limits())
                 && let Some(current_skin_byte_offset) = current_skin_byte_offset
             {
                 dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;

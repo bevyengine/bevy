@@ -10,7 +10,7 @@ use bevy_ecs::{prelude::Component, resource::Resource};
 use core::marker::PhantomData;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
-use wgpu::{BindingResource, BufferUsages};
+use wgpu::{BindingResource, BufferUsages, Limits};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
@@ -39,8 +39,7 @@ pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
 }
 
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
-    pub fn new(device: &RenderDevice) -> Self {
-        let limits = device.limits();
+    pub fn new(limits: &Limits) -> Self {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
         } else {
@@ -76,8 +75,8 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding_layout(device: &RenderDevice) -> BindGroupLayoutEntryBuilder {
-        if device.limits().max_storage_buffers_per_shader_stage == 0 {
+    pub fn binding_layout(limits: &Limits) -> BindGroupLayoutEntryBuilder {
+        if limits.max_storage_buffers_per_shader_stage == 0 {
             uniform_buffer_sized(
                 true,
                 // BatchedUniformBuffer uses a MaxCapacityArray that is runtime-sized, so we use
@@ -96,8 +95,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn batch_size(device: &RenderDevice) -> Option<u32> {
-        let limits = device.limits();
+    pub fn batch_size(limits: &Limits) -> Option<u32> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
             Some(BatchedUniformBuffer::<T>::batch_size(&limits) as u32)
         } else {
