@@ -102,7 +102,10 @@ impl Plugin for TextPlugin {
                 PostUpdate,
                 (free_unused_font_atlases_system.before(AssetEventSystems),),
             )
-            .add_systems(Last, (trim_cosmic_cache, free_unused_font_atlases));
+            .add_systems(
+                Last,
+                (trim_cosmic_cache, free_unused_font_atlases_computed_system),
+            );
 
         #[cfg(feature = "default_font")]
         {

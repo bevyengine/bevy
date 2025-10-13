@@ -173,7 +173,10 @@ fn text_size_system(
     mut text_font_query: Query<&mut TextFont, With<AnimatedText>>,
 ) {
     for mut text_font in &mut text_font_query {
-        text_font.font_size = 67. + 30. * (0.25 * time.elapsed_secs()).sin();
+        let d = time.elapsed_secs().sin();
+        if 0. < d {
+            text_font.font_size = 67. + 30. * d.sin();
+        }
     }
 }
 
