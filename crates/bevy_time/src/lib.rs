@@ -85,10 +85,10 @@ impl Plugin for TimePlugin {
                 .register_type::<Time<Real>>()
                 .register_type::<Time<Virtual>>()
                 .register_type::<Time<Fixed>>()
-                .register_type::<Time<TimeTravel>>();
+                .register_type::<Time<TimeTravel>>()
                 .register_type::<Time<Stepped, u32>>()
                 .register_type::<Time<SteppedVirtual, u32>>()
-                .register_type::<Time<SteppedTimeTravel, u32>>()
+                .register_type::<Time<SteppedTimeTravel, u32>>();
         }
 
         app.add_systems(
