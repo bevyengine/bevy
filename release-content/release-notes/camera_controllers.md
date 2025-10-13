@@ -1,7 +1,7 @@
 ---
-title: First-party camera controllers
+title: New camera controllers for Bevy
 authors: ["@alice-i-cecile"]
-pull_requests: [20215, 21450]
+pull_requests: [20215, 21450, 21520]
 ---
 
 To understand a scene, you must look at it through the lens of a camera: explore it, and interact with it.
@@ -33,6 +33,19 @@ add the `FreeCamPlugin` and the `FreeCam` component to your camera entity.
 To configure the settings (speed, behavior, keybindings) or enable / disable the controller modify the `FreeCam` component.
 We've done our best to select good defaults, but the details of your scene (especially the scale!) will make a big
 difference to what feels right.
+
+### `PanCam`
+
+The `PanCam` controller is a simple and effective tool designed for 2D games or any project where you need
+to pan the camera and zoom in/out with ease. It allows you to move the camera using the WASD keys and zoom
+in and out with the mouse wheel or +/- keys.
+
+By adding the `PanCamPlugin` and attaching the `PanCam` component to your camera entity, you can quickly add
+this controller to your project.
+
+To configure the camera's zoom levels, speed, or keybindings, simply modify the `PanCam` component. The default
+settings should work well for most use cases, but you can adjust them based on your specific needs, especially
+for large-scale or high-resolution 2D scenes.
 
 ### Using `bevy_camera_controller` in your own projects
 

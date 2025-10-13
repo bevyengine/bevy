@@ -70,7 +70,24 @@ pub struct PanCam {
     pub key_rotate_cw: KeyCode,
 }
 
+/// Provides the default values for the `PanCam` controller.
+///
+/// The default settings are:
+/// - Zoom factor: 1.0
+/// - Min zoom: 0.1
+/// - Max zoom: 5.0
+/// - Zoom speed: 0.1
+/// - Zoom in/out key: +/-
+/// - Pan speed: 500.0
+/// - Move up/down: W/S
+/// - Move left/right: A/D
+/// - Rotation speed: PI (radiradians per second)
+/// - Rotation ccw/cw: Q/E
 impl Default for PanCam {
+    /// Provides the default values for the `PanCam` controller.
+    ///
+    /// Users can override these values by manually creating a `PanCam` instance
+    /// or modifying the default instance.
     fn default() -> Self {
         Self {
             enable: true,

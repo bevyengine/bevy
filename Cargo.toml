@@ -4831,13 +4831,13 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "pan_cam"
-path = "examples/helpers/pan_cam.rs"
+name = "pan_cam_controller"
+path = "examples/camera/pan_cam_controller.rs"
 doc-scrape-examples = true
 required-features = ["pan_cam"]
 
-[package.metadata.example.pan_cam]
+[package.metadata.example.pan_cam_controller]
 name = "Pan Cam"
 description = "Example Pan-Cam Styled Camera Controller for 2D scenes"
-category = "Helpers"
+category = "Camera"
 wasm = true
