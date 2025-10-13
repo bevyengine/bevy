@@ -317,7 +317,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, FontAtlasesManager, TextIterScratch};
 
     use super::*;
 
@@ -334,6 +334,7 @@ mod tests {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<FontAtlasesManager>()
             .add_systems(
                 Update,
                 (
