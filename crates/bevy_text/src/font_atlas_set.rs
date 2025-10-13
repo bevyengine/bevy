@@ -2,14 +2,10 @@ use crate::{Font, FontAtlas, FontSmoothing, TextFont};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    lifecycle::HookContext,
-    message::MessageReader,
-    resource::Resource,
-    system::{Local, Query, ResMut},
-    world::DeferredWorld,
+    component::Component, lifecycle::HookContext, message::MessageReader, resource::Resource,
+    system::ResMut, world::DeferredWorld,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
@@ -71,7 +67,7 @@ impl Default for MaxUnusedFontAtlasSets {
 pub struct ComputedTextFont(FontAtlasKey);
 
 impl ComputedTextFont {
-    // new ComputedTextFont
+    /// new ComputedTextFont
     pub fn new(font: &TextFont, scale_factor: f32) -> Self {
         Self(FontAtlasKey(
             font.font.id(),

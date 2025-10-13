@@ -7,7 +7,6 @@ use bevy_camera::visibility::{
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
@@ -21,8 +20,8 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasKey, FontAtlasSet,
-    LineBreak, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasSet, LineBreak,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
@@ -177,7 +176,6 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut computed_font_query: Query<&mut ComputedTextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
