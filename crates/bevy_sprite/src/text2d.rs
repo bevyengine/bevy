@@ -21,8 +21,8 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedFont, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasKey, FontAtlasSet, LineBreak,
-    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasKey, FontAtlasSet,
+    LineBreak, SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
@@ -88,7 +88,7 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    ComputedFont,
+    ComputedTextFont,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -177,10 +177,11 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    mut computed_font_query: Query<&mut ComputedFont>,
+    mut computed_font_query: Query<&mut ComputedTextFont>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    mut commands: Commands,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -263,14 +264,9 @@ pub fn update_text2d_layout(
                     text_layout_info.size *= scale_factor.recip();
 
                     for (section_entity, _, _, font, _) in text_reader.iter(entity) {
-                        if let Ok(mut computed_font) = computed_font_query.get_mut(section_entity) {
-                            let key = FontAtlasKey(
-                                font.font.id(),
-                                (scale_factor * font.font_size).to_bits(),
-                                font.font_smoothing,
-                            );
-                            computed_font.set_if_neq(ComputedFont(Some(key)));
-                        }
+                        commands
+                            .entity(section_entity)
+                            .insert(ComputedTextFont::new(font, scale_factor));
                     }
                 }
             }

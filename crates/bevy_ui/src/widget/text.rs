@@ -6,19 +6,19 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
+    change_detection::DetectChanges,
     component::Component,
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedFont, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasKey, FontAtlasSet, LineBreak,
+    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasSet, LineBreak,
     SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
     TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
@@ -102,7 +102,7 @@ impl Default for TextNodeFlags {
     TextColor,
     TextNodeFlags,
     ContentSize,
-    ComputedFont
+    ComputedTextFont
 )]
 pub struct Text(pub String);
 
@@ -339,7 +339,7 @@ fn queue_text(
     text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
-    computed_font_query: &mut Query<&mut ComputedFont>,
+    commands: &mut Commands,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -382,14 +382,9 @@ fn queue_text(
             text_flags.needs_recompute = false;
 
             for (section_entity, _, _, font, _) in text_reader.iter(entity) {
-                if let Ok(mut computed_font) = computed_font_query.get_mut(section_entity) {
-                    let key = FontAtlasKey(
-                        font.font.id(),
-                        (scale_factor * font.font_size).to_bits(),
-                        font.font_smoothing,
-                    );
-                    computed_font.set_if_neq(ComputedFont(Some(key)));
-                }
+                commands
+                    .entity(section_entity)
+                    .insert(ComputedTextFont::new(font, scale_factor));
             }
         }
     }
@@ -420,7 +415,7 @@ pub fn text_system(
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
-    mut computed_font_query: Query<&mut ComputedFont>,
+    mut commands: Commands,
 ) {
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
@@ -441,7 +436,7 @@ pub fn text_system(
                 &mut text_reader,
                 &mut font_system,
                 &mut swash_cache,
-                &mut computed_font_query,
+                &mut commands,
             );
         }
     }
