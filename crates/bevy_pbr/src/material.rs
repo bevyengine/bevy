@@ -389,6 +389,7 @@ where
                             .before(late_sweep_material_instances),
                         extract_entities_needs_specialization::<M>
                             .after(extract_cameras)
+                            // Make sure that material instances are cleared first.
                             .after(early_sweep_material_instances::<M>)
                             .after(MaterialExtractionSystems),
                     ),
