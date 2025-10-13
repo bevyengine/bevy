@@ -173,9 +173,9 @@ fn text_size_system(
     mut text_font_query: Query<&mut TextFont, With<AnimatedText>>,
 ) {
     for mut text_font in &mut text_font_query {
-        let d = time.elapsed_secs().sin();
+        let d = bevy::math::ops::sin(time.elapsed_secs());
         if 0. < d {
-            text_font.font_size = 67. + 30. * d.sin();
+            text_font.font_size = 67. + 30. * d;
         }
     }
 }
