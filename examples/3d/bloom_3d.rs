@@ -33,7 +33,7 @@ fn setup_scene(
             ..default()
         },
         CameraMainTextureConfig {
-            // `Rg11b10Ufloat` provides better performance on low-end devices. You can also use `Rgba16Float`.
+            // `Rg11b10Ufloat` provides better performance on low-end devices but without alpha channel. You can also use `Rgba16Float`.
             hdr_format: TextureFormat::Rg11b10Ufloat,
             ..Default::default()
         },

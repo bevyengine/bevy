@@ -30,7 +30,7 @@ use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::ToExtents;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
@@ -606,7 +606,6 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
-    main_texture_size: UVec2,
     hdr: bool,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
@@ -810,11 +809,6 @@ impl ViewTarget {
     #[inline]
     pub fn main_texture_format(&self) -> TextureFormat {
         self.main_texture_format
-    }
-
-    #[inline]
-    pub fn main_texture_size(&self) -> UVec2 {
-        self.main_texture_size
     }
 
     /// Returns `true` if the view target is using HDR rendering.
@@ -1070,14 +1064,12 @@ pub fn prepare_view_targets(
             _ => Some(clear_color_global.0),
         };
 
-        let main_texture_size = texture_config.size.unwrap_or(target_size);
-
         let (a, b, sampled, main_texture) = textures
             .entry((camera.target.clone(), texture_config.usage, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size: main_texture_size.to_extents(),
+                    size: target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -1108,7 +1100,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size: main_texture_size.to_extents(),
+                            size: target_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
@@ -1137,7 +1129,6 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            main_texture_size,
             out_texture: out_attachment.clone(),
             hdr,
         });

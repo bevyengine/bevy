@@ -955,8 +955,6 @@ pub struct CameraMainTextureConfig {
     pub sdr_format: TextureFormat,
     /// Main texture format when Hdr is on. Default: [`TextureFormat::Rgba16Float`].
     pub hdr_format: TextureFormat,
-    /// Main texture size. Default: [`None`], i.e. the physical size of the camera.
-    pub size: Option<UVec2>,
     /// Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT`] | [`TextureUsages::TEXTURE_BINDING`] | [`TextureUsages::COPY_SRC`].
     pub usage: TextureUsages,
 }
@@ -966,7 +964,6 @@ impl Default for CameraMainTextureConfig {
         Self {
             sdr_format: TextureFormat::bevy_default(),
             hdr_format: TextureFormat::Rgba16Float,
-            size: None,
             usage: TextureUsages::RENDER_ATTACHMENT
                 | TextureUsages::TEXTURE_BINDING
                 | TextureUsages::COPY_SRC,
