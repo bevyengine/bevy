@@ -24,7 +24,7 @@ mod virt;
 pub use fixed::*;
 pub use real::*;
 pub use stopwatch::*;
-pub use time::*;
+pub use time::{Time, TimeDuration, TimeDurationPrecompute};
 pub use timer::*;
 pub use virt::*;
 
