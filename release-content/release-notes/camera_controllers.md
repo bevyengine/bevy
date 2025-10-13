@@ -1,6 +1,6 @@
 ---
-title: New camera controllers for Bevy
-authors: ["@alice-i-cecile"]
+title: First-party camera controllers
+authors: ["@alice-i-cecile", "@syszery"]
 pull_requests: [20215, 21450, 21520]
 ---
 
