@@ -391,9 +391,16 @@ where
                         early_sweep_material_instances::<M>
                             .after(MaterialExtractionSystems)
                             .before(late_sweep_material_instances),
+                        // See the comments in
+                        // `sweep_entities_needing_specialization` for an
+                        // explanation of why the systems are ordered this way.
                         extract_entities_needs_specialization::<M>
+                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                        sweep_entities_needing_specialization::<M>
+                            .after(MaterialExtractEntitiesNeedingSpecializationSystems)
+                            .after(MaterialExtractionSystems)
                             .after(extract_cameras)
-                            .after(MaterialExtractionSystems),
+                            .before(late_sweep_material_instances),
                     ),
                 );
         }
@@ -608,6 +615,11 @@ pub struct RenderMaterialInstance {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractionSystems;
 
+/// A [`SystemSet`] that contains all `extract_entities_needs_specialization`
+/// systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
+
 /// Deprecated alias for [`MaterialExtractionSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
 pub type ExtractMaterialsSet = MaterialExtractionSystems;
@@ -754,10 +766,10 @@ fn early_sweep_material_instances<M>(
 /// Removes mesh materials from [`RenderMaterialInstances`] when their
 /// [`ViewVisibility`] components are removed.
 ///
-/// This runs after all invocations of [`early_sweep_material_instances`] and is
+/// This runs after all invocations of `early_sweep_material_instances` and is
 /// responsible for bumping [`RenderMaterialInstances::current_change_tick`] in
 /// preparation for a new frame.
-pub(crate) fn late_sweep_material_instances(
+pub fn late_sweep_material_instances(
     mut material_instances: ResMut<RenderMaterialInstances>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
 ) {
@@ -781,7 +793,39 @@ pub(crate) fn late_sweep_material_instances(
 
 pub fn extract_entities_needs_specialization<M>(
     entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    material_instances: Res<RenderMaterialInstances>,
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
+    render_material_instances: Res<RenderMaterialInstances>,
+    ticks: SystemChangeTick,
+) where
+    M: Material,
+{
+    for entity in entities_needing_specialization.iter() {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks.insert(
+            (*entity).into(),
+            EntitySpecializationTickPair {
+                system_tick: ticks.this_run(),
+                material_instances_tick: render_material_instances.current_change_tick,
+            },
+        );
+    }
+}
+
+/// A system that runs after all instances of
+/// [`extract_entities_needs_specialization`] in order to delete specialization
+/// ticks for entities that are no longer renderable.
+///
+/// We delete entities from the [`EntitySpecializationTicks`] table *after*
+/// updating it with newly-discovered renderable entities in order to handle the
+/// case in which a single entity changes material types. If we naïvely removed
+/// entities from that table when their [`MeshMaterial3d<M>`] components were
+/// removed, and an entity changed material types, we might end up adding a new
+/// set of [`EntitySpecializationTickPair`] for the new material and then
+/// deleting it upon detecting the removed component for the old material.
+/// Deferring [`sweep_entities_needing_specialization`] to the end allows us to
+/// detect the case in which another material type updated the entity
+/// specialization ticks this frame and avoid deleting it if so.
+pub fn sweep_entities_needing_specialization<M>(
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
@@ -791,8 +835,8 @@ pub fn extract_entities_needs_specialization<M>(
     mut specialized_shadow_material_pipeline_cache: Option<
         ResMut<SpecializedShadowMaterialPipelineCache>,
     >,
+    render_material_instances: Res<RenderMaterialInstances>,
     views: Query<&ExtractedView>,
-    ticks: SystemChangeTick,
 ) where
     M: Material,
 {
@@ -800,15 +844,22 @@ pub fn extract_entities_needs_specialization<M>(
     // the same frame, thus will appear both in the removed components list and have been added to
     // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
     //
-    // Additionally, we need to make sure that we are careful about materials that could have changed
-    // type, e.g. from a `StandardMaterial` to a `CustomMaterial`, as this will also appear in the
-    // removed components list. As such, we make sure that this system runs after `MaterialExtractionSystems`
-    // so that the `RenderMaterialInstances` bookkeeping has already been done, and we can check if the entity
-    // still has a valid material instance.
+    // Additionally, we need to make sure that we are careful about materials
+    // that could have changed type, e.g. from a `StandardMaterial` to a
+    // `CustomMaterial`, as this will also appear in the removed components
+    // list. As such, we make sure that this system runs after
+    // `extract_entities_needs_specialization` so that the entity specialization
+    // tick bookkeeping has already been done, and we can check if the entity's
+    // tick was updated this frame.
     for entity in removed_mesh_material_components.read() {
-        if material_instances
-            .instances
-            .contains_key(&MainEntity::from(entity))
+        // If the entity's specialization tick was updated this frame, that
+        // means that that entity changed materials this frame. Don't remove the
+        // entity from the table in that case.
+        if entity_specialization_ticks
+            .get(&MainEntity::from(entity))
+            .is_some_and(|ticks| {
+                ticks.material_instances_tick == render_material_instances.current_change_tick
+            })
         {
             continue;
         }
@@ -834,11 +885,6 @@ pub fn extract_entities_needs_specialization<M>(
             }
         }
     }
-
-    for entity in entities_needing_specialization.iter() {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
-    }
 }
 
 #[derive(Resource, Deref, DerefMut, Clone, Debug)]
@@ -857,10 +903,58 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
+/// Stores ticks specifying the last time Bevy specialized the pipelines of each
+/// entity.
+///
+/// Every entity that has a mesh and material must be present in this table,
+/// even if that mesh isn't visible.
 #[derive(Resource, Deref, DerefMut, Default, Clone, Debug)]
 pub struct EntitySpecializationTicks {
+    /// A mapping from each main entity to ticks that specify the last time this
+    /// entity's pipeline was specialized.
+    ///
+    /// Every entity that has a mesh and material must be present in this table,
+    /// even if that mesh isn't visible.
     #[deref]
-    pub entities: MainEntityHashMap<Tick>,
+    pub entities: MainEntityHashMap<EntitySpecializationTickPair>,
+}
+
+/// Ticks that specify the last time an entity's pipeline was specialized.
+///
+/// We need two different types of ticks here for a subtle reason. First, we
+/// need the [`Self::system_tick`], which maps to Bevy's [`SystemChangeTick`],
+/// because that's what we use in [`specialize_material_meshes`] to check
+/// whether pipelines need specialization. But we also need
+/// [`Self::material_instances_tick`], which maps to the
+/// [`RenderMaterialInstances::current_change_tick`]. That's because the latter
+/// only changes once per frame, which is a guarantee we need to handle the
+/// following case:
+///
+/// 1. The app removes material A from a mesh and replaces it with material B.
+///    Both A and B are of different [`Material`] types entirely.
+///
+/// 2. [`extract_entities_needs_specialization`] runs for material B and marks
+///    the mesh as up to date by recording the current tick.
+///
+/// 3. [`sweep_entities_needing_specialization`] runs for material A and checks
+///    to ensure it's safe to remove the [`EntitySpecializationTickPair`] for the mesh
+///    from the [`EntitySpecializationTicks`]. To do this, it needs to know
+///    whether [`extract_entities_needs_specialization`] for some *different*
+///    material (in this case, material B) ran earlier in the frame and updated the
+///    change tick, and to skip removing the [`EntitySpecializationTickPair`] if so.
+///    It can't reliably use the [`Self::system_tick`] to determine this because
+///    the [`SystemChangeTick`] can be updated multiple times in the same frame.
+///    Instead, it needs a type of tick that's updated only once per frame, after
+///    all materials' versions of [`sweep_entities_needing_specialization`] have
+///    run. The [`RenderMaterialInstances`] tick satisfies this criterion, and so
+///    that's what [`sweep_entities_needing_specialization`] uses.
+#[derive(Clone, Copy, Debug)]
+pub struct EntitySpecializationTickPair {
+    /// The standard Bevy system tick.
+    pub system_tick: Tick,
+    /// The tick in [`RenderMaterialInstances`], which is updated in
+    /// `late_sweep_material_instances`.
+    pub material_instances_tick: Tick,
 }
 
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
@@ -970,7 +1064,10 @@ pub fn specialize_material_meshes(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap()
+                .system_tick;
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
