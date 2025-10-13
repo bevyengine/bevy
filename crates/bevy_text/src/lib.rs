@@ -59,8 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        ComputedTextFont, Font, Justify, LineBreak, MaxFonts, TextColor, TextError, TextFont,
-        TextLayout, TextSpan,
+        ComputedTextFont, Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout,
+        TextSpan,
     };
 }
 
@@ -96,7 +96,6 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
-            .init_resource::<MaxFonts>()
             .init_resource::<FontAtlasesManager>()
             .add_systems(
                 PostUpdate,

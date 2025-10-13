@@ -47,16 +47,6 @@ pub fn free_unused_font_atlases_system(
     }
 }
 
-#[derive(Resource)]
-/// Maximum number of fonts before unused font atlases are freed.
-pub struct MaxFonts(pub usize);
-
-impl Default for MaxFonts {
-    fn default() -> Self {
-        Self(20)
-    }
-}
-
 #[derive(Component, PartialEq, Default)]
 #[component(
     on_insert = on_insert_computed_text_font,
@@ -84,7 +74,7 @@ fn on_insert_computed_text_font(mut world: DeferredWorld, hook_context: HookCont
     {
         *world
             .resource_mut::<FontAtlasesManager>()
-            .counts
+            .reference_counts
             .entry(key)
             .or_default() += 1;
     }
@@ -93,10 +83,10 @@ fn on_insert_computed_text_font(mut world: DeferredWorld, hook_context: HookCont
 fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookContext) {
     if let Some(&ComputedTextFont(Some(key))) = world.get::<ComputedTextFont>(hook_context.entity) {
         let mut f = world.resource_mut::<FontAtlasesManager>();
-        let c = f.counts.entry(key).or_default();
+        let c = f.reference_counts.entry(key).or_default();
         *c -= 1;
         if *c == 0 {
-            f.lru.push(key);
+            f.least_recently_used_buffer.push(key);
         }
     }
 }
@@ -105,14 +95,16 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 /// Used to keep a count of the number of text entities using each font, and decide
 /// when font atlases should be freed.
 pub struct FontAtlasesManager {
-    counts: HashMap<FontAtlasKey, usize>,
-    lru: Vec<FontAtlasKey>,
+    reference_counts: HashMap<FontAtlasKey, usize>,
+    least_recently_used_buffer: Vec<FontAtlasKey>,
+    /// Maximum number of fonts before unused font atlases are freed.
+    pub max_fonts: usize,
 }
 
 impl FontAtlasesManager {
     /// Returns the number of text entities using the font with the given key.
     pub fn get_count(&self, key: &FontAtlasKey) -> usize {
-        self.counts.get(key).copied().unwrap_or(0)
+        self.reference_counts.get(key).copied().unwrap_or(0)
     }
 }
 
@@ -122,21 +114,24 @@ impl FontAtlasesManager {
 pub fn free_unused_font_atlases_computed_system(
     mut font_atlases_manager: ResMut<FontAtlasesManager>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
-    max_fonts: ResMut<MaxFonts>,
 ) {
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
-    let FontAtlasesManager { counts, lru } = &mut *font_atlases_manager;
+    let FontAtlasesManager {
+        reference_counts,
+        least_recently_used_buffer,
+        max_fonts,
+    } = &mut *font_atlases_manager;
     let mut target = font_atlas_set
         .len()
-        .saturating_sub(max_fonts.0)
-        .min(lru.len());
+        .saturating_sub(*max_fonts)
+        .min(least_recently_used_buffer.len());
     if 0 < target {
-        lru.retain(|key| {
-            let free = 0 < target && counts.get(key).is_some_and(|&c| c == 0);
+        least_recently_used_buffer.retain(|key| {
+            let free = 0 < target && reference_counts.get(key).is_some_and(|&c| c == 0);
             if free {
                 font_atlas_set.remove(key);
-                counts.remove(key);
+                reference_counts.remove(key);
                 target -= 1;
             }
             free
@@ -151,7 +146,6 @@ mod tests {
     use crate::FontAtlasKey;
     use crate::FontAtlasSet;
     use crate::FontAtlasesManager;
-    use crate::MaxFonts;
     use bevy_app::App;
     use bevy_app::Update;
     use bevy_asset::AssetId;
@@ -160,7 +154,6 @@ mod tests {
     fn text_free_unused_font_atlases_computed_system() {
         let mut app = App::new();
 
-        app.init_resource::<MaxFonts>();
         app.init_resource::<FontAtlasesManager>();
         app.init_resource::<FontAtlasSet>();
 
@@ -194,7 +187,7 @@ mod tests {
         let font_atlases = world.resource_mut::<FontAtlasSet>();
         assert_eq!(font_atlases.len(), 2);
 
-        world.resource_mut::<MaxFonts>().0 = 1;
+        world.resource_mut::<FontAtlasesManager>().max_fonts = 1;
 
         app.update();
 
@@ -205,7 +198,7 @@ mod tests {
         assert!(!font_atlases.contains_key(&font_atlas_key_2));
 
         world.despawn(e);
-        world.resource_mut::<MaxFonts>().0 = 0;
+        world.resource_mut::<FontAtlasesManager>().max_fonts = 0;
 
         app.update();
 
