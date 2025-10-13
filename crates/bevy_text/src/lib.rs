@@ -96,7 +96,7 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
-            .init_resource::<FontAtlasesManager>()
+            .init_resource::<FontAtlasManager>()
             .add_systems(
                 PostUpdate,
                 (free_unused_font_atlases_system.before(AssetEventSystems),),

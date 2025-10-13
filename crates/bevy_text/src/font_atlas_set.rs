@@ -73,7 +73,7 @@ fn on_insert_computed_text_font(mut world: DeferredWorld, hook_context: HookCont
         .0
     {
         *world
-            .resource_mut::<FontAtlasesManager>()
+            .resource_mut::<FontAtlasManager>()
             .reference_counts
             .entry(key)
             .or_default() += 1;
@@ -82,7 +82,7 @@ fn on_insert_computed_text_font(mut world: DeferredWorld, hook_context: HookCont
 
 fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookContext) {
     if let Some(&ComputedTextFont(Some(key))) = world.get::<ComputedTextFont>(hook_context.entity) {
-        let mut f = world.resource_mut::<FontAtlasesManager>();
+        let mut f = world.resource_mut::<FontAtlasManager>();
         let c = f.reference_counts.entry(key).or_default();
         *c -= 1;
         if *c == 0 {
@@ -94,14 +94,22 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 #[derive(Resource, Default)]
 /// Used to keep a count of the number of text entities using each font, and decide
 /// when font atlases should be freed.
-pub struct FontAtlasesManager {
+pub struct FontAtlasManager {
     reference_counts: HashMap<FontAtlasKey, usize>,
     least_recently_used_buffer: Vec<FontAtlasKey>,
     /// Maximum number of fonts before unused font atlases are freed.
     pub max_fonts: usize,
 }
 
-impl FontAtlasesManager {
+impl FontAtlasManager {
+    /// New font atlas manager with the given max fonts limits.
+    pub fn new(max_fonts: usize) -> Self {
+        Self {
+            max_fonts,
+            ..Default::default()
+        }
+    }
+
     /// Returns the number of text entities using the font with the given key.
     pub fn get_count(&self, key: &FontAtlasKey) -> usize {
         self.reference_counts.get(key).copied().unwrap_or(0)
@@ -109,15 +117,15 @@ impl FontAtlasesManager {
 }
 
 /// Automatically frees unused fonts when the total number of fonts
-/// is greater than the [`MaxFonts`] value. Doesn't free in use fonts
-/// even if the number of in use fonts is greater than [`MaxFonts`].
+/// is greater than [`FontAtlasesManager::max_fonts`]. Doesn't free in use fonts
+/// even if the number of in use fonts is greater than  [`FontAtlasesManager::max_fonts`].
 pub fn free_unused_font_atlases_computed_system(
-    mut font_atlases_manager: ResMut<FontAtlasesManager>,
+    mut font_atlases_manager: ResMut<FontAtlasManager>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
 ) {
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
-    let FontAtlasesManager {
+    let FontAtlasManager {
         reference_counts,
         least_recently_used_buffer,
         max_fonts,
@@ -144,8 +152,8 @@ mod tests {
     use crate::free_unused_font_atlases_computed_system;
     use crate::ComputedTextFont;
     use crate::FontAtlasKey;
+    use crate::FontAtlasManager;
     use crate::FontAtlasSet;
-    use crate::FontAtlasesManager;
     use bevy_app::App;
     use bevy_app::Update;
     use bevy_asset::AssetId;
@@ -154,7 +162,7 @@ mod tests {
     fn text_free_unused_font_atlases_computed_system() {
         let mut app = App::new();
 
-        app.init_resource::<FontAtlasesManager>();
+        app.init_resource::<FontAtlasManager>();
         app.init_resource::<FontAtlasSet>();
 
         app.add_systems(Update, free_unused_font_atlases_computed_system);
@@ -187,7 +195,7 @@ mod tests {
         let font_atlases = world.resource_mut::<FontAtlasSet>();
         assert_eq!(font_atlases.len(), 2);
 
-        world.resource_mut::<FontAtlasesManager>().max_fonts = 1;
+        world.resource_mut::<FontAtlasManager>().max_fonts = 1;
 
         app.update();
 
@@ -198,7 +206,7 @@ mod tests {
         assert!(!font_atlases.contains_key(&font_atlas_key_2));
 
         world.despawn(e);
-        world.resource_mut::<FontAtlasesManager>().max_fonts = 0;
+        world.resource_mut::<FontAtlasManager>().max_fonts = 0;
 
         app.update();
 
