@@ -48,7 +48,7 @@ pub fn free_unused_font_atlases_system(
 }
 
 #[derive(Resource)]
-/// Maximum number of font atlas sets.
+/// Maximum number of fonts before unused font atlases are freed.
 pub struct MaxUnusedFontAtlasSets(pub usize);
 
 impl Default for MaxUnusedFontAtlasSets {
@@ -66,7 +66,7 @@ impl Default for MaxUnusedFontAtlasSets {
 pub struct ComputedTextFont(pub(crate) Option<FontAtlasKey>);
 
 impl ComputedTextFont {
-    /// new ComputedTextFont
+    /// Create a new `ComputedTextFont` from the given `TextFont` and scale factor.
     pub fn new(font: &TextFont, scale_factor: f32) -> Self {
         Self(Some(FontAtlasKey(
             font.font.id(),
@@ -102,14 +102,15 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 }
 
 #[derive(Resource, Default)]
-/// Counts entities using font atlases
+/// Used to keep a count of the number of text entities using each font, and decide
+/// when font atlases should be freed.
 pub struct FontAtlasesManager {
     counts: HashMap<FontAtlasKey, usize>,
     lru: Vec<FontAtlasKey>,
 }
 
 impl FontAtlasesManager {
-    /// get count
+    /// Returns the number of text entities using the font with the given key.
     pub fn get_count(&self, key: &FontAtlasKey) -> usize {
         self.counts.get(key).copied().unwrap_or(0)
     }
