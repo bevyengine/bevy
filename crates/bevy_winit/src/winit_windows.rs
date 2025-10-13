@@ -401,6 +401,17 @@ pub(crate) fn attempt_grab(
     winit_window: &WinitWindow,
     grab_mode: CursorGrabMode,
 ) -> Result<(), ExternalError> {
+    // Do not attempt to grab on web if unsupported (e.g. mobile)
+    #[cfg(target_arch = "wasm32")]
+    if !js_sys::Reflect::has(
+        web_sys::window().unwrap().document().unwrap().as_ref(),
+        &"exitPointerLock".into(),
+    )
+    .unwrap_or(false)
+    {
+        return Ok(());
+    }
+
     let grab_result = match grab_mode {
         CursorGrabMode::None => winit_window.set_cursor_grab(WinitCursorGrabMode::None),
         CursorGrabMode::Confined => winit_window
