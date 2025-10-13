@@ -91,7 +91,7 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
     }
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 /// Used to keep a count of the number of text entities using each font, and decide
 /// when font atlases should be freed.
 pub struct FontAtlasManager {
@@ -113,6 +113,16 @@ impl FontAtlasManager {
     /// Returns the number of text entities using the font with the given key.
     pub fn get_count(&self, key: &FontAtlasKey) -> usize {
         self.reference_counts.get(key).copied().unwrap_or(0)
+    }
+}
+
+impl Default for FontAtlasManager {
+    fn default() -> Self {
+        Self {
+            reference_counts: Default::default(),
+            least_recently_used_buffer: Default::default(),
+            max_fonts: 20,
+        }
     }
 }
 
