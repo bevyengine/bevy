@@ -87,7 +87,6 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    ComputedTextFont,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]

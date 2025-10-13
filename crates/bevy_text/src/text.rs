@@ -172,7 +172,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, ComputedTextFont)]
+#[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -247,6 +247,7 @@ impl From<Justify> for cosmic_text::Align {
 /// the font face, the font size, the line height, and the antialiasing method.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(ComputedTextFont)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
     ///
