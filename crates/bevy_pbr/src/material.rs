@@ -389,6 +389,7 @@ where
                             .before(late_sweep_material_instances),
                         extract_entities_needs_specialization::<M>
                             .after(extract_cameras)
+                            .after(early_sweep_material_instances::<M>)
                             .after(MaterialExtractionSystems),
                     ),
                 );
