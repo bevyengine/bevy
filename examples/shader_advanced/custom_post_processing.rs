@@ -12,7 +12,6 @@ use bevy::{
         FullscreenShader,
     },
     ecs::query::QueryItem,
-    pbr::MeshPipelineKey,
     prelude::*,
     render::{
         extract_component::{
