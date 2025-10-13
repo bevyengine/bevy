@@ -49,9 +49,9 @@ pub fn free_unused_font_atlases_system(
 
 #[derive(Resource)]
 /// Maximum number of fonts before unused font atlases are freed.
-pub struct MaxUnusedFontAtlasSets(pub usize);
+pub struct MaxFonts(pub usize);
 
-impl Default for MaxUnusedFontAtlasSets {
+impl Default for MaxFonts {
     fn default() -> Self {
         Self(20)
     }
@@ -122,7 +122,7 @@ impl FontAtlasesManager {
 pub fn free_unused_font_atlases_computed_system(
     mut font_atlases_manager: ResMut<FontAtlasesManager>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
-    max_fonts: ResMut<MaxUnusedFontAtlasSets>,
+    max_fonts: ResMut<MaxFonts>,
 ) {
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
@@ -151,7 +151,7 @@ mod tests {
     use crate::FontAtlasKey;
     use crate::FontAtlasSet;
     use crate::FontAtlasesManager;
-    use crate::MaxUnusedFontAtlasSets;
+    use crate::MaxFonts;
     use bevy_app::App;
     use bevy_app::Update;
     use bevy_asset::AssetId;
@@ -160,7 +160,7 @@ mod tests {
     fn text_free_unused_font_atlases_computed_system() {
         let mut app = App::new();
 
-        app.init_resource::<MaxUnusedFontAtlasSets>();
+        app.init_resource::<MaxFonts>();
         app.init_resource::<FontAtlasesManager>();
         app.init_resource::<FontAtlasSet>();
 
@@ -194,7 +194,7 @@ mod tests {
         let font_atlases = world.resource_mut::<FontAtlasSet>();
         assert_eq!(font_atlases.len(), 2);
 
-        world.resource_mut::<MaxUnusedFontAtlasSets>().0 = 1;
+        world.resource_mut::<MaxFonts>().0 = 1;
 
         app.update();
 
@@ -205,7 +205,7 @@ mod tests {
         assert!(!font_atlases.contains_key(&font_atlas_key_2));
 
         world.despawn(e);
-        world.resource_mut::<MaxUnusedFontAtlasSets>().0 = 0;
+        world.resource_mut::<MaxFonts>().0 = 0;
 
         app.update();
 
