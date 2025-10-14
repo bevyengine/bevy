@@ -362,6 +362,9 @@ pub fn extract_gradients(
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    #[cfg(feature = "bevy_ui_contain")] ui_contain_query: Extract<
+        Query<&GlobalTransform, With<UiContainSet>>,
+    >,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
@@ -387,6 +390,25 @@ pub fn extract_gradients(
             continue;
         };
 
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if let Some(target) = _is_contain_target {
+            let translation = ui_contain_query
+                .get(target.0)
+                .map(|global| {
+                    use bevy_math::Vec3Swizzles;
+
+                    global.translation().xy() * Vec2::new(1.0, -1.0) + transform.translation
+                })
+                .unwrap_or(transform.translation);
+
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform = transform.affine();
+
         for (gradients, node_type) in [
             (gradient.map(|g| &g.0), NodeType::Rect),
             (gradient_border.map(|g| &g.0), NodeType::Border(BORDER_ALL)),
@@ -409,7 +431,7 @@ pub fn extract_gradients(
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
-                        transform: transform.into(),
+                        transform,
                         item: ExtractedUiItem::Node {
                             color: color.into(),
                             rect: Rect {
@@ -426,7 +448,7 @@ pub fn extract_gradients(
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         #[cfg(feature = "bevy_ui_contain")]
-                        is_contain_target: _is_contain_target,
+                        is_contain_target: _is_contain_target.is_some(),
                     });
                     continue;
                 }
@@ -453,7 +475,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -503,7 +525,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -559,7 +581,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,

@@ -6,6 +6,8 @@ use crate::{
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
+#[cfg(feature = "bevy_ui_contain")]
+use crate::{UiContainSet, UiContainTarget};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -140,6 +142,8 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    #[cfg(feature = "bevy_ui_contain")] ui_contian_target_query: Query<&UiContainTarget>,
+    #[cfg(feature = "bevy_ui_contain")] ui_surface_query: Query<&UiContainSet>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -151,10 +155,31 @@ pub fn propagate_ui_target_cameras(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
+        #[cfg(feature = "bevy_ui_contain")]
+        let (scale_factor, physical_size) =
+            if let Ok(target) = ui_contian_target_query.get(root_entity) {
+                ui_surface_query
+                    .get(target.0)
+                    .map(|ui_contain| (ui_contain.scale_factor, ui_contain.physical_size))
+                    .unwrap_or((1., UVec2::ZERO))
+            } else {
+                camera_query
+                    .get(camera)
+                    .ok()
+                    .map(|camera| {
+                        (
+                            camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                            camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                        )
+                    })
+                    .unwrap_or((1., UVec2::ZERO))
+            };
+
         commands
             .entity(root_entity)
             .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
+        #[cfg(not(feature = "bevy_ui_contain"))]
         let (scale_factor, physical_size) = camera_query
             .get(camera)
             .ok()

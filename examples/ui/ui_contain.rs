@@ -1,7 +1,7 @@
 //! Node can choose Camera as the layout or UiContact Component for layout.
 //! Nodes will be laid out according to the size and Transform of UiContact
 
-use bevy::prelude::*;
+use bevy::{app::Propagate, prelude::*};
 
 fn main() {
     App::new()
@@ -14,13 +14,19 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let uicontain = commands.spawn(UiContain).id();
+    let uicontain = commands
+        .spawn((UiContainSet {
+            scale_factor: 1.0,
+            physical_size: UVec2::new(600, 600),
+        },))
+        .id();
 
     commands
         .spawn((
             Node {
-                width: px(200.0),
-                height: px(200.0),
+                width: percent(100.0),
+                height: percent(100.0),
+                right: px(0.0),
                 border: px(4.0).all(),
                 ..Default::default()
             },
@@ -30,7 +36,7 @@ fn setup(mut commands: Commands) {
                 bottom: Srgba::RED.into(),
                 left: Srgba::WHITE.into(),
             },
-            UiContainTarget(uicontain),
+            Propagate(UiContainTarget(uicontain)),
         ))
         .with_children(|parent| {
             parent
@@ -48,9 +54,8 @@ fn setup(mut commands: Commands) {
                         bottom: Srgba::RED.into(),
                         left: Srgba::WHITE.into(),
                     },
-                    UiContainTarget(uicontain),
                 ))
-                .with_child((Text::new("node text "), UiContainTarget(uicontain)));
+                .with_child((Text::new("node text"),));
         });
 
     commands.spawn((
@@ -91,7 +96,7 @@ fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonIn
     }
 }
 
-fn update_node(query: Query<&mut Transform, With<UiContain>>, input: Res<ButtonInput<KeyCode>>) {
+fn update_node(query: Query<&mut Transform, With<UiContainSet>>, input: Res<ButtonInput<KeyCode>>) {
     for mut trans in query {
         let left = input.pressed(KeyCode::KeyA) as i8 as f32;
         let right = input.pressed(KeyCode::KeyD) as i8 as f32;

@@ -10,6 +10,8 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::ReflectResource;
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_ecs::query::With;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -21,10 +23,14 @@ use bevy_reflect::Reflect;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_transform::components::GlobalTransform;
 use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
 use bevy_ui::ComputedUiTargetCamera;
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_ui::UiContainSet;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
@@ -75,6 +81,9 @@ pub fn extract_debug_overlay(
     >,
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
+    #[cfg(feature = "bevy_ui_contain")] ui_contain_query: Extract<
+        Query<&GlobalTransform, With<UiContainSet>>,
+    >,
 ) {
     if !debug_options.enabled {
         return;
@@ -93,6 +102,29 @@ pub fn extract_debug_overlay(
             continue;
         };
 
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if let Some(target) = _is_contain_target {
+            use bevy_math::Affine2;
+
+            use crate::UI_WORLD_MAT2;
+
+            let translation = ui_contain_query
+                .get(target.0)
+                .map(|global| {
+                    use bevy_math::Vec3Swizzles;
+
+                    global.translation().xy() * Vec2::new(1.0, -1.0) + transform.translation
+                })
+                .unwrap_or(transform.translation);
+
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform = transform.affine();
+
         // Extract a border box to display an outline for every UI Node in the layout
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -103,7 +135,7 @@ pub fn extract_debug_overlay(
                 .map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
-            transform: transform.into(),
+            transform,
             item: ExtractedUiItem::Node {
                 color: Hsla::sequential_dispersed(entity.index()).into(),
                 rect: Rect {
@@ -119,7 +151,7 @@ pub fn extract_debug_overlay(
             },
             main_entity: entity.into(),
             #[cfg(feature = "bevy_ui_contain")]
-            is_contain_target: _is_contain_target,
+            is_contain_target: _is_contain_target.is_some(),
         });
     }
 }
