@@ -88,7 +88,7 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 
 #[derive(Resource)]
 /// Used to keep a count of the number of text entities using each font, and decide
-/// when font atlases should be freed.
+/// when font atlases should be freed. The least recently used fonts are freed first.
 pub struct FontAtlasManager {
     reference_counts: HashMap<FontAtlasKey, (u32, u32)>,
     least_recently_used_buffer: Vec<(FontAtlasKey, u32)>,
