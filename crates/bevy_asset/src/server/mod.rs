@@ -631,7 +631,12 @@ impl AssetServer {
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
             let path_clone = path.clone();
-            match server.load_untyped_async(path).await {
+            match server
+                .load_internal(None, path, false, None)
+                .await
+                .map(|h| {
+                    h.expect("handle must be returned, since we didn't pass in an input handle")
+                }) {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     index,
                     loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
