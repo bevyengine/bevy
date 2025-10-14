@@ -588,12 +588,12 @@ where
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cube(Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
+    pub fn cube(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
         let polymorphic_color: Color = color.into();
         if !self.enabled {
             return;

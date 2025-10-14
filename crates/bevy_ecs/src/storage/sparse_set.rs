@@ -3,7 +3,7 @@ use crate::{
     component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::{Entity, EntityRow},
     query::DebugCheckedUnwrap,
-    storage::{AbortOnPanic, TableRow, ThinColumn, VecExtensions},
+    storage::{AbortOnPanic, Column, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
@@ -120,7 +120,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     /// Capacity and length match those of `entities`.
-    dense: ThinColumn,
+    dense: Column,
     // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
@@ -137,7 +137,7 @@ impl ComponentSparseSet {
     pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
         let entities = Vec::with_capacity(capacity);
         Self {
-            dense: ThinColumn::with_capacity(component_info, entities.capacity()),
+            dense: Column::with_capacity(component_info, entities.capacity()),
             entities,
             sparse: Default::default(),
         }
