@@ -26,7 +26,7 @@ use bevy_ecs::{
         SystemParamItem, SystemState,
     },
 };
-use bevy_material::prelude::*;
+use bevy_material::{prelude::*, render_phase::*};
 use bevy_mesh::{
     mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
 };
