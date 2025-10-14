@@ -3,7 +3,7 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use serde::{Deserialize, Serialize};
-use wgpu_types::{LoadOp, TextureUsages};
+use wgpu_types::{LoadOp, TextureFormat, TextureUsages};
 
 /// A 2D camera component. Enables the 2D render graph for a [`Camera`].
 #[derive(Component, Default, Reflect, Clone)]
@@ -136,4 +136,31 @@ pub enum ScreenSpaceTransmissionQuality {
     ///
     /// `num_taps` = 32
     Ultra,
+}
+
+/// A wrapper around `TextureFormat` that restricts the format to depth/stencil formats only.
+/// Defaults to [`TextureFormat::Depth32Float`].
+#[derive(Component, Reflect, Serialize, Deserialize, Clone, Debug, Default)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub enum DepthStencilFormat {
+    Stencil8,
+    Depth16Unorm,
+    Depth24Plus,
+    Depth24PlusStencil8,
+    #[default]
+    Depth32Float,
+    Depth32FloatStencil8,
+}
+
+impl From<DepthStencilFormat> for TextureFormat {
+    fn from(format: DepthStencilFormat) -> Self {
+        match format {
+            DepthStencilFormat::Stencil8 => TextureFormat::Stencil8,
+            DepthStencilFormat::Depth16Unorm => TextureFormat::Depth16Unorm,
+            DepthStencilFormat::Depth24Plus => TextureFormat::Depth24Plus,
+            DepthStencilFormat::Depth24PlusStencil8 => TextureFormat::Depth24PlusStencil8,
+            DepthStencilFormat::Depth32Float => TextureFormat::Depth32Float,
+            DepthStencilFormat::Depth32FloatStencil8 => TextureFormat::Depth32FloatStencil8,
+        }
+    }
 }

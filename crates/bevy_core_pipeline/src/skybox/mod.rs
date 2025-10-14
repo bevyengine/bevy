@@ -32,10 +32,7 @@ use bevy_transform::components::Transform;
 use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;
 
-use crate::{
-    core_3d::CORE_3D_DEPTH_FORMAT, prepass::PreviousViewUniforms,
-    skybox::prepass::init_skybox_prepass_pipeline,
-};
+use crate::{prepass::PreviousViewUniforms, skybox::prepass::init_skybox_prepass_pipeline};
 
 pub mod prepass;
 
@@ -258,7 +255,7 @@ fn prepare_skybox_pipelines(
             SkyboxPipelineKey {
                 hdr: view.hdr,
                 samples: msaa.samples(),
-                depth_format: CORE_3D_DEPTH_FORMAT,
+                depth_format: view.depth_stencil_format,
             },
         );
 

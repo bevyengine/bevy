@@ -1088,6 +1088,7 @@ pub fn specialize_material_meshes(
             ));
             let mut mesh_key = *view_key
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
+                | MeshPipelineKey::from_depth_stencil_format(view.depth_stencil_format)
                 | mesh_pipeline_key_bits;
 
             if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {

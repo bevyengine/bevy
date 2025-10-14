@@ -4,7 +4,7 @@ use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
-use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::DEFERRED_PREPASS_FORMAT};
+use bevy_core_pipeline::deferred::DEFERRED_PREPASS_FORMAT;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_ecs::query::Has;
 use bevy_ecs::{
@@ -17,6 +17,8 @@ use bevy_image::ToExtents;
 use bevy_math::UVec2;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_render::texture::CachedTexture;
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
@@ -70,6 +72,7 @@ pub fn prepare_solari_lighting_resources(
         (
             Entity,
             &ExtractedCamera,
+            &ExtractedView,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
         ),
@@ -79,6 +82,7 @@ pub fn prepare_solari_lighting_resources(
         (
             Entity,
             &ExtractedCamera,
+            &ExtractedView,
             Option<&SolariLightingResources>,
             Option<&MainPassResolutionOverride>,
             Has<Dlss<DlssRayReconstructionFeature>>,
@@ -90,9 +94,9 @@ pub fn prepare_solari_lighting_resources(
 ) {
     for query_item in &query {
         #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-        let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
+        let (entity, camera, view, solari_lighting_resources, resolution_override) = query_item;
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
+        let (entity, camera, view, solari_lighting_resources, resolution_override, has_dlss_rr) =
             query_item;
 
         let Some(mut view_size) = camera.physical_viewport_size else {
@@ -168,7 +172,7 @@ pub fn prepare_solari_lighting_resources(
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: CORE_3D_DEPTH_FORMAT,
+            format: view.depth_stencil_format,
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             view_formats: &[],
         });

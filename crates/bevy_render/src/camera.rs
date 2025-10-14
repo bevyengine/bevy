@@ -20,8 +20,8 @@ use bevy_camera::{
     primitives::Frustum,
     visibility::{self, RenderLayers, VisibleEntities},
     Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
-    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
-    Projection, RenderTargetInfo, Viewport,
+    ClearColor, ClearColorConfig, DepthStencilFormat, Exposure, ManualTextureViewHandle,
+    NormalizedRenderTarget, Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -422,7 +422,7 @@ pub fn extract_cameras(
         Query<(
             Entity,
             RenderEntity,
-            &Camera,
+            (&Camera, &DepthStencilFormat),
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
@@ -456,7 +456,7 @@ pub fn extract_cameras(
     for (
         main_entity,
         render_entity,
-        camera,
+        (camera, depth_stencil_format),
         camera_render_graph,
         transform,
         visible_entities,
@@ -552,6 +552,7 @@ pub fn extract_cameras(
                         viewport_size.y,
                     ),
                     color_grading,
+                    depth_stencil_format: depth_stencil_format.clone().into(),
                 },
                 render_visible_entities,
                 *frustum,

@@ -13,16 +13,15 @@ use bevy_render::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
         FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
-        SpecializedRenderPipeline, SpecializedRenderPipelines,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
     },
     renderer::RenderDevice,
-    view::{Msaa, ViewUniform, ViewUniforms},
+    view::{ExtractedView, Msaa, ViewUniform, ViewUniforms},
 };
 use bevy_shader::Shader;
 use bevy_utils::prelude::default;
 
 use crate::{
-    core_3d::CORE_3D_DEPTH_FORMAT,
     prepass::{
         prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniforms,
@@ -47,6 +46,7 @@ pub struct SkyboxPrepassPipeline {
 pub struct SkyboxPrepassPipelineKey {
     samples: u32,
     normal_prepass: bool,
+    depth_stencil_format: TextureFormat,
 }
 
 /// Stores the ID for a camera's specialized pipeline, so it can be retrieved from the
@@ -90,7 +90,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
             layout: vec![self.bind_group_layout.clone()],
             vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
-                format: CORE_3D_DEPTH_FORMAT,
+                format: key.depth_stencil_format,
                 depth_write_enabled: false,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: default(),
@@ -117,12 +117,16 @@ pub fn prepare_skybox_prepass_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
     pipeline: Res<SkyboxPrepassPipeline>,
-    views: Query<(Entity, Has<NormalPrepass>, &Msaa), (With<Skybox>, With<MotionVectorPrepass>)>,
+    views: Query<
+        (Entity, Has<NormalPrepass>, &Msaa, &ExtractedView),
+        (With<Skybox>, With<MotionVectorPrepass>),
+    >,
 ) {
-    for (entity, normal_prepass, msaa) in &views {
+    for (entity, normal_prepass, msaa, extracted_view) in &views {
         let pipeline_key = SkyboxPrepassPipelineKey {
             samples: msaa.samples(),
             normal_prepass,
+            depth_stencil_format: extracted_view.depth_stencil_format,
         };
 
         let render_skybox_prepass_pipeline =
