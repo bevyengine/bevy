@@ -31,7 +31,7 @@ app.add_plugins(DefaultPlugins)
 
 If you also have `LogDiagnosticsPlugin`, the output looks something like this:
 
-```
+```ignore
 INFO bevy_diagnostic: mesh_allocator_allocations                                             :    4.000000 meshes (avg 4.000000 meshes)
 INFO bevy_diagnostic: mesh_allocator_slabs                                                   :    4.000000 slabs (avg 4.000000 slabs)
 INFO bevy_diagnostic: mesh_allocator_slabs_size                                              : 4194360.000000 bytes (avg 4194360.000000 bytes)
