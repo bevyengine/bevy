@@ -9,8 +9,8 @@ use crate::{
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
-    event::{BufferedEvent, EntityEvent, Event, Events},
-    observer::TriggerTargets,
+    event::Event,
+    message::{Message, Messages},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -144,11 +144,10 @@ where
 
 /// A [`Command`] that runs the given system,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached<O, M, S>(system: S) -> impl Command<Result>
+pub fn run_system_cached<M, S>(system: S) -> impl Command<Result>
 where
-    O: 'static,
     M: 'static,
-    S: IntoSystem<(), O, M> + Send + 'static,
+    S: IntoSystem<(), (), M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached(system)?;
@@ -158,15 +157,11 @@ where
 
 /// A [`Command`] that runs the given system with the given input value,
 /// caching its [`SystemId`] in a [`CachedSystemId`](crate::system::CachedSystemId) resource.
-pub fn run_system_cached_with<I, O, M, S>(
-    system: S,
-    input: I::Inner<'static>,
-) -> impl Command<Result>
+pub fn run_system_cached_with<I, M, S>(system: S, input: I::Inner<'static>) -> impl Command<Result>
 where
     I: SystemInput<Inner<'static>: Send> + Send + 'static,
-    O: 'static,
     M: 'static,
-    S: IntoSystem<I, O, M> + Send + 'static,
+    S: IntoSystem<I, (), M> + Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.run_system_cached_with(system, input)?;
@@ -180,7 +175,7 @@ where
 pub fn unregister_system<I, O>(system_id: SystemId<I, O>) -> impl Command<Result>
 where
     I: SystemInput + Send + 'static,
-    O: 'static,
+    O: Send + 'static,
 {
     move |world: &mut World| -> Result {
         world.unregister_system(system_id)?;
@@ -213,33 +208,49 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Event`] without any targets.
+/// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+///
+/// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger(event: impl Event) -> impl Command {
+pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_with_caller(event, caller);
+        world.trigger_ref_with_caller(
+            &mut event,
+            &mut <E::Trigger<'_> as Default>::default(),
+            caller,
+        );
     }
 }
 
-/// A [`Command`] that sends an [`EntityEvent`] for the given targets.
+/// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
+///
+/// [`Trigger`]: crate::event::Trigger
+/// [`Observer`]: crate::observer::Observer
 #[track_caller]
-pub fn trigger_targets(
-    event: impl EntityEvent,
-    targets: impl TriggerTargets + Send + Sync + 'static,
+pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
+    mut event: E,
+    mut trigger: E::Trigger<'static>,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_targets_with_caller(event, targets, caller);
+        world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
     }
 }
 
-/// A [`Command`] that sends an arbitrary [`BufferedEvent`].
+/// A [`Command`] that writes an arbitrary [`Message`].
 #[track_caller]
-pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn write_message<M: Message>(message: M) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        let mut events = world.resource_mut::<Events<E>>();
-        events.send_with_caller(event, caller);
+        let mut messages = world.resource_mut::<Messages<M>>();
+        messages.write_with_caller(message, caller);
     }
+}
+
+/// A [`Command`] that writes an arbitrary [`Message`].
+#[track_caller]
+#[deprecated(since = "0.17.0", note = "Use `write_message` instead.")]
+pub fn send_event<E: Message>(event: E) -> impl Command {
+    write_message(event)
 }

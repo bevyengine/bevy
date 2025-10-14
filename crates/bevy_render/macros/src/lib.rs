@@ -1,10 +1,10 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
-mod specialize;
+mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -12,11 +12,11 @@ use quote::format_ident;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_render")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_render"))
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 #[proc_macro_derive(ExtractResource)]
@@ -107,18 +107,18 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
     derive_label(input, "RenderSubGraph", &trait_path)
 }
 
-/// Derive macro generating an impl of the trait `Specialize`
+/// Derive macro generating an impl of the trait `Specializer`
 ///
-/// This only works for structs whose members all implement `Specialize`
-#[proc_macro_derive(Specialize, attributes(specialize, key, base_descriptor))]
+/// This only works for structs whose members all implement `Specializer`
+#[proc_macro_derive(Specializer, attributes(specialize, key, base_descriptor))]
 pub fn derive_specialize(input: TokenStream) -> TokenStream {
-    specialize::impl_specialize(input)
+    specializer::impl_specializer(input)
 }
 
 /// Derive macro generating the most common impl of the trait `SpecializerKey`
 #[proc_macro_derive(SpecializerKey)]
 pub fn derive_specializer_key(input: TokenStream) -> TokenStream {
-    specialize::impl_specializer_key(input)
+    specializer::impl_specializer_key(input)
 }
 
 #[proc_macro_derive(ShaderLabel)]

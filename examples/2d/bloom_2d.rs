@@ -1,10 +1,8 @@
 //! Illustrates bloom post-processing in 2d.
 
 use bevy::{
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::{DebandDither, Tonemapping},
-    },
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 
@@ -28,15 +26,15 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        Tonemapping::TonyMcMapface, // 2. Using a tonemapper that desaturates to white is recommended
-        Bloom::default(),           // 3. Enable bloom for the camera
+        Tonemapping::TonyMcMapface, // 1. Using a tonemapper that desaturates to white is recommended
+        Bloom::default(),           // 2. Enable bloom for the camera
         DebandDither::Enabled,      // Optional: bloom causes gradients which cause banding
     ));
 
     // Sprite
     commands.spawn(Sprite {
         image: asset_server.load("branding/bevy_bird_dark.png"),
-        color: Color::srgb(5.0, 5.0, 5.0), // 4. Put something bright in a dark environment to see the effect
+        color: Color::srgb(5.0, 5.0, 5.0), // 3. Put something bright in a dark environment to see the effect
         custom_size: Some(Vec2::splat(160.0)),
         ..default()
     });
@@ -44,7 +42,7 @@ fn setup(
     // Circle mesh
     commands.spawn((
         Mesh2d(meshes.add(Circle::new(100.))),
-        // 4. Put something bright in a dark environment to see the effect
+        // 3. Put something bright in a dark environment to see the effect
         MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
         Transform::from_translation(Vec3::new(-200., 0., 0.)),
     ));
@@ -52,7 +50,7 @@ fn setup(
     // Hexagon mesh
     commands.spawn((
         Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
-        // 4. Put something bright in a dark environment to see the effect
+        // 3. Put something bright in a dark environment to see the effect
         MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
         Transform::from_translation(Vec3::new(200., 0., 0.)),
     ));
@@ -62,8 +60,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -83,17 +81,17 @@ fn update_bloom_settings(
     match bloom {
         Some(mut bloom) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
-            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
+            text.push_str(&format!("(Q/A) Intensity: {:.2}\n", bloom.intensity));
             text.push_str(&format!(
-                "(W/S) Low-frequency boost: {}\n",
+                "(W/S) Low-frequency boost: {:.2}\n",
                 bloom.low_frequency_boost
             ));
             text.push_str(&format!(
-                "(E/D) Low-frequency boost curvature: {}\n",
+                "(E/D) Low-frequency boost curvature: {:.2}\n",
                 bloom.low_frequency_boost_curvature
             ));
             text.push_str(&format!(
-                "(R/F) High-pass frequency: {}\n",
+                "(R/F) High-pass frequency: {:.2}\n",
                 bloom.high_pass_frequency
             ));
             text.push_str(&format!(
@@ -103,12 +101,15 @@ fn update_bloom_settings(
                     BloomCompositeMode::Additive => "Additive",
                 }
             ));
-            text.push_str(&format!("(Y/H) Threshold: {}\n", bloom.prefilter.threshold));
             text.push_str(&format!(
-                "(U/J) Threshold softness: {}\n",
+                "(Y/H) Threshold: {:.2}\n",
+                bloom.prefilter.threshold
+            ));
+            text.push_str(&format!(
+                "(U/J) Threshold softness: {:.2}\n",
                 bloom.prefilter.threshold_softness
             ));
-            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
+            text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(camera_entity).remove::<Bloom>();

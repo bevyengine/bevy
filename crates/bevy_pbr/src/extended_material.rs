@@ -2,18 +2,19 @@ use alloc::borrow::Cow;
 
 use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     alpha::AlphaMode,
-    mesh::MeshVertexBufferLayoutRef,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, ShaderRef,
+        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
         SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };
+use bevy_shader::ShaderRef;
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
 
@@ -45,6 +46,19 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
     // Returns this material’s AlphaMode. If None is returned, the base material alpha mode will be used.
     fn alpha_mode() -> Option<AlphaMode> {
         None
+    }
+
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    #[inline]
+    fn enable_prepass() -> bool {
+        true
+    }
+
+    /// Controls if shadows are enabled for the Material.
+    #[inline]
+    fn enable_shadows() -> bool {
+        true
     }
 
     /// Returns this material's prepass vertex shader. If [`ShaderRef::Default`] is returned, the base material prepass vertex shader
@@ -146,7 +160,7 @@ where
     }
 }
 
-#[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 #[repr(C, packed)]
 pub struct MaterialExtensionBindGroupData<B, E> {
     pub base: B,
@@ -322,6 +336,14 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
 
     fn reads_view_transmission_texture(&self) -> bool {
         B::reads_view_transmission_texture(&self.base)
+    }
+
+    fn enable_prepass() -> bool {
+        E::enable_prepass()
+    }
+
+    fn enable_shadows() -> bool {
+        E::enable_prepass()
     }
 
     fn prepass_vertex_shader() -> ShaderRef {

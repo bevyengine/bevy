@@ -6,15 +6,15 @@ use crate::{
     container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
     field_attributes::FieldAttributes,
     remote::RemoteType,
-    result_sifter::ResultSifter,
     serialization::SerializationDataDef,
     string_expr::StringExpr,
     type_path::parse_path_no_leading_colon,
     where_clause_options::WhereClauseOptions,
     REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
+use bevy_macro_utils::ResultSifter;
 use quote::{format_ident, quote, ToTokens};
-use syn::token::Comma;
+use syn::{token::Comma, MacroDelimiter};
 
 use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
 use crate::field_attributes::CloneBehavior;
@@ -197,7 +197,16 @@ impl<'a> ReflectDerive<'a> {
         for attribute in &input.attrs {
             match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    if let MacroDelimiter::Paren(_) = meta_list.delimiter {
+                        container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    } else {
+                        return Err(syn::Error::new(
+                            meta_list.delimiter.span().join(),
+                            format_args!(
+                                "`#[{REFLECT_ATTRIBUTE_NAME}(\"...\")]` must use parentheses `(` and `)`"
+                            ),
+                        ));
+                    }
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
                     let syn::Expr::Lit(syn::ExprLit {
@@ -332,7 +341,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.meta.remote_ty()
@@ -343,7 +352,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the [`ReflectMeta`] for this derived type.
-    pub fn meta(&self) -> &ReflectMeta {
+    pub fn meta(&self) -> &ReflectMeta<'_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
             Self::Enum(data) => data.meta(),
@@ -351,7 +360,7 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.where_clause_options()
@@ -462,7 +471,7 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         self.remote_ty
     }
 
@@ -605,13 +614,11 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
-        // Collect via `IndexSet` to eliminate duplicate types.
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
             .collect::<IndexSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API.
@@ -633,8 +640,8 @@ impl<'a> ReflectStruct<'a> {
         &self.fields
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Generates a `TokenStream` for `TypeInfo::Struct` or `TypeInfo::TupleStruct` construction.
@@ -722,18 +729,7 @@ impl<'a> ReflectStruct<'a> {
                         }
                     } else {
                         quote! {
-                            #bevy_reflect_path::PartialReflect::reflect_clone(#accessor)?
-                                .take()
-                                .map_err(|value| #bevy_reflect_path::ReflectCloneError::FailedDowncast {
-                                    expected: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
-                                        <#field_ty as #bevy_reflect_path::TypePath>::type_path()
-                                    ),
-                                    received: #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Owned(
-                                        #bevy_reflect_path::__macro_exports::alloc_utils::ToString::to_string(
-                                            #bevy_reflect_path::DynamicTypePath::reflect_type_path(&*value)
-                                        )
-                                    ),
-                                })?
+                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
                         }
                     };
 
@@ -852,13 +848,11 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
-        // Collect via `IndexSet` to eliminate duplicate types.
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
             .collect::<IndexSet<_>>()
-            .into_iter()
-            .collect::<Vec<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
@@ -866,8 +860,8 @@ impl<'a> ReflectEnum<'a> {
         self.variants.iter().flat_map(EnumVariant::active_fields)
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -880,7 +874,7 @@ impl<'a> ReflectEnum<'a> {
         crate::registration::impl_get_type_registration(
             where_clause_options,
             None,
-            Some(self.active_fields().map(StructField::reflected_type)),
+            Some(self.active_types().iter()),
         )
     }
 

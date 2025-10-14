@@ -3,8 +3,8 @@
     view_transformations::position_world_to_clip
 }
 
-@group(3) @binding(0) var texture: texture_2d<f32>;
-@group(3) @binding(1) var texture_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var texture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var texture_sampler: sampler;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

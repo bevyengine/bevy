@@ -8,8 +8,10 @@ use bevy::{
         SystemChangeTick, SystemParamItem,
     },
     pbr::{
-        DrawMaterial, EntitiesNeedingSpecialization, EntitySpecializationTicks,
-        MaterialBindGroupAllocator, MaterialBindGroupAllocators, MaterialDrawFunction,
+        late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
+        EntitySpecializationTickPair, EntitySpecializationTicks, MaterialBindGroupAllocator,
+        MaterialBindGroupAllocators, MaterialDrawFunction,
+        MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
         MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
         RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
     },
@@ -29,7 +31,7 @@ use bevy::{
         sync_world::MainEntity,
         texture::GpuImage,
         view::ExtractedView,
-        Extract, RenderApp,
+        Extract, RenderApp, RenderStartup,
     },
     utils::Parallel,
 };
@@ -55,52 +57,51 @@ impl Plugin for ImageMaterialPlugin {
                 check_entities_needing_specialization.after(AssetEventSystems),
             )
             .init_resource::<EntitiesNeedingSpecialization<ImageMaterial>>();
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        render_app.add_systems(
-            ExtractSchedule,
-            (
-                extract_image_materials,
-                extract_image_materials_needing_specialization,
-            ),
-        );
-
-        render_app.world_mut().resource_scope(
-            |world: &mut World, mut bind_group_allocators: Mut<MaterialBindGroupAllocators>| {
-                world.resource_scope(|world: &mut World, render_device: Mut<RenderDevice>| {
-                    let bind_group_layout = render_device.create_bind_group_layout(
-                        "image_material_layout",
-                        &BindGroupLayoutEntries::sequential(
-                            ShaderStages::FRAGMENT,
-                            (
-                                texture_2d(TextureSampleType::Float { filterable: false }),
-                                sampler(SamplerBindingType::NonFiltering),
-                            ),
-                        ),
-                    );
-                    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-                    world.insert_resource(ImageMaterialBindGroupLayout(bind_group_layout.clone()));
-                    world.insert_resource(ImageMaterialBindGroupSampler(sampler));
-
-                    bind_group_allocators.insert(
-                        TypeId::of::<ImageMaterial>(),
-                        MaterialBindGroupAllocator::new(
-                            &render_device,
-                            None,
-                            None,
-                            bind_group_layout,
-                            None,
-                        ),
-                    );
-                });
-            },
-        );
+        render_app
+            .add_systems(RenderStartup, init_image_material_resources)
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_image_materials,
+                    extract_image_materials_needing_specialization
+                        .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                    sweep_image_materials_needing_specialization
+                        .after(MaterialExtractEntitiesNeedingSpecializationSystems)
+                        .after(MaterialExtractionSystems)
+                        .before(late_sweep_material_instances),
+                ),
+            );
     }
+}
+
+fn init_image_material_resources(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "image_material_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: false }),
+                sampler(SamplerBindingType::NonFiltering),
+            ),
+        ),
+    );
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    commands.insert_resource(ImageMaterialBindGroupLayout(bind_group_layout.clone()));
+    commands.insert_resource(ImageMaterialBindGroupSampler(sampler));
+
+    bind_group_allocators.insert(
+        TypeId::of::<ImageMaterial>(),
+        MaterialBindGroupAllocator::new(&render_device, None, None, bind_group_layout, None),
+    );
 }
 
 #[derive(Resource)]
@@ -291,6 +292,7 @@ fn extract_image_materials_needing_specialization(
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    render_material_instances: Res<RenderMaterialInstances>,
     views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
 ) {
@@ -310,6 +312,44 @@ fn extract_image_materials_needing_specialization(
 
     for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
+        entity_specialization_ticks.insert(
+            (*entity).into(),
+            EntitySpecializationTickPair {
+                system_tick: ticks.this_run(),
+                material_instances_tick: render_material_instances.current_change_tick,
+            },
+        );
+    }
+}
+
+fn sweep_image_materials_needing_specialization(
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
+    mut removed_mesh_material_components: Extract<RemovedComponents<ImageMaterial3d>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    render_material_instances: Res<RenderMaterialInstances>,
+    views: Query<&ExtractedView>,
+) {
+    // Clean up any despawned entities, we do this first in case the removed material was re-added
+    // the same frame, thus will appear both in the removed components list and have been added to
+    // the `EntitiesNeedingSpecialization` collection by triggering the `Changed` filter
+    for entity in removed_mesh_material_components.read() {
+        if entity_specialization_ticks
+            .get(&MainEntity::from(entity))
+            .is_some_and(|ticks| {
+                ticks.material_instances_tick == render_material_instances.current_change_tick
+            })
+        {
+            continue;
+        }
+
+        entity_specialization_ticks.remove(&MainEntity::from(entity));
+
+        for view in views {
+            if let Some(cache) =
+                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
+            {
+                cache.remove(&MainEntity::from(entity));
+            }
+        }
     }
 }

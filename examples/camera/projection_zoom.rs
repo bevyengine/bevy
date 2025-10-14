@@ -2,7 +2,7 @@
 
 use std::{f32::consts::PI, ops::Range};
 
-use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::ScalingMode};
+use bevy::{camera::ScalingMode, input::mouse::AccumulatedMouseScroll, prelude::*};
 
 #[derive(Debug, Resource)]
 struct CameraSettings {
@@ -101,8 +101,8 @@ fn instructions(mut commands: Commands) {
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

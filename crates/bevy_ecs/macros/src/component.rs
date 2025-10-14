@@ -13,93 +13,24 @@ use syn::{
     LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
-pub const EVENT: &str = "entity_event";
-pub const AUTO_PROPAGATE: &str = "auto_propagate";
-pub const TRAVERSAL: &str = "traversal";
-
-pub fn derive_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-    })
-}
-
-pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let mut auto_propagate = false;
-    let mut traversal: Type = parse_quote!(());
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    let mut processed_attrs = Vec::new();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
-        if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
-            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
-                Err(meta.error(format!("duplicate attribute: {ident}")))
-            }
-            Some(ident) if ident == AUTO_PROPAGATE => {
-                auto_propagate = true;
-                processed_attrs.push(AUTO_PROPAGATE);
-                Ok(())
-            }
-            Some(ident) if ident == TRAVERSAL => {
-                traversal = meta.value()?.parse()?;
-                processed_attrs.push(TRAVERSAL);
-                Ok(())
-            }
-            Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
-            None => Err(meta.error("expected identifier")),
-        }) {
-            return e.to_compile_error().into();
-        }
-    }
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
-            type Traversal = #traversal;
-            const AUTO_PROPAGATE: bool = #auto_propagate;
-        }
-    })
-}
-
-pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::BufferedEvent for #struct_name #type_generics #where_clause {}
-    })
-}
-
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    // We want to raise a compile time error when the generic lifetimes
+    // are not bound to 'static lifetime
+    let non_static_lifetime_error = ast
+        .generics
+        .lifetimes()
+        .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+        .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+        .reduce(|mut err_acc, err| {
+            err_acc.combine(err);
+            err_acc
+        });
+    if let Some(err) = non_static_lifetime_error {
+        return err.into_compile_error().into();
+    }
 
     ast.generics
         .make_where_clause()
@@ -237,41 +168,16 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
-    let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
     if let Some(requires) = requires {
         for require in requires {
             let ident = &require.path;
-            register_recursive_requires.push(quote! {
-                <#ident as #bevy_ecs_path::component::Component>::register_required_components(
-                    requiree,
-                    components,
-                    required_components,
-                    inheritance_depth + 1,
-                    recursion_check_stack
-                );
+            let constructor = match &require.func {
+                Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
+                None => quote! { <#ident as Default>::default },
+            };
+            register_required.push(quote! {
+                required_components.register_required::<#ident>(#constructor);
             });
-            match &require.func {
-                Some(func) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = (#func)().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                None => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            <#ident as Default>::default,
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-            }
         }
     }
     let struct_name = &ast.ident;
@@ -293,8 +199,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
-    let clone_behavior = if relationship_target.is_some() {
-        quote!(#bevy_ecs_path::component::ComponentCloneBehavior::Custom(#bevy_ecs_path::relationship::clone_relationship_target::<Self>))
+    let clone_behavior = if relationship_target.is_some() || relationship.is_some() {
+        quote!(
+            use #bevy_ecs_path::relationship::{
+                RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
+                RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
+                };
+            (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+        )
     } else if let Some(behavior) = attrs.clone_behavior {
         quote!(#bevy_ecs_path::component::ComponentCloneBehavior::#behavior)
     } else {
@@ -312,18 +224,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
             fn register_required_components(
-                requiree: #bevy_ecs_path::component::ComponentId,
-                components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
-                inheritance_depth: u16,
-                recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
+                _requiree: #bevy_ecs_path::component::ComponentId,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
             ) {
-                #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                let self_id = components.register_component::<Self>();
-                recursion_check_stack.push(self_id);
                 #(#register_required)*
-                #(#register_recursive_requires)*
-                recursion_check_stack.pop();
             }
 
             #on_add
@@ -961,15 +865,16 @@ fn relationship_field<'a>(
             span,
             format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
         )),
-        Fields::Unnamed(fields) => fields
-            .unnamed
-            .len()
-            .eq(&1)
-            .then(|| fields.unnamed.first())
-            .flatten()
+        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(fields.unnamed.first().unwrap()),
+        Fields::Unnamed(fields) => fields.unnamed.iter().find(|field| {
+                field
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident(RELATIONSHIP))
+            })
             .ok_or(syn::Error::new(
                 span,
-                format!("{derive} derive expected unnamed structs with one field."),
+                format!("{derive} derive expected unnamed structs with one field or with a field annotated with #[relationship]."),
             )),
         Fields::Unit => Err(syn::Error::new(
             span,

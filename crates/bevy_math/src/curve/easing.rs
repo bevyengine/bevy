@@ -534,7 +534,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
     SmoothStepOut,
-    /// `f(t) = 2t³ + 3t²`
+    /// `f(t) = 3t² - 2t³`
     ///
     /// This is the Hermite interpolator for
     /// - f(0) = 0
@@ -794,7 +794,7 @@ pub struct SmoothStepInCurve;
 #[derive(Copy, Clone)]
 pub struct SmoothStepOutCurve;
 
-/// `f(t) = 2t³ + 3t²`
+/// `f(t) = 3t² - 2t³`
 ///
 /// This is the Hermite interpolator for
 /// - f(0) = 0

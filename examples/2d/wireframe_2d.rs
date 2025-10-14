@@ -16,7 +16,9 @@ use bevy::{
         settings::{RenderCreation, WgpuSettings},
         RenderPlugin,
     },
-    sprite::{NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin},
+    sprite_render::{
+        NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin,
+    },
 };
 
 fn main() {
@@ -91,8 +93,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

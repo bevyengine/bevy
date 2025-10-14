@@ -23,7 +23,7 @@ pub use self::{
     render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
 };
 
-use super::{RenderDevice, RenderQueue};
+use crate::renderer::{RenderDevice, RenderQueue};
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).

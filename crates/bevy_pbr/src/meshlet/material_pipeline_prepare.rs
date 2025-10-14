@@ -2,29 +2,27 @@ use super::{
     instance_manager::InstanceManager, pipelines::MeshletPipelines,
     resource_manager::ResourceManager,
 };
-use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
+use crate::*;
+use bevy_camera::{Camera3d, Projection};
 use bevy_core_pipeline::{
-    core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
+use bevy_mesh::VertexBufferLayout;
+use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::{
-    camera::TemporalJitter,
-    mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
-    render_resource::*,
-    view::ExtractedView,
-};
+use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
 use bevy_utils::default;
 use core::any::{Any, TypeId};
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletMainOpaquePass3dNode`](`super::MeshletMainOpaquePass3dNode`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
+/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`MeshletMainOpaquePass3dNode`](`super::MeshletMainOpaquePass3dNode`),
 /// and register the material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     resource_manager: ResMut<ResourceManager>,
@@ -247,18 +245,18 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
     }
 }
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletPrepassNode`](`super::MeshletPrepassNode`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsPrepass(pub Vec<(u32, CachedRenderPipelineId, BindGroup)>);
 
-/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletDeferredGBufferPrepassNode`].
+/// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`MeshletDeferredGBufferPrepassNode`](`super::MeshletDeferredGBufferPrepassNode`).
 #[derive(Component, Deref, DerefMut, Default)]
 pub struct MeshletViewMaterialsDeferredGBufferPrepass(
     pub Vec<(u32, CachedRenderPipelineId, BindGroup)>,
 );
 
-/// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletPrepassNode`],
-/// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
+/// Prepare [`Material`] pipelines for [`MeshletMesh`](`super::MeshletMesh`) entities for use in [`MeshletPrepassNode`](`super::MeshletPrepassNode`),
+/// and [`MeshletDeferredGBufferPrepassNode`](`super::MeshletDeferredGBufferPrepassNode`) and register the material with [`InstanceManager`].
 pub fn prepare_material_meshlet_meshes_prepass(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,

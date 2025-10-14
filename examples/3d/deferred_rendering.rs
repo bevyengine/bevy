@@ -3,14 +3,14 @@
 use std::f32::consts::*;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
-    math::ops,
-    pbr::{
-        CascadeShadowConfigBuilder, DefaultOpaqueRendererMethod, DirectionalLightShadowMap,
-        NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
+    light::{
+        CascadeShadowConfigBuilder, DirectionalLightShadowMap, NotShadowCaster, NotShadowReceiver,
     },
+    math::ops,
+    pbr::{DefaultOpaqueRendererMethod, OpaqueRendererMethod},
     prelude::*,
 };
 
@@ -185,8 +185,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

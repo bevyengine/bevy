@@ -19,10 +19,10 @@ impl CommandsStatesExt for Commands<'_, '_> {
     fn set_state<S: FreelyMutableState>(&mut self, state: S) {
         self.queue(move |w: &mut World| {
             let mut next = w.resource_mut::<NextState<S>>();
-            if let NextState::Pending(prev) = &*next {
-                if *prev != state {
-                    debug!("overwriting next state {prev:?} with {state:?}");
-                }
+            if let NextState::Pending(prev) = &*next
+                && *prev != state
+            {
+                debug!("overwriting next state {prev:?} with {state:?}");
             }
             next.set(state);
         });

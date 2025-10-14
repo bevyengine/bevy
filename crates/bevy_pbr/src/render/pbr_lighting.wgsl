@@ -137,7 +137,7 @@ fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 
 
 // Simple implementation, has precision problems when using fp16 instead of fp32
 // see https://google.github.io/filament/Filament.html#listing_speculardfp16
-fn D_GGX(roughness: f32, NdotH: f32, h: vec3<f32>) -> f32 {
+fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
     let a = NdotH * roughness;
     let k = roughness / (oneMinusNdotHSquared + a * a);
@@ -201,6 +201,91 @@ fn V_GGX_anisotropic(
     return saturate(v);
 }
 
+// Probability-density function that matches the bounded VNDF sampler
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
+    let ndf = D_GGX(roughness, NdotH);
+
+    // Common terms
+    let ai = roughness * i.xy;
+    let len2 = dot(ai, ai);
+    let t = sqrt(len2 + i.z * i.z);
+    if i.z >= 0.0 {
+        let a = roughness;
+        let s = 1.0 + length(i.xy);
+        let a2 = a * a;
+        let s2 = s * s;
+        let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+        return ndf / (2.0 * (k * i.z + t));
+    }
+
+    // Backfacing case
+    return ndf * (t - i.z) / (2.0 * len2);
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+fn sample_visible_ggx(
+    xi: vec2<f32>,
+    roughness: f32,
+    normal: vec3<f32>,
+    view: vec3<f32>,
+) -> vec3<f32> {
+    let n = normal;
+    let alpha = roughness;
+
+    // Decompose view into components parallel/perpendicular to the normal
+    let wi_n = dot(view, n);
+    let wi_z = -n * wi_n;
+    let wi_xy = view + wi_z;
+
+    // Warp view vector to the unit-roughness configuration
+    let wi_std = -normalize(alpha * wi_xy + wi_z);
+
+    // Compute wi_std.z once for reuse
+    let wi_std_z = dot(wi_std, n);
+
+    // Bounded VNDF sampling
+    // Compute the bound parameter k (Eq. 5) and the scaled z–limit b (Eq. 6)
+    let s = 1.0 + length(wi_xy);
+    let a = clamp(alpha, 0.0, 1.0);
+    let a2 = a * a;
+    let s2 = s * s;
+    let k = (1.0 - a2) * s2 / (s2 + a2 * wi_n * wi_n);
+    let b = select(wi_std_z, k * wi_std_z, wi_n > 0.0);
+
+    // Sample a spherical cap in (-b, 1]
+    let z = 1.0 - xi.y * (1.0 + b);
+    let sin_theta = sqrt(max(0.0, 1.0 - z * z));
+    let phi = 2.0 * PI * xi.x - PI;
+    let x = sin_theta * cos(phi);
+    let y = sin_theta * sin(phi);
+    let c_std = vec3f(x, y, z);
+
+    // Reflect the sample so that the normal aligns with +Z
+    let up = vec3f(0.0, 0.0, 1.0);
+    let wr = n + up;
+    let c = dot(wr, c_std) * wr / wr.z - c_std;
+
+    // Half-vector in the standard frame
+    let wm_std = c + wi_std;
+    let wm_std_z = n * dot(n, wm_std);
+    let wm_std_xy = wm_std_z - wm_std;
+
+    // Unwarp back to original roughness and compute microfacet normal
+    let H = normalize(alpha * wm_std_xy + wm_std_z);
+
+    // Reflect view to obtain the outgoing (light) direction
+    return reflect(-view, H);
+}
+
+// Smith geometric shadowing function
+fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
+    let k = roughness / 2.0;
+    let GGXL = NdotL / (NdotL * (1.0 - k) + k);
+    let GGXV = NdotV / (NdotV * (1.0 - k) + k);
+    return GGXL * GGXV;
+}
+
 // A simpler, but nonphysical, alternative to Smith-GGX. We use this for
 // clearcoat, per the Filament spec.
 //
@@ -235,16 +320,13 @@ fn fresnel(f0: vec3<f32>, LdotH: f32) -> vec3<f32> {
 // Multiscattering approximation:
 // <https://google.github.io/filament/Filament.html#listing_energycompensationimpl>
 fn specular_multiscatter(
-    input: ptr<function, LightingInput>,
     D: f32,
     V: f32,
     F: vec3<f32>,
+    F0: vec3<f32>,
+    F_ab: vec2<f32>,
     specular_intensity: f32,
 ) -> vec3<f32> {
-    // Unpack.
-    let F0 = (*input).F0_;
-    let F_ab = (*input).F_ab;
-
     var Fr = (specular_intensity * D * V) * F;
     Fr *= 1.0 + F0 * (1.0 / F_ab.x - 1.0);
     return Fr;
@@ -316,20 +398,19 @@ fn specular(
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
-    let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let D = D_GGX(roughness, NdotH, H);
+    let D = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     // Calculate the Fresnel term.
     let F = fresnel(F0, LdotH);
 
     // Calculate the specular light.
-    let Fr = specular_multiscatter(input, D, V, F, specular_intensity);
+    let Fr = specular_multiscatter(D, V, F, F0, (*input).F_ab, specular_intensity);
     return Fr;
 }
 
@@ -346,12 +427,11 @@ fn specular_clearcoat(
 ) -> vec2<f32> {
     // Unpack.
     let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
-    let H = (*derived_input).H;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let Dc = D_GGX(roughness, NdotH, H);
+    let Dc = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let Vc = V_Kelemen(LdotH);
     // Calculate the Fresnel term.
@@ -397,7 +477,7 @@ fn specular_anisotropy(
     let Fa = fresnel(F0, LdotH);
 
     // Calculate the specular light.
-    let Fr = specular_multiscatter(input, Da, Va, Fa, specular_intensity);
+    let Fr = specular_multiscatter(Da, Va, Fa, F0, (*input).F_ab, specular_intensity);
     return Fr;
 }
 
@@ -482,7 +562,7 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
         ),
         max_axis != abs_direction.x
     );
-    
+
     var face_uv: vec2<f32>;
     var divisor: f32;
     var corner_uv: vec2<u32> = vec2(0, 0);
@@ -500,12 +580,12 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     face_uv = (face_uv / divisor) * 0.5 + 0.5;
 
     switch cubemap_type {
-        case CUBEMAP_TYPE_CROSS_VERTICAL: { 
-            face_size = vec2(1.0/3.0, 1.0/4.0); 
+        case CUBEMAP_TYPE_CROSS_VERTICAL: {
+            face_size = vec2(1.0/3.0, 1.0/4.0);
             corner_uv = vec2<u32>((0x111102u >> (4 * face_index)) & 0xFu, (0x132011u >> (4 * face_index)) & 0xFu);
         }
-        case CUBEMAP_TYPE_CROSS_HORIZONTAL: { 
-            face_size = vec2(1.0/4.0, 1.0/3.0); 
+        case CUBEMAP_TYPE_CROSS_HORIZONTAL: {
+            face_size = vec2(1.0/4.0, 1.0/3.0);
             corner_uv = vec2<u32>((0x131102u >> (4 * face_index)) & 0xFu, (0x112011u >> (4 * face_index)) & 0xFu);
         }
         case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: {
@@ -765,7 +845,7 @@ fn directional_light(
                 view_bindings::clustered_decal_sampler,
                 decal_uv - floor(decal_uv),
                 0.0
-            ).r;                    
+            ).r;
         } else {
             texture_sample = 0f;
         }

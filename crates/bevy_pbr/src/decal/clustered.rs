@@ -6,7 +6,7 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used
 //! with forward or deferred rendering and don't require a prepass.
 //!
 //! On their own, clustered decals only project the base color of a texture. You
@@ -17,42 +17,37 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::AssetId;
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
     entity::{Entity, EntityHashMap},
-    prelude::ReflectComponent,
     query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
+use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
         SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{self, ViewVisibility, Visibility, VisibilityClass},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use bevy_transform::{components::GlobalTransform, prelude::Transform};
+use bevy_shader::load_shader_library;
+use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use crate::{
-    binding_arrays_are_usable, prepare_lights, DirectionalLight, GlobalClusterableObjectMeta,
-    LightVisibilityClass, PointLight, SpotLight,
-};
+use crate::{binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta};
 
 /// The maximum number of decals that can be present in a view.
 ///
@@ -66,108 +61,6 @@ pub(crate) const MAX_VIEW_DECALS: usize = 8;
 /// In environments where bindless textures aren't available, clustered decals
 /// can still be added to a scene, but they won't project any decals.
 pub struct ClusteredDecalPlugin;
-
-/// An object that projects a decal onto surfaces within its bounds.
-///
-/// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
-/// projects the given [`Self::image`] onto surfaces in the -Z direction (thus
-/// you may find [`Transform::looking_at`] useful).
-///
-/// Clustered decals are the highest-quality types of decals that Bevy supports,
-/// but they require bindless textures. This means that they presently can't be
-/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
-/// with forward or deferred rendering and don't require a prepass.
-#[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
-#[reflect(Component, Debug, Clone)]
-#[require(Transform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
-pub struct ClusteredDecal {
-    /// The image that the clustered decal projects.
-    ///
-    /// This must be a 2D image. If it has an alpha channel, it'll be alpha
-    /// blended with the underlying surface and/or other decals. All decal
-    /// images in the scene must use the same sampler.
-    pub image: Handle<Image>,
-
-    /// An application-specific tag you can use for any purpose you want.
-    ///
-    /// See the `clustered_decals` example for an example of use.
-    pub tag: u32,
-}
-
-/// Cubemap layout defines the order of images in a packed cubemap image.
-#[derive(Default, Reflect, Debug, Clone, Copy)]
-pub enum CubemapLayout {
-    /// layout in a vertical cross format
-    /// ```text
-    ///    +y
-    /// -x -z +x
-    ///    -y
-    ///    +z
-    /// ```
-    #[default]
-    CrossVertical = 0,
-    /// layout in a horizontal cross format
-    /// ```text
-    ///    +y
-    /// -x -z +x +z
-    ///    -y
-    /// ```
-    CrossHorizontal = 1,
-    /// layout in a vertical sequence
-    /// ```text
-    ///   +x
-    ///   -y
-    ///   +y
-    ///   -y
-    ///   -z
-    ///   +z
-    /// ```
-    SequenceVertical = 2,
-    /// layout in a horizontal sequence
-    /// ```text
-    /// +x -y +y -y -z +z
-    /// ```
-    SequenceHorizontal = 3,
-}
-
-/// Add to a [`PointLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(PointLight)]
-pub struct PointLightTexture {
-    /// The texture image. Only the R channel is read.
-    pub image: Handle<Image>,
-    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
-    pub cubemap_layout: CubemapLayout,
-}
-
-/// Add to a [`SpotLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(SpotLight)]
-pub struct SpotLightTexture {
-    /// The texture image. Only the R channel is read.
-    /// Note the border of the image should be entirely black to avoid leaking light.
-    pub image: Handle<Image>,
-}
-
-/// Add to a [`DirectionalLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
-#[derive(Clone, Component, Debug, Reflect)]
-#[reflect(Component, Debug)]
-#[require(DirectionalLight)]
-pub struct DirectionalLightTexture {
-    /// The texture image. Only the R channel is read.
-    pub image: Handle<Image>,
-    /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
-    pub tiled: bool,
-}
 
 /// Stores information about all the clustered decals in the scene.
 #[derive(Resource, Default)]
@@ -249,8 +142,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
-            .register_type::<ClusteredDecal>();
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -259,7 +151,7 @@ impl Plugin for ClusteredDecalPlugin {
         render_app
             .init_resource::<DecalsBuffer>()
             .init_resource::<RenderClusteredDecals>()
-            .add_systems(ExtractSchedule, extract_decals)
+            .add_systems(ExtractSchedule, (extract_decals, extract_clustered_decal))
             .add_systems(
                 Render,
                 prepare_decals
@@ -271,6 +163,21 @@ impl Plugin for ClusteredDecalPlugin {
                 upload_decals.in_set(RenderSystems::PrepareResources),
             );
     }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ClusteredDecal
+fn extract_clustered_decal(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ClusteredDecal)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 /// The GPU data structure that stores information about each decal.
@@ -530,6 +437,5 @@ pub fn clustered_decals_are_usable(
     // See issue #17553.
     // Re-enable this when `wgpu` has first-class bindless.
     binding_arrays_are_usable(render_device, render_adapter)
-        && cfg!(not(any(target_os = "macos", target_os = "ios")))
         && cfg!(feature = "pbr_clustered_decals")
 }
