@@ -1,5 +1,11 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use crate::component::Mutable;
+use crate::entity_disabling::Internal;
+use crate::prelude::Component;
+use crate::prelude::ReflectComponent;
+use bevy_reflect::prelude::ReflectDefault;
+use bevy_reflect::Reflect;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 
@@ -72,4 +78,62 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Component<Mutability = Mutable> {}
+
+/// A marker component for entities which store resources.
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, Debug)
+)]
+#[derive(Component, Debug, Default)]
+#[require(Internal)]
+pub struct IsResource;
+
+#[cfg(test)]
+mod tests {
+    use crate::change_detection::MaybeLocation;
+    use crate::ptr::OwningPtr;
+    use crate::resource::Resource;
+    use crate::world::World;
+    use bevy_platform::prelude::String;
+
+    #[test]
+    fn unique_resource_entities() {
+        #[derive(Default, Resource)]
+        struct TestResource1;
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource2(String);
+
+        #[derive(Resource)]
+        #[expect(dead_code, reason = "field needed for testing")]
+        struct TestResource3(u8);
+
+        let mut world = World::new();
+        let start = world.entities().len();
+        world.init_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        world.insert_resource(TestResource2(String::from("Foo")));
+        assert_eq!(world.entities().len(), start + 2);
+        // like component registration, which just makes it known to the world that a component exists,
+        // registering a resource should not spawn an entity.
+        let id = world.register_resource::<TestResource3>();
+        assert_eq!(world.entities().len(), start + 2);
+        OwningPtr::make(20_u8, |ptr| {
+            // SAFETY: id was just initialized and corresponds to a resource.
+            unsafe {
+                world.insert_resource_by_id(id, ptr, MaybeLocation::caller());
+            }
+        });
+        assert_eq!(world.entities().len(), start + 3);
+        assert!(world.remove_resource_by_id(id).is_some());
+        assert_eq!(world.entities().len(), start + 2);
+        world.remove_resource::<TestResource1>();
+        assert_eq!(world.entities().len(), start + 1);
+        // make sure that trying to add a resource twice results, doesn't change the entity count
+        world.insert_resource(TestResource2(String::from("Bar")));
+        assert_eq!(world.entities().len(), start + 1);
+    }
+}

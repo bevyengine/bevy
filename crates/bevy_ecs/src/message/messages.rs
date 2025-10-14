@@ -10,7 +10,7 @@ use core::{
 };
 #[cfg(feature = "bevy_reflect")]
 use {
-    crate::reflect::ReflectResource,
+    crate::reflect::{ReflectComponent, ReflectResource},
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 

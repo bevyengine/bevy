@@ -11,7 +11,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 #[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::reflect::ReflectResource,
+    bevy_ecs::reflect::{ReflectComponent, ReflectResource},
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
