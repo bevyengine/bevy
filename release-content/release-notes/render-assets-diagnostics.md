@@ -14,3 +14,15 @@ allocated by the slabs, and the number of objects allocated in the slabs. Only b
 allocations, non-bindless materials return 0 for all of them.
 
 `RenderAssetDiagnosticsPlugin` measure the number of assets in `RenderAssets<T>`.
+
+## Showcase
+
+```rust
+app.add_plugins(DefaultPlugins)
+    .add_plugins((
+        MeshAllocatorDiagnosticPlugin,
+        MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
+        RenderAssetDiagnosticPlugin::<RenderMesh>::new("render meshes"),
+        RenderAssetDiagnosticPlugin::<GpuImage>::new("gpu images"),
+    ));
+```
