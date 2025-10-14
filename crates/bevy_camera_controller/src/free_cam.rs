@@ -151,7 +151,7 @@ Freecam Controls:
 /// and add the [`FreeCamPlugin`] to your [`App`] to enable freecam controls.
 #[derive(Component)]
 pub struct FreeCamState {
-    /// Enables this [`FreeCam`] when `true`.
+    /// Enables [`FreeCam`] controls when `true`.
     pub enabled: bool,
     /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
     pub initialized: bool,
