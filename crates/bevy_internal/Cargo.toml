@@ -145,6 +145,7 @@ android-game-activity = ["bevy_winit/android-game-activity"]
 
 # Transmission textures in `StandardMaterial`:
 pbr_transmission_textures = [
+  "bevy_render?/pbr_transmission_textures",
   "bevy_pbr?/pbr_transmission_textures",
   "bevy_gltf?/pbr_transmission_textures",
 ]
@@ -154,27 +155,34 @@ pbr_clustered_decals = ["bevy_pbr?/pbr_clustered_decals"]
 
 # Light Texture support
 pbr_light_textures = [
+  "bevy_render?/pbr_light_textures",
   "bevy_pbr?/pbr_clustered_decals",
   "bevy_pbr?/pbr_light_textures",
 ]
 
 # Multi-layer material textures in `StandardMaterial`:
 pbr_multi_layer_material_textures = [
+  "bevy_render?/pbr_multi_layer_material_textures",
   "bevy_pbr?/pbr_multi_layer_material_textures",
   "bevy_gltf?/pbr_multi_layer_material_textures",
 ]
 
 # Anisotropy texture in `StandardMaterial`:
 pbr_anisotropy_texture = [
+  "bevy_render?/pbr_anisotropy_texture",
   "bevy_pbr?/pbr_anisotropy_texture",
   "bevy_gltf?/pbr_anisotropy_texture",
 ]
 
 # Percentage-closer soft shadows
-experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+experimental_pbr_pcss = [
+  "bevy_render?/experimental_pbr_pcss",
+  "bevy_pbr?/experimental_pbr_pcss",
+]
 
 # Specular textures in `StandardMaterial`:
 pbr_specular_textures = [
+  "bevy_render?/pbr_specular_textures",
   "bevy_pbr?/pbr_specular_textures",
   "bevy_gltf?/pbr_specular_textures",
 ]

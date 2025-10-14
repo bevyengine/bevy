@@ -18,6 +18,7 @@ use nonmax::{NonMaxU16, NonMaxU32};
 use crate::{
     lightmap::{pack_lightmap_uv_rect, LightmapSlabIndex, LightmapSlotIndex},
     mesh::material_bind_group::{MaterialBindGroupSlot, MaterialBindingId},
+    render_phase::InputUniformIndex,
 };
 
 #[derive(Component)]
@@ -363,6 +364,142 @@ impl RenderMeshInstanceShared {
         self.flags
             .contains(RenderMeshInstanceFlags::AUTOMATIC_BATCHING)
     }
+}
+
+/// Information that the render world keeps about each entity that contains a
+/// mesh.
+///
+/// The set of information needed is different depending on whether CPU or GPU
+/// [`MeshUniform`] building is in use.
+#[derive(Resource)]
+pub enum RenderMeshInstances {
+    /// Information needed when using CPU mesh instance data building.
+    CpuBuilding(RenderMeshInstancesCpu),
+    /// Information needed when using GPU mesh instance data building.
+    GpuBuilding(RenderMeshInstancesGpu),
+}
+
+/// Information that the render world keeps about each entity that contains a
+/// mesh, when using CPU mesh instance data building.
+#[derive(Default, Deref, DerefMut)]
+pub struct RenderMeshInstancesCpu(MainEntityHashMap<RenderMeshInstanceCpu>);
+
+/// Information that the render world keeps about each entity that contains a
+/// mesh, when using GPU mesh instance data building.
+#[derive(Default, Deref, DerefMut)]
+pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
+
+impl RenderMeshInstances {
+    /// Creates a new [`RenderMeshInstances`] instance.
+    pub fn new(use_gpu_instance_buffer_builder: bool) -> RenderMeshInstances {
+        if use_gpu_instance_buffer_builder {
+            RenderMeshInstances::GpuBuilding(RenderMeshInstancesGpu::default())
+        } else {
+            RenderMeshInstances::CpuBuilding(RenderMeshInstancesCpu::default())
+        }
+    }
+
+    /// Returns the ID of the mesh asset attached to the given entity, if any.
+    pub fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+            RenderMeshInstances::GpuBuilding(ref instances) => instances.mesh_asset_id(entity),
+        }
+    }
+
+    /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
+    /// mesh attached.
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref instances) => {
+                instances.render_mesh_queue_data(entity)
+            }
+            RenderMeshInstances::GpuBuilding(ref instances) => {
+                instances.render_mesh_queue_data(entity)
+            }
+        }
+    }
+
+    /// Inserts the given flags into the CPU or GPU render mesh instance data
+    /// for the given mesh as appropriate.
+    pub fn insert_mesh_instance_flags(
+        &mut self,
+        entity: MainEntity,
+        flags: RenderMeshInstanceFlags,
+    ) {
+        match *self {
+            RenderMeshInstances::CpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+            RenderMeshInstances::GpuBuilding(ref mut instances) => {
+                instances.insert_mesh_instance_flags(entity, flags);
+            }
+        }
+    }
+}
+
+impl RenderMeshInstancesCpu {
+    fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+        self.get(&entity)
+            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
+    }
+
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
+        self.get(&entity)
+            .map(|render_mesh_instance| RenderMeshQueueData {
+                shared: &render_mesh_instance.shared,
+                translation: render_mesh_instance.transforms.world_from_local.translation,
+                current_uniform_index: InputUniformIndex::default(),
+            })
+    }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
+    }
+}
+
+impl RenderMeshInstancesGpu {
+    fn mesh_asset_id(&self, entity: MainEntity) -> Option<AssetId<Mesh>> {
+        self.get(&entity)
+            .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
+    }
+
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
+        self.get(&entity)
+            .map(|render_mesh_instance| RenderMeshQueueData {
+                shared: &render_mesh_instance.shared,
+                translation: render_mesh_instance.translation,
+                current_uniform_index: InputUniformIndex(
+                    render_mesh_instance.current_uniform_index.into(),
+                ),
+            })
+    }
+
+    /// Inserts the given flags into the render mesh instance data for the given
+    /// mesh.
+    fn insert_mesh_instance_flags(&mut self, entity: MainEntity, flags: RenderMeshInstanceFlags) {
+        if let Some(instance) = self.get_mut(&entity) {
+            instance.flags.insert(flags);
+        }
+    }
+}
+
+/// Data that [`crate::material::queue_material_meshes`] and similar systems
+/// need in order to place entities that contain meshes in the right batch.
+#[derive(Deref)]
+pub struct RenderMeshQueueData<'a> {
+    /// General information about the mesh instance.
+    #[deref]
+    pub shared: &'a RenderMeshInstanceShared,
+    /// The translation of the mesh instance.
+    pub translation: Vec3,
+    /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
+    /// instance.
+    pub current_uniform_index: InputUniformIndex,
 }
 
 /// Removes a [`MeshInputUniform`] corresponding to an entity that became

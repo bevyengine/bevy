@@ -37,6 +37,13 @@ statically-linked-dxc = ["wgpu/static-dxc"]
 # Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
 raw_vulkan_init = ["wgpu/vulkan"]
 
+pbr_light_textures = []
+pbr_transmission_textures = []
+pbr_multi_layer_material_textures = []
+pbr_anisotropy_texture = []
+pbr_specular_textures = []
+experimental_pbr_pcss = []
+
 trace = ["profiling"]
 tracing-tracy = ["dep:tracy-client"]
 ci_limits = []

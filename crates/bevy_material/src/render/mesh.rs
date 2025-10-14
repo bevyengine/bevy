@@ -1,5 +1,13 @@
-use crate::render_resource::*;
+use crate::{
+    render::{
+        MeshLayouts, MeshPipelineViewLayout, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    },
+    render_resource::*,
+};
+use bevy_asset::Handle;
+use bevy_ecs::resource::Resource;
 use bevy_mesh::BaseMeshPipelineKey;
+use bevy_shader::Shader;
 
 use static_assertions::const_assert_eq;
 
@@ -14,7 +22,50 @@ use static_assertions::const_assert_eq;
 #[cfg(debug_assertions)]
 pub const MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES: usize = 10;
 
-// pub struct MeshPipeline {
+/// All data needed to construct a pipeline for rendering 3D meshes.
+#[derive(Resource, Clone)]
+pub struct MeshPipeline {
+    /// A reference to all the mesh pipeline view layouts.
+    pub view_layouts: MeshPipelineViewLayouts,
+    pub clustered_forward_buffer_binding_type: BufferBindingType,
+    pub mesh_layouts: MeshLayouts,
+    /// The shader asset handle.
+    pub shader: Handle<Shader>,
+    /// `MeshUniform`s are stored in arrays in buffers. If storage buffers are available, they
+    /// are used and this will be `None`, otherwise uniform buffers will be used with batches
+    /// of this many `MeshUniform`s, stored at dynamic offsets within the uniform buffer.
+    /// Use code like this in custom shaders:
+    /// ```wgsl
+    /// ##ifdef PER_OBJECT_BUFFER_BATCH_SIZE
+    /// @group(1) @binding(0) var<uniform> mesh: array<Mesh, #{PER_OBJECT_BUFFER_BATCH_SIZE}u>;
+    /// ##else
+    /// @group(1) @binding(0) var<storage> mesh: array<Mesh>;
+    /// ##endif // PER_OBJECT_BUFFER_BATCH_SIZE
+    /// ```
+    pub per_object_buffer_batch_size: Option<u32>,
+
+    /// Whether binding arrays (a.k.a. bindless textures) are usable on the
+    /// current render device.
+    ///
+    /// This affects whether reflection probes can be used.
+    pub binding_arrays_are_usable: bool,
+
+    /// Whether clustered decals are usable on the current render device.
+    pub clustered_decals_are_usable: bool,
+
+    /// Whether skins will use uniform buffers on account of storage buffers
+    /// being unavailable on this platform.
+    pub skins_use_uniform_buffers: bool,
+}
+
+impl MeshPipeline {
+    pub fn get_view_layout(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &MeshPipelineViewLayout {
+        self.view_layouts.get_view_layout(layout_key)
+    }
+}
 
 bitflags::bitflags! {
     #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]

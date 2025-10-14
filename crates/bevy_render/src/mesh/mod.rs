@@ -1,5 +1,6 @@
 pub mod allocator;
 pub mod material_bind_group;
+pub mod pipeline;
 pub mod render;
 pub mod skin;
 pub mod util;
