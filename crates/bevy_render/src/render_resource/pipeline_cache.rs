@@ -720,11 +720,11 @@ impl PipelineCache {
         self.waiting_pipelines.insert(id);
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    pub fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
         cache.process_queue();
     }
 
-    pub(crate) fn extract_shaders(
+    pub fn extract_shaders(
         mut cache: ResMut<Self>,
         shaders: Extract<Res<Assets<Shader>>>,
         mut events: Extract<MessageReader<AssetEvent<Shader>>>,
