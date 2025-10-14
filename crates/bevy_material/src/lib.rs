@@ -1,6 +1,8 @@
 //! Provides a material abstraction for bevy
 
 pub mod alpha;
+pub mod bind_group_layout_entries;
+pub mod labels;
 
 /// The material prelude.
 ///
