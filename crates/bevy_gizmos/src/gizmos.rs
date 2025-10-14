@@ -290,10 +290,14 @@ where
     Clear: 'static + Send + Sync,
 {
     pub(crate) enabled: bool,
-    pub(crate) list_positions: Vec<Vec3>,
-    pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<Vec3>,
-    pub(crate) strip_colors: Vec<LinearRgba>,
+    /// The positions of line segment endpoints.
+    pub list_positions: Vec<Vec3>,
+    /// The colors of line segment endpoints.
+    pub list_colors: Vec<LinearRgba>,
+    /// The positions of line strip vertices.
+    pub strip_positions: Vec<Vec3>,
+    /// The colors of line strip vertices.
+    pub strip_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }

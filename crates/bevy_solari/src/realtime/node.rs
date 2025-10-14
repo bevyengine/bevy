@@ -56,6 +56,7 @@ pub struct SolariLightingNode {
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
+    specular_gi_pipeline: CachedComputePipelineId,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
@@ -121,6 +122,7 @@ impl ViewNode for SolariLightingNode {
             Some(di_spatial_and_shade_pipeline),
             Some(gi_initial_and_temporal_pipeline),
             Some(gi_spatial_and_shade_pipeline),
+            Some(specular_gi_pipeline),
             Some(scene_bindings),
             Some(gbuffer),
             Some(depth_buffer),
@@ -140,6 +142,7 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.di_spatial_and_shade_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_spatial_and_shade_pipeline),
+            pipeline_cache.get_compute_pipeline(self.specular_gi_pipeline),
             &scene_bindings.bind_group,
             view_prepass_textures.deferred_view(),
             view_prepass_textures.depth_view(),
@@ -315,6 +318,13 @@ impl ViewNode for SolariLightingNode {
         pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(gi_spatial_and_shade_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(dx, dy, 1);
+
+        pass.set_pipeline(specular_gi_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -528,6 +538,13 @@ impl FromWorld for SolariLightingNode {
                 "solari_lighting_gi_spatial_and_shade_pipeline",
                 "spatial_and_shade",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
+                None,
+                vec![],
+            ),
+            specular_gi_pipeline: create_pipeline(
+                "solari_lighting_specular_gi_pipeline",
+                "specular_gi",
+                load_embedded_asset!(world, "specular_gi.wgsl"),
                 None,
                 vec![],
             ),
