@@ -71,7 +71,7 @@ impl Column {
     /// # Safety
     /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
     /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
+    /// -   The caller should update their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_drop_unchecked(
         &mut self,
         last_element_index: usize,
@@ -118,7 +118,7 @@ impl Column {
     /// # Safety
     /// - `last_element_index` must be the index of the last element—stored in the highest place in memory.
     /// - `row.as_usize()` <= `last_element_index`
-    /// -   The caller should update the their saved length to reflect the change (decrement it by 1).
+    /// -   The caller should update their saved length to reflect the change (decrement it by 1).
     pub(crate) unsafe fn swap_remove_and_forget_unchecked(
         &mut self,
         last_element_index: usize,

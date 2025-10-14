@@ -437,7 +437,7 @@ pub struct PickingMessageWriters<'w> {
 ///
 /// When the pointer goes from hovering entity A to entity B, entity A will
 /// receive [`Out`] and then entity B will receive [`Over`]. No entity will ever
-/// receive both an [`Over`] and and a [`Out`] event during the same frame.
+/// receive both an [`Over`] and an [`Out`] event during the same frame.
 ///
 /// When we account for event bubbling, this is no longer true. When the hovering focus shifts
 /// between children, parent entities may receive redundant [`Out`] → [`Over`] pairs.
