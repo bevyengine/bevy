@@ -24,6 +24,8 @@ app.add_plugins(DefaultPlugins)
         MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
         RenderAssetDiagnosticPlugin::<RenderMesh>::new(" render meshes"),
         RenderAssetDiagnosticPlugin::<GpuImage>::new(" gpu images"),
+        // ImageMaterial is the name of the manual material used on the `manual_material` example
+        ErasedRenderAssetDiagnosticPlugin::<ImageMaterial>::new(" image materials"),
     ));
 ```
 
@@ -38,4 +40,5 @@ INFO bevy_diagnostic: material_allocator_slabs/bevy_pbr::pbr_material::StandardM
 INFO bevy_diagnostic: material_allocator_slabs_size/bevy_pbr::pbr_material::StandardMaterial :  576.000000 bytes (avg 576.000000 bytes)
 INFO bevy_diagnostic: render_asset/bevy_render::mesh::RenderMesh                             :    5.000000 render meshes (avg 5.000000 render meshes)
 INFO bevy_diagnostic: render_asset/bevy_render::texture::gpu_image::GpuImage                 :   10.000000 gpu images (avg 10.000000 gpu images)
+INFO bevy_diagnostic: erased_render_asset/manual_material::ImageMaterial                     :    2.000000 image materials (avg 2.000000 image materials)
 ```
