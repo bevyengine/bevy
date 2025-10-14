@@ -91,7 +91,7 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 /// when font atlases should be freed.
 pub struct FontAtlasManager {
     reference_counts: HashMap<FontAtlasKey, (u32, u32)>,
-    least_recently_used_buffer: Vec<FontAtlasKey>,
+    least_recently_used_buffer: Vec<(FontAtlasKey, u32)>,
     /// Maximum number of fonts before unused font atlases are freed.
     pub max_fonts: usize,
 }
@@ -112,30 +112,25 @@ impl FontAtlasManager {
 
     /// Increment the reference count for the font
     pub fn increment_count(&mut self, key: FontAtlasKey) {
-        let (count, _) = self.reference_counts.entry(key).or_default();
+        let (count, g) = self.reference_counts.entry(key).or_default();
 
-        if *count == 0 {
-            self.least_recently_used_buffer.retain(|k| *k != key);
-        }
-
+        *g += 1;
         *count += 1;
     }
 
     /// Decrement the reference count for the font
     pub fn decrement_count(&mut self, key: FontAtlasKey) {
-        let (count, _) = self
+        let (count, g) = self
             .reference_counts
             .get_mut(&key)
             .expect("No reference count found for existing ComputedFont.");
         assert!(
             0 < *count,
-            "Reference count for released ComputedFont is already 0."
+            "Tried to decrement reference count for already released ComputedFont."
         );
         *count -= 1;
         if *count == 0 {
-            if !self.least_recently_used_buffer.contains(&key) {
-                self.least_recently_used_buffer.push(key);
-            }
+            self.least_recently_used_buffer.push((key, *g));
         }
     }
 }
@@ -163,6 +158,8 @@ pub fn free_unused_font_atlases_computed_system(
         max_fonts,
     } = &mut *font_atlases_manager;
 
+    least_recently_used_buffer.retain(|(key, g)| reference_counts.get(key).unwrap().1 == *g);
+
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
     let n = font_atlas_set
@@ -170,7 +167,7 @@ pub fn free_unused_font_atlases_computed_system(
         .saturating_sub(*max_fonts)
         .min(least_recently_used_buffer.len());
 
-    for key in least_recently_used_buffer.drain(..n) {
+    for (key, _) in least_recently_used_buffer.drain(..n) {
         reference_counts.remove(&key);
         font_atlas_set.remove(&key);
     }
