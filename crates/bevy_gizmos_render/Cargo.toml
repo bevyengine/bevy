@@ -2,7 +2,7 @@
 name = "bevy_gizmos_render"
 version = "0.18.0-dev"
 edition = "2024"
-description = "Provides gizmos for Bevy Engine"
+description = "Provides gizmos rendering for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
