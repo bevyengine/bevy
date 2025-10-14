@@ -1,11 +1,11 @@
-use crate::{Font, FontAtlas, FontSmoothing, TextFont};
+use crate::{font, font_atlas, Font, FontAtlas, FontSmoothing, TextFont};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, message::MessageReader, resource::Resource,
     system::ResMut, world::DeferredWorld,
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
@@ -72,22 +72,17 @@ fn on_insert_computed_text_font(mut world: DeferredWorld, hook_context: HookCont
         .unwrap()
         .0
     {
-        *world
+        world
             .resource_mut::<FontAtlasManager>()
-            .reference_counts
-            .entry(key)
-            .or_default() += 1;
+            .increment_count(key);
     }
 }
 
 fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookContext) {
     if let Some(&ComputedTextFont(Some(key))) = world.get::<ComputedTextFont>(hook_context.entity) {
-        let mut f = world.resource_mut::<FontAtlasManager>();
-        let c = f.reference_counts.entry(key).or_default();
-        *c -= 1;
-        if *c == 0 {
-            f.least_recently_used_buffer.push(key);
-        }
+        world
+            .resource_mut::<FontAtlasManager>()
+            .decrement_count(key);
     }
 }
 
@@ -114,6 +109,35 @@ impl FontAtlasManager {
     pub fn get_count(&self, key: &FontAtlasKey) -> usize {
         self.reference_counts.get(key).copied().unwrap_or(0)
     }
+
+    /// Increment the reference count for the font
+    pub fn increment_count(&mut self, key: FontAtlasKey) {
+        let count = self.reference_counts.entry(key).or_default();
+
+        if *count == 0 {
+            self.least_recently_used_buffer.retain(|k| *k != key);
+        }
+
+        *count += 1;
+    }
+
+    /// Decrement the reference count for the font
+    pub fn decrement_count(&mut self, key: FontAtlasKey) {
+        let count = self
+            .reference_counts
+            .get_mut(&key)
+            .expect("No reference count found for existing ComputedFont.");
+        assert!(
+            0 < *count,
+            "Reference count for released ComputedFont is already 0."
+        );
+        *count -= 1;
+        if *count == 0 {
+            if !self.least_recently_used_buffer.contains(&key) {
+                self.least_recently_used_buffer.push(key);
+            }
+        }
+    }
 }
 
 impl Default for FontAtlasManager {
@@ -133,27 +157,22 @@ pub fn free_unused_font_atlases_computed_system(
     mut font_atlases_manager: ResMut<FontAtlasManager>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
 ) {
-    // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
-    // until the total is lower than max_fonts or the least recently used list is empty.
     let FontAtlasManager {
         reference_counts,
         least_recently_used_buffer,
         max_fonts,
     } = &mut *font_atlases_manager;
-    let mut target = font_atlas_set
+
+    // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
+    // until the total is lower than max_fonts or the least recently used list is empty.
+    let n = font_atlas_set
         .len()
         .saturating_sub(*max_fonts)
         .min(least_recently_used_buffer.len());
-    if 0 < target {
-        least_recently_used_buffer.retain(|key| {
-            let free = 0 < target && reference_counts.get(key).is_some_and(|&c| c == 0);
-            if free {
-                font_atlas_set.remove(key);
-                reference_counts.remove(key);
-                target -= 1;
-            }
-            free
-        });
+
+    for key in least_recently_used_buffer.drain(..n) {
+        reference_counts.remove(&key);
+        font_atlas_set.remove(&key);
     }
 }
 
@@ -223,5 +242,111 @@ mod tests {
         let world = app.world_mut();
         let font_atlases = world.resource_mut::<FontAtlasSet>();
         assert_eq!(font_atlases.len(), 0);
+    }
+
+    #[test]
+    fn test_font_atlas_manager() {
+        let mut app = App::new();
+        app.init_resource::<FontAtlasManager>();
+        app.init_resource::<FontAtlasSet>();
+        app.add_systems(Update, free_unused_font_atlases_computed_system);
+
+        let k = FontAtlasKey(AssetId::default(), 10, crate::FontSmoothing::AntiAliased);
+
+        let world = app.world_mut();
+
+        world.resource_mut::<FontAtlasSet>().insert(k, vec![]);
+        world.resource_mut::<FontAtlasManager>().increment_count(k);
+
+        app.update();
+        let world = app.world_mut();
+
+        let mut m = world.resource_mut::<FontAtlasManager>();
+        assert_eq!(m.get_count(&k), 1);
+        m.decrement_count(k);
+        assert_eq!(m.get_count(&k), 0);
+        assert_eq!(m.least_recently_used_buffer.len(), 1);
+
+        app.update();
+        let world = app.world_mut();
+        let mut m = world.resource_mut::<FontAtlasManager>();
+        assert_eq!(m.get_count(&k), 0);
+        assert_eq!(m.least_recently_used_buffer.len(), 1);
+        m.max_fonts = 0;
+
+        assert_eq!(world.resource::<FontAtlasSet>().len(), 1);
+
+        app.update();
+        let world = app.world_mut();
+        let m = world.resource::<FontAtlasManager>();
+        assert_eq!(m.get_count(&k), 0);
+        assert_eq!(m.least_recently_used_buffer.len(), 0);
+        assert_eq!(world.resource::<FontAtlasSet>().len(), 0);
+    }
+
+    #[test]
+    fn test_font_atlas_manager_2() {
+        let mut app = App::new();
+        app.init_resource::<FontAtlasManager>();
+        app.init_resource::<FontAtlasSet>();
+        app.add_systems(Update, free_unused_font_atlases_computed_system);
+
+        let k = FontAtlasKey(AssetId::default(), 10, crate::FontSmoothing::AntiAliased);
+
+        let world = app.world_mut();
+
+        world.resource_mut::<FontAtlasSet>().insert(k, vec![]);
+
+        world.resource_mut::<FontAtlasManager>().increment_count(k);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k);
+        world.resource_mut::<FontAtlasManager>().increment_count(k);
+
+        app.update();
+        let world = app.world_mut();
+
+        let m = world.resource::<FontAtlasManager>();
+        assert_eq!(m.get_count(&k), 1);
+        assert_eq!(m.least_recently_used_buffer.len(), 0);
+        assert_eq!(world.resource::<FontAtlasSet>().len(), 1);
+    }
+
+    #[test]
+    fn test_font_atlas_manager_3() {
+        let mut app = App::new();
+        app.init_resource::<FontAtlasManager>();
+        app.init_resource::<FontAtlasSet>();
+        app.add_systems(Update, free_unused_font_atlases_computed_system);
+
+        let k1 = FontAtlasKey(AssetId::default(), 10, crate::FontSmoothing::AntiAliased);
+        let k2 = FontAtlasKey(AssetId::default(), 11, crate::FontSmoothing::AntiAliased);
+
+        let world = app.world_mut();
+
+        world.resource_mut::<FontAtlasSet>().insert(k1, vec![]);
+        world.resource_mut::<FontAtlasSet>().insert(k2, vec![]);
+
+        world.resource_mut::<FontAtlasManager>().increment_count(k1);
+        world.resource_mut::<FontAtlasManager>().increment_count(k2);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k1);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k2);
+        world.resource_mut::<FontAtlasManager>().increment_count(k1);
+        world.resource_mut::<FontAtlasManager>().increment_count(k2);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k1);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k2);
+        world.resource_mut::<FontAtlasManager>().increment_count(k1);
+        world.resource_mut::<FontAtlasManager>().increment_count(k2);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k1);
+        world.resource_mut::<FontAtlasManager>().decrement_count(k2);
+        world.resource_mut::<FontAtlasManager>().increment_count(k1);
+        world.resource_mut::<FontAtlasManager>().increment_count(k2);
+
+        app.update();
+        let world = app.world_mut();
+
+        let m = world.resource::<FontAtlasManager>();
+        assert_eq!(m.get_count(&k1), 1);
+        assert_eq!(m.get_count(&k2), 1);
+        assert_eq!(m.least_recently_used_buffer.len(), 0);
+        assert_eq!(world.resource::<FontAtlasSet>().len(), 2);
     }
 }
