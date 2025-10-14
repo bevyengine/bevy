@@ -321,7 +321,7 @@ pub fn init_prepass_pipeline(
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
-        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
@@ -877,7 +877,10 @@ pub fn specialize_prepass_material_meshes(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap()
+                .system_tick;
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
