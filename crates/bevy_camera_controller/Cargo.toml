@@ -6,7 +6,7 @@ description = "Premade camera controllers for Bevy"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "input", "camera", "control"]
+keywords = ["bevy", "camera", "control", "input"]
 rust-version = "1.85.0"
 
 [dependencies]
@@ -35,5 +35,5 @@ free_cam = []
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

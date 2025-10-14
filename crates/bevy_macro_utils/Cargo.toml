@@ -20,5 +20,5 @@ toml_edit = { version = "0.23.2", default-features = false, features = [
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

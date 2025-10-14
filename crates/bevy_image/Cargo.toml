@@ -32,7 +32,7 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = ["bevy_reflect", "bevy_platform/serialize", "wgpu-types/serde"]
+serialize = ["bevy_platform/serialize", "bevy_reflect", "wgpu-types/serde"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -41,9 +41,9 @@ zlib = ["flate2"]
 # A backend must be chosen by enabling either the "zstd_rust" or the "zstd_c" feature.
 zstd = []
 # Pure-rust zstd implementation (safer)
-zstd_rust = ["zstd", "dep:ruzstd"]
+zstd_rust = ["dep:ruzstd", "zstd"]
 # Binding to zstd C implementation (faster)
-zstd_c = ["zstd", "dep:zstd"]
+zstd_c = ["dep:zstd", "zstd"]
 
 # Enables compressed KTX2 UASTC texture output on the asset processor
 compressed_image_saver = ["basis-universal"]
@@ -95,5 +95,5 @@ serde_json = "1.0.140"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

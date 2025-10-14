@@ -9,8 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_picking = ["dep:bevy_picking", "bevy_window"]
-bevy_text = ["dep:bevy_text", "bevy_window"]
+bevy_picking = ["bevy_window", "dep:bevy_picking"]
+bevy_text = ["bevy_window", "dep:bevy_text"]
 
 [dependencies]
 # bevy
@@ -41,5 +41,5 @@ approx = "0.5.1"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

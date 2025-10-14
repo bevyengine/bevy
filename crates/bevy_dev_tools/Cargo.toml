@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_ci_testing = ["serde", "ron"]
+bevy_ci_testing = ["ron", "serde"]
 
 [dependencies]
 # bevy
@@ -41,5 +41,5 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

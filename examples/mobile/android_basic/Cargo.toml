@@ -9,13 +9,12 @@ license = "MIT OR Apache-2.0"
 
 [lib]
 name = "bevy_mobile_example"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 bevy = { path = "../../", default-features = false, features = [
   "android-native-activity",
   "android_shared_stdcxx",
-  "gltf_animation",
   "bevy_animation",
   "bevy_asset",
   "bevy_audio",
@@ -33,6 +32,7 @@ bevy = { path = "../../", default-features = false, features = [
   "bevy_ui",
   "bevy_winit",
   "default_font",
+  "gltf_animation",
   "hdr",
   "ktx2",
   "multi_threaded",
@@ -65,5 +65,5 @@ label = "Bevy Example"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "-Zunstable-options", "docsrs"]
 all-features = true

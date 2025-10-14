@@ -9,15 +9,15 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_app"]
+default = ["bevy_app", "bevy_reflect", "std"]
 
 # Functionality
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
-  "dep:bevy_reflect",
-  "bevy_ecs/bevy_reflect",
   "bevy_app?/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "dep:bevy_reflect",
 ]
 
 ## Adds integration with the `bevy_app` plugin API.
@@ -29,19 +29,19 @@ bevy_app = ["dep:bevy_app"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_ecs/std",
-  "bevy_reflect?/std",
   "bevy_app?/std",
+  "bevy_ecs/std",
   "bevy_platform/std",
+  "bevy_reflect?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_ecs/critical-section",
   "bevy_app?/critical-section",
-  "bevy_reflect?/critical-section",
+  "bevy_ecs/critical-section",
   "bevy_platform/critical-section",
+  "bevy_reflect?/critical-section",
 ]
 
 [dependencies]

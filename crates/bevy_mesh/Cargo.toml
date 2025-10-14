@@ -20,8 +20,8 @@ bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_mikktspace = { version = "0.17.0-dev", optional = true }
 bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
-  "std",
   "serialize",
+  "std",
 ] }
 
 # other
@@ -49,5 +49,5 @@ morph = ["dep:bevy_image"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

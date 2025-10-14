@@ -11,7 +11,7 @@ keywords = ["bevy"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
+file_watcher = ["multi_threaded", "notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
 http = ["blocking", "ureq"]
@@ -58,8 +58,8 @@ serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 uuid = { version = "1.13.1", default-features = false, features = [
-  "v4",
   "serde",
+  "v4",
 ] }
 tracing = { version = "0.1", default-features = false }
 
@@ -70,8 +70,8 @@ bevy_android = { path = "../bevy_android", version = "0.18.0-dev", default-featu
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [
-  "Window",
   "Response",
+  "Window",
   "WorkerGlobalScope",
 ] }
 wasm-bindgen-futures = "0.4"
@@ -97,5 +97,5 @@ async-channel = "2"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

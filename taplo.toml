@@ -1,0 +1,8 @@
+[formatting]
+reorder_arrays = false
+
+[[rule]]
+include = ["**/Cargo.toml"]
+
+[rule.formatting]
+reorder_arrays = true

@@ -14,10 +14,10 @@ default = ["async_executor", "futures-lite"]
 # Enables multi-threading support.
 # Without this feature, all tasks will be run on a single thread.
 multi_threaded = [
+  "async_executor",
   "bevy_platform/std",
   "dep:async-channel",
   "dep:concurrent-queue",
-  "async_executor",
 ]
 
 # Uses `async-executor` as a task execution backend.
@@ -78,5 +78,5 @@ async-channel = "2.3.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

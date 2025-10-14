@@ -11,10 +11,10 @@ keywords = ["bevy"]
 [features]
 default = ["serialize"]
 serialize = [
-  "dep:serde",
-  "uuid/serde",
   "bevy_ecs/serialize",
   "bevy_platform/serialize",
+  "dep:serde",
+  "uuid/serde",
 ]
 
 [dependencies]
@@ -50,5 +50,5 @@ rmp-serde = "1.1"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

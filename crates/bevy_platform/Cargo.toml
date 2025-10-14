@@ -27,19 +27,19 @@ rayon = ["dep:rayon", "hashbrown/rayon"]
 std = [
   "alloc",
   "critical-section?/std",
-  "portable-atomic/std",
-  "portable-atomic-util/std",
-  "spin/std",
   "foldhash/std",
-  "serde?/std",
-  "wasm-bindgen-futures?/std",
   "futures-channel/std",
-  "wasm-bindgen?/std",
   "js-sys?/std",
+  "portable-atomic-util/std",
+  "portable-atomic/std",
+  "serde?/std",
+  "spin/std",
+  "wasm-bindgen-futures?/std",
+  "wasm-bindgen?/std",
 ]
 
 ## Allows access to the `alloc` crate.
-alloc = ["portable-atomic-util/alloc", "dep:hashbrown", "serde?/alloc"]
+alloc = ["dep:hashbrown", "portable-atomic-util/alloc", "serde?/alloc"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
@@ -48,23 +48,23 @@ critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
 web = [
-  "std",
-  "dep:web-time",
   "dep:getrandom",
-  "dep:wasm-bindgen-futures",
-  "dep:wasm-bindgen",
   "dep:js-sys",
+  "dep:wasm-bindgen",
+  "dep:wasm-bindgen-futures",
+  "dep:web-time",
+  "std",
 ]
 
 [dependencies]
 critical-section = { version = "1.2.0", default-features = false, optional = true }
 spin = { version = "0.10.0", default-features = false, features = [
-  "mutex",
-  "spin_mutex",
-  "rwlock",
-  "once",
-  "lazy",
   "barrier",
+  "lazy",
+  "mutex",
+  "once",
+  "rwlock",
+  "spin_mutex",
 ] }
 foldhash = { version = "0.2.0", default-features = false }
 hashbrown = { version = "0.16.0", features = [
@@ -99,5 +99,5 @@ portable-atomic-util = { version = "0.2.4", default-features = false }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

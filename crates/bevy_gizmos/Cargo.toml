@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
-bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
+bevy_render = ["bevy_core_pipeline", "dep:bevy_render"]
 
 [dependencies]
 # Bevy
@@ -43,5 +43,5 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

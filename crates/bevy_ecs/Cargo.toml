@@ -6,12 +6,12 @@ description = "Bevy Engine's entity component system"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["ecs", "game", "bevy"]
-categories = ["game-engines", "data-structures"]
+keywords = ["bevy", "ecs", "game"]
+categories = ["data-structures", "game-engines"]
 rust-version = "1.86.0"
 
 [features]
-default = ["std", "bevy_reflect", "async_executor", "backtrace"]
+default = ["async_executor", "backtrace", "bevy_reflect", "std"]
 
 # Functionality
 
@@ -20,7 +20,7 @@ default = ["std", "bevy_reflect", "async_executor", "backtrace"]
 multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_platform/serialize", "indexmap/serde"]
+serialize = ["bevy_platform/serialize", "dep:serde", "indexmap/serde"]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
@@ -36,7 +36,7 @@ backtrace = ["std"]
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing", "bevy_utils/debug"]
+trace = ["bevy_utils/debug", "dep:tracing", "std"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
@@ -53,7 +53,7 @@ track_location = []
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "bevy_tasks/async_executor"]
+async_executor = ["bevy_tasks/async_executor", "std"]
 
 # Platform Compatibility
 
@@ -61,6 +61,8 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
+  "arrayvec?/std",
+  "bevy_platform/std",
   "bevy_reflect?/std",
   "bevy_utils/parallel",
   "bevy_utils/std",
@@ -68,11 +70,9 @@ std = [
   "concurrent-queue/std",
   "fixedbitset/std",
   "indexmap/std",
-  "serde?/std",
-  "nonmax/std",
-  "arrayvec?/std",
   "log/std",
-  "bevy_platform/std",
+  "nonmax/std",
+  "serde?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -104,16 +104,16 @@ serde = { version = "1", default-features = false, features = [
 ], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = [
-  "from",
-  "display",
-  "into",
   "as_ref",
+  "display",
+  "from",
+  "into",
 ] }
 nonmax = { version = "0.5", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false, optional = true }
 smallvec = { version = "1", default-features = false, features = [
-  "union",
   "const_generics",
+  "union",
 ] }
 indexmap = { version = "2.5.0", default-features = false }
 variadics_please = { version = "1.1", default-features = false }
@@ -150,6 +150,6 @@ path = "examples/change_detection.rs"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
 features = ["bevy_reflect/auto_register_static"]

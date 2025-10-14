@@ -21,17 +21,17 @@ accesskit_unix = [
 
 serialize = [
   "bevy_input/serialize",
-  "bevy_window/serialize",
   "bevy_platform/serialize",
+  "bevy_window/serialize",
 ]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 custom_cursor = [
-  "bevy_window/custom_cursor",
-  "bevy_image",
   "bevy_asset",
-  "wgpu-types",
+  "bevy_image",
+  "bevy_window/custom_cursor",
   "bytemuck",
+  "wgpu-types",
 ]
 
 [dependencies]
@@ -93,5 +93,5 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
