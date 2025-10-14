@@ -1,6 +1,12 @@
 //! Provides a material abstraction for bevy
+#![allow(missing_docs)]
+
+extern crate alloc;
 
 pub mod alpha;
+// pub mod opaque;
+pub mod render;
+pub mod render_resource;
 
 /// The material prelude.
 ///
