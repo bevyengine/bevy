@@ -51,9 +51,8 @@ use {
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries,
-            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
-            ShaderType, VertexFormat,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutEntries,
+            Buffer, BufferInitDescriptor, BufferUsages, ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
@@ -62,7 +61,9 @@ use {
     bytemuck::cast_slice,
 };
 
-use bevy_render::render_resource::{BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode};
+use bevy_render::render_resource::{
+    BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode,
+};
 
 use bevy_gizmos::{
     config::{GizmoConfigStore, GizmoLineJoint},
@@ -114,9 +115,7 @@ impl Plugin for GizmoRenderPlugin {
     }
 }
 
-fn init_line_gizmo_uniform_bind_group_layout(
-    mut commands: Commands,
-) {
+fn init_line_gizmo_uniform_bind_group_layout(mut commands: Commands) {
     let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
         &BindGroupLayoutEntries::single(
