@@ -22,7 +22,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Mat4, Vec4};
+use bevy_math::{Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
     alpha::AlphaMode,
@@ -205,8 +205,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component, PartialEq, Default)]
-pub struct PreviousGlobalTransform(pub Affine3A);
+pub use bevy_render::mesh::render::PreviousGlobalTransform;
 
 #[cfg(not(feature = "meshlet"))]
 type PreviousMeshFilter = With<Mesh3d>;

@@ -1,5 +1,6 @@
 pub mod allocator;
 pub mod material_bind_group;
+pub mod render;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     texture::GpuImage,
