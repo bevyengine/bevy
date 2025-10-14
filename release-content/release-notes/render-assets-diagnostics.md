@@ -6,14 +6,18 @@ pull_requests: [19311]
 
 ## Goals
 
-Create diagnostics plugins `MeshAllocatorDiagnosticPlugin`, `MaterialAllocatorDiagnosticPlugin` and `RenderAssetDiagnosticPlugin`
-that collect measurements related to `MeshAllocator`s, `MaterialBindGroupAllocator`, and `RenderAssets` respectively.
+Create diagnostics plugins `MeshAllocatorDiagnosticPlugin`, `MaterialAllocatorDiagnosticPlugin`,
+`RenderAssetDiagnosticPlugin`, and `ErasedRenderAssetDiagnosticPlugin`, that collect measurements
+related to `MeshAllocator`s, `MaterialBindGroupAllocator`, `RenderAssets`, and `ErasedRenderAssets`
+respectively.
 
 `MeshAllocatorDiagnosticPlugin` and `MaterialDiagnosticPlugin` measure the number of slabs, the total size of memory
 allocated by the slabs, and the number of objects allocated in the slabs. Only bindless materials use slabs for their
 allocations, non-bindless materials return 0 for all of them.
 
-`RenderAssetDiagnosticsPlugin` measure the number of assets in `RenderAssets<T>`.
+`RenderAssetDiagnosticsPlugin<RA>` and `ErasedAssetDiagnosticsPlugin<ERA>` measure the number of
+assets in `RenderAssets<RA>` and `ErasedRenderAssets<ERA::ErasedAsset>`. `ErasedAssetDiagnosticsPlugin<ERA>`
+will report the same number of assets for all `ERA` that share the same `ERA::ErasedAsset`.
 
 ## Showcase
 
