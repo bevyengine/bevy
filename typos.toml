@@ -32,9 +32,10 @@ vOt2 = "vOt2"
 locale = "en-us"
 # Ignored typos regexes
 extend-ignore-re = [
-  "\\bBelen Masia\\b", # The surname of one of the authors of SMAA
-  "\\bBig Sur\\b",     # macOS Big Sur
-  "\\bmetalness\\b",   # Rendering term (metallicity)
-  "\\bNDKs\\b",        # NDK - Native  Development Kit
-  "\\bPNGs\\b",        # PNG - Portable Network Graphics file format
+  "\\bBelen Masia\\b",            # The surname of one of the authors of SMAA
+  "\\bBig Sur\\b",                # macOS Big Sur
+  "\\bgeneric-rpg-ui-inventario", # Inventory in Portuguese
+  "\\bmetalness\\b",              # Rendering term (metallicity)
+  "\\bNDKs\\b",                   # NDK - Native  Development Kit
+  "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
 ]
