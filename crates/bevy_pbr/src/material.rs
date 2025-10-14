@@ -58,13 +58,12 @@ use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap}
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::Parallel;
-use core::any::{Any, TypeId};
-use core::hash::{BuildHasher, Hasher};
+use core::any::TypeId;
 use core::{hash::Hash, marker::PhantomData};
 use smallvec::SmallVec;
 use tracing::error;
 
-pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
+pub use bevy_material::material::*;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -434,13 +433,6 @@ pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: M::Data,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ErasedMaterialPipelineKey {
-    pub mesh_key: MeshPipelineKey,
-    pub material_key: ErasedMaterialKey,
-    pub type_id: TypeId,
 }
 
 /// Render pipeline data for a given [`Material`].
@@ -1402,85 +1394,6 @@ pub struct DeferredAlphaMaskDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
 
-#[derive(Debug)]
-pub struct ErasedMaterialKey {
-    type_id: TypeId,
-    hash: u64,
-    value: Box<dyn Any + Send + Sync>,
-    vtable: Arc<ErasedMaterialKeyVTable>,
-}
-
-#[derive(Debug)]
-pub struct ErasedMaterialKeyVTable {
-    clone_fn: fn(&dyn Any) -> Box<dyn Any + Send + Sync>,
-    partial_eq_fn: fn(&dyn Any, &dyn Any) -> bool,
-}
-
-impl ErasedMaterialKey {
-    pub fn new<T>(material_key: T) -> Self
-    where
-        T: Clone + Hash + PartialEq + Send + Sync + 'static,
-    {
-        let type_id = TypeId::of::<T>();
-        let hash = FixedHasher::hash_one(&FixedHasher, &material_key);
-
-        fn clone<T: Clone + Send + Sync + 'static>(any: &dyn Any) -> Box<dyn Any + Send + Sync> {
-            Box::new(any.downcast_ref::<T>().unwrap().clone())
-        }
-        fn partial_eq<T: PartialEq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
-            a.downcast_ref::<T>().unwrap() == b.downcast_ref::<T>().unwrap()
-        }
-
-        Self {
-            type_id,
-            hash,
-            value: Box::new(material_key),
-            vtable: Arc::new(ErasedMaterialKeyVTable {
-                clone_fn: clone::<T>,
-                partial_eq_fn: partial_eq::<T>,
-            }),
-        }
-    }
-
-    pub fn to_key<T: Clone + 'static>(&self) -> T {
-        debug_assert_eq!(self.type_id, TypeId::of::<T>());
-        self.value.downcast_ref::<T>().unwrap().clone()
-    }
-}
-
-impl PartialEq for ErasedMaterialKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.type_id == other.type_id
-            && (self.vtable.partial_eq_fn)(self.value.as_ref(), other.value.as_ref())
-    }
-}
-
-impl Eq for ErasedMaterialKey {}
-
-impl Clone for ErasedMaterialKey {
-    fn clone(&self) -> Self {
-        Self {
-            type_id: self.type_id,
-            hash: self.hash,
-            value: (self.vtable.clone_fn)(self.value.as_ref()),
-            vtable: self.vtable.clone(),
-        }
-    }
-}
-
-impl Hash for ErasedMaterialKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.type_id.hash(state);
-        self.hash.hash(state);
-    }
-}
-
-impl Default for ErasedMaterialKey {
-    fn default() -> Self {
-        Self::new(())
-    }
-}
-
 /// Common [`Material`] properties, calculated for a specific material instance.
 #[derive(Default)]
 pub struct MaterialProperties {
@@ -1558,15 +1471,6 @@ impl MaterialProperties {
     ) {
         self.draw_functions.push((label.intern(), draw_function));
     }
-}
-
-#[derive(Clone, Copy, Default)]
-pub enum RenderPhaseType {
-    #[default]
-    Opaque,
-    AlphaMask,
-    Transmissive,
-    Transparent,
 }
 
 /// A resource that maps each untyped material ID to its binding.

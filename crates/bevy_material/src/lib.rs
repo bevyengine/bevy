@@ -4,6 +4,7 @@
 extern crate alloc;
 
 pub mod alpha;
+pub mod material;
 pub mod opaque;
 pub mod render;
 pub mod render_phase;
