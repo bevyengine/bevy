@@ -22,9 +22,10 @@ use bevy_render::{
         binding_types::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
-        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, LoadOp, PipelineCache, PushConstantRange,
-        RenderPassDescriptor, ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
+        PipelineCache, PushConstantRange, RenderPassDescriptor, ShaderStages, StorageTextureAccess,
+        TextureFormat, TextureSampleType,
     },
     renderer::RenderContext,
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},

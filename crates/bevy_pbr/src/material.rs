@@ -1533,7 +1533,6 @@ where
             material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::ErasedAsset, PrepareAssetError<Self::SourceAsset>> {
-
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
 

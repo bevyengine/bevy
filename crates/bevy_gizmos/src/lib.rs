@@ -91,9 +91,9 @@ use bevy_ecs::{
 };
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_render")]
-use bevy_render::render_resource::PipelineCache;
-#[cfg(feature = "bevy_render")]
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
+#[cfg(feature = "bevy_render")]
+use bevy_render::render_resource::PipelineCache;
 
 #[cfg(all(
     feature = "bevy_render",
@@ -122,9 +122,8 @@ use {
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries,
-            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
-            ShaderType, VertexFormat,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutEntries,
+            Buffer, BufferInitDescriptor, BufferUsages, ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
