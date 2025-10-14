@@ -4,7 +4,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate renders bevy_gizmos with bevy_render.
+//! This crate renders `bevy_gizmos` with `bevy_render`.
 
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
@@ -19,9 +19,9 @@ pub enum GizmoRenderSystems {
 
 pub mod retained;
 
-#[cfg(all(feature = "bevy_sprite_render"))]
+#[cfg(feature = "bevy_sprite_render")]
 mod pipeline_2d;
-#[cfg(all(feature = "bevy_pbr"))]
+#[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
 use bevy_app::{App, Plugin};

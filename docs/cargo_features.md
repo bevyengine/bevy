@@ -77,7 +77,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_gilrs|Adds gamepad support|
-|bevy_gizmos|Adds support for rendering gizmos|
+|bevy_gizmos|Adds support for gizmos|
+|bevy_gizmos_render|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
