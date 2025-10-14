@@ -142,7 +142,7 @@ Freecam Controls:
     }
 }
 
-/// Stores the state of the FreeCam controller.
+/// Stores the state of the [`FreeCam`] controller.
 ///
 /// This struct holds the runtime state, including pitch, yaw, velocity, and whether the camera is enabled.
 /// It is used to track and update the camera's movement and orientation based on input events.
