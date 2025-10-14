@@ -22,7 +22,20 @@ app.add_plugins(DefaultPlugins)
     .add_plugins((
         MeshAllocatorDiagnosticPlugin,
         MaterialAllocatorDiagnosticPlugin::<StandardMaterial>::default(),
-        RenderAssetDiagnosticPlugin::<RenderMesh>::new("render meshes"),
-        RenderAssetDiagnosticPlugin::<GpuImage>::new("gpu images"),
+        RenderAssetDiagnosticPlugin::<RenderMesh>::new(" render meshes"),
+        RenderAssetDiagnosticPlugin::<GpuImage>::new(" gpu images"),
     ));
+```
+
+If you also have `LogDiagnosticsPlugin`, the output looks something like this:
+
+```
+INFO bevy_diagnostic: mesh_allocator_allocations                                             :    4.000000 meshes (avg 4.000000 meshes)
+INFO bevy_diagnostic: mesh_allocator_slabs                                                   :    4.000000 slabs (avg 4.000000 slabs)
+INFO bevy_diagnostic: mesh_allocator_slabs_size                                              : 4194360.000000 bytes (avg 4194360.000000 bytes)
+INFO bevy_diagnostic: material_allocator_allocations/bevy_pbr::pbr_material::StandardMaterial:   14.000000 materials (avg 14.000000 materials)
+INFO bevy_diagnostic: material_allocator_slabs/bevy_pbr::pbr_material::StandardMaterial      :    1.000000 slabs (avg 1.000000 slabs)
+INFO bevy_diagnostic: material_allocator_slabs_size/bevy_pbr::pbr_material::StandardMaterial :  576.000000 bytes (avg 576.000000 bytes)
+INFO bevy_diagnostic: render_asset/bevy_render::mesh::RenderMesh                             :    5.000000 render meshes (avg 5.000000 render meshes)
+INFO bevy_diagnostic: render_asset/bevy_render::texture::gpu_image::GpuImage                 :   10.000000 gpu images (avg 10.000000 gpu images)
 ```
