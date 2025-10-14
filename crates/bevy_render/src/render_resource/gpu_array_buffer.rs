@@ -41,7 +41,7 @@ pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
 impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
     pub fn new(limits: &Limits) -> Self {
         if limits.max_storage_buffers_per_shader_stage == 0 {
-            GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(&limits))
+            GpuArrayBuffer::Uniform(BatchedUniformBuffer::new(limits))
         } else {
             GpuArrayBuffer::Storage(BufferVec::new(BufferUsages::STORAGE))
         }
@@ -97,7 +97,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
 
     pub fn batch_size(limits: &Limits) -> Option<u32> {
         if limits.max_storage_buffers_per_shader_stage == 0 {
-            Some(BatchedUniformBuffer::<T>::batch_size(&limits) as u32)
+            Some(BatchedUniformBuffer::<T>::batch_size(limits) as u32)
         } else {
             None
         }
