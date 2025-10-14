@@ -11,11 +11,31 @@ keywords = ["bevy"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
+bevy_material_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev" }
+
+encase = "0.12"
+offset-allocator = "0.2"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+thiserror = { version = "2", default-features = false }
+wgpu-types = { version = "26", default-features = false }
+variadics_please = "1.1"
+bitflags = "2"
+static_assertions = "1"
+nonmax = "0.5"
+smallvec = { version = "1", default-features = false }
 
 [lints]
 workspace = true
