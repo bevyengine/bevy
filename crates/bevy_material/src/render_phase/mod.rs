@@ -27,5 +27,5 @@ define_label!(
 
 pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
-// mod draw;
-// pub use draw::*;
+mod draw;
+pub use draw::*;
