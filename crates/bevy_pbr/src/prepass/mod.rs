@@ -22,10 +22,10 @@ use bevy_ecs::{
         SystemParam, SystemParamItem, SystemState,
     },
 };
-use bevy_material::alpha::AlphaMode;
 use bevy_math::{Affine3A, Mat4, Vec4};
 use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{allocator::MeshAllocator, RenderMesh},
