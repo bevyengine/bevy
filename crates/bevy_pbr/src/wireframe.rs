@@ -1,7 +1,7 @@
 use crate::{
-    DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
-    SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
-    ViewSpecializationTicks,
+    init_mesh_pipeline, DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags,
+    RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup,
+    ViewKeyCache, ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
@@ -141,7 +141,10 @@ impl Plugin for WireframePlugin {
                     Node3d::PostProcessing,
                 ),
             )
-            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_wireframe_3d_pipeline.after(init_mesh_pipeline),
+            )
             .add_systems(
                 ExtractSchedule,
                 (

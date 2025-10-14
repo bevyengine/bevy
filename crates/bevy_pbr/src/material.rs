@@ -56,7 +56,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_shader::{Shader, ShaderDefVal};
+use bevy_shader::ShaderDefVal;
 use bevy_utils::Parallel;
 use core::any::TypeId;
 use core::{hash::Hash, marker::PhantomData};
@@ -71,6 +71,8 @@ pub use bevy_material::material::*;
 ///
 /// Materials must implement [`AsBindGroup`] to define how data will be transferred to the GPU and bound in shaders.
 /// [`AsBindGroup`] can be derived, which makes generating bindings straightforward. See the [`AsBindGroup`] docs for details.
+///
+/// Doc refs [`MaterialPipeline`], [`MaterialProperties`]
 ///
 /// # Example
 ///
@@ -297,7 +299,10 @@ impl Plugin for MaterialsPlugin {
                 .add_render_command::<Transparent3d, DrawMaterial>()
                 .add_render_command::<Opaque3d, DrawMaterial>()
                 .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline)
+                .add_systems(
+                    RenderStartup,
+                    init_material_pipeline.after(init_mesh_pipeline),
+                )
                 .add_systems(
                     Render,
                     (
@@ -433,12 +438,6 @@ pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
 pub struct MaterialPipelineKey<M: Material> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: M::Data,
-}
-
-/// Render pipeline data for a given [`Material`].
-#[derive(Resource, Clone)]
-pub struct MaterialPipeline {
-    pub mesh_pipeline: MeshPipeline,
 }
 
 pub struct MaterialPipelineSpecializer {
@@ -1142,6 +1141,8 @@ pub fn specialize_material_meshes(
 
 /// For each view, iterates over all the meshes visible from that view and adds
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
+///
+/// Uses data from [`RenderMeshQueueData`] in order to place entities that contain meshes in the right batch.
 pub fn queue_material_meshes(
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -1394,84 +1395,7 @@ pub struct DeferredAlphaMaskDrawFunction;
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
 
-/// Common [`Material`] properties, calculated for a specific material instance.
-#[derive(Default)]
-pub struct MaterialProperties {
-    /// Is this material should be rendered by the deferred renderer when.
-    /// [`AlphaMode::Opaque`] or [`AlphaMode::Mask`]
-    pub render_method: OpaqueRendererMethod,
-    /// The [`AlphaMode`] of this material.
-    pub alpha_mode: AlphaMode,
-    /// The bits in the [`MeshPipelineKey`] for this material.
-    ///
-    /// These are precalculated so that we can just "or" them together in
-    /// [`queue_material_meshes`].
-    pub mesh_pipeline_key_bits: MeshPipelineKey,
-    /// Add a bias to the view depth of the mesh which can be used to force a specific render order
-    /// for meshes with equal depth, to avoid z-fighting.
-    /// The bias is in depth-texture units so large values may be needed to overcome small depth differences.
-    pub depth_bias: f32,
-    /// Whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
-    ///
-    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
-    /// rendering to take place in a separate [`Transmissive3d`] pass.
-    pub reads_view_transmission_texture: bool,
-    pub render_phase_type: RenderPhaseType,
-    pub material_layout: Option<BindGroupLayoutDescriptor>,
-    /// Backing array is a size of 4 because the `StandardMaterial` needs 4 draw functions by default
-    pub draw_functions: SmallVec<[(InternedDrawFunctionLabel, DrawFunctionId); 4]>,
-    /// Backing array is a size of 3 because the `StandardMaterial` has 3 custom shaders (`frag`, `prepass_frag`, `deferred_frag`) which is the
-    /// most common use case
-    pub shaders: SmallVec<[(InternedShaderLabel, Handle<Shader>); 3]>,
-    /// Whether this material *actually* uses bindless resources, taking the
-    /// platform support (or lack thereof) of bindless resources into account.
-    pub bindless: bool,
-    pub specialize: Option<
-        fn(
-            &MaterialPipeline,
-            &mut RenderPipelineDescriptor,
-            &MeshVertexBufferLayoutRef,
-            ErasedMaterialPipelineKey,
-        ) -> Result<(), SpecializedMeshPipelineError>,
-    >,
-    /// The key for this material, typically a bitfield of flags that are used to modify
-    /// the pipeline descriptor used for this material.
-    pub material_key: ErasedMaterialKey,
-    /// Whether shadows are enabled for this material
-    pub shadows_enabled: bool,
-    /// Whether prepass is enabled for this material
-    pub prepass_enabled: bool,
-}
-
-impl MaterialProperties {
-    pub fn get_shader(&self, label: impl ShaderLabel) -> Option<Handle<Shader>> {
-        self.shaders
-            .iter()
-            .find(|(inner_label, _)| inner_label == &label.intern())
-            .map(|(_, shader)| shader)
-            .cloned()
-    }
-
-    pub fn add_shader(&mut self, label: impl ShaderLabel, shader: Handle<Shader>) {
-        self.shaders.push((label.intern(), shader));
-    }
-
-    pub fn get_draw_function(&self, label: impl DrawFunctionLabel) -> Option<DrawFunctionId> {
-        self.draw_functions
-            .iter()
-            .find(|(inner_label, _)| inner_label == &label.intern())
-            .map(|(_, shader)| shader)
-            .cloned()
-    }
-
-    pub fn add_draw_function(
-        &mut self,
-        label: impl DrawFunctionLabel,
-        draw_function: DrawFunctionId,
-    ) {
-        self.draw_functions.push((label.intern(), draw_function));
-    }
-}
+pub use bevy_material::material::MaterialProperties;
 
 /// A resource that maps each untyped material ID to its binding.
 ///

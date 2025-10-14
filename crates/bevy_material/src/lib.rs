@@ -1,5 +1,5 @@
 //! Provides a material abstraction for bevy
-#![allow(missing_docs)]
+#![allow(missing_docs, reason = "Needs docs")]
 
 extern crate alloc;
 

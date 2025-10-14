@@ -47,10 +47,11 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, mesh_pipeline_view_layout_key_from_msaa,
-    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    RenderViewLightProbes, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
-    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    binding_arrays_are_usable, graph::NodePbr, init_mesh_pipeline_view_layouts,
+    mesh_pipeline_view_layout_key_from_msaa, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -199,7 +200,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
             .add_systems(
                 RenderStartup,
                 (
-                    init_screen_space_reflections_pipeline,
+                    init_screen_space_reflections_pipeline.after(init_mesh_pipeline_view_layouts),
                     add_screen_space_reflections_render_graph_edges,
                 ),
             )

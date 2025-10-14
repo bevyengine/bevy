@@ -7,7 +7,7 @@
 //! implementation using bevy's low level rendering api.
 //! It's generally recommended to try the built-in instancing before going with this approach.
 
-use bevy::pbr::SetMeshViewBindingArrayBindGroup;
+use bevy::pbr::{init_mesh_pipeline, SetMeshViewBindingArrayBindGroup};
 use bevy::{
     camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
@@ -102,7 +102,10 @@ impl Plugin for CustomMaterialPlugin {
         app.sub_app_mut(RenderApp)
             .add_render_command::<Transparent3d, DrawCustom>()
             .init_resource::<SpecializedMeshPipelines<CustomPipeline>>()
-            .add_systems(RenderStartup, init_custom_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_custom_pipeline.after(init_mesh_pipeline),
+            )
             .add_systems(
                 Render,
                 (

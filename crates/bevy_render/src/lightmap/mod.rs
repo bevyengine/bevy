@@ -35,11 +35,6 @@ pub const LIGHTMAPS_PER_SLAB: usize = 4;
 
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
-///
-/// When assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
-/// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
-/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
-/// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]
 pub struct Lightmap {

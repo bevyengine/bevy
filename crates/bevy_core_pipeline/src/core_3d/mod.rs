@@ -846,6 +846,10 @@ pub fn prepare_core_3d_depth_textures(
     }
 }
 
+/// A material can specify [`MaterialProperties::reads_view_transmission_texture`](`bevy_material::material::MaterialProperties`) to read from [`ViewTransmissionTexture`].
+///
+/// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
+/// rendering to take place in a separate [`Transmissive3d`] pass.
 #[derive(Component)]
 pub struct ViewTransmissionTexture {
     pub texture: Texture,

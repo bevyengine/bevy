@@ -270,7 +270,10 @@ impl Plugin for MeshRenderPlugin {
 
             render_app
                 .add_systems(RenderStartup, init_mesh_pipeline_view_layouts)
-                .add_systems(RenderStartup, init_mesh_pipeline);
+                .add_systems(
+                    RenderStartup,
+                    init_mesh_pipeline.after(init_mesh_pipeline_view_layouts),
+                );
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -626,6 +629,8 @@ impl RenderMeshInstanceGpuQueue {
 impl RenderMeshInstanceGpuBuilder {
     /// Flushes this mesh instance to the [`RenderMeshInstanceGpu`] and
     /// [`MeshInputUniform`] tables, replacing the existing entry if applicable.
+    ///
+    /// Provides the mesh instance id for [`RenderMeshInstanceShared::for_gpu_building`]
     fn update(
         mut self,
         entity: MainEntity,
@@ -1260,7 +1265,7 @@ pub fn collect_meshes_for_gpu_building(
     previous_input_buffer.ensure_nonempty();
 }
 
-fn init_mesh_pipeline(world: &mut World) {
+pub fn init_mesh_pipeline(world: &mut World) {
     let shader = load_embedded_asset!(world, "mesh.wgsl");
     let mut system_state: SystemState<(
         Res<RenderDevice>,

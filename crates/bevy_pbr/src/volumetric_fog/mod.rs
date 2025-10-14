@@ -50,7 +50,10 @@ use bevy_render::{
 };
 use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::{graph::NodePbr, volumetric_fog::render::init_volumetric_fog_pipeline};
+use crate::{
+    graph::NodePbr, init_mesh_pipeline_view_layouts,
+    volumetric_fog::render::init_volumetric_fog_pipeline,
+};
 
 pub mod render;
 
@@ -84,7 +87,10 @@ impl Plugin for VolumetricFogPlugin {
             })
             .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
             .init_resource::<VolumetricFogUniformBuffer>()
-            .add_systems(RenderStartup, init_volumetric_fog_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_volumetric_fog_pipeline.after(init_mesh_pipeline_view_layouts),
+            )
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
                 Render,

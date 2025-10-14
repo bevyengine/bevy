@@ -1,6 +1,6 @@
 use crate::render_resource::BindGroupLayoutDescriptor;
 
-/// All possible [`BindGroupLayout`]s in bevy's default mesh shader (`mesh.wgsl`).
+/// All possible [`BindGroupLayoutDescriptor`]s in bevy's default mesh shader (`mesh.wgsl`).
 #[derive(Clone)]
 pub struct MeshLayouts {
     /// The mesh model uniform (transform) and nothing else.
@@ -16,9 +16,7 @@ pub struct MeshLayouts {
     /// frame's joint matrices, so that we can compute motion vectors.
     pub skinned_motion: BindGroupLayoutDescriptor,
 
-    /// Also includes the uniform and [`MorphAttributes`] for morph targets.
-    ///
-    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
+    /// Also includes the uniform and [`MorphAttributes`](`bevy_mesh::morph::MorphAttributes`) for morph targets.
     pub morphed: BindGroupLayoutDescriptor,
 
     /// Like [`MeshLayouts::morphed`], but includes a slot for the previous
@@ -26,9 +24,7 @@ pub struct MeshLayouts {
     pub morphed_motion: BindGroupLayoutDescriptor,
 
     /// Also includes both uniforms for skinning and morph targets, also the
-    /// morph target [`MorphAttributes`] binding.
-    ///
-    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
+    /// morph target [`MorphAttributes`](`bevy_mesh::morph::MorphAttributes`) binding.
     pub morphed_skinned: BindGroupLayoutDescriptor,
 
     /// Like [`MeshLayouts::morphed_skinned`], but includes slots for the

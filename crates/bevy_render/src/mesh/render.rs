@@ -53,7 +53,7 @@ pub struct MeshUniform {
     /// The index of this mesh's first vertex in the vertex buffer.
     ///
     /// Multiple meshes can be packed into a single vertex buffer (see
-    /// [`MeshAllocator`]). This value stores the offset of the first vertex in
+    /// [`MeshAllocator`](`crate::mesh::allocator::MeshAllocator`) ). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
     /// The current skin index, or `u32::MAX` if there's no skin.
@@ -100,13 +100,13 @@ pub struct MeshInputUniform {
     /// The index of this mesh's first vertex in the vertex buffer.
     ///
     /// Multiple meshes can be packed into a single vertex buffer (see
-    /// [`MeshAllocator`]). This value stores the offset of the first vertex in
+    /// [`MeshAllocator`](`crate::mesh::allocator::MeshAllocator`) ). This value stores the offset of the first vertex in
     /// this mesh in that buffer.
     pub first_vertex_index: u32,
     /// The index of this mesh's first index in the index buffer, if any.
     ///
     /// Multiple meshes can be packed into a single index buffer (see
-    /// [`MeshAllocator`]). This value stores the offset of the first index in
+    /// [`MeshAllocator`](`crate::mesh::allocator::MeshAllocator`) ). This value stores the offset of the first index in
     /// this mesh in that buffer.
     ///
     /// If this mesh isn't indexed, this value is ignored.
@@ -306,7 +306,6 @@ pub struct RenderMeshInstanceShared {
 
 impl RenderMeshInstanceShared {
     /// A gpu builder will provide the mesh instance id
-    /// during [`RenderMeshInstanceGpuBuilder::update`].
     pub fn for_gpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
@@ -326,7 +325,7 @@ impl RenderMeshInstanceShared {
         )
     }
 
-    /// The cpu builder does not have an equivalent [`RenderMeshInstanceGpuBuilder::update`].
+    /// The cpu builder does not have an equivalent ?
     pub fn for_cpu_building(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
@@ -488,8 +487,7 @@ impl RenderMeshInstancesGpu {
     }
 }
 
-/// Data that [`crate::material::queue_material_meshes`] and similar systems
-/// need in order to place entities that contain meshes in the right batch.
+/// Data that systems need in order to place entities that contain meshes in the right batch.
 #[derive(Deref)]
 pub struct RenderMeshQueueData<'a> {
     /// General information about the mesh instance.

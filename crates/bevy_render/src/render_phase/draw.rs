@@ -16,6 +16,8 @@ use variadics_please::all_tuples;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
+/// Identified by a [`DrawFunctionId`], stored in [`DrawFunctions`]
+///
 /// The draw function can retrieve and query the required ECS data from the render world.
 ///
 /// This trait can either be implemented directly or implicitly composed out of multiple modular
@@ -106,7 +108,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     }
 }
 
-/// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
+/// Stores all [`Draw`] functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
 ///
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
 #[derive(Resource)]
