@@ -153,8 +153,8 @@ fn shader_ref(path: PathBuf) -> ShaderRef {
     ShaderRef::Path(AssetPath::from_path_buf(path).with_source("embedded"))
 }
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 18;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 19;
+pub use bevy_render::mesh::util::TONEMAPPING_LUT_SAMPLER_BINDING_INDEX;
+pub use bevy_render::mesh::util::TONEMAPPING_LUT_TEXTURE_BINDING_INDEX;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
