@@ -1,4 +1,4 @@
-//! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](crate::gizmos::Gizmos) system parameter.
+//! This module is for 'retained' alternatives to the 'immediate mode' [`Gizmos`](bevy_gizmos::gizmos::Gizmos) system parameter.
 
 use crate::LineGizmoUniform;
 use bevy_camera::visibility::RenderLayers;
