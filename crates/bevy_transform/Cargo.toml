@@ -33,7 +33,7 @@ approx = "0.5.1"
 [features]
 # Turning off default features leaves you with a barebones
 # definition of transform.
-default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
+default = ["async_executor", "bevy-support", "bevy_reflect", "std"]
 
 # Functionality
 
@@ -44,22 +44,22 @@ default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
 bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs"]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_math/serialize"]
+serialize = ["bevy_math/serialize", "dep:serde"]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
   "bevy-support",
-  "dep:bevy_reflect",
-  "bevy_math/bevy_reflect",
-  "bevy_ecs/bevy_reflect",
   "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_math/bevy_reflect",
+  "dep:bevy_reflect",
 ]
 
 # Executor Backend
 
 ## Uses `async-executor` as a task execution backend.
 ## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "bevy_tasks/async_executor"]
+async_executor = ["bevy_tasks/async_executor", "std"]
 
 # Platform Compatibility
 
@@ -69,8 +69,8 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 std = [
   "alloc",
   "bevy_app?/std",
-  "bevy_log",
   "bevy_ecs?/std",
+  "bevy_log",
   "bevy_math/std",
   "bevy_reflect?/std",
   "bevy_utils/parallel",
@@ -95,5 +95,5 @@ libm = ["bevy_math/libm"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

@@ -30,7 +30,7 @@ bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.18.0-dev" }
 indexmap = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version = "2.0", features = ["full", "extra-traits"] }
+syn = { version = "2.0", features = ["extra-traits", "full"] }
 uuid = { version = "1.13.1", default-features = false, features = [
   "v4",
 ], optional = true }
@@ -43,5 +43,5 @@ uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

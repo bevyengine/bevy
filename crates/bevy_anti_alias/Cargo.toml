@@ -13,7 +13,7 @@ trace = []
 webgl = []
 webgpu = []
 smaa_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
-dlss = ["dep:dlss_wgpu", "dep:uuid", "bevy_render/raw_vulkan_init"]
+dlss = ["bevy_render/raw_vulkan_init", "dep:dlss_wgpu", "dep:uuid"]
 force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
@@ -41,6 +41,6 @@ uuid = { version = "1", optional = true }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
 features = ["bevy_image/zstd_rust"]

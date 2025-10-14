@@ -6,22 +6,22 @@ description = "Provides accessibility support for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
-keywords = ["bevy", "accessibility", "a11y"]
+keywords = ["a11y", "accessibility", "bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+default = ["bevy_ecs/async_executor", "bevy_reflect", "std"]
 
 # Functionality
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
-  "dep:bevy_reflect",
   "bevy_app/bevy_reflect",
   "bevy_ecs/bevy_reflect",
+  "dep:bevy_reflect",
 ]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_ecs/serialize", "accesskit/serde"]
+serialize = ["accesskit/serde", "bevy_ecs/serialize", "dep:serde"]
 
 # Platform Compatibility
 
@@ -55,5 +55,5 @@ serde = { version = "1", default-features = false, features = [
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

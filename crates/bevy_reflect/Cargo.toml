@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "smallvec", "debug", "auto_register_inventory"]
+default = ["auto_register_inventory", "debug", "smallvec", "std"]
 
 # Features
 
@@ -54,13 +54,13 @@ wgpu-types = ["dep:wgpu-types"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "erased-serde/std",
+  "bevy_platform/std",
   "downcast-rs/std",
-  "serde/std",
+  "erased-serde/std",
   "glam?/std",
+  "serde/std",
   "smol_str?/std",
   "uuid?/std",
-  "bevy_platform/std",
   "wgpu-types?/std",
 ]
 
@@ -121,8 +121,8 @@ smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
 uuid = { version = "1.13.1", default-features = false, optional = true, features = [
-  "v4",
   "serde",
+  "v4",
 ] }
 variadics_please = "1.1"
 wgpu-types = { version = "26", features = [
@@ -149,5 +149,5 @@ required-features = ["documentation"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

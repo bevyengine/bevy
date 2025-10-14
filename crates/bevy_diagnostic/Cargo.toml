@@ -9,16 +9,16 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_ecs/default"]
+default = ["bevy_ecs/default", "std"]
 
 # Functionality
 
 ## Adds serialization support through `serde`.
 serialize = [
-  "dep:serde",
   "bevy_ecs/serialize",
-  "bevy_time/serialize",
   "bevy_platform/serialize",
+  "bevy_time/serialize",
+  "dep:serde",
 ]
 
 ## Disables diagnostics that are unsupported when Bevy is dynamically linked
@@ -33,18 +33,18 @@ sysinfo_plugin = ["sysinfo"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "serde?/std",
-  "bevy_ecs/std",
   "bevy_app/std",
+  "bevy_ecs/std",
   "bevy_platform/std",
   "bevy_time/std",
+  "serde?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_ecs/critical-section",
   "bevy_app/critical-section",
+  "bevy_ecs/critical-section",
   "bevy_platform/critical-section",
   "bevy_time/critical-section",
 ]
@@ -88,5 +88,5 @@ serde_test = "1.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

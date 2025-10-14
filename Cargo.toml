@@ -4,9 +4,9 @@ version = "0.18.0-dev"
 edition = "2024"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
-exclude = ["assets/", "tools/", ".github/", "crates/", "examples/wasm/assets/"]
+exclude = [".github/", "assets/", "crates/", "examples/wasm/assets/", "tools/"]
 homepage = "https://bevy.org"
-keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
+keywords = ["bevy", "engine", "game", "gamedev", "graphics"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/bevyengine/bevy"
 documentation = "https://docs.rs/bevy"
@@ -129,43 +129,43 @@ default = ["2d", "3d", "ui"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
-  "default_app",
-  "default_platform",
   "2d_api",
   "2d_bevy_render",
-  "ui",
-  "scene",
   "audio",
+  "default_app",
+  "default_platform",
   "picking",
+  "scene",
+  "ui",
 ]
 
 # PROFILE: The default 3D Bevy experience. This includes the core Bevy framework, 3D functionality, Bevy UI, scenes, audio, and picking.
 3d = [
-  "default_app",
-  "default_platform",
   "3d_api",
   "3d_bevy_render",
-  "ui",
-  "scene",
   "audio",
+  "default_app",
+  "default_platform",
   "picking",
+  "scene",
+  "ui",
 ]
 
 # PROFILE: The default Bevy UI experience.  This includes the core Bevy framework, Bevy UI, scenes, audio, and picking.
 ui = [
+  "audio",
   "default_app",
   "default_platform",
+  "picking",
+  "scene",
   "ui_api",
   "ui_bevy_render",
-  "scene",
-  "audio",
-  "picking",
 ]
 
 # COLLECTION: Enable this feature during development to improve the development experience. This adds features like asset hot-reloading and debugging tools. This should not be enabled for published apps!
 dev = [
-  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "bevy_dev_tools",
+  "debug",          # TODO: rename this to something more specific ... this is a "debug ECS names" feature
   "file_watcher",
 ]
 
@@ -192,17 +192,17 @@ default_app = [
 
 # COLLECTION: These are platform support features, such as OS support/features, windowing and input backends, etc.
 default_platform = [
-  "std",
   "android-game-activity",
   "android_shared_stdcxx",
   "bevy_gilrs",
   "bevy_winit",
   "default_font",
   "multi_threaded",
+  "std",
+  "sysinfo_plugin",
+  "wayland",
   "webgl2",
   "x11",
-  "wayland",
-  "sysinfo_plugin",
 ]
 
 # COLLECTION: Default scene definition features. Note that this does not include an actual renderer, such as bevy_render (Bevy's default render backend).
@@ -220,25 +220,25 @@ common_api = [
 ]
 
 # COLLECTION: Features used to build 2D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
-2d_api = ["common_api", "bevy_sprite"]
+2d_api = ["bevy_sprite", "common_api"]
 
 # COLLECTION: Bevy's built-in 2D renderer, built on top of `bevy_render` 
 2d_bevy_render = [
   "2d_api",
-  "bevy_render",
   "bevy_core_pipeline",
   "bevy_post_process",
+  "bevy_render",
   "bevy_sprite_render",
 ]
 
 # COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
 3d_api = [
-  "common_api",
   "bevy_light",
   "bevy_mikktspace",
+  "common_api",
   "ktx2",
-  "morph_animation",
   "morph",
+  "morph_animation",
   "smaa_luts",
   "tonemapping_luts",
   "zstd_rust",
@@ -247,28 +247,28 @@ common_api = [
 # COLLECTION: Bevy's built-in 3D renderer, built on top of `bevy_render` 
 3d_bevy_render = [
   "3d_api",
-  "bevy_render",
-  "bevy_core_pipeline",
   "bevy_anti_alias",
+  "bevy_core_pipeline",
   "bevy_gltf",
   "bevy_pbr",
   "bevy_post_process",
+  "bevy_render",
   "gltf_animation",
 ]
 
 # COLLECTION: Features used to build UI Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
-ui_api = ["default_app", "common_api", "bevy_ui"]
+ui_api = ["bevy_ui", "common_api", "default_app"]
 
 # COLLECTION: Bevy's built-in UI renderer, built on top of `bevy_render` 
 ui_bevy_render = [
-  "ui_api",
-  "bevy_render",
   "bevy_core_pipeline",
+  "bevy_render",
   "bevy_ui_render",
+  "ui_api",
 ]
 
 # COLLECTION: Recommended defaults for no_std applications
-default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
+default_no_std = ["bevy_color", "bevy_state", "critical-section", "libm"]
 
 # Provides an implementation for picking meshes
 mesh_picking = ["bevy_internal/mesh_picking"]
@@ -283,7 +283,7 @@ ui_picking = ["bevy_internal/ui_picking"]
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
 # Force dynamic linking, which improves iterative compile times
-dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
+dynamic_linking = ["bevy_internal/dynamic_linking", "dep:bevy_dylib"]
 
 # Enables system information diagnostic plugin
 sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
@@ -409,10 +409,10 @@ statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
 # Tracing support, saving a file in Chrome Tracing format
-trace_chrome = ["trace", "bevy_internal/trace_chrome"]
+trace_chrome = ["bevy_internal/trace_chrome", "trace"]
 
 # Tracing support, exposing a port for Tracy
-trace_tracy = ["trace", "bevy_internal/trace_tracy"]
+trace_tracy = ["bevy_internal/trace_tracy", "trace"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
 trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
@@ -669,7 +669,7 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 # Uses `async-executor` as a task execution backend.
-async_executor = ["std", "bevy_internal/async_executor"]
+async_executor = ["bevy_internal/async_executor", "std"]
 
 # Allows access to the `std` crate.
 std = ["bevy_internal/std"]
@@ -716,7 +716,7 @@ bevy_render = { path = "crates/bevy_render", version = "0.18.0-dev", default-fea
 bevy_state = { path = "crates/bevy_state", version = "0.18.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
-futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
+futures-timer = { version = "3", features = ["gloo-timers", "wasm-bindgen"] }
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
@@ -1397,7 +1397,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari", "https", "free_cam"]
+required-features = ["bevy_solari", "free_cam", "https"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -1511,7 +1511,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet", "https", "free_cam"]
+required-features = ["free_cam", "https", "meshlet"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -1976,7 +1976,7 @@ wasm = false
 name = "asset_processing"
 path = "examples/asset/processing/asset_processing.rs"
 doc-scrape-examples = true
-required-features = ["file_watcher", "asset_processor"]
+required-features = ["asset_processor", "file_watcher"]
 
 [package.metadata.example.asset_processing]
 name = "Asset Processing"
@@ -4597,8 +4597,8 @@ panic = "abort"
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
 rustdoc-args = [
-  "-Zunstable-options",
   "--generate-link-to-definition",
+  "-Zunstable-options",
   # Embed tags to the top of documentation pages for common Bevy traits
   # that are implemented by the current type, like `Component` or `Resource`.
   # This makes it easier to see at a glance what types are used for.
@@ -4606,7 +4606,7 @@ rustdoc-args = [
   "docs-rs/trait-tags.html",
 ]
 all-features = true
-cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
+cargo-args = ["-Zrustdoc-scrape-examples", "-Zunstable-options"]
 
 [[example]]
 name = "monitor_info"

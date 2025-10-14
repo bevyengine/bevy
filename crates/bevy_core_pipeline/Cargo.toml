@@ -31,8 +31,8 @@ bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.18.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
-  "std",
   "serialize",
+  "std",
 ] }
 
 bitflags = "2.3"
@@ -46,6 +46,6 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
 features = ["bevy_image/zstd_rust"]

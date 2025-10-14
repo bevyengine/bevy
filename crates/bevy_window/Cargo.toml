@@ -9,23 +9,23 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect"]
+default = ["bevy_reflect", "std"]
 
 # Functionality
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
-  "dep:bevy_reflect",
   "bevy_app/bevy_reflect",
   "bevy_ecs/bevy_reflect",
   "bevy_input/bevy_reflect",
+  "dep:bevy_reflect",
 ]
 
 ## Adds serialization support through `serde`.
-serialize = ["serde", "bevy_ecs/serialize", "bevy_input/serialize"]
+serialize = ["bevy_ecs/serialize", "bevy_input/serialize", "serde"]
 
 # Enable custom cursor support
-custom_cursor = ["bevy_image", "bevy_asset"]
+custom_cursor = ["bevy_asset", "bevy_image"]
 
 # Platform Compatibility
 
@@ -37,10 +37,10 @@ std = [
   "bevy_ecs/std",
   "bevy_input/std",
   "bevy_math/std",
-  "bevy_reflect?/std",
-  "serde?/std",
-  "raw-window-handle/std",
   "bevy_platform/std",
+  "bevy_reflect?/std",
+  "raw-window-handle/std",
+  "serde?/std",
 ]
 
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -75,5 +75,5 @@ log = { version = "0.4", default-features = false }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

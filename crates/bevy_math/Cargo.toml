@@ -45,23 +45,23 @@ getrandom = { version = "0.3", default-features = false, features = [
 ] }
 
 [features]
-default = ["std", "rand", "curve"]
+default = ["curve", "rand", "std"]
 std = [
   "alloc",
-  "glam/std",
-  "derive_more/std",
-  "itertools/use_std",
-  "serde?/std",
   "approx?/std",
+  "bevy_reflect?/std",
+  "derive_more/std",
+  "glam/std",
+  "itertools/use_std",
   "rand?/std",
   "rand_distr?/std",
-  "bevy_reflect?/std",
+  "serde?/std",
 ]
 alloc = [
   "itertools/use_alloc",
-  "serde?/alloc",
   "rand?/alloc",
   "rand_distr?/alloc",
+  "serde?/alloc",
 ]
 
 serialize = ["dep:serde", "glam/serde"]
@@ -81,7 +81,7 @@ rand = ["dep:rand", "dep:rand_distr", "glam/rand"]
 # Include code related to the Curve trait
 curve = []
 # Enable bevy_reflect (requires alloc)
-bevy_reflect = ["dep:bevy_reflect", "alloc"]
+bevy_reflect = ["alloc", "dep:bevy_reflect"]
 # Enable libm mathematical functions as a fallback for no_std environments.
 # Can be overridden with std feature.
 nostd-libm = ["dep:libm", "glam/nostd-libm"]
@@ -90,5 +90,5 @@ nostd-libm = ["dep:libm", "glam/nostd-libm"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

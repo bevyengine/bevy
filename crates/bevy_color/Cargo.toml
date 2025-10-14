@@ -24,16 +24,16 @@ wgpu-types = { version = "26", default-features = false, optional = true }
 encase = { version = "0.12", default-features = false, optional = true }
 
 [features]
-default = ["std", "bevy_reflect", "encase"]
+default = ["bevy_reflect", "encase", "std"]
 std = [
   "alloc",
   "bevy_math/std",
+  "bevy_reflect?/std",
   "serde?/std",
   "wgpu-types?/std",
-  "bevy_reflect?/std",
 ]
 alloc = ["bevy_math/alloc", "serde?/alloc"]
-serialize = ["serde", "bevy_math/serialize"]
+serialize = ["bevy_math/serialize", "serde"]
 bevy_reflect = ["dep:bevy_reflect"]
 wgpu-types = ["dep:wgpu-types"]
 encase = ["dep:encase", "std"]
@@ -44,5 +44,5 @@ critical-section = ["bevy_reflect?/critical-section"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

@@ -73,8 +73,8 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
-  "std",
   "serialize",
+  "std",
 ] }
 
 # rendering
@@ -86,12 +86,12 @@ image = { version = "0.25.2", default-features = false }
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
 wgpu = { version = "26", default-features = false, features = [
-  "wgsl",
   "dx12",
-  "metal",
-  "vulkan",
-  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
+  "metal",
+  "naga-ir",
+  "vulkan",
+  "wgsl",
 ] }
 naga = { version = "26", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
@@ -100,8 +100,8 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 encase = "0.12"
 glam = { version = "0.30.7", default-features = false, features = [
-  "std",
   "encase",
+  "std",
 ] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
@@ -151,5 +151,5 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

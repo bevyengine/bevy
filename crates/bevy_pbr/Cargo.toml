@@ -22,14 +22,14 @@ bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
 shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
-meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:bevy_tasks"]
+meshlet = ["dep:bevy_tasks", "dep:lz4_flex", "dep:range-alloc"]
 # Enables processing meshes into meshlet meshes
 meshlet_processor = [
-  "meshlet",
+  "dep:bitvec",
+  "dep:itertools",
   "dep:meshopt",
   "dep:metis",
-  "dep:itertools",
-  "dep:bitvec",
+  "meshlet",
 ]
 
 [dependencies]
@@ -44,8 +44,8 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
-  "morph",
   "bevy_mikktspace",
+  "morph",
 ] }
 bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
@@ -87,6 +87,6 @@ offset-allocator = "0.2"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
 features = ["bevy_image/zstd_rust"]

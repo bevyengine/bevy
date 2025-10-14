@@ -49,10 +49,10 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-dev" }
 [features]
 default = []
 serialize = [
-  "serde",
-  "smallvec/serde",
   "bevy_math/serialize",
   "bevy_platform/serialize",
+  "serde",
+  "smallvec/serde",
 ]
 bevy_picking = ["dep:bevy_picking", "dep:uuid"]
 
@@ -63,5 +63,5 @@ ghost_nodes = []
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true

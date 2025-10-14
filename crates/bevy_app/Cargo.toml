@@ -9,23 +9,23 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_ecs/default", "error_panic_hook"]
+default = ["bevy_ecs/default", "bevy_reflect", "error_panic_hook", "std"]
 
 # Functionality
 
 ## Adds runtime reflection support using `bevy_reflect`.
-bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
+bevy_reflect = ["bevy_ecs/bevy_reflect", "dep:bevy_reflect"]
 
 ## Extends reflection support to functions.
 reflect_functions = [
+  "bevy_ecs/reflect_functions",
   "bevy_reflect",
   "bevy_reflect/functions",
-  "bevy_ecs/reflect_functions",
 ]
 reflect_auto_register = [
+  "bevy_ecs/reflect_auto_register",
   "bevy_reflect",
   "bevy_reflect/auto_register",
-  "bevy_ecs/reflect_auto_register",
 ]
 
 # Debugging Features
@@ -48,11 +48,11 @@ error_panic_hook = []
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "bevy_reflect?/std",
   "bevy_ecs/std",
+  "bevy_platform/std",
+  "bevy_reflect?/std",
   "dep:ctrlc",
   "downcast-rs/std",
-  "bevy_platform/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -68,15 +68,15 @@ critical-section = [
 web = [
   "bevy_platform/web",
   "bevy_reflect?/web",
+  "dep:console_error_panic_hook",
   "dep:wasm-bindgen",
   "dep:web-sys",
-  "dep:console_error_panic_hook",
 ]
 
 hotpatching = [
   "bevy_ecs/hotpatching",
-  "dep:dioxus-devtools",
   "dep:crossbeam-channel",
+  "dep:dioxus-devtools",
 ]
 
 [dependencies]
@@ -113,6 +113,6 @@ crossbeam-channel = "0.5.0"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = ["--generate-link-to-definition", "-Zunstable-options"]
 all-features = true
 features = ["bevy_reflect/auto_register_static"]
