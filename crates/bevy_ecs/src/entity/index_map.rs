@@ -588,7 +588,7 @@ impl<V> Slice<V> {
         IntoKeys(self.into_boxed_inner().into_keys(), PhantomData)
     }
 
-    /// Return an iterator over mutable references to the the values of the map slice.
+    /// Return an iterator over mutable references to the values of the map slice.
     ///
     /// Equivalent to [`map::Slice::values_mut`].
     pub fn values_mut(&mut self) -> ValuesMut<'_, Entity, V> {
