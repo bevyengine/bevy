@@ -585,3 +585,60 @@ pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> 
 
     None
 }
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! declare_view_target_format_fn {
+    () => {
+        /// Create a pipeline key from view target format.
+        #[inline]
+        pub fn from_view_target_format(format: TextureFormat) -> Self {
+            match format {
+                TextureFormat::R8Unorm => Self::VIEW_TARGET_FORMAT_R8UNORM,
+                TextureFormat::Rg8Unorm => Self::VIEW_TARGET_FORMAT_RG8UNORM,
+                TextureFormat::Rgba8Unorm => Self::VIEW_TARGET_FORMAT_RGBA8UNORM,
+                TextureFormat::Rgba8UnormSrgb => Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB,
+                TextureFormat::Bgra8Unorm => Self::VIEW_TARGET_FORMAT_BGRA8UNORM,
+                TextureFormat::Bgra8UnormSrgb => Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB,
+                TextureFormat::R16Float => Self::VIEW_TARGET_FORMAT_R16FLOAT,
+                TextureFormat::Rg16Float => Self::VIEW_TARGET_FORMAT_RG16FLOAT,
+                TextureFormat::Rgba16Float => Self::VIEW_TARGET_FORMAT_RGBA16FLOAT,
+                TextureFormat::Rg11b10Ufloat => Self::VIEW_TARGET_FORMAT_RB11B10FLOAT,
+                TextureFormat::Rgb10a2Unorm => Self::VIEW_TARGET_FORMAT_RGB10A2UNORM,
+                _ => unreachable!("Unsupported view target format"),
+            }
+        }
+
+        /// Get the view target format of this pipeline key.
+        #[inline]
+        pub fn view_target_format(&self) -> TextureFormat {
+            let target_format = *self & Self::VIEW_TARGET_FORMAT_RESERVED_BITS;
+
+            if target_format == Self::VIEW_TARGET_FORMAT_R8UNORM {
+                TextureFormat::R8Unorm
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RG8UNORM {
+                TextureFormat::Rg8Unorm
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORM {
+                TextureFormat::Rgba8Unorm
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA8UNORMSRGB {
+                TextureFormat::Rgba8UnormSrgb
+            } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORM {
+                TextureFormat::Bgra8Unorm
+            } else if target_format == Self::VIEW_TARGET_FORMAT_BGRA8UNORMSRGB {
+                TextureFormat::Bgra8UnormSrgb
+            } else if target_format == Self::VIEW_TARGET_FORMAT_R16FLOAT {
+                TextureFormat::R16Float
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RG16FLOAT {
+                TextureFormat::Rg16Float
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RGBA16FLOAT {
+                TextureFormat::Rgba16Float
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RB11B10FLOAT {
+                TextureFormat::Rg11b10Ufloat
+            } else if target_format == Self::VIEW_TARGET_FORMAT_RGB10A2UNORM {
+                TextureFormat::Rgb10a2Unorm
+            } else {
+                unreachable!("Unsupported view target format")
+            }
+        }
+    };
+}

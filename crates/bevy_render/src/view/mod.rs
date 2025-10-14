@@ -2,7 +2,7 @@ pub mod visibility;
 pub mod window;
 
 use bevy_camera::{
-    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+    primitives::Frustum, CameraMainTextureConfig, ClearColor, ClearColorConfig, Exposure,
     MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
@@ -29,7 +29,7 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::{BevyDefault as _, ToExtents};
+use bevy_image::ToExtents;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -299,6 +299,7 @@ pub struct ExtractedView {
     // stability matters and there is a more direct way to derive the view-projection matrix.
     pub clip_from_world: Option<Mat4>,
     pub hdr: bool,
+    pub target_format: TextureFormat,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
     pub color_grading: ColorGrading,
@@ -605,6 +606,7 @@ pub struct ViewUniformOffset {
 pub struct ViewTarget {
     main_textures: MainTargetTextures,
     main_texture_format: TextureFormat,
+    hdr: bool,
     /// 0 represents `main_textures.a`, 1 represents `main_textures.b`
     /// This is shared across view targets with the same render target
     main_texture: Arc<AtomicUsize>,
@@ -722,8 +724,6 @@ impl From<ColorGrading> for ColorGradingUniform {
 pub struct NoIndirectDrawing;
 
 impl ViewTarget {
-    pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
-
     /// Retrieve this target's main texture's color attachment.
     pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
@@ -811,10 +811,10 @@ impl ViewTarget {
         self.main_texture_format
     }
 
-    /// Returns `true` if and only if the main texture is [`Self::TEXTURE_FORMAT_HDR`]
+    /// Returns `true` if the view target is using HDR rendering.
     #[inline]
     pub fn is_hdr(&self) -> bool {
-        self.main_texture_format == ViewTarget::TEXTURE_FORMAT_HDR
+        self.hdr
     }
 
     /// The final texture this view will render to.
@@ -1035,14 +1035,14 @@ pub fn prepare_view_targets(
     cameras: Query<(
         Entity,
         &ExtractedCamera,
-        &ExtractedView,
-        &CameraMainTextureUsages,
+        &CameraMainTextureConfig,
+        Has<Hdr>,
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
+    for (entity, camera, texture_config, hdr, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
             continue;
@@ -1052,10 +1052,10 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let main_texture_format = if view.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
+        let main_texture_format = if hdr {
+            texture_config.hdr_format
         } else {
-            TextureFormat::bevy_default()
+            texture_config.sdr_format
         };
 
         let clear_color = match camera.clear_color {
@@ -1065,7 +1065,7 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
+            .entry((camera.target.clone(), texture_config.usage, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
@@ -1074,7 +1074,7 @@ pub fn prepare_view_targets(
                     sample_count: 1,
                     dimension: TextureDimension::D2,
                     format: main_texture_format,
-                    usage: texture_usage.0,
+                    usage: texture_config.usage,
                     view_formats: match main_texture_format {
                         TextureFormat::Bgra8Unorm => &[TextureFormat::Bgra8UnormSrgb],
                         TextureFormat::Rgba8Unorm => &[TextureFormat::Rgba8UnormSrgb],
@@ -1130,6 +1130,7 @@ pub fn prepare_view_targets(
             main_textures,
             main_texture_format,
             out_texture: out_attachment.clone(),
+            hdr,
         });
     }
 }

@@ -20,7 +20,6 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -29,7 +28,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, ViewTarget},
+    view::{ExtractedView, Msaa},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
@@ -113,12 +112,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
         let view_layout = self
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
@@ -143,7 +136,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 shader_defs,
                 entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -194,12 +187,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             shader_defs.push("PERSPECTIVE".into());
         }
 
-        let format = if key.view_key.contains(MeshPipelineKey::HDR) {
-            ViewTarget::TEXTURE_FORMAT_HDR
-        } else {
-            TextureFormat::bevy_default()
-        };
-
         let view_layout = self
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
@@ -227,7 +214,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 shader: self.shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
-                    format,
+                    format: key.view_key.view_target_format(),
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -313,7 +300,7 @@ fn queue_line_gizmos_3d(
         let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;
@@ -431,7 +418,7 @@ fn queue_line_joint_gizmos_3d(
         let render_layers = render_layers.unwrap_or_default();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
-            | MeshPipelineKey::from_hdr(view.hdr);
+            | MeshPipelineKey::from_view_target_format(view.target_format);
 
         if normal_prepass {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

@@ -83,8 +83,8 @@ impl Plugin for SolariLightingPlugin {
 
 /// A component for a 3d camera entity to enable the Solari raytraced lighting system.
 ///
-/// Must be used with `CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING)`, and
-/// `Msaa::Off`.
+/// Must be used with [`CameraMainTextureConfig.usage`](bevy_camera::CameraMainTextureConfig) with [`TextureUsages::STORAGE_BINDING`](bevy_render::render_resource::TextureUsages::STORAGE_BINDING), and
+/// [`Msaa::Off`](bevy_render::view::Msaa::Off).
 #[derive(Component, Reflect, Clone)]
 #[reflect(Component, Default, Clone)]
 #[require(Hdr, DeferredPrepass, DepthPrepass, MotionVectorPrepass)]

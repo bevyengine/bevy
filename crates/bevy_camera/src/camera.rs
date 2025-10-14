@@ -7,7 +7,7 @@ use super::{
 use bevy_asset::Handle;
 use bevy_derive::Deref;
 use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
-use bevy_image::Image;
+use bevy_image::{BevyDefault, Image};
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -15,7 +15,7 @@ use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
-use wgpu_types::{BlendState, TextureUsages};
+use wgpu_types::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///
@@ -344,7 +344,7 @@ pub enum ViewportConversionError {
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
     Frustum,
-    CameraMainTextureUsages,
+    CameraMainTextureConfig,
     VisibleEntities,
     Transform,
     Visibility
@@ -947,26 +947,27 @@ impl Default for RenderTarget {
     }
 }
 
-/// This component lets you control the [`TextureUsages`] field of the main texture generated for the camera
+/// This component lets you control the main texture generated for the camera.
 #[derive(Component, Clone, Copy, Reflect)]
-#[reflect(opaque)]
 #[reflect(Component, Default, Clone)]
-pub struct CameraMainTextureUsages(pub TextureUsages);
-
-impl Default for CameraMainTextureUsages {
-    fn default() -> Self {
-        Self(
-            TextureUsages::RENDER_ATTACHMENT
-                | TextureUsages::TEXTURE_BINDING
-                | TextureUsages::COPY_SRC,
-        )
-    }
+pub struct CameraMainTextureConfig {
+    /// Main texture format when Hdr is off. Default: [`TextureFormat::bevy_default()`].
+    pub sdr_format: TextureFormat,
+    /// Main texture format when Hdr is on. Default: [`TextureFormat::Rgba16Float`].
+    pub hdr_format: TextureFormat,
+    /// Main texture usages. Default: [`TextureUsages::RENDER_ATTACHMENT`] | [`TextureUsages::TEXTURE_BINDING`] | [`TextureUsages::COPY_SRC`].
+    pub usage: TextureUsages,
 }
 
-impl CameraMainTextureUsages {
-    pub fn with(mut self, usages: TextureUsages) -> Self {
-        self.0 |= usages;
-        self
+impl Default for CameraMainTextureConfig {
+    fn default() -> Self {
+        Self {
+            sdr_format: TextureFormat::bevy_default(),
+            hdr_format: TextureFormat::Rgba16Float,
+            usage: TextureUsages::RENDER_ATTACHMENT
+                | TextureUsages::TEXTURE_BINDING
+                | TextureUsages::COPY_SRC,
+        }
     }
 }
 
