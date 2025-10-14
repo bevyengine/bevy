@@ -11,9 +11,9 @@ proc-macro = true
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.18.0-dev" }
 
-syn = { version = "2.0.99", features = ["full", "extra-traits"] }
-quote = "1.0"
 proc-macro2 = "1.0"
+quote = "1.0"
+syn = { version = "2.0.99", features = ["full", "extra-traits"] }
 [lints]
 workspace = true
 

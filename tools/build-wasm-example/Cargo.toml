@@ -7,8 +7,8 @@ license = "MIT OR Apache-2.0"
 
 
 [dependencies]
-xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
+xshell = "0.2"
 
 [lints]
 workspace = true

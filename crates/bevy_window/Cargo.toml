@@ -62,14 +62,14 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ], optional = true }
 
 # other
+log = { version = "0.4", default-features = false }
+raw-window-handle = { version = "0.6", features = [
+  "alloc",
+], default-features = false }
 serde = { version = "1.0", features = [
   "alloc",
   "derive",
 ], default-features = false, optional = true }
-raw-window-handle = { version = "0.6", features = [
-  "alloc",
-], default-features = false }
-log = { version = "0.4", default-features = false }
 
 [lints]
 workspace = true

@@ -53,19 +53,19 @@ critical-section = [
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
-bevy_time = { path = "../bevy_time", version = "0.18.0-dev", default-features = false }
-bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "alloc",
 ] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features = false }
+bevy_time = { path = "../bevy_time", version = "0.18.0-dev", default-features = false }
 
 # other
 atomic-waker = { version = "1", default-features = false }
 const-fnv1a-hash = "1.1.0"
+log = { version = "0.4", default-features = false }
 serde = { version = "1.0", default-features = false, features = [
   "alloc",
 ], optional = true }
-log = { version = "0.4", default-features = false }
 
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]

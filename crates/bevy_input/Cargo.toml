@@ -63,20 +63,20 @@ libm = ["bevy_math/libm"]
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", features = [
   "glam",
 ], default-features = false, optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false }
 
 # other
+derive_more = { version = "2", default-features = false, features = ["from"] }
+log = { version = "0.4", default-features = false }
 serde = { version = "1", features = [
   "alloc",
   "derive",
 ], default-features = false, optional = true }
-thiserror = { version = "2", default-features = false }
-derive_more = { version = "2", default-features = false, features = ["from"] }
 smol_str = { version = "0.2", default-features = false, optional = true }
-log = { version = "0.4", default-features = false }
+thiserror = { version = "2", default-features = false }
 
 [lints]
 workspace = true

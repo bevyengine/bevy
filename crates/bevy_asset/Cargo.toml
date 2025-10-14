@@ -27,6 +27,9 @@ bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = fa
 ] }
 bevy_asset_macros = { path = "macros", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+  "std",
+] }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "uuid",
 ] }
@@ -34,34 +37,31 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", default-features 
   "async_executor",
 ] }
 bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev", default-features = false }
-bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
-  "std",
-] }
 
-stackfuture = { version = "0.3", default-features = false }
-atomicow = { version = "1.1", default-features = false, features = ["std"] }
 async-broadcast = { version = "0.7.2", default-features = false }
 async-fs = { version = "2.0", default-features = false }
 async-lock = { version = "3.0", default-features = false }
+atomicow = { version = "1.1", default-features = false, features = ["std"] }
 bitflags = { version = "2.3", default-features = false }
+blake3 = { version = "1.5", default-features = false }
 crossbeam-channel = { version = "0.5", default-features = false, features = [
   "std",
 ] }
-downcast-rs = { version = "2", default-features = false }
+derive_more = { version = "2", default-features = false, features = ["from"] }
 disqualified = { version = "1.0", default-features = false }
+downcast-rs = { version = "2", default-features = false }
 either = { version = "1.13", default-features = false }
 futures-io = { version = "0.3", default-features = false }
 futures-lite = { version = "2.0.1", default-features = false }
-blake3 = { version = "1.5", default-features = false }
 ron = { version = "0.11", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
+stackfuture = { version = "0.3", default-features = false }
 thiserror = { version = "2", default-features = false }
-derive_more = { version = "2", default-features = false, features = ["from"] }
+tracing = { version = "0.1", default-features = false }
 uuid = { version = "1.13.1", default-features = false, features = [
   "v4",
   "serde",
 ] }
-tracing = { version = "0.1", default-features = false }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.18.0-dev", default-features = false }

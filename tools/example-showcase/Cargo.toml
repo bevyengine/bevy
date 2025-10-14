@@ -6,13 +6,13 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-xshell = "0.2"
 clap = { version = "4.0", features = ["derive"] }
+pbr = "1.1"
+regex = "1.10.5"
 toml_edit = { version = "0.23.2", default-features = false, features = [
   "parse",
 ] }
-pbr = "1.1"
-regex = "1.10.5"
+xshell = "0.2"
 
 [lints]
 workspace = true

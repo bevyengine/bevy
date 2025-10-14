@@ -58,6 +58,13 @@ web = [
 
 [dependencies]
 critical-section = { version = "1.2.0", default-features = false, optional = true }
+foldhash = { version = "0.2.0", default-features = false }
+hashbrown = { version = "0.16.0", features = [
+  "equivalent",
+  "raw-entry",
+], optional = true, default-features = false }
+rayon = { version = "1", default-features = false, optional = true }
+serde = { version = "1", default-features = false, optional = true }
 spin = { version = "0.10.0", default-features = false, features = [
   "mutex",
   "spin_mutex",
@@ -66,13 +73,6 @@ spin = { version = "0.10.0", default-features = false, features = [
   "lazy",
   "barrier",
 ] }
-foldhash = { version = "0.2.0", default-features = false }
-hashbrown = { version = "0.16.0", features = [
-  "equivalent",
-  "raw-entry",
-], optional = true, default-features = false }
-serde = { version = "1", default-features = false, optional = true }
-rayon = { version = "1", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false, optional = true }
