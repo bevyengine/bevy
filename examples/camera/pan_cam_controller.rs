@@ -16,8 +16,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PanCamPlugin) // Adds the PanCam plugin to enable camera panning and zooming controls.
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, spawn_text).chain())
         .run();
+}
+
+fn spawn_text(mut commands: Commands, camera: Query<&PanCam>) {
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(-16),
+            left: px(12),
+            ..default()
+        },
+        children![Text::new(format!("{}", camera.single().unwrap()))],
+    ));
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
