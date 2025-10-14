@@ -10,7 +10,7 @@
 //! By contrast, the default settings of this particular free cam are optimized for precise control.
 //!
 //! To use this controller, add [`FreeCamPlugin`] to your app,
-//! and [`FreeCam`] to your camera entity.
+//! and attach both the [`FreeCam`] and [`FreeCamState`] components to your camera entity.
 //!
 //! To configure the settings of this controller, modify the fields of the [`FreeCam`] component.
 
@@ -32,8 +32,8 @@ use core::{f32::consts::*, fmt};
 
 /// A freecam-style camera controller plugin.
 ///
-/// Use [`FreeCam`] to add a freecam controller to a camera entity,
-/// and change its values to customize the controls and change its behavior.
+/// Use the [`FreeCam`] struct to add and customize the controller for a camera entity.
+/// The camera's dynamic state is managed by the [`FreeCamState`] struct.
 pub struct FreeCamPlugin;
 
 impl Plugin for FreeCamPlugin {
@@ -53,16 +53,15 @@ impl Plugin for FreeCamPlugin {
 /// it because it felt nice.
 const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
-/// Freecam controller settings and state.
+/// Stores the settings for the FreeCam controller.
 ///
-/// Add this component to a [`Camera`] entity and add [`FreeCamPlugin`]
-/// to your [`App`] to enable freecam controls.
+/// This struct holds the configuration for movement, key bindings, sensitivity, etc.
+/// The settings in this struct are immutable during runtime, and should be used to customize camera controls.
+///
+/// Add this component to a [`Camera`] entity, along with the [`FreeCamState`] component to track the dynamic state,
+/// and add the [`FreeCamPlugin`] to your [`App`] to enable freecam controls.
 #[derive(Component)]
 pub struct FreeCam {
-    /// Enables this [`FreeCam`] when `true`.
-    pub enabled: bool,
-    /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
-    pub initialized: bool,
     /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
     /// [`KeyCode`] for forward translation.
@@ -84,28 +83,20 @@ pub struct FreeCam {
     pub mouse_key_cursor_grab: MouseButton,
     /// [`KeyCode`] for grabbing the keyboard focus.
     pub keyboard_key_toggle_cursor_grab: KeyCode,
-    /// Multiplier for unmodified translation speed.
+    /// Base multiplier for unmodified translation speed.
     pub walk_speed: f32,
-    /// Multiplier for running translation speed.
+    /// Base multiplier for running translation speed.
     pub run_speed: f32,
     /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCam::walk_speed)
     /// and [`run_speed`](FreeCam::run_speed).
     pub scroll_factor: f32,
     /// Friction factor used to exponentially decay [`velocity`](FreeCam::velocity) over time.
     pub friction: f32,
-    /// This [`FreeCam`]'s pitch rotation.
-    pub pitch: f32,
-    /// This [`FreeCam`]'s yaw rotation.
-    pub yaw: f32,
-    /// This [`FreeCam`]'s translation velocity.
-    pub velocity: Vec3,
 }
 
 impl Default for FreeCam {
     fn default() -> Self {
         Self {
-            enabled: true,
-            initialized: false,
             sensitivity: 0.2,
             key_forward: KeyCode::KeyW,
             key_back: KeyCode::KeyS,
@@ -120,9 +111,6 @@ impl Default for FreeCam {
             run_speed: 15.0,
             scroll_factor: 0.5,
             friction: 40.0,
-            pitch: 0.0,
-            yaw: 0.0,
-            velocity: Vec3::ZERO,
         }
     }
 }
@@ -154,10 +142,47 @@ Freecam Controls:
     }
 }
 
+/// Stores the state of the FreeCam controller.
+///
+/// This struct holds the runtime state, including pitch, yaw, velocity, and whether the camera is enabled.
+/// It is used to track and update the camera's movement and orientation based on input events.
+///
+/// Add this component to a [`Camera`] entity, along with the [`FreeCam`] component for the settings,
+/// and add the [`FreeCamPlugin`] to your [`App`] to enable freecam controls.
+#[derive(Component)]
+pub struct FreeCamState {
+    /// Enables this [`FreeCam`] when `true`.
+    pub enabled: bool,
+    /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
+    pub initialized: bool,
+    /// This [`FreeCam`]'s pitch rotation.
+    pub pitch: f32,
+    /// This [`FreeCam`]'s yaw rotation.
+    pub yaw: f32,
+    /// Multiplier for the walking and running speed.
+    pub speed_multiplier: f32,
+    /// This [`FreeCam`]'s translation velocity.
+    pub velocity: Vec3,
+}
+
+impl Default for FreeCamState {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            initialized: false,
+            pitch: 0.0,
+            yaw: 0.0,
+            speed_multiplier: 1.0,
+            velocity: Vec3::ZERO,
+        }
+    }
+}
+
 /// This system is typically added via the [`FreeCamPlugin`].
 ///
-/// Reads inputs and then moves the camera entity according
-/// to the settings given in [`FreeCam`].
+/// It reads input events and updates the camera's position and rotation.
+/// The immutable [`FreeCam`] struct holds settings like control keys and base sensitivity,
+/// while the dynamic state is managed in the [`FreeCamState`] struct.
 pub fn run_freecam_controller(
     time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,
@@ -167,23 +192,23 @@ pub fn run_freecam_controller(
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
-    mut query: Query<(&mut Transform, &mut FreeCam), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut FreeCamState, &FreeCam), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut controller)) = query.single_mut() else {
+    let Ok((mut transform, mut state, controller)) = query.single_mut() else {
         return;
     };
 
-    if !controller.initialized {
+    if !state.initialized {
         let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
-        controller.yaw = yaw;
-        controller.pitch = pitch;
-        controller.initialized = true;
+        state.yaw = yaw;
+        state.pitch = pitch;
+        state.initialized = true;
         info!("{}", *controller);
     }
 
-    if !controller.enabled {
+    if !state.enabled {
         // don't keep the cursor grabbed if the controller was disabled.
         if *toggle_cursor_grab || *mouse_cursor_grab {
             *toggle_cursor_grab = false;
@@ -206,8 +231,9 @@ pub fn run_freecam_controller(
         }
     };
     scroll += amount;
-    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
-    controller.run_speed = controller.walk_speed * 3.0;
+    state.speed_multiplier += scroll * controller.scroll_factor;
+    // Clamp the speed multiplier for safety
+    state.speed_multiplier = state.speed_multiplier.clamp(0.0, f32::MAX);
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;
@@ -248,26 +274,26 @@ pub fn run_freecam_controller(
     // Update velocity
     if axis_input != Vec3::ZERO {
         let max_speed = if key_input.pressed(controller.key_run) {
-            controller.run_speed
+            controller.run_speed * state.speed_multiplier
         } else {
-            controller.walk_speed
+            controller.walk_speed * state.speed_multiplier
         };
-        controller.velocity = axis_input.normalize() * max_speed;
+        state.velocity = axis_input.normalize() * max_speed;
     } else {
         let friction = controller.friction.clamp(0.0, f32::MAX);
-        controller.velocity.smooth_nudge(&Vec3::ZERO, friction, dt);
-        if controller.velocity.length_squared() < 1e-6 {
-            controller.velocity = Vec3::ZERO;
+        state.velocity.smooth_nudge(&Vec3::ZERO, friction, dt);
+        if state.velocity.length_squared() < 1e-6 {
+            state.velocity = Vec3::ZERO;
         }
     }
 
     // Apply movement update
-    if controller.velocity != Vec3::ZERO {
+    if state.velocity != Vec3::ZERO {
         let forward = *transform.forward();
         let right = *transform.right();
-        transform.translation += controller.velocity.x * dt * right
-            + controller.velocity.y * dt * Vec3::Y
-            + controller.velocity.z * dt * forward;
+        transform.translation += state.velocity.x * dt * right
+            + state.velocity.y * dt * Vec3::Y
+            + state.velocity.z * dt * forward;
     }
 
     // Handle cursor grab
@@ -292,11 +318,10 @@ pub fn run_freecam_controller(
     // Handle mouse input
     if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
         // Apply look update
-        controller.pitch = (controller.pitch
+        state.pitch = (state.pitch
             - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * controller.sensitivity)
             .clamp(-PI / 2., PI / 2.);
-        controller.yaw -=
-            accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
-        transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
+        state.yaw -= accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
+        transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
     }
 }
