@@ -93,6 +93,7 @@ pub struct FontAtlasManager {
     reference_counts: HashMap<FontAtlasKey, (u32, u32)>,
     least_recently_used_buffer: Vec<(FontAtlasKey, u32)>,
     /// Maximum number of fonts before unused font atlases are freed.
+    /// In use fonts won't be freed,even if the number of in use fonts is greater than `max_fonts`.
     pub max_fonts: usize,
 }
 
@@ -114,7 +115,7 @@ impl FontAtlasManager {
     pub fn increment_count(&mut self, key: FontAtlasKey) {
         let (count, g) = self.reference_counts.entry(key).or_default();
 
-        *g += 1;
+        *g += g.wrapping_add(1);
         *count += 1;
     }
 
@@ -146,8 +147,8 @@ impl Default for FontAtlasManager {
 }
 
 /// Automatically frees unused fonts when the total number of fonts
-/// is greater than [`FontAtlasesManager::max_fonts`]. Doesn't free in use fonts
-/// even if the number of in use fonts is greater than  [`FontAtlasesManager::max_fonts`].
+/// is greater than [`FontAtlasManager::max_fonts`]. Doesn't free in use fonts
+/// even if the number of in use fonts is greater than [`FontAtlasManager::max_fonts`].
 pub fn free_unused_font_atlases_computed_system(
     mut font_atlases_manager: ResMut<FontAtlasManager>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
@@ -158,19 +159,22 @@ pub fn free_unused_font_atlases_computed_system(
         max_fonts,
     } = &mut *font_atlases_manager;
 
-    least_recently_used_buffer.retain(|(key, g)| reference_counts.get(key).unwrap().1 == *g);
-
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
-    let n = font_atlas_set
-        .len()
-        .saturating_sub(*max_fonts)
-        .min(least_recently_used_buffer.len());
+    least_recently_used_buffer.retain(|(key, g)| {
+        // Remove stale entries
+        if reference_counts.get(key).unwrap().1 != *g {
+            return false;
+        }
 
-    for (key, _) in least_recently_used_buffer.drain(..n) {
-        reference_counts.remove(&key);
-        font_atlas_set.remove(&key);
-    }
+        if font_atlas_set.len() <= *max_fonts {
+            return true;
+        }
+
+        font_atlas_set.remove(key);
+        reference_counts.remove(key);
+        false
+    });
 }
 
 #[cfg(test)]
@@ -282,7 +286,7 @@ mod tests {
     }
 
     #[test]
-    fn test_font_atlas_manager_2() {
+    fn test_font_atlas_manager_increment_and_decrement() {
         let mut app = App::new();
         app.init_resource::<FontAtlasManager>();
         app.init_resource::<FontAtlasSet>();
@@ -308,7 +312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_font_atlas_manager_3() {
+    fn test_font_atlas_manager_multiple_keys() {
         let mut app = App::new();
         app.init_resource::<FontAtlasManager>();
         app.init_resource::<FontAtlasSet>();
