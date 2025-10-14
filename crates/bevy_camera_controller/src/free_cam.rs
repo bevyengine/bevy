@@ -10,7 +10,8 @@
 //! By contrast, the default settings of this particular free cam are optimized for precise control.
 //!
 //! To use this controller, add [`FreeCamPlugin`] to your app,
-//! and attach both the [`FreeCam`] and [`FreeCamState`] components to your camera entity.
+//! and attach the [`FreeCam`] component to your camera entity.
+//! The required [`FreeCamState`] component will be added automatically.
 //!
 //! To configure the settings of this controller, modify the fields of the [`FreeCam`] component.
 
@@ -53,14 +54,21 @@ impl Plugin for FreeCamPlugin {
 /// it because it felt nice.
 const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
-/// Stores the settings for the FreeCam controller.
+/// Stores the settings for the [`FreeCam`] controller.
 ///
-/// This struct holds the configuration for movement, key bindings, sensitivity, etc.
-/// The settings in this struct are immutable during runtime, and should be used to customize camera controls.
+/// This component defines static configuration for camera controls,
+/// including movement speed, sensitivity, and input bindings.
 ///
-/// Add this component to a [`Camera`] entity, along with the [`FreeCamState`] component to track the dynamic state,
-/// and add the [`FreeCamPlugin`] to your [`App`] to enable freecam controls.
+/// From the controller’s perspective, this data is treated as immutable,
+/// but it may be modified externally (e.g., by a settings UI) at runtime.
+///
+/// Add this component to a [`Camera`] entity to enable freecam controls.
+/// The associated dynamic state is automatically handled by [`FreeCamState`],
+/// which is added to the entity as a required component.
+///
+/// To activate the controller, add the [`FreeCamPlugin`] to your [`App`].
 #[derive(Component)]
+#[require(FreeCamState)]
 pub struct FreeCam {
     /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
@@ -142,24 +150,24 @@ Freecam Controls:
     }
 }
 
-/// Stores the state of the [`FreeCam`] controller.
+/// Tracks the runtime state of a [`FreeCam`] controller.
 ///
-/// This struct holds the runtime state, including pitch, yaw, velocity, and whether the camera controller is enabled.
-/// It is used to track and update the camera's movement and orientation based on input events.
+/// This component holds dynamic data that changes during camera operation,
+/// such as pitch, yaw, velocity, and whether the controller is currently enabled.
 ///
-/// Add this component to a [`Camera`] entity, along with the [`FreeCam`] component for the settings,
-/// and add the [`FreeCamPlugin`] to your [`App`] to enable freecam controls.
+/// It is automatically added to any entity that has a [`FreeCam`] component,
+/// and is updated by the [`FreeCamPlugin`] systems in response to user input.
 #[derive(Component)]
 pub struct FreeCamState {
     /// Enables [`FreeCam`] controls when `true`.
     pub enabled: bool,
-    /// Indicates if this controller has been initialized by the [`FreeCamPlugin`].
-    pub initialized: bool,
+    /// Internal flag indicating if this controller has been initialized by the [`FreeCamPlugin`].
+    initialized: bool,
     /// This [`FreeCam`]'s pitch rotation.
     pub pitch: f32,
     /// This [`FreeCam`]'s yaw rotation.
     pub yaw: f32,
-    /// Multiplier for the walking and running speed.
+    /// Multiplier applied to movement speed.
     pub speed_multiplier: f32,
     /// This [`FreeCam`]'s translation velocity.
     pub velocity: Vec3,
@@ -178,11 +186,12 @@ impl Default for FreeCamState {
     }
 }
 
-/// This system is typically added via the [`FreeCamPlugin`].
+/// Updates the camera's position and orientation based on user input.
 ///
-/// It reads input events and updates the camera's position and rotation.
-/// The immutable [`FreeCam`] struct holds settings like control keys and base sensitivity,
-/// while the dynamic state is managed in the [`FreeCamState`] struct.
+/// - [`FreeCam`] contains static configuration such as key bindings, movement speed, and sensitivity.
+/// - [`FreeCamState`] stores the dynamic runtime state, including pitch, yaw, velocity, and enable flags.
+///
+/// This system is typically added via the [`FreeCamPlugin`].
 pub fn run_freecam_controller(
     time: Res<Time<Real>>,
     mut windows: Query<(&Window, &mut CursorOptions)>,

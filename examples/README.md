@@ -288,6 +288,7 @@ Example | Description
 [Free cam camera controller](../examples/camera/free_cam_controller.rs) | Shows the default free cam camera controller.
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
+[Simple Free Camera Controller](../examples/camera/free_cam_simple.rs) | Demonstrates the default free camera controller for 3D navigation.
 
 ### Dev tools
 

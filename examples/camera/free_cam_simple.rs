@@ -1,7 +1,7 @@
 //! A simple 3D scene showcasing how to use the `FreeCam` camera controller.
 //! This example is primarily for debugging the changes made for issue #21456.
 
-use bevy::camera_controller::free_cam::{FreeCam, FreeCamPlugin, FreeCamState};
+use bevy::camera_controller::free_cam::{FreeCam, FreeCamPlugin};
 use bevy::prelude::*;
 
 fn main() {
@@ -56,6 +56,5 @@ fn setup(
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Spawn a 3D Camera with default FreeCam settings and initialize state
         FreeCam::default(),
-        FreeCamState::default(),
     ));
 }
