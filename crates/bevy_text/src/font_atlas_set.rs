@@ -162,11 +162,13 @@ pub fn free_unused_font_atlases_computed_system(
     // If the total number of fonts is greater than max_fonts, free fonts from the least rcently used list
     // until the total is lower than max_fonts or the least recently used list is empty.
     least_recently_used_buffer.retain(|(key, g)| {
-        // Remove stale entries
+        // Remove stale entries. If the generational indices don't match, the font has been used again after it
+        // was added to the LRU buffer.
         if reference_counts.get(key).unwrap().1 != *g {
             return false;
         }
 
+        // Free only enough fonts to keep us below the max fonts limit
         if font_atlas_set.len() <= *max_fonts {
             return true;
         }
