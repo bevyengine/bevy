@@ -6,6 +6,7 @@ extern crate alloc;
 pub mod alpha;
 pub mod opaque;
 pub mod render;
+pub mod render_phase;
 pub mod render_resource;
 
 /// The material prelude.

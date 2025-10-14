@@ -1,6 +1,6 @@
 use core::num::NonZero;
 use variadics_please::all_tuples_with_size;
-use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
+use wgpu_types::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
 ///
@@ -364,12 +364,12 @@ impl core::ops::Deref for DynamicBindGroupLayoutEntries {
 }
 
 pub mod binding_types {
-    use crate::render_resource::{
-        BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
-    };
     use core::num::NonZero;
     use encase::ShaderType;
-    use wgpu::{StorageTextureAccess, TextureFormat};
+    use wgpu_types::{
+        BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
+    };
+    use wgpu_types::{StorageTextureAccess, TextureFormat};
 
     use super::*;
 
