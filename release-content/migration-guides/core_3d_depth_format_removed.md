@@ -13,13 +13,13 @@ The desired depth/stencil TextureFormat can be set on a camera using the new `De
 ```rust
 /// before
 DepthStencilState {
-	format: CORE_3D_DEPTH_FORMAT,
-	...
+ format: CORE_3D_DEPTH_FORMAT,
+ ...
 }
 
 /// after
 DepthStencilState {
-	format: key.depth_stencil_format(),
-	...
+ format: key.depth_stencil_format(),
+ ...
 }
 ```
