@@ -229,6 +229,7 @@ common_api = [
   "bevy_core_pipeline",
   "bevy_post_process",
   "bevy_sprite_render",
+  "bevy_gizmos_render",
 ]
 
 # COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
