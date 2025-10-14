@@ -1,5 +1,6 @@
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    render::mesh_bindings::MeshLayoutsBuilders as _,
     resources::write_atmosphere_buffer,
     skin::skin_uniforms_from_world,
 };
