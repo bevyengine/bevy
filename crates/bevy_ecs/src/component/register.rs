@@ -10,7 +10,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, Components, RequiredComponents, StorageType,
     },
     query::DebugCheckedUnwrap as _,
-    resource::Resource,
+    resource::{IsResource, Resource, ResourceComponent},
 };
 
 /// Generates [`ComponentId`]s.
@@ -289,12 +289,7 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
-        }
+        self.register_component::<ResourceComponent<T>>()
     }
 
     /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
@@ -310,6 +305,43 @@ impl<'w> ComponentsRegistrator<'w> {
         }
     }
 
+    // Adds the necessary resource hooks and required components.
+    // This ensures that a resource registered with a custom descriptor functions as expected.
+    // Panics if the component is not registered.
+    // This has no effect on non-send resources.
+    //
+    // Panics if the id isn't registered or valid.
+    fn add_resource_hooks_and_required_components(&mut self, id: ComponentId) {
+        if self
+            .get_info(id)
+            .expect("component was just registered")
+            .is_send_and_sync()
+        {
+            let hooks = self
+                .components
+                .get_hooks_mut(id)
+                .expect("component was just registered");
+            hooks.on_add(crate::resource::on_add_hook);
+            hooks.on_remove(crate::resource::on_remove_hook);
+
+            let is_resource_id = self.register_component::<IsResource>();
+
+            assert!(self.is_id_valid(id));
+
+            // SAFETY:
+            // - The IsResource component id matches
+            // - The constructor constructs an IsResource
+            // - The id is valid, otherwise the assert would have panicked
+            unsafe {
+                let _ = self.components.register_required_components::<IsResource>(
+                    id,
+                    is_resource_id,
+                    || IsResource,
+                );
+            }
+        }
+    }
+
     /// Same as [`Components::register_resource_unchecked`] but handles safety.
     ///
     /// # Safety
@@ -321,7 +353,7 @@ impl<'w> ComponentsRegistrator<'w> {
         type_id: TypeId,
         descriptor: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        if let Some(id) = self.resource_indices.get(&type_id) {
+        if let Some(id) = self.indices.get(&type_id) {
             return *id;
         }
 
@@ -344,6 +376,10 @@ impl<'w> ComponentsRegistrator<'w> {
             self.components
                 .register_resource_unchecked(type_id, id, descriptor());
         }
+
+        // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+        self.add_resource_hooks_and_required_components(id);
+
         id
     }
 
@@ -368,6 +404,10 @@ impl<'w> ComponentsRegistrator<'w> {
         unsafe {
             self.components.register_component_inner(id, descriptor);
         }
+
+        // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+        self.add_resource_hooks_and_required_components(id);
+
         id
     }
 
@@ -619,26 +659,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// See type level docs for details.
     #[inline]
     pub fn queue_register_resource<T: Resource>(&self) -> ComponentId {
-        let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
-            // SAFETY: We just checked that this type was not already registered.
-            unsafe {
-                self.register_arbitrary_resource(
-                    type_id,
-                    ComponentDescriptor::new_resource::<T>(),
-                    move |registrator, id, descriptor| {
-                        // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
-                        // SAFETY: Id uniqueness handled by caller, and the type_id matches descriptor.
-                        #[expect(unused_unsafe, reason = "More precise to specify.")]
-                        unsafe {
-                            registrator
-                                .components
-                                .register_resource_unchecked(type_id, id, descriptor);
-                        }
-                    },
-                )
-            }
-        })
+        self.queue_register_component::<ResourceComponent<T>>()
     }
 
     /// This is a queued version of [`ComponentsRegistrator::register_non_send`].
@@ -654,7 +675,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     #[inline]
     pub fn queue_register_non_send<T: Any>(&self) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        self.get_resource_id(type_id).unwrap_or_else(|| {
+        self.get_id(type_id).unwrap_or_else(|| {
             // SAFETY: We just checked that this type was not already registered.
             unsafe {
                 self.register_arbitrary_resource(
@@ -695,6 +716,9 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                     .components
                     .register_component_inner(id, descriptor);
             }
+
+            // registering a resource with this method leaves hooks and required_components empty, so we add them afterwards
+            registrator.add_resource_hooks_and_required_components(id);
         })
     }
 }

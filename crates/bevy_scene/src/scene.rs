@@ -7,8 +7,9 @@ use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent},
     relationship::RelationshipHookMode,
+    resource::ResourceComponent,
     world::World,
 };
 use bevy_reflect::TypePath;
@@ -65,44 +66,6 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
-        let self_dqf_id = self
-            .world
-            .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
-
-        // Resources archetype
-        for (component_id, resource_data) in self.world.storages().resources.iter() {
-            if Some(component_id) == self_dqf_id {
-                continue;
-            }
-            if !resource_data.is_present() {
-                continue;
-            }
-
-            let component_info = self
-                .world
-                .components()
-                .get_info(component_id)
-                .expect("component_ids in archetypes should have ComponentInfo");
-
-            let type_id = component_info
-                .type_id()
-                .expect("reflected resources must have a type_id");
-
-            let registration =
-                type_registry
-                    .get(type_id)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name(),
-                    })?;
-            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: registration.type_info().type_path().to_string(),
-                }
-            })?;
-            reflect_resource.copy(&self.world, world, &type_registry);
-        }
-
         // Ensure that all scene entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
@@ -113,7 +76,16 @@ impl Scene {
             }
         }
 
+        let self_dqf_id = self
+            .world
+            .components()
+            .get_id(TypeId::of::<ResourceComponent<DefaultQueryFilters>>());
+
         for archetype in self.world.archetypes().iter() {
+            if self_dqf_id.is_some_and(|dqf_id| archetype.contains(dqf_id)) {
+                continue;
+            }
+
             for scene_entity in archetype.entities() {
                 let entity = *entity_map
                     .get(&scene_entity.id())

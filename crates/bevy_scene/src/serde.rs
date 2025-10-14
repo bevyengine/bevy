@@ -81,8 +81,8 @@ impl<'a> Serialize for SceneSerializer<'a> {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
             SCENE_RESOURCES,
-            &SceneMapSerializer {
-                entries: &self.scene.resources,
+            &EntitiesSerializer {
+                entities: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -246,8 +246,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(SceneMapDeserializer {
-                registry: self.type_registry,
+            .next_element_seed(SceneEntitiesDeserializer {
+                type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
 
@@ -275,8 +275,8 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if resources.is_some() {
                         return Err(Error::duplicate_field(SCENE_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(SceneMapDeserializer {
-                        registry: self.type_registry,
+                    resources = Some(map.next_value_seed(SceneEntitiesDeserializer {
+                        type_registry: self.type_registry,
                     })?);
                 }
                 SceneField::Entities => {
@@ -519,6 +519,7 @@ mod tests {
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::AppTypeRegistry,
+        resource::ResourceComponent,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -610,7 +611,7 @@ mod tests {
             registry.register::<(f32, f32)>();
             registry.register::<MyEntityRef>();
             registry.register::<Entity>();
-            registry.register::<MyResource>();
+            registry.register::<ResourceComponent<MyResource>>();
         }
         world.insert_resource(registry);
         world
@@ -633,25 +634,29 @@ mod tests {
 
         let expected = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
+    4294967290: (
+      components: {
+        "bevy_ecs::resource::ResourceComponent<bevy_scene::serde::tests::MyResource>": ((
+          foo: 123,
+        )),
+      },
     ),
   },
   entities: {
-    4294967293: (
+    4294967291: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Baz": (789),
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967294: (
+    4294967292: (
       components: {
         "bevy_scene::serde::tests::Bar": (345),
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    4294967295: (
+    4294967293: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
@@ -670,23 +675,27 @@ mod tests {
 
         let input = r#"(
   resources: {
-    "bevy_scene::serde::tests::MyResource": (
-      foo: 123,
+    8589934591: (
+      components: {
+        "bevy_ecs::resource::ResourceComponent<bevy_scene::serde::tests::MyResource>": ((
+          foo: 123,
+        )),
+      },
     ),
   },
   entities: {
-    8589934591: (
+    8589934590: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
       },
     ),
-    8589934590: (
+    8589934589: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
       },
     ),
-    8589934589: (
+    8589934588: (
       components: {
         "bevy_scene::serde::tests::Foo": (123),
         "bevy_scene::serde::tests::Bar": (345),
@@ -815,7 +824,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 1, 255, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                0, 1, 253, 255, 255, 255, 15, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
                 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
                 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204,
                 108, 64, 1, 12, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
@@ -856,7 +865,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                146, 128, 129, 206, 255, 255, 255, 255, 145, 129, 217, 37, 98, 101, 118, 121, 95,
+                146, 128, 129, 206, 255, 255, 255, 253, 145, 129, 217, 37, 98, 101, 118, 121, 95,
                 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115,
                 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1,
                 2, 3, 146, 202, 63, 166, 102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112,
@@ -899,7 +908,7 @@ mod tests {
 
         assert_eq!(
             vec![
-                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0, 1,
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 253, 255, 255, 255, 0, 0, 0, 0, 1,
                 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101,
                 110, 101, 58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58,
                 77, 121, 67, 111, 109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0,

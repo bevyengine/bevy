@@ -1236,7 +1236,7 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::resource::Resource;
+        use crate::resource::{Resource, ResourceComponent};
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
@@ -1253,7 +1253,7 @@ mod tests {
         world.insert_resource(Num(123));
         let resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<Num>())
+            .get_id(TypeId::of::<ResourceComponent<Num>>())
             .unwrap();
 
         assert_eq!(world.resource::<Num>().0, 123);
@@ -1310,7 +1310,7 @@ mod tests {
 
         let current_resource_id = world
             .components()
-            .get_resource_id(TypeId::of::<Num>())
+            .get_id(TypeId::of::<ResourceComponent<Num>>())
             .unwrap();
         assert_eq!(
             resource_id, current_resource_id,
@@ -1794,7 +1794,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1818,7 +1818,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 

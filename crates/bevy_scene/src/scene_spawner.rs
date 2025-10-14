@@ -739,7 +739,8 @@ mod tests {
 
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
-            .add_plugins(ScenePlugin);
+            .add_plugins(ScenePlugin)
+            .register_type::<ComponentA>();
         app.update();
 
         let mut scene_world = World::new();
@@ -1062,7 +1063,9 @@ mod tests {
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>()
-            .register_type::<ComponentF>();
+            .register_type::<ComponentF>()
+            .register_type::<ChildOf>()
+            .register_type::<Children>();
         app.update();
 
         let mut scene_world = World::new();
