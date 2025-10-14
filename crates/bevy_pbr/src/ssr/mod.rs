@@ -47,10 +47,10 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
-    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    binding_arrays_are_usable, graph::NodePbr, mesh_pipeline_view_layout_key_from_msaa,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    RenderViewLightProbes, ViewEnvironmentMapUniformOffset, ViewFogUniformOffset,
+    ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -443,7 +443,7 @@ pub fn prepare_ssr_pipelines(
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
         // support. Thus we can assume MSAA is off.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(Msaa::Off)
+        let mut mesh_pipeline_view_key = mesh_pipeline_view_layout_key_from_msaa(Msaa::Off)
             | MeshPipelineViewLayoutKey::DEPTH_PREPASS
             | MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         mesh_pipeline_view_key.set(

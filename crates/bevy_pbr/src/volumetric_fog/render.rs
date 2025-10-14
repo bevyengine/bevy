@@ -50,9 +50,10 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    mesh_pipeline_view_layout_key_from_msaa, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;
@@ -656,7 +657,7 @@ pub fn prepare_volumetric_fog_pipelines(
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
-        let mut mesh_pipeline_view_key = MeshPipelineViewLayoutKey::from(*msaa);
+        let mut mesh_pipeline_view_key = mesh_pipeline_view_layout_key_from_msaa(*msaa);
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::NORMAL_PREPASS, normal_prepass);
         mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::DEPTH_PREPASS, depth_prepass);
         mesh_pipeline_view_key.set(

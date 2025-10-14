@@ -166,39 +166,37 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
     }
 }
 
-impl From<Msaa> for MeshPipelineViewLayoutKey {
-    fn from(value: Msaa) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
+pub fn mesh_pipeline_view_layout_key_from_msaa(value: Msaa) -> MeshPipelineViewLayoutKey {
+    let mut result = MeshPipelineViewLayoutKey::empty();
 
-        if value.samples() > 1 {
-            result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
-        }
-
-        result
+    if value.samples() > 1 {
+        result |= MeshPipelineViewLayoutKey::MULTISAMPLED;
     }
+
+    result
 }
 
-impl From<Option<&ViewPrepassTextures>> for MeshPipelineViewLayoutKey {
-    fn from(value: Option<&ViewPrepassTextures>) -> Self {
-        let mut result = MeshPipelineViewLayoutKey::empty();
+pub fn mesh_pipeline_view_layout_key_from_view_prepass_textures(
+    value: Option<&ViewPrepassTextures>,
+) -> MeshPipelineViewLayoutKey {
+    let mut result = MeshPipelineViewLayoutKey::empty();
 
-        if let Some(prepass_textures) = value {
-            if prepass_textures.depth.is_some() {
-                result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
-            }
-            if prepass_textures.normal.is_some() {
-                result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
-            }
-            if prepass_textures.motion_vectors.is_some() {
-                result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
-            }
-            if prepass_textures.deferred.is_some() {
-                result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
-            }
+    if let Some(prepass_textures) = value {
+        if prepass_textures.depth.is_some() {
+            result |= MeshPipelineViewLayoutKey::DEPTH_PREPASS;
         }
-
-        result
+        if prepass_textures.normal.is_some() {
+            result |= MeshPipelineViewLayoutKey::NORMAL_PREPASS;
+        }
+        if prepass_textures.motion_vectors.is_some() {
+            result |= MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS;
+        }
+        if prepass_textures.deferred.is_some() {
+            result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
+        }
     }
+
+    result
 }
 
 pub(crate) fn buffer_layout(
@@ -651,8 +649,8 @@ pub fn prepare_mesh_view_bind_groups(
                 .map(|t| &t.screen_space_ambient_occlusion_texture.default_view)
                 .unwrap_or(&fallback_ssao);
 
-            let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
-                | MeshPipelineViewLayoutKey::from(prepass_textures);
+            let mut layout_key = mesh_pipeline_view_layout_key_from_msaa(*msaa)
+                | mesh_pipeline_view_layout_key_from_view_prepass_textures(prepass_textures);
             if has_oit {
                 layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
             }
