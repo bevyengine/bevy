@@ -69,23 +69,10 @@ impl AssetInfo {
 }
 
 /// Tracks statistics of the asset server.
-///
-/// This allows users (and tests) to know about various metrics related to the [`AssetServer`]. This
-/// can be accessed using [`AssetServer::stats`].
-///
-/// [`AssetServer`]: crate::AssetServer
-/// [`AssetServer::stats`]: crate::AssetServer::stats
 #[derive(Default, Clone, PartialEq, Eq)]
-pub struct AssetServerStats {
+pub(crate) struct AssetServerStats {
     /// The number of load tasks that have been started.
     pub(crate) started_load_tasks: usize,
-}
-
-impl AssetServerStats {
-    /// Returns the number of load tasks that have been started.
-    pub fn started_load_tasks(&self) -> usize {
-        self.started_load_tasks
-    }
 }
 
 #[derive(Default)]

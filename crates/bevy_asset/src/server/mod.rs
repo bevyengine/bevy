@@ -26,6 +26,7 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
+use bevy_diagnostic::{DiagnosticPath, Diagnostics};
 use bevy_ecs::prelude::*;
 use bevy_platform::{
     collections::HashSet,
@@ -41,8 +42,6 @@ use loaders::*;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
-
-pub use info::AssetServerStats;
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
@@ -86,6 +85,9 @@ pub enum AssetServerMode {
 }
 
 impl AssetServer {
+    /// The number of loads that have been started by the server.
+    pub const STARTED_LOAD_COUNT: DiagnosticPath = DiagnosticPath::const_new("started_load_count");
+
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(
@@ -1716,11 +1718,6 @@ impl AssetServer {
 
         Ok(())
     }
-
-    /// Gets the current stats of the asset server.
-    pub fn stats(&self) -> AssetServerStats {
-        self.read_infos().stats.clone()
-    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
@@ -1867,6 +1864,17 @@ pub fn handle_internal_asset_events(world: &mut World) {
         infos
             .pending_tasks
             .retain(|_, load_task| !load_task.is_finished());
+    });
+}
+
+/// A system publishing asset server statistics to [`bevy_diagnostic`].
+pub fn publish_asset_server_diagnostics(
+    asset_server: Res<AssetServer>,
+    mut diagnostics: Diagnostics,
+) {
+    let infos = asset_server.read_infos();
+    diagnostics.add_measurement(&AssetServer::STARTED_LOAD_COUNT, || {
+        infos.stats.started_load_tasks as _
     });
 }
 
