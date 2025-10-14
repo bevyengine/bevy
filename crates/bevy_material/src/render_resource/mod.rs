@@ -1,12 +1,12 @@
 mod bind_group_layout_entries;
-// mod pipeline;
+mod pipeline;
 // mod pipeline_cache;
-// mod pipeline_specializer;
+mod pipeline_specializer;
 
 pub use bind_group_layout_entries::*;
-// pub use pipeline::*;
+pub use pipeline::*;
 // pub use pipeline_cache::*;
-// pub use pipeline_specializer::*;
+pub use pipeline_specializer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu_types::{
