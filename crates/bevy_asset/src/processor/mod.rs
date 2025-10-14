@@ -82,7 +82,7 @@ use {
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
 ///
-/// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetSource`] for assets that
+/// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetSource`] for assets
 /// that can be loaded and/or processed. This enables developers to configure how each asset should be loaded and/or processed.
 ///
 /// [`AssetProcessor`] can be run in the background while a Bevy App is running. Changes to assets will be automatically detected and hot-reloaded.

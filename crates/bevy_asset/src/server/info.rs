@@ -242,7 +242,7 @@ impl AssetInfos {
                 } else {
                     // Asset meta exists, but all live handles were dropped. This means the `track_assets` system
                     // hasn't been run yet to remove the current asset
-                    // (note that this is guaranteed to be transactional with the `track_assets` system because
+                    // (note that this is guaranteed to be transactional with the `track_assets` system
                     // because it locks the AssetInfos collection)
 
                     // We must create a new strong handle for the existing id and ensure that the drop of the old
