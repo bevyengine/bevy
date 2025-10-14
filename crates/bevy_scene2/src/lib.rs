@@ -34,6 +34,7 @@ impl Plugin for ScenePlugin {
         app.init_resource::<QueuedScenes>()
             .init_resource::<NewScenes>()
             .init_asset::<ScenePatch>()
+            .init_asset::<SceneListPatch>()
             .add_systems(Update, (resolve_scene_patches, spawn_queued).chain())
             .add_observer(on_add_scene_patch_instance);
     }

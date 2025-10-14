@@ -1,4 +1,4 @@
-use crate::{ResolvedScene, Scene};
+use crate::{ResolvedScene, Scene, SceneList};
 use bevy_asset::{Asset, AssetServer, Handle, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
@@ -31,3 +31,28 @@ impl ScenePatch {
 
 #[derive(Component, Deref, DerefMut)]
 pub struct ScenePatchInstance(pub Handle<ScenePatch>);
+
+#[derive(Asset, TypePath)]
+pub struct SceneListPatch {
+    pub patch: Box<dyn SceneList>,
+    #[dependency]
+    pub dependencies: Vec<UntypedHandle>,
+    // TODO: consider breaking this out to prevent mutating asset events when resolved
+    pub resolved: Option<Vec<ResolvedScene>>,
+}
+
+impl SceneListPatch {
+    pub fn load<L: SceneList>(assets: &AssetServer, scene_list: L) -> Self {
+        let mut dependencies = Vec::new();
+        scene_list.register_dependencies(&mut dependencies);
+        let dependencies = dependencies
+            .iter()
+            .map(|i| assets.load::<ScenePatch>(i.clone()).untyped())
+            .collect::<Vec<_>>();
+        SceneListPatch {
+            patch: Box::new(scene_list),
+            dependencies,
+            resolved: None,
+        }
+    }
+}
