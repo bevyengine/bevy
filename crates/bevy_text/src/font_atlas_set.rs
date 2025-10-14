@@ -1,11 +1,11 @@
-use crate::{font, font_atlas, Font, FontAtlas, FontSmoothing, TextFont};
+use crate::{Font, FontAtlas, FontSmoothing, TextFont};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, message::MessageReader, resource::Resource,
     system::ResMut, world::DeferredWorld,
 };
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::collections::HashMap;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
@@ -90,7 +90,7 @@ fn on_replace_computed_text_font(mut world: DeferredWorld, hook_context: HookCon
 /// Used to keep a count of the number of text entities using each font, and decide
 /// when font atlases should be freed.
 pub struct FontAtlasManager {
-    reference_counts: HashMap<FontAtlasKey, usize>,
+    reference_counts: HashMap<FontAtlasKey, (u32, u32)>,
     least_recently_used_buffer: Vec<FontAtlasKey>,
     /// Maximum number of fonts before unused font atlases are freed.
     pub max_fonts: usize,
@@ -106,13 +106,13 @@ impl FontAtlasManager {
     }
 
     /// Returns the number of text entities using the font with the given key.
-    pub fn get_count(&self, key: &FontAtlasKey) -> usize {
-        self.reference_counts.get(key).copied().unwrap_or(0)
+    pub fn get_count(&self, key: &FontAtlasKey) -> u32 {
+        self.reference_counts.get(key).copied().unwrap_or((0, 0)).0
     }
 
     /// Increment the reference count for the font
     pub fn increment_count(&mut self, key: FontAtlasKey) {
-        let count = self.reference_counts.entry(key).or_default();
+        let (count, _) = self.reference_counts.entry(key).or_default();
 
         if *count == 0 {
             self.least_recently_used_buffer.retain(|k| *k != key);
@@ -123,7 +123,7 @@ impl FontAtlasManager {
 
     /// Decrement the reference count for the font
     pub fn decrement_count(&mut self, key: FontAtlasKey) {
-        let count = self
+        let (count, _) = self
             .reference_counts
             .get_mut(&key)
             .expect("No reference count found for existing ComputedFont.");
