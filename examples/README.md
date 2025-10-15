@@ -568,6 +568,7 @@ Example | Description
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Standard Widgets](../examples/ui/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
 [Standard Widgets (w/Observers)](../examples/ui/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikeout](../examples/ui/strikeout.rs) | Demonstrates how to display text with strikeout.
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
