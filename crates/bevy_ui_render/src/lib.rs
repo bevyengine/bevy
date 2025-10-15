@@ -1162,6 +1162,7 @@ pub fn extract_text_decorations(
             }
 
             if maybe_strikeout.is_some() {
+                let stroke = text_layout_info.strikeout[section_index].1;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1169,15 +1170,15 @@ pub fn extract_text_decorations(
                     image: AssetId::default(),
                     extracted_camera_entity,
                     transform: transform
-                        * Affine2::from_translation(Vec2::new(rect.center().x, strikeout_y)),
+                        * Affine2::from_translation(Vec2::new(
+                            rect.center().x,
+                            strikeout_y + 0.5 * stroke,
+                        )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(
-                                rect.size().x,
-                                text_layout_info.strikeout[section_index].1,
-                            ),
+                            max: Vec2::new(rect.size().x, stroke),
                         },
                         atlas_scaling: None,
                         flip_x: false,

@@ -216,8 +216,9 @@ pub fn extract_text2d_sprite(
             let Ok(text_color) = strikeout_query.get(section_entity) else {
                 continue;
             };
+            let stroke = text_layout_info.strikeout[section_index].1;
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
-            let offset = Vec2::new(rect.center().x, -strikeout_y);
+            let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
                 * scaling
@@ -234,10 +235,7 @@ pub fn extract_text2d_sprite(
                     anchor: Vec2::ZERO,
                     rect: None,
                     scaling_mode: None,
-                    custom_size: Some(Vec2::new(
-                        rect.size().x,
-                        text_layout_info.strikeout[section_index].1,
-                    )),
+                    custom_size: Some(Vec2::new(rect.size().x, stroke)),
                 },
             });
         }
