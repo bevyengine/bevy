@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "screenrecording")]
-use std::{fs::File, io::Write, sync::mpsc::channel};
+use std::{fs::File, io::Write, sync::mpsc::channel, time::Duration};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
@@ -89,6 +89,8 @@ pub struct EasyScreenRecordPlugin {
     pub preset: Preset,
     /// h264 encoder tune
     pub tune: Tune,
+    /// target frame time
+    pub frame_time: Duration,
 }
 
 #[cfg(feature = "screenrecording")]
@@ -98,6 +100,7 @@ impl Default for EasyScreenRecordPlugin {
             toggle: KeyCode::Space,
             preset: Preset::Medium,
             tune: Tune::Animation,
+            frame_time: Duration::from_millis(16),
         }
     }
 }
@@ -110,7 +113,7 @@ impl Default for EasyScreenRecordPlugin {
 enum RecordCommand {
     Start(String, Preset, Tune),
     Stop,
-    Frame(Image, f64),
+    Frame(Image),
 }
 
 #[cfg(feature = "screenrecording")]
@@ -128,12 +131,13 @@ impl Plugin for EasyScreenRecordPlugin {
     fn build(&self, app: &mut App) {
         let (tx, rx) = channel::<RecordCommand>();
 
+        let frame_time = self.frame_time;
+
         std::thread::spawn(move || {
             let mut encoder: Option<Encoder> = None;
             let mut setup = None;
             let mut file: Option<File> = None;
-            let mut first_frame_time = None;
-            let mut previous_pts = 0;
+            let mut frame = 0;
             loop {
                 let Ok(next) = rx.recv() else {
                     break;
@@ -142,7 +146,6 @@ impl Plugin for EasyScreenRecordPlugin {
                     RecordCommand::Start(name, preset, tune) => {
                         info!("starting recording at {}", name);
                         file = Some(File::create(name).unwrap());
-                        first_frame_time = None;
                         setup = Some(Setup::preset(preset, tune, false, true).high());
                     }
                     RecordCommand::Stop => {
@@ -156,14 +159,10 @@ impl Plugin for EasyScreenRecordPlugin {
                             }
                         }
                     }
-                    RecordCommand::Frame(image, frame_time) => {
-                        if first_frame_time.is_none() {
-                            first_frame_time = Some(frame_time);
-                            continue;
-                        }
+                    RecordCommand::Frame(image) => {
                         if let Some(setup) = setup.take() {
                             let mut new_encoder = setup
-                                .fps((1.0 / (frame_time - first_frame_time.unwrap())) as u32, 1)
+                                .fps((1000 / frame_time.as_millis()) as u32, 1)
                                 .build(Colorspace::RGB, image.width() as i32, image.height() as i32)
                                 .unwrap();
                             let headers = new_encoder.headers().unwrap();
@@ -174,12 +173,9 @@ impl Plugin for EasyScreenRecordPlugin {
                             encoder = Some(new_encoder);
                         }
                         if let Some(encoder) = encoder.as_mut() {
-                            let pts = ((frame_time - first_frame_time.unwrap()) * 1000.0) as i64;
-                            if pts == previous_pts {
-                                continue;
-                            }
-                            previous_pts = pts;
+                            let pts = (frame_time.as_millis() * frame) as i64;
 
+                            frame += 1;
                             let (data, _) = encoder
                                 .encode(
                                     pts,
@@ -197,15 +193,21 @@ impl Plugin for EasyScreenRecordPlugin {
             }
         });
 
+        let frame_time = self.frame_time;
+
         app.add_message::<RecordScreen>().add_systems(
             Update,
             (
-                (move |mut messages: MessageWriter<RecordScreen>, mut recording: Local<bool>| {
+                (move |mut messages: MessageWriter<RecordScreen>,
+                       mut recording: Local<bool>,
+                       mut time: ResMut<Time<bevy_time::Virtual>>| {
                     *recording = !*recording;
                     if *recording {
                         messages.write(RecordScreen::Start);
+                        time.pause();
                     } else {
                         messages.write(RecordScreen::Stop);
+                        time.unpause();
                     }
                 })
                 .run_if(input_just_pressed(self.toggle)),
@@ -241,13 +243,10 @@ impl Plugin for EasyScreenRecordPlugin {
                             let tx = tx.clone();
                             commands.spawn(Screenshot::primary_window()).observe(
                                 move |screenshot_captured: On<ScreenshotCaptured>,
-                                      time: Res<Time>| {
+                                      mut time: ResMut<Time<bevy_time::Virtual>>| {
                                     let img = screenshot_captured.image.clone();
-                                    tx.send(RecordCommand::Frame(
-                                        img,
-                                        time.elapsed().as_secs_f64(),
-                                    ))
-                                    .unwrap();
+                                    tx.send(RecordCommand::Frame(img)).unwrap();
+                                    time.advance_by(frame_time);
                                 },
                             );
                         }
