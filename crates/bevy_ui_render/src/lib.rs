@@ -60,7 +60,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, Strikeout, TextBackgroundColor, TextColor, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -117,6 +117,7 @@ pub mod stack_z_offsets {
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
+    pub const TEXT_STRIKEOUT: f32 = 0.07;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -244,7 +245,7 @@ impl Plugin for UiRenderPlugin {
                     extract_uinode_images.in_set(RenderUiSystems::ExtractImages),
                     extract_uinode_borders.in_set(RenderUiSystems::ExtractBorders),
                     extract_viewport_nodes.in_set(RenderUiSystems::ExtractViewportNodes),
-                    extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
+                    extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
                     #[cfg(feature = "bevy_ui_debug")]
@@ -1083,13 +1084,14 @@ pub fn extract_text_shadows(
     }
 }
 
-pub fn extract_text_background_colors(
+pub fn extract_text_decorations(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     uinode_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedTextBlock,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -1097,12 +1099,22 @@ pub fn extract_text_background_colors(
             &TextLayoutInfo,
         )>,
     >,
-    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
+    text_background_colors_query: Extract<
+        Query<(AnyOf<(&TextBackgroundColor, &Strikeout)>, &TextColor)>,
+    >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, global_transform, inherited_visibility, clip, camera, text_layout_info) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        computed_block,
+        global_transform,
+        inherited_visibility,
+        clip,
+        camera,
+        text_layout_info,
+    ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1116,33 +1128,67 @@ pub fn extract_text_background_colors(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
-            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
+        for &(section_index, rect, strikeout_y) in text_layout_info.section_rects.iter() {
+            let section_entity = computed_block.entities()[section_index].entity;
+            let Ok(((text_background_color, maybe_strikeout), text_color)) =
+                text_background_colors_query.get(section_entity)
+            else {
                 continue;
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                clip: clip.map(|clip| clip.clip),
-                image: AssetId::default(),
-                extracted_camera_entity,
-                transform: transform * Affine2::from_translation(rect.center()),
-                item: ExtractedUiItem::Node {
-                    color: text_background_color.0.to_linear(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: rect.size(),
+            if let Some(text_background_color) = text_background_color {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: transform * Affine2::from_translation(rect.center()),
+                    item: ExtractedUiItem::Node {
+                        color: text_background_color.0.to_linear(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: rect.size(),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: uinode.border(),
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Rect,
                     },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border: uinode.border(),
-                    border_radius: uinode.border_radius(),
-                    node_type: NodeType::Rect,
-                },
-                main_entity: entity.into(),
-            });
+                    main_entity: entity.into(),
+                });
+            }
+
+            if maybe_strikeout.is_some() {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: transform
+                        * Affine2::from_translation(Vec2::new(rect.center().x, strikeout_y)),
+                    item: ExtractedUiItem::Node {
+                        color: text_color.0.to_linear(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: Vec2::new(
+                                rect.size().x,
+                                text_layout_info.strikeout[section_index].1,
+                            ),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        node_type: NodeType::Rect,
+                    },
+                    main_entity: entity.into(),
+                });
+            }
         }
     }
 }

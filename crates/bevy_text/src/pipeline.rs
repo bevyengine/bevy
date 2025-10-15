@@ -119,6 +119,9 @@ impl TextPipeline {
             computed.entities.push(TextEntity { entity, depth });
 
             if span.is_empty() {
+                if let Some(strikeout) = strikeout.as_mut() {
+                    strikeout.push((0., 0.));
+                }
                 continue;
             }
             // Return early if a font is not loaded yet.
@@ -151,7 +154,9 @@ impl TextPipeline {
             if let Some(strikeout) = strikeout.as_mut() {
                 strikeout.push((
                     face_info.strikeout_offset * text_font.font_size * scale_factor as f32,
-                    face_info.strikeout_size * text_font.font_size * scale_factor as f32,
+                    (face_info.strikeout_size * text_font.font_size * scale_factor as f32)
+                        .round()
+                        .max(1.),
                 ));
             }
 
@@ -294,19 +299,15 @@ impl TextPipeline {
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
-                                layout_info.strikeout[section].0 = line_y
-                                    - run.line_top
-                                    - layout_info.strikeout[section].0
-                                    - 0.5 * layout_info.strikeout[section].1;
-
                                 layout_info.section_rects.push((
-                                    computed.entities[section].entity,
+                                    section,
                                     Rect::new(
                                         start,
                                         run.line_top,
                                         end,
                                         run.line_top + run.line_height,
                                     ),
+                                    (run.line_y - layout_info.strikeout[section].0).round(),
                                 ));
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
@@ -393,8 +394,9 @@ impl TextPipeline {
                 });
             if let Some(section) = current_section {
                 layout_info.section_rects.push((
-                    computed.entities[section].entity,
+                    section,
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    (run.line_y - layout_info.strikeout[section].0).round(),
                 ));
             }
 
@@ -478,7 +480,7 @@ pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.
     /// A text section spanning more than one line will have multiple bounding rects.
-    pub section_rects: Vec<(Entity, Rect)>,
+    pub section_rects: Vec<(usize, Rect, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
     /// Strikout geometry: (offset, stroke)
