@@ -425,6 +425,11 @@ pub enum LineBreak {
     NoWrap,
 }
 
+/// Draw the text with strike out.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct StrikeOut;
+
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
