@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                // MacOS does not let you set the title of transparent windows. Do not add
+                // MacOS cfg does not let you set the title of transparent windows on Windows. Do not add
                 // title: "Bevy Desk Toy".into(),
                 transparent: true,
                 #[cfg(target_os = "macos")]
