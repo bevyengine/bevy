@@ -814,7 +814,7 @@ pub mod __macro_exports {
 
             static REGISTRATION_FNS: Mutex<Vec<fn(&mut TypeRegistry)>> = Mutex::new(Vec::new());
 
-            /// Adds adds a new registration function for [`TypeRegistry`]
+            /// Adds a new registration function for [`TypeRegistry`]
             pub fn push_registration_fn(registration_fn: fn(&mut TypeRegistry)) {
                 REGISTRATION_FNS.lock().unwrap().push(registration_fn);
             }
