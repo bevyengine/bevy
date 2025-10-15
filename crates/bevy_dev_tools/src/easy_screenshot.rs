@@ -213,6 +213,7 @@ impl Plugin for EasyScreenRecordPlugin {
                           mut recording: Local<bool>,
                           mut messages: MessageReader<RecordScreen>,
                           window: Single<&Window, With<PrimaryWindow>>,
+                          current_screenshot: Query<(), With<Screenshot>>,
                           mut time: ResMut<Time<bevy_time::Virtual>>| {
                         match messages.read().last() {
                             Some(RecordScreen::Start) => {
@@ -236,7 +237,7 @@ impl Plugin for EasyScreenRecordPlugin {
                             }
                             _ => {}
                         }
-                        if *recording {
+                        if *recording && current_screenshot.single().is_err() {
                             let tx = tx.clone();
                             commands.spawn(Screenshot::primary_window()).observe(
                                 move |screenshot_captured: On<ScreenshotCaptured>,
