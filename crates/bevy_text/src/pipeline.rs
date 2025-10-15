@@ -98,6 +98,7 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        mut strikeout: Option<&mut Vec<(f32, f32)>>,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -146,6 +147,13 @@ impl TextPipeline {
                 &mut self.map_handle_to_font_id,
                 fonts,
             );
+
+            if let Some(strikeout) = strikeout.as_mut() {
+                strikeout.push((
+                    face_info.strikeout_offset * text_font.font_size * scale_factor as f32,
+                    face_info.strikeout_size * text_font.font_size * scale_factor as f32,
+                ));
+            }
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -264,6 +272,7 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
+            Some(&mut layout_info.strikeout),
         );
 
         self.glyph_info = glyph_info;
@@ -285,6 +294,11 @@ impl TextPipeline {
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
+                                layout_info.strikeout[section].0 = line_y
+                                    - run.line_top
+                                    - layout_info.strikeout[section].0
+                                    - 0.5 * layout_info.strikeout[section].1;
+
                                 layout_info.section_rects.push((
                                     computed.entities[section].entity,
                                     Rect::new(
@@ -423,6 +437,7 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
+            None,
         )?;
 
         let buffer = &mut computed.buffer;
@@ -467,7 +482,7 @@ pub struct TextLayoutInfo {
     /// The glyphs resulting size
     pub size: Vec2,
     /// Strikout geometry: (offset, stroke)
-    pub strikout: Vec<(f32, f32)>,
+    pub strikeout: Vec<(f32, f32)>,
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.
