@@ -1,6 +1,8 @@
+#[cfg(feature = "screenrecording")]
+use core::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 #[cfg(feature = "screenrecording")]
-use std::{fs::File, io::Write, sync::mpsc::channel, time::Duration};
+use std::{fs::File, io::Write, sync::mpsc::channel};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::prelude::*;
@@ -106,10 +108,6 @@ impl Default for EasyScreenRecordPlugin {
 }
 
 #[cfg(feature = "screenrecording")]
-#[expect(
-    clippy::large_enum_variant,
-    reason = "Large variant happens a lot more often than the others"
-)]
 enum RecordCommand {
     Start(String, Preset, Tune),
     Stop,
