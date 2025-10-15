@@ -1128,7 +1128,8 @@ pub fn extract_text_decorations(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for &(section_index, rect, strikeout_y) in text_layout_info.section_rects.iter() {
+        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        {
             let section_entity = computed_block.entities()[section_index].entity;
             let Ok(((text_background_color, maybe_strikeout), text_color)) =
                 text_background_colors_query.get(section_entity)
@@ -1162,7 +1163,6 @@ pub fn extract_text_decorations(
             }
 
             if maybe_strikeout.is_some() {
-                let stroke = text_layout_info.strikeout[section_index].1;
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),

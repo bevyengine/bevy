@@ -71,7 +71,7 @@ pub fn extract_text2d_sprite(
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
 
-        for &(section_index, rect, _) in text_layout_info.section_rects.iter() {
+        for &(section_index, rect, _, _) in text_layout_info.section_geometry.iter() {
             let section_entity = computed_block.entities()[section_index].entity;
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
@@ -211,12 +211,12 @@ pub fn extract_text2d_sprite(
             end += 1;
         }
 
-        for &(section_index, rect, strikeout_y) in text_layout_info.section_rects.iter() {
+        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        {
             let section_entity = computed_block.entities()[section_index].entity;
             let Ok(text_color) = strikeout_query.get(section_entity) else {
                 continue;
             };
-            let stroke = text_layout_info.strikeout[section_index].1;
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
             let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
             let transform = *global_transform

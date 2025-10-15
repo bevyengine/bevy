@@ -63,10 +63,6 @@ pub struct FontFaceInfo {
     pub weight: cosmic_text::fontdb::Weight,
     /// Font family name
     pub family_name: Arc<str>,
-    /// Strikeout offset from baseline.
-    pub strikeout_offset: f32,
-    /// Thickness of strikeout lines.
-    pub strikeout_size: f32,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -81,7 +77,7 @@ pub struct TextPipeline {
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing)>,
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32)>,
 }
 
 impl TextPipeline {
@@ -98,7 +94,6 @@ impl TextPipeline {
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
-        mut strikeout: Option<&mut Vec<(f32, f32)>>,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -119,9 +114,6 @@ impl TextPipeline {
             computed.entities.push(TextEntity { entity, depth });
 
             if span.is_empty() {
-                if let Some(strikeout) = strikeout.as_mut() {
-                    strikeout.push((0., 0.));
-                }
                 continue;
             }
             // Return early if a font is not loaded yet.
@@ -150,15 +142,6 @@ impl TextPipeline {
                 &mut self.map_handle_to_font_id,
                 fonts,
             );
-
-            if let Some(strikeout) = strikeout.as_mut() {
-                strikeout.push((
-                    face_info.strikeout_offset * text_font.font_size * scale_factor as f32,
-                    (face_info.strikeout_size * text_font.font_size * scale_factor as f32)
-                        .round()
-                        .max(1.),
-                ));
-            }
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
@@ -255,7 +238,7 @@ impl TextPipeline {
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
-        layout_info.section_rects.clear();
+        layout_info.section_geometry.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -265,7 +248,13 @@ impl TextPipeline {
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, text_font, _)| {
-            glyph_info.push((text_font.font.id(), text_font.font_smoothing));
+            glyph_info.push((
+                text_font.font.id(),
+                text_font.font_smoothing,
+                text_font.font_size,
+                0.,
+                0.,
+            ));
         });
 
         let update_result = self.update_buffer(
@@ -277,12 +266,25 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
-            Some(&mut layout_info.strikeout),
         );
 
         self.glyph_info = glyph_info;
 
         update_result?;
+
+        for (font, _, size, strike_offset, stroke) in self.glyph_info.iter_mut() {
+            let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
+                continue;
+            };
+            if let Some(font) = font_system.get_font(*id) {
+                let swash = font.as_swash();
+                let metrics = swash.metrics(&[]);
+                let upem = metrics.units_per_em as f32;
+                let scalar = *size * scale_factor as f32 / upem;
+                *strike_offset = (metrics.strikeout_offset * scalar).round();
+                *stroke = (metrics.stroke_size * scalar).round().max(1.);
+            }
+        }
 
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
@@ -299,7 +301,7 @@ impl TextPipeline {
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
-                                layout_info.section_rects.push((
+                                layout_info.section_geometry.push((
                                     section,
                                     Rect::new(
                                         start,
@@ -307,7 +309,8 @@ impl TextPipeline {
                                         end,
                                         run.line_top + run.line_height,
                                     ),
-                                    (run.line_y - layout_info.strikeout[section].0).round(),
+                                    (run.line_y - self.glyph_info[section].3).round(),
+                                    self.glyph_info[section].4,
                                 ));
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
@@ -393,10 +396,11 @@ impl TextPipeline {
                     Ok(())
                 });
             if let Some(section) = current_section {
-                layout_info.section_rects.push((
+                layout_info.section_geometry.push((
                     section,
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    (run.line_y - layout_info.strikeout[section].0).round(),
+                    (run.line_y - self.glyph_info[section].3).round(),
+                    self.glyph_info[section].4,
                 ));
             }
 
@@ -439,7 +443,6 @@ impl TextPipeline {
             scale_factor,
             computed,
             font_system,
-            None,
         )?;
 
         let buffer = &mut computed.buffer;
@@ -480,11 +483,9 @@ pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.
     /// A text section spanning more than one line will have multiple bounding rects.
-    pub section_rects: Vec<(usize, Rect, f32)>,
+    pub section_geometry: Vec<(usize, Rect, f32, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
-    /// Strikout geometry: (offset, stroke)
-    pub strikeout: Vec<(f32, f32)>,
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.
@@ -546,26 +547,12 @@ pub fn load_font_to_fontdb(
 
     let face = font_system.db().face(*face_id).unwrap();
 
-    let mut font_face_info = FontFaceInfo {
+    FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
         weight: face.weight,
         family_name: family_name.clone(),
-        strikeout_offset: 0.,
-        strikeout_size: 0.,
-    };
-
-    if let Some(font) = font_system.get_font(*face_id) {
-        let swash = font.as_swash();
-        let metrics = swash.metrics(&[]);
-        let upem = metrics.units_per_em as f32;
-        let strikeout_offset = metrics.strikeout_offset / upem;
-        let strikeout_size = metrics.stroke_size / upem;
-        font_face_info.strikeout_offset = strikeout_offset;
-        font_face_info.strikeout_size = strikeout_size;
-    };
-
-    font_face_info
+    }
 }
 
 /// Translates [`TextFont`] to [`Attrs`].
