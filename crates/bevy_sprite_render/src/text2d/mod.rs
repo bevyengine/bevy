@@ -153,7 +153,7 @@ pub fn extract_text2d_sprite(
                 text_layout_info.section_geometry.iter()
             {
                 let section_entity = computed_block.entities()[section_index].entity;
-                let Ok(text_color) = strikeout_query.get(section_entity) else {
+                let Ok(_) = strikeout_query.get(section_entity) else {
                     continue;
                 };
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
@@ -164,7 +164,7 @@ pub fn extract_text2d_sprite(
                     main_entity,
                     render_entity,
                     transform,
-                    color: text_color.0.into(),
+                    color: color.into(),
                     image_handle_id: AssetId::default(),
                     flip_x: false,
                     flip_y: false,
