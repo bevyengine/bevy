@@ -148,6 +148,34 @@ pub fn extract_text2d_sprite(
 
                 end += 1;
             }
+
+            for &(section_index, rect, strikeout_y, stroke) in
+                text_layout_info.section_geometry.iter()
+            {
+                let section_entity = computed_block.entities()[section_index].entity;
+                let Ok(text_color) = strikeout_query.get(section_entity) else {
+                    continue;
+                };
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
+                let transform =
+                    shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    main_entity,
+                    render_entity,
+                    transform,
+                    color: text_color.0.into(),
+                    image_handle_id: AssetId::default(),
+                    flip_x: false,
+                    flip_y: false,
+                    kind: ExtractedSpriteKind::Single {
+                        anchor: Vec2::ZERO,
+                        rect: None,
+                        scaling_mode: None,
+                        custom_size: Some(Vec2::new(rect.size().x, stroke)),
+                    },
+                });
+            }
         }
 
         let transform =
