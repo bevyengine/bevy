@@ -63,6 +63,10 @@ pub struct FontFaceInfo {
     pub weight: cosmic_text::fontdb::Weight,
     /// Font family name
     pub family_name: Arc<str>,
+    /// Strikeout offset from baseline.
+    pub strikeout_offset: f32,
+    /// Thickness of strikeout lines.
+    pub strikeout_size: f32,
 }
 
 /// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
@@ -462,6 +466,8 @@ pub struct TextLayoutInfo {
     pub section_rects: Vec<(Entity, Rect)>,
     /// The glyphs resulting size
     pub size: Vec2,
+    /// Strikout geometry: (offset, stroke)
+    pub strikout: Vec<(f32, f32)>,
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.
@@ -516,18 +522,33 @@ pub fn load_font_to_fontdb(
             // TODO: it is assumed this is the right font face
             let face_id = *ids.last().unwrap();
             let face = font_system.db().face(face_id).unwrap();
-            let family_name = Arc::from(face.families[0].0.as_str());
 
+            let family_name = Arc::from(face.families[0].0.as_str());
             (face_id, family_name)
         });
+
     let face = font_system.db().face(*face_id).unwrap();
 
-    FontFaceInfo {
+    let mut font_face_info = FontFaceInfo {
         stretch: face.stretch,
         style: face.style,
         weight: face.weight,
         family_name: family_name.clone(),
-    }
+        strikeout_offset: 0.,
+        strikeout_size: 0.,
+    };
+
+    if let Some(font) = font_system.get_font(*face_id) {
+        let swash = font.as_swash();
+        let metrics = swash.metrics(&[]);
+        let upem = metrics.units_per_em as f32;
+        let strikeout_offset = metrics.strikeout_offset / upem;
+        let strikeout_size = metrics.stroke_size / upem;
+        font_face_info.strikeout_offset = strikeout_offset;
+        font_face_info.strikeout_size = strikeout_size;
+    };
+
+    font_face_info
 }
 
 /// Translates [`TextFont`] to [`Attrs`].
