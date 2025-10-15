@@ -20,8 +20,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-              //  title: "Bevy Desk Toy".into(),
-                // adding title has a bug 
+                // MacOS does not let you set the title of transparent windows. Do not add
+                // title: "Bevy Desk Toy".into(),
                 transparent: true,
                 #[cfg(target_os = "macos")]
                 composite_alpha_mode: CompositeAlphaMode::PostMultiplied,
