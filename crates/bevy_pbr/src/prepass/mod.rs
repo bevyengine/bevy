@@ -4,7 +4,7 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
     MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
@@ -61,7 +61,6 @@ use bevy_render::{
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
-use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -180,16 +179,6 @@ impl Plugin for PrepassPlugin {
                 .before(queue_material_meshlet_meshes)
                 .run_if(resource_exists::<InstanceManager>),
         );
-    }
-}
-
-/// Marker resource for whether prepass is enabled globally for this material type
-#[derive(Resource, Debug)]
-pub struct PrepassEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for PrepassEnabled<M> {
-    fn default() -> Self {
-        PrepassEnabled(PhantomData)
     }
 }
 
@@ -332,7 +321,7 @@ pub fn init_prepass_pipeline(
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
-        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
         empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
@@ -888,7 +877,10 @@ pub fn specialize_prepass_material_meshes(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap()
+                .system_tick;
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);

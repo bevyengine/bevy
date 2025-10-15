@@ -24,7 +24,7 @@ use core::{
 /// The entity involved *does not* have to have these components, but the observer will only be
 /// triggered if the event matches the components in `B`.
 ///
-/// This is used to to avoid providing a generic argument in your event, as is done for [`Add`]
+/// This is used to avoid providing a generic argument in your event, as is done for [`Add`]
 /// and the other lifecycle events.
 ///
 /// Providing multiple components in this bundle will cause this event to be triggered by any

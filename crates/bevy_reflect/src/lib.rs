@@ -5,7 +5,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -814,7 +814,7 @@ pub mod __macro_exports {
 
             static REGISTRATION_FNS: Mutex<Vec<fn(&mut TypeRegistry)>> = Mutex::new(Vec::new());
 
-            /// Adds adds a new registration function for [`TypeRegistry`]
+            /// Adds a new registration function for [`TypeRegistry`]
             pub fn push_registration_fn(registration_fn: fn(&mut TypeRegistry)) {
                 REGISTRATION_FNS.lock().unwrap().push(registration_fn);
             }

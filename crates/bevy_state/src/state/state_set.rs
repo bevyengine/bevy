@@ -57,7 +57,7 @@ pub trait StateSet: StateSetSealed {
 /// The isolation works because it is implemented for both S & [`Option<S>`], and has the `RawState` associated type
 /// that allows it to know what the resource in the world should be. We can then essentially "unwrap" it in our
 /// `StateSet` implementation - and the behavior of that unwrapping will depend on the arguments expected by the
-/// the [`ComputedStates`] & [`SubStates]`.
+/// [`ComputedStates`] & [`SubStates]`.
 trait InnerStateSet: Sized {
     type RawState: States;
 

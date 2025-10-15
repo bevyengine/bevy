@@ -163,7 +163,11 @@ fn find_adapter_by_name(
             continue;
         }
 
-        if info.name.eq_ignore_ascii_case(adapter_name) {
+        if info
+            .name
+            .to_lowercase()
+            .contains(&adapter_name.to_lowercase())
+        {
             return Some(adapter);
         }
     }
@@ -469,7 +473,7 @@ pub async fn initialize_renderer(
 /// The context with all information required to interact with the GPU.
 ///
 /// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
+/// [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
