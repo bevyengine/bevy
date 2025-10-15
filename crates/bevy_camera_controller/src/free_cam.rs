@@ -98,7 +98,7 @@ pub struct FreeCam {
     /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](FreeCam::walk_speed)
     /// and [`run_speed`](FreeCam::run_speed).
     pub scroll_factor: f32,
-    /// Friction factor used to exponentially decay [`velocity`](FreeCam::velocity) over time.
+    /// Friction factor used to exponentially decay [`velocity`](FreeCamState::velocity) over time.
     pub friction: f32,
 }
 
