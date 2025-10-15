@@ -1,6 +1,6 @@
 ---
 title: Nested query access
-pull_requests: [TODO]
+pull_requests: [21557]
 ---
 
 Some queries may now access data from multiple entities.
