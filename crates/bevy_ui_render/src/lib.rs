@@ -61,6 +61,7 @@ use gradient::GradientPlugin;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, Strikeout, TextBackgroundColor, TextColor, TextLayoutInfo,
+    Underline,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1100,7 +1101,10 @@ pub fn extract_text_decorations(
         )>,
     >,
     text_background_colors_query: Extract<
-        Query<(AnyOf<(&TextBackgroundColor, &Strikeout)>, &TextColor)>,
+        Query<(
+            AnyOf<(&TextBackgroundColor, &Strikeout, &Underline)>,
+            &TextColor,
+        )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
@@ -1128,10 +1132,11 @@ pub fn extract_text_decorations(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        for &(section_index, rect, strikeout_y, stroke, underline_y) in
+            text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok(((text_background_color, maybe_strikeout), text_color)) =
+            let Ok(((text_background_color, maybe_strikeout, maybe_underline), text_color)) =
                 text_background_colors_query.get(section_entity)
             else {
                 continue;
@@ -1173,6 +1178,35 @@ pub fn extract_text_decorations(
                         * Affine2::from_translation(Vec2::new(
                             rect.center().x,
                             strikeout_y + 0.5 * stroke,
+                        )),
+                    item: ExtractedUiItem::Node {
+                        color: text_color.0.to_linear(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: Vec2::new(rect.size().x, stroke),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        node_type: NodeType::Rect,
+                    },
+                    main_entity: entity.into(),
+                });
+            }
+
+            if maybe_underline.is_some() {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: transform
+                        * Affine2::from_translation(Vec2::new(
+                            rect.center().x,
+                            underline_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
