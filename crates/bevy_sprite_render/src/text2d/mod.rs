@@ -164,7 +164,7 @@ pub fn extract_text2d_sprite(
                     main_entity,
                     render_entity,
                     transform,
-                    color: color.into(),
+                    color,
                     image_handle_id: AssetId::default(),
                     flip_x: false,
                     flip_y: false,
