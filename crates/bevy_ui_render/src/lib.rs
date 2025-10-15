@@ -1018,16 +1018,27 @@ pub fn extract_text_shadows(
             Option<&CalculatedClip>,
             &TextLayoutInfo,
             &TextShadow,
+            &ComputedTextBlock,
         )>,
     >,
+    text_decoration_query: Extract<Query<(Has<Strikeout>, Has<Underline>)>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, target, inherited_visibility, clip, text_layout_info, shadow) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        target,
+        inherited_visibility,
+        clip,
+        text_layout_info,
+        shadow,
+        computed_block,
+    ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -1081,6 +1092,74 @@ pub fn extract_text_shadows(
             }
 
             end += 1;
+        }
+
+        for &(section_index, rect, strikeout_y, stroke, underline_y) in
+            text_layout_info.section_geometry.iter()
+        {
+            let section_entity = computed_block.entities()[section_index].entity;
+            let Ok((has_strikeout, has_underline)) = text_decoration_query.get(section_entity)
+            else {
+                continue;
+            };
+
+            if has_strikeout {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: node_transform
+                        * Affine2::from_translation(Vec2::new(
+                            rect.center().x,
+                            strikeout_y + 0.5 * stroke,
+                        )),
+                    item: ExtractedUiItem::Node {
+                        color: shadow.color.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: Vec2::new(rect.size().x, stroke),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        node_type: NodeType::Rect,
+                    },
+                    main_entity: entity.into(),
+                });
+            }
+
+            if has_underline {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: node_transform
+                        * Affine2::from_translation(Vec2::new(
+                            rect.center().x,
+                            underline_y + 0.5 * stroke,
+                        )),
+                    item: ExtractedUiItem::Node {
+                        color: shadow.color.into(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: Vec2::new(rect.size().x, stroke),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::ZERO,
+                        border_radius: ResolvedBorderRadius::ZERO,
+                        node_type: NodeType::Rect,
+                    },
+                    main_entity: entity.into(),
+                });
+            }
         }
     }
 }
