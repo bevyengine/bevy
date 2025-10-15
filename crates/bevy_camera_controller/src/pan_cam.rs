@@ -49,25 +49,25 @@ pub struct PanCam {
     /// This [`PanCam`]'s zoom sensitivity.
     pub zoom_speed: f32,
     /// [`KeyCode`] to zoom in.
-    pub key_zoom_in: KeyCode,
+    pub key_zoom_in: Option<KeyCode>,
     /// [`KeyCode`] to zoom out.
-    pub key_zoom_out: KeyCode,
+    pub key_zoom_out: Option<KeyCode>,
     /// This [`PanCam`]'s translation speed.
     pub pan_speed: f32,
     /// [`KeyCode`] for upward translation.
-    pub key_up: KeyCode,
+    pub key_up: Option<KeyCode>,
     /// [`KeyCode`] for downward translation.
-    pub key_down: KeyCode,
+    pub key_down: Option<KeyCode>,
     /// [`KeyCode`] for leftward translation.
-    pub key_left: KeyCode,
+    pub key_left: Option<KeyCode>,
     /// [`KeyCode`] for rightward translation.
-    pub key_right: KeyCode,
+    pub key_right: Option<KeyCode>,
     /// Rotation speed multiplier (in radians per second).
     pub rotation_speed: f32,
     /// [`KeyCode`] for counter-clockwise rotation.
-    pub key_rotate_ccw: KeyCode,
+    pub key_rotate_ccw: Option<KeyCode>,
     /// [`KeyCode`] for clockwise rotation.
-    pub key_rotate_cw: KeyCode,
+    pub key_rotate_cw: Option<KeyCode>,
 }
 
 /// Provides the default values for the `PanCam` controller.
@@ -95,17 +95,23 @@ impl Default for PanCam {
             min_zoom: 0.1,
             max_zoom: 5.0,
             zoom_speed: 0.1,
-            key_zoom_in: KeyCode::Equal,
-            key_zoom_out: KeyCode::Minus,
+            key_zoom_in: Some(KeyCode::Equal),
+            key_zoom_out: Some(KeyCode::Minus),
             pan_speed: 500.0,
-            key_up: KeyCode::KeyW,
-            key_down: KeyCode::KeyS,
-            key_left: KeyCode::KeyA,
-            key_right: KeyCode::KeyD,
+            key_up: Some(KeyCode::KeyW),
+            key_down: Some(KeyCode::KeyS),
+            key_left: Some(KeyCode::KeyA),
+            key_right: Some(KeyCode::KeyD),
             rotation_speed: PI,
-            key_rotate_ccw: KeyCode::KeyQ,
-            key_rotate_cw: KeyCode::KeyE,
+            key_rotate_ccw: Some(KeyCode::KeyQ),
+            key_rotate_cw: Some(KeyCode::KeyE),
         }
+    }
+}
+
+impl PanCam {
+    fn key_to_string(key: &Option<KeyCode>) -> String {
+        key.map_or("None".to_string(), |k| format!("{:?}", k))
     }
 }
 
@@ -115,20 +121,19 @@ impl fmt::Display for PanCam {
             f,
             "
 PanCam Controls:
-    {:?} & {:?}\t- Move up & down
-    {:?} & {:?}\t- Move left & right
-    {:?}\t- Rotate counter-clockwise
-    {:?}\t- Rotate clockwise
-    Mouse Scroll\t- Zoom in & out
-    {:?} & {:?}\t- Zoom in & out keys",
-            self.key_up,
-            self.key_down,
-            self.key_left,
-            self.key_right,
-            self.key_rotate_ccw,
-            self.key_rotate_cw,
-            self.key_zoom_in,
-            self.key_zoom_out,
+  Move Up / Down    - {} / {}
+  Move Left / Right - {} / {}
+  Rotate CCW / CW   - {} / {}
+  Zoom              - Mouse Scroll + {} / {}
+",
+            Self::key_to_string(&self.key_up),
+            Self::key_to_string(&self.key_down),
+            Self::key_to_string(&self.key_left),
+            Self::key_to_string(&self.key_right),
+            Self::key_to_string(&self.key_rotate_ccw),
+            Self::key_to_string(&self.key_rotate_cw),
+            Self::key_to_string(&self.key_zoom_in),
+            Self::key_to_string(&self.key_zoom_out),
         )
     }
 }
@@ -158,17 +163,25 @@ fn run_pancam_controller(
 
     // === Movement
     let mut movement = Vec2::ZERO;
-    if key_input.pressed(controller.key_left) {
-        movement.x -= 1.0;
+    if let Some(key) = controller.key_left {
+        if key_input.pressed(key) {
+            movement.x -= 1.0;
+        }
     }
-    if key_input.pressed(controller.key_right) {
-        movement.x += 1.0;
+    if let Some(key) = controller.key_right {
+        if key_input.pressed(key) {
+            movement.x += 1.0;
+        }
     }
-    if key_input.pressed(controller.key_down) {
-        movement.y -= 1.0;
+    if let Some(key) = controller.key_down {
+        if key_input.pressed(key) {
+            movement.y -= 1.0;
+        }
     }
-    if key_input.pressed(controller.key_up) {
-        movement.y += 1.0;
+    if let Some(key) = controller.key_up {
+        if key_input.pressed(key) {
+            movement.y += 1.0;
+        }
     }
 
     if movement != Vec2::ZERO {
@@ -182,22 +195,30 @@ fn run_pancam_controller(
     }
 
     // === Rotation
-    if key_input.pressed(controller.key_rotate_ccw) {
-        transform.rotate_z(controller.rotation_speed * dt);
+    if let Some(key) = controller.key_rotate_ccw {
+        if key_input.pressed(key) {
+            transform.rotate_z(controller.rotation_speed * dt);
+        }
     }
-    if key_input.pressed(controller.key_rotate_cw) {
-        transform.rotate_z(-controller.rotation_speed * dt);
+    if let Some(key) = controller.key_rotate_cw {
+        if key_input.pressed(key) {
+            transform.rotate_z(-controller.rotation_speed * dt);
+        }
     }
 
     // === Zoom
     let mut zoom_amount = 0.0;
 
     // (with keys)
-    if key_input.pressed(controller.key_zoom_in) {
-        zoom_amount -= controller.zoom_speed;
+    if let Some(key) = controller.key_zoom_in {
+        if key_input.pressed(key) {
+            zoom_amount -= controller.zoom_speed;
+        }
     }
-    if key_input.pressed(controller.key_zoom_out) {
-        zoom_amount += controller.zoom_speed;
+    if let Some(key) = controller.key_zoom_out {
+        if key_input.pressed(key) {
+            zoom_amount += controller.zoom_speed;
+        }
     }
 
     // (with mouse wheel)
