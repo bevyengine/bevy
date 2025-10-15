@@ -11,6 +11,7 @@ However, some query operations are not sound for queries that access multiple en
 and need additional trait bounds to ensure they are only used soundly.
 
 An `IterQueryData` bound has been added to iteration methods on `Query`:
+
 * `iter_mut`/ `iter_unsafe` / `into_iter`
 * `iter_many_unique_mut` / `iter_many_unique_unsafe` / `iter_many_unique_inner`
 * `get_many_mut` / `get_many_inner` / `get_many_unique_mut` / `get_many_unique_inner`
@@ -23,6 +24,7 @@ since read-only queries are always sound to iterate.
 since they already prohibit concurrent access to multiple entities.
 
 In addition, a `SingleEntityQueryData` bound has been added to
+
 * The `EntityRef::get_components` family of methods
 * The `Traversal` trait
 * The `Query::transmute` and `Query::join` families of methods
