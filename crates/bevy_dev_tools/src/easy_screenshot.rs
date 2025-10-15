@@ -198,16 +198,12 @@ impl Plugin for EasyScreenRecordPlugin {
         app.add_message::<RecordScreen>().add_systems(
             Update,
             (
-                (move |mut messages: MessageWriter<RecordScreen>,
-                       mut recording: Local<bool>,
-                       mut time: ResMut<Time<bevy_time::Virtual>>| {
+                (move |mut messages: MessageWriter<RecordScreen>, mut recording: Local<bool>| {
                     *recording = !*recording;
                     if *recording {
                         messages.write(RecordScreen::Start);
-                        time.pause();
                     } else {
                         messages.write(RecordScreen::Stop);
-                        time.unpause();
                     }
                 })
                 .run_if(input_just_pressed(self.toggle)),
@@ -218,7 +214,8 @@ impl Plugin for EasyScreenRecordPlugin {
                     move |mut commands: Commands,
                           mut recording: Local<bool>,
                           mut messages: MessageReader<RecordScreen>,
-                          window: Single<&Window, With<PrimaryWindow>>| {
+                          window: Single<&Window, With<PrimaryWindow>>,
+                          mut time: ResMut<Time<bevy_time::Virtual>>| {
                         match messages.read().last() {
                             Some(RecordScreen::Start) => {
                                 let since_the_epoch = SystemTime::now()
@@ -232,10 +229,12 @@ impl Plugin for EasyScreenRecordPlugin {
                                 tx.send(RecordCommand::Start(filename, preset, tune))
                                     .unwrap();
                                 *recording = true;
+                                time.pause();
                             }
                             Some(RecordScreen::Stop) => {
                                 tx.send(RecordCommand::Stop).unwrap();
                                 *recording = false;
+                                time.unpause();
                             }
                             _ => {}
                         }
