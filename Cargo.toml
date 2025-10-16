@@ -230,6 +230,7 @@ common_api = [
   "bevy_core_pipeline",
   "bevy_post_process",
   "bevy_sprite_render",
+  "bevy_gizmos_render",
 ]
 
 # COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
@@ -250,6 +251,7 @@ common_api = [
   "3d_api",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_gizmos_render",
   "bevy_anti_alias",
   "bevy_gltf",
   "bevy_pbr",
@@ -373,8 +375,11 @@ bevy_light = ["bevy_internal/bevy_light"]
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
 
-# Adds support for rendering gizmos
+# Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+
+# Adds support for rendering gizmos
+bevy_gizmos_render = ["bevy_internal/bevy_gizmos_render"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
