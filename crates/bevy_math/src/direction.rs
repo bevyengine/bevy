@@ -428,7 +428,10 @@ impl Dir3 {
 
     // Adding this allow here to make sure that the precision in FRAC_1_SQRT_2
     // and here is the same
-    #[expect(clippy::excessive_precision, reason="compatability with the unstable rust definition")]
+    #[expect(
+        clippy::excessive_precision,
+        reason = "compatibility with the unstable rust definition"
+    )]
     /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
     const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456_f32;
     /// The diagonals between the cardinal directions.
