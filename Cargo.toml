@@ -4826,15 +4826,3 @@ name = "Render Depth to Texture"
 description = "Demonstrates how to use depth-only cameras"
 category = "Shaders"
 wasm = true
-
-[[example]]
-name = "free_cam_simple"
-path = "examples/camera/free_cam_simple.rs"
-doc-scrape-examples = true
-required-features = ["free_cam"]
-
-[package.metadata.example.free_cam_simple]
-name = "Simple Free Camera Controller"
-description = "Demonstrates the default free camera controller for 3D navigation."
-category = "Camera"
-wasm = true
