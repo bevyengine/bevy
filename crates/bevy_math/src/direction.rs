@@ -21,7 +21,7 @@ use thiserror::Error;
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq, Error)]
 pub enum InvalidDirectionError {
-    /// The length of the direction vector is zero or very close to zero.
+    /// The length of the direction vector is zero or very close to zero.XES
     #[error("The length of the direction vector is zero or very close to zero")]
     Zero,
     /// The length of the direction vector is `std::f32::INFINITY`.
@@ -107,6 +107,8 @@ impl Dir2 {
     pub const NEG_Y: Self = Self(Vec2::NEG_Y);
     /// The directional axes.
     pub const AXES: [Self; 2] = [Self::X, Self::Y];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 4] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y];
 
     /// The "north" direction, equivalent to [`Dir2::Y`].
     pub const NORTH: Self = Self(Vec2::Y);
@@ -395,6 +397,8 @@ impl Dir3 {
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
+    /// The cardinal directions.
+    pub const CARDINALS: [Self; 6] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y, Self::Z, Self::NEG_Z];
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
