@@ -127,6 +127,9 @@ impl Dir2 {
     /// The "south-west" direction, between [`Dir2::SOUTH`] and [`Dir2::WEST`].
     pub const SOUTH_WEST: Self = Self(Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2));
 
+    /// The diagonals between the cardinal directions.
+    pub const DIAGONALS: [Self; 4] = [Self::NORTH_EAST, Self::NORTH_WEST, Self::SOUTH_EAST, Self::SOUTH_WEST];
+
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
     /// Returns [`Err(InvalidDirectionError)`](InvalidDirectionError) if the length
@@ -399,6 +402,20 @@ impl Dir3 {
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
     /// The cardinal directions.
     pub const CARDINALS: [Self; 6] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y, Self::Z, Self::NEG_Z];
+
+    // Value taken with same precision as FRAC_1_SQRT_2
+    const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957455f32;
+    /// The diagonals between the cardinal directions.
+    pub const DIAGONALS: [Self; 8] = [
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
