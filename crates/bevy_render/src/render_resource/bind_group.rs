@@ -598,8 +598,7 @@ pub trait AsBindGroup {
         Self: Sized,
     {
         BindGroupLayoutDescriptor {
-            #[expect(clippy::option_map_or_none, reason = "TODO")]
-            label: Self::label().map_or(None, |f| Some(f.into())),
+            label: Self::label().map(|f| f.into()),
             entries: Self::bind_group_layout_entries(render_device, false),
         }
     }

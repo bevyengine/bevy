@@ -222,8 +222,7 @@ impl BindGroupLayoutCache {
             .entry(descriptor)
             .or_insert_with_key(|descriptor| {
                 render_device.create_bind_group_layout(
-                    #[expect(clippy::redundant_closure_for_method_calls, reason = "TODO")]
-                    descriptor.label.as_ref().map(|s| s.as_ref()),
+                    descriptor.label.as_ref().map(Cow::as_ref),
                     &descriptor.entries,
                 )
             })
