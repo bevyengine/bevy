@@ -377,7 +377,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
     #[track_caller]
-    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'_> {
+    pub fn spawn<T: Bundle + 'static>(&mut self, bundle: T) -> EntityCommands<'_> {
         let entity = self.entities.reserve_entity();
         let mut entity_commands = EntityCommands {
             entity,
@@ -1131,7 +1131,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: Bundle + 'static, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands<'_> {
@@ -1387,7 +1387,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
+    pub fn insert(&mut self, bundle: impl Bundle + 'static) -> &mut Self {
         self.queue(entity_command::insert(bundle, InsertMode::Replace))
     }
 
@@ -1416,7 +1416,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
     #[track_caller]
-    pub fn insert_if<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
+    pub fn insert_if<F>(&mut self, bundle: impl Bundle + 'static, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
     {
@@ -1435,7 +1435,7 @@ impl<'a> EntityCommands<'a> {
     /// See also [`entry`](Self::entry), which lets you modify a [`Component`] if it's present,
     /// as well as initialize it with a default value.
     #[track_caller]
-    pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
+    pub fn insert_if_new(&mut self, bundle: impl Bundle + 'static) -> &mut Self {
         self.queue(entity_command::insert(bundle, InsertMode::Keep))
     }
 
@@ -1445,7 +1445,7 @@ impl<'a> EntityCommands<'a> {
     /// This is the same as [`EntityCommands::insert_if`], but in case of duplicate
     /// components will leave the old values instead of replacing them with new ones.
     #[track_caller]
-    pub fn insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
+    pub fn insert_if_new_and<F>(&mut self, bundle: impl Bundle + 'static, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
     {
@@ -1556,7 +1556,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
+    pub fn try_insert(&mut self, bundle: impl Bundle + 'static) -> &mut Self {
         self.queue_silenced(entity_command::insert(bundle, InsertMode::Replace))
     }
 
@@ -1569,7 +1569,7 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
+    pub fn try_insert_if<F>(&mut self, bundle: impl Bundle + 'static, condition: F) -> &mut Self
     where
         F: FnOnce() -> bool,
     {
@@ -1591,7 +1591,11 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if_new_and<F>(&mut self, bundle: impl Bundle, condition: F) -> &mut Self
+    pub fn try_insert_if_new_and<F>(
+        &mut self,
+        bundle: impl Bundle + 'static,
+        condition: F,
+    ) -> &mut Self
     where
         F: FnOnce() -> bool,
     {
@@ -1612,7 +1616,7 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
+    pub fn try_insert_if_new(&mut self, bundle: impl Bundle + 'static) -> &mut Self {
         self.queue_silenced(entity_command::insert(bundle, InsertMode::Keep))
     }
 
@@ -2007,7 +2011,7 @@ impl<'a> EntityCommands<'a> {
 
     /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle + 'static, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

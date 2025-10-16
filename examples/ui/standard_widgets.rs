@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(demo_root(&assets));
 }
 
-fn demo_root(asset_server: &AssetServer) -> impl Bundle {
+fn demo_root(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     (
         Node {
             width: percent(100),
@@ -177,7 +177,7 @@ fn demo_root(asset_server: &AssetServer) -> impl Bundle {
     )
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle {
+fn button(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     (
         Node {
             width: px(150),
@@ -459,7 +459,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 }
 
 /// Create a demo checkbox
-fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle {
+fn checkbox(asset_server: &AssetServer, caption: &str) -> impl Bundle + use<> + 'static {
     (
         Node {
             display: Display::Flex,
@@ -651,7 +651,7 @@ fn set_checkbox_or_radio_style(
 }
 
 /// Create a demo radio group
-fn radio_group(asset_server: &AssetServer) -> impl Bundle {
+fn radio_group(asset_server: &AssetServer) -> impl Bundle + use<> + 'static {
     (
         Node {
             display: Display::Flex,
@@ -672,7 +672,11 @@ fn radio_group(asset_server: &AssetServer) -> impl Bundle {
 }
 
 /// Create a demo radio button
-fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl Bundle {
+fn radio(
+    asset_server: &AssetServer,
+    value: TrackClick,
+    caption: &str,
+) -> impl Bundle + use<> + 'static {
     (
         Node {
             display: Display::Flex,

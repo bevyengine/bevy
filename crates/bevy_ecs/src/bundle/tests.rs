@@ -1,3 +1,5 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
     archetype::ArchetypeCreated, lifecycle::HookContext, prelude::*, world::DeferredWorld,
 };
@@ -262,4 +264,14 @@ struct Ignore {
     foo: i32,
     #[bundle(ignore)]
     bar: i32,
+}
+
+#[test]
+fn moving_ptr_bundle() {
+    let mut world = World::new();
+    let v = V("yogurt");
+    move_as_ptr!(v);
+
+    let e1 = world.spawn((v, B)).id();
+    assert_eq!(world.entity(e1).get::<V>(), Some(&V("yogurt")));
 }
