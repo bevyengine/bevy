@@ -79,7 +79,7 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
    - Starting the Tracy UI first and letting it wait for connection ensures it doesn't have to catch up
 4. Run your bevy app with `--features bevy/trace_tracy --release`
    - `--release` as theres little point to profiling unoptimized code
-    - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
+   - You can capture memory usage as well with `--features bevy/trace_tracy_memory`, at the cost of increased overhead.
 
 #### Finding the correct Tracy version
 
@@ -93,7 +93,7 @@ To determine which Tracy version to install
 Tracy has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. This reduces potential inaccuracies, as running the live capture on the same machine will be a competing graphical application. Pre-recording the profile data through the CLI tool, while other applications are closed, is recommended for more accurate traces.
 
 > [!NOTE]
-> The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable name for the prebuilt binaries is `tracy-capture`. 
+> The name and location of the Tracy command line tool will vary depending on how you installed it - the default executable name for the prebuilt binaries is `tracy-capture`.
 
 In a terminal, run:
 `./tracy-capture -o my_capture.tracy`
