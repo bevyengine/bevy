@@ -30,7 +30,7 @@ impl AssetLoader for FontLoader {
     ) -> Result<Font, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let font = Font::try_from_bytes(bytes)?;
+        let font = Font::try_from_bytes(bytes);
         Ok(font)
     }
 
