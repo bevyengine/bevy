@@ -36,6 +36,7 @@ serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1", default-features = false }
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+parley = { version = "0.6.0" }
 
 [lints]
 workspace = true
