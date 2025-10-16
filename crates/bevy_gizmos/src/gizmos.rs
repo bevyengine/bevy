@@ -282,7 +282,7 @@ where
 }
 
 /// Buffer for gizmo vertex data.
-#[derive(Debug, Clone, Reflect)]
+#[derive(Clone, Reflect)]
 #[reflect(Default)]
 pub struct GizmoBuffer<Config, Clear>
 where
@@ -300,6 +300,23 @@ where
     pub strip_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
+}
+
+impl<Config, Clear> core::fmt::Debug for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("GizmoBuffer")
+            .field("enabled", &self.enabled)
+            .field("list_positions", &self.list_positions)
+            .field("list_colors", &self.list_colors)
+            .field("strip_positions", &self.strip_positions)
+            .field("strip_colors", &self.strip_colors)
+            .field("marker", &self.marker)
+            .finish()
+    }
 }
 
 impl<Config, Clear> Default for GizmoBuffer<Config, Clear>
