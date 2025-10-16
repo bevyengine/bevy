@@ -4,14 +4,10 @@
 
 Only the latest released minor version of Bevy is supported.
 
-<!--
-NOTE: update when releasing a new version
--->
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.17.x  | :white_check_mark: |
-| < 0.17  | :x:                |
+| Version                                                                                 | Supported          |
+| --------------------------------------------------------------------------------------- | ------------------ |
+| [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy) | :white_check_mark: |
+| Previous Versions                                                                       | :x:                |
 
 ## Reporting a Vulnerability
 
