@@ -1,7 +1,9 @@
-use alloc::sync::Arc;
-
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
+use parley::fontique::Blob;
+use parley::fontique::FamilyId;
+use parley::fontique::FontInfo;
+use parley::FontContext;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -17,19 +19,24 @@ use bevy_reflect::TypePath;
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
-    /// Content of a font file as bytes
-    pub data: Arc<Vec<u8>>,
+    collection: Vec<(FamilyId, Vec<FontInfo>)>,
 }
+
+pub struct NoFontsFoundError;
 
 impl Font {
     /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(
+        font_cx: &mut FontContext,
         font_data: Vec<u8>,
-    ) -> Result<Self, cosmic_text::ttf_parser::FaceParsingError> {
-        use cosmic_text::ttf_parser;
-        ttf_parser::Face::parse(&font_data, 0)?;
-        Ok(Self {
-            data: Arc::new(font_data),
-        })
+    ) -> Result<Font, NoFontsFoundError> {
+        let collection = font_cx
+            .collection
+            .register_fonts(Blob::from(font_data), None);
+        if collection.is_empty() {
+            Ok(Font { collection })
+        } else {
+            Err(NoFontsFoundError)
+        }
     }
 }
