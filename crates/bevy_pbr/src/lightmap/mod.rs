@@ -388,7 +388,7 @@ impl RenderLightmaps {
         slab.remove(fallback_images, slot_index);
 
         if !slab.is_full() {
-            self.free_slabs.grow_and_insert(slot_index.into());
+            self.free_slabs.grow_and_insert(slab_index.into());
         }
     }
 }
