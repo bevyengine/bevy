@@ -366,13 +366,16 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new(
-            self,
-            entity,
-            location,
-            self.last_change_tick(),
-            self.change_tick(),
-        ))
+        // SAFETY: `location` is valid as it was freshly fetched from Entities.
+        Ok(unsafe {
+            UnsafeEntityCell::new(
+                self,
+                entity,
+                location,
+                self.last_change_tick(),
+                self.change_tick(),
+            )
+        })
     }
 
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
@@ -388,9 +391,8 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new(
-            self, entity, location, last_run, this_run,
-        ))
+        // SAFETY: Location was just fetched from `Entities`, it must be valid for `entity`
+        Ok(unsafe { UnsafeEntityCell::new(self, entity, location, last_run, this_run) })
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -738,8 +740,10 @@ pub struct UnsafeEntityCell<'w> {
 }
 
 impl<'w> UnsafeEntityCell<'w> {
+    /// # Safety
+    /// `location` must be valid for `entity`
     #[inline]
-    pub(crate) fn new(
+    pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
         entity: Entity,
         location: EntityLocation,
@@ -771,7 +775,13 @@ impl<'w> UnsafeEntityCell<'w> {
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(self) -> &'w Archetype {
-        &self.world.archetypes()[self.location.archetype_id]
+        // SAFETY: The archetype associated with the entity must be valid at all times.
+        unsafe {
+            self.world
+                .archetypes()
+                .get(self.location.archetype_id)
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets the world that the current entity belongs to.

@@ -631,13 +631,30 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.sparse.remove(index).map(|dense_index| {
             let index = dense_index.get();
             let is_last = index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(index);
-            self.indices.swap_remove(index);
-            if !is_last {
-                let swapped_index = self.indices[index].clone();
-                *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
+            if is_last {
+                let new_len = self.dense.len() - 1;
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.dense.set_len(new_len) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.indices.set_len(new_len) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                unsafe { self.dense.as_ptr().add(index).read() }
+            } else {
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the dense Vec.
+                let value = unsafe { self.dense.swap_remove_nonoverlapping_unchecked(index) };
+                // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+                // in the indices Vec.
+                unsafe { self.indices.swap_remove_nonoverlapping_unchecked(index) };
+                // SAFETY: This index was just swapped to above, it must be valid.
+                let swapped_index = unsafe { self.indices.get_unchecked(index).clone() };
+                // SAFETY: The swapped index must be valid in the sparse array.
+                unsafe { *self.sparse.get_mut(swapped_index).debug_checked_unwrap() = dense_index };
+                value
             }
-            value
         })
     }
 
@@ -741,7 +758,12 @@ impl SparseSets {
             );
         }
 
-        self.sets.get_mut(component_info.id()).unwrap()
+        // SAFETY: If the set was not present before, it was just initialized above.
+        unsafe {
+            self.sets
+                .get_mut(component_info.id())
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.

@@ -26,13 +26,13 @@ use crate::{
     event::Event,
     observer::Observers,
     query::DebugCheckedUnwrap,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow, VecExtensions},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use core::{
     hash::Hash,
-    ops::{Index, IndexMut, RangeFrom},
+    ops::{Index, RangeFrom},
 };
 use nonmax::NonMaxU32;
 
@@ -588,11 +588,18 @@ impl Archetype {
     /// Updates if the components for the entity at `index` can be found
     /// in the corresponding table.
     ///
-    /// # Panics
-    /// This function will panic if `index >= self.len()`.
+    /// # Safety
+    /// The caller must ensure that `row >= self.len()`.
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, row: ArchetypeRow, table_row: TableRow) {
-        self.entities[row.index()].table_row = table_row;
+    pub(crate) unsafe fn set_entity_table_row_unchecked(
+        &mut self,
+        row: ArchetypeRow,
+        table_row: TableRow,
+    ) {
+        self.entities
+            .get_mut(row.index())
+            .debug_checked_unwrap()
+            .table_row = table_row;
     }
 
     /// Allocates an entity to the archetype.
@@ -626,19 +633,41 @@ impl Archetype {
     /// Removes the entity at `row` by swapping it out. Returns the table row the entity is stored
     /// in.
     ///
-    /// # Panics
-    /// This function will panic if `row >= self.entities.len()`
+    /// # Safety
+    /// The caller must ensure that `row < self.len()`
     #[inline]
-    pub(crate) fn swap_remove(&mut self, row: ArchetypeRow) -> ArchetypeSwapRemoveResult {
+    pub(crate) unsafe fn swap_remove_unchecked(
+        &mut self,
+        row: ArchetypeRow,
+    ) -> ArchetypeSwapRemoveResult {
+        let index = row.index();
         let is_last = row.index() == self.entities.len() - 1;
-        let entity = self.entities.swap_remove(row.index());
-        ArchetypeSwapRemoveResult {
-            swapped_entity: if is_last {
-                None
-            } else {
-                Some(self.entities[row.index()].entity)
-            },
-            table_row: entity.table_row,
+        if is_last {
+            let result = ArchetypeSwapRemoveResult {
+                swapped_entity: None,
+
+                // SAFETY: The caller must ensure that `row` is in bounds.
+                table_row: unsafe { self.entities.get_unchecked(index).table_row },
+            };
+            // SAFETY: The caller must ensure that `row` is in bounds.
+            unsafe { self.entities.set_len(self.entities.len() - 1) };
+            result
+        } else {
+            // SAFETY: The caller must ensure that `row` is in bounds.
+            let entity = unsafe {
+                self.entities
+                    .swap_remove_nonoverlapping_unchecked(row.index())
+            };
+            ArchetypeSwapRemoveResult {
+                swapped_entity: Some({
+                    let archetype_entity =
+                    // SAFETY: The caller must ensure that `row` is in bounds, and the is_last check ensures
+                    // it remains in bounds after the prior swap_remove call.
+                    unsafe { self.entities.get(row.index()).debug_checked_unwrap() };
+                    archetype_entity.entity
+                }),
+                table_row: entity.table_row,
+            }
         }
     }
 
@@ -865,22 +894,29 @@ impl Archetypes {
         self.archetypes.get(id.index())
     }
 
-    /// # Panics
-    ///
-    /// Panics if `a` and `b` are equal.
+    /// Fetches an mutable reference to an [`Archetype`] using its
+    /// ID.
     #[inline]
-    pub(crate) fn get_2_mut(
+    pub(crate) fn get_mut(&mut self, id: ArchetypeId) -> Option<&mut Archetype> {
+        self.archetypes.get_mut(id.index())
+    }
+
+    /// # Safety
+    /// `a` and `b` must both be in bounds and not equal to each other.
+    #[inline]
+    pub(crate) unsafe fn get_2_unchecked_mut(
         &mut self,
         a: ArchetypeId,
         b: ArchetypeId,
     ) -> (&mut Archetype, &mut Archetype) {
-        if a.index() > b.index() {
-            let (b_slice, a_slice) = self.archetypes.split_at_mut(a.index());
-            (&mut a_slice[0], &mut b_slice[b.index()])
-        } else {
-            let (a_slice, b_slice) = self.archetypes.split_at_mut(b.index());
-            (&mut a_slice[a.index()], &mut b_slice[0])
-        }
+        debug_assert!(
+            a != b && a.index() < self.archetypes.len() && b.index() < self.archetypes.len()
+        );
+        let ptr = self.archetypes.as_mut_ptr();
+        (
+            ptr.add(a.index()).as_mut().debug_checked_unwrap(),
+            ptr.add(b.index()).as_mut().debug_checked_unwrap(),
+        )
     }
 
     /// Returns a read-only iterator over all archetypes.
@@ -974,21 +1010,5 @@ impl Index<RangeFrom<ArchetypeGeneration>> for Archetypes {
     #[inline]
     fn index(&self, index: RangeFrom<ArchetypeGeneration>) -> &Self::Output {
         &self.archetypes[index.start.0.index()..]
-    }
-}
-
-impl Index<ArchetypeId> for Archetypes {
-    type Output = Archetype;
-
-    #[inline]
-    fn index(&self, index: ArchetypeId) -> &Self::Output {
-        &self.archetypes[index.index()]
-    }
-}
-
-impl IndexMut<ArchetypeId> for Archetypes {
-    #[inline]
-    fn index_mut(&mut self, index: ArchetypeId) -> &mut Self::Output {
-        &mut self.archetypes[index.index()]
     }
 }

@@ -71,7 +71,7 @@ impl Drop for AbortOnPanic {
 }
 
 /// Unsafe extension functions for `Vec<T>`
-trait VecExtensions<T> {
+pub(crate) trait VecExtensions<T> {
     /// Removes an element from the vector and returns it.
     ///
     /// The removed element is replaced by the last element of the vector.
