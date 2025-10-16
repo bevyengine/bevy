@@ -430,7 +430,7 @@ impl Dir3 {
     // and here is the same
     #[allow(clippy::excessive_precision)]
     /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
-    const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957455f32;
+    const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456_f32;
     /// The diagonals between the cardinal directions.
     pub const DIAGONALS: [Self; 8] = [
         Self(Vec3::new(
