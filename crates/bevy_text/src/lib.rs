@@ -32,6 +32,7 @@
 extern crate alloc;
 
 mod bounds;
+mod context;
 mod error;
 mod font;
 mod font_atlas;
@@ -86,6 +87,11 @@ pub struct Text2dUpdateSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
 pub type Update2dText = Text2dUpdateSystems;
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum TextSystems {
+    RegisterFontAssets,
+}
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
@@ -95,6 +101,12 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .add_systems(
+                PostUpdate,
+                register_font_assets_system
+                    .in_set(TextSystems::RegisterFontAssets)
+                    .after(AssetEventSystems),
+            )
             .add_systems(
                 PostUpdate,
                 free_unused_font_atlases_system.before(AssetEventSystems),

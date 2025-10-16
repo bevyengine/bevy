@@ -1,4 +1,9 @@
+use crate::context::TextContext;
 use bevy_asset::Asset;
+use bevy_asset::AssetEvent;
+use bevy_asset::Assets;
+use bevy_ecs::message::MessageReader;
+use bevy_ecs::system::ResMut;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
 use parley::fontique::FamilyId;
@@ -22,14 +27,33 @@ pub struct Font {
     collection: Vec<(FamilyId, Vec<FontInfo>)>,
 }
 
-pub struct NoFontsFoundError;
-
 impl Font {
     /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(font_data: Vec<u8>) -> Font {
         Font {
             blob: Blob::from(font_data),
             collection: vec![],
+        }
+    }
+}
+
+pub fn register_font_assets_system(
+    mut cx: ResMut<TextContext>,
+    mut fonts: ResMut<Assets<Font>>,
+    mut events: MessageReader<AssetEvent<Font>>,
+) {
+    for event in events.read() {
+        match event {
+            AssetEvent::Added { id } => {
+                if let Some(font) = fonts.get_mut(*id) {
+                    let collection = cx
+                        .font_cx
+                        .collection
+                        .register_fonts(font.blob.clone(), None);
+                    font.collection = collection;
+                }
+            }
+            _ => {}
         }
     }
 }
