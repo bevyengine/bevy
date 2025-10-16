@@ -129,6 +129,11 @@ impl Dir2 {
 
     /// The diagonals between the cardinal directions.
     pub const DIAGONALS: [Self; 4] = [Self::NORTH_EAST, Self::NORTH_WEST, Self::SOUTH_EAST, Self::SOUTH_WEST];
+    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
+    pub const ALL_NEIGHBORS: [Self; 8] = [
+        Self::X, Self::NEG_X, Self::Y, Self::NEG_Y,
+        Self::NORTH_EAST, Self::NORTH_WEST, Self::SOUTH_EAST, Self::SOUTH_WEST
+    ];
 
     /// Create a direction from a finite, nonzero [`Vec2`], normalizing it.
     ///
@@ -403,7 +408,7 @@ impl Dir3 {
     /// The cardinal directions.
     pub const CARDINALS: [Self; 6] = [Self::X, Self::NEG_X, Self::Y, Self::NEG_Y, Self::Z, Self::NEG_Z];
 
-    // Value taken with same precision as FRAC_1_SQRT_2
+    /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
     const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957455f32;
     /// The diagonals between the cardinal directions.
     pub const DIAGONALS: [Self; 8] = [
@@ -416,6 +421,19 @@ impl Dir3 {
         Self(Vec3::new(Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
         Self(Vec3::new(-Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
     ];
+    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
+    pub const ALL_NEIGHBORS: [Self; 14] = [
+        Self::X, Self::NEG_X, Self::Y, Self::NEG_Y, Self::Z, Self::NEG_Z,
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+        Self(Vec3::new(-Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3, -Self::FRAC_1_SQRT_3)),
+    ];
+
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
