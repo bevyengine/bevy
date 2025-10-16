@@ -1,7 +1,10 @@
+mod compute_builder;
 mod extract;
 mod node;
 mod plugin;
 
+pub use compute_builder::ComputeCommandBuilder;
+pub use node::RenderTaskEncoder;
 pub use plugin::RenderTaskPlugin;
 
 use crate::{
@@ -24,4 +27,6 @@ pub trait RenderTask: Component + Clone {
 
     #[expect(unused_variables)]
     fn plugin_render_app_build(render_app: &mut SubApp) {}
+
+    fn encode_commands(&self, encoder: &mut RenderTaskEncoder);
 }
