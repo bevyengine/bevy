@@ -68,6 +68,13 @@ impl AssetInfo {
     }
 }
 
+/// Tracks statistics of the asset server.
+#[derive(Default, Clone, PartialEq, Eq)]
+pub(crate) struct AssetServerStats {
+    /// The number of load tasks that have been started.
+    pub(crate) started_load_tasks: usize,
+}
+
 #[derive(Default)]
 pub(crate) struct AssetInfos {
     path_to_index: HashMap<AssetPath<'static>, TypeIdMap<AssetIndex>>,
@@ -86,6 +93,8 @@ pub(crate) struct AssetInfos {
     pub(crate) dependency_failed_event_sender:
         TypeIdMap<fn(&mut World, AssetIndex, AssetPath<'static>, AssetLoadError)>,
     pub(crate) pending_tasks: HashMap<ErasedAssetIndex, Task<()>>,
+    /// The stats that have collected during usage of the asset server.
+    pub(crate) stats: AssetServerStats,
 }
 
 impl core::fmt::Debug for AssetInfos {
