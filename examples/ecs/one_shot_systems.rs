@@ -93,7 +93,7 @@ fn setup_ui(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::default(),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::new_with_justify(TextAlign::Center),
         Node {
             align_self: AlignSelf::Center,
             justify_self: JustifySelf::Center,

@@ -6,6 +6,9 @@ use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GlyphCacheKey;
+
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
 /// A `FontAtlas` contains one or more textures, each of which contains one or more glyphs packed into them.
@@ -22,7 +25,7 @@ pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
     /// A mapping between subpixel-offset glyphs and their [`GlyphAtlasLocation`].
-    pub glyph_to_atlas_index: HashMap<cosmic_text::CacheKey, GlyphAtlasLocation>,
+    pub glyph_to_atlas_index: HashMap<GlyphCacheKey, GlyphAtlasLocation>,
     /// The handle to the [`TextureAtlasLayout`] that holds the rasterized glyphs.
     pub texture_atlas: Handle<TextureAtlasLayout>,
     /// The texture where this font atlas is located
@@ -59,12 +62,12 @@ impl FontAtlas {
     }
 
     /// Get the [`GlyphAtlasLocation`] for a subpixel-offset glyph.
-    pub fn get_glyph_index(&self, cache_key: cosmic_text::CacheKey) -> Option<GlyphAtlasLocation> {
+    pub fn get_glyph_index(&self, cache_key: GlyphCacheKey) -> Option<GlyphAtlasLocation> {
         self.glyph_to_atlas_index.get(&cache_key).copied()
     }
 
     /// Checks if the given subpixel-offset glyph is contained in this [`FontAtlas`].
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey) -> bool {
+    pub fn has_glyph(&self, cache_key: GlyphCacheKey) -> bool {
         self.glyph_to_atlas_index.contains_key(&cache_key)
     }
 
@@ -83,7 +86,7 @@ impl FontAtlas {
         &mut self,
         textures: &mut Assets<Image>,
         atlas_layouts: &mut Assets<TextureAtlasLayout>,
-        cache_key: cosmic_text::CacheKey,
+        cache_key: GlyphCacheKey,
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
@@ -242,7 +245,7 @@ pub fn get_outlined_glyph_texture(
 /// Generates the [`GlyphAtlasInfo`] for the given subpixel-offset glyph.
 pub fn get_glyph_atlas_info(
     font_atlases: &mut [FontAtlas],
-    cache_key: cosmic_text::CacheKey,
+    cache_key: GlyphCacheKey,
 ) -> Option<GlyphAtlasInfo> {
     font_atlases.iter().find_map(|atlas| {
         atlas

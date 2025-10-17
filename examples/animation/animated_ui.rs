@@ -147,7 +147,7 @@ fn setup(
             ..default()
         },
         TextColor(Color::Srgba(Srgba::RED)),
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::new_with_justify(TextAlign::Center),
         animation_target_id,
         AnimatedBy(player),
         animation_target_name,

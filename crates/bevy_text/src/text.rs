@@ -5,7 +5,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
 use bevy_utils::{default, once};
-use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use tracing::warn;
@@ -116,19 +115,19 @@ impl Default for ComputedTextBlock {
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub justify: Justify,
+    pub justify: TextAlign,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
 }
 
 impl TextLayout {
     /// Makes a new [`TextLayout`].
-    pub const fn new(justify: Justify, linebreak: LineBreak) -> Self {
+    pub const fn new(justify: TextAlign, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
     /// Makes a new [`TextLayout`] with the specified [`Justify`].
-    pub fn new_with_justify(justify: Justify) -> Self {
+    pub fn new_with_justify(justify: TextAlign) -> Self {
         Self::default().with_justify(justify)
     }
 
@@ -144,7 +143,7 @@ impl TextLayout {
     }
 
     /// Returns this [`TextLayout`] with the specified [`Justify`].
-    pub const fn with_justify(mut self, justify: Justify) -> Self {
+    pub const fn with_justify(mut self, justify: TextAlign) -> Self {
         self.justify = justify;
         self
     }
@@ -215,7 +214,7 @@ impl From<String> for TextSpan {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
 #[doc(alias = "JustifyText")]
-pub enum Justify {
+pub enum TextAlign {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
@@ -230,15 +229,21 @@ pub enum Justify {
     /// align with their margins.
     /// Bounds start from the render position and advance equally left & right.
     Justified,
+    /// `TextAlignment::Left` for LTR text and `TextAlignment::Right` for RTL text.
+    Start,
+    /// `TextAlignment::Left` for RTL text and `TextAlignment::Right` for LTR text.
+    End,
 }
 
-impl From<Justify> for cosmic_text::Align {
-    fn from(justify: Justify) -> Self {
+impl From<TextAlign> for parley::Alignment {
+    fn from(justify: TextAlign) -> Self {
         match justify {
-            Justify::Left => cosmic_text::Align::Left,
-            Justify::Center => cosmic_text::Align::Center,
-            Justify::Right => cosmic_text::Align::Right,
-            Justify::Justified => cosmic_text::Align::Justified,
+            TextAlign::Start => parley::Alignment::Start,
+            TextAlign::End => parley::Alignment::End,
+            TextAlign::Left => parley::Alignment::Left,
+            TextAlign::Center => parley::Alignment::Center,
+            TextAlign::Right => parley::Alignment::Right,
+            TextAlign::Justified => parley::Alignment::Justify,
         }
     }
 }

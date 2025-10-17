@@ -11,8 +11,8 @@ pub struct FontLoader;
 #[derive(Debug, Error)]
 pub enum FontLoaderError {
     /// The contents that could not be parsed
-    #[error(transparent)]
-    Content(#[from] cosmic_text::ttf_parser::FaceParsingError),
+    #[error("Failed to parse font.")]
+    Content,
     /// An [IO](std::io) Error
     #[error(transparent)]
     Io(#[from] std::io::Error),

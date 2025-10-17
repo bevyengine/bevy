@@ -116,7 +116,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 commands.entity(column_id).with_child((
                     Text(message.clone()),
                     text_font.clone(),
-                    TextLayout::new(Justify::Left, linebreak),
+                    TextLayout::new(TextAlign::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
                 ));
             }

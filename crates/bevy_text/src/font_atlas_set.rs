@@ -1,4 +1,4 @@
-use crate::{Font, FontAtlas, FontSmoothing, TextFont};
+use crate::{Font, FontAtlas, FontSmoothing, GlyphCacheKey, SwashCache, TextFont};
 use bevy_asset::{AssetEvent, AssetId};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
@@ -26,7 +26,7 @@ pub struct FontAtlasSet(HashMap<FontAtlasKey, Vec<FontAtlas>>);
 
 impl FontAtlasSet {
     /// Checks whether the given subpixel-offset glyph is contained in any of the [`FontAtlas`]es for the font identified by the given [`FontAtlasKey`].
-    pub fn has_glyph(&self, cache_key: cosmic_text::CacheKey, font_key: &FontAtlasKey) -> bool {
+    pub fn has_glyph(&self, cache_key: GlyphCacheKey, font_key: &FontAtlasKey) -> bool {
         self.get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
     }

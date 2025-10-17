@@ -1,8 +1,8 @@
-use crate::context::TextContext;
+use crate::context::FontCx;
 use crate::ComputedTextBlock;
 use crate::Font;
-use crate::Justify;
 use crate::LineBreak;
+use crate::TextAlign;
 use crate::TextBounds;
 use crate::TextFont;
 use bevy_asset::Assets;
@@ -18,15 +18,15 @@ pub fn update_buffer(
     text: String,
     text_font: TextFont,
     linebreak: LineBreak,
-    justify: Justify,
+    justify: TextAlign,
     bounds: TextBounds,
     scale_factor: f32,
-    context: &mut TextContext,
+    context: &mut FontCx,
 ) {
     let font = fonts.get(text_font.font.id()).unwrap();
     let (family_id, info) = &font.collection[0];
 
-    let TextContext {
+    let FontCx {
         font_cx,
         layout_cx,
         scale_cx,

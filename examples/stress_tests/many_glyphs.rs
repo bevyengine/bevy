@@ -71,7 +71,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
         ..Default::default()
     };
     let text_block = TextLayout {
-        justify: Justify::Left,
+        justify: TextAlign::Left,
         linebreak: LineBreak::AnyCharacter,
     };
 

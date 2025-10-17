@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
-    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, LineBreak, PositionedGlyph, TextAlign, TextBounds,
     TextEntity, TextFont, TextLayout,
 };
 
@@ -89,7 +89,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         linebreak: LineBreak,
-        justify: Justify,
+        justify: TextAlign,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
@@ -202,7 +202,7 @@ impl TextPipeline {
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != Justify::Left {
+        if bounds.width.is_none() && justify != TextAlign::Left {
             let dimensions = buffer_dimensions(buffer);
             // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);

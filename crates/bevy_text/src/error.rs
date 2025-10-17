@@ -1,4 +1,3 @@
-use cosmic_text::CacheKey;
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, Error)]
@@ -12,6 +11,6 @@ pub enum TextError {
     #[error("failed to add glyph to newly-created atlas {0:?}")]
     FailedToAddGlyph(u16),
     /// Failed to get scaled glyph image for cache key
-    #[error("failed to get scaled glyph image for cache key: {0:?}")]
-    FailedToGetGlyphImage(CacheKey),
+    #[error("failed to get scaled glyph image for cache key")]
+    FailedToGetGlyphImage,
 }

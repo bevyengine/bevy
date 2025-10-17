@@ -1,4 +1,4 @@
-use crate::context::TextContext;
+use crate::context::FontCx;
 use bevy_asset::Asset;
 use bevy_asset::AssetEvent;
 use bevy_asset::Assets;
@@ -38,7 +38,7 @@ impl Font {
 }
 
 pub fn register_font_assets_system(
-    mut cx: ResMut<TextContext>,
+    mut cx: ResMut<FontCx>,
     mut fonts: ResMut<Assets<Font>>,
     mut events: MessageReader<AssetEvent<Font>>,
 ) {
@@ -46,10 +46,7 @@ pub fn register_font_assets_system(
         match event {
             AssetEvent::Added { id } => {
                 if let Some(font) = fonts.get_mut(*id) {
-                    let collection = cx
-                        .font_cx
-                        .collection
-                        .register_fonts(font.blob.clone(), None);
+                    let collection = cx.collection.register_fonts(font.blob.clone(), None);
                     font.collection = collection;
                 }
             }

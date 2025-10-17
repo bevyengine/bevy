@@ -43,7 +43,7 @@ fn setup(mut commands: Commands) {
                 .spawn((
                     Text::default(),
                     TextLayout {
-                        justify: Justify::Center,
+                        justify: TextAlign::Center,
                         ..Default::default()
                     },
                 ))

@@ -148,10 +148,10 @@ mod text {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
 
         for (i, justify) in [
-            Justify::Left,
-            Justify::Right,
-            Justify::Center,
-            Justify::Justified,
+            TextAlign::Left,
+            TextAlign::Right,
+            TextAlign::Center,
+            TextAlign::Justified,
         ]
         .into_iter()
         .enumerate()
@@ -193,7 +193,7 @@ mod text {
     fn spawn_anchored_text(
         commands: &mut Commands,
         dest: Vec3,
-        justify: Justify,
+        justify: TextAlign,
         bounds: Option<TextBounds>,
     ) {
         commands.spawn((

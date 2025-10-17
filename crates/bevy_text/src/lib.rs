@@ -45,6 +45,7 @@ mod text;
 mod text_access;
 
 pub use bounds::*;
+pub use context::*;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -61,7 +62,7 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Font, LineBreak, TextAlign, TextColor, TextError, TextFont, TextLayout, TextSpan,
     };
 }
 
@@ -69,7 +70,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
 
-use crate::context::TextContext;
+use crate::context::FontCx;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -104,7 +105,9 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
-            .init_resource::<TextContext>()
+            .init_resource::<FontCx>()
+            .init_resource::<LayoutCx>()
+            .init_resource::<ScaleCx>()
             .add_systems(
                 PostUpdate,
                 register_font_assets_system
