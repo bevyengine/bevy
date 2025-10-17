@@ -357,8 +357,8 @@ reflect_auto_register_static = [
   "bevy_ecs/reflect_auto_register",
 ]
 
-# Enable documentation reflection
-reflect_documentation = ["bevy_reflect/documentation"]
+# Enables bevy_reflect to access documentation comments of rust code at runtime
+reflect_documentation = ["bevy_reflect/reflect_documentation"]
 
 # Enable custom cursor support
 custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
