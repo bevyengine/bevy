@@ -1835,7 +1835,7 @@ impl MeshPipeline {
     }
 }
 
-/// A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
+/// A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional [`crate::pbr_material::StandardMaterial`] textures
 pub fn build_dummy_white_gpu_image(
     render_device: Res<RenderDevice>,
     default_sampler: Res<DefaultImageSampler>,
