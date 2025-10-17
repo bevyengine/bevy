@@ -43,6 +43,8 @@ struct ToggleSwitchSlide;
 /// # Arguments
 /// * `props` - construction properties for the toggle switch.
 /// * `overrides` - a bundle of components that are merged in with the normal toggle switch components.
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the toggle switch changes state.
 pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
     (
         Node {
