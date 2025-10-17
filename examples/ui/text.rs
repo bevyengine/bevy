@@ -6,14 +6,16 @@
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    time::common_conditions::on_timer,
     prelude::*,
 };
+use std::time::Duration;
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
+        .add_systems(Update, (text_color_system, text_update_system.run_if(on_timer(Duration::from_secs_f32(0.5)))))
         .run();
 }
 
