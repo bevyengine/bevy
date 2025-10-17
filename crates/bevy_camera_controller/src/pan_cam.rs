@@ -39,7 +39,7 @@ impl Plugin for PanCamPlugin {
 #[derive(Component)]
 pub struct PanCam {
     /// Enables this [`PanCam`] when `true`.
-    pub enable: bool,
+    pub enabled: bool,
     /// Current zoom level (factor applied to camera scale).
     pub zoom_factor: f32,
     /// Minimum allowed zoom level.
@@ -90,7 +90,7 @@ impl Default for PanCam {
     /// or modifying the default instance.
     fn default() -> Self {
         Self {
-            enable: true,
+            enabled: true,
             zoom_factor: 1.0,
             min_zoom: 0.1,
             max_zoom: 5.0,
@@ -157,7 +157,7 @@ fn run_pancam_controller(
         return;
     };
 
-    if !controller.enable {
+    if !controller.enabled {
         return;
     }
 
