@@ -72,6 +72,12 @@ struct SliderValueText;
 ///
 /// * `props` - construction properties for the slider.
 /// * `overrides` - a bundle of components that are merged in with the normal slider components.
+///
+/// # Emitted events
+///
+/// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {
