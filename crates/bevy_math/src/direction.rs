@@ -21,7 +21,7 @@ use thiserror::Error;
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq, Error)]
 pub enum InvalidDirectionError {
-    /// The length of the direction vector is zero or very close to zero.XES
+    /// The length of the direction vector is zero or very close to zero.
     #[error("The length of the direction vector is zero or very close to zero")]
     Zero,
     /// The length of the direction vector is `std::f32::INFINITY`.
