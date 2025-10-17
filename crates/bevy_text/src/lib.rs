@@ -39,6 +39,7 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod layout;
 mod pipeline;
 mod text;
 mod text_access;
@@ -67,6 +68,8 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
+
+use crate::context::TextContext;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -101,6 +104,7 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<TextContext>()
             .add_systems(
                 PostUpdate,
                 register_font_assets_system

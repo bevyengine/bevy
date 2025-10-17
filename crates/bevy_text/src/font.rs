@@ -23,8 +23,8 @@ use parley::fontique::FontInfo;
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
-    blob: Blob<u8>,
-    collection: Vec<(FamilyId, Vec<FontInfo>)>,
+    pub blob: Blob<u8>,
+    pub collection: Vec<(FamilyId, Vec<FontInfo>)>,
 }
 
 impl Font {
