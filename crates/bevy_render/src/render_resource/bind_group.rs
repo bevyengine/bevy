@@ -10,6 +10,7 @@ use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
+use alloc::borrow::Cow;
 use encase::ShaderType;
 use thiserror::Error;
 use wgpu::{
@@ -598,7 +599,7 @@ pub trait AsBindGroup {
         Self: Sized,
     {
         BindGroupLayoutDescriptor {
-            label: Self::label().map(|f| f.into()),
+            label: Self::label().map(Into::<Cow<str>>::into),
             entries: Self::bind_group_layout_entries(render_device, false),
         }
     }
