@@ -10,7 +10,7 @@ use log::info;
 use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
     event::EntityEvent,
     name::Name,
