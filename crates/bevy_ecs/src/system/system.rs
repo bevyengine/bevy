@@ -442,10 +442,10 @@ where
         // Note that the `downcast_mut` check is based on the static type,
         // and can be optimized out after monomorphization.
         let any: &mut dyn Any = &mut value;
-        if let Some(err) = any.downcast_mut::<SystemParamValidationError>() {
-            if err.skipped {
-                return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
-            }
+        if let Some(err) = any.downcast_mut::<SystemParamValidationError>()
+            && err.skipped
+        {
+            return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
         }
         Self::Failed(From::from(value))
     }
