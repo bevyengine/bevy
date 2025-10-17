@@ -127,6 +127,11 @@ impl System for SystemWithAccess {
     fn set_last_run(&mut self, last_run: Tick) {
         self.system.set_last_run(last_run);
     }
+
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configurate(config);
+    }
 }
 
 /// A [`BoxedCondition`] stored alongside the access returned from [`System::initialize`].
@@ -226,6 +231,11 @@ impl System for ConditionWithAccess {
     #[inline]
     fn set_last_run(&mut self, last_run: Tick) {
         self.condition.set_last_run(last_run);
+    }
+
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.condition.configurate(config);
     }
 }
 
