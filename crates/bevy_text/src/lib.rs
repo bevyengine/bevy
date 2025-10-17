@@ -40,7 +40,6 @@ mod font_atlas_set;
 mod font_loader;
 mod glyph;
 mod layout;
-mod pipeline;
 mod text;
 mod text_access;
 
@@ -52,7 +51,6 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
-pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
 
@@ -69,8 +67,6 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-
-use crate::context::FontCx;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -101,9 +97,6 @@ impl Plugin for TextPlugin {
         app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSet>()
-            .init_resource::<TextPipeline>()
-            .init_resource::<CosmicFontSystem>()
-            .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
             .init_resource::<FontCx>()
             .init_resource::<LayoutCx>()
@@ -113,12 +106,7 @@ impl Plugin for TextPlugin {
                 register_font_assets_system
                     .in_set(TextSystems::RegisterFontAssets)
                     .after(AssetEventSystems),
-            )
-            .add_systems(
-                PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
-            )
-            .add_systems(Last, trim_cosmic_cache);
+            );
 
         #[cfg(feature = "default_font")]
         {

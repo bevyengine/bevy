@@ -1,22 +1,19 @@
-use crate::{Font, FontAtlas, FontSmoothing, GlyphCacheKey, SwashCache, TextFont};
-use bevy_asset::{AssetEvent, AssetId};
+use crate::{FontAtlas, FontSmoothing, GlyphCacheKey};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
+use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
+use parley::fontique;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FontAtlasKey(pub AssetId<Font>, pub u32, pub FontSmoothing);
+pub struct FontAtlasKey(pub fontique::SourceId, pub u32, pub u32, pub FontSmoothing);
 
-impl From<&TextFont> for FontAtlasKey {
-    fn from(font: &TextFont) -> Self {
-        FontAtlasKey(
-            font.font.id(),
-            font.font_size.to_bits(),
-            font.font_smoothing,
-        )
+impl FontAtlasKey {
+    /// new key
+    pub fn new(info: &fontique::FontInfo, size: f32, smoothing: FontSmoothing) -> Self {
+        Self(info.source().id(), info.index(), size.to_bits(), smoothing)
     }
 }
 
@@ -29,17 +26,5 @@ impl FontAtlasSet {
     pub fn has_glyph(&self, cache_key: GlyphCacheKey, font_key: &FontAtlasKey) -> bool {
         self.get(font_key)
             .is_some_and(|font_atlas| font_atlas.iter().any(|atlas| atlas.has_glyph(cache_key)))
-    }
-}
-
-/// A system that automatically frees unused texture atlases when a font asset is removed.
-pub fn free_unused_font_atlases_system(
-    mut font_atlas_sets: ResMut<FontAtlasSet>,
-    mut font_events: MessageReader<AssetEvent<Font>>,
-) {
-    for event in font_events.read() {
-        if let AssetEvent::Removed { id } = event {
-            font_atlas_sets.retain(|key, _| key.0 != *id);
-        }
     }
 }

@@ -1,23 +1,12 @@
-use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{Font, PositionedGlyph, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
-use bevy_utils::{default, once};
+use bevy_utils::default;
 use serde::{Deserialize, Serialize};
-use smallvec::SmallVec;
-use tracing::warn;
-
-/// Wrapper for [`cosmic_text::Buffer`]
-#[derive(Deref, DerefMut, Debug, Clone)]
-pub struct CosmicBuffer(pub Buffer);
-
-impl Default for CosmicBuffer {
-    fn default() -> Self {
-        Self(Buffer::new_empty(Metrics::new(0.0, 0.000001)))
-    }
-}
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -31,77 +20,6 @@ pub struct TextEntity {
     pub depth: usize,
 }
 
-/// Computed information for a text block.
-///
-/// See [`TextLayout`].
-///
-/// Automatically updated by 2d and UI text systems.
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug, Default, Clone)]
-pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
-    ///
-    /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
-    /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    #[reflect(ignore, clone)]
-    pub(crate) buffer: CosmicBuffer,
-    /// Entities for all text spans in the block, including the root-level text.
-    ///
-    /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
-    pub(crate) entities: SmallVec<[TextEntity; 1]>,
-    /// Flag set when any change has been made to this block that should cause it to be rerendered.
-    ///
-    /// Includes:
-    /// - [`TextLayout`] changes.
-    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
-    // TODO: This encompasses both structural changes like font size or justification and non-structural
-    // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
-    // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
-    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
-    // components for more granular change detection. A cost/benefit analysis is needed.
-    pub(crate) needs_rerender: bool,
-}
-
-impl ComputedTextBlock {
-    /// Accesses entities in this block.
-    ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
-    /// stored there.
-    pub fn entities(&self) -> &[TextEntity] {
-        &self.entities
-    }
-
-    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
-    ///
-    /// Updated automatically by [`detect_text_needs_rerender`] and cleared
-    /// by [`TextPipeline`](crate::TextPipeline) methods.
-    pub fn needs_rerender(&self) -> bool {
-        self.needs_rerender
-    }
-    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
-    /// or calculating a cursor position.
-    ///
-    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
-    /// If you want to control the buffer contents manually or use the `cosmic-text`
-    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
-    /// `TextLayoutInfo`.
-    pub fn buffer(&self) -> &CosmicBuffer {
-        &self.buffer
-    }
-}
-
-impl Default for ComputedTextBlock {
-    fn default() -> Self {
-        Self {
-            buffer: CosmicBuffer::default(),
-            entities: SmallVec::default(),
-            needs_rerender: true,
-        }
-    }
-}
-
 /// Component with text format settings for a block of text.
 ///
 /// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
@@ -111,7 +29,7 @@ impl Default for ComputedTextBlock {
 /// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(ComputedTextBlock, TextLayoutInfo)]
+#[require(TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
@@ -430,6 +348,24 @@ pub enum LineBreak {
     NoWrap,
 }
 
+/// Render information for a corresponding text block.
+///
+/// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
+/// [`TextLayout`] and [`ComputedTextBlock`] components.
+#[derive(Component, Clone, Default, Debug, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
+    /// Scaled and positioned glyphs in screenspace
+    pub glyphs: Vec<PositionedGlyph>,
+    /// Rects bounding the text block's text sections.
+    /// A text section spanning more than one line will have multiple bounding rects.
+    pub section_rects: Vec<(Entity, Rect)>,
+    /// The glyphs resulting size
+    pub size: Vec2,
+}
+
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
@@ -452,113 +388,4 @@ pub enum FontSmoothing {
     AntiAliased,
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
-}
-
-/// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
-///
-/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
-/// 2d or `Text`/[`TextSpan`] for UI.
-pub fn detect_text_needs_rerender<Root: Component>(
-    changed_roots: Query<
-        Entity,
-        (
-            Or<(
-                Changed<Root>,
-                Changed<TextFont>,
-                Changed<TextLayout>,
-                Changed<Children>,
-            )>,
-            With<Root>,
-            With<TextFont>,
-            With<TextLayout>,
-        ),
-    >,
-    changed_spans: Query<
-        (Entity, Option<&ChildOf>, Has<TextLayout>),
-        (
-            Or<(
-                Changed<TextSpan>,
-                Changed<TextFont>,
-                Changed<Children>,
-                Changed<ChildOf>, // Included to detect broken text block hierarchies.
-                Added<TextLayout>,
-            )>,
-            With<TextSpan>,
-            With<TextFont>,
-        ),
-    >,
-    mut computed: Query<(
-        Option<&ChildOf>,
-        Option<&mut ComputedTextBlock>,
-        Has<TextSpan>,
-    )>,
-) {
-    // Root entity:
-    // - Root component changed.
-    // - TextFont on root changed.
-    // - TextLayout changed.
-    // - Root children changed (can include additions and removals).
-    for root in changed_roots.iter() {
-        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>()));
-            continue;
-        };
-        computed.needs_rerender = true;
-    }
-
-    // Span entity:
-    // - Span component changed.
-    // - Span TextFont changed.
-    // - Span children changed (can include additions and removals).
-    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
-        if has_text_block {
-            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
-                text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>()));
-        }
-
-        let Some(span_child_of) = maybe_span_child_of else {
-            once!(warn!(
-                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
-                with a root text component ({}); this warning only prints once",
-                entity,
-                core::any::type_name::<Root>()
-            ));
-            continue;
-        };
-        let mut parent: Entity = span_child_of.parent();
-
-        // Search for the nearest ancestor with ComputedTextBlock.
-        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
-        // is outweighed by the expense of tracking visited spans.
-        loop {
-            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
-                    component that points at non-existent entity {}; this warning only prints once",
-                    entity, parent));
-                break;
-            };
-            if let Some(mut computed) = maybe_computed {
-                computed.needs_rerender = true;
-                break;
-            }
-            if !has_span {
-                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
-                span component or a ComputedTextBlock component; this warning only prints once",
-                    entity, parent));
-                break;
-            }
-            let Some(next_child_of) = maybe_child_of else {
-                once!(warn!(
-                    "found entity {} with a TextSpan that has no ancestor with the root text \
-                    component ({}); this warning only prints once",
-                    entity,
-                    core::any::type_name::<Root>()
-                ));
-                break;
-            };
-            parent = next_child_of.parent();
-        }
-    }
 }

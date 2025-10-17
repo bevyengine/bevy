@@ -2,12 +2,16 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
+use swash::scale::Scaler;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 
+/// Key identifying a glyph
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct GlyphCacheKey;
+pub struct GlyphCacheKey {
+    pub glyph_id: u16,
+}
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -86,7 +90,7 @@ impl FontAtlas {
         &mut self,
         textures: &mut Assets<Image>,
         atlas_layouts: &mut Assets<TextureAtlasLayout>,
-        cache_key: GlyphCacheKey,
+        key: GlyphCacheKey,
         texture: &Image,
         offset: IVec2,
     ) -> Result<(), TextError> {
@@ -98,7 +102,7 @@ impl FontAtlas {
                 .add_texture(atlas_layout, texture, atlas_texture)
         {
             self.glyph_to_atlas_index.insert(
-                cache_key,
+                key,
                 GlyphAtlasLocation {
                     glyph_index,
                     offset,
@@ -106,7 +110,7 @@ impl FontAtlas {
             );
             Ok(())
         } else {
-            Err(TextError::FailedToAddGlyph(cache_key.glyph_id))
+            Err(TextError::FailedToAddGlyph(key.glyph_id))
         }
     }
 }
@@ -127,20 +131,16 @@ pub fn add_glyph_to_atlas(
     font_atlases: &mut Vec<FontAtlas>,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
-    font_system: &mut cosmic_text::FontSystem,
-    swash_cache: &mut cosmic_text::SwashCache,
-    layout_glyph: &cosmic_text::LayoutGlyph,
+    scaler: &mut Scaler,
     font_smoothing: FontSmoothing,
+    glyph_id: u16,
 ) -> Result<GlyphAtlasInfo, TextError> {
-    let physical_glyph = layout_glyph.physical((0., 0.), 1.0);
-
-    let (glyph_texture, offset) =
-        get_outlined_glyph_texture(font_system, swash_cache, &physical_glyph, font_smoothing)?;
+    let (glyph_texture, offset) = get_outlined_glyph_texture(scaler, glyph_id)?;
     let mut add_char_to_font_atlas = |atlas: &mut FontAtlas| -> Result<(), TextError> {
         atlas.add_glyph(
             textures,
             texture_atlases,
-            physical_glyph.cache_key,
+            GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
         )
@@ -167,21 +167,19 @@ pub fn add_glyph_to_atlas(
         font_atlases.last_mut().unwrap().add_glyph(
             textures,
             texture_atlases,
-            physical_glyph.cache_key,
+            GlyphCacheKey { glyph_id },
             &glyph_texture,
             offset,
         )?;
     }
 
-    Ok(get_glyph_atlas_info(font_atlases, physical_glyph.cache_key).unwrap())
+    Ok(get_glyph_atlas_info(font_atlases, GlyphCacheKey { glyph_id }).unwrap())
 }
 
 /// Get the texture of the glyph as a rendered image, and its offset
 pub fn get_outlined_glyph_texture(
-    font_system: &mut cosmic_text::FontSystem,
-    swash_cache: &mut cosmic_text::SwashCache,
-    physical_glyph: &cosmic_text::PhysicalGlyph,
-    font_smoothing: FontSmoothing,
+    scaler: &mut Scaler,
+    glyph_id: u16,
 ) -> Result<(Image, IVec2), TextError> {
     // NOTE: Ideally, we'd ask COSMIC Text to honor the font smoothing setting directly.
     // However, since it currently doesn't support that, we render the glyph with antialiasing
@@ -191,40 +189,20 @@ pub fn get_outlined_glyph_texture(
     // is turned off, but for fonts that are specifically designed for pixel art, it works well.
     //
     // See: https://github.com/pop-os/cosmic-text/issues/279
-    let image = swash_cache
-        .get_image_uncached(font_system, physical_glyph.cache_key)
-        .ok_or(TextError::FailedToGetGlyphImage(physical_glyph.cache_key))?;
 
-    let cosmic_text::Placement {
-        left,
-        top,
-        width,
-        height,
-    } = image.placement;
+    let image = swash::scale::Render::new(&[
+        swash::scale::Source::ColorOutline(0),
+        swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
+        swash::scale::Source::Outline,
+    ])
+    .format(swash::zeno::Format::Alpha)
+    .render(scaler, glyph_id)
+    .ok_or(TextError::FailedToGetGlyphImage)?;
 
-    let data = match image.content {
-        cosmic_text::SwashContent::Mask => {
-            if font_smoothing == FontSmoothing::None {
-                image
-                    .data
-                    .iter()
-                    // Apply a 50% threshold to the alpha channel
-                    .flat_map(|a| [255, 255, 255, if *a > 127 { 255 } else { 0 }])
-                    .collect()
-            } else {
-                image
-                    .data
-                    .iter()
-                    .flat_map(|a| [255, 255, 255, *a])
-                    .collect()
-            }
-        }
-        cosmic_text::SwashContent::Color => image.data,
-        cosmic_text::SwashContent::SubpixelMask => {
-            // TODO: implement
-            todo!()
-        }
-    };
+    let left = image.placement.left;
+    let top = image.placement.top;
+    let width = image.placement.width;
+    let height = image.placement.height;
 
     Ok((
         Image::new(
@@ -234,7 +212,7 @@ pub fn get_outlined_glyph_texture(
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            data,
+            image.data,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
         ),
