@@ -1,12 +1,21 @@
 //! Demonstrates rotating entities in 2D using quaternions.
 
-use bevy::{math::ops, prelude::*};
+use bevy::{log::tracing_subscriber::field::MakeExt as _, math::ops, prelude::*};
 
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
+            fmt_layer: |_| {
+                Some(Box::new(
+                    bevy::log::tracing_subscriber::fmt::Layer::default()
+                        .map_fmt_fields(|f| f.debug_alt())
+                        .with_writer(std::io::stderr),
+                ))
+            },
+            ..default()
+        }))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_systems(Startup, setup)
         .add_systems(
@@ -112,9 +121,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn player_movement_system(
     time: Res<Time>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    query: Single<(&Player, &mut Transform)>,
+    query: Single<(Entity, &Player, &mut Transform)>,
+    mut commands: Commands,
 ) {
-    let (ship, mut transform) = query.into_inner();
+    let (entity, ship, mut transform) = query.into_inner();
+    commands.entity(entity).log_components();
 
     let mut rotation_factor = 0.0;
     let mut movement_factor = 0.0;
