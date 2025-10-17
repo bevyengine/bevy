@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -50,14 +50,10 @@ pub struct SpritePipeline {
     view_layout: BindGroupLayoutDescriptor,
     material_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
-    pub dummy_white_gpu_image: GpuImage,
 }
 
 pub fn init_sprite_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    default_sampler: Res<DefaultImageSampler>,
-    render_queue: Res<RenderQueue>,
     asset_server: Res<AssetServer>,
 ) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
@@ -83,43 +79,10 @@ pub fn init_sprite_pipeline(
             ),
         ),
     );
-    let dummy_white_gpu_image = {
-        let image = Image::default();
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = match image.sampler {
-            ImageSampler::Default => (**default_sampler).clone(),
-            ImageSampler::Descriptor(ref descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
-
-        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-        }
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size: image.texture_descriptor.size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        }
-    };
 
     commands.insert_resource(SpritePipeline {
         view_layout,
         material_layout,
-        dummy_white_gpu_image,
         shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
     });
 }
