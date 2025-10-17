@@ -18,7 +18,7 @@ pub struct VirtualKeyPressed<T> {
 
 /// Function to spawn a virtual keyboard
 /// # Emitted events
-/// * [`bevy_ui_widgets::VirtualKeyPressed<T>`] when a virtual key on the keyboard is un-pressed.
+/// * [`crate::controls::VirtualKeyPressed<T>`] when a virtual key on the keyboard is un-pressed.
 pub fn virtual_keyboard<T>(
     keys: impl Iterator<Item = Vec<T>> + Send + Sync + 'static,
 ) -> impl Bundle
