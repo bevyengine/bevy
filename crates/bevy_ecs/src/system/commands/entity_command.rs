@@ -329,12 +329,13 @@ pub fn log_components() -> impl EntityCommand {
             .map(|name| format!(" ({name})"))
             .unwrap_or_default();
         let id = entity.id();
-        let debug_infos: Vec<_> = entity
+        let mut debug_infos: Vec<_> = entity
             .world()
             .inspect_entity(entity.id())
             .expect("Entity existence is verified before an EntityCommand is executed")
             .map(|info| info.name().to_string())
             .collect();
+        debug_infos.sort();
         info!("{id}{name}: {debug_infos:?}");
     }
 }
