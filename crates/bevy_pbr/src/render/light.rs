@@ -1557,8 +1557,11 @@ pub fn prepare_lights(
 
                 let mut frustum = *frustum;
                 // Push the near clip plane out to infinity for directional lights
-                frustum.half_spaces[4] =
-                    HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
+                frustum.half_spaces[Frustum::NEAR_PLANE_IDX] = HalfSpace::new(
+                    frustum.half_spaces[Frustum::NEAR_PLANE_IDX]
+                        .normal()
+                        .extend(f32::INFINITY),
+                );
 
                 let retained_view_entity = RetainedViewEntity::new(
                     *light_main_entity,
