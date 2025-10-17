@@ -134,7 +134,7 @@ impl Dir2 {
         Self::SOUTH_EAST,
         Self::SOUTH_WEST,
     ];
-    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
+    /// All neighbors of a tile on a square grid in a 3x3 neighborhood. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
     pub const ALL_NEIGHBORS: [Self; 8] = [
         Self::X,
         Self::NEG_X,
@@ -492,7 +492,7 @@ impl Dir3 {
         Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
         Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
     ];
-    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`], [`Self::ALL_EDGES`] and [`Self::ALL_VERTICES`]
+    /// All neighbors of a tile on a cube grid a 3x3x3 neighborhood. A combination of [`Self::CARDINALS`], [`Self::ALL_EDGES`] and [`Self::ALL_VERTICES`]
     pub const ALL_NEIGHBORS: [Self; 26] = [
         Self::X,
         Self::NEG_X,
