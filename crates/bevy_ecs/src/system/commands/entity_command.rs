@@ -4,8 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::format;
-use alloc::vec::Vec;
+use alloc::{format, string::ToString as _, vec::Vec};
 use log::info;
 
 use crate::{
@@ -351,7 +350,7 @@ pub fn log_components_pretty() -> impl EntityCommand {
             .world()
             .inspect_entity(id)
             .unwrap()
-            .map(|info| info.name().as_string())
+            .map(|info| info.name().to_string())
             .collect::<Vec<_>>();
         components.sort();
         info!("{id}{name}: {components:#?}",);
