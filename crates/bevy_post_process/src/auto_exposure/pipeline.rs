@@ -7,7 +7,6 @@ use bevy_image::Image;
 use bevy_render::{
     globals::GlobalsUniform,
     render_resource::{binding_types::*, *},
-    renderer::RenderDevice,
     view::ViewUniform,
 };
 use bevy_shader::Shader;
@@ -16,7 +15,7 @@ use core::num::NonZero;
 
 #[derive(Resource)]
 pub struct AutoExposurePipeline {
-    pub histogram_layout: BindGroupLayout,
+    pub histogram_layout: BindGroupLayoutDescriptor,
     pub histogram_shader: Handle<Shader>,
 }
 
@@ -48,13 +47,9 @@ pub enum AutoExposurePass {
 
 pub const HISTOGRAM_BIN_COUNT: u64 = 64;
 
-pub fn init_auto_exposure_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
+pub fn init_auto_exposure_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AutoExposurePipeline {
-        histogram_layout: render_device.create_bind_group_layout(
+        histogram_layout: BindGroupLayoutDescriptor::new(
             "compute histogram bind group",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,

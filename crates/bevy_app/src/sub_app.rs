@@ -3,7 +3,10 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     message::MessageRegistry,
     prelude::*,
-    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
+    },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::{HashMap, HashSet};
@@ -217,6 +220,18 @@ impl SubApp {
         schedules.add_systems(schedule, systems);
 
         self
+    }
+
+    /// See [`App::remove_systems_in_set`]
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
+    ) -> Result<usize, ScheduleError> {
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world, policy)
+        })
     }
 
     /// See [`App::register_system`].

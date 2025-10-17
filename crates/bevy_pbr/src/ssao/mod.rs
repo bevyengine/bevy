@@ -289,10 +289,10 @@ struct SsaoPipelines {
     preprocess_depth_pipeline: CachedComputePipelineId,
     spatial_denoise_pipeline: CachedComputePipelineId,
 
-    common_bind_group_layout: BindGroupLayout,
-    preprocess_depth_bind_group_layout: BindGroupLayout,
-    ssao_bind_group_layout: BindGroupLayout,
-    spatial_denoise_bind_group_layout: BindGroupLayout,
+    common_bind_group_layout: BindGroupLayoutDescriptor,
+    preprocess_depth_bind_group_layout: BindGroupLayoutDescriptor,
+    ssao_bind_group_layout: BindGroupLayoutDescriptor,
+    spatial_denoise_bind_group_layout: BindGroupLayoutDescriptor,
 
     hilbert_index_lut: TextureView,
     point_clamp_sampler: Sampler,
@@ -346,7 +346,7 @@ impl FromWorld for SsaoPipelines {
             ..Default::default()
         });
 
-        let common_bind_group_layout = render_device.create_bind_group_layout(
+        let common_bind_group_layout = BindGroupLayoutDescriptor::new(
             "ssao_common_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -358,7 +358,7 @@ impl FromWorld for SsaoPipelines {
             ),
         );
 
-        let preprocess_depth_bind_group_layout = render_device.create_bind_group_layout(
+        let preprocess_depth_bind_group_layout = BindGroupLayoutDescriptor::new(
             "ssao_preprocess_depth_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -373,7 +373,7 @@ impl FromWorld for SsaoPipelines {
             ),
         );
 
-        let ssao_bind_group_layout = render_device.create_bind_group_layout(
+        let ssao_bind_group_layout = BindGroupLayoutDescriptor::new(
             "ssao_ssao_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -389,7 +389,7 @@ impl FromWorld for SsaoPipelines {
             ),
         );
 
-        let spatial_denoise_bind_group_layout = render_device.create_bind_group_layout(
+        let spatial_denoise_bind_group_layout = BindGroupLayoutDescriptor::new(
             "ssao_spatial_denoise_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -639,6 +639,7 @@ fn prepare_ssao_bind_groups(
     pipelines: Res<SsaoPipelines>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
+    pipeline_cache: Res<PipelineCache>,
     views: Query<(
         Entity,
         &ScreenSpaceAmbientOcclusionResources,
@@ -655,7 +656,7 @@ fn prepare_ssao_bind_groups(
     for (entity, ssao_resources, prepass_textures) in &views {
         let common_bind_group = render_device.create_bind_group(
             "ssao_common_bind_group",
-            &pipelines.common_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.common_bind_group_layout),
             &BindGroupEntries::sequential((
                 &pipelines.point_clamp_sampler,
                 &pipelines.linear_clamp_sampler,
@@ -679,7 +680,7 @@ fn prepare_ssao_bind_groups(
 
         let preprocess_depth_bind_group = render_device.create_bind_group(
             "ssao_preprocess_depth_bind_group",
-            &pipelines.preprocess_depth_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.preprocess_depth_bind_group_layout),
             &BindGroupEntries::sequential((
                 prepass_textures.depth_view().unwrap(),
                 &create_depth_view(0),
@@ -692,7 +693,7 @@ fn prepare_ssao_bind_groups(
 
         let ssao_bind_group = render_device.create_bind_group(
             "ssao_ssao_bind_group",
-            &pipelines.ssao_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.ssao_bind_group_layout),
             &BindGroupEntries::sequential((
                 &ssao_resources.preprocessed_depth_texture.default_view,
                 prepass_textures.normal_view().unwrap(),
@@ -706,7 +707,7 @@ fn prepare_ssao_bind_groups(
 
         let spatial_denoise_bind_group = render_device.create_bind_group(
             "ssao_spatial_denoise_bind_group",
-            &pipelines.spatial_denoise_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.spatial_denoise_bind_group_layout),
             &BindGroupEntries::sequential((
                 &ssao_resources.ssao_noisy_texture.default_view,
                 &ssao_resources.depth_differences_texture.default_view,

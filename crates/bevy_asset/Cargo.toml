@@ -26,6 +26,7 @@ bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = fa
   "bevy_reflect",
 ] }
 bevy_asset_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "uuid",
@@ -53,11 +54,7 @@ either = { version = "1.13", default-features = false }
 futures-io = { version = "0.3", default-features = false }
 futures-lite = { version = "2.0.1", default-features = false }
 blake3 = { version = "1.5", default-features = false }
-parking_lot = { version = "0.12", default-features = false, features = [
-  "arc_lock",
-  "send_guard",
-] }
-ron = { version = "0.10", default-features = false }
+ron = { version = "0.11", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }

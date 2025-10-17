@@ -254,8 +254,9 @@ impl Plugin for MeshRenderPlugin {
                     );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
+                let cpu_batched_instance_buffer = no_gpu_preprocessing::BatchedInstanceBuffer::<
+                    MeshUniform,
+                >::new(&render_device.limits());
                 render_app
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
@@ -271,7 +272,7 @@ impl Plugin for MeshRenderPlugin {
 
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+                GpuArrayBuffer::<MeshUniform>::batch_size(&render_device.limits())
             {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -1853,13 +1854,15 @@ impl FromWorld for MeshPipeline {
             dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             shader,
-            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
+                &render_device.limits(),
+            ),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
                 &render_device,
                 &render_adapter,
             ),
-            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
         }
     }
 }
@@ -2227,7 +2230,7 @@ pub fn setup_morph_and_skinning_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
     skins_use_uniform_buffers: bool,
-) -> BindGroupLayout {
+) -> BindGroupLayoutDescriptor {
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
     let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
@@ -2722,6 +2725,7 @@ pub fn prepare_mesh_bind_groups(
     meshes: Res<RenderAssets<RenderMesh>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     cpu_batched_instance_buffer: Option<
         Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
     >,
@@ -2744,6 +2748,7 @@ pub fn prepare_mesh_bind_groups(
             &meshes,
             &mesh_pipeline,
             &render_device,
+            &pipeline_cache,
             &skins_uniform,
             &weights_uniform,
             &mut render_lightmaps,
@@ -2774,6 +2779,7 @@ pub fn prepare_mesh_bind_groups(
                 &meshes,
                 &mesh_pipeline,
                 &render_device,
+                &pipeline_cache,
                 &skins_uniform,
                 &weights_uniform,
                 &mut render_lightmaps,
@@ -2794,6 +2800,7 @@ fn prepare_mesh_bind_groups_for_phase(
     meshes: &RenderAssets<RenderMesh>,
     mesh_pipeline: &MeshPipeline,
     render_device: &RenderDevice,
+    pipeline_cache: &PipelineCache,
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     render_lightmaps: &mut RenderLightmaps,
@@ -2802,7 +2809,7 @@ fn prepare_mesh_bind_groups_for_phase(
 
     // TODO: Reuse allocations.
     let mut groups = MeshPhaseBindGroups {
-        model_only: Some(layouts.model_only(render_device, &model)),
+        model_only: Some(layouts.model_only(render_device, pipeline_cache, &model)),
         ..default()
     };
 
@@ -2810,8 +2817,14 @@ fn prepare_mesh_bind_groups_for_phase(
     // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
-        no_motion_vectors: layouts.skinned(render_device, &model, skin),
+        motion_vectors: layouts.skinned_motion(
+            render_device,
+            pipeline_cache,
+            &model,
+            skin,
+            prev_skin,
+        ),
+        no_motion_vectors: layouts.skinned(render_device, pipeline_cache, &model, skin),
     });
 
     // Create the morphed bind groups just like we did for the skinned bind
@@ -2825,6 +2838,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_skinned_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2834,6 +2848,7 @@ fn prepare_mesh_bind_groups_for_phase(
                         ),
                         no_motion_vectors: layouts.morphed_skinned(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2844,12 +2859,19 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             weights,
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
+                        no_motion_vectors: layouts.morphed(
+                            render_device,
+                            pipeline_cache,
+                            &model,
+                            weights,
+                            targets,
+                        ),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
@@ -2862,7 +2884,13 @@ fn prepare_mesh_bind_groups_for_phase(
     for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
         groups.lightmaps.insert(
             LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
-            layouts.lightmapped(render_device, &model, lightmap_slab, bindless_supported),
+            layouts.lightmapped(
+                render_device,
+                pipeline_cache,
+                &model,
+                lightmap_slab,
+                bindless_supported,
+            ),
         );
     }
 
@@ -3043,7 +3071,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_byte_offset
-            && skins_use_uniform_buffers(&render_device)
+            && skins_use_uniform_buffers(&render_device.limits())
         {
             dynamic_offsets[offset_count] = current_skin_index.byte_offset;
             offset_count += 1;
@@ -3056,7 +3084,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device)
+            if skins_use_uniform_buffers(&render_device.limits())
                 && let Some(current_skin_byte_offset) = current_skin_byte_offset
             {
                 dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
@@ -3154,7 +3182,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     return RenderCommandResult::Skip;
                 };
 
-                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), *index_format);
 
                 match item.extra_index() {
                     PhaseItemExtraIndex::None | PhaseItemExtraIndex::DynamicOffset(_) => {

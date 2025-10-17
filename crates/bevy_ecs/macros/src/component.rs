@@ -22,6 +22,21 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
+    // We want to raise a compile time error when the generic lifetimes
+    // are not bound to 'static lifetime
+    let non_static_lifetime_error = ast
+        .generics
+        .lifetimes()
+        .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+        .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+        .reduce(|mut err_acc, err| {
+            err_acc.combine(err);
+            err_acc
+        });
+    if let Some(err) = non_static_lifetime_error {
+        return err.into_compile_error().into();
+    }
+
     ast.generics
         .make_where_clause()
         .predicates

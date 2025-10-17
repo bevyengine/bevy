@@ -19,21 +19,21 @@
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
 mod button;
-mod callback;
 mod checkbox;
+mod observe;
 mod radio;
 mod scrollbar;
 mod slider;
 
 pub use button::*;
-pub use callback::*;
 pub use checkbox::*;
+pub use observe::*;
 pub use radio::*;
 pub use scrollbar::*;
 pub use slider::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
-use bevy_ecs::entity::Entity;
+use bevy_ecs::{entity::Entity, event::EntityEvent};
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
@@ -51,13 +51,17 @@ impl PluginGroup for UiWidgetsPlugins {
 }
 
 /// Notification sent by a button or menu item.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Activate(pub Entity);
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
+pub struct Activate {
+    /// The activated entity.
+    pub entity: Entity,
+}
 
 /// Notification sent by a widget that edits a scalar value.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, EntityEvent)]
 pub struct ValueChange<T> {
     /// The id of the widget that produced this value.
+    #[event_target]
     pub source: Entity,
     /// The new value.
     pub value: T,

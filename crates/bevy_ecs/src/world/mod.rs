@@ -23,7 +23,7 @@ pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
     ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
     EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
-    TryFromFilteredError, VacantComponentEntry,
+    TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
 pub use filtered_resource::*;
 pub use identifier::WorldId;
@@ -4222,7 +4222,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(1)));
         assert_eq!(world.entity(b2).get(), Some(&B(2)));
 
-        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut b) = entity.get_mut::<B>() {
                 b.0 *= 2;

@@ -210,7 +210,7 @@ fn impl_struct_internal(
 /// Get the collection of ignored field definitions
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
-/// a default value for the ignored field.
+/// default value for the ignored field.
 fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct

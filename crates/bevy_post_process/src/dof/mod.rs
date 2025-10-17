@@ -41,7 +41,7 @@ use bevy_render::{
         binding_types::{
             sampler, texture_2d, texture_depth_2d, texture_depth_2d_multisampled, uniform_buffer,
         },
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
@@ -261,7 +261,7 @@ pub struct DepthOfFieldNode;
 #[derive(Resource, Clone)]
 pub struct DepthOfFieldGlobalBindGroupLayout {
     /// The layout.
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     /// The sampler used to sample from the color buffer or buffers.
     color_texture_sampler: Sampler,
 }
@@ -303,12 +303,12 @@ pub struct AuxiliaryDepthOfFieldTexture(CachedTexture);
 #[derive(Component, Clone)]
 pub struct ViewDepthOfFieldBindGroupLayouts {
     /// The bind group layout for passes that take only one input.
-    single_input: BindGroupLayout,
+    single_input: BindGroupLayoutDescriptor,
 
     /// The bind group layout for the second bokeh pass, which takes two inputs.
     ///
     /// This will only be present if bokeh is in use.
-    dual_input: Option<BindGroupLayout>,
+    dual_input: Option<BindGroupLayoutDescriptor>,
 }
 
 /// Information needed to specialize the pipeline corresponding to a pass of the
@@ -318,7 +318,7 @@ pub struct DepthOfFieldPipeline {
     view_bind_group_layouts: ViewDepthOfFieldBindGroupLayouts,
     /// The bind group layout shared among all invocations of the depth of field
     /// shader.
-    global_bind_group_layout: BindGroupLayout,
+    global_bind_group_layout: BindGroupLayoutDescriptor,
     /// The asset handle for the fullscreen vertex shader.
     fullscreen_shader: FullscreenShader,
     /// The fragment shader asset handle.
@@ -388,7 +388,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 render_context.render_device().create_bind_group(
                     Some(pipeline_render_info.view_bind_group_label),
-                    dual_input_bind_group_layout,
+                    &pipeline_cache.get_bind_group_layout(dual_input_bind_group_layout),
                     &BindGroupEntries::sequential((
                         view_uniforms_binding,
                         view_depth_texture.view(),
@@ -399,7 +399,7 @@ impl ViewNode for DepthOfFieldNode {
             } else {
                 render_context.render_device().create_bind_group(
                     Some(pipeline_render_info.view_bind_group_label),
-                    &view_bind_group_layouts.single_input,
+                    &pipeline_cache.get_bind_group_layout(&view_bind_group_layouts.single_input),
                     &BindGroupEntries::sequential((
                         view_uniforms_binding,
                         view_depth_texture.view(),
@@ -510,8 +510,8 @@ impl DepthOfField {
 pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
     // Create the bind group layout that will be shared among all instances
     // of the depth of field shader.
-    let layout = render_device.create_bind_group_layout(
-        Some("depth of field global bind group layout"),
+    let layout = BindGroupLayoutDescriptor::new(
+        "depth of field global bind group layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
             (
@@ -542,12 +542,11 @@ pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: 
 pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
     view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
-    render_device: Res<RenderDevice>,
 ) {
     for (view, depth_of_field, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
-        let single_input = render_device.create_bind_group_layout(
-            Some("depth of field bind group layout (single input)"),
+        let single_input = BindGroupLayoutDescriptor::new(
+            "depth of field bind group layout (single input)",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
@@ -566,8 +565,8 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
         // which takes two inputs. We only need to do this if bokeh is in use.
         let dual_input = match depth_of_field.mode {
             DepthOfFieldMode::Gaussian => None,
-            DepthOfFieldMode::Bokeh => Some(render_device.create_bind_group_layout(
-                Some("depth of field bind group layout (dual input)"),
+            DepthOfFieldMode::Bokeh => Some(BindGroupLayoutDescriptor::new(
+                "depth of field bind group layout (dual input)",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::FRAGMENT,
                     (
@@ -617,6 +616,7 @@ pub fn prepare_depth_of_field_global_bind_group(
     mut dof_bind_group: ResMut<DepthOfFieldGlobalBindGroup>,
     depth_of_field_uniforms: Res<ComponentUniforms<DepthOfFieldUniform>>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     let Some(depth_of_field_uniforms) = depth_of_field_uniforms.binding() else {
         return;
@@ -624,7 +624,7 @@ pub fn prepare_depth_of_field_global_bind_group(
 
     **dof_bind_group = Some(render_device.create_bind_group(
         Some("depth of field global bind group"),
-        &global_bind_group_layout.layout,
+        &pipeline_cache.get_bind_group_layout(&global_bind_group_layout.layout),
         &BindGroupEntries::sequential((
             depth_of_field_uniforms,                         // `dof_params`
             &global_bind_group_layout.color_texture_sampler, // `color_texture_sampler`
