@@ -34,7 +34,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    texture::{DefaultImageSampler, FallbackImage, GpuImage},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
@@ -52,10 +52,7 @@ pub struct SpritePipeline {
     shader: Handle<Shader>,
 }
 
-pub fn init_sprite_pipeline(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
+pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
     let view_layout = BindGroupLayoutDescriptor::new(
         "sprite_view_layout",

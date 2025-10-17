@@ -1803,8 +1803,7 @@ impl FromWorld for MeshPipeline {
             Res<RenderAdapter>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, render_adapter, view_layouts) =
-            system_state.get_mut(world);
+        let (render_device, render_adapter, view_layouts) = system_state.get_mut(world);
 
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);

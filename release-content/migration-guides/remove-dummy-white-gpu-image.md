@@ -1,6 +1,6 @@
 ---
 title: "Removed `dummy_white_gpu_image`"
-pull_requests: []
+pull_requests: [21572]
 ---
 
 `MeshPipeline`, `Mesh2dPipeline` and `SpritePipeline`  no longer have `dummy_white_gpu_image`.

@@ -42,9 +42,9 @@ use bevy_render::{
         TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    texture::{DefaultImageSampler, FallbackImage, GpuImage},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
