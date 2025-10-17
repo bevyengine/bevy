@@ -90,14 +90,14 @@ impl Deref for ComputePipeline {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct BindGroupLayoutDescriptor {
     /// Debug label of the bind group layout descriptor. This will show up in graphics debuggers for easy identification.
-    pub label: Option<Cow<'static, str>>,
+    pub label: Cow<'static, str>,
     pub entries: Vec<BindGroupLayoutEntry>,
 }
 
 impl BindGroupLayoutDescriptor {
     pub fn new(label: impl Into<Cow<'static, str>>, entries: &[BindGroupLayoutEntry]) -> Self {
         Self {
-            label: Some(label.into()),
+            label: label.into(),
             entries: entries.into(),
         }
     }

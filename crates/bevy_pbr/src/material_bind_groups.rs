@@ -52,7 +52,7 @@ pub enum MaterialBindGroupAllocator {
 /// their resources.
 pub struct MaterialBindGroupBindlessAllocator {
     /// The label of the bind group allocator to use for allocated buffers.
-    label: Option<&'static str>,
+    label: &'static str,
     /// The slabs, each of which contains a bind group.
     slabs: Vec<MaterialBindlessSlab>,
     /// The layout of the bind groups that we produce.
@@ -176,7 +176,7 @@ where
 /// The allocator that stores bind groups for non-bindless materials.
 pub struct MaterialBindGroupNonBindlessAllocator {
     /// The label of the bind group allocator to use for allocated buffers.
-    label: Option<&'static str>,
+    label: &'static str,
     /// A mapping from [`MaterialBindGroupIndex`] to the bind group allocated in
     /// each slot.
     bind_groups: Vec<Option<MaterialNonBindlessAllocatedBindGroup>>,
@@ -457,7 +457,7 @@ impl MaterialBindGroupAllocator {
     /// single material.
     pub fn new(
         render_device: &RenderDevice,
-        label: Option<&'static str>,
+        label: &'static str,
         bindless_descriptor: Option<BindlessDescriptor>,
         bind_group_layout: BindGroupLayoutDescriptor,
         slab_capacity: Option<BindlessSlabResourceLimit>,
@@ -769,7 +769,7 @@ impl MaterialBindGroupBindlessAllocator {
     /// for a single bindless material.
     fn new(
         render_device: &RenderDevice,
-        label: Option<&'static str>,
+        label: &'static str,
         bindless_descriptor: BindlessDescriptor,
         bind_group_layout: BindGroupLayoutDescriptor,
         slab_capacity: Option<BindlessSlabResourceLimit>,
@@ -1205,7 +1205,7 @@ impl MaterialBindlessSlab {
         &mut self,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
-        label: Option<&'static str>,
+        label: &'static str,
         bind_group_layout: &BindGroupLayoutDescriptor,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
@@ -1243,7 +1243,7 @@ impl MaterialBindlessSlab {
         &mut self,
         render_device: &RenderDevice,
         pipeline_cache: &PipelineCache,
-        label: Option<&'static str>,
+        label: &'static str,
         bind_group_layout: &BindGroupLayoutDescriptor,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
@@ -1311,7 +1311,7 @@ impl MaterialBindlessSlab {
         }
 
         self.bind_group = Some(render_device.create_bind_group(
-            label,
+            Some(label),
             &pipeline_cache.get_bind_group_layout(bind_group_layout),
             &bind_group_entries,
         ));
@@ -1816,7 +1816,7 @@ pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: R
 impl MaterialBindGroupNonBindlessAllocator {
     /// Creates a new [`MaterialBindGroupNonBindlessAllocator`] managing the
     /// bind groups for a single non-bindless material.
-    fn new(label: Option<&'static str>) -> MaterialBindGroupNonBindlessAllocator {
+    fn new(label: &'static str) -> MaterialBindGroupNonBindlessAllocator {
         MaterialBindGroupNonBindlessAllocator {
             label,
             bind_groups: vec![],

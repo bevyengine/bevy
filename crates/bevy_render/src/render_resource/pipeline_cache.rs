@@ -221,10 +221,8 @@ impl BindGroupLayoutCache {
         self.bgls
             .entry(descriptor)
             .or_insert_with_key(|descriptor| {
-                render_device.create_bind_group_layout(
-                    descriptor.label.as_ref().map(Cow::as_ref),
-                    &descriptor.entries,
-                )
+                render_device
+                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries)
             })
             .clone()
     }

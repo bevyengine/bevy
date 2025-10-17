@@ -1054,8 +1054,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
             #bindless_slot_count
 
-            fn label() -> Option<&'static str> {
-                Some(#struct_name_literal)
+            fn label() -> &'static str {
+                #struct_name_literal
             }
 
             fn unprepared_bind_group(
