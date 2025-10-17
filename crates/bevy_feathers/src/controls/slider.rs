@@ -76,6 +76,8 @@ struct SliderValueText;
 /// # Emitted events
 ///
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     (
         Node {

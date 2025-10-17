@@ -47,9 +47,12 @@ struct RadioMark;
 /// * `props` - construction properties for the radio.
 /// * `overrides` - a bundle of components that are merged in with the normal radio components.
 /// * `label` - the label of the radio.
+///
 /// # Emitted events
 /// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
 /// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,

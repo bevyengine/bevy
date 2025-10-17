@@ -59,6 +59,8 @@ pub struct ButtonProps {
 /// * [`bevy_ui_widgets::Activate`] when any of the following happens:
 ///     * the pointer is released while hovering over the button.
 ///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     props: ButtonProps,
     overrides: B,

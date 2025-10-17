@@ -183,6 +183,8 @@ struct ColorSliderThumb;
 /// # Emitted events
 ///
 /// * [`bevy_ui_widgets::ValueChange<f32>`] when the slider value is changed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bundle {
     (
         Node {
