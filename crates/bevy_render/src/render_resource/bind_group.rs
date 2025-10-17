@@ -1,12 +1,14 @@
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{BindGroupLayout, Buffer, PipelineCache, Sampler, TextureView},
     renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
+use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
+use bevy_render::render_resource::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
 use encase::ShaderType;
@@ -530,10 +532,13 @@ pub trait AsBindGroup {
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
         &self,
-        layout: &BindGroupLayout,
+        layout_descriptor: &BindGroupLayoutDescriptor,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
+        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
+
         let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
@@ -584,6 +589,19 @@ pub trait AsBindGroup {
             Self::label(),
             &Self::bind_group_layout_entries(render_device, false),
         )
+    }
+
+    /// Creates the bind group layout descriptor matching all bind groups returned by
+    /// [`AsBindGroup::as_bind_group`]
+    /// TODO: we only need `RenderDevice` to determine if bindless is supported
+    fn bind_group_layout_descriptor(render_device: &RenderDevice) -> BindGroupLayoutDescriptor
+    where
+        Self: Sized,
+    {
+        BindGroupLayoutDescriptor {
+            label: Self::label().map(Into::<Cow<str>>::into),
+            entries: Self::bind_group_layout_entries(render_device, false),
+        }
     }
 
     /// Returns a vec of bind group layout entries.

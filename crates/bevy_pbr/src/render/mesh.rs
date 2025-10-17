@@ -2230,7 +2230,7 @@ pub fn setup_morph_and_skinning_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
     skins_use_uniform_buffers: bool,
-) -> BindGroupLayout {
+) -> BindGroupLayoutDescriptor {
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
     let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
@@ -2725,6 +2725,7 @@ pub fn prepare_mesh_bind_groups(
     meshes: Res<RenderAssets<RenderMesh>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     cpu_batched_instance_buffer: Option<
         Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
     >,
@@ -2747,6 +2748,7 @@ pub fn prepare_mesh_bind_groups(
             &meshes,
             &mesh_pipeline,
             &render_device,
+            &pipeline_cache,
             &skins_uniform,
             &weights_uniform,
             &mut render_lightmaps,
@@ -2777,6 +2779,7 @@ pub fn prepare_mesh_bind_groups(
                 &meshes,
                 &mesh_pipeline,
                 &render_device,
+                &pipeline_cache,
                 &skins_uniform,
                 &weights_uniform,
                 &mut render_lightmaps,
@@ -2797,6 +2800,7 @@ fn prepare_mesh_bind_groups_for_phase(
     meshes: &RenderAssets<RenderMesh>,
     mesh_pipeline: &MeshPipeline,
     render_device: &RenderDevice,
+    pipeline_cache: &PipelineCache,
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     render_lightmaps: &mut RenderLightmaps,
@@ -2805,7 +2809,7 @@ fn prepare_mesh_bind_groups_for_phase(
 
     // TODO: Reuse allocations.
     let mut groups = MeshPhaseBindGroups {
-        model_only: Some(layouts.model_only(render_device, &model)),
+        model_only: Some(layouts.model_only(render_device, pipeline_cache, &model)),
         ..default()
     };
 
@@ -2813,8 +2817,14 @@ fn prepare_mesh_bind_groups_for_phase(
     // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
-        no_motion_vectors: layouts.skinned(render_device, &model, skin),
+        motion_vectors: layouts.skinned_motion(
+            render_device,
+            pipeline_cache,
+            &model,
+            skin,
+            prev_skin,
+        ),
+        no_motion_vectors: layouts.skinned(render_device, pipeline_cache, &model, skin),
     });
 
     // Create the morphed bind groups just like we did for the skinned bind
@@ -2828,6 +2838,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_skinned_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2837,6 +2848,7 @@ fn prepare_mesh_bind_groups_for_phase(
                         ),
                         no_motion_vectors: layouts.morphed_skinned(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2847,12 +2859,19 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             weights,
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
+                        no_motion_vectors: layouts.morphed(
+                            render_device,
+                            pipeline_cache,
+                            &model,
+                            weights,
+                            targets,
+                        ),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
@@ -2865,7 +2884,13 @@ fn prepare_mesh_bind_groups_for_phase(
     for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
         groups.lightmaps.insert(
             LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
-            layouts.lightmapped(render_device, &model, lightmap_slab, bindless_supported),
+            layouts.lightmapped(
+                render_device,
+                pipeline_cache,
+                &model,
+                lightmap_slab,
+                bindless_supported,
+            ),
         );
     }
 
