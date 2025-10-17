@@ -1991,16 +1991,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Logs the components of the entity at the [`info`](log::info) level.
-    ///
-    /// See [`log_components_pretty`] for a more readable, but less compact output.
     pub fn log_components(&mut self) -> &mut Self {
-        self.queue(entity_command::log_components())
-    }
-
-    /// Logs the components of the entity at the [`info`](log::info) level using pretty formatting, including newlines.
-    ///
-    /// See [`log_components`] for a more compact output.
-    pub fn log_components_pretty(&mut self) -> &mut Self {
         self.queue(entity_command::log_components())
     }
 

@@ -322,37 +322,19 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that logs the components of an entity.
-///
-/// See [`log_components_pretty`] for a more readable, but less compact output.
 pub fn log_components() -> impl EntityCommand {
-    move |entity: EntityWorldMut| {
-        let debug_infos: Vec<_> = entity
-            .world()
-            .inspect_entity(entity.id())
-            .expect("Entity existence is verified before an EntityCommand is executed")
-            .map(ComponentInfo::name)
-            .collect();
-        info!("Entity {}: {debug_infos:?}", entity.id());
-    }
-}
-
-/// An [`EntityCommand`] that logs the components of an entity using pretty formatting, including newlines.
-///
-/// See [`log_components`] for a more compact output.
-pub fn log_components_pretty() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
         let name = entity
             .get::<Name>()
             .map(|name| format!(" ({name})"))
             .unwrap_or_default();
         let id = entity.id();
-        let mut components = entity
+        let debug_infos: Vec<_> = entity
             .world()
-            .inspect_entity(id)
-            .unwrap()
+            .inspect_entity(entity.id())
+            .expect("Entity existence is verified before an EntityCommand is executed")
             .map(|info| info.name().to_string())
-            .collect::<Vec<_>>();
-        components.sort();
-        info!("{id}{name}: {components:#?}",);
+            .collect();
+        info!("{id}{name}: {debug_infos:?}");
     }
 }
