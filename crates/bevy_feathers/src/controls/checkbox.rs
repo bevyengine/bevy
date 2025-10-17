@@ -53,6 +53,8 @@ struct CheckboxMark;
 /// * `props` - construction properties for the checkbox.
 /// * `overrides` - a bundle of components that are merged in with the normal checkbox components.
 /// * `label` - the label of the checkbox.
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the new value when the checkbox changes state
 pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,
