@@ -5,12 +5,12 @@ use crate::{
     renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
+use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
-use alloc::borrow::Cow;
 use encase::ShaderType;
 use thiserror::Error;
 use wgpu::{
