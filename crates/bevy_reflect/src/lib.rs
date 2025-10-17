@@ -2428,7 +2428,7 @@ mod tests {
         dynamic_array.set_represented_type(Some(type_info));
     }
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     mod docstrings {
         use super::*;
 

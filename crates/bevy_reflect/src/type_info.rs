@@ -289,7 +289,7 @@ impl TypeInfo {
     }
 
     /// The docstring of the underlying type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&str> {
         match self {
             Self::Struct(info) => info.docs(),
@@ -580,7 +580,7 @@ pub(crate) use impl_type_methods;
 pub struct OpaqueInfo {
     ty: Type,
     generics: Generics,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -590,13 +590,13 @@ impl OpaqueInfo {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this type.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, doc: Option<&'static str>) -> Self {
         Self { docs: doc, ..self }
     }
@@ -604,7 +604,7 @@ impl OpaqueInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this dynamic type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

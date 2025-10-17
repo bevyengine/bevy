@@ -23,7 +23,7 @@ use syn::{parenthesized, parse::ParseStream, token::Paren, Attribute, Generics, 
 /// ```
 pub(crate) struct ReflectOpaqueDef {
     #[cfg_attr(
-        not(feature = "documentation"),
+        not(feature = "reflect_documentation"),
         expect(
             dead_code,
             reason = "The is used when the `documentation` feature is enabled.",
