@@ -344,7 +344,7 @@ pub fn log_components_pretty() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
         let name = entity
             .get::<Name>()
-            .map(|name| format!("{name} "))
+            .map(|name| format!(" {name}"))
             .unwrap_or_default();
         let id = entity.id();
         let mut components = entity
@@ -354,6 +354,6 @@ pub fn log_components_pretty() -> impl EntityCommand {
             .map(|info| info.name().as_string())
             .collect::<Vec<_>>();
         components.sort();
-        info!("{name}{id}: {components:#?}",);
+        info!("{id}{name}: {components:#?}",);
     }
 }
