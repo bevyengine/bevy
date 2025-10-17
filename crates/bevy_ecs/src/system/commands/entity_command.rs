@@ -5,7 +5,10 @@
 //! [`EntityCommands`](crate::system::EntityCommands).
 
 use alloc::{format, string::ToString as _, vec::Vec};
+#[cfg(not(feature = "trace"))]
 use log::info;
+#[cfg(feature = "trace")]
+use tracing::info;
 
 use crate::{
     bundle::{Bundle, InsertMode},
@@ -324,18 +327,27 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
-        let name = entity
-            .get::<Name>()
-            .map(|name| format!(" ({name})"))
-            .unwrap_or_default();
+        let name = entity.get::<Name>().map(|name| name.to_string());
         let id = entity.id();
-        let mut debug_infos: Vec<_> = entity
+        let mut components: Vec<_> = entity
             .world()
-            .inspect_entity(entity.id())
+            .inspect_entity(id)
             .expect("Entity existence is verified before an EntityCommand is executed")
             .map(|info| info.name().to_string())
             .collect();
-        debug_infos.sort();
-        info!("{id}{name}: {debug_infos:?}");
+        components.sort();
+        #[cfg(feature = "trace")]
+        {
+            if let Some(name) = name {
+                tracing::info!(id=?id, name=?name, ?components, "log_components");
+            } else {
+                tracing::info!(id=?id, ?components, "log_components");
+            }
+        }
+        #[cfg(not(feature = "trace"))]
+        {
+            let name = name.map(|name| format!(" ({name})")).unwrap_or_default();
+            tracing::info!("{id}{name}: {components:#?}");
+        }
     }
 }
