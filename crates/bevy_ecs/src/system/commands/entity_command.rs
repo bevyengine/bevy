@@ -347,7 +347,7 @@ pub fn log_components() -> impl EntityCommand {
         #[cfg(not(feature = "trace"))]
         {
             let name = name.map(|name| format!(" ({name})")).unwrap_or_default();
-            info!("Entity {id}{name}: {components:#?}");
+            info!("Entity {id}{name}: {components:?}");
         }
     }
 }
