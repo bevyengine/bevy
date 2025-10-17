@@ -4,6 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
+use alloc::format;
 use alloc::vec::Vec;
 use log::info;
 
@@ -13,6 +14,7 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder, OptIn, OptOut},
     event::EntityEvent,
+    name::Name,
     relationship::RelationshipHookMode,
     system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
@@ -321,6 +323,8 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that logs the components of an entity.
+///
+/// See [`log_components_pretty`] for a more readable, but less compact output.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
         let debug_infos: Vec<_> = entity
@@ -330,5 +334,26 @@ pub fn log_components() -> impl EntityCommand {
             .map(ComponentInfo::name)
             .collect();
         info!("Entity {}: {debug_infos:?}", entity.id());
+    }
+}
+
+/// An [`EntityCommand`] that logs the components of an entity using pretty formatting, including newlines.
+///
+/// See [`log_components`] for a more compact output.
+pub fn log_components_pretty() -> impl EntityCommand {
+    move |entity: EntityWorldMut| {
+        let name = entity
+            .get::<Name>()
+            .map(|name| format!("{name} "))
+            .unwrap_or_default();
+        let id = entity.id();
+        let mut components = entity
+            .world()
+            .inspect_entity(id)
+            .unwrap()
+            .map(|info| info.name().as_string())
+            .collect::<Vec<_>>();
+        components.sort();
+        info!("{name}{id}: {components:#?}",);
     }
 }
