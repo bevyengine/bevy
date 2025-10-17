@@ -477,7 +477,7 @@ impl Dir3 {
             -Self::FRAC_1_SQRT_3,
         )),
     ];
-    /// The directions towards centres of each edge of a cube
+    /// The directions towards centers of each edge of a cube
     pub const ALL_EDGES: [Self; 12] = [
         Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
         Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
