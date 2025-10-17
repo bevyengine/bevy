@@ -7,6 +7,8 @@ use bevy::{
         AssetReader, AssetReaderError, AssetSource, AssetSourceId, ErasedAssetReader, PathStream,
         Reader,
     },
+    asset::UntypedAssetLoadFailedEvent,
+    asset::retry::AssetLoadRetrySettings,
     prelude::*,
 };
 use std::path::Path;
@@ -32,6 +34,13 @@ impl AssetReader for CustomAssetReader {
 
     async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
         self.0.is_directory(path).await
+    }
+
+    fn get_default_retry_settings(
+        &self,
+        load_error: &UntypedAssetLoadFailedEvent,
+    ) -> AssetLoadRetrySettings {
+        self.0.get_default_retry_settings(load_error)
     }
 }
 
