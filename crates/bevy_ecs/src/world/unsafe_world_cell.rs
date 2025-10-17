@@ -948,7 +948,11 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
-    /// - the component `T` is mutable
+    /// - One of the following should be true:
+    ///   - Either `T` is mutable, or
+    ///   - `OnReplace` hooks and observers for that component on that entity should trigger immediately before the mutation
+    ///     and `OnInsert` should trigger immediately after the mutation, or
+    ///   - The user should uphold documented invariants of `T`. If no such documentation provided, it is impossible for the end user to uphold this.
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
@@ -959,7 +963,11 @@ impl<'w> UnsafeEntityCell<'w> {
     /// It is the caller's responsibility to ensure that
     /// - the [`UnsafeEntityCell`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
-    /// - The component `T` is mutable
+    /// - One of the following should be true:
+    ///   - Either `T` is mutable, or
+    ///   - `OnReplace` hooks and observers for that component on that entity should trigger immediately before the mutation
+    ///     and `OnInsert` should trigger immediately after the mutation, or
+    ///   - The user should uphold documented invariants of `T`. If no such documentation provided, it is impossible for the end user to uphold this.
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks_assume_mutable<T: Component>(
         &self,
