@@ -56,7 +56,9 @@ pub struct ButtonProps {
 /// * `overrides` - a bundle of components that are merged in with the normal button components.
 /// * `children` - a [`SpawnableList`] of child elements, such as a label or icon for the button.
 /// # Emitted events
-/// * [`bevy_ui_widgets::Activate`] when the button is un-pressed.
+/// * [`bevy_ui_widgets::Activate`] when any of the following happens:
+///     * the pointer is released while hovering over the button.
+///     * the ENTER or SPACE key is pressed while the button has keyboard focus.
 pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     props: ButtonProps,
     overrides: B,
