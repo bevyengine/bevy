@@ -434,8 +434,8 @@ impl Dir3 {
     )]
     /// Approximation of 1/sqrt(3) needed for the diagonals in 3D space
     const FRAC_1_SQRT_3: f32 = 0.577350269189625764509148780501957456_f32;
-    /// The diagonals between the cardinal directions.
-    pub const DIAGONALS: [Self; 8] = [
+    /// The directions pointing towards the vertices of a cube centered at the origin.
+    pub const ALL_VERTICES: [Self; 8] = [
         Self(Vec3::new(
             Self::FRAC_1_SQRT_3,
             Self::FRAC_1_SQRT_3,
@@ -477,14 +477,41 @@ impl Dir3 {
             -Self::FRAC_1_SQRT_3,
         )),
     ];
-    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`] and [`Self::DIAGONALS`]
-    pub const ALL_NEIGHBORS: [Self; 14] = [
+    /// The directions towards centres of each edge of a cube
+    pub const ALL_EDGES: [Self; 12] = [
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+    ];
+    /// All neighboring directions on a grid. A combination of [`Self::CARDINALS`], [`Self::ALL_EDGES`] and [`Self::ALL_VERTICES`]
+    pub const ALL_NEIGHBORS: [Self; 26] = [
         Self::X,
         Self::NEG_X,
         Self::Y,
         Self::NEG_Y,
         Self::Z,
         Self::NEG_Z,
+        Self(Vec3::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2)),
+        Self(Vec3::new(FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(-FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
+        Self(Vec3::new(0., -FRAC_1_SQRT_2, -FRAC_1_SQRT_2)),
         Self(Vec3::new(
             Self::FRAC_1_SQRT_3,
             Self::FRAC_1_SQRT_3,
