@@ -3258,4 +3258,231 @@ mod tests {
         // This assertion exists to "prove" that this problem exists.
         assert!(processed_dir.get_asset(gltfx_path).is_none());
     }
+
+    #[test]
+    fn same_asset_different_settings() {
+        // Test loading the same asset twice with different settings. This should
+        // produce two distinct assets.
+
+        // First, implement an asset that's a single u8, whose value is copied from
+        // the loader settings.
+
+        #[derive(Asset, TypePath)]
+        struct U8Asset(u8);
+
+        #[derive(Serialize, Deserialize, Default)]
+        struct U8LoaderSettings(u8);
+
+        struct U8Loader;
+
+        impl AssetLoader for U8Loader {
+            type Asset = U8Asset;
+            type Settings = U8LoaderSettings;
+            type Error = crate::loader::LoadDirectError;
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                settings: &Self::Settings,
+                _: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(U8Asset(settings.0))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["u8"]
+            }
+        }
+
+        // Create a test asset.
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.u8"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        // Set up the app.
+
+        let mut app = App::new();
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<U8Asset>()
+            .register_asset_loader(U8Loader);
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        // Load the test asset twice but with different settings.
+
+        fn load(asset_server: &AssetServer, path: &'static str, value: u8) -> Handle<U8Asset> {
+            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
+                path,
+                move |s: &mut U8LoaderSettings| s.0 = value,
+            )
+        }
+
+        let handle_1 = load(asset_server, "test.u8", 1);
+        let handle_2 = load(asset_server, "test.u8", 2);
+
+        // Handles should be different.
+
+        // These handles should be different, but due to
+        // https://github.com/bevyengine/bevy/pull/21564, they are not. Once 21564 is fixed, we
+        // should replace these expects.
+        //
+        // assert_ne!(handle_1, handle_2);
+        assert_eq!(handle_1, handle_2);
+
+        run_app_until(&mut app, |world| {
+            let (Some(asset_1), Some(asset_2)) = (
+                world.resource::<Assets<U8Asset>>().get(&handle_1),
+                world.resource::<Assets<U8Asset>>().get(&handle_2),
+            ) else {
+                return None;
+            };
+
+            // Values should match the settings.
+
+            // These values should be different, but due to
+            // https://github.com/bevyengine/bevy/pull/21564, they are not. Once 21564 is fixed, we
+            // should replace these expects.
+            //
+            // assert_eq!(asset_1.0, 1);
+            // assert_eq!(asset_2.0, 2);
+            assert_eq!(asset_1.0, asset_2.0);
+
+            Some(())
+        });
+    }
+
+    #[test]
+    fn loading_two_subassets_does_not_start_two_loads() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.txt"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        struct TwoSubassetLoader;
+
+        impl AssetLoader for TwoSubassetLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                load_context.add_labeled_asset("A".into(), TestAsset);
+                load_context.add_labeled_asset("B".into(), TestAsset);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.register_asset_loader(TwoSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let _subasset_1: Handle<TestAsset> = asset_server.load("test.txt#A");
+        let _subasset_2: Handle<TestAsset> = asset_server.load("test.txt#B");
+
+        app.update();
+
+        // Due to https://github.com/bevyengine/bevy/issues/12756, this expectation fails. Once
+        // #12756 is fixed, we should swap these asserts.
+        //
+        // assert_eq!(get_started_load_count(app.world()), 1);
+        assert_eq!(get_started_load_count(app.world()), 2);
+    }
+
+    #[test]
+    fn get_strong_handle_prevents_reload_when_asset_still_alive() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.txt"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        struct TrivialLoader;
+
+        impl AssetLoader for TrivialLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                _load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let original_handle: Handle<TestAsset> = asset_server.load("test.txt");
+
+        // Wait for the asset to load.
+        run_app_until(&mut app, |world| {
+            world
+                .resource::<Assets<TestAsset>>()
+                .get(&original_handle)
+                .map(|_| ())
+        });
+
+        assert_eq!(get_started_load_count(app.world()), 1);
+
+        // Get a new strong handle from the original handle's ID.
+        let new_handle = app
+            .world_mut()
+            .resource_mut::<Assets<TestAsset>>()
+            .get_strong_handle(original_handle.id())
+            .unwrap();
+
+        // Drop the original handle. This should still leave the asset alive.
+        drop(original_handle);
+
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<TestAsset>>()
+            .get(&new_handle)
+            .is_some());
+
+        let _other_handle: Handle<TestAsset> = asset_server.load("test.txt");
+        app.update();
+        // The asset server should **not** have started a new load, since the asset is still alive.
+
+        // Due to https://github.com/bevyengine/bevy/issues/20651, we do get a second load. Once
+        // #20651 is fixed, we should swap these asserts.
+        //
+        // assert_eq!(get_started_load_count(app.world()), 1);
+        assert_eq!(get_started_load_count(app.world()), 2);
+    }
 }
