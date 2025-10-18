@@ -79,8 +79,9 @@ use tracing::warn;
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers,
+        init_atmosphere_buffer, prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
+        write_atmosphere_buffer, AtmosphereBindGroupLayouts, AtmosphereLutPipelines,
+        AtmosphereSamplers,
     },
 };
 
@@ -145,7 +146,12 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
-                (init_atmosphere_probe_layout, init_atmosphere_probe_pipeline).chain(),
+                (
+                    init_atmosphere_probe_layout,
+                    init_atmosphere_probe_pipeline,
+                    init_atmosphere_buffer,
+                )
+                    .chain(),
             )
             .add_systems(
                 Render,
@@ -159,6 +165,9 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    write_atmosphere_buffer
+                        .in_set(RenderSystems::PrepareResources)
+                        .before(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
