@@ -466,14 +466,14 @@ macro_rules! impl_or_query_filter {
                 *access = new_access;
             }
 
-            fn update_external_component_access(
+            fn init_nested_access(
                 state: &Self::State,
                 _system_name: Option<&str>,
                 _component_access_set: &mut FilteredAccessSet,
                 _world: UnsafeWorldCell,
             ) {
                 let ($($state,)*) = state;
-                $($filter::update_external_component_access($state, _system_name, _component_access_set, _world);)*
+                $($filter::init_nested_access($state, _system_name, _component_access_set, _world);)*
             }
 
             fn init_state(world: &mut World) -> Self::State {

@@ -45,7 +45,7 @@ fn generic_func<D: IterQueryData>(query: Query<D>) {
 
 Conversely, manual implementations of `QueryData` may want to implement `IterQueryData` and `SingleEntityQueryData` if appropriate.
 
-Finally, two new methods have been added to `WorldQuery`: `update_external_component_access` and `update_archetypes`.
+Finally, two new methods have been added to `WorldQuery`: `init_nested_access` and `update_archetypes`.
 Manual implementations of `WorldQuery` should implement those methods as appropriate.
 Queries that only access the current entity may leave them empty,
 but queries that delegate to other implementations, especially generic ones,

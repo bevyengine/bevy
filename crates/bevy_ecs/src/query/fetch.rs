@@ -2350,13 +2350,13 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         access.extend_access(&intermediate);
     }
 
-    fn update_external_component_access(
+    fn init_nested_access(
         state: &Self::State,
         system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
         world: UnsafeWorldCell,
     ) {
-        T::update_external_component_access(state, system_name, component_access_set, world);
+        T::init_nested_access(state, system_name, component_access_set, world);
     }
 
     fn init_state(world: &mut World) -> T::State {
@@ -2791,13 +2791,13 @@ macro_rules! impl_anytuple_fetch {
 
             }
 
-            fn update_external_component_access(
+            fn init_nested_access(
                 state: &Self::State,
                 system_name: Option<&str>,
                 component_access_set: &mut FilteredAccessSet,
                 world: UnsafeWorldCell,
             ) {
-                <($(Option<$name>,)*)>::update_external_component_access(state, system_name, component_access_set, world);
+                <($(Option<$name>,)*)>::init_nested_access(state, system_name, component_access_set, world);
             }
 
             fn init_state(world: &mut World) -> Self::State {

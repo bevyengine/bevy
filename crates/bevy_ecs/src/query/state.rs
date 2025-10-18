@@ -205,18 +205,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         component_access_set.add(self.component_access.clone());
-        D::update_external_component_access(
-            &self.fetch_state,
-            system_name,
-            component_access_set,
-            world,
-        );
-        F::update_external_component_access(
-            &self.filter_state,
-            system_name,
-            component_access_set,
-            world,
-        );
+        D::init_nested_access(&self.fetch_state, system_name, component_access_set, world);
+        F::init_nested_access(&self.filter_state, system_name, component_access_set, world);
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
