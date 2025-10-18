@@ -17,7 +17,11 @@ use crate::{
     resource::Resource,
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    world::{
+        error::{ComponentFetchError, EntityComponentError},
+        unsafe_world_cell::UnsafeEntityCell,
+        Mut, Ref, World,
+    },
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -3620,7 +3624,8 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     }
 
     /// Gets access to the component of type `T` for the current entity.
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or if this [`FilteredEntityRef`] does not have read access to `T`.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         let id = self
@@ -3635,10 +3640,27 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .flatten()
     }
 
+    /// Tries to get access to the component of type `T` for the current entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get<T: Component>(&self) -> Result<&'w T, ComponentFetchError> {
+        let components = self.entity.world().components();
+        let id = components.get_valid_id(TypeId::of::<T>()).ok_or(
+            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
+        )?;
+        if !self.access.has_component_read(id) {
+            return Err(ComponentFetchError::InsufficientAccess(id));
+        }
+        unsafe { self.entity.get::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
+    }
+
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or if this [`FilteredEntityRef`] does not have read access to `T`.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         let id = self
@@ -3651,6 +3673,23 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_ref() })
             .flatten()
+    }
+
+    /// Tries to get access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_ref<T: Component>(&self) -> Result<Ref<'w, T>, ComponentFetchError> {
+        let components = self.entity.world().components();
+        let id = components.get_valid_id(TypeId::of::<T>()).ok_or(
+            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
+        )?;
+        if !self.access.has_component_read(id) {
+            return Err(ComponentFetchError::InsufficientAccess(id));
+        }
+        unsafe { self.entity.get_ref::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -3667,6 +3706,25 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_change_ticks::<T>() })
             .flatten()
+    }
+
+    /// Tries to retrieve the change ticks for the given component.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_change_ticks<T: Component>(
+        &self,
+    ) -> Result<ComponentTicks, ComponentFetchError> {
+        let components = self.entity.world().components();
+        let id = components.get_valid_id(TypeId::of::<T>()).ok_or(
+            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
+        )?;
+        if !self.access.has_component_read(id) {
+            return Err(ComponentFetchError::InsufficientAccess(id));
+        }
+        unsafe { self.entity.get_change_ticks::<T>() }
+            .ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -3699,6 +3757,22 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
+    }
+
+    /// Tries to get the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_by_id(
+        &'w self,
+        component_id: ComponentId,
+    ) -> Result<Ptr<'w>, ComponentFetchError> {
+        if !self.access.has_component_read(component_id) {
+            return Err(ComponentFetchError::InsufficientAccess(component_id));
+        }
+        unsafe { self.entity.get_by_id(component_id) }
+            .ok_or(ComponentFetchError::ComponentNotFound(component_id))
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -4038,6 +4112,24 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         unsafe { self.get_mut_unchecked() }
     }
 
+    /// Tries to get mutable access to the component of type `T` for the current entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_mut<T: Component<Mutability = Mutable>>(
+        &mut self,
+    ) -> Result<Mut<'_, T>, ComponentFetchError> {
+        let components = self.entity.world().components();
+        let id: ComponentId = components.get_valid_id(TypeId::of::<T>()).ok_or(
+            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
+        )?;
+        if !self.access.has_component_write(id) {
+            return Err(ComponentFetchError::InsufficientAccess(id));
+        }
+        unsafe { self.entity.get_mut::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T` or if
     /// the access does not include write access to `T`.
@@ -4095,6 +4187,30 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
+    }
+
+    /// Tries to get mutable access to the component of type `T` for the current entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure no other references to the same component exist while the returned
+    /// reference is alive.
+    #[inline]
+    pub unsafe fn try_get_mut_unchecked<T: Component<Mutability = Mutable>>(
+        &self,
+    ) -> Result<Mut<'_, T>, ComponentFetchError> {
+        let components = self.entity.world().components();
+        let id = components.get_valid_id(TypeId::of::<T>()).ok_or(
+            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
+        )?;
+        self.access
+            .has_component_write(id)
+            .then(|| self.entity.get_mut::<T>())
+            .ok_or_else(|| ComponentFetchError::InsufficientAccess(id))?
+            .ok_or_else(|| ComponentFetchError::ComponentNotFound(id))
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
@@ -4177,6 +4293,22 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         unsafe { self.get_mut_by_id_unchecked(component_id) }
     }
 
+    /// Tries to get a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'_>, ComponentFetchError> {
+        self.access
+            .has_component_write(component_id)
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
+            .ok_or_else(|| ComponentFetchError::InsufficientAccess(component_id))?
+            .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
+    }
+
     /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
@@ -4206,6 +4338,27 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
+    }
+
+    /// Tries to get the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure no other references to the same component exist while the returned
+    /// reference is alive.
+    #[inline]
+    pub unsafe fn try_get_mut_by_id_unchecked(
+        &self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'_>, ComponentFetchError> {
+        self.access
+            .has_component_write(component_id)
+            .then(|| self.entity.get_mut_by_id(component_id))
+            .ok_or_else(|| ComponentFetchError::InsufficientAccess(component_id))?
+            .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
     }
 
     /// Returns the source code location from which this entity has last been spawned.
@@ -4652,6 +4805,28 @@ where
         }
     }
 
+    /// Tries to get mutable access to the component of type `C` for the current entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_mut<C>(&mut self) -> Result<Mut<'_, C>, ComponentFetchError>
+    where
+        C: Component<Mutability = Mutable>,
+    {
+        let components = self.entity.world().components();
+        let id =
+            components
+                .valid_component_id::<C>()
+                .ok_or(ComponentFetchError::ComponentNotFound(ComponentId::new(
+                    usize::MAX,
+                )))?;
+        (!bundle_contains_component::<B>(components, id))
+            .then(|| unsafe { self.entity.get_mut::<C>() })
+            .ok_or_else(|| ComponentFetchError::InsufficientAccess(id))?
+            .ok_or_else(|| ComponentFetchError::ComponentNotFound(id))
+    }
+
     /// Returns the source code location from which this entity has been spawned.
     pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
@@ -4732,6 +4907,21 @@ where
                 unsafe { self.entity.get_mut_by_id(component_id).ok() }
             })
             .flatten()
+    }
+    /// Tries to get a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    ///
+    /// Returns an error distinguishing between insufficient access and the component
+    /// not being present on the entity.
+    #[inline]
+    pub fn try_get_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Result<MutUntyped<'_>, ComponentFetchError> {
+        let components = self.entity.world().components();
+        (!bundle_contains_component::<B>(components, component_id))
+            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
+            .ok_or(ComponentFetchError::InsufficientAccess(component_id))?
+            .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
     }
 }
 
@@ -5217,6 +5407,7 @@ mod tests {
 
     use crate::component::Tick;
     use crate::lifecycle::HookContext;
+    use crate::world::error::ComponentFetchError;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
@@ -6047,6 +6238,95 @@ mod tests {
                     (unsafe { x_ptr.deref::<X>() }, unsafe { y_ptr.deref::<Y>() })
                 })
         );
+    }
+
+    #[test]
+    fn try_get_mut_filtered_entity_mut_smoke() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct M(u32);
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct N(u32);
+
+        let mut world = World::new();
+        let missing_id = world.register_component::<N>();
+        let e = world.spawn(M(1)).id();
+
+        let m_id = world
+            .components()
+            .get_valid_id(core::any::TypeId::of::<M>())
+            .unwrap();
+
+        // Construct a FilteredEntityMut with full write access via Into
+        let mut filtered: FilteredEntityMut = world.entity_mut(e).into();
+        {
+            // Success path for typed try_get_mut
+            let mut m = filtered.try_get_mut::<M>().unwrap();
+            m.0 += 1;
+        }
+        unsafe {
+            // Success path for typed try_get_mut_unchecked
+            let mut m = filtered.try_get_mut_unchecked::<M>().unwrap();
+            m.0 += 1;
+        }
+        {
+            // Success path for by-id try_get_mut_by_id
+            let mut untyped = filtered.try_get_mut_by_id(m_id).unwrap();
+            untyped.set_changed();
+        }
+        unsafe {
+            // Success path for by-id try_get_mut_by_id_unchecked
+            let mut untyped = filtered.try_get_mut_by_id_unchecked(m_id).unwrap();
+            untyped.set_changed();
+        }
+
+        // Missing component returns ComponentNotFound for all variants
+        let err = filtered
+            .try_get_mut::<N>()
+            .expect_err("expected missing component error");
+        assert!(matches!(
+            err,
+            ComponentFetchError::ComponentNotFound(id) if id == missing_id
+        ));
+
+        let err = filtered
+            .try_get_mut_by_id(missing_id)
+            .expect_err("expected missing component error");
+        assert!(matches!(
+            err,
+            ComponentFetchError::ComponentNotFound(id) if id == missing_id
+        ));
+
+        let err = unsafe { filtered.try_get_mut_by_id_unchecked(missing_id) }
+            .expect_err("expected missing component error");
+        assert!(matches!(
+            err,
+            ComponentFetchError::ComponentNotFound(id) if id == missing_id
+        ));
+
+        assert_eq!(world.entity(e).get::<M>().unwrap().0, 3);
+    }
+
+    #[test]
+    fn try_get_mut_entity_mut_except_insufficient() {
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct M(u32);
+        #[derive(Component, PartialEq, Eq, Debug)]
+        struct N(u32);
+
+        let mut world = World::new();
+        world.spawn((M(1), N(2)));
+
+        let mut query = world.query::<EntityMutExcept<M>>();
+        for mut entity_mut in query.iter_mut(&mut world) {
+            // Insufficient access for excluded component M
+            let err = entity_mut
+                .try_get_mut::<M>()
+                .expect_err("expected insufficient access");
+            assert!(matches!(err, ComponentFetchError::InsufficientAccess(_)));
+
+            // Allowed mutable access for non-excluded component N
+            assert!(entity_mut.try_get_mut::<N>().is_ok());
+        }
     }
 
     #[test]

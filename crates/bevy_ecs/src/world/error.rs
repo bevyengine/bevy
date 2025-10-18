@@ -75,6 +75,18 @@ pub enum ResourceFetchError {
     NoResourceAccess(ComponentId),
 }
 
+/// An error that occurs when fetching a component for an entity via filtered access.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentFetchError {
+    /// The component with the given [`ComponentId`] exists in the world but cannot be accessed
+    /// through the current [`Access`](crate::query::access::Access) of the filtered reference.
+    #[error("Cannot access component with ID {0:?} due to insufficient access permissions.")]
+    InsufficientAccess(ComponentId),
+    /// The component with the given [`ComponentId`] does not exist on the entity.
+    #[error("The component with ID {0:?} does not exist on the entity.")]
+    ComponentNotFound(ComponentId),
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
