@@ -3,7 +3,7 @@
 use bevy::{
     log::{
         tracing::{self, Subscriber},
-        tracing_subscriber::{field::MakeExt as _, Layer},
+        tracing_subscriber::{field::MakeExt, Layer},
         BoxedFmtLayer, BoxedLayer,
     },
     prelude::*,
@@ -46,7 +46,7 @@ fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
     Some(Box::new(
         bevy::log::tracing_subscriber::fmt::Layer::default()
             .without_time()
-            .map_fmt_fields(debug_alt)
+            .map_fmt_fields(MakeExt::debug_alt)
             .with_writer(std::io::stderr),
     ))
 }
