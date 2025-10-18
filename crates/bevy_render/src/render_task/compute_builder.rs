@@ -4,7 +4,7 @@ use bytemuck::NoUninit;
 use wgpu::{BindGroup, Buffer, ComputePass};
 
 pub struct ComputeCommandBuilder<'a> {
-    compute_pass: &'a mut ComputePass<'a>,
+    compute_pass: &'a mut ComputePass<'static>,
     pass_name: &'a str,
     shader: Handle<Shader>,
     shader_defs: Vec<ShaderDefVal>,
@@ -13,19 +13,20 @@ pub struct ComputeCommandBuilder<'a> {
 }
 
 impl<'a> ComputeCommandBuilder<'a> {
-    pub fn new(
-        compute_pass: &'a mut ComputePass<'a>,
-        pass_name: &'a str,
-        shader: Handle<Shader>,
-    ) -> Self {
+    pub fn new(compute_pass: &'a mut ComputePass<'static>, pass_name: &'a str) -> Self {
         Self {
             compute_pass,
             pass_name,
-            shader,
+            shader: Handle::default(),
             shader_defs: Vec::new(),
             push_constants: None,
             bind_groups: Vec::new(),
         }
+    }
+
+    pub fn shader(mut self, shader: Handle<Shader>) -> Self {
+        self.shader = shader;
+        self
     }
 
     pub fn shader_def(mut self, shader_def: impl Into<ShaderDefVal>) -> Self {
