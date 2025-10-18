@@ -1,7 +1,6 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
 // The derive macro for the `Resource` trait
-use crate::prelude::Component;
 pub use bevy_ecs_macros::Resource;
 
 /// A type that can be inserted into a [`World`] as a singleton.
@@ -73,4 +72,4 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component {}
+pub trait Resource: Send + Sync + 'static {}
