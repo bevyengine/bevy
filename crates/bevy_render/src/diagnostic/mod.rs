@@ -82,15 +82,12 @@ pub trait RecordDiagnostics: Send + Sync {
     /// Begin a time span, which will record elapsed CPU and GPU time.
     ///
     /// Returns a guard, which will panic on drop unless you end the span.
-    fn time_span<E, N>(&self, encoder: &mut CommandEncoder, name: N) -> TimeSpanGuard<'_, Self, E>
+    fn time_span<N>(&self, encoder: &mut CommandEncoder, name: N) -> TimeSpanGuard<'_, Self>
     where
         N: Into<Cow<'static, str>>,
     {
         self.begin_time_span(encoder, name.into());
-        TimeSpanGuard {
-            recorder: self,
-            marker: PhantomData,
-        }
+        TimeSpanGuard { recorder: self }
     }
 
     /// Begin a pass span, which will record elapsed CPU and GPU time,
@@ -125,20 +122,19 @@ pub trait RecordDiagnostics: Send + Sync {
 /// Guard returned by [`RecordDiagnostics::time_span`].
 ///
 /// Will panic on drop unless [`TimeSpanGuard::end`] is called.
-pub struct TimeSpanGuard<'a, R: ?Sized, E> {
+pub struct TimeSpanGuard<'a, R: ?Sized> {
     recorder: &'a R,
-    marker: PhantomData<E>,
 }
 
-impl<R: RecordDiagnostics + ?Sized, E: WriteTimestamp> TimeSpanGuard<'_, R, E> {
+impl<R: RecordDiagnostics + ?Sized> TimeSpanGuard<'_, R> {
     /// End the span. You have to provide the same encoder which was used to begin the span.
-    pub fn end(self, encoder: &mut E) {
+    pub fn end(self, encoder: &mut CommandEncoder) {
         self.recorder.end_time_span(encoder);
         core::mem::forget(self);
     }
 }
 
-impl<R: ?Sized, E> Drop for TimeSpanGuard<'_, R, E> {
+impl<R: ?Sized> Drop for TimeSpanGuard<'_, R> {
     fn drop(&mut self) {
         panic!("TimeSpanScope::end was never called")
     }
