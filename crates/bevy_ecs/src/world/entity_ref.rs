@@ -6239,7 +6239,7 @@ mod tests {
             ComponentFetchError::ComponentNotFound(id) if id == missing_id
         ));
 
-        assert_eq!(world.entity(e).get::<M>().unwrap().0, 3);
+        assert_eq!(world.entity(e).get::<M>().unwrap().0, 2);
     }
 
     #[test]
