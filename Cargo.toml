@@ -3550,6 +3550,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "strikeout"
+path = "examples/ui/strikeout.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.strikeout]
+name = "Strikeout"
+description = "Demonstrates how to display text with strikeout."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 doc-scrape-examples = true
