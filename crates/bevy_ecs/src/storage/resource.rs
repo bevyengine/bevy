@@ -51,7 +51,8 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
-            self.data.drop(1, self.is_present().into());
+            let len: usize = self.is_present().into();
+            self.data.drop(1, ..len);
         }
     }
 }
