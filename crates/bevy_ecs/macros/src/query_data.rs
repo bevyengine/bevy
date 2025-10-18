@@ -266,6 +266,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     const IS_READ_ONLY: bool = true;
+                    const IS_ARCHETYPAL: bool = true #(&& <#read_only_field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w, '__s> = #read_only_item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -294,10 +295,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                         _entity: #path::entity::Entity,
                         _table_row: #path::storage::TableRow,
-                    ) -> Self::Item<'__w, '__s> {
-                        Self::Item {
-                            #(#field_idents: <#read_only_field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
-                        }
+                    ) -> Option<Self::Item<'__w, '__s>> {
+                        Some(Self::Item {
+                            #(#field_idents: <#read_only_field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row)?,)*
+                        })
                     }
                 }
 
@@ -312,6 +313,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
                 }
+
+                impl #user_impl_generics #path::query::ArchetypeQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* {}
             }
         } else {
             quote! {}
@@ -324,6 +331,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 const IS_READ_ONLY: bool = #is_read_only;
+                const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryData>::IS_ARCHETYPAL)*;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w, '__s> = #item_struct_name #user_ty_generics_with_world_and_state;
 
@@ -352,10 +360,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: #path::entity::Entity,
                     _table_row: #path::storage::TableRow,
-                ) -> Self::Item<'__w, '__s> {
-                    Self::Item {
-                        #(#field_idents: <#field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row),)*
-                    }
+                ) -> Option<Self::Item<'__w, '__s>> {
+                    Some(Self::Item {
+                        #(#field_idents: <#field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row)?,)*
+                    })
                 }
             }
 
@@ -370,6 +378,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     }
                 }
             }
+
+            impl #user_impl_generics #path::query::ArchetypeQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::ArchetypeQueryData,)* {}
 
             #read_only_data_impl
         }
