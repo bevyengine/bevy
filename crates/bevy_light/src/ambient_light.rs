@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// An ambient light, which lights the entire scene equally.
 ///
-/// It can be added to a camera to override the default `AmbientLightResource` ambient for that camera only.
+/// It can be added to a camera to override the default [`AmbientLight`] ambient for that camera only.
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 #[require(Camera)]
@@ -49,7 +49,7 @@ impl Default for AmbientLightOverride {
 /// ```
 /// # use bevy_ecs::system::ResMut;
 /// # use bevy_light::AmbientLight;
-/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLightResource>) {
+/// fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
 ///    ambient_light.brightness = 100.0;
 /// }
 /// ```
