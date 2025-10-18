@@ -20,9 +20,9 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (task, extra_query_data): QueryItem<Self::ViewQuery>,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        (task, extra_query_data): QueryItem<'w, '_, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         render_context.add_command_buffer_generation_task(move |render_device| {
             let mut command_encoder =
@@ -56,7 +56,7 @@ impl<'a> RenderTaskEncoder<'a> {
         todo!()
     }
 
-    pub fn compute_command(&mut self, pass_name: &'a str) -> ComputeCommandBuilder<'a> {
+    pub fn compute_command(&'a mut self, pass_name: &'a str) -> ComputeCommandBuilder<'a> {
         if self.compute_pass.is_none() {
             self.compute_pass = Some(
                 self.command_encoder
