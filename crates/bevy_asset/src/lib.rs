@@ -188,6 +188,7 @@ mod server;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;
+use bevy_diagnostic::{Diagnostic, DiagnosticsStore, RegisterDiagnostic};
 pub use direct_access_ext::DirectAssetAccessExt;
 pub use event::*;
 pub use folder::*;
@@ -217,7 +218,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
-use bevy_ecs::prelude::Component;
+use bevy_ecs::{prelude::Component, schedule::common_conditions::resource_exists};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoScheduleConfigs, SystemSet},
@@ -430,7 +431,17 @@ impl Plugin for AssetPlugin {
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
-            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all());
+            .add_systems(
+                PreUpdate,
+                (
+                    handle_internal_asset_events.ambiguous_with_all(),
+                    // TODO: Remove the run condition and use `If` once
+                    // https://github.com/bevyengine/bevy/issues/21549 is resolved.
+                    publish_asset_server_diagnostics.run_if(resource_exists::<DiagnosticsStore>),
+                )
+                    .chain(),
+            )
+            .register_diagnostic(Diagnostic::new(AssetServer::STARTED_LOAD_COUNT));
     }
 }
 
@@ -736,6 +747,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_app::{App, TaskPoolPlugin, Update};
+    use bevy_diagnostic::{DiagnosticsPlugin, DiagnosticsStore};
     use bevy_ecs::{
         message::MessageCursor,
         prelude::*,
@@ -915,7 +927,11 @@ mod tests {
             AssetSourceId::Default,
             AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
         )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            DiagnosticsPlugin,
+        ));
         (app, gate_opener)
     }
 
@@ -934,6 +950,14 @@ mod tests {
 
     fn get<A: Asset>(world: &World, id: AssetId<A>) -> Option<&A> {
         world.resource::<Assets<A>>().get(id)
+    }
+
+    fn get_started_load_count(world: &World) -> usize {
+        world
+            .resource::<DiagnosticsStore>()
+            .get_measurement(&AssetServer::STARTED_LOAD_COUNT)
+            .map(|measurement| measurement.value as _)
+            .unwrap_or_default()
     }
 
     #[derive(Resource, Default)]
@@ -1012,6 +1036,8 @@ mod tests {
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
         app.update();
+        assert_eq!(get_started_load_count(app.world()), 1);
+
         {
             let a_text = get::<CoolText>(app.world(), a_id);
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
@@ -1050,6 +1076,7 @@ mod tests {
             assert!(c_rec_deps.is_loading());
             Some(())
         });
+        assert_eq!(get_started_load_count(app.world()), 3);
 
         // Allow "b" to load ... wait for it to finish loading and validate results
         // "c" should not be loaded yet
@@ -1080,6 +1107,7 @@ mod tests {
             assert!(c_rec_deps.is_loading());
             Some(())
         });
+        assert_eq!(get_started_load_count(app.world()), 3);
 
         // Allow "c" to load ... wait for it to finish loading and validate results
         // all "a" dependencies should be loaded now
@@ -1149,6 +1177,7 @@ mod tests {
             world.insert_resource(IdResults { b_id, c_id, d_id });
             Some(())
         });
+        assert_eq!(get_started_load_count(app.world()), 6);
 
         gate_opener.open(d_path);
         run_app_until(&mut app, |world| {
@@ -1180,6 +1209,8 @@ mod tests {
             );
             Some(())
         });
+
+        assert_eq!(get_started_load_count(app.world()), 6);
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
@@ -1306,6 +1337,9 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
+
+        app.update();
+        assert_eq!(get_started_load_count(app.world()), 1);
         {
             let other_handle: Handle<CoolText> = asset_server.load(a_path);
             assert_eq!(
@@ -1317,6 +1351,10 @@ mod tests {
                 handle.id(),
                 "handle ids from consecutive load calls should be equal"
             );
+
+            app.update();
+            // Only one load still!
+            assert_eq!(get_started_load_count(app.world()), 1);
         }
 
         gate_opener.open(a_path);
@@ -1377,6 +1415,8 @@ mod tests {
 
             Some(())
         });
+
+        assert_eq!(get_started_load_count(app.world()), 4);
     }
 
     #[test]
@@ -1423,6 +1463,9 @@ mod tests {
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
 
+        app.update();
+        assert_eq!(get_started_load_count(app.world()), 1);
+
         gate_opener.open(a_path);
         run_app_until(&mut app, |world| {
             let _a_text = get::<CoolText>(world, a_id)?;
@@ -1432,6 +1475,8 @@ mod tests {
             assert!(a_rec_deps.is_loading());
             Some(())
         });
+
+        assert_eq!(get_started_load_count(app.world()), 3);
 
         gate_opener.open(b_path);
         run_app_until(&mut app, |world| {
@@ -1450,6 +1495,8 @@ mod tests {
             assert!(a_rec_deps.is_failed());
             Some(())
         });
+
+        assert_eq!(get_started_load_count(app.world()), 3);
 
         gate_opener.open(c_path);
         run_app_until(&mut app, |world| {
@@ -1470,6 +1517,8 @@ mod tests {
             );
             Some(())
         });
+
+        assert_eq!(get_started_load_count(app.world()), 3);
     }
 
     const SIMPLE_TEXT: &str = r#"
@@ -1568,9 +1617,17 @@ mod tests {
             AssetEvent::Unused { id },
             AssetEvent::Removed { id },
         ];
+
+        // No loads have occurred yet.
+        assert_eq!(get_started_load_count(app.world()), 0);
+
         assert_eq!(events, expected_events);
 
         let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
+
+        app.update();
+        assert_eq!(get_started_load_count(app.world()), 1);
+
         let a = CoolText {
             text: "a".to_string(),
             embedded: empty,
@@ -1579,6 +1636,10 @@ mod tests {
             sub_texts: Vec::new(),
         };
         let a_handle = app.world().resource::<AssetServer>().load_asset(a);
+
+        // load_asset does not count as a load.
+        assert_eq!(get_started_load_count(app.world()), 1);
+
         app.update();
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
@@ -1603,6 +1664,9 @@ mod tests {
             assert_eq!(events, expected_events);
             break;
         }
+
+        assert_eq!(get_started_load_count(app.world()), 1);
+
         app.update();
         let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
@@ -1653,6 +1717,14 @@ mod tests {
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
+
+        // The folder started loading. The task will also try to start loading the first asset in
+        // the folder. With the multi_threaded feature this check is racing with the first load, so
+        // allow 1 or 2 load tasks to start.
+        app.update();
+        let started_load_tasks = get_started_load_count(app.world());
+        assert!((1..=2).contains(&started_load_tasks));
+
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -1699,6 +1771,7 @@ mod tests {
             }
             None
         });
+        assert_eq!(get_started_load_count(app.world()), 4);
     }
 
     /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
@@ -3184,5 +3257,232 @@ mod tests {
 
         // This assertion exists to "prove" that this problem exists.
         assert!(processed_dir.get_asset(gltfx_path).is_none());
+    }
+
+    #[test]
+    fn same_asset_different_settings() {
+        // Test loading the same asset twice with different settings. This should
+        // produce two distinct assets.
+
+        // First, implement an asset that's a single u8, whose value is copied from
+        // the loader settings.
+
+        #[derive(Asset, TypePath)]
+        struct U8Asset(u8);
+
+        #[derive(Serialize, Deserialize, Default)]
+        struct U8LoaderSettings(u8);
+
+        struct U8Loader;
+
+        impl AssetLoader for U8Loader {
+            type Asset = U8Asset;
+            type Settings = U8LoaderSettings;
+            type Error = crate::loader::LoadDirectError;
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                settings: &Self::Settings,
+                _: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(U8Asset(settings.0))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["u8"]
+            }
+        }
+
+        // Create a test asset.
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.u8"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        // Set up the app.
+
+        let mut app = App::new();
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<U8Asset>()
+            .register_asset_loader(U8Loader);
+
+        let asset_server = app.world().resource::<AssetServer>();
+
+        // Load the test asset twice but with different settings.
+
+        fn load(asset_server: &AssetServer, path: &'static str, value: u8) -> Handle<U8Asset> {
+            asset_server.load_with_settings::<U8Asset, U8LoaderSettings>(
+                path,
+                move |s: &mut U8LoaderSettings| s.0 = value,
+            )
+        }
+
+        let handle_1 = load(asset_server, "test.u8", 1);
+        let handle_2 = load(asset_server, "test.u8", 2);
+
+        // Handles should be different.
+
+        // These handles should be different, but due to
+        // https://github.com/bevyengine/bevy/pull/21564, they are not. Once 21564 is fixed, we
+        // should replace these expects.
+        //
+        // assert_ne!(handle_1, handle_2);
+        assert_eq!(handle_1, handle_2);
+
+        run_app_until(&mut app, |world| {
+            let (Some(asset_1), Some(asset_2)) = (
+                world.resource::<Assets<U8Asset>>().get(&handle_1),
+                world.resource::<Assets<U8Asset>>().get(&handle_2),
+            ) else {
+                return None;
+            };
+
+            // Values should match the settings.
+
+            // These values should be different, but due to
+            // https://github.com/bevyengine/bevy/pull/21564, they are not. Once 21564 is fixed, we
+            // should replace these expects.
+            //
+            // assert_eq!(asset_1.0, 1);
+            // assert_eq!(asset_2.0, 2);
+            assert_eq!(asset_1.0, asset_2.0);
+
+            Some(())
+        });
+    }
+
+    #[test]
+    fn loading_two_subassets_does_not_start_two_loads() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.txt"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        struct TwoSubassetLoader;
+
+        impl AssetLoader for TwoSubassetLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                load_context.add_labeled_asset("A".into(), TestAsset);
+                load_context.add_labeled_asset("B".into(), TestAsset);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.register_asset_loader(TwoSubassetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let _subasset_1: Handle<TestAsset> = asset_server.load("test.txt#A");
+        let _subasset_2: Handle<TestAsset> = asset_server.load("test.txt#B");
+
+        app.update();
+
+        // Due to https://github.com/bevyengine/bevy/issues/12756, this expectation fails. Once
+        // #12756 is fixed, we should swap these asserts.
+        //
+        // assert_eq!(get_started_load_count(app.world()), 1);
+        assert_eq!(get_started_load_count(app.world()), 2);
+    }
+
+    #[test]
+    fn get_strong_handle_prevents_reload_when_asset_still_alive() {
+        let mut app = App::new();
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.txt"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        struct TrivialLoader;
+
+        impl AssetLoader for TrivialLoader {
+            type Asset = TestAsset;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                _load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["txt"]
+            }
+        }
+
+        app.register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let original_handle: Handle<TestAsset> = asset_server.load("test.txt");
+
+        // Wait for the asset to load.
+        run_app_until(&mut app, |world| {
+            world
+                .resource::<Assets<TestAsset>>()
+                .get(&original_handle)
+                .map(|_| ())
+        });
+
+        assert_eq!(get_started_load_count(app.world()), 1);
+
+        // Get a new strong handle from the original handle's ID.
+        let new_handle = app
+            .world_mut()
+            .resource_mut::<Assets<TestAsset>>()
+            .get_strong_handle(original_handle.id())
+            .unwrap();
+
+        // Drop the original handle. This should still leave the asset alive.
+        drop(original_handle);
+
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<TestAsset>>()
+            .get(&new_handle)
+            .is_some());
+
+        let _other_handle: Handle<TestAsset> = asset_server.load("test.txt");
+        app.update();
+        // The asset server should **not** have started a new load, since the asset is still alive.
+
+        // Due to https://github.com/bevyengine/bevy/issues/20651, we do get a second load. Once
+        // #20651 is fixed, we should swap these asserts.
+        //
+        // assert_eq!(get_started_load_count(app.world()), 1);
+        assert_eq!(get_started_load_count(app.world()), 2);
     }
 }

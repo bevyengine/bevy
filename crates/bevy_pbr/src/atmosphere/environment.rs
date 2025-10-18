@@ -54,7 +54,7 @@ pub(crate) struct AtmosphereProbeBindGroups {
 
 #[derive(Resource)]
 pub struct AtmosphereProbeLayouts {
-    pub environment: BindGroupLayout,
+    pub environment: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -62,8 +62,8 @@ pub struct AtmosphereProbePipeline {
     pub environment: CachedComputePipelineId,
 }
 
-pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
-    let environment = render_device.create_bind_group_layout(
+pub fn init_atmosphere_probe_layout(mut commands: Commands) {
+    let environment = BindGroupLayoutDescriptor::new(
         "environment_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
@@ -103,12 +103,13 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
+    pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &probes {
         let environment = render_device.create_bind_group(
             "environment_bind_group",
-            &layouts.environment,
+            &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::sequential((
                 atmosphere_uniforms.binding().unwrap(),
                 settings_uniforms.binding().unwrap(),
