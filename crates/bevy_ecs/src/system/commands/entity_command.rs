@@ -4,7 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::{string::ToString as _, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 #[cfg(not(feature = "trace"))]
 use log::info;
 #[cfg(feature = "trace")]
@@ -327,7 +327,7 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
-        let name = entity.get::<Name>().map(|name| name.to_string());
+        let name = entity.get::<Name>().map(ToString::to_string);
         let id = entity.id();
         let mut components: Vec<_> = entity
             .world()
