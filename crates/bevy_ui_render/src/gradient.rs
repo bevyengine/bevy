@@ -354,9 +354,13 @@ pub fn extract_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
+            IsContainFeature,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
+    #[cfg(feature = "bevy_ui_contain")] ui_contain_query: Extract<
+        Query<&GlobalTransform, With<UiContainSet>>,
+    >,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
     let mut sorted_stops = vec![];
@@ -370,6 +374,7 @@ pub fn extract_gradients(
         inherited_visibility,
         clip,
         (gradient, gradient_border),
+        _is_contain_target,
     ) in &gradients_query
     {
         // Skip invisible images
@@ -380,6 +385,25 @@ pub fn extract_gradients(
         let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
+
+        #[cfg(feature = "bevy_ui_contain")]
+        let transform = if let Some(target) = _is_contain_target {
+            let translation = ui_contain_query
+                .get(target.0)
+                .map(|global| {
+                    use bevy_math::Vec3Swizzles;
+
+                    global.translation().xy() * Vec2::new(1.0, -1.0) + transform.translation
+                })
+                .unwrap_or(transform.translation);
+
+            Affine2::from_mat2_translation(UI_WORLD_MAT2, UI_WORLD_MAT2 * translation)
+        } else {
+            transform.affine()
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let transform = transform.affine();
 
         for (gradients, node_type) in [
             (gradient.map(|g| &g.0), NodeType::Rect),
@@ -403,7 +427,7 @@ pub fn extract_gradients(
                         image: AssetId::default(),
                         clip: clip.map(|clip| clip.clip),
                         extracted_camera_entity,
-                        transform: transform.into(),
+                        transform,
                         item: ExtractedUiItem::Node {
                             color: color.into(),
                             rect: Rect {
@@ -419,9 +443,12 @@ pub fn extract_gradients(
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        #[cfg(feature = "bevy_ui_contain")]
+                        is_contain_target: _is_contain_target.is_some(),
                     });
                     continue;
                 }
+
                 match gradient {
                     Gradient::Linear(LinearGradient {
                         color_space,
@@ -444,7 +471,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -494,7 +521,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -550,7 +577,7 @@ pub fn extract_gradients(
                         extracted_gradients.items.push(ExtractedGradient {
                             render_entity: commands.spawn(TemporaryRenderEntity).id(),
                             stack_index: uinode.stack_index,
-                            transform: transform.into(),
+                            transform,
                             stops_range: range_start..extracted_color_stops.0.len(),
                             rect: Rect {
                                 min: Vec2::ZERO,
@@ -597,7 +624,7 @@ pub fn queue_gradient(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.0) else {
+        let Ok(view) = camera_views.get(default_camera_view.ui_camera) else {
             continue;
         };
 
@@ -632,6 +659,46 @@ pub fn queue_gradient(
             index,
             indexed: true,
         });
+
+        #[cfg(feature = "bevy_ui_contain")]
+        {
+            let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
+                continue;
+            };
+
+            let Some(transparent_phase) =
+                transparent_render_phases.get_mut(&view.retained_view_entity)
+            else {
+                continue;
+            };
+
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &gradients_pipeline,
+                UiGradientPipelineKey {
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                    color_space: gradient.color_space,
+                    hdr: view.hdr,
+                },
+            );
+
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (gradient.render_entity, gradient.main_entity),
+                sort_key: FloatOrd(
+                    gradient.stack_index as f32
+                        + match gradient.node_type {
+                            NodeType::Rect => stack_z_offsets::GRADIENT,
+                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                        },
+                ),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: true,
+            });
+        }
     }
 }
 

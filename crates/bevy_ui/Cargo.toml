@@ -58,6 +58,7 @@ bevy_picking = ["dep:bevy_picking", "dep:uuid"]
 
 # Experimental features
 ghost_nodes = []
+bevy_ui_contain = []
 
 [lints]
 workspace = true

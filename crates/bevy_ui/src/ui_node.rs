@@ -9,6 +9,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
+use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -2858,6 +2859,29 @@ impl ComputedUiRenderTargetInfo {
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
     }
+}
+
+/// Pointing to [`UiContainSet`](crate::UiContainSet), actually choosing [`UiSurface`](crate::ui_surface::UiSurface) for layout.
+/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSet` is located in world space.
+/// When the root node and its child nodes point to the same `UiContainSet`, the functionality is work.
+/// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+#[relationship(relationship_target = UiContains)]
+pub struct UiContainTarget(pub Entity);
+
+#[derive(Component, Default, Debug, PartialEq, Eq)]
+#[relationship_target(relationship = UiContainTarget, linked_spawn)]
+pub struct UiContains(Vec<Entity>);
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+#[require(crate::ui_surface::UiSurface, Transform, UiContains)]
+pub struct UiContainSet {
+    /// The scale factor of the target contain's render target.
+    pub scale_factor: f32,
+    /// The size of the target contain's viewport in physical pixels.
+    pub physical_size: UVec2,
 }
 
 #[cfg(test)]
