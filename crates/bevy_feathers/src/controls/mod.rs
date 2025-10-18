@@ -5,6 +5,7 @@ mod button;
 mod checkbox;
 mod color_slider;
 mod color_swatch;
+mod menu;
 mod radio;
 mod slider;
 mod toggle_switch;
@@ -14,6 +15,7 @@ pub use button::*;
 pub use checkbox::*;
 pub use color_slider::*;
 pub use color_swatch::*;
+pub use menu::*;
 pub use radio::*;
 pub use slider::*;
 pub use toggle_switch::*;
@@ -31,6 +33,7 @@ impl Plugin for ControlsPlugin {
             ButtonPlugin,
             CheckboxPlugin,
             ColorSliderPlugin,
+            MenuPlugin,
             RadioPlugin,
             SliderPlugin,
             ToggleSwitchPlugin,

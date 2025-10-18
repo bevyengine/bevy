@@ -14,6 +14,16 @@ pub mod fonts {
     pub const MONO: &str = "embedded://bevy_feathers/assets/fonts/FiraMono-Medium.ttf";
 }
 
+/// Icon paths
+pub mod icons {
+    /// Downward-pointing chevron
+    pub const CHEVRON_DOWN: &str = "embedded://bevy_feathers/assets/icons/chevron-down.png";
+    /// Right-pointing chevron
+    pub const CHEVRON_RIGHT: &str = "embedded://bevy_feathers/assets/icons/chevron-right.png";
+    /// Diagonal Cross
+    pub const X: &str = "embedded://bevy_feathers/assets/icons/x.png";
+}
+
 /// Size constants
 pub mod size {
     use bevy_ui::Val;
