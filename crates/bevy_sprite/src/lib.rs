@@ -28,7 +28,7 @@ pub mod prelude {
     };
     #[cfg(feature = "bevy_text")]
     #[doc(hidden)]
-    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter};
+    pub use crate::text2d::Text2d;
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
@@ -44,6 +44,7 @@ use bevy_camera::{
     visibility::VisibilitySystems,
 };
 use bevy_mesh::{Mesh, Mesh2d};
+
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;
@@ -91,6 +92,7 @@ impl Plugin for SpritePlugin {
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
+                .after(bevy_text::TextUpdateSystems)
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(bevy_app::AnimationSystems),
         );

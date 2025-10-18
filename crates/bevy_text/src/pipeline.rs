@@ -1,7 +1,6 @@
 use alloc::sync::Arc;
 
 use bevy_asset::{AssetId, Assets};
-use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component, entity::Entity, reflect::ReflectComponent, resource::Resource,
@@ -18,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 use crate::{
     add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
     FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
-    TextEntity, TextFont, TextLayout,
+    TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -87,13 +86,14 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        text_spans: impl Iterator<Item = (Entity, &'a str, &'a TextFont)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
+        //        entities: &mut TextEntities,
     ) -> Result<(), TextError> {
         let font_system = &mut font_system.0;
 
@@ -101,17 +101,14 @@ impl TextPipeline {
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut max_font_size: f32 = 0.;
         let mut max_line_height: f32 = 0.0;
-        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
+        let mut spans: Vec<(&str, &TextFont, FontFaceInfo)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &TextFont, FontFaceInfo, Color) { unreachable!() })
+                .map(|_| -> (&str, &TextFont, FontFaceInfo) { unreachable!() })
                 .collect();
 
-        computed.entities.clear();
-
-        for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+        for (entity, span, text_font) in text_spans {
             // Save this span entity in the computed text block.
-            computed.entities.push(TextEntity { entity, depth });
 
             if span.is_empty() {
                 continue;
@@ -151,7 +148,7 @@ impl TextPipeline {
 
                 continue;
             }
-            spans.push((span_index, span, text_font, face_info, color));
+            spans.push((span, text_font, face_info));
         }
 
         let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
@@ -167,14 +164,16 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans_iter = spans
-            .iter()
-            .map(|(span_index, span, text_font, font_info, color)| {
-                (
-                    *span,
-                    get_attrs(*span_index, text_font, *color, font_info, scale_factor),
-                )
-            });
+        let spans_iter =
+            spans
+                .iter()
+                .enumerate()
+                .map(|(span_index, (text, text_font, face_info))| {
+                    (
+                        *text,
+                        get_attrs(span_index, text_font, face_info, scale_factor),
+                    )
+                });
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
@@ -226,7 +225,7 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        text_spans: impl Iterator<Item = (Entity, &'a str, &'a TextFont)>,
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
@@ -236,6 +235,7 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
         swash_cache: &mut SwashCache,
+        entities: &[Entity],
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
         layout_info.section_rects.clear();
@@ -247,7 +247,7 @@ impl TextPipeline {
         // Extract font ids from the iterator while traversing it.
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, text_font, _)| {
+        let text_spans = text_spans.inspect(|(_, _, text_font)| {
             glyph_info.push((text_font.font.id(), text_font.font_smoothing));
         });
 
@@ -282,7 +282,7 @@ impl TextPipeline {
                         Some(section) => {
                             if section != layout_glyph.metadata {
                                 layout_info.section_rects.push((
-                                    computed.entities[section].entity,
+                                    entities[section],
                                     Rect::new(
                                         start,
                                         run.line_top,
@@ -375,7 +375,7 @@ impl TextPipeline {
                 });
             if let Some(section) = current_section {
                 layout_info.section_rects.push((
-                    computed.entities[section].entity,
+                    entities[section],
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                 ));
             }
@@ -396,9 +396,9 @@ impl TextPipeline {
     /// to measure the text area on demand.
     pub fn create_text_measure<'a>(
         &mut self,
-        entity: Entity,
+        layout_entity: Entity,
         fonts: &Assets<Font>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        text_spans: impl Iterator<Item = (Entity, &'a str, &'a TextFont)>,
         scale_factor: f64,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
@@ -433,7 +433,7 @@ impl TextPipeline {
         Ok(TextMeasureInfo {
             min: min_width_content_size,
             max: max_width_content_size,
-            entity,
+            entity: layout_entity,
         })
     }
 
@@ -534,7 +534,6 @@ pub fn load_font_to_fontdb(
 fn get_attrs<'a>(
     span_index: usize,
     text_font: &TextFont,
-    color: Color,
     face_info: &'a FontFaceInfo,
     scale_factor: f64,
 ) -> Attrs<'a> {
@@ -551,7 +550,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
-        .color(cosmic_text::Color(color.to_linear().as_u32()))
+    //.color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
 /// Calculate the size of the text area for the given buffer.

@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         ))
         .with_child((
-            TextSpan::default(),
+            Text::default(),
             if cfg!(feature = "default_font") {
                 (
                     TextFont {
@@ -132,7 +132,7 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Anim
 
 fn text_update_system(
     diagnostics: Res<DiagnosticsStore>,
-    mut query: Query<&mut TextSpan, With<FpsText>>,
+    mut query: Query<&mut Text, With<FpsText>>,
 ) {
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
