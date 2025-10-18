@@ -454,7 +454,6 @@ unsafe impl EntityEquivalent for EntityRef<'_> {}
 pub struct EntityMut<'w> {
     cell: UnsafeEntityCell<'w>,
 }
-
 impl<'w> EntityMut<'w> {
     /// # Safety
     /// - `cell` must have permission to mutate every component of the entity.
@@ -1183,7 +1182,6 @@ pub struct EntityWorldMut<'w> {
     entity: Entity,
     location: EntityIdLocation,
 }
-
 impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     #[inline(never)]
@@ -1984,7 +1982,6 @@ impl<'w> EntityWorldMut<'w> {
             RelationshipHookMode::Run,
         )
     }
-
     /// Adds a [`Bundle`] of components to the entity.
     /// [`Relationship`](crate::relationship::Relationship) components in the bundle will follow the configuration
     /// in `relationship_hook_mode`.
@@ -3549,7 +3546,6 @@ pub struct FilteredEntityRef<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
 }
-
 impl<'w, 's> FilteredEntityRef<'w, 's> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
@@ -3653,6 +3649,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
         if !self.access.has_component_read(id) {
             return Err(ComponentFetchError::InsufficientAccess(id));
         }
+        // SAFETY: We have read access
         unsafe { self.entity.get::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
@@ -3689,6 +3686,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
         if !self.access.has_component_read(id) {
             return Err(ComponentFetchError::InsufficientAccess(id));
         }
+        // SAFETY: We have read access
         unsafe { self.entity.get_ref::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
@@ -3723,6 +3721,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
         if !self.access.has_component_read(id) {
             return Err(ComponentFetchError::InsufficientAccess(id));
         }
+        // SAFETY: We have read access
         unsafe { self.entity.get_change_ticks::<T>() }
             .ok_or(ComponentFetchError::ComponentNotFound(id))
     }
@@ -3771,6 +3770,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
         if !self.access.has_component_read(component_id) {
             return Err(ComponentFetchError::InsufficientAccess(component_id));
         }
+        // SAFETY: We have read access
         unsafe { self.entity.get_by_id(component_id) }
             .ok_or(ComponentFetchError::ComponentNotFound(component_id))
     }
@@ -3992,7 +3992,6 @@ pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
     access: &'s Access,
 }
-
 impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
@@ -4127,6 +4126,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         if !self.access.has_component_write(id) {
             return Err(ComponentFetchError::InsufficientAccess(id));
         }
+        // SAFETY: We have write access, confirmed above.
         unsafe { self.entity.get_mut::<T>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
@@ -4187,30 +4187,6 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut() })
             .flatten()
-    }
-
-    /// Tries to get mutable access to the component of type `T` for the current entity.
-    ///
-    /// Returns an error distinguishing between insufficient access and the component
-    /// not being present on the entity.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure no other references to the same component exist while the returned
-    /// reference is alive.
-    #[inline]
-    pub unsafe fn try_get_mut_unchecked<T: Component<Mutability = Mutable>>(
-        &self,
-    ) -> Result<Mut<'_, T>, ComponentFetchError> {
-        let components = self.entity.world().components();
-        let id = components.get_valid_id(TypeId::of::<T>()).ok_or(
-            ComponentFetchError::ComponentNotFound(ComponentId::new(usize::MAX)),
-        )?;
-        self.access
-            .has_component_write(id)
-            .then(|| self.entity.get_mut::<T>())
-            .ok_or_else(|| ComponentFetchError::InsufficientAccess(id))?
-            .ok_or_else(|| ComponentFetchError::ComponentNotFound(id))
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
@@ -4302,10 +4278,11 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         &mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'_>, ComponentFetchError> {
-        self.access
-            .has_component_write(component_id)
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
-            .ok_or_else(|| ComponentFetchError::InsufficientAccess(component_id))?
+        if !self.access.has_component_write(component_id) {
+            return Err(ComponentFetchError::InsufficientAccess(component_id));
+        }
+        // SAFETY: write access for this component was confirmed above.
+        unsafe { self.entity.get_mut_by_id(component_id) }
             .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
     }
 
@@ -4332,33 +4309,10 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         &self,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        self.access
-            .has_component_write(component_id)
-            // SAFETY: We have permission to access the component mutable
-            // and we promise to not create other references to the same component
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
-            .flatten()
-    }
-
-    /// Tries to get the component of the given [`ComponentId`] from the entity.
-    ///
-    /// Returns an error distinguishing between insufficient access and the component
-    /// not being present on the entity.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure no other references to the same component exist while the returned
-    /// reference is alive.
-    #[inline]
-    pub unsafe fn try_get_mut_by_id_unchecked(
-        &self,
-        component_id: ComponentId,
-    ) -> Result<MutUntyped<'_>, ComponentFetchError> {
-        self.access
-            .has_component_write(component_id)
-            .then(|| self.entity.get_mut_by_id(component_id))
-            .ok_or_else(|| ComponentFetchError::InsufficientAccess(component_id))?
-            .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
+        if !self.access.has_component_write(component_id) {
+            return None;
+        }
+        self.entity.get_mut_by_id(component_id).ok()
     }
 
     /// Returns the source code location from which this entity has last been spawned.
@@ -4719,7 +4673,6 @@ where
     access: &'s Access,
     phantom: PhantomData<B>,
 }
-
 impl<'w, 's, B> EntityMutExcept<'w, 's, B>
 where
     B: Bundle,
@@ -4821,10 +4774,11 @@ where
                 .ok_or(ComponentFetchError::ComponentNotFound(ComponentId::new(
                     usize::MAX,
                 )))?;
-        (!bundle_contains_component::<B>(components, id))
-            .then(|| unsafe { self.entity.get_mut::<C>() })
-            .ok_or_else(|| ComponentFetchError::InsufficientAccess(id))?
-            .ok_or_else(|| ComponentFetchError::ComponentNotFound(id))
+        if bundle_contains_component::<B>(components, id) {
+            return Err(ComponentFetchError::InsufficientAccess(id));
+        }
+        // SAFETY: the previous check ensures we have write access for `id`.
+        unsafe { self.entity.get_mut::<C>() }.ok_or(ComponentFetchError::ComponentNotFound(id))
     }
 
     /// Returns the source code location from which this entity has been spawned.
@@ -4917,10 +4871,11 @@ where
         &mut self,
         component_id: ComponentId,
     ) -> Result<MutUntyped<'_>, ComponentFetchError> {
-        let components = self.entity.world().components();
-        (!bundle_contains_component::<B>(components, component_id))
-            .then(|| unsafe { self.entity.get_mut_by_id(component_id) })
-            .ok_or(ComponentFetchError::InsufficientAccess(component_id))?
+        if !self.access.has_component_write(component_id) {
+            return Err(ComponentFetchError::InsufficientAccess(component_id));
+        }
+        // SAFETY: write access for this component was confirmed above.
+        unsafe { self.entity.get_mut_by_id(component_id) }
             .map_err(|_| ComponentFetchError::ComponentNotFound(component_id))
     }
 }
@@ -5397,7 +5352,6 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
         Ok(ptrs)
     }
 }
-
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
@@ -6197,7 +6151,6 @@ mod tests {
         assert_eq!(None, world.entity(e2).get_components::<(&X, &Y)>());
         assert_eq!(None, world.entity(e3).get_components::<(&X, &Y)>());
     }
-
     #[test]
     fn get_by_id_array() {
         let mut world = World::default();
@@ -6263,19 +6216,9 @@ mod tests {
             let mut m = filtered.try_get_mut::<M>().unwrap();
             m.0 += 1;
         }
-        unsafe {
-            // Success path for typed try_get_mut_unchecked
-            let mut m = filtered.try_get_mut_unchecked::<M>().unwrap();
-            m.0 += 1;
-        }
         {
             // Success path for by-id try_get_mut_by_id
             let mut untyped = filtered.try_get_mut_by_id(m_id).unwrap();
-            untyped.set_changed();
-        }
-        unsafe {
-            // Success path for by-id try_get_mut_by_id_unchecked
-            let mut untyped = filtered.try_get_mut_by_id_unchecked(m_id).unwrap();
             untyped.set_changed();
         }
 
@@ -6290,13 +6233,6 @@ mod tests {
 
         let err = filtered
             .try_get_mut_by_id(missing_id)
-            .expect_err("expected missing component error");
-        assert!(matches!(
-            err,
-            ComponentFetchError::ComponentNotFound(id) if id == missing_id
-        ));
-
-        let err = unsafe { filtered.try_get_mut_by_id_unchecked(missing_id) }
             .expect_err("expected missing component error");
         assert!(matches!(
             err,
@@ -6984,7 +6920,6 @@ mod tests {
 
         assert_eq!(archetype_pointer_before, archetype_pointer_after);
     }
-
     #[test]
     fn bundle_remove_only_triggers_for_present_components() {
         let mut world = World::default();

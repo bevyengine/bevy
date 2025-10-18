@@ -79,7 +79,7 @@ pub enum ResourceFetchError {
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ComponentFetchError {
     /// The component with the given [`ComponentId`] exists in the world but cannot be accessed
-    /// through the current [`Access`](crate::query::access::Access) of the filtered reference.
+    /// through the current [`Access`](crate::query::Access) of the filtered reference.
     #[error("Cannot access component with ID {0:?} due to insufficient access permissions.")]
     InsufficientAccess(ComponentId),
     /// The component with the given [`ComponentId`] does not exist on the entity.
