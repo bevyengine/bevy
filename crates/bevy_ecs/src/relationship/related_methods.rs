@@ -54,7 +54,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.remove::<R::RelationshipTarget>()
     }
 
@@ -299,12 +299,15 @@ impl<'w> EntityWorldMut<'w> {
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
-        if let Some(sources) = self.take::<S>() {
+        if let Some(sources) = self.get::<S>() {
+            // We have to collect here to defer removal, allowing observers and hooks to see this data
+            // before it is finally removed.
+            let sources = sources.iter().collect::<Vec<_>>();
             self.world_scope(|world| {
-                for entity in sources.iter() {
+                for entity in sources {
                     if let Ok(entity_mut) = world.get_entity_mut(entity) {
                         entity_mut.despawn();
-                    }
+                    };
                 }
             });
         }
@@ -434,9 +437,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Removes the relation `R` between this entity and all its related entities.
-    pub fn clear_related<R: Relationship>(&mut self) -> &mut Self {
+    pub fn detach_all_related<R: Relationship>(&mut self) -> &mut Self {
         self.queue(|mut entity: EntityWorldMut| {
-            entity.clear_related::<R>();
+            entity.detach_all_related::<R>();
         })
     }
 
@@ -639,7 +642,7 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         self.commands.reborrow()
     }
 
@@ -704,7 +707,7 @@ mod tests {
         let b = world.spawn(ChildOf(a)).id();
         let c = world.spawn(ChildOf(a)).id();
 
-        world.entity_mut(a).clear_related::<ChildOf>();
+        world.entity_mut(a).detach_all_related::<ChildOf>();
 
         assert_eq!(world.entity(a).get::<Children>(), None);
         assert_eq!(world.entity(b).get::<ChildOf>(), None);
@@ -881,5 +884,41 @@ mod tests {
         parent.replace_related::<Child>(&[child1]);
         let data = parent.get::<Parent>().unwrap().data;
         assert_eq!(data, 42);
+    }
+
+    #[test]
+    fn despawn_related_observers_can_access_relationship_data() {
+        use crate::lifecycle::Replace;
+        use crate::observer::On;
+        use crate::prelude::Has;
+        use crate::system::Query;
+
+        #[derive(Component)]
+        struct MyComponent;
+
+        #[derive(Component, Default)]
+        struct ObserverResult {
+            success: bool,
+        }
+
+        let mut world = World::new();
+        let result_entity = world.spawn(ObserverResult::default()).id();
+
+        world.add_observer(
+            move |replace: On<Replace, MyComponent>,
+                  has_relationship: Query<Has<ChildOf>>,
+                  mut results: Query<&mut ObserverResult>| {
+                if has_relationship.get(replace.entity).unwrap_or(false) {
+                    results.get_mut(result_entity).unwrap().success = true;
+                }
+            },
+        );
+
+        let parent = world.spawn_empty().id();
+        let _child = world.spawn((MyComponent, ChildOf(parent))).id();
+
+        world.entity_mut(parent).despawn_related::<Children>();
+
+        assert!(world.get::<ObserverResult>(result_entity).unwrap().success);
     }
 }

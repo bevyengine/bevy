@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -45,10 +45,8 @@ cfg::parallel! {
 pub mod prelude {
     pub use crate::debug_info::DebugName;
     pub use crate::default;
+    pub use disqualified::ShortName;
 }
-
-#[cfg(feature = "wgpu_wrapper")]
-mod wgpu_wrapper;
 
 mod debug_info;
 mod default;
@@ -58,9 +56,6 @@ mod once;
 pub use once::OnceFlag;
 
 pub use default::default;
-
-#[cfg(feature = "wgpu_wrapper")]
-pub use wgpu_wrapper::WgpuWrapper;
 
 use core::mem::ManuallyDrop;
 

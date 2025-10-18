@@ -1,6 +1,6 @@
 //! Uses two windows to visualize a 3D model from different angles.
 
-use bevy::{prelude::*, render::camera::RenderTarget, window::WindowRef};
+use bevy::{camera::RenderTarget, prelude::*, window::WindowRef};
 
 fn main() {
     App::new()
@@ -49,8 +49,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let node = Node {
         position_type: PositionType::Absolute,
-        top: Val::Px(12.0),
-        left: Val::Px(12.0),
+        top: px(12),
+        left: px(12),
         ..default()
     };
 

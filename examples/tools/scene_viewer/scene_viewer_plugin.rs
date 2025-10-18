@@ -4,12 +4,11 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
+    camera_controller::free_cam::FreeCam, gltf::Gltf, input::common_conditions::input_just_pressed,
+    prelude::*, scene::InstanceId,
 };
 
 use std::{f32::consts::*, fmt};
-
-use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -32,7 +31,7 @@ impl SceneHandle {
     }
 }
 
-#[cfg(not(feature = "animation"))]
+#[cfg(not(feature = "gltf_animation"))]
 const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
@@ -42,7 +41,7 @@ Scene Controls:
     compile with "--features animation" for animation controls.
 "#;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "gltf_animation")]
 const INSTRUCTIONS: &str = "
 Scene Controls:
     L           - animate light direction
@@ -200,8 +199,8 @@ fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
-        Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, Without<FreeCam>)>,
+        Query<(Entity, &mut Camera), (Added<Camera>, With<FreeCam>)>,
         Query<&mut Camera>,
     )>,
 ) {
@@ -218,17 +217,17 @@ fn camera_tracker(
 
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
-        if let Some(e) = camera_tracker.active_camera() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = false;
-            }
+        if let Some(e) = camera_tracker.active_camera()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = false;
         }
 
         // enable next active camera
-        if let Some(e) = camera_tracker.set_next_active() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = true;
-            }
+        if let Some(e) = camera_tracker.set_next_active()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = true;
         }
     }
 }

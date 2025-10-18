@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -57,16 +57,12 @@ use mouse::{
 };
 use touch::{touch_screen_input_system, TouchInput, Touches};
 
-#[cfg(feature = "bevy_reflect")]
-use gamepad::Gamepad;
 use gamepad::{
     gamepad_connection_system, gamepad_event_processing_system, GamepadAxisChangedEvent,
     GamepadButtonChangedEvent, GamepadButtonStateChangedEvent, GamepadConnectionEvent,
     GamepadEvent, GamepadRumbleRequest, RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
     RawGamepadEvent,
 };
-#[cfg(feature = "bevy_reflect")]
-use gamepad::{GamepadAxis, GamepadButton, GamepadConnection, GamepadInput, GamepadSettings};
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
@@ -87,15 +83,15 @@ impl Plugin for InputPlugin {
     fn build(&self, app: &mut App) {
         app
             // keyboard
-            .add_event::<KeyboardInput>()
-            .add_event::<KeyboardFocusLost>()
+            .add_message::<KeyboardInput>()
+            .add_message::<KeyboardFocusLost>()
             .init_resource::<ButtonInput<KeyCode>>()
             .init_resource::<ButtonInput<Key>>()
             .add_systems(PreUpdate, keyboard_input_system.in_set(InputSystems))
             // mouse
-            .add_event::<MouseButtonInput>()
-            .add_event::<MouseMotion>()
-            .add_event::<MouseWheel>()
+            .add_message::<MouseButtonInput>()
+            .add_message::<MouseMotion>()
+            .add_message::<MouseWheel>()
             .init_resource::<ButtonInput<MouseButton>>()
             .add_systems(
                 PreUpdate,
@@ -106,20 +102,20 @@ impl Plugin for InputPlugin {
                 )
                     .in_set(InputSystems),
             )
-            .add_event::<PinchGesture>()
-            .add_event::<RotationGesture>()
-            .add_event::<DoubleTapGesture>()
-            .add_event::<PanGesture>()
+            .add_message::<PinchGesture>()
+            .add_message::<RotationGesture>()
+            .add_message::<DoubleTapGesture>()
+            .add_message::<PanGesture>()
             // gamepad
-            .add_event::<GamepadEvent>()
-            .add_event::<GamepadConnectionEvent>()
-            .add_event::<GamepadButtonChangedEvent>()
-            .add_event::<GamepadButtonStateChangedEvent>()
-            .add_event::<GamepadAxisChangedEvent>()
-            .add_event::<RawGamepadEvent>()
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
-            .add_event::<GamepadRumbleRequest>()
+            .add_message::<GamepadEvent>()
+            .add_message::<GamepadConnectionEvent>()
+            .add_message::<GamepadButtonChangedEvent>()
+            .add_message::<GamepadButtonStateChangedEvent>()
+            .add_message::<GamepadAxisChangedEvent>()
+            .add_message::<RawGamepadEvent>()
+            .add_message::<RawGamepadAxisChangedEvent>()
+            .add_message::<RawGamepadButtonChangedEvent>()
+            .add_message::<GamepadRumbleRequest>()
             .init_resource::<AccumulatedMouseMotion>()
             .init_resource::<AccumulatedMouseScroll>()
             .add_systems(
@@ -131,37 +127,9 @@ impl Plugin for InputPlugin {
                     .in_set(InputSystems),
             )
             // touch
-            .add_event::<TouchInput>()
+            .add_message::<TouchInput>()
             .init_resource::<Touches>()
             .add_systems(PreUpdate, touch_screen_input_system.in_set(InputSystems));
-
-        #[cfg(feature = "bevy_reflect")]
-        {
-            // Register common types
-            app.register_type::<ButtonState>()
-                .register_type::<KeyboardInput>()
-                .register_type::<MouseButtonInput>()
-                .register_type::<PinchGesture>()
-                .register_type::<RotationGesture>()
-                .register_type::<DoubleTapGesture>()
-                .register_type::<PanGesture>()
-                .register_type::<TouchInput>()
-                .register_type::<RawGamepadEvent>()
-                .register_type::<RawGamepadAxisChangedEvent>()
-                .register_type::<RawGamepadButtonChangedEvent>()
-                .register_type::<Gamepad>()
-                .register_type::<GamepadConnectionEvent>()
-                .register_type::<GamepadButtonChangedEvent>()
-                .register_type::<GamepadAxisChangedEvent>()
-                .register_type::<GamepadButtonStateChangedEvent>()
-                .register_type::<GamepadConnection>()
-                .register_type::<GamepadSettings>()
-                .register_type::<GamepadAxis>()
-                .register_type::<GamepadButton>()
-                .register_type::<GamepadInput>()
-                .register_type::<AccumulatedMouseMotion>()
-                .register_type::<AccumulatedMouseScroll>();
-        }
     }
 }
 

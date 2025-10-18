@@ -1,6 +1,6 @@
 use crate::MainWorld;
 use bevy_ecs::{
-    component::{ComponentId, Tick},
+    component::Tick,
     prelude::*,
     query::FilteredAccessSet,
     system::{
@@ -83,7 +83,7 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet<ComponentId>,
+        component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
         Res::<MainWorld>::init_access(

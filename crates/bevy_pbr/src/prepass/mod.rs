@@ -4,31 +4,16 @@ use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
     setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
     MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
     OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
     PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
     RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
-use bevy_render::{
-    alpha::AlphaMode,
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
-    load_shader_library,
-    mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
-    render_asset::prepare_assets,
-    render_resource::binding_types::uniform_buffer,
-    renderer::RenderAdapter,
-    sync_world::RenderEntity,
-    view::{RenderVisibilityRanges, RetainedViewEntity, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
-};
-pub use prepass_bindings::*;
-
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
-};
+use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -36,18 +21,27 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_math::{Affine3A, Vec4};
+use bevy_math::{Affine3A, Mat4, Vec4};
+use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    alpha::AlphaMode,
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
-    prelude::{Camera, Mesh},
-    render_asset::RenderAssets,
+    mesh::{allocator::MeshAllocator, RenderMesh},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract,
+    render_resource::{binding_types::uniform_buffer, *},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
+    view::{
+        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
+        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+    },
+    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_transform::prelude::GlobalTransform;
+pub use prepass_bindings::*;
 use tracing::{error, warn};
 
 #[cfg(feature = "meshlet")]
@@ -67,7 +61,6 @@ use bevy_render::{
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
-use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -189,16 +182,6 @@ impl Plugin for PrepassPlugin {
     }
 }
 
-/// Marker resource for whether prepass is enabled globally for this material type
-#[derive(Resource, Debug)]
-pub struct PrepassEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for PrepassEnabled<M> {
-    fn default() -> Self {
-        PrepassEnabled(PhantomData)
-    }
-}
-
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
 
@@ -207,15 +190,15 @@ pub fn update_previous_view_data(
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
-        let world_from_view = camera_transform.to_matrix();
-        let view_from_world = world_from_view.inverse();
+        let world_from_view = camera_transform.affine();
+        let view_from_world = Mat4::from(world_from_view.inverse());
         let view_from_clip = camera.clip_from_view().inverse();
 
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
-            world_from_clip: world_from_view * view_from_clip,
+            world_from_clip: Mat4::from(world_from_view) * view_from_clip,
             view_from_clip,
         });
     }
@@ -253,10 +236,10 @@ pub fn update_mesh_previous_global_transforms(
 
 #[derive(Resource, Clone)]
 pub struct PrepassPipeline {
-    pub view_layout_motion_vectors: BindGroupLayout,
-    pub view_layout_no_motion_vectors: BindGroupLayout,
+    pub view_layout_motion_vectors: BindGroupLayoutDescriptor,
+    pub view_layout_no_motion_vectors: BindGroupLayoutDescriptor,
     pub mesh_layouts: MeshLayouts,
-    pub empty_layout: BindGroupLayout,
+    pub empty_layout: BindGroupLayoutDescriptor,
     pub default_prepass_shader: Handle<Shader>,
 
     /// Whether skins will use uniform buffers on account of storage buffers
@@ -282,7 +265,7 @@ pub fn init_prepass_pipeline(
     let visibility_ranges_buffer_binding_type =
         render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-    let view_layout_motion_vectors = render_device.create_bind_group_layout(
+    let view_layout_motion_vectors = BindGroupLayoutDescriptor::new(
         "prepass_view_layout_motion_vectors",
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
@@ -307,7 +290,7 @@ pub fn init_prepass_pipeline(
         ),
     );
 
-    let view_layout_no_motion_vectors = render_device.create_bind_group_layout(
+    let view_layout_no_motion_vectors = BindGroupLayoutDescriptor::new(
         "prepass_view_layout_no_motion_vectors",
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::VERTEX_FRAGMENT,
@@ -338,10 +321,10 @@ pub fn init_prepass_pipeline(
         view_layout_no_motion_vectors,
         mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
         default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
-        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device.limits()),
         depth_clip_control_supported,
         binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
-        empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
+        empty_layout: BindGroupLayoutDescriptor::new("prepass_empty_layout", &[]),
         material_pipeline: material_pipeline.clone(),
     });
 }
@@ -407,6 +390,10 @@ impl PrepassPipeline {
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
 
+        shader_defs.push(ShaderDefVal::UInt(
+            "MATERIAL_BIND_GROUP".into(),
+            crate::MATERIAL_BIND_GROUP_INDEX as u32,
+        ));
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(
@@ -674,15 +661,15 @@ pub fn prepare_previous_view_uniforms(
         let prev_view_data = match maybe_previous_view_uniforms {
             Some(previous_view) => previous_view.clone(),
             None => {
-                let world_from_view = camera.world_from_view.to_matrix();
-                let view_from_world = world_from_view.inverse();
+                let world_from_view = camera.world_from_view.affine();
+                let view_from_world = Mat4::from(world_from_view.inverse());
                 let view_from_clip = camera.clip_from_view.inverse();
 
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
                     clip_from_view: camera.clip_from_view,
-                    world_from_clip: world_from_view * view_from_clip,
+                    world_from_clip: Mat4::from(world_from_view) * view_from_clip,
                     view_from_clip,
                 }
             }
@@ -704,11 +691,12 @@ pub struct PrepassViewBindGroup {
 pub fn init_prepass_view_bind_group(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     pipeline: Res<PrepassPipeline>,
 ) {
     let empty_bind_group = render_device.create_bind_group(
         "prepass_view_empty_bind_group",
-        &pipeline.empty_layout,
+        &pipeline_cache.get_bind_group_layout(&pipeline.empty_layout),
         &[],
     );
     commands.insert_resource(PrepassViewBindGroup {
@@ -720,6 +708,7 @@ pub fn init_prepass_view_bind_group(
 
 pub fn prepare_prepass_view_bind_group(
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     prepass_pipeline: Res<PrepassPipeline>,
     view_uniforms: Res<ViewUniforms>,
     globals_buffer: Res<GlobalsBuffer>,
@@ -734,7 +723,7 @@ pub fn prepare_prepass_view_bind_group(
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
-            &prepass_pipeline.view_layout_no_motion_vectors,
+            &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_no_motion_vectors),
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
@@ -745,7 +734,7 @@ pub fn prepare_prepass_view_bind_group(
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
-                &prepass_pipeline.view_layout_motion_vectors,
+                &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_motion_vectors),
                 &BindGroupEntries::with_indices((
                     (0, view_binding),
                     (1, globals_binding),
@@ -890,7 +879,10 @@ pub fn specialize_prepass_material_meshes(
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap()
+                .system_tick;
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);

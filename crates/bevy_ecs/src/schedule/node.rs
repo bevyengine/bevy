@@ -2,17 +2,21 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_utils::prelude::DebugName;
 use core::{
     any::TypeId,
+    fmt::{self, Debug},
     ops::{Index, IndexMut, Range},
 };
 
 use bevy_platform::collections::HashMap;
-use slotmap::{new_key_type, SecondaryMap, SlotMap};
+use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
-    schedule::{BoxedCondition, InternedSystemSet},
+    schedule::{
+        graph::{Direction, GraphNodeId},
+        BoxedCondition, InternedSystemSet,
+    },
     system::{
         ReadOnlySystem, RunSystemError, ScheduleSystem, System, SystemParamValidationError,
         SystemStateFlags,
@@ -31,7 +35,7 @@ pub struct SystemWithAccess {
     pub system: ScheduleSystem,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet<ComponentId>,
+    pub access: FilteredAccessSet,
 }
 
 impl SystemWithAccess {
@@ -100,7 +104,7 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system.initialize(world)
     }
 
@@ -131,7 +135,7 @@ pub struct ConditionWithAccess {
     pub condition: BoxedCondition,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet<ComponentId>,
+    pub access: FilteredAccessSet,
 }
 
 impl ConditionWithAccess {
@@ -200,7 +204,7 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.condition.initialize(world)
     }
 
@@ -251,6 +255,206 @@ new_key_type! {
     pub struct SystemSetKey;
 }
 
+impl GraphNodeId for SystemKey {
+    type Adjacent = (SystemKey, Direction);
+    type Edge = (SystemKey, SystemKey);
+
+    fn kind(&self) -> &'static str {
+        "system"
+    }
+}
+
+impl GraphNodeId for SystemSetKey {
+    type Adjacent = (SystemSetKey, Direction);
+    type Edge = (SystemSetKey, SystemSetKey);
+
+    fn kind(&self) -> &'static str {
+        "system set"
+    }
+}
+
+impl TryFrom<NodeId> for SystemKey {
+    type Error = SystemSetKey;
+
+    fn try_from(value: NodeId) -> Result<Self, Self::Error> {
+        match value {
+            NodeId::System(key) => Ok(key),
+            NodeId::Set(key) => Err(key),
+        }
+    }
+}
+
+impl TryFrom<NodeId> for SystemSetKey {
+    type Error = SystemKey;
+
+    fn try_from(value: NodeId) -> Result<Self, Self::Error> {
+        match value {
+            NodeId::System(key) => Err(key),
+            NodeId::Set(key) => Ok(key),
+        }
+    }
+}
+
+/// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
+///
+/// [`ScheduleGraph`]: crate::schedule::ScheduleGraph
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NodeId {
+    /// Identifier for a system.
+    System(SystemKey),
+    /// Identifier for a system set.
+    Set(SystemSetKey),
+}
+
+impl NodeId {
+    /// Returns `true` if the identified node is a system.
+    pub const fn is_system(&self) -> bool {
+        matches!(self, NodeId::System(_))
+    }
+
+    /// Returns `true` if the identified node is a system set.
+    pub const fn is_set(&self) -> bool {
+        matches!(self, NodeId::Set(_))
+    }
+
+    /// Returns the system key if the node is a system, otherwise `None`.
+    pub const fn as_system(&self) -> Option<SystemKey> {
+        match self {
+            NodeId::System(system) => Some(*system),
+            NodeId::Set(_) => None,
+        }
+    }
+
+    /// Returns the system set key if the node is a system set, otherwise `None`.
+    pub const fn as_set(&self) -> Option<SystemSetKey> {
+        match self {
+            NodeId::System(_) => None,
+            NodeId::Set(set) => Some(*set),
+        }
+    }
+}
+
+impl GraphNodeId for NodeId {
+    type Adjacent = CompactNodeIdAndDirection;
+    type Edge = CompactNodeIdPair;
+
+    fn kind(&self) -> &'static str {
+        match self {
+            NodeId::System(n) => n.kind(),
+            NodeId::Set(n) => n.kind(),
+        }
+    }
+}
+
+impl From<SystemKey> for NodeId {
+    fn from(system: SystemKey) -> Self {
+        NodeId::System(system)
+    }
+}
+
+impl From<SystemSetKey> for NodeId {
+    fn from(set: SystemSetKey) -> Self {
+        NodeId::Set(set)
+    }
+}
+
+/// Compact storage of a [`NodeId`] and a [`Direction`].
+#[derive(Clone, Copy)]
+pub struct CompactNodeIdAndDirection {
+    key: KeyData,
+    is_system: bool,
+    direction: Direction,
+}
+
+impl Debug for CompactNodeIdAndDirection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let tuple: (_, _) = (*self).into();
+        tuple.fmt(f)
+    }
+}
+
+impl From<(NodeId, Direction)> for CompactNodeIdAndDirection {
+    fn from((id, direction): (NodeId, Direction)) -> Self {
+        let key = match id {
+            NodeId::System(key) => key.data(),
+            NodeId::Set(key) => key.data(),
+        };
+        let is_system = id.is_system();
+
+        Self {
+            key,
+            is_system,
+            direction,
+        }
+    }
+}
+
+impl From<CompactNodeIdAndDirection> for (NodeId, Direction) {
+    fn from(value: CompactNodeIdAndDirection) -> Self {
+        let node = match value.is_system {
+            true => NodeId::System(value.key.into()),
+            false => NodeId::Set(value.key.into()),
+        };
+
+        (node, value.direction)
+    }
+}
+
+/// Compact storage of a [`NodeId`] pair.
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub struct CompactNodeIdPair {
+    key_a: KeyData,
+    key_b: KeyData,
+    is_system_a: bool,
+    is_system_b: bool,
+}
+
+impl Debug for CompactNodeIdPair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let tuple: (_, _) = (*self).into();
+        tuple.fmt(f)
+    }
+}
+
+impl From<(NodeId, NodeId)> for CompactNodeIdPair {
+    fn from((a, b): (NodeId, NodeId)) -> Self {
+        let key_a = match a {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
+        let is_system_a = a.is_system();
+
+        let key_b = match b {
+            NodeId::System(index) => index.data(),
+            NodeId::Set(index) => index.data(),
+        };
+        let is_system_b = b.is_system();
+
+        Self {
+            key_a,
+            key_b,
+            is_system_a,
+            is_system_b,
+        }
+    }
+}
+
+impl From<CompactNodeIdPair> for (NodeId, NodeId) {
+    fn from(value: CompactNodeIdPair) -> Self {
+        let a = match value.is_system_a {
+            true => NodeId::System(value.key_a.into()),
+            false => NodeId::Set(value.key_a.into()),
+        };
+
+        let b = match value.is_system_b {
+            true => NodeId::System(value.key_b.into()),
+            false => NodeId::Set(value.key_b.into()),
+        };
+
+        (a, b)
+    }
+}
+
 /// Container for systems in a schedule.
 #[derive(Default)]
 pub struct Systems {
@@ -283,14 +487,10 @@ impl Systems {
         self.nodes.get_mut(key).and_then(|node| node.get_mut())
     }
 
-    /// Returns a mutable reference to the system with the given key, panicking
-    /// if it does not exist.
-    ///
-    /// # Panics
-    ///
-    /// If the system with the given key does not exist in this container.
-    pub(crate) fn node_mut(&mut self, key: SystemKey) -> &mut SystemNode {
-        &mut self.nodes[key]
+    /// Returns a mutable reference to the system with the given key. Will return
+    /// `None` if the key does not exist.
+    pub(crate) fn node_mut(&mut self, key: SystemKey) -> Option<&mut SystemNode> {
+        self.nodes.get_mut(key)
     }
 
     /// Returns `true` if the system with the given key has conditions.
@@ -348,6 +548,25 @@ impl Systems {
         );
         self.uninit.push(key);
         key
+    }
+
+    /// Remove a system with [`SystemKey`]
+    pub(crate) fn remove(&mut self, key: SystemKey) -> bool {
+        let mut found = false;
+        if self.nodes.remove(key).is_some() {
+            found = true;
+        }
+
+        if self.conditions.remove(key).is_some() {
+            found = true;
+        }
+
+        if let Some(index) = self.uninit.iter().position(|value| *value == key) {
+            self.uninit.remove(index);
+            found = true;
+        }
+
+        found
     }
 
     /// Returns `true` if all systems in this container have been initialized.
@@ -442,6 +661,11 @@ impl SystemSets {
         self.sets.get(key).map(|set| &**set)
     }
 
+    /// Returns the key for the given system set, returns None if it does not exist.
+    pub fn get_key(&self, set: InternedSystemSet) -> Option<SystemSetKey> {
+        self.ids.get(&set).copied()
+    }
+
     /// Returns the key for the given system set, inserting it into this
     /// container if it does not already exist.
     pub fn get_key_or_insert(&mut self, set: InternedSystemSet) -> SystemSetKey {
@@ -510,6 +734,14 @@ impl SystemSets {
             current_conditions.extend(new_conditions.into_iter().map(ConditionWithAccess::new));
         }
         key
+    }
+
+    /// Remove a set with a [`SystemSetKey`]
+    pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
+        self.sets.remove(key);
+        self.conditions.remove(key);
+        self.uninit.retain(|uninit| uninit.key != key);
+        true
     }
 
     /// Returns `true` if all system sets' conditions in this container have

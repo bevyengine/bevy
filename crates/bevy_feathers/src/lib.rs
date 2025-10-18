@@ -18,18 +18,25 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
+use bevy_app::{
+    HierarchyPropagatePlugin, Plugin, PluginGroup, PluginGroupBuilder, PostUpdate, PropagateSet,
+};
 use bevy_asset::embedded_asset;
-use bevy_ecs::query::With;
+use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin};
 use bevy_text::{TextColor, TextFont};
-use bevy_winit::cursor::CursorIcon;
+use bevy_ui::UiSystems;
+use bevy_ui_render::UiMaterialPlugin;
+use bevy_ui_widgets::UiWidgetsPlugins;
 
 use crate::{
+    alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursorIcon},
+    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
+mod alpha_pattern;
 pub mod constants;
 pub mod controls;
 pub mod cursor;
@@ -48,20 +55,32 @@ impl Plugin for FeathersPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<UiTheme>();
 
+        // Embedded font
         embedded_asset!(app, "assets/fonts/FiraSans-Bold.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-BoldItalic.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Regular.ttf");
         embedded_asset!(app, "assets/fonts/FiraSans-Italic.ttf");
         embedded_asset!(app, "assets/fonts/FiraMono-Medium.ttf");
 
+        // Embedded shader
+        embedded_asset!(app, "assets/shaders/alpha_pattern.wgsl");
+
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::default(),
-            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
+            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
+            UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
-        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+        // This needs to run in UiSystems::Propagate so the fonts are up-to-date for `measure_text_system`
+        // and `detect_text_needs_rerender` in UiSystems::Content
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
+        );
+
+        app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 
@@ -70,5 +89,20 @@ impl Plugin for FeathersPlugin {
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
             .add_observer(font_styles::on_changed_font);
+
+        app.init_resource::<AlphaPatternResource>();
+    }
+}
+
+/// A plugin group that adds all dependencies for Feathers
+pub struct FeathersPlugins;
+
+impl PluginGroup for FeathersPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add_group(UiWidgetsPlugins)
+            .add(InputDispatchPlugin)
+            .add(TabNavigationPlugin)
+            .add(FeathersPlugin)
     }
 }

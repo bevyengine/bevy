@@ -70,7 +70,7 @@ enum SystemIdentifier {
     Node(NodeId),
 }
 
-/// Updates to [`Stepping.schedule_states`] that will be applied at the start
+/// Updates to [`Stepping::schedule_states`] that will be applied at the start
 /// of the next render frame
 enum Update {
     /// Set the action stepping will perform for this render frame
@@ -365,13 +365,11 @@ impl Stepping {
 
     /// lookup the first system for the supplied schedule index
     fn first_system_index_for_schedule(&self, index: usize) -> usize {
-        let label = match self.schedule_order.get(index) {
-            None => return 0,
-            Some(label) => label,
+        let Some(label) = self.schedule_order.get(index) else {
+            return 0;
         };
-        let state = match self.schedule_states.get(label) {
-            None => return 0,
-            Some(state) => state,
+        let Some(state) = self.schedule_states.get(label) else {
+            return 0;
         };
         state.first.unwrap_or(0)
     }

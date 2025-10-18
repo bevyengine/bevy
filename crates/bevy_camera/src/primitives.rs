@@ -1,7 +1,10 @@
 use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles};
+use bevy_math::{
+    bounding::{Aabb3d, BoundingVolume},
+    Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles,
+};
 use bevy_mesh::{Mesh, VertexAttributeValues};
 use bevy_reflect::prelude::*;
 
@@ -132,6 +135,24 @@ impl Aabb {
     }
 }
 
+impl From<Aabb3d> for Aabb {
+    fn from(aabb: Aabb3d) -> Self {
+        Self {
+            center: aabb.center(),
+            half_extents: aabb.half_size(),
+        }
+    }
+}
+
+impl From<Aabb> for Aabb3d {
+    fn from(aabb: Aabb) -> Self {
+        Self {
+            min: aabb.min(),
+            max: aabb.max(),
+        }
+    }
+}
+
 impl From<Sphere> for Aabb {
     #[inline]
     fn from(sphere: Sphere) -> Self {
@@ -235,7 +256,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
+/// The frustum component is typically added automatically for cameras, either [`Camera2d`] or [`Camera3d`].
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
@@ -244,6 +265,8 @@ impl HalfSpace {
 /// [`update_frusta`]: crate::visibility::update_frusta
 /// [`CameraProjection`]: crate::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum {
@@ -292,6 +315,7 @@ impl Frustum {
                 row3 - row
             });
         }
+        half_spaces[5] = HalfSpace::new(Vec4::new(0.0, 0.0, 0.0, f32::MAX));
         Self { half_spaces }
     }
 
