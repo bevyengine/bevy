@@ -22,7 +22,7 @@ fn main() {
             }),
             ..default()
         }))
-        .insert_resource(AmbientLightResource::NONE)
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .run();

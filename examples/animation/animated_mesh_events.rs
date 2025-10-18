@@ -15,7 +15,7 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()

@@ -10,7 +10,7 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             brightness: 150.0,
             ..default()
         })

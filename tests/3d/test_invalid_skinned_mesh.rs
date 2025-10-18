@@ -16,7 +16,7 @@ use core::f32::consts::TAU;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             brightness: 20_000.0,
             ..default()
         })

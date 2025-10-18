@@ -124,7 +124,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(MeshPickingPlugin)
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             color: ClearColor::default().0,
             brightness: 10000.0,
             affects_lightmapped_meshes: true,

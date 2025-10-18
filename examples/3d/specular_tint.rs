@@ -59,7 +59,7 @@ fn main() {
         }))
         .init_resource::<AppAssets>()
         .init_resource::<AppStatus>()
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             color: Color::BLACK,
             brightness: 0.0,
             ..default()

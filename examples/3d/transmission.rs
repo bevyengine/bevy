@@ -47,7 +47,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLightResource {
+        .insert_resource(AmbientLight {
             brightness: 0.0,
             ..default()
         })

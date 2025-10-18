@@ -9,7 +9,7 @@ use bevy_reflect::prelude::*;
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 #[require(Camera)]
-pub struct AmbientLightComponent {
+pub struct AmbientLightOverride {
     pub color: Color,
 
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -28,7 +28,7 @@ pub struct AmbientLightComponent {
     pub affects_lightmapped_meshes: bool,
 }
 
-impl Default for AmbientLightComponent {
+impl Default for AmbientLightOverride {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
@@ -57,7 +57,7 @@ impl Default for AmbientLightComponent {
 /// [`LightPlugin`]: crate::LightPlugin
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Debug, Default, Clone)]
-pub struct AmbientLightResource {
+pub struct AmbientLight {
     pub color: Color,
 
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -76,7 +76,7 @@ pub struct AmbientLightResource {
     pub affects_lightmapped_meshes: bool,
 }
 
-impl Default for AmbientLightResource {
+impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
@@ -86,8 +86,8 @@ impl Default for AmbientLightResource {
     }
 }
 
-impl AmbientLightResource {
-    pub const NONE: AmbientLightResource = AmbientLightResource {
+impl AmbientLight {
+    pub const NONE: AmbientLight = AmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
         affects_lightmapped_meshes: true,

@@ -57,7 +57,7 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(AmbientLightResource {
+    commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 300.0,
         ..default()

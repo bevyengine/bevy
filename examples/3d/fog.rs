@@ -29,7 +29,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLightResource::NONE)
+        .insert_resource(AmbientLight::NONE)
         .add_plugins(DefaultPlugins)
         .add_systems(
             Startup,

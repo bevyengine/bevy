@@ -47,7 +47,7 @@ fn main() {
             blue: 0.02,
             alpha: 1.0,
         })))
-        .insert_resource(AmbientLightResource::NONE)
+        .insert_resource(AmbientLight::NONE)
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
