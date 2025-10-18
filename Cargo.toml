@@ -386,8 +386,8 @@ bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
 # Enables the free cam from bevy_camera_controller
 free_cam = ["bevy_internal/free_cam"]
 
-# Enables the pan cam from bevy_camera_controller
-pan_cam = ["bevy_internal/pan_cam"]
+# Enables the pan camera from bevy_camera_controller
+pan_camera = ["bevy_internal/pan_camera"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
@@ -4836,13 +4836,13 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "pan_cam_controller"
-path = "examples/camera/pan_cam_controller.rs"
+name = "pan_camera_controller"
+path = "examples/camera/pan_camera_controller.rs"
 doc-scrape-examples = true
-required-features = ["pan_cam"]
+required-features = ["pan_camera"]
 
-[package.metadata.example.pan_cam_controller]
-name = "Pan Cam"
-description = "Example Pan-Cam Styled Camera Controller for 2D scenes"
+[package.metadata.example.pan_camera_controller]
+name = "Pan Camera"
+description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true

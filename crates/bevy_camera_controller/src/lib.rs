@@ -41,5 +41,5 @@
 #[cfg(feature = "free_cam")]
 pub mod free_cam;
 
-#[cfg(feature = "pan_cam")]
-pub mod pan_cam;
+#[cfg(feature = "pan_camera")]
+pub mod pan_camera;
