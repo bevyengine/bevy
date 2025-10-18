@@ -11,16 +11,16 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
+    system::{Commands, Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasSet, LineBreak,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextMeasureInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -331,6 +331,7 @@ fn queue_text(
     text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
+    commands: &mut Commands,
 ) {
     // Skip the text node if it is waiting for a new measure func
     if text_flags.needs_measure_fn {
@@ -371,6 +372,12 @@ fn queue_text(
             text_layout_info.scale_factor = scale_factor;
             text_layout_info.size *= inverse_scale_factor;
             text_flags.needs_recompute = false;
+
+            for (section_entity, _, _, font, _) in text_reader.iter(entity) {
+                commands
+                    .entity(section_entity)
+                    .insert(ComputedTextFont::new(font, scale_factor));
+            }
         }
     }
 }
@@ -400,6 +407,7 @@ pub fn text_system(
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    mut commands: Commands,
 ) {
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
@@ -420,6 +428,7 @@ pub fn text_system(
                 &mut text_reader,
                 &mut font_system,
                 &mut swash_cache,
+                &mut commands,
             );
         }
     }

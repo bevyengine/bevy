@@ -4,22 +4,35 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::GOLD,
+    color::palettes::css::{GOLD, LIGHT_BLUE},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::FontAtlasSet,
 };
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
+        .add_systems(
+            Update,
+            (
+                text_update_system,
+                text_color_system,
+                text_size_system,
+                atlas_count_system,
+            ),
+        )
         .run();
 }
 
 // Marker struct to help identify the FPS UI component, since there may be many Text components
 #[derive(Component)]
 struct FpsText;
+
+#[derive(Component)]
+// Marker struct to help identify the font atlas set count UI element
+struct FontAtlasSetCountText;
 
 // Marker struct to help identify the color-changing Text component
 #[derive(Component)]
@@ -86,6 +99,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 )
             },
             FpsText,
+        ))
+        .with_child((
+            TextSpan::default(),
+            TextFont {
+                // This font is loaded and will be used instead of the default font.
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 42.0,
+                ..default()
+            },
+            TextColor(LIGHT_BLUE.into()),
+            FontAtlasSetCountText,
         ));
 
     #[cfg(feature = "default_font")]
@@ -141,5 +165,26 @@ fn text_update_system(
             // Update the value of the second section
             **span = format!("{value:.2}");
         }
+    }
+}
+
+fn text_size_system(
+    time: Res<Time>,
+    mut text_font_query: Query<&mut TextFont, With<AnimatedText>>,
+) {
+    for mut text_font in &mut text_font_query {
+        let d = ops::sin(time.elapsed_secs());
+        if 0. < d {
+            text_font.font_size = 67. + 30. * d;
+        }
+    }
+}
+
+fn atlas_count_system(
+    font_atlas_set: Res<FontAtlasSet>,
+    mut text_atlas_query: Query<&mut TextSpan, With<FontAtlasSetCountText>>,
+) {
+    for mut text in &mut text_atlas_query {
+        text.0 = format!("\nfont atlas set count = {}", font_atlas_set.len());
     }
 }
