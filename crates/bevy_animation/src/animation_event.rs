@@ -9,7 +9,7 @@ use bevy_ecs::{
 
 /// An [`Event`] that an [`AnimationPlayer`](crate::AnimationPlayer) or an [`AnimationTargetId`](crate::AnimationTargetId) can trigger when playing an [`AnimationClip`](crate::AnimationClip).
 ///
-/// - If you used [`AnimationClip::add_event`](crate::AnimationClip::add_event), this will be triggered by the [`AnimationPlayer`](crate::AnimationPlayer) or the [`AnimationTargetId`](crate::AnimationTargetId).
+/// - If you used [`AnimationClip::add_event`](crate::AnimationClip::add_event), this will be triggered by the [`AnimationPlayer`](crate::AnimationPlayer).
 /// - If you used [`AnimationClip::add_event_to_target`](crate::AnimationClip::add_event_to_target), this will be triggered by the [`AnimationTargetId`](crate::AnimationTargetId).
 ///
 /// This trait can be derived.
