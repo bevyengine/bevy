@@ -10,6 +10,12 @@
 //! We are actively seeking feedback on the design and implementation of this crate, so please
 //! file issues or create PRs if you have any comments or suggestions.
 //!
+//! ## Button Component
+//!
+//! The [`Button`] component is re-exported from [`bevy_ui::widget::Button`] to provide a unified
+//! API. The component itself is defined in `bevy_ui`, while the interactive behavior (plugins and
+//! observers) is provided by this crate through [`ButtonPlugin`].
+//!
 //! ## State Management
 //!
 //! Most of the widgets use external state management: this means that the widgets do not
