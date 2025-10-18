@@ -343,9 +343,9 @@ pub fn log_components() -> impl EntityCommand {
             #[cfg(feature = "trace")]
             {
                 if let Some(name) = name {
-                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `default` feature to log component names.");
+                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `debug` feature to log component names.");
                 } else {
-                    info!(id=?id, ?component_count, "log_components. Enable the `default` feature to log component names.");
+                    info!(id=?id, ?component_count, "log_components. Enable the `debug` feature to log component names.");
                 }
             }
             #[cfg(not(feature = "trace"))]
@@ -353,7 +353,7 @@ pub fn log_components() -> impl EntityCommand {
                 let name = name
                     .map(|name| alloc::format!(" ({name})"))
                     .unwrap_or_default();
-                info!("Entity {id}{name}: {component_count} components. Enable the `default` feature to log component names.");
+                info!("Entity {id}{name}: {component_count} components. Enable the `debug` feature to log component names.");
             }
         }
 
