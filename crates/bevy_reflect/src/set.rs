@@ -104,7 +104,7 @@ pub struct SetInfo {
     ty: Type,
     generics: Generics,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -115,13 +115,13 @@ impl SetInfo {
             ty: Type::of::<TSet>(),
             generics: Generics::new(),
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this set.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -136,7 +136,7 @@ impl SetInfo {
     }
 
     /// The docstring of this set, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
