@@ -389,3 +389,6 @@ pub enum FontSmoothing {
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
 }
+
+#[derive(Component)]
+pub struct ComputedTextBlock(Vec<Entity>);

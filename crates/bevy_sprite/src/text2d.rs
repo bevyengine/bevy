@@ -20,9 +20,8 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    Font, FontAtlasSet, LineBreak, TextBounds, TextColor, TextError, TextFont, TextLayout,
+    TextLayoutInfo, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -166,7 +165,7 @@ pub fn update_text2d_layout(
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
-    mut text_pipeline: ResMut<TextPipeline>,
+
     mut text_query: Query<(
         Entity,
         Option<&RenderLayers>,
@@ -176,8 +175,6 @@ pub fn update_text2d_layout(
         &mut ComputedTextBlock,
     )>,
     mut text_reader: Text2dReader,
-    mut font_system: ResMut<CosmicFontSystem>,
-    mut swash_cache: ResMut<SwashCache>,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -218,47 +215,41 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if scale_factor != text_layout_info.scale_factor
-            || computed.needs_rerender()
-            || bounds.is_changed()
-            || (!queue.is_empty() && queue.remove(&entity))
-        {
-            let text_bounds = TextBounds {
-                width: if block.linebreak == LineBreak::NoWrap {
-                    None
-                } else {
-                    bounds.width.map(|width| width * scale_factor)
-                },
-                height: bounds.height.map(|height| height * scale_factor),
-            };
+        let text_bounds = TextBounds {
+            width: if block.linebreak == LineBreak::NoWrap {
+                None
+            } else {
+                bounds.width.map(|width| width * scale_factor)
+            },
+            height: bounds.height.map(|height| height * scale_factor),
+        };
 
-            let text_layout_info = text_layout_info.into_inner();
-            match text_pipeline.queue_text(
-                text_layout_info,
-                &fonts,
-                text_reader.iter(entity),
-                scale_factor as f64,
-                &block,
-                text_bounds,
-                &mut font_atlas_set,
-                &mut texture_atlases,
-                &mut textures,
-                computed.as_mut(),
-                &mut font_system,
-                &mut swash_cache,
-            ) {
-                Err(TextError::NoSuchFont) => {
-                    // There was an error processing the text layout, let's add this entity to the
-                    // queue for further processing
-                    queue.insert(entity);
-                }
-                Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
-                    panic!("Fatal error when processing text: {e}.");
-                }
-                Ok(()) => {
-                    text_layout_info.scale_factor = scale_factor;
-                    text_layout_info.size *= scale_factor.recip();
-                }
+        let text_layout_info = text_layout_info.into_inner();
+        match text_pipeline.queue_text(
+            text_layout_info,
+            &fonts,
+            text_reader.iter(entity),
+            scale_factor as f64,
+            &block,
+            text_bounds,
+            &mut font_atlas_set,
+            &mut texture_atlases,
+            &mut textures,
+            computed.as_mut(),
+            &mut font_system,
+            &mut swash_cache,
+        ) {
+            Err(TextError::NoSuchFont) => {
+                // There was an error processing the text layout, let's add this entity to the
+                // queue for further processing
+                queue.insert(entity);
+            }
+            Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage)) => {
+                panic!("Fatal error when processing text: {e}.");
+            }
+            Ok(()) => {
+                text_layout_info.scale_factor = scale_factor;
+                text_layout_info.size *= scale_factor.recip();
             }
         }
     }
