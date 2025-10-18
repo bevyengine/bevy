@@ -163,26 +163,27 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
-    /// This does not check access of nested queries, so [`Self::update_external_component_access`]
+    /// This does not check access of nested queries, so [`Self::init_access`]
     /// must be called before querying using this state or returning it to safe code.
     ///
     /// # Safety
     ///
     /// Before calling any other methods on the returned `QueryState`,
-    /// [`Self::update_external_component_access`] must be called.
+    /// [`Self::init_access`] must be called.
     pub unsafe fn new_unchecked(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
-        // SAFETY: Caller ensures `update_external_component_access` is called
+        // SAFETY: Caller ensures `init_access` is called
         let mut state =
             unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
         state.update_archetypes(world);
         state
     }
 
-    /// Collects the access from this query and any nested queries
-    /// and panics
-    pub fn update_external_component_access(
+    /// Adds all access from this query and any nested queries to the `component_access_set`.
+    /// Panics if the access from this query and any nested queries conflict with each other
+    /// or with any previous access.
+    pub fn init_access(
         &self,
         system_name: Option<&str>,
         component_access_set: &mut FilteredAccessSet,
@@ -220,9 +221,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
-        // SAFETY: We immediately call `update_external_component_access`
+        // SAFETY: We immediately call `init_access`
         let state = unsafe { Self::new_unchecked(world) };
-        state.update_external_component_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
         state
     }
 
@@ -233,11 +234,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn try_new(world: &World) -> Option<Self> {
         let fetch_state = D::get_state(world.components())?;
         let filter_state = F::get_state(world.components())?;
-        // SAFETY: We immediately call `update_external_component_access`
+        // SAFETY: We immediately call `init_access`
         let mut state =
             unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
         state.update_archetypes(world);
-        state.update_external_component_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.init_access(None, &mut FilteredAccessSet::new(), world.into());
         Some(state)
     }
 
@@ -249,7 +250,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Safety
     ///
     /// Before calling any other methods on the returned `QueryState`,
-    /// [`Self::update_external_component_access`] must be called with a `FilteredAccessSet`
+    /// [`Self::init_access`] must be called with a `FilteredAccessSet`
     /// that includes the `component_access_set` of the returned `QueryState`.
     unsafe fn from_states_uninitialized(
         world: &World,
@@ -338,11 +339,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             ),
         };
         state.update_archetypes(builder.world());
-        state.update_external_component_access(
-            None,
-            &mut FilteredAccessSet::new(),
-            builder.world().into(),
-        );
+        state.init_access(None, &mut FilteredAccessSet::new(), builder.world().into());
         state
     }
 
@@ -730,7 +727,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             DebugName::type_name::<(NewD, NewF)>(), DebugName::type_name::<(D, F)>()
         );
 
-        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `update_external_component_access`
+        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `init_access`
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
@@ -878,7 +875,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 .collect()
         };
 
-        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `update_external_component_access`
+        // SAFETY: `D: SingleEntityQueryData`, so we do not need to call `init_access`
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,

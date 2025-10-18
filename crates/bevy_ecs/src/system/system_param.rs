@@ -337,8 +337,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     fn init_state(world: &mut World) -> Self::State {
-        // SAFETY: `init_access` calls `update_external_component_access`,
-        // and no other query methods may be called before `init_access`.
+        // SAFETY: `SystemParam::init_access` calls `QueryState::init_access`,
+        // and no other query methods may be called before `SystemParam::init_access`.
         unsafe { QueryState::new_unchecked(world) }
     }
 
@@ -348,11 +348,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
-        state.update_external_component_access(
-            Some(system_meta.name()),
-            component_access_set,
-            world.into(),
-        );
+        state.init_access(Some(system_meta.name()), component_access_set, world.into());
     }
 
     #[inline]
