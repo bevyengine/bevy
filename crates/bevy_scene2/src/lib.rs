@@ -23,7 +23,11 @@ pub use spawn::*;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{AssetApp, AssetPath, AssetServer, Handle};
-use bevy_ecs::{prelude::*, system::IntoObserverSystem, template::Template};
+use bevy_ecs::{
+    prelude::*,
+    system::IntoObserverSystem,
+    template::{Template, TemplateContext},
+};
 use std::marker::PhantomData;
 
 #[derive(Default)]
@@ -70,8 +74,8 @@ impl<I: IntoObserverSystem<E, B, M> + Clone, E: EntityEvent, B: Bundle, M: 'stat
 {
     type Output = ();
 
-    fn build(&mut self, entity: &mut EntityWorldMut) -> Result<Self::Output> {
-        entity.observe(self.0.clone());
+    fn build(&mut self, context: &mut TemplateContext) -> Result<Self::Output> {
+        context.entity.observe(self.0.clone());
         Ok(())
     }
 }
@@ -83,12 +87,7 @@ impl<
         M: 'static,
     > Scene for OnTemplate<I, E, B, M>
 {
-    fn patch(
-        &self,
-        _assets: &AssetServer,
-        _patches: &bevy_asset::Assets<ScenePatch>,
-        scene: &mut ResolvedScene,
-    ) {
+    fn patch(&self, _context: &mut PatchContext, scene: &mut ResolvedScene) {
         scene.push_template(OnTemplate(self.0.clone(), PhantomData));
     }
 }

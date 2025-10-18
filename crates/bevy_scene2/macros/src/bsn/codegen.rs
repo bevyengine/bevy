@@ -4,16 +4,50 @@ use crate::bsn::types::{
 };
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, ToTokens};
+use std::collections::{hash_map::Entry, HashMap};
 use syn::{Ident, Index, Lit, Member, Path};
 
+#[derive(Default)]
+pub(crate) struct EntityRefs {
+    refs: HashMap<String, usize>,
+    next_index: usize,
+}
+
+impl EntityRefs {
+    fn get(&mut self, name: String) -> usize {
+        match self.refs.entry(name) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                let index = self.next_index;
+                entry.insert(index);
+                self.next_index += 1;
+                index
+            }
+        }
+    }
+}
+
 impl BsnRoot {
-    pub fn to_tokens(&self, bevy_scene: &Path, bevy_ecs: &Path, bevy_asset: &Path) -> TokenStream {
-        self.0.to_tokens(bevy_scene, bevy_ecs, bevy_asset)
+    pub fn to_tokens(
+        &self,
+        bevy_scene: &Path,
+        bevy_ecs: &Path,
+        bevy_asset: &Path,
+        entity_refs: &mut EntityRefs,
+    ) -> TokenStream {
+        self.0
+            .to_tokens(bevy_scene, bevy_ecs, bevy_asset, entity_refs)
     }
 }
 
 impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
-    pub fn to_tokens(&self, bevy_scene: &Path, bevy_ecs: &Path, bevy_asset: &Path) -> TokenStream {
+    pub fn to_tokens(
+        &self,
+        bevy_scene: &Path,
+        bevy_ecs: &Path,
+        bevy_asset: &Path,
+        entity_refs: &mut EntityRefs,
+    ) -> TokenStream {
         let mut entries = Vec::with_capacity(self.entries.len());
         for bsn_entry in &self.entries {
             entries.push(match bsn_entry {
@@ -29,10 +63,11 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                             proc_macro2::Span::call_site(),
                         ))],
                         true,
+                        entity_refs,
                     );
                     let path = &bsn_type.path;
                     quote! {
-                        <#path as #bevy_scene::PatchTemplate>::patch_template(move |value| {
+                        <#path as #bevy_scene::PatchTemplate>::patch_template(move |value, _context| {
                             #(#assignments)*
                         })
                     }
@@ -49,10 +84,11 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                             proc_macro2::Span::call_site(),
                         ))],
                         true,
+                        entity_refs,
                     );
                     let path = &bsn_type.path;
                     quote! {
-                        <#path as #bevy_scene::PatchGetTemplate>::patch(move |value| {
+                        <#path as #bevy_scene::PatchGetTemplate>::patch(move |value, _context| {
                             #(#assignments)*
                         })
                     }
@@ -63,7 +99,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 } => {
                     quote! {
                         <#type_path as #bevy_scene::PatchTemplate>::patch_template(
-                            move |value| {
+                            move |value, _context| {
                                 *value = #type_path::#const_ident;
                             },
                         )
@@ -79,7 +115,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 }) => {
                     quote! {
                         <#type_path as #bevy_scene::PatchTemplate>::patch_template(
-                            move |value| {
+                            move |value, _context| {
                                 *value = #type_path::#function(#args);
                             },
                         )
@@ -93,7 +129,7 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     // NOTE: The odd turbofish line break below avoids breaking rustfmt
                     quote! {
                         <#type_path as #bevy_scene::PatchGetTemplate>::patch(
-                            move |value| {
+                            move |value, _context| {
                                 *value = <#type_path as #bevy_ecs::template::GetTemplate>
                                     ::Template::#function(#args);
                             }
@@ -101,7 +137,10 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     }
                 }
                 BsnEntry::ChildrenSceneList(scene_list) => {
-                    let scenes = scene_list.0.to_tokens(bevy_scene, bevy_ecs, bevy_asset);
+                    let scenes =
+                        scene_list
+                            .0
+                            .to_tokens(bevy_scene, bevy_ecs, bevy_asset, entity_refs);
                     quote! {
                         #bevy_scene::RelatedScenes::<#bevy_ecs::hierarchy::ChildOf, _>::new(#scenes)
                     }
@@ -110,7 +149,10 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                     scene_list,
                     relationship_path,
                 }) => {
-                    let scenes = scene_list.0.to_tokens(bevy_scene, bevy_ecs, bevy_asset);
+                    let scenes =
+                        scene_list
+                            .0
+                            .to_tokens(bevy_scene, bevy_ecs, bevy_asset, entity_refs);
                     // NOTE: The odd turbofish line breaks below avoid breaking rustfmt
                     quote! {
                         #bevy_scene::RelatedScenes::<
@@ -132,18 +174,18 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                 },
                 BsnEntry::Name(ident) => {
                     let name = ident.to_string();
+                    let index = entity_refs.get(name.clone());
                     quote! {
-                        <#bevy_ecs::name::Name as PatchGetTemplate>::patch(
-                            move |value| {
-                                *value = Name(#name.into());
-                            }
-                        )
+                        #bevy_scene::NameEntityReference {
+                            name: Name(#name.into()),
+                            index: #index,
+                        }
                     }
                 }
                 BsnEntry::NameExpression(expr_tokens) => {
                     quote! {
                         <#bevy_ecs::name::Name as PatchGetTemplate>::patch(
-                            move |value| {
+                            move |value, _context| {
                                 *value = Name({#expr_tokens}.into());
                             }
                         )
@@ -175,6 +217,7 @@ impl BsnType {
         is_root_template: bool,
         field_path: &[Member],
         is_path_ref: bool,
+        entity_refs: &mut EntityRefs,
     ) {
         let path = &self.path;
         if !is_root_template {
@@ -202,6 +245,7 @@ impl BsnType {
                                     false,
                                     &[Member::Named(name.clone())],
                                     true,
+                                    entity_refs,
                                 );
                                 quote! {#(#type_assignments)*}
                             }
@@ -236,6 +280,7 @@ impl BsnType {
                                     false,
                                     &[Member::Named(name.clone())],
                                     true,
+                                    entity_refs,
                                 );
                                 quote! {#(#type_assignments)*}
                             }
@@ -275,6 +320,13 @@ impl BsnType {
                                         .push(quote! {#(#field_path.)*#field_name = #field_value;});
                                 }
                             }
+                            Some(BsnValue::Name(ident)) => {
+                                let name = ident.to_string();
+                                let index = entity_refs.get(name);
+                                assignments.push(quote!{
+                                    #(#field_path.)*#field_name = #bevy_ecs::template::EntityReference::Index { scope: _context.current_scope(), index: #index };
+                                })
+                            }
                             Some(BsnValue::Type(field_type)) => {
                                 if field_type.enum_variant.is_some() {
                                     assignments
@@ -289,6 +341,7 @@ impl BsnType {
                                         false,
                                         &new_field_path,
                                         false,
+                                        entity_refs,
                                     );
                                 }
                             }
@@ -311,6 +364,13 @@ impl BsnType {
                                     );
                                 }
                             }
+                            BsnValue::Name(ident) => {
+                                let name = ident.to_string();
+                                let index = entity_refs.get(name);
+                                assignments.push(quote!{
+                                    #(#field_path.)*#field_index = #bevy_ecs::template::EntityReference::Index { scope: _context.current_scope(), index: #index };
+                                })
+                            }
                             BsnValue::Type(field_type) => {
                                 if field_type.enum_variant.is_some() {
                                     assignments
@@ -325,6 +385,7 @@ impl BsnType {
                                         false,
                                         &new_field_path,
                                         false,
+                                        entity_refs,
                                     );
                                 }
                             }
@@ -337,10 +398,16 @@ impl BsnType {
 }
 
 impl BsnSceneListItems {
-    pub fn to_tokens(&self, bevy_scene: &Path, bevy_ecs: &Path, bevy_asset: &Path) -> TokenStream {
+    pub fn to_tokens(
+        &self,
+        bevy_scene: &Path,
+        bevy_ecs: &Path,
+        bevy_asset: &Path,
+        entity_refs: &mut EntityRefs,
+    ) -> TokenStream {
         let scenes = self.0.iter().map(|scene| match scene {
             BsnSceneListItem::Scene(bsn) => {
-                let tokens = bsn.to_tokens(bevy_scene, bevy_ecs, bevy_asset);
+                let tokens = bsn.to_tokens(bevy_scene, bevy_ecs, bevy_asset, entity_refs);
                 quote! {#bevy_scene::EntityScene(#tokens)}
             }
             BsnSceneListItem::Expression(block) => quote! {#block},
@@ -407,6 +474,10 @@ impl ToTokens for BsnValue {
             }
             BsnValue::Type(ty) => {
                 ty.to_tokens(tokens);
+            }
+            BsnValue::Name(ident) => {
+                // Name requires additional context to convert to tokens
+                unreachable!()
             }
         };
     }

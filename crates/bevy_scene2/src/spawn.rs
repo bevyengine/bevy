@@ -1,6 +1,13 @@
-use crate::{ResolvedScene, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance};
+use crate::{
+    PatchContext, ResolvedScene, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
+};
 use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle};
-use bevy_ecs::{message::MessageCursor, prelude::*, relationship::Relationship};
+use bevy_ecs::{
+    message::MessageCursor,
+    prelude::*,
+    relationship::Relationship,
+    template::{EntityScopes, ScopedEntities, TemplateContext},
+};
 use bevy_platform::collections::HashMap;
 
 pub trait SpawnScene {
@@ -83,11 +90,21 @@ pub fn resolve_scene_patches(
             // TODO: handle modified?
             AssetEvent::LoadedWithDependencies { id } => {
                 let mut scene = ResolvedScene::default();
+                let mut entity_scopes = EntityScopes::default();
                 // TODO: real error handling
                 let patch = patches.get(id).unwrap();
-                patch.patch.patch(&assets, &patches, &mut scene);
+                patch.patch.patch(
+                    &mut PatchContext {
+                        assets: &assets,
+                        patches: &patches,
+                        current_scope: entity_scopes.add_scope(),
+                        entity_scopes: &mut entity_scopes,
+                    },
+                    &mut scene,
+                );
                 let patch = patches.get_mut(id).unwrap();
-                patch.resolved = Some(scene)
+                patch.resolved = Some(scene);
+                patch.entity_scopes = Some(entity_scopes);
             }
             _ => {}
         }
@@ -97,11 +114,20 @@ pub fn resolve_scene_patches(
             // TODO: handle modified?
             AssetEvent::LoadedWithDependencies { id } => {
                 let list_patch = list_patches.get_mut(id).unwrap();
+                let mut entity_scopes = EntityScopes::default();
                 let mut scenes = Vec::new();
                 // TODO: real error handling
-                list_patch.patch.patch_list(&assets, &patches, &mut scenes);
-                println!("LOADED {}", scenes.len());
+                list_patch.patch.patch_list(
+                    &mut PatchContext {
+                        assets: &assets,
+                        patches: &patches,
+                        current_scope: entity_scopes.add_scope(),
+                        entity_scopes: &mut entity_scopes,
+                    },
+                    &mut scenes,
+                );
                 list_patch.resolved = Some(scenes);
+                list_patch.entity_scopes = Some(entity_scopes);
             }
             _ => {}
         }
@@ -151,12 +177,22 @@ pub fn spawn_queued(
                                 }
                                 for entity in core::mem::take(&mut new_scenes.entities) {
                                     if let Ok(id) = handles.get(world, entity).map(|h| h.id()) {
-                                        if let Some(scene) =
-                                            patches.get_mut(id).and_then(|p| p.resolved.as_mut())
+                                        if let Some((Some(scene), Some(entity_scopes))) =
+                                            patches.get_mut(id).map(|p| {
+                                                (p.resolved.as_mut(), p.entity_scopes.as_ref())
+                                            })
                                         {
                                             let mut entity_mut =
                                                 world.get_entity_mut(entity).unwrap();
-                                            scene.spawn(&mut entity_mut).unwrap();
+                                            scene
+                                                .apply(&mut TemplateContext::new(
+                                                    &mut entity_mut,
+                                                    &mut ScopedEntities::new(
+                                                        entity_scopes.entity_len(),
+                                                    ),
+                                                    entity_scopes,
+                                                ))
+                                                .unwrap();
                                         } else {
                                             let entities =
                                                 queued.waiting_entities.entry(id).or_default();
@@ -173,9 +209,10 @@ pub fn spawn_queued(
                                 for (scene_list_spawn, handle) in
                                     core::mem::take(&mut new_scenes.scene_entities)
                                 {
-                                    if let Some(resolved_scenes) = list_patches
-                                        .get_mut(&handle)
-                                        .and_then(|p| p.resolved.as_mut())
+                                    if let Some((Some(resolved_scenes), Some(entity_scopes))) =
+                                        list_patches.get_mut(&handle).map(|p| {
+                                            (p.resolved.as_mut(), p.entity_scopes.as_ref())
+                                        })
                                     {
                                         for scene in resolved_scenes {
                                             let mut child_entity = world.spawn_empty();
@@ -183,7 +220,15 @@ pub fn spawn_queued(
                                                 &mut child_entity,
                                                 scene_list_spawn.entity,
                                             );
-                                            scene.spawn(&mut child_entity).unwrap();
+                                            scene
+                                                .apply(&mut TemplateContext::new(
+                                                    &mut child_entity,
+                                                    &mut ScopedEntities::new(
+                                                        entity_scopes.entity_len(),
+                                                    ),
+                                                    entity_scopes,
+                                                ))
+                                                .unwrap();
                                         }
                                     } else {
                                         let entities = queued
@@ -197,21 +242,32 @@ pub fn spawn_queued(
 
                             for event in reader.read(&events) {
                                 if let AssetEvent::LoadedWithDependencies { id } = event
-                                    && let Some(scene) =
-                                        patches.get_mut(*id).and_then(|p| p.resolved.as_mut())
+                                    && let Some((Some(scene), Some(entity_scopes))) = patches
+                                        .get_mut(*id)
+                                        .map(|p| (p.resolved.as_mut(), p.entity_scopes.as_ref()))
                                     && let Some(entities) = queued.waiting_entities.remove(id)
                                 {
                                     for entity in entities {
                                         if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                                            scene.spawn(&mut entity_mut).unwrap();
+                                            scene
+                                                .apply(&mut TemplateContext::new(
+                                                    &mut entity_mut,
+                                                    &mut ScopedEntities::new(
+                                                        entity_scopes.entity_len(),
+                                                    ),
+                                                    entity_scopes,
+                                                ))
+                                                .unwrap();
                                         }
                                     }
                                 }
                             }
                             for event in list_reader.read(&list_events) {
                                 if let AssetEvent::LoadedWithDependencies { id } = event
-                                    && let Some(resolved_scenes) =
-                                        list_patches.get_mut(*id).and_then(|p| p.resolved.as_mut())
+                                    && let Some((Some(resolved_scenes), Some(entity_scopes))) =
+                                        list_patches.get_mut(*id).map(|p| {
+                                            (p.resolved.as_mut(), p.entity_scopes.as_ref())
+                                        })
                                     && let Some(scene_list_spawns) =
                                         queued.waiting_list_entities.remove(id)
                                 {
@@ -222,7 +278,15 @@ pub fn spawn_queued(
                                                 &mut child_entity,
                                                 scene_list_spawn.entity,
                                             );
-                                            scene.spawn(&mut child_entity).unwrap();
+                                            scene
+                                                .apply(&mut TemplateContext::new(
+                                                    &mut child_entity,
+                                                    &mut ScopedEntities::new(
+                                                        entity_scopes.entity_len(),
+                                                    ),
+                                                    entity_scopes,
+                                                ))
+                                                .unwrap();
                                         }
                                     }
                                 }

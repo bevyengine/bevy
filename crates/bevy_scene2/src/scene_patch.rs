@@ -1,7 +1,7 @@
 use crate::{ResolvedScene, Scene, SceneList};
 use bevy_asset::{Asset, AssetServer, Handle, UntypedHandle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Component;
+use bevy_ecs::{component::Component, template::EntityScopes};
 use bevy_reflect::TypePath;
 
 #[derive(Asset, TypePath)]
@@ -11,6 +11,7 @@ pub struct ScenePatch {
     pub dependencies: Vec<UntypedHandle>,
     // TODO: consider breaking this out to prevent mutating asset events when resolved
     pub resolved: Option<ResolvedScene>,
+    pub entity_scopes: Option<EntityScopes>,
 }
 
 impl ScenePatch {
@@ -25,6 +26,7 @@ impl ScenePatch {
             patch: Box::new(scene),
             dependencies,
             resolved: None,
+            entity_scopes: None,
         }
     }
 }
@@ -39,6 +41,7 @@ pub struct SceneListPatch {
     pub dependencies: Vec<UntypedHandle>,
     // TODO: consider breaking this out to prevent mutating asset events when resolved
     pub resolved: Option<Vec<ResolvedScene>>,
+    pub entity_scopes: Option<EntityScopes>,
 }
 
 impl SceneListPatch {
@@ -53,6 +56,7 @@ impl SceneListPatch {
             patch: Box::new(scene_list),
             dependencies,
             resolved: None,
+            entity_scopes: None,
         }
     }
 }

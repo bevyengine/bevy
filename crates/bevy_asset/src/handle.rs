@@ -5,8 +5,7 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_ecs::{
     error::Result,
-    template::{GetTemplate, Template},
-    world::EntityWorldMut,
+    template::{GetTemplate, Template, TemplateContext},
 };
 use bevy_reflect::{Reflect, TypePath};
 use core::{
@@ -226,8 +225,8 @@ impl<I: Into<AssetPath<'static>>, T> From<I> for HandleTemplate<T> {
 
 impl<T: Asset> Template for HandleTemplate<T> {
     type Output = Handle<T>;
-    fn build(&mut self, entity: &mut EntityWorldMut) -> Result<Handle<T>> {
-        Ok(entity.resource::<AssetServer>().load(&self.path))
+    fn build(&mut self, context: &mut TemplateContext) -> Result<Handle<T>> {
+        Ok(context.resource::<AssetServer>().load(&self.path))
     }
 }
 

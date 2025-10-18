@@ -1,6 +1,6 @@
 use crate::{entity::Entity, world::EntityWorldMut};
+use alloc::{borrow::Cow, string::String};
 use log::warn;
-use std::{borrow::Cow, string::String};
 use thiserror::Error;
 
 /// A path to an entity.

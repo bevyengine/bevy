@@ -97,4 +97,5 @@ pub enum BsnValue {
     Lit(Lit),
     Type(BsnType),
     Tuple(BsnTuple),
+    Name(Ident),
 }
