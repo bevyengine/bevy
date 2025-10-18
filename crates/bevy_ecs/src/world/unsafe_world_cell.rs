@@ -11,7 +11,7 @@ use crate::{
     lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
-    query::{DebugCheckedUnwrap, ReleaseStateQueryData},
+    query::{DebugCheckedUnwrap, ReleaseStateQueryData, SingleEntityQueryData},
     resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
@@ -999,7 +999,7 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - the [`UnsafeEntityCell`] has permission to access the queried data immutably
     /// - no mutable references to the queried data exist at the same time
     /// - The `QueryData` does not provide aliasing mutable references to the same component.
-    pub(crate) unsafe fn get_components<Q: ReleaseStateQueryData>(
+    pub(crate) unsafe fn get_components<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: World is only used to access query data and initialize query state

@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity},
-    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -466,6 +466,16 @@ macro_rules! impl_or_query_filter {
                 *access = new_access;
             }
 
+            fn update_external_component_access(
+                state: &Self::State,
+                _system_name: Option<&str>,
+                _component_access_set: &mut FilteredAccessSet,
+                _world: UnsafeWorldCell,
+            ) {
+                let ($($state,)*) = state;
+                $($filter::update_external_component_access($state, _system_name, _component_access_set, _world);)*
+            }
+
             fn init_state(world: &mut World) -> Self::State {
                 ($($filter::init_state(world),)*)
             }
@@ -477,6 +487,11 @@ macro_rules! impl_or_query_filter {
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
+            }
+
+            fn update_archetypes(state: &mut Self::State, _world: UnsafeWorldCell) {
+                let ($($filter,)*) = state;
+                $($filter::update_archetypes($filter, _world);)*
             }
         }
 
