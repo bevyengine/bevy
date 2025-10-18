@@ -4,7 +4,7 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use alloc::{format, string::ToString as _, vec::Vec};
+use alloc::{string::ToString as _, vec::Vec};
 #[cfg(not(feature = "trace"))]
 use log::info;
 #[cfg(feature = "trace")]
@@ -336,18 +336,44 @@ pub fn log_components() -> impl EntityCommand {
             .map(|info| info.name().to_string())
             .collect();
         components.sort();
-        #[cfg(feature = "trace")]
+
+        #[cfg(not(feature = "debug"))]
         {
-            if let Some(name) = name {
-                tracing::info!(id=?id, name=?name, ?components, "log_components");
-            } else {
-                tracing::info!(id=?id, ?components, "log_components");
+            let component_count = components.len();
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?component_count, "log_components. Enable the `default` feature to log component names.");
+                } else {
+                    info!(id=?id, ?component_count, "log_components. Enable the `default` feature to log component names.");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {component_count} components. Enable the `default` feature to log component names.");
             }
         }
-        #[cfg(not(feature = "trace"))]
+
+        #[cfg(feature = "debug")]
         {
-            let name = name.map(|name| format!(" ({name})")).unwrap_or_default();
-            info!("Entity {id}{name}: {components:?}");
+            #[cfg(feature = "trace")]
+            {
+                if let Some(name) = name {
+                    info!(id=?id, name=?name, ?components, "log_components");
+                } else {
+                    info!(id=?id, ?components, "log_components");
+                }
+            }
+            #[cfg(not(feature = "trace"))]
+            {
+                let name = name
+                    .map(|name| alloc::format!(" ({name})"))
+                    .unwrap_or_default();
+                info!("Entity {id}{name}: {components:?}");
+            }
         }
     }
 }
