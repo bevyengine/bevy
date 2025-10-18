@@ -25,7 +25,7 @@ use cluster::{
     VisibleClusterableObjects,
 };
 mod ambient_light;
-pub use ambient_light::{AmbientLightOverride, AmbientLight};
+pub use ambient_light::{AmbientLight, AmbientLightOverride};
 mod probe;
 pub use probe::{
     AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
@@ -57,8 +57,8 @@ pub use directional_light::{
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        light_consts, AmbientLightOverride, AmbientLight, DirectionalLight,
-        EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+        light_consts, AmbientLight, AmbientLightOverride, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
