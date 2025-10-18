@@ -21,7 +21,7 @@ Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(AmbientLightResource {
             brightness: 20.0,
             ..default()
         })

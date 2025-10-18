@@ -18,7 +18,7 @@ use rand_chacha::ChaCha8Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(AmbientLightResource {
             brightness: 3000.0,
             ..default()
         })
