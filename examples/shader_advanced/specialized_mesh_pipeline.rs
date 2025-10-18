@@ -14,8 +14,8 @@ use bevy::{
     math::{vec3, vec4},
     mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
-        DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
+        init_mesh_pipeline, DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
+        RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
     },
     prelude::*,
     render::{
@@ -113,7 +113,10 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
             .init_resource::<SpecializedMeshPipelines<CustomMeshPipeline>>()
             // We need to use a custom draw command so we need to register it
             .add_render_command::<Opaque3d, DrawSpecializedPipelineCommands>()
-            .add_systems(RenderStartup, init_custom_mesh_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_custom_mesh_pipeline.after(init_mesh_pipeline),
+            )
             .add_systems(
                 Render,
                 queue_custom_mesh_pipeline.in_set(RenderSystems::Queue),

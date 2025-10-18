@@ -27,6 +27,11 @@ pub enum UvChannel {
 /// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
+///
+/// When a [`Lightmap`] is assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
+/// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
+/// then the lightmap will render using those UVs.
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[data(0, StandardMaterialUniform, binding_array(10))]
