@@ -12,7 +12,11 @@ use crate::{
     settings::{WgpuFeatures, WgpuLimits},
 };
 use bevy_app::{App, SubApp};
-use bevy_ecs::{component::Component, query::ReadOnlyQueryData, world::World};
+use bevy_ecs::{
+    component::Component,
+    query::{QueryItem, ReadOnlyQueryData},
+    world::World,
+};
 
 pub trait RenderTask: Component + Clone {
     type RenderNodeLabel: RenderLabel + Default;
@@ -33,7 +37,7 @@ pub trait RenderTask: Component + Clone {
     fn encode_commands(
         &self,
         encoder: &mut RenderTaskEncoder,
-        extra_query_data: Self::ExtraQueryData,
+        extra_query_data: QueryItem<Self::ExtraQueryData>,
         world: &World,
     );
 }
