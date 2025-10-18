@@ -2,6 +2,7 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
+use bevy_reflect::TypePath;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -136,6 +137,7 @@ pub enum GltfError {
 }
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
+#[derive(TypePath)]
 pub struct GltfLoader {
     /// List of compressed image formats handled by the loader.
     pub supported_compressed_formats: CompressedImageFormats,
