@@ -484,16 +484,20 @@ impl RelationshipTargetCloneBehaviorHierarchy
 /// in a type-erased context.
 #[derive(Debug, Clone, Copy)]
 pub enum RelationshipAccessor {
-    /// This component is a `Relationship`.
+    /// This component is a [`Relationship`].
     Relationship {
-        /// Offset of the field containing `Entity` from the base of the component.
+        /// Offset of the field containing [`Entity`] from the base of the component.
+        ///
+        /// Dynamic equivalent of [`Relationship::get`].
         entity_field_offset: usize,
         /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
         linked_spawn: bool,
     },
-    /// This component is a `RelationshipTarget`.
+    /// This component is a [`RelationshipTarget`].
     RelationshipTarget {
-        /// Function that returns and iterator over all Entities of this relationship target.
+        /// Function that returns an iterator over all [`Entity`]s of this [`RelationshipTarget`]'s collection.
+        ///
+        /// Dynamic equivalent of [`RelationshipTarget::iter`].
         /// # Safety
         /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
@@ -502,7 +506,7 @@ pub enum RelationshipAccessor {
     },
 }
 
-/// A type-safe convince wrapper over [`RelationshipAccessor`].
+/// A type-safe convenience wrapper over [`RelationshipAccessor`].
 pub struct ComponentRelationshipAccessor<C: ?Sized> {
     pub(crate) accessor: RelationshipAccessor,
     phantom: PhantomData<C>,
@@ -511,7 +515,7 @@ pub struct ComponentRelationshipAccessor<C: ?Sized> {
 impl<C> ComponentRelationshipAccessor<C> {
     /// Create a new [`ComponentRelationshipAccessor`] for a [`Relationship`] component.
     /// # Safety
-    /// `entity_field_offset` should be the offset from the base of this component and point to a field that stores value of type `Entity`.
+    /// `entity_field_offset` should be the offset from the base of this component and point to a field that stores value of type [`Entity`].
     /// This value can be obtained using the [`core::mem::offset_of`] macro.
     pub unsafe fn relationship(entity_field_offset: usize) -> Self
     where
