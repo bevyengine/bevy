@@ -170,6 +170,24 @@ impl<T> ThinArrayPtr<T> {
         }
     }
 
+    /// Perform a [`swap`](https://doc.rust-lang.org/std/primitive.slice.html#method.swap).
+    ///
+    /// # Safety
+    /// - `a` must be safe to access (within the bounds of the length of the array).
+    /// - `b` must be safe to access (within the bounds of the length of the array).
+    /// - `a` != `b`
+    #[inline]
+    pub unsafe fn swap_unchecked_nonoverlapping(&mut self, a: usize, b: usize) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(self.capacity > a);
+            debug_assert!(self.capacity > b);
+            debug_assert_ne!(a, b);
+        }
+        let base_ptr = self.data.as_ptr();
+        ptr::copy_nonoverlapping(base_ptr.add(a), base_ptr.add(b), 1);
+    }
+
     /// Perform a [`swap-remove`](https://doc.rust-lang.org/std/vec/struct.Vec.html#method.swap_remove) and return the removed value.
     ///
     /// # Safety
