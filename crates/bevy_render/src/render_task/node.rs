@@ -30,14 +30,12 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
                     label: Some("todo"),
                 });
 
-            let mut task_encoder = RenderTaskEncoder {
+            let task_encoder = RenderTaskEncoder {
                 command_encoder: &mut command_encoder,
                 compute_pass: None,
             };
 
-            task.encode_commands(&mut task_encoder, entity, world);
-
-            drop(task_encoder);
+            task.encode_commands(task_encoder, entity, world);
 
             command_encoder.finish()
         });
@@ -56,7 +54,7 @@ impl<'a> RenderTaskEncoder<'a> {
         todo!()
     }
 
-    pub fn compute_command(&'a mut self, pass_name: &'a str) -> ComputeCommandBuilder<'a> {
+    pub fn compute_command<'b>(&'b mut self, pass_name: &'b str) -> ComputeCommandBuilder<'b> {
         if self.compute_pass.is_none() {
             self.compute_pass = Some(
                 self.command_encoder

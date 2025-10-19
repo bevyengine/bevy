@@ -28,5 +28,5 @@ pub trait RenderTask: Component + Clone {
     #[expect(unused_variables)]
     fn plugin_render_app_build(render_app: &mut SubApp) {}
 
-    fn encode_commands(&self, encoder: &mut RenderTaskEncoder, entity: Entity, world: &World);
+    fn encode_commands(&self, encoder: RenderTaskEncoder, entity: Entity, world: &World);
 }
