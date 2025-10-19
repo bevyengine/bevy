@@ -17,7 +17,10 @@ use crate::{
     resource::Resource,
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
+        EntityWorldMut, Mut, Ref, World,
+    },
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -185,8 +188,8 @@ impl<'w, 'a, T: Component + Default> ComponentEntry<'w, 'a, T> {
 ///
 /// The contained entity must have the component type parameter if we have this struct.
 pub struct OccupiedComponentEntry<'w, 'a, T: Component> {
-    entity_world: &'a mut EntityWorldMut<'w>,
-    _marker: PhantomData<T>,
+    pub(crate) entity_world: &'a mut EntityWorldMut<'w>,
+    pub(crate) _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> OccupiedComponentEntry<'w, 'a, T> {
@@ -326,8 +329,8 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
 
 /// A view into a vacant entry in a [`EntityWorldMut`]. It is part of the [`ComponentEntry`] enum.
 pub struct VacantComponentEntry<'w, 'a, T: Component> {
-    entity_world: &'a mut EntityWorldMut<'w>,
-    _marker: PhantomData<T>,
+    pub(crate) entity_world: &'a mut EntityWorldMut<'w>,
+    pub(crate) _marker: PhantomData<T>,
 }
 
 impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {

@@ -17,7 +17,9 @@ use crate::{
     resource::Resource,
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry, DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, OccupiedComponentEntry, Ref, VacantComponentEntry, World
+    },
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -2054,6 +2056,90 @@ impl<'w> EntityWorldMut<'w> {
             );
         });
         self
+    }
+}
+
+impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
+    fn from(entity: EntityWorldMut<'w>) -> EntityRef<'w> {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe { EntityRef::new(entity.into_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
+    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        // - `&entity` ensures no mutable accesses are active.
+        unsafe { EntityRef::new(entity.as_unsafe_entity_cell_readonly()) }
+    }
+}
+
+impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
+    fn from(entity: EntityWorldMut<'w>) -> Self {
+        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe { EntityMut::new(entity.into_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
+    #[inline]
+    fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
+        // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe { EntityMut::new(entity.as_unsafe_entity_cell()) }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a, 'static> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            FilteredEntityRef::new(
+                entity.into_unsafe_entity_cell(),
+                const { &Access::new_read_all() },
+            )
+        }
+    }
+}
+
+impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a, 'static> {
+    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            FilteredEntityRef::new(
+                entity.as_unsafe_entity_cell_readonly(),
+                const { &Access::new_read_all() },
+            )
+        }
+    }
+}
+
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a, 'static> {
+    fn from(entity: EntityWorldMut<'a>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            FilteredEntityMut::new(
+                entity.into_unsafe_entity_cell(),
+                const { &Access::new_write_all() },
+            )
+        }
+    }
+}
+
+impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
+    fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
+        // SAFETY:
+        // - `EntityWorldMut` guarantees exclusive access to the entire world.
+        unsafe {
+            FilteredEntityMut::new(
+                entity.as_unsafe_entity_cell(),
+                const { &Access::new_write_all() },
+            )
+        }
     }
 }
 

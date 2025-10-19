@@ -17,7 +17,9 @@ use crate::{
     resource::Resource,
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World
+    },
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -204,14 +206,11 @@ where
     }
 }
 
-impl<'w, 's, B> From<&'w EntityMutExcept<'_, 's, B>> for EntityRefExcept<'w, 's, B>
-where
-    B: Bundle,
-{
-    fn from(entity: &'w EntityMutExcept<'_, 's, B>) -> Self {
-        // SAFETY: All accesses that `EntityRefExcept` provides are also
-        // accesses that `EntityMutExcept` provides.
-        unsafe { EntityRefExcept::new(entity.entity, entity.access) }
+impl<'w, 's, B: Bundle> From<&'w EntityRefExcept<'_, 's, B>> for FilteredEntityRef<'w, 's> {
+    fn from(value: &'w EntityRefExcept<'_, 's, B>) -> Self {
+        // SAFETY:
+        // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
+        unsafe { FilteredEntityRef::new(value.entity, value.access) }
     }
 }
 
@@ -442,6 +441,25 @@ where
                 unsafe { self.entity.get_mut_by_id(component_id).ok() }
             })
             .flatten()
+    }
+}
+
+impl<'w, 's, B: Bundle> From<&'w EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
+    fn from(value: &'w EntityMutExcept<'_, 's, B>) -> Self {
+        // SAFETY:
+        // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
+        unsafe { FilteredEntityMut::new(value.entity, value.access) }
+    }
+}
+
+impl<'w, 's, B> From<&'w EntityMutExcept<'_, 's, B>> for EntityRefExcept<'w, 's, B>
+where
+    B: Bundle,
+{
+    fn from(entity: &'w EntityMutExcept<'_, 's, B>) -> Self {
+        // SAFETY: All accesses that `EntityRefExcept` provides are also
+        // accesses that `EntityMutExcept` provides.
+        unsafe { EntityRefExcept::new(entity.entity, entity.access) }
     }
 }
 

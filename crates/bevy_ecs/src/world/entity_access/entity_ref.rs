@@ -17,7 +17,10 @@ use crate::{
     resource::Resource,
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
+        FilteredEntityRef, Mut, Ref, World,
+    },
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -303,89 +306,19 @@ impl<'w> EntityRef<'w> {
     }
 }
 
-impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
-    fn from(entity: EntityWorldMut<'w>) -> EntityRef<'w> {
+impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
+    fn from(entity: EntityRef<'a>) -> Self {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityRef::new(entity.into_unsafe_entity_cell()) }
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
-impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
-    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
+impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a, 'static> {
+    fn from(entity: &'a EntityRef<'_>) -> Self {
         // SAFETY:
-        // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&entity` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(entity.as_unsafe_entity_cell_readonly()) }
-    }
-}
-
-impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
-    fn from(entity: EntityMut<'w>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        unsafe { EntityRef::new(entity.cell) }
-    }
-}
-
-impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
-    fn from(entity: &'a EntityMut<'_>) -> Self {
-        // SAFETY:
-        // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        // - `&entity` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(entity.cell) }
-    }
-}
-
-impl<'a> TryFrom<FilteredEntityRef<'a, '_>> for EntityRef<'a> {
-    type Error = TryFromFilteredError;
-
-    fn try_from(entity: FilteredEntityRef<'a, '_>) -> Result<Self, Self::Error> {
-        if !entity.access.has_read_all() {
-            Err(TryFromFilteredError::MissingReadAllAccess)
-        } else {
-            // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(entity.entity) })
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a FilteredEntityRef<'_, '_>> for EntityRef<'a> {
-    type Error = TryFromFilteredError;
-
-    fn try_from(entity: &'a FilteredEntityRef<'_, '_>) -> Result<Self, Self::Error> {
-        if !entity.access.has_read_all() {
-            Err(TryFromFilteredError::MissingReadAllAccess)
-        } else {
-            // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(entity.entity) })
-        }
-    }
-}
-
-impl<'a> TryFrom<FilteredEntityMut<'a, '_>> for EntityRef<'a> {
-    type Error = TryFromFilteredError;
-
-    fn try_from(entity: FilteredEntityMut<'a, '_>) -> Result<Self, Self::Error> {
-        if !entity.access.has_read_all() {
-            Err(TryFromFilteredError::MissingReadAllAccess)
-        } else {
-            // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(entity.entity) })
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a FilteredEntityMut<'_, '_>> for EntityRef<'a> {
-    type Error = TryFromFilteredError;
-
-    fn try_from(entity: &'a FilteredEntityMut<'_, '_>) -> Result<Self, Self::Error> {
-        if !entity.access.has_read_all() {
-            Err(TryFromFilteredError::MissingReadAllAccess)
-        } else {
-            // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(entity.entity) })
-        }
+        // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
