@@ -3,12 +3,14 @@ use crate::{render_resource::ComputePipelineDescriptor, PipelineCache as Pipelin
 use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
-use wgpu::{BindGroup, Buffer, ComputePass};
+use std::borrow::Cow;
+use wgpu::{BindGroup, Buffer, ComputePass, PushConstantRange, ShaderStages};
 
 pub struct ComputeCommandBuilder<'a> {
     pass: &'a mut ComputePass<'static>,
     pass_name: &'a str,
     shader: Handle<Shader>,
+    entry_point: Option<&'static str>,
     shader_defs: Vec<ShaderDefVal>,
     push_constants: Option<&'a [u8]>,
     bind_groups: Vec<Option<BindGroup>>,
@@ -27,6 +29,7 @@ impl<'a> ComputeCommandBuilder<'a> {
             pass,
             pass_name,
             shader: Handle::default(),
+            entry_point: None,
             shader_defs: Vec::new(),
             push_constants: None,
             bind_groups: Vec::new(),
@@ -37,6 +40,11 @@ impl<'a> ComputeCommandBuilder<'a> {
 
     pub fn shader(mut self, shader: Handle<Shader>) -> Self {
         self.shader = shader;
+        self
+    }
+
+    pub fn entry_point(mut self, entry_point: &'static str) -> Self {
+        self.entry_point = Some(entry_point);
         self
     }
 
@@ -87,15 +95,25 @@ impl<'a> ComputeCommandBuilder<'a> {
     }
 
     fn setup_state(&mut self) -> Option<()> {
+        let push_constant_ranges = self
+            .push_constants
+            .map(|pc| {
+                vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..(pc.len() as u32),
+                }]
+            })
+            .unwrap_or_default();
+
         let pipeline = self.pipeline_cache.get_or_compile_compute_pipeline(
             ComputePipelineDescriptor {
-                label: todo!(),
-                layout: todo!(),
-                push_constant_ranges: todo!(),
+                label: Some("todo".into()),
+                layout: Vec::new(), // TODO
+                push_constant_ranges,
                 shader: self.shader.clone(),
                 shader_defs: self.shader_defs.clone(),
-                entry_point: todo!(),
-                zero_initialize_workgroup_memory: todo!(),
+                entry_point: self.entry_point.map(Cow::from),
+                zero_initialize_workgroup_memory: false,
             },
             self.pipeline_compiler,
         )?;
