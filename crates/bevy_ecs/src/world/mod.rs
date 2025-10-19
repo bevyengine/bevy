@@ -35,7 +35,7 @@ use crate::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
     },
-    change_detection::{MaybeLocation, MutUntyped, TicksMut},
+    change_detection::{ComponentTicksMut, MaybeLocation, MutUntyped},
     component::{
         CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
@@ -63,7 +63,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
@@ -2615,13 +2615,13 @@ impl World {
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
+                changed_by: caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            changed_by: caller.as_mut(),
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -3360,13 +3360,13 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks, caller) = data.get_with_ticks()?;
+                let (ptr, ticks) = data.get_with_ticks()?;
 
                 // SAFETY:
-                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
+                // - We have exclusive access to the world, so no other code can be aliasing the `ComponentTickCells`
+                // - We only hold one `ComponentTicksMut` at a time, and we let go of it before getting the next one
                 let ticks = unsafe {
-                    TicksMut::from_tick_cells(
+                    ComponentTicksMut::from_tick_cells(
                         ticks,
                         self.last_change_tick(),
                         self.read_change_tick(),
@@ -3379,10 +3379,6 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
-                    // SAFETY:
-                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
-                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
                 };
 
                 Some((component_info, mut_untyped))
