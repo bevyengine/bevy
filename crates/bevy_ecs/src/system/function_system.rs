@@ -20,6 +20,9 @@ use variadics_please::all_tuples;
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
+#[cfg(feature = "trace")]
+use alloc::string::ToString as _;
+
 use super::{
     IntoSystem, ReadOnlySystem, RunSystemError, SystemParamBuilder, SystemParamValidationError,
     SystemStateFlags,
@@ -46,9 +49,9 @@ impl SystemMeta {
             // These spans are initialized during plugin build, so we set the parent to `None` to prevent
             // them from being children of the span that is measuring the plugin build time.
             #[cfg(feature = "trace")]
-            system_span: info_span!(parent: None, "system", name = name.clone().as_string()),
+            system_span: info_span!(parent: None, "system", name = name.clone().to_string()),
             #[cfg(feature = "trace")]
-            commands_span: info_span!(parent: None, "system_commands", name = name.clone().as_string()),
+            commands_span: info_span!(parent: None, "system_commands", name = name.clone().to_string()),
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
