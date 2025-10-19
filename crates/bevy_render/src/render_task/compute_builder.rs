@@ -1,26 +1,37 @@
+use super::pipeline_cache::PipelineCache;
+use crate::{render_resource::ComputePipelineDescriptor, PipelineCache as PipelineCompiler};
 use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
 use wgpu::{BindGroup, Buffer, ComputePass};
 
 pub struct ComputeCommandBuilder<'a> {
-    compute_pass: &'a mut ComputePass<'static>,
+    pass: &'a mut ComputePass<'static>,
     pass_name: &'a str,
     shader: Handle<Shader>,
     shader_defs: Vec<ShaderDefVal>,
     push_constants: Option<&'a [u8]>,
     bind_groups: Vec<Option<BindGroup>>,
+    pipeline_cache: &'a mut PipelineCache,
+    pipeline_compiler: &'a PipelineCompiler,
 }
 
 impl<'a> ComputeCommandBuilder<'a> {
-    pub fn new(compute_pass: &'a mut ComputePass<'static>, pass_name: &'a str) -> Self {
+    pub fn new(
+        pass: &'a mut ComputePass<'static>,
+        pass_name: &'a str,
+        pipeline_cache: &'a mut PipelineCache,
+        pipeline_compiler: &'a PipelineCompiler,
+    ) -> Self {
         Self {
-            compute_pass,
+            pass,
             pass_name,
             shader: Handle::default(),
             shader_defs: Vec::new(),
             push_constants: None,
             bind_groups: Vec::new(),
+            pipeline_cache,
+            pipeline_compiler,
         }
     }
 
@@ -53,29 +64,50 @@ impl<'a> ComputeCommandBuilder<'a> {
 
     pub fn dispatch_1d(mut self, x: u32) -> Self {
         self.setup_state();
-        self.compute_pass.dispatch_workgroups(x, 1, 1);
+        self.pass.dispatch_workgroups(x, 1, 1);
         self
     }
 
     pub fn dispatch_2d(mut self, x: u32, y: u32) -> Self {
         self.setup_state();
-        self.compute_pass.dispatch_workgroups(x, y, 1);
+        self.pass.dispatch_workgroups(x, y, 1);
         self
     }
 
     pub fn dispatch_3d(mut self, x: u32, y: u32, z: u32) -> Self {
         self.setup_state();
-        self.compute_pass.dispatch_workgroups(x, y, z);
+        self.pass.dispatch_workgroups(x, y, z);
         self
     }
 
     pub fn dispatch_indirect(mut self, buffer: &Buffer) -> Self {
         self.setup_state();
-        self.compute_pass.dispatch_workgroups_indirect(buffer, 0);
+        self.pass.dispatch_workgroups_indirect(buffer, 0);
         self
     }
 
-    fn setup_state(&mut self) {
-        // TODO: Compile and set pipeline, bind groups, push constants
+    fn setup_state(&mut self) -> Option<()> {
+        let pipeline = self.pipeline_cache.get_or_compile_compute_pipeline(
+            ComputePipelineDescriptor {
+                label: todo!(),
+                layout: todo!(),
+                push_constant_ranges: todo!(),
+                shader: self.shader.clone(),
+                shader_defs: self.shader_defs.clone(),
+                entry_point: todo!(),
+                zero_initialize_workgroup_memory: todo!(),
+            },
+            self.pipeline_compiler,
+        )?;
+
+        self.pass.set_pipeline(&pipeline); // TODO: Only set if changed
+
+        if let Some(push_constants) = self.push_constants {
+            self.pass.set_push_constants(0, push_constants);
+        }
+
+        // TODO: Set bind groups if changed
+
+        Some(())
     }
 }

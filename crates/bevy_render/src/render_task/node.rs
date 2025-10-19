@@ -1,7 +1,8 @@
-use super::{compute_builder::ComputeCommandBuilder, RenderTask};
+use super::{compute_builder::ComputeCommandBuilder, pipeline_cache::PipelineCache, RenderTask};
 use crate::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
+    PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::{
     entity::Entity,
@@ -33,6 +34,8 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
             let task_encoder = RenderTaskEncoder {
                 command_encoder: &mut command_encoder,
                 compute_pass: None,
+                pipeline_cache: todo!(),
+                pipeline_compiler: world.resource::<PipelineCompiler>(),
             };
 
             task.encode_commands(task_encoder, entity, world);
@@ -47,6 +50,8 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
 pub struct RenderTaskEncoder<'a> {
     command_encoder: &'a mut CommandEncoder,
     compute_pass: Option<ComputePass<'static>>,
+    pipeline_cache: &'a mut PipelineCache,
+    pipeline_compiler: &'a PipelineCompiler,
 }
 
 impl<'a> RenderTaskEncoder<'a> {
@@ -63,6 +68,11 @@ impl<'a> RenderTaskEncoder<'a> {
             );
         }
 
-        ComputeCommandBuilder::new(self.compute_pass.as_mut().unwrap(), pass_name)
+        ComputeCommandBuilder::new(
+            self.compute_pass.as_mut().unwrap(),
+            pass_name,
+            self.pipeline_cache,
+            self.pipeline_compiler,
+        )
     }
 }

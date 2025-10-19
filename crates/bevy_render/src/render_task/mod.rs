@@ -1,6 +1,7 @@
 mod compute_builder;
 mod extract;
 mod node;
+mod pipeline_cache;
 mod plugin;
 
 pub use compute_builder::ComputeCommandBuilder;
