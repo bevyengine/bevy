@@ -2477,8 +2477,11 @@ mod tests {
         }
     }
 
-    #[derive(Component, Resource)]
+    #[derive(Component)]
     struct W<T>(T);
+
+    #[derive(Resource)]
+    struct V<T>(T);
 
     fn simple_command(world: &mut World) {
         world.spawn((W(0u32), W(42u64)));
@@ -2486,7 +2489,7 @@ mod tests {
 
     impl FromWorld for W<String> {
         fn from_world(world: &mut World) -> Self {
-            let v = world.resource::<W<usize>>();
+            let v = world.resource::<V<usize>>();
             Self("*".repeat(v.0))
         }
     }
@@ -2527,7 +2530,7 @@ mod tests {
             .or_insert(W(42));
         queue.apply(&mut world);
         assert_eq!(42, world.get::<W<u64>>(entity).unwrap().0);
-        world.insert_resource(W(5_usize));
+        world.insert_resource(V(5_usize));
         let mut commands = Commands::new(&mut queue, &world);
         commands.entity(entity).entry::<W<String>>().or_from_world();
         queue.apply(&mut world);
@@ -2744,22 +2747,22 @@ mod tests {
         let mut queue = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.insert_resource(W(123i32));
-            commands.insert_resource(W(456.0f64));
+            commands.insert_resource(V(123i32));
+            commands.insert_resource(V(456.0f64));
         }
 
         queue.apply(&mut world);
-        assert!(world.contains_resource::<W<i32>>());
-        assert!(world.contains_resource::<W<f64>>());
+        assert!(world.contains_resource::<V<i32>>());
+        assert!(world.contains_resource::<V<f64>>());
 
         {
             let mut commands = Commands::new(&mut queue, &world);
             // test resource removal
-            commands.remove_resource::<W<i32>>();
+            commands.remove_resource::<V<i32>>();
         }
         queue.apply(&mut world);
-        assert!(!world.contains_resource::<W<i32>>());
-        assert!(world.contains_resource::<W<f64>>());
+        assert!(!world.contains_resource::<V<i32>>());
+        assert!(world.contains_resource::<V<f64>>());
     }
 
     #[test]
@@ -2832,17 +2835,17 @@ mod tests {
         let mut queue_1 = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue_1, &world);
-            commands.insert_resource(W(123i32));
+            commands.insert_resource(V(123i32));
         }
         let mut queue_2 = CommandQueue::default();
         {
             let mut commands = Commands::new(&mut queue_2, &world);
-            commands.insert_resource(W(456.0f64));
+            commands.insert_resource(V(456.0f64));
         }
         queue_1.append(&mut queue_2);
         queue_1.apply(&mut world);
-        assert!(world.contains_resource::<W<i32>>());
-        assert!(world.contains_resource::<W<f64>>());
+        assert!(world.contains_resource::<V<i32>>());
+        assert!(world.contains_resource::<V<f64>>());
     }
 
     #[test]

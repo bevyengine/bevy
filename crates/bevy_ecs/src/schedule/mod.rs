@@ -795,9 +795,6 @@ mod tests {
         #[derive(Message)]
         struct E;
 
-        #[derive(Resource, Component)]
-        struct RC;
-
         fn empty_system() {}
         fn res_system(_res: Res<R>) {}
         fn resmut_system(_res: ResMut<R>) {}
@@ -955,21 +952,6 @@ mod tests {
             let _ = schedule.initialize(&mut world);
 
             assert_eq!(schedule.graph().conflicting_systems().len(), 3);
-        }
-
-        /// Test that when a struct is both a Resource and a Component, they do not
-        /// conflict with each other.
-        #[test]
-        fn shared_resource_mut_component() {
-            let mut world = World::new();
-            world.insert_resource(RC);
-
-            let mut schedule = Schedule::default();
-            schedule.add_systems((|_: ResMut<RC>| {}, |_: Query<&mut RC>| {}));
-
-            let _ = schedule.initialize(&mut world);
-
-            assert_eq!(schedule.graph().conflicting_systems().len(), 0);
         }
 
         #[test]
