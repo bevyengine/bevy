@@ -21,6 +21,9 @@ use core::mem;
 ///     }
 /// }
 /// ```
+///
+/// [`Res`]: crate::change_detection::params::Res
+/// [`ResMut`]: crate::change_detection::params::ResMut
 pub trait DetectChanges {
     /// Returns `true` if this value was added after the system last ran.
     fn is_added(&self) -> bool;
@@ -78,6 +81,9 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
+///
+/// [`ResMut`]: crate::change_detection::params::ResMut
+/// [`DerefMut`]: core::ops::DerefMut
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -164,6 +170,11 @@ pub trait DetectChangesMut: DetectChanges {
     /// # schedule.run(&mut world);
     /// # assert!(!score_changed.run((), &mut world).unwrap());
     /// ```
+    ///
+    /// [`Mut::map_unchanged`]: crate::change_detection::params::Mut::map_unchanged
+    /// [`MutUntyped::map_unchanged`]: crate::change_detection::params::MutUntyped::map_unchanged
+    /// [`ResMut::map_unchanged`]: crate::change_detection::params::ResMut::map_unchanged
+    /// [`NonSendMut::map_unchanged`]: crate::change_detection::params::NonSendMut::map_unchanged
     #[inline]
     #[track_caller]
     fn set_if_neq(&mut self, value: Self::Inner) -> bool
@@ -187,7 +198,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// changes, instead of every time it is mutably accessed.
     ///
     /// If you're dealing with non-trivial structs which have multiple fields of non-trivial size,
-    /// then consider applying a [`map_unchanged`](Mut::map_unchanged) beforehand to allow
+    /// then consider applying a `map_unchanged` beforehand to allow
     /// changing only the relevant field and prevent unnecessary copying and cloning.
     /// See the docs of [`Mut::map_unchanged`], [`MutUntyped::map_unchanged`],
     /// [`ResMut::map_unchanged`] or [`NonSendMut::map_unchanged`] for an example
@@ -241,6 +252,11 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed.run((), &mut world).unwrap());
     /// # assert!(!score_changed_event.run((), &mut world).unwrap());
     /// ```
+    ///
+    /// [`Mut::map_unchanged`]: crate::change_detection::params::Mut::map_unchanged
+    /// [`MutUntyped::map_unchanged`]: crate::change_detection::params::MutUntyped::map_unchanged
+    /// [`ResMut::map_unchanged`]: crate::change_detection::params::ResMut::map_unchanged
+    /// [`NonSendMut::map_unchanged`]: crate::change_detection::params::NonSendMut::map_unchanged
     #[inline]
     #[must_use = "If you don't need to handle the previous value, use `set_if_neq` instead."]
     fn replace_if_neq(&mut self, value: Self::Inner) -> Option<Self::Inner>
