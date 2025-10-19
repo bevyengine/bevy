@@ -11,7 +11,6 @@ use tracing::warn;
 #[derive(Default)]
 pub struct RenderTaskPlugin<T: RenderTask>(PhantomData<T>);
 
-// TODO: Can't implement Plugin directly for T: RenderTask
 impl<T: RenderTask> Plugin for RenderTaskPlugin<T> {
     fn build(&self, _app: &mut App) {}
 

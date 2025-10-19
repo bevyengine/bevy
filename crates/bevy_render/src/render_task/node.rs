@@ -4,6 +4,7 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{
+    entity::Entity,
     query::QueryItem,
     world::{FromWorld, World},
 };
@@ -13,15 +14,14 @@ use wgpu::{CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDes
 #[derive(FromWorld)]
 pub struct RenderTaskNode<T: RenderTask>(PhantomData<T>);
 
-// TODO: Can't implement ViewNode directly for T: RenderTask
 impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
-    type ViewQuery = (&'static T, T::ExtraQueryData);
+    type ViewQuery = (&'static T, Entity);
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (task, extra_query_data): QueryItem<'w, '_, Self::ViewQuery>,
+        (task, entity): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         render_context.add_command_buffer_generation_task(move |render_device| {
@@ -35,7 +35,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
                 compute_pass: None,
             };
 
-            task.encode_commands(&mut task_encoder, extra_query_data, world);
+            task.encode_commands(&mut task_encoder, entity, world);
 
             drop(task_encoder);
 
