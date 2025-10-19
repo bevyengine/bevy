@@ -4,7 +4,9 @@ pull_requests: []
 ---
 
 To support richer querying across relations,
-Bevy now supports query data that may filter out individual entities.
+Bevy now supports query data that are not archetypal: the query can return entities based on conditions that do not exclusively involve the entity's archetype.
+
+An example of non-archetypal filter is `Changed<C>`: the entity is filtered based on the archetype (having the component C) but also based on the change ticks of the component.
 
 Code that requires queries to `impl ExactSizeIterator` may need to replace `QueryData` bounds with `ArchetypeQueryData`.
 
