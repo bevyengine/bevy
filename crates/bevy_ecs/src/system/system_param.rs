@@ -2,7 +2,7 @@ pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{MutComponentTicks, RefComponentTicks},
+    change_detection::{ComponentTicksMut, ComponentTicksRef},
     component::{ComponentId, Components, Tick},
     entity::Entities,
     query::{
@@ -812,7 +812,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             });
         Res {
             value: ptr.deref(),
-            ticks: RefComponentTicks {
+            ticks: ComponentTicksRef {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
                 changed_by: ticks.changed_by.map(|changed_by| changed_by.deref()),
@@ -890,7 +890,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
-            ticks: MutComponentTicks {
+            ticks: ComponentTicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
                 changed_by: value.ticks.changed_by,
@@ -1412,7 +1412,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             });
         NonSend {
             value: ptr.deref(),
-            ticks: RefComponentTicks::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1486,7 +1486,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: MutComponentTicks::from_tick_cells(ticks, system_meta.last_run, change_tick),
+            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }

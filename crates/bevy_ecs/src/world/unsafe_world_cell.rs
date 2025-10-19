@@ -4,7 +4,7 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{MaybeLocation, MutComponentTicks, MutUntyped, RefComponentTicks},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, MutUntyped},
     component::{
         ComponentId, ComponentTickCells, ComponentTicks, Components, Mutable, StorageType, Tick,
     },
@@ -432,7 +432,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
         // SAFETY: caller ensures that no mutable reference to the resource exists
         let ticks = unsafe {
-            RefComponentTicks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
+            ComponentTicksRef::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
         };
 
         Some(Ref { value, ticks })
@@ -549,7 +549,7 @@ impl<'w> UnsafeWorldCell<'w> {
         // - index is in-bounds because the column is initialized and non-empty
         // - the caller promises that no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            MutComponentTicks::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
+            ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
         };
 
         Some(MutUntyped {
@@ -613,7 +613,7 @@ impl<'w> UnsafeWorldCell<'w> {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            unsafe { MutComponentTicks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+            unsafe { ComponentTicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -851,7 +851,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| Ref {
                 // SAFETY: returned component is of type T
                 value: value.deref::<T>(),
-                ticks: RefComponentTicks::from_tick_cells(cells, last_change_tick, change_tick),
+                ticks: ComponentTicksRef::from_tick_cells(cells, last_change_tick, change_tick),
             })
         }
     }
@@ -966,7 +966,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| Mut {
                 // SAFETY: returned component is of type T
                 value: value.assert_unique().deref_mut::<T>(),
-                ticks: MutComponentTicks::from_tick_cells(cells, last_change_tick, change_tick),
+                ticks: ComponentTicksMut::from_tick_cells(cells, last_change_tick, change_tick),
             })
         }
     }
@@ -1086,7 +1086,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
-                ticks: MutComponentTicks::from_tick_cells(cells, self.last_run, self.this_run),
+                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
@@ -1129,7 +1129,7 @@ impl<'w> UnsafeEntityCell<'w> {
             .map(|(value, cells)| MutUntyped {
                 // SAFETY: world access validated by caller and ties world lifetime to `MutUntyped` lifetime
                 value: value.assert_unique(),
-                ticks: MutComponentTicks::from_tick_cells(cells, self.last_run, self.this_run),
+                ticks: ComponentTicksMut::from_tick_cells(cells, self.last_run, self.this_run),
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }

@@ -465,7 +465,7 @@ macro_rules! impl_methods {
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
-                    ticks: MutComponentTicks {
+                    ticks: ComponentTicksMut {
                         added: self.ticks.added,
                         changed: self.ticks.changed,
                         changed_by: self.ticks.changed_by.as_deref_mut(),
@@ -558,7 +558,7 @@ macro_rules! impl_debug {
 /// Used by immutable query parameters (such as [`Ref`] and [`Res`])
 /// to store immutable access to the [`Tick`]s of a single component or resource.
 #[derive(Clone)]
-pub(crate) struct RefComponentTicks<'w> {
+pub(crate) struct ComponentTicksRef<'w> {
     pub(crate) added: &'w Tick,
     pub(crate) changed: &'w Tick,
     pub(crate) changed_by: MaybeLocation<&'w &'static Location<'static>>,
@@ -566,9 +566,9 @@ pub(crate) struct RefComponentTicks<'w> {
     pub(crate) this_run: Tick,
 }
 
-impl<'w> RefComponentTicks<'w> {
+impl<'w> ComponentTicksRef<'w> {
     /// # Safety
-    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
+    /// This should never alias the underlying ticks with a mutable one such as `ComponentTicksMut`.
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
         cells: ComponentTickCells<'w>,
@@ -590,7 +590,7 @@ impl<'w> RefComponentTicks<'w> {
 
 /// Used by mutable query parameters (such as [`Mut`] and [`ResMut`])
 /// to store mutable access to the [`Tick`]s of a single component or resource.
-pub(crate) struct MutComponentTicks<'w> {
+pub(crate) struct ComponentTicksMut<'w> {
     pub(crate) added: &'w mut Tick,
     pub(crate) changed: &'w mut Tick,
     pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
@@ -598,7 +598,7 @@ pub(crate) struct MutComponentTicks<'w> {
     pub(crate) this_run: Tick,
 }
 
-impl<'w> MutComponentTicks<'w> {
+impl<'w> ComponentTicksMut<'w> {
     /// # Safety
     /// This should never alias the underlying ticks. All access must be unique.
     #[inline]
@@ -620,9 +620,9 @@ impl<'w> MutComponentTicks<'w> {
     }
 }
 
-impl<'w> From<MutComponentTicks<'w>> for RefComponentTicks<'w> {
-    fn from(ticks: MutComponentTicks<'w>) -> Self {
-        RefComponentTicks {
+impl<'w> From<ComponentTicksMut<'w>> for ComponentTicksRef<'w> {
+    fn from(ticks: ComponentTicksMut<'w>) -> Self {
+        ComponentTicksRef {
             added: ticks.added,
             changed: ticks.changed,
             changed_by: ticks.changed_by.map(|changed_by| &*changed_by),
@@ -644,7 +644,7 @@ impl<'w> From<MutComponentTicks<'w>> for RefComponentTicks<'w> {
 /// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
-    pub(crate) ticks: RefComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksRef<'w>,
 }
 
 impl<'w, T: Resource> Res<'w, T> {
@@ -717,7 +717,7 @@ impl_debug!(Res<'w, T>, Resource);
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
-    pub(crate) ticks: MutComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -774,7 +774,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w T,
-    pub(crate) ticks: RefComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksRef<'w>,
 }
 
 change_detection_impl!(NonSend<'w, T>, T,);
@@ -802,7 +802,7 @@ impl<'w, T> From<NonSendMut<'w, T>> for NonSend<'w, T> {
 /// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
-    pub(crate) ticks: MutComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
@@ -847,7 +847,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 /// ```
 pub struct Ref<'w, T: ?Sized> {
     pub(crate) value: &'w T,
-    pub(crate) ticks: RefComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksRef<'w>,
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
@@ -888,7 +888,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     ) -> Ref<'w, T> {
         Ref {
             value,
-            ticks: RefComponentTicks {
+            ticks: ComponentTicksRef {
                 added,
                 changed,
                 changed_by: caller,
@@ -960,7 +960,7 @@ impl_debug!(Ref<'w, T>,);
 /// ```
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
-    pub(crate) ticks: MutComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
 impl<'w, T: ?Sized> Mut<'w, T> {
@@ -989,7 +989,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
     ) -> Self {
         Self {
             value,
-            ticks: MutComponentTicks {
+            ticks: ComponentTicksMut {
                 added,
                 changed: last_changed,
                 changed_by: caller,
@@ -1058,7 +1058,7 @@ impl_debug!(Mut<'w, T>,);
 /// or are defined outside of rust this can be used.
 pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
-    pub(crate) ticks: MutComponentTicks<'w>,
+    pub(crate) ticks: ComponentTicksMut<'w>,
 }
 
 impl<'w> MutUntyped<'w> {
@@ -1077,7 +1077,7 @@ impl<'w> MutUntyped<'w> {
     pub fn reborrow(&mut self) -> MutUntyped<'_> {
         MutUntyped {
             value: self.value.reborrow(),
-            ticks: MutComponentTicks {
+            ticks: ComponentTicksMut {
                 added: self.ticks.added,
                 changed: self.ticks.changed,
                 changed_by: self.ticks.changed_by.as_deref_mut(),
@@ -1531,7 +1531,7 @@ mod tests {
 
     use crate::{
         change_detection::{
-            MaybeLocation, Mut, MutComponentTicks, NonSendMut, Ref, ResMut, CHECK_TICK_THRESHOLD,
+            ComponentTicksMut, MaybeLocation, Mut, NonSendMut, Ref, ResMut, CHECK_TICK_THRESHOLD,
             MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
@@ -1652,7 +1652,7 @@ mod tests {
             changed: Tick::new(2),
         };
         let mut caller = MaybeLocation::caller();
-        let ticks = MutComponentTicks {
+        let ticks = ComponentTicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             changed_by: caller.as_mut(),
@@ -1702,7 +1702,7 @@ mod tests {
             changed: Tick::new(2),
         };
         let mut caller = MaybeLocation::caller();
-        let ticks = MutComponentTicks {
+        let ticks = ComponentTicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             changed_by: caller.as_mut(),
@@ -1735,7 +1735,7 @@ mod tests {
             changed: Tick::new(2),
         };
         let mut caller = MaybeLocation::caller();
-        let ticks = MutComponentTicks {
+        let ticks = ComponentTicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             changed_by: caller.as_mut(),
@@ -1823,7 +1823,7 @@ mod tests {
             changed: Tick::new(2),
         };
         let mut caller = MaybeLocation::caller();
-        let ticks = MutComponentTicks {
+        let ticks = ComponentTicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             changed_by: caller.as_mut(),
@@ -1859,7 +1859,7 @@ mod tests {
             changed: Tick::new(2),
         };
         let mut caller = MaybeLocation::caller();
-        let ticks = MutComponentTicks {
+        let ticks = ComponentTicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             changed_by: caller.as_mut(),

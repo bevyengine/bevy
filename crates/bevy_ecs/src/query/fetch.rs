@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{MaybeLocation, MutComponentTicks, RefComponentTicks},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -1801,7 +1801,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 
                 Ref {
                     value: component.deref(),
-                    ticks: RefComponentTicks {
+                    ticks: ComponentTicksRef {
                         added: added.deref(),
                         changed: changed.deref(),
                         changed_by: caller.map(|caller| caller.deref()),
@@ -1821,7 +1821,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 
                 Ref {
                     value: component.deref(),
-                    ticks: RefComponentTicks::from_tick_cells(
+                    ticks: ComponentTicksRef::from_tick_cells(
                         ticks,
                         fetch.last_run,
                         fetch.this_run,
@@ -2010,7 +2010,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 
                 Mut {
                     value: component.deref_mut(),
-                    ticks: MutComponentTicks {
+                    ticks: ComponentTicksMut {
                         added: added.deref_mut(),
                         changed: changed.deref_mut(),
                         changed_by: caller.map(|caller| caller.deref_mut()),
@@ -2030,7 +2030,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 
                 Mut {
                     value: component.assert_unique().deref_mut(),
-                    ticks: MutComponentTicks::from_tick_cells(
+                    ticks: ComponentTicksMut::from_tick_cells(
                         ticks,
                         fetch.last_run,
                         fetch.this_run,

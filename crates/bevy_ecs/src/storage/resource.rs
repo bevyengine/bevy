@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{MaybeLocation, MutComponentTicks, MutUntyped},
+    change_detection::{ComponentTicksMut, MaybeLocation, MutUntyped},
     component::{
         CheckChangeTicks, ComponentId, ComponentTickCells, ComponentTicks, Components, Tick,
     },
@@ -152,7 +152,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { MutComponentTicks::from_tick_cells(ticks, last_run, this_run) },
+            ticks: unsafe { ComponentTicksMut::from_tick_cells(ticks, last_run, this_run) },
         })
     }
 

@@ -35,7 +35,7 @@ use crate::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
     },
-    change_detection::{MaybeLocation, MutComponentTicks, MutUntyped},
+    change_detection::{ComponentTicksMut, MaybeLocation, MutUntyped},
     component::{
         CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
         ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
@@ -2615,7 +2615,7 @@ impl World {
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
-            ticks: MutComponentTicks {
+            ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
                 changed_by: caller.as_mut(),
@@ -3363,10 +3363,10 @@ impl World {
                 let (ptr, ticks) = data.get_with_ticks()?;
 
                 // SAFETY:
-                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
+                // - We have exclusive access to the world, so no other code can be aliasing the `ComponentTickCells`
+                // - We only hold one `ComponentTicksMut` at a time, and we let go of it before getting the next one
                 let ticks = unsafe {
-                    MutComponentTicks::from_tick_cells(
+                    ComponentTicksMut::from_tick_cells(
                         ticks,
                         self.last_change_tick(),
                         self.read_change_tick(),

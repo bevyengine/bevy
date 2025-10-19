@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{Mut, MutComponentTicks, MutUntyped, Ref, RefComponentTicks},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Mut, MutUntyped, Ref},
     component::{ComponentId, Tick},
     query::Access,
     resource::Resource,
@@ -172,7 +172,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
             value: unsafe { value.deref() },
             // SAFETY: We have read access to the resource, so no mutable reference can exist.
             ticks: unsafe {
-                RefComponentTicks::from_tick_cells(ticks, self.last_run, self.this_run)
+                ComponentTicksRef::from_tick_cells(ticks, self.last_run, self.this_run)
             },
         })
     }
@@ -502,7 +502,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
             value: unsafe { value.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe {
-                MutComponentTicks::from_tick_cells(ticks, self.last_run, self.this_run)
+                ComponentTicksMut::from_tick_cells(ticks, self.last_run, self.this_run)
             },
         })
     }
