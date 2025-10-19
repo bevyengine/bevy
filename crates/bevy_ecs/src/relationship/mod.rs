@@ -488,6 +488,8 @@ pub enum RelationshipAccessor {
     Relationship {
         /// Offset of the field containing `Entity` from the base of the component.
         entity_field_offset: usize,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] for the [`Relationship::RelationshipTarget`] of this [`Relationship`].
+        linked_spawn: bool,
     },
     /// This component is a `RelationshipTarget`.
     RelationshipTarget {
@@ -495,6 +497,8 @@ pub enum RelationshipAccessor {
         /// # Safety
         /// Passed pointer must point to the value of the same component as the one that this accessor was registered to.
         iter: for<'a> unsafe fn(Ptr<'a>) -> Box<dyn Iterator<Item = Entity> + 'a>,
+        /// Value of [`RelationshipTarget::LINKED_SPAWN`] of this [`RelationshipTarget`].
+        linked_spawn: bool,
     },
 }
 
@@ -516,6 +520,7 @@ impl<C> ComponentRelationshipAccessor<C> {
         Self {
             accessor: RelationshipAccessor::Relationship {
                 entity_field_offset,
+                linked_spawn: C::RelationshipTarget::LINKED_SPAWN,
             },
             phantom: Default::default(),
         }
@@ -530,6 +535,7 @@ impl<C> ComponentRelationshipAccessor<C> {
             accessor: RelationshipAccessor::RelationshipTarget {
                 // Safety: caller ensures that `ptr` is of type `C`.
                 iter: |ptr| unsafe { Box::new(RelationshipTarget::iter(ptr.deref::<C>())) },
+                linked_spawn: C::LINKED_SPAWN,
             },
             phantom: Default::default(),
         }
@@ -769,7 +775,7 @@ mod tests {
         world.flush();
 
         let children_ptr = world.get_by_id(parent, children_id).unwrap();
-        let RelationshipAccessor::RelationshipTarget { iter } = world
+        let RelationshipAccessor::RelationshipTarget { iter, .. } = world
             .components()
             .get_info(children_id)
             .unwrap()
@@ -785,6 +791,7 @@ mod tests {
         let child_of_ptr = world.get_by_id(child, child_of_id).unwrap();
         let RelationshipAccessor::Relationship {
             entity_field_offset,
+            ..
         } = world
             .components()
             .get_info(child_of_id)
