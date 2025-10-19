@@ -2,9 +2,7 @@ use bevy_app::{App, SubApp};
 use bevy_ecs::world::{FromWorld, World};
 use tracing::warn;
 
-use super::{
-    InternedRenderLabel, IntoRenderNodeArray, Node, RenderGraph, RenderLabel, RenderSubGraph,
-};
+use super::{IntoRenderNodeArray, Node, RenderGraph, RenderLabel, RenderSubGraph};
 
 /// Adds common [`RenderGraph`] operations to [`SubApp`] (and [`App`]).
 pub trait RenderGraphExt {
@@ -19,16 +17,10 @@ pub trait RenderGraphExt {
         node_label: impl RenderLabel,
     ) -> &mut Self;
     /// Automatically add the required node edges based on the given ordering
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
-    ) -> &mut Self;
-    /// Automatically add the required node edges based on the given ordering
-    fn add_render_graph_edges_from_slice(
-        &mut self,
-        sub_graph: impl RenderSubGraph,
-        edges: &[InternedRenderLabel],
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self;
 
     /// Add node edge to the specified graph
@@ -62,10 +54,10 @@ impl RenderGraphExt for World {
     }
 
     #[track_caller]
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         let sub_graph = sub_graph.intern();
         let mut render_graph = self.get_resource_mut::<RenderGraph>().expect(
@@ -73,26 +65,6 @@ impl RenderGraphExt for World {
         );
         if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph) {
             graph.add_node_edges(edges);
-        } else {
-            warn!(
-                "Tried adding render graph edges to {sub_graph:?} but the sub graph doesn't exist"
-            );
-        }
-        self
-    }
-
-    #[track_caller]
-    fn add_render_graph_edges_from_slice(
-        &mut self,
-        sub_graph: impl RenderSubGraph,
-        edges: &[InternedRenderLabel],
-    ) -> &mut Self {
-        let sub_graph = sub_graph.intern();
-        let mut render_graph = self.get_resource_mut::<RenderGraph>().expect(
-            "RenderGraph not found. Make sure you are using add_render_graph_edges on the RenderApp",
-        );
-        if let Some(graph) = render_graph.get_sub_graph_mut(sub_graph) {
-            graph.add_node_edges_from_slice(edges);
         } else {
             warn!(
                 "Tried adding render graph edges to {sub_graph:?} but the sub graph doesn't exist"
@@ -151,22 +123,12 @@ impl RenderGraphExt for SubApp {
     }
 
     #[track_caller]
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         World::add_render_graph_edges(self.world_mut(), sub_graph, edges);
-        self
-    }
-
-    #[track_caller]
-    fn add_render_graph_edges_from_slice(
-        &mut self,
-        sub_graph: impl RenderSubGraph,
-        edges: &[InternedRenderLabel],
-    ) -> &mut Self {
-        World::add_render_graph_edges_from_slice(self.world_mut(), sub_graph, edges);
         self
     }
 
@@ -197,22 +159,12 @@ impl RenderGraphExt for App {
     }
 
     #[track_caller]
-    fn add_render_graph_edges<const N: usize>(
+    fn add_render_graph_edges(
         &mut self,
         sub_graph: impl RenderSubGraph,
-        edges: impl IntoRenderNodeArray<N>,
+        edges: impl IntoRenderNodeArray,
     ) -> &mut Self {
         World::add_render_graph_edges(self.world_mut(), sub_graph, edges);
-        self
-    }
-
-    #[track_caller]
-    fn add_render_graph_edges_from_slice(
-        &mut self,
-        sub_graph: impl RenderSubGraph,
-        edges: &[InternedRenderLabel],
-    ) -> &mut Self {
-        World::add_render_graph_edges_from_slice(self.world_mut(), sub_graph, edges);
         self
     }
 

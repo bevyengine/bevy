@@ -146,17 +146,8 @@ impl RenderGraph {
     /// Defining an edge that already exists is not considered an error with this api.
     /// It simply won't create a new edge.
     #[track_caller]
-    pub fn add_node_edges<const N: usize>(&mut self, edges: impl IntoRenderNodeArray<N>) {
-        self.add_node_edges_from_slice(&edges.into_array());
-    }
-
-    /// Add `node_edge`s based on the order of the given `edges` array.
-    ///
-    /// Defining an edge that already exists is not considered an error with this api.
-    /// It simply won't create a new edge.
-    #[track_caller]
-    pub fn add_node_edges_from_slice(&mut self, edges: &[InternedRenderLabel]) {
-        for window in edges.windows(2) {
+    pub fn add_node_edges(&mut self, edges: impl IntoRenderNodeArray) {
+        for window in edges.into_array().windows(2) {
             let [a, b] = window else {
                 break;
             };

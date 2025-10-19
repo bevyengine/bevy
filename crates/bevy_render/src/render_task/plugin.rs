@@ -62,10 +62,7 @@ impl<T: RenderTask> Plugin for RenderTaskPlugin<T> {
                 T::RenderNodeSubGraph::default(),
                 T::RenderNodeLabel::default(),
             )
-            .add_render_graph_edges_from_slice(
-                T::RenderNodeSubGraph::default(),
-                T::render_node_ordering(),
-            );
+            .add_render_graph_edges(T::RenderNodeSubGraph::default(), T::render_node_ordering());
 
         T::plugin_render_app_build(render_app);
     }
