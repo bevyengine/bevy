@@ -2086,6 +2086,32 @@ mod tests {
     }
 
     #[test]
+    fn transmute_to_or_filter() {
+        let mut world = World::new();
+        world.spawn(());
+        world.spawn(A(0));
+
+        let mut query = world
+            .query::<Option<&A>>()
+            .transmute_filtered::<Entity, Or<(With<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let len = iter.len();
+        let count = iter.count();
+        // `transmute_filtered` keeps the same matched tables, so it should match both entities
+        // More importantly, `count()` and `len()` should return the same result!
+        assert_eq!(len, 2);
+        assert_eq!(count, len);
+
+        let mut query = world
+            .query::<Option<&A>>()
+            .transmute_filtered::<Entity, Or<(Changed<A>,)>>(&world);
+        let iter = query.iter(&world);
+        let count = iter.count();
+        // The behavior of a non-archetypal filter like `Changed` should be the same as an archetypal one like `With`.
+        assert_eq!(count, 2);
+    }
+
+    #[test]
     fn join() {
         let mut world = World::new();
         world.spawn(A(0));

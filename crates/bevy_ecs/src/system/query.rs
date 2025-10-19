@@ -2238,8 +2238,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// // and optional access can be transmuted to other optional access
     /// assert_valid_transmute::<&T, Option<&T>>();
     /// assert_valid_transmute::<AnyOf<(&mut T, &mut U)>, Option<&T>>();
-    /// // Note that removing subqueries from `AnyOf` may cause it to return
-    /// // fewer items, since it will filter out ones with all `None`.
+    /// // Note that removing subqueries from `AnyOf` will result
+    /// // in an `AnyOf` where all subqueries can yield `None`!
     /// assert_valid_transmute::<AnyOf<(&T, &U, &V)>, AnyOf<(&T, &U)>>();
     /// assert_valid_transmute::<EntityMut, Option<&mut T>>();
     ///

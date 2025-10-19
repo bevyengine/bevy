@@ -2788,10 +2788,18 @@ macro_rules! impl_anytuple_fetch {
                     // SAFETY: The invariants are required to be upheld by the caller.
                     $name.1.then(|| unsafe { $name::fetch($state, &mut $name.0, _entity, _table_row) }).flatten(),
                 )*);
-                // We want to return `Some` if the query matches this entity,
-                // which happens if at least one subquery returns `Some`.
-                // So, fetch everything as usual, but if all the subqueries return `None` then return `None` instead.
-                (!matches!(result, ($(Option::<QueryItem<$name>>::None,)*))).then_some(result)
+                // If this is an archetypal query, then it is guaranteed to return `Some`,
+                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
+                (Self::IS_ARCHETYPAL
+                    // We want to return `Some` if the query matches this entity,
+                    // which happens if at least one subquery returns `Some`.
+                    // So, fetch everything as usual, but if all the subqueries return `None` then return `None` instead.
+                    || !matches!(result, ($(Option::<QueryItem<$name>>::None,)*))
+                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                    // so we treat them as matching for non-archetypal queries, as well.
+                    || !(false $(|| $name.1)*))
+                .then_some(result)
             }
         }
 

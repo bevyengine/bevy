@@ -415,6 +415,11 @@ macro_rules! impl_or_query_filter {
 
             #[inline]
             unsafe fn set_table<'w, 's>(fetch: &mut Self::Fetch<'w>, state: &'s Self::State, table: &'w Table) {
+                // If this is an archetypal query, then it is guaranteed to match all entities,
+                // so `filter_fetch` will ignore `$filter.matches` and we don't need to initialize it.
+                if Self::IS_ARCHETYPAL {
+                    return;
+                }
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = state;
                 $(
@@ -433,6 +438,11 @@ macro_rules! impl_or_query_filter {
                 archetype: &'w Archetype,
                 table: &'w Table
             ) {
+                // If this is an archetypal query, then it is guaranteed to match all entities,
+                // so `filter_fetch` will ignore `$filter.matches` and we don't need to initialize it.
+                if Self::IS_ARCHETYPAL {
+                    return;
+                }
                 let ($($filter,)*) = fetch;
                 let ($($state,)*) = &state;
                 $(
@@ -506,8 +516,15 @@ macro_rules! impl_or_query_filter {
             ) -> bool {
                 let ($($state,)*) = state;
                 let ($($filter,)*) = fetch;
-                // SAFETY: The invariants are upheld by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
+                // If this is an archetypal query, then it is guaranteed to return true,
+                // and we can help the compiler remove branches by checking the const `IS_ARCHETYPAL` first.
+                (Self::IS_ARCHETYPAL
+                    // SAFETY: The invariants are upheld by the caller.
+                    $(|| ($filter.matches && unsafe { $filter::filter_fetch($state, &mut $filter.fetch, entity, table_row) }))*
+                    // If *none* of the subqueries matched the archetype, then this archetype was added in a transmute.
+                    // We must treat those as matching in order to be consistent with `size_hint` for archetypal queries,
+                    // so we treat them as matching for non-archetypal queries, as well.
+                    || !(false $(|| $filter.matches)*))
             }
         }
     };
