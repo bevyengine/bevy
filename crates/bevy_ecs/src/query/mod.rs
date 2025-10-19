@@ -9,10 +9,12 @@ mod iter;
 mod par_iter;
 mod state;
 mod world_query;
+mod cache;
 
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
+pub use cache::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
@@ -123,6 +125,7 @@ mod tests {
     use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
+    use bevy_ecs::query::CacheState;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);
@@ -169,7 +172,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
+            let query_type = type_name::<QueryCombinationIter<D, F, CacheState, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
@@ -183,7 +186,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryState<D, F>>();
+            let query_type = type_name::<QueryState<D, F, CacheState>>();
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);

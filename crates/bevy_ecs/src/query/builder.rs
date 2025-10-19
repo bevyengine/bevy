@@ -71,6 +71,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         }
     }
 
+    // TODO: warning about this not being used, maybe i messed something up
     pub(super) fn is_dense(&self) -> bool {
         // Note: `component_id` comes from the user in safe code, so we cannot trust it to
         // exist. If it doesn't exist we pessimistically assume it's sparse.

@@ -8,20 +8,25 @@ use crate::{
 use super::{QueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
+use bevy_ecs::query::QueryCache;
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use bevy_ecs::query::QueryIterationData;
 
 /// A parallel iterator over query results of a [`Query`](crate::system::Query).
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
+pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: &'s QueryState<D, F, C>,
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) iteration_data: C::IterationData<'s>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> QueryParIter<'w, 's, D, F, C> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -132,8 +137,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> u32 {
         let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
-            if self.state.is_dense {
+            let id_iter = self.iteration_data.storage_ids();
+            if self.iteration_data.is_dense() {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
@@ -161,17 +166,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent> {
+pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, E: EntityEquivalent> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: &'s QueryState<D, F, C>,
     pub(crate) entity_list: Vec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyIter<'w, 's, D, F, E>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, E: EntityEquivalent + Sync>
+    QueryParManyIter<'w, 's, D, F, C, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -315,18 +320,18 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
+pub struct QueryParManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, E: EntityEquivalent + Sync>
 {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: &'s QueryState<D, F, C>,
     pub(crate) entity_list: UniqueEntityEquivalentVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
-    QueryParManyUniqueIter<'w, 's, D, F, E>
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, E: EntityEquivalent + Sync>
+    QueryParManyUniqueIter<'w, 's, D, F, C, E>
 {
     /// Changes the batching strategy used when iterating.
     ///

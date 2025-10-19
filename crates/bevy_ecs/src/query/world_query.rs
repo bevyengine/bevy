@@ -8,6 +8,77 @@ use crate::{
 };
 use variadics_please::all_tuples;
 
+/*
+
+Queries in bevy are driven a lot by the Type.
+We compute a QueryState that is an index of the tables/entities to return, but the QueryState is mostly just a Tuple of the inner QueryStates.
+In Flecs, the QueryState contains a graph, that can then be optimized.
+Our equivalent would be to have a WorldQuery::add_to_query_graph method that lets each type build the inner QueryState graph.
+
+We want to support Query<(Mass, Parent<D, F>)>: match each entity with Mass where the parent matches D, F
+Query<(Entity, Any<Children<D, F>>): match each entity where any children match D, F
+
+// all Components and Relationships would have extra generics available in the query?
+QueryWithVariables<(SpaceShip<This>, DockedTo<This, Location>, Planet<Location>)
+
+So we could compute a graph, and then:
+- if the graph is simple (doesn't consider other entities than $this, i.e. is only SingleEntityData), then we just evaluate each `matches_id` in order.
+- if the graph is more complex, we would do a traversal with backtracking: `Query<(Mass, Parent<D, F>)>`
+  - does this table have Mass and ChildOf? in that case that table is matched
+  - for each entity in that table, fetch the Parent entity. Does the Parent entity match D, F ? In that case return $this.
+
+Uncached queries:
+- observers usually trigger on a given component
+- knowing this, all other queries in an observer could be uncached queries since they can use the ComponentIndex to quickly find the subset of entities to target.
+- how would they know the component from the observer? we can if we do query observers
+-> have a step to check if the archetype/table matches the query
+-> have a step to check if the specific entity matches the query.
+
+How to express the Cache?
+Maybe a QueryCache trait, implemented for StateCache or for ().
+If cache is present, then use it. Else don't.
+
+
+
+Queries that are less tied to the type system.
+- they update a QueryPlan that can get compiled and optimized.
+
+QueryState::from_typed<D, F>
+QueryState::from_builder
+
+Query Observers:
+- Enter<Query<D, F>>: emit as soon as we match the query
+- Exit<Query<D, F>>: emit as soon as we stop matching the query
+-> the query would be uncached
+-> have to evaluate query multiple times: evaluate the query once before adding a component, and then once after.
+- how do we evaluate a query in an uncached manner?
+  - if archetypal and no variables: can use our current logic
+  - if not: can still filter for the archetypal parts of the query
+  - call matches_set on the entity to check if it matches the archetypes
+
+UncachedQueries:
+- contains QueryPlan (which currently is only the component_access, but we could have nested access)
+-
+
+CachedQueries = QueryPlan + MatchedArchetypes
+-> later we could optimize this to cache a subset of a QueryPlan
+
+Query<(&A, &mut B), With<C>>  -> creates a QueryPlan that has (&A, &mut B), With<C>
+Query<(&A, &mut B)
+
+
+- We go from QueryBuilder::with(component_id) to Query<FilteredEntityRef> by transmuting (which gives you a convenient API)
+  But maybe we should have the Query contain an untyped QueryPlan instead?
+
+1. We want uncached queries that don't store matched archetypes/tables.
+  - when we call iter, the underlying untyped plan checks every archetypes by using the component index.
+2. The core query logic should be untyped (because it can contain untyped terms like variables). Maybe if all the terms are typed we can keep doing what we do now, since it would be faster?
+
+Multi-event observers:
+- have a single observer that matches both OnAdd and OnRemove
+
+ */
+
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
 ///
