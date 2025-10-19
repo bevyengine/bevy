@@ -6,8 +6,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
     entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
+        Entity, EntityCloner, EntityClonerBuilder, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -18,20 +17,15 @@ use crate::{
     storage::{SparseSets, Table},
     system::IntoObserverSystem,
     world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry, DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, OccupiedComponentEntry, Ref, VacantComponentEntry, World
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, ComponentEntry,
+        DynamicComponentFetch, EntityMut, EntityRef, FilteredEntityMut, FilteredEntityRef, Mut,
+        OccupiedComponentEntry, Ref, VacantComponentEntry, World,
     },
 };
+
 use alloc::vec::Vec;
-use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
-use core::{
-    any::TypeId,
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::MaybeUninit,
-};
-use thiserror::Error;
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr};
+use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -632,7 +626,7 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
-    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// Returns untyped read-only reference(s) to component(s) for the
     /// current entity, based on the given [`ComponentId`]s.
     ///
     /// **You should prefer to use the typed API [`EntityWorldMut::get`] where
@@ -663,7 +657,7 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_by_id(component_ids)
     }
 
-    /// Consumes `self` and returns [untyped read-only reference(s)](Ptr) to
+    /// Consumes `self` and returns untyped read-only reference(s) to
     /// component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
     ///

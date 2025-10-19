@@ -1,38 +1,20 @@
 use crate::{
     archetype::Archetype,
-    bundle::{
-        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
-    },
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
-    entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
-    },
-    event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    storage::{SparseSets, Table},
-    system::IntoObserverSystem,
+    change_detection::MaybeLocation,
+    component::{Component, ComponentId, ComponentTicks, Tick},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
+    query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        FilteredEntityRef, Mut, Ref, World,
+        FilteredEntityRef, Ref,
     },
 };
-use alloc::vec::Vec;
-use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
+
 use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::MaybeUninit,
 };
-use thiserror::Error;
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -161,7 +143,7 @@ impl<'w> EntityRef<'w> {
         unsafe { self.cell.get_change_ticks_by_id(component_id) }
     }
 
-    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// Returns untyped read-only reference(s) to component(s) for the
     /// current entity, based on the given [`ComponentId`]s.
     ///
     /// **You should prefer to use the typed API [`EntityRef::get`] where
@@ -243,7 +225,7 @@ impl<'w> EntityRef<'w> {
     /// # assert_eq!((unsafe { ptrs[0].deref::<X>() }, unsafe { ptrs[1].deref::<Y>() }), (&X(42), &Y(10)));
     /// ```
     ///
-    /// ## [`HashSet`] of [`ComponentId`]s
+    /// ## `HashSet` of [`ComponentId`]s
     ///
     /// ```
     /// # use bevy_platform::collections::HashSet;

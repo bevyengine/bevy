@@ -1,35 +1,13 @@
 use crate::{
-    archetype::Archetype,
-    bundle::{
-        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
-    },
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
-    entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
-    },
-    event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    storage::{SparseSets, Table},
-    system::IntoObserverSystem,
-    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
+    change_detection::MutUntyped,
+    component::ComponentId,
+    world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell},
 };
+
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
-use core::{
-    any::TypeId,
-    cmp::Ordering,
-    hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::MaybeUninit,
-};
-use thiserror::Error;
+use bevy_ptr::Ptr;
+use core::mem::MaybeUninit;
 
 /// Types that can be used to fetch components from an entity dynamically by
 /// [`ComponentId`]s.

@@ -1,36 +1,17 @@
 use crate::{
     archetype::Archetype,
-    bundle::{
-        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
-    },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
-    entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
-    },
-    event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    storage::{SparseSets, Table},
-    system::IntoObserverSystem,
-    world::{
-        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityMut, EntityRef, Mut, Ref, World,
-    },
+    component::{Component, ComponentId, ComponentTicks, Mutable, Tick},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
+    query::Access,
+    world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
 };
-use alloc::vec::Vec;
-use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
+
+use bevy_ptr::Ptr;
 use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::MaybeUninit,
 };
 use thiserror::Error;
 

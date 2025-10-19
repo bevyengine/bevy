@@ -1,38 +1,20 @@
 use crate::{
     archetype::Archetype,
-    bundle::{
-        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
-    },
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
-    entity::{
-        ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
-        EntityIdLocation, EntityLocation, OptIn, OptOut,
-    },
-    event::{EntityComponentsTrigger, EntityEvent},
-    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
-    observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
-    relationship::RelationshipHookMode,
-    resource::Resource,
-    storage::{SparseSets, Table},
-    system::IntoObserverSystem,
+    change_detection::MaybeLocation,
+    component::{Component, ComponentId, ComponentTicks, Mutable, Tick},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
+    query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
-        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
     },
 };
-use alloc::vec::Vec;
-use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
+
 use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
-    marker::PhantomData,
-    mem::MaybeUninit,
 };
-use thiserror::Error;
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -55,6 +37,8 @@ use thiserror::Error;
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
+///
+/// [`EntityWorldMut`]: crate::world::EntityWorldMut
 pub struct EntityMut<'w> {
     cell: UnsafeEntityCell<'w>,
 }
@@ -330,12 +314,14 @@ impl<'w> EntityMut<'w> {
     /// **You should prefer to use the typed API [`EntityWorldMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
+    ///
+    /// [`EntityWorldMut::get_change_ticks`]: crate::world::EntityWorldMut::get_change_ticks
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
-    /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
+    /// Returns untyped read-only reference(s) to component(s) for the
     /// current entity, based on the given [`ComponentId`]s.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get`] where
@@ -362,7 +348,7 @@ impl<'w> EntityMut<'w> {
         self.as_readonly().get_by_id(component_ids)
     }
 
-    /// Consumes `self` and returns [untyped read-only reference(s)](Ptr) to
+    /// Consumes `self` and returns untyped read-only reference(s) to
     /// component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
     ///
@@ -390,7 +376,7 @@ impl<'w> EntityMut<'w> {
         self.into_readonly().get_by_id(component_ids)
     }
 
-    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// Returns untyped mutable reference(s) to component(s) for
     /// the current entity, based on the given [`ComponentId`]s.
     ///
     /// **You should prefer to use the typed API [`EntityMut::get_mut`] where
@@ -479,7 +465,7 @@ impl<'w> EntityMut<'w> {
     /// # assert_eq!((unsafe { x_ptr.as_mut().deref_mut::<X>() }, unsafe { y_ptr.as_mut().deref_mut::<Y>() }), (&mut X(42), &mut Y(10)));
     /// ```
     ///
-    /// ## [`HashSet`] of [`ComponentId`]s
+    /// ## `HashSet` of [`ComponentId`]s
     ///
     /// ```
     /// # use bevy_platform::collections::HashSet;
@@ -514,7 +500,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.cell) }
     }
 
-    /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
+    /// Returns untyped mutable reference(s) to component(s) for
     /// the current entity, based on the given [`ComponentId`]s.
     /// Assumes the given [`ComponentId`]s refer to mutable components.
     ///
@@ -547,7 +533,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
     }
 
-    /// Returns [untyped mutable reference](MutUntyped) to component for
+    /// Returns untyped mutable reference to component for
     /// the current entity, based on the given [`ComponentId`].
     ///
     /// Unlike [`EntityMut::get_mut_by_id`], this method borrows &self instead of
@@ -575,7 +561,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.cell) }
     }
 
-    /// Returns [untyped mutable reference](MutUntyped) to component for
+    /// Returns untyped mutable reference to component for
     /// the current entity, based on the given [`ComponentId`].
     /// Assumes the given [`ComponentId`]s refer to mutable components.
     ///
@@ -605,7 +591,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut_assume_mutable(self.cell) }
     }
 
-    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// Consumes `self` and returns untyped mutable reference(s)
     /// to component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
     ///
@@ -638,7 +624,7 @@ impl<'w> EntityMut<'w> {
         unsafe { component_ids.fetch_mut(self.cell) }
     }
 
-    /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
+    /// Consumes `self` and returns untyped mutable reference(s)
     /// to component(s) with lifetime `'w` for the current entity, based on the
     /// given [`ComponentId`]s.
     /// Assumes the given [`ComponentId`]s refer to mutable components.
