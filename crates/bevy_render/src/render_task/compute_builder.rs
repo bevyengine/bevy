@@ -70,28 +70,28 @@ impl<'a> ComputeCommandBuilder<'a> {
         self
     }
 
-    pub fn dispatch_1d(mut self, x: u32) -> Self {
-        self.setup_state();
+    pub fn dispatch_1d(mut self, x: u32) -> Option<Self> {
+        self.setup_state()?;
         self.pass.dispatch_workgroups(x, 1, 1);
-        self
+        Some(self)
     }
 
-    pub fn dispatch_2d(mut self, x: u32, y: u32) -> Self {
-        self.setup_state();
+    pub fn dispatch_2d(mut self, x: u32, y: u32) -> Option<Self> {
+        self.setup_state()?;
         self.pass.dispatch_workgroups(x, y, 1);
-        self
+        Some(self)
     }
 
-    pub fn dispatch_3d(mut self, x: u32, y: u32, z: u32) -> Self {
-        self.setup_state();
+    pub fn dispatch_3d(mut self, x: u32, y: u32, z: u32) -> Option<Self> {
+        self.setup_state()?;
         self.pass.dispatch_workgroups(x, y, z);
-        self
+        Some(self)
     }
 
-    pub fn dispatch_indirect(mut self, buffer: &Buffer) -> Self {
-        self.setup_state();
+    pub fn dispatch_indirect(mut self, buffer: &Buffer) -> Option<Self> {
+        self.setup_state()?;
         self.pass.dispatch_workgroups_indirect(buffer, 0);
-        self
+        Some(self)
     }
 
     fn setup_state(&mut self) -> Option<()> {
