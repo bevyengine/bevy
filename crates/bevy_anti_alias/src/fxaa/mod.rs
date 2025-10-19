@@ -123,7 +123,7 @@ impl Plugin for FxaaPlugin {
 
 #[derive(Resource)]
 pub struct FxaaPipeline {
-    texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -135,7 +135,7 @@ pub fn init_fxaa_pipeline(
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let texture_bind_group = render_device.create_bind_group_layout(
+    let texture_bind_group = BindGroupLayoutDescriptor::new(
         "fxaa_texture_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,

@@ -196,6 +196,10 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         }
     }
 
+    fn label() -> &'static str {
+        E::label()
+    }
+
     fn bind_group_data(&self) -> Self::Data {
         MaterialExtensionBindGroupData {
             base: self.base.bind_group_data(),

@@ -229,6 +229,7 @@ common_api = [
   "bevy_core_pipeline",
   "bevy_post_process",
   "bevy_sprite_render",
+  "bevy_gizmos_render",
 ]
 
 # COLLECTION: Features used to build 3D Bevy apps (does not include a render backend). You generally don't need to worry about this unless you are using a custom renderer.
@@ -249,6 +250,7 @@ common_api = [
   "3d_api",
   "bevy_render",
   "bevy_core_pipeline",
+  "bevy_gizmos_render",
   "bevy_anti_alias",
   "bevy_gltf",
   "bevy_pbr",
@@ -369,8 +371,11 @@ bevy_light = ["bevy_internal/bevy_light"]
 # Provides shaders usable through asset handles.
 bevy_shader = ["bevy_internal/bevy_shader"]
 
-# Adds support for rendering gizmos
+# Adds support for gizmos
 bevy_gizmos = ["bevy_internal/bevy_gizmos"]
+
+# Adds support for rendering gizmos
+bevy_gizmos_render = ["bevy_internal/bevy_gizmos_render"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
@@ -380,6 +385,9 @@ bevy_camera_controller = ["bevy_internal/bevy_camera_controller"]
 
 # Enables the free cam from bevy_camera_controller
 free_cam = ["bevy_internal/free_cam"]
+
+# Enables the pan cam from bevy_camera_controller
+pan_cam = ["bevy_internal/pan_cam"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
@@ -653,7 +661,7 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
-# Enable documentation reflection
+# Enables bevy_reflect to access documentation comments of rust code at runtime
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
 # Enable automatic reflect registration
@@ -4825,4 +4833,16 @@ doc-scrape-examples = true
 name = "Render Depth to Texture"
 description = "Demonstrates how to use depth-only cameras"
 category = "Shaders"
+wasm = true
+
+[[example]]
+name = "pan_cam_controller"
+path = "examples/camera/pan_cam_controller.rs"
+doc-scrape-examples = true
+required-features = ["pan_cam"]
+
+[package.metadata.example.pan_cam_controller]
+name = "Pan Cam"
+description = "Example Pan-Cam Styled Camera Controller for 2D scenes"
+category = "Camera"
 wasm = true

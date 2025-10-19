@@ -30,7 +30,7 @@ By default, the `bevy` crate enables the  features.
 
 ### Collections
 
-"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don'templated
+"Collections" are mid-level groups of cargo features. These are used to compose the high-level "profiles". If the default profiles don't
 suit your use case (ex: you want to use a custom renderer, you want to build a "headless" app, you want to target no_std, etc), then you can use these
 collections to build your own "profile" equivalent, without needing to manually manage _every single_ feature.
 
@@ -77,7 +77,8 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_gilrs|Adds gamepad support|
-|bevy_gizmos|Adds support for rendering gizmos|
+|bevy_gizmos|Adds support for gizmos|
+|bevy_gizmos_render|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
 |bevy_image|Load and access image data. Usually added by an image format|
 |bevy_input_focus|Enable input focus subsystem|
@@ -143,6 +144,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |morph_animation|Enables bevy_mesh and bevy_animation morph weight support|
 |mp3|MP3 audio format support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
+|pan_cam|Enables the pan cam from bevy_camera_controller|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -155,7 +157,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register|Enable automatic reflect registration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
-|reflect_documentation|Enable documentation reflection|
+|reflect_documentation|Enables bevy_reflect to access documentation comments of rust code at runtime|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|

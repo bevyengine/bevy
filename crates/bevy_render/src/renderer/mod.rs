@@ -473,7 +473,7 @@ pub async fn initialize_renderer(
 /// The context with all information required to interact with the GPU.
 ///
 /// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
+/// [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
