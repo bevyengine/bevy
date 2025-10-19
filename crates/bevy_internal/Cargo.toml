@@ -426,7 +426,7 @@ web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug"]
 
 [dependencies]
 # bevy (no_std)
