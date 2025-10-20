@@ -8,6 +8,7 @@ use bevy_camera::Camera;
 use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 
+use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::Ref,
@@ -27,6 +28,7 @@ use bevy_text::{
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
+use std::collections::HashSet;
 
 /// The top-level 2D text component.
 ///
@@ -163,6 +165,8 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
+    mut previous: Local<HashSet<Entity>>,
+    mut rerender: Local<HashSet<Entity>>,
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     mut textures: ResMut<Assets<Image>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
@@ -202,7 +206,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, _computed, mut clayout) in
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, computed, mut clayout) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
@@ -217,12 +221,21 @@ pub fn update_text2d_layout(
                 .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
                 .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
             else {
+                rerender.insert(entity);
                 continue;
             };
             previous_scale_factor = *scale_factor;
             previous_mask = mask;
             *scale_factor
         };
+
+        if !previous.contains(&entity) {
+            if !computed.is_changed() {
+                continue;
+            }
+        }
+
+        println!("\n************** UPDATE ************\n");
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
@@ -260,6 +273,8 @@ pub fn update_text2d_layout(
             bevy_text::FontSmoothing::AntiAliased,
         );
     }
+    core::mem::swap(&mut *previous, &mut *rerender);
+    rerender.clear();
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some
