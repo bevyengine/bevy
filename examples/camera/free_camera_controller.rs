@@ -1,14 +1,14 @@
-//! This example showcases the default freecam camera controller.
+//! This example showcases the default `FreeCamera` camera controller.
 //!
-//! The default freecam controller is useful for exploring large scenes, debugging and editing purposes. To use it,
-//! simply add the [`FreeCamPlugin`] to your [`App`] and attach the [`FreeCam`] component to the camera entity you
+//! The default `FreeCamera` controller is useful for exploring large scenes, debugging and editing purposes. To use it,
+//! simply add the [`FreeCameraPlugin`] to your [`App`] and attach the [`FreeCamera`] component to the camera entity you
 //! wish to control.
 //!
 //! ## Default Controls
 //!
 //! This controller has a simple 6-axis control scheme, and mouse controls for camera orientation. There are also
 //! bindings for capturing the mouse, both while holding the button and toggle, a run feature that increases the
-//! max speed, and scrolling changes the movement speed. All keybinds can be changed by editing the [`FreeCam`]
+//! max speed, and scrolling changes the movement speed. All keybinds can be changed by editing the [`FreeCamera`]
 //! component.
 //!
 //! | Default Key Binding | Action                 |
@@ -21,7 +21,7 @@
 //! | Left shift          | Run                    |
 //! | Scroll wheel        | Change movement speed  |
 //!
-//! The movement speed, sensitivity and friction can also be changed by the [`FreeCam`] component.
+//! The movement speed, sensitivity and friction can also be changed by the [`FreeCamera`] component.
 //!
 //! ## Example controls
 //!
@@ -41,7 +41,7 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin, FreeCamState},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin, FreeCameraState},
     color::palettes::tailwind,
     prelude::*,
 };
@@ -49,8 +49,8 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Plugin that enables freecam functionality
-        .add_plugins(FreeCamPlugin)
+        // Plugin that enables FreeCamera functionality
+        .add_plugins(FreeCameraPlugin)
         // Example code plugins
         .add_plugins((CameraPlugin, CameraSettingsPlugin, ScenePlugin))
         .run();
@@ -68,10 +68,10 @@ fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 1.0, 0.0).looking_to(Vec3::X, Vec3::Y),
-        // This component stores all camera settings and state, which is used by the FreeCamPlugin to
+        // This component stores all camera settings and state, which is used by the FreeCameraPlugin to
         // control it. These properties can be changed at runtime, but beware the controller system is
         // constantly using and modifying those values unless the enabled field is false.
-        FreeCam {
+        FreeCamera {
             sensitivity: 0.2,
             friction: 25.0,
             walk_speed: 3.0,
@@ -93,7 +93,7 @@ impl Plugin for CameraSettingsPlugin {
 #[derive(Component)]
 struct InfoText;
 
-fn spawn_text(mut commands: Commands, freecam_query: Query<&FreeCam>) {
+fn spawn_text(mut commands: Commands, free_camera_query: Query<&FreeCamera>) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -101,7 +101,10 @@ fn spawn_text(mut commands: Commands, freecam_query: Query<&FreeCam>) {
             left: px(12),
             ..default()
         },
-        children![Text::new(format!("{}", freecam_query.single().unwrap()))],
+        children![Text::new(format!(
+            "{}",
+            free_camera_query.single().unwrap()
+        ))],
     ));
     commands.spawn((
         Node {
@@ -131,51 +134,51 @@ fn spawn_text(mut commands: Commands, freecam_query: Query<&FreeCam>) {
 }
 
 fn update_camera_settings(
-    mut camera_query: Query<(&mut FreeCam, &mut FreeCamState)>,
+    mut camera_query: Query<(&mut FreeCamera, &mut FreeCameraState)>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    let (mut free_cam, mut free_cam_state) = camera_query.single_mut().unwrap();
+    let (mut free_camera, mut free_camera_state) = camera_query.single_mut().unwrap();
 
     if input.pressed(KeyCode::KeyZ) {
-        free_cam.sensitivity = (free_cam.sensitivity - 0.005).max(0.005);
+        free_camera.sensitivity = (free_camera.sensitivity - 0.005).max(0.005);
     }
     if input.pressed(KeyCode::KeyX) {
-        free_cam.sensitivity += 0.005;
+        free_camera.sensitivity += 0.005;
     }
     if input.pressed(KeyCode::KeyC) {
-        free_cam.friction = (free_cam.friction - 0.2).max(0.0);
+        free_camera.friction = (free_camera.friction - 0.2).max(0.0);
     }
     if input.pressed(KeyCode::KeyV) {
-        free_cam.friction += 0.2;
+        free_camera.friction += 0.2;
     }
     if input.pressed(KeyCode::KeyF) {
-        free_cam.scroll_factor = (free_cam.scroll_factor - 0.02).max(0.02);
+        free_camera.scroll_factor = (free_camera.scroll_factor - 0.02).max(0.02);
     }
     if input.pressed(KeyCode::KeyG) {
-        free_cam.scroll_factor += 0.02;
+        free_camera.scroll_factor += 0.02;
     }
     if input.just_pressed(KeyCode::KeyB) {
-        free_cam_state.enabled = !free_cam_state.enabled;
+        free_camera_state.enabled = !free_camera_state.enabled;
     }
 }
 
 fn update_text(
     mut text_query: Query<&mut Text, With<InfoText>>,
-    camera_query: Query<(&FreeCam, &FreeCamState)>,
+    camera_query: Query<(&FreeCamera, &FreeCameraState)>,
 ) {
     let mut text = text_query.single_mut().unwrap();
 
-    let (free_cam, free_cam_state) = camera_query.single().unwrap();
+    let (free_camera, free_camera_state) = camera_query.single().unwrap();
 
     text.0 = format!(
         "Enabled: {},\nSensitivity: {:.03}\nFriction: {:.01}\nScroll factor: {:.02}\nWalk Speed: {:.02}\nRun Speed: {:.02}\nSpeed: {:.02}",
-        free_cam_state.enabled,
-        free_cam.sensitivity,
-        free_cam.friction,
-        free_cam.scroll_factor,
-        free_cam.walk_speed,
-        free_cam.run_speed,
-        free_cam_state.velocity.length(),
+        free_camera_state.enabled,
+        free_camera.sensitivity,
+        free_camera.friction,
+        free_camera.scroll_factor,
+        free_camera.walk_speed,
+        free_camera.run_speed,
+        free_camera_state.velocity.length(),
     );
 }
 

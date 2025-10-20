@@ -12,7 +12,7 @@ use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,
@@ -95,7 +95,7 @@ fn main() {
                 use_model_forward_direction: args.use_model_forward_direction.unwrap_or(false),
                 ..default()
             }),
-        FreeCamPlugin,
+        FreeCameraPlugin,
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
@@ -175,7 +175,7 @@ fn setup_scene_after_load(
         projection.far = projection.far.max(size * 10.0);
 
         let walk_speed = size * 3.0;
-        let camera_controller = FreeCam {
+        let camera_controller = FreeCamera {
             walk_speed,
             run_speed: 3.0 * walk_speed,
             ..default()

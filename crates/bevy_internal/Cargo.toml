@@ -309,8 +309,8 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
-free_cam = ["bevy_camera_controller/free_cam"]
-pan_cam = ["bevy_camera_controller/pan_cam"]
+free_camera = ["bevy_camera_controller/free_camera"]
+pan_camera = ["bevy_camera_controller/pan_camera"]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
