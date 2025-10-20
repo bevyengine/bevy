@@ -4,10 +4,11 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, MutUntyped},
-    component::{
-        ComponentId, ComponentTickCells, ComponentTicks, Components, Mutable, StorageType, Tick,
+    change_detection::{
+        ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
+        MutUntyped, Tick,
     },
+    component::{ComponentId, Components, Mutable, StorageType},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentMessages,

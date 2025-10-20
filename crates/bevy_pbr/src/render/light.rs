@@ -12,7 +12,7 @@ use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},

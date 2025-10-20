@@ -3,8 +3,8 @@ use crate::{
     bundle::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
+    change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{
         Entity, EntityCloner, EntityClonerBuilder, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },

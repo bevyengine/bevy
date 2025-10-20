@@ -4,13 +4,11 @@ mod clone;
 mod info;
 mod register;
 mod required;
-mod tick;
 
 pub use clone::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
-pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
