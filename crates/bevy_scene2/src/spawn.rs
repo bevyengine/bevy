@@ -1,7 +1,7 @@
 use crate::{
     PatchContext, ResolvedScene, Scene, SceneList, SceneListPatch, ScenePatch, ScenePatchInstance,
 };
-use bevy_asset::{AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_asset::{AssetEvent, AssetServer, Assets, Handle};
 use bevy_ecs::{
     message::MessageCursor,
     prelude::*,
@@ -136,8 +136,8 @@ pub fn resolve_scene_patches(
 
 #[derive(Resource, Default)]
 pub struct QueuedScenes {
-    waiting_entities: HashMap<AssetId<ScenePatch>, Vec<Entity>>,
-    waiting_list_entities: HashMap<AssetId<SceneListPatch>, Vec<SceneListSpawn>>,
+    waiting_entities: HashMap<Handle<ScenePatch>, Vec<Entity>>,
+    waiting_list_entities: HashMap<Handle<SceneListPatch>, Vec<SceneListSpawn>>,
 }
 
 struct SceneListSpawn {
@@ -176,9 +176,9 @@ pub fn spawn_queued(
                                     break;
                                 }
                                 for entity in core::mem::take(&mut new_scenes.entities) {
-                                    if let Ok(id) = handles.get(world, entity).map(|h| h.id()) {
+                                    if let Ok(handle) = handles.get(world, entity).map(|h| &h.0) {
                                         if let Some((Some(scene), Some(entity_scopes))) =
-                                            patches.get_mut(id).map(|p| {
+                                            patches.get_mut(handle).map(|p| {
                                                 (p.resolved.as_mut(), p.entity_scopes.as_ref())
                                             })
                                         {
@@ -188,14 +188,16 @@ pub fn spawn_queued(
                                                 .apply(&mut TemplateContext::new(
                                                     &mut entity_mut,
                                                     &mut ScopedEntities::new(
-                                                        entity_scopes.entity_len(),
+                                                        entity_scopes.entity_count(),
                                                     ),
                                                     entity_scopes,
                                                 ))
                                                 .unwrap();
                                         } else {
-                                            let entities =
-                                                queued.waiting_entities.entry(id).or_default();
+                                            let entities = queued
+                                                .waiting_entities
+                                                .entry(handle.clone())
+                                                .or_default();
                                             entities.push(entity);
                                         }
                                     }
@@ -224,17 +226,15 @@ pub fn spawn_queued(
                                                 .apply(&mut TemplateContext::new(
                                                     &mut child_entity,
                                                     &mut ScopedEntities::new(
-                                                        entity_scopes.entity_len(),
+                                                        entity_scopes.entity_count(),
                                                     ),
                                                     entity_scopes,
                                                 ))
                                                 .unwrap();
                                         }
                                     } else {
-                                        let entities = queued
-                                            .waiting_list_entities
-                                            .entry(handle.id())
-                                            .or_default();
+                                        let entities =
+                                            queued.waiting_list_entities.entry(handle).or_default();
                                         entities.push(scene_list_spawn);
                                     }
                                 }
@@ -253,7 +253,7 @@ pub fn spawn_queued(
                                                 .apply(&mut TemplateContext::new(
                                                     &mut entity_mut,
                                                     &mut ScopedEntities::new(
-                                                        entity_scopes.entity_len(),
+                                                        entity_scopes.entity_count(),
                                                     ),
                                                     entity_scopes,
                                                 ))
@@ -282,7 +282,7 @@ pub fn spawn_queued(
                                                 .apply(&mut TemplateContext::new(
                                                     &mut child_entity,
                                                     &mut ScopedEntities::new(
-                                                        entity_scopes.entity_len(),
+                                                        entity_scopes.entity_count(),
                                                     ),
                                                     entity_scopes,
                                                 ))

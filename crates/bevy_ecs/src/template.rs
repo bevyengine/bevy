@@ -4,7 +4,7 @@ pub use bevy_ecs_macros::GetTemplate;
 
 use crate::{
     bundle::Bundle,
-    entity::{Entities, Entity, EntityPath},
+    entity::{Entity, EntityPath},
     error::{BevyError, Result},
     resource::Resource,
     world::{EntityWorldMut, World},
@@ -29,13 +29,20 @@ pub trait Template {
     fn register_data(&self, _data: &mut TemplateData) {}
 }
 
+/// The context used to apply the current [`Template`]. This contains a reference to the entity that the template is being
+/// applied to.
 pub struct TemplateContext<'a> {
+    /// The current entity the template is being applied to
     pub entity: &'a mut EntityWorldMut<'a>,
+    /// The scoped entities mapping for the current template context
     pub scoped_entities: &'a mut ScopedEntities,
+    /// The entity scopes for the current template context. This matches
+    /// the `scoped_entities`.
     pub entity_scopes: &'a EntityScopes,
 }
 
 impl<'a> TemplateContext<'a> {
+    /// Creates a new [`TemplateContext`].
     pub fn new(
         entity: &'a mut EntityWorldMut<'a>,
         scoped_entities: &'a mut ScopedEntities,
@@ -48,6 +55,8 @@ impl<'a> TemplateContext<'a> {
         }
     }
 
+    /// Retrieves the scoped entity if it has already been spawned, and spawns a new entity if it has not
+    /// yet been spawned.
     pub fn get_scoped_entity(&mut self, scope: usize, index: usize) -> Entity {
         self.scoped_entities.get(
             // SAFETY: this only uses the world to spawn an empty entity
@@ -59,6 +68,8 @@ impl<'a> TemplateContext<'a> {
     }
 }
 
+/// A mapping from from an entity reference's (scope, index) to a contiguous flat index that uniquely
+/// identifies the entity within a scene.
 #[derive(Default, Debug)]
 pub struct EntityScopes {
     scopes: Vec<Vec<Option<usize>>>,
@@ -66,15 +77,21 @@ pub struct EntityScopes {
 }
 
 impl EntityScopes {
+    /// The number of entities defined across all scopes.
     #[inline]
-    pub fn entity_len(&self) -> usize {
+    pub fn entity_count(&self) -> usize {
         self.next_index
     }
+
+    /// Allocate a new contiguous entity index for the given (scope, index) pair.
     pub fn alloc(&mut self, scope: usize, index: usize) {
         *self.get_mut(scope, index) = Some(self.next_index);
         self.next_index += 1;
     }
 
+    /// Assign an existing contiguous entity index for the given (scope, index) pair.
+    /// This is generally used when there are multiple (scope, index) pairs that point
+    /// to the same entity (ex: scene inheritance).
     pub fn assign(&mut self, scope: usize, index: usize, value: usize) {
         let option = self.get_mut(scope, index);
         *option = Some(value);
@@ -92,10 +109,12 @@ impl EntityScopes {
         unsafe { indices.get_unchecked_mut(index) }
     }
 
+    /// Gets the assigned contiguous entity index for the given (scope, index) pair
     pub fn get(&self, scope: usize, index: usize) -> Option<usize> {
         *self.scopes.get(scope)?.get(index)?
     }
 
+    /// Creates a new scope and returns it.
     pub fn add_scope(&mut self) -> usize {
         let scope_index = self.scopes.len();
         self.scopes.push(Vec::default());
@@ -103,16 +122,20 @@ impl EntityScopes {
     }
 }
 
+/// A contiguous list of entities identfied by their index in the list.
 #[derive(Debug)]
 pub struct ScopedEntities(Vec<Option<Entity>>);
 
 impl ScopedEntities {
+    /// Creates a new [`ScopedEntities`] with the given `size`, intialized to [`None`] (no [`Entity`] assigned).  
     pub fn new(size: usize) -> Self {
         Self(vec![None; size])
     }
 }
 
 impl ScopedEntities {
+    /// Gets the [`Entity`] assigned to the given (scope, index) pair, if it exists, and spawns a new entity if
+    /// it does not.
     pub fn get(
         &mut self,
         world: &mut World,
@@ -124,6 +147,7 @@ impl ScopedEntities {
         *self.0[index].get_or_insert_with(|| world.spawn_empty().id())
     }
 
+    /// Assigns the given `entity` to the (scope, index) pair.
     pub fn set(
         &mut self,
         entity_scopes: &EntityScopes,
@@ -137,6 +161,7 @@ impl ScopedEntities {
 }
 
 impl<'a> TemplateContext<'a> {
+    /// Retrieves a reference to the given resource `R`.
     pub fn resource<R: Resource>(&self) -> &R {
         self.entity.resource()
     }
@@ -184,9 +209,34 @@ pub struct TemplateTuple<T>(pub T);
 
 all_tuples!(template_impl, 0, 12, T);
 
+impl<T: Clone + Default> Template for T {
+    type Output = T;
+
+    fn build(&mut self, _context: &mut TemplateContext) -> Result<Self::Output> {
+        Ok(self.clone())
+    }
+}
+
+impl<T: Clone + Default> GetTemplate for T {
+    type Template = T;
+}
+
+/// A [`Template`] reference to an [`Entity`].
 pub enum EntityReference<'a> {
+    /// A reference to an entity via an [`EntityPath`]
     Path(EntityPath<'a>),
-    Index { scope: usize, index: usize },
+    /// An entity index within the current [`TemplateContext`], which is defined by a scope
+    /// and an index. This references a specific (and sometimes yet-to-be-spawned) entity defined
+    /// within a given scope.
+    ///
+    /// In most cases this is initialized by the scene system and should not be initialized manually.
+    /// Scopes must be defined ahead of time on the [`TemplateContext`].
+    Index {
+        /// The scope of the entity index. This must be defined ahead of time.
+        scope: usize,
+        /// The index that uniquely identifies the entity within the current scope.
+        index: usize,
+    },
 }
 
 impl<'a> Default for EntityReference<'a> {
@@ -209,18 +259,6 @@ impl Template for EntityReference<'static> {
 
 impl GetTemplate for Entity {
     type Template = EntityReference<'static>;
-}
-
-impl<T: Clone + Default> Template for T {
-    type Output = T;
-
-    fn build(&mut self, _context: &mut TemplateContext) -> Result<Self::Output> {
-        Ok(self.clone())
-    }
-}
-
-impl<T: Clone + Default> GetTemplate for T {
-    type Template = T;
 }
 
 /// A type-erased, object-safe, downcastable version of [`Template`].

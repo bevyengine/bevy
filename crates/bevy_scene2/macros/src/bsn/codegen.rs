@@ -475,7 +475,7 @@ impl ToTokens for BsnValue {
             BsnValue::Type(ty) => {
                 ty.to_tokens(tokens);
             }
-            BsnValue::Name(ident) => {
+            BsnValue::Name(_ident) => {
                 // Name requires additional context to convert to tokens
                 unreachable!()
             }

@@ -3,7 +3,7 @@
 pub mod prelude {
     pub use crate::{
         bsn, bsn_list, on, CommandsSpawnScene, LoadScene, PatchGetTemplate, PatchTemplate, Scene,
-        SceneList, ScenePatchInstance, SpawnScene,
+        SceneList, ScenePatchInstance, SpawnRelatedScenes, SpawnScene,
     };
 }
 

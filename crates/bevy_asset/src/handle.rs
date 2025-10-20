@@ -7,6 +7,7 @@ use bevy_ecs::{
     error::Result,
     template::{GetTemplate, Template, TemplateContext},
 };
+use bevy_platform::collections::Equivalent;
 use bevy_reflect::{Reflect, TypePath};
 use core::{
     any::TypeId,
@@ -251,6 +252,13 @@ impl<A: Asset> Hash for Handle<A> {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id().hash(state);
+    }
+}
+
+// Handle uses AssetId when hashing. This enables using AssetId instead of handle with hashsets and hashmaps.
+impl<T: Asset> Equivalent<Handle<T>> for AssetId<T> {
+    fn equivalent(&self, key: &Handle<T>) -> bool {
+        *self == key.id()
     }
 }
 
