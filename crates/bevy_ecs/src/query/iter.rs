@@ -1253,15 +1253,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
                     entity,
                     location.table_row,
                 )
-            } && let Some(item) =
+            } {
                 // SAFETY:
                 // - set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
                 // - fetch is only called once for each entity.
-                unsafe {
+                let item = unsafe {
                     D::fetch(&query_state.fetch_state, fetch, entity, location.table_row)
+                };
+                if let Some(item) = item {
+                    return Some(item);
                 }
-            {
-                return Some(item);
             }
         }
         None
@@ -2572,17 +2573,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(self.current_row)) };
                 self.current_row += 1;
 
-                if F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row)
-                    && let Some(item) =
-                        // SAFETY:
-                        // - set_table was called prior.
-                        // - `current_row` must be a table row in range of the current table,
-                        //   because if it was not, then the above would have been executed.
-                        // - fetch is only called once for each `entity`.
-                        unsafe {
-                            D::fetch(&query_state.fetch_state, &mut self.fetch, *entity, row)
-                        }
-                {
+                if !F::filter_fetch(&query_state.filter_state, &mut self.filter, *entity, row) {
+                    continue;
+                }
+
+                // SAFETY:
+                // - set_table was called prior.
+                // - `current_row` must be a table row in range of the current table,
+                //   because if it was not, then the above would have been executed.
+                // - fetch is only called once for each `entity`.
+                let item =
+                    unsafe { D::fetch(&query_state.fetch_state, &mut self.fetch, *entity, row) };
+                if let Some(item) = item {
                     return Some(item);
                 }
             }
@@ -2624,26 +2626,29 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
                 };
                 self.current_row += 1;
 
-                if F::filter_fetch(
+                if !F::filter_fetch(
                     &query_state.filter_state,
                     &mut self.filter,
                     archetype_entity.id(),
                     archetype_entity.table_row(),
-                ) && let Some(item) =
-                    // SAFETY:
-                    // - set_archetype was called prior.
-                    // - `current_row` must be an archetype index row in range of the current archetype,
-                    //   because if it was not, then the if above would have been executed.
-                    // - fetch is only called once for each `archetype_entity`.
-                    unsafe {
-                        D::fetch(
-                            &query_state.fetch_state,
-                            &mut self.fetch,
-                            archetype_entity.id(),
-                            archetype_entity.table_row(),
-                        )
-                    }
-                {
+                ) {
+                    continue;
+                }
+
+                // SAFETY:
+                // - set_archetype was called prior.
+                // - `current_row` must be an archetype index row in range of the current archetype,
+                //   because if it was not, then the if above would have been executed.
+                // - fetch is only called once for each `archetype_entity`.
+                let item = unsafe {
+                    D::fetch(
+                        &query_state.fetch_state,
+                        &mut self.fetch,
+                        archetype_entity.id(),
+                        archetype_entity.table_row(),
+                    )
+                };
+                if let Some(item) = item {
                     return Some(item);
                 }
             }
