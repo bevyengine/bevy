@@ -3,7 +3,6 @@ use crate::{
 };
 use bevy_asset::{AssetId, Assets};
 use bevy_camera::visibility::ViewVisibility;
-use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     system::{Commands, Query, Res, ResMut},
@@ -13,9 +12,7 @@ use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
-use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
-};
+use bevy_text::{PositionedGlyph, TextBackgroundColor, TextBounds, TextLayoutInfo};
 use bevy_transform::prelude::GlobalTransform;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
@@ -29,7 +26,6 @@ pub fn extract_text2d_sprite(
         Query<(
             Entity,
             &ViewVisibility,
-            &ComputedTextBlock,
             &TextLayoutInfo,
             &TextBounds,
             &Anchor,
@@ -45,7 +41,6 @@ pub fn extract_text2d_sprite(
     for (
         main_entity,
         view_visibility,
-        computed_block,
         text_layout_info,
         text_bounds,
         anchor,
