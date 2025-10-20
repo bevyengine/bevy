@@ -16,12 +16,29 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        //.add_systems(Startup, hello_setup)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (animate_translation, animate_rotation, animate_scale),
         )
         .run();
+}
+
+fn hello_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.insert_resource(FontHolder(font));
+    let text_font = TextFont {
+        font: "Fira Sans".to_string(),
+        font_size: 50.0,
+        ..default()
+    };
+    commands.spawn((
+        Text2d::new("hello\nworld"),
+        text_font.clone(),
+        TextBackgroundColor(MAGENTA.into()),
+    ));
 }
 
 #[derive(Component)]
@@ -33,10 +50,14 @@ struct AnimateRotation;
 #[derive(Component)]
 struct AnimateScale;
 
+#[derive(Resource)]
+struct FontHolder(Handle<Font>);
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.insert_resource(FontHolder(font));
     let text_font = TextFont {
-        font: font.clone(),
+        font: "Fira Sans".to_string(),
         font_size: 50.0,
         ..default()
     };
@@ -72,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_font = TextFont {
-        font,
+        font: "Fira Sans".to_string(),
         font_size: 35.0,
         ..default()
     };

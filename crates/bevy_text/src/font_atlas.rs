@@ -182,15 +182,6 @@ pub fn get_outlined_glyph_texture(
     scaler: &mut Scaler,
     glyph_id: u16,
 ) -> Result<(Image, IVec2), TextError> {
-    // NOTE: Ideally, we'd ask COSMIC Text to honor the font smoothing setting directly.
-    // However, since it currently doesn't support that, we render the glyph with antialiasing
-    // and apply a threshold to the alpha channel to simulate the effect.
-    //
-    // This has the side effect of making regular vector fonts look quite ugly when font smoothing
-    // is turned off, but for fonts that are specifically designed for pixel art, it works well.
-    //
-    // See: https://github.com/pop-os/cosmic-text/issues/279
-
     let image = swash::scale::Render::new(&[
         swash::scale::Source::ColorOutline(0),
         swash::scale::Source::ColorBitmap(swash::scale::StrikeWith::BestFit),
@@ -205,6 +196,16 @@ pub fn get_outlined_glyph_texture(
     let width = image.placement.width;
     let height = image.placement.height;
 
+    let px = (width * height) as usize;
+    let mut rgba = vec![0u8; px * 4];
+    for i in 0..px {
+        let a = image.data[i];
+        rgba[i * 4 + 0] = 255; // R
+        rgba[i * 4 + 1] = 255; // G
+        rgba[i * 4 + 2] = 255; // B
+        rgba[i * 4 + 3] = a; // A from swash
+    }
+
     Ok((
         Image::new(
             Extent3d {
@@ -213,7 +214,7 @@ pub fn get_outlined_glyph_texture(
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            image.data,
+            rgba,
             TextureFormat::Rgba8UnormSrgb,
             RenderAssetUsages::MAIN_WORLD,
         ),

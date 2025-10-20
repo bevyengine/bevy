@@ -1,3 +1,4 @@
+use bevy_color::LinearRgba;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::resource::Resource;
@@ -11,7 +12,7 @@ pub struct FontCx(pub FontContext);
 
 /// Text layout context
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct LayoutCx(pub LayoutContext);
+pub struct LayoutCx(pub LayoutContext<LinearRgba>);
 
 /// Text scaler context
 #[derive(Resource, Default, Deref, DerefMut)]

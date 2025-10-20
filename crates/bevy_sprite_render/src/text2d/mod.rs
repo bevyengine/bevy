@@ -37,7 +37,6 @@ pub fn extract_text2d_sprite(
             &GlobalTransform,
         )>,
     >,
-    text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
@@ -148,32 +147,18 @@ pub fn extract_text2d_sprite(
 
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
-        let mut color = LinearRgba::WHITE;
-        let mut current_span = usize::MAX;
 
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-                span_index,
+
+                color,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
-            if *span_index != current_span {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .0
-                            .get(*span_index)
-                            .map(|t| *t)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
-                    .map(|text_color| LinearRgba::from(text_color.0))
-                    .unwrap_or_default();
-                current_span = *span_index;
-            }
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
                 .unwrap()
@@ -185,15 +170,17 @@ pub fn extract_text2d_sprite(
                 size: rect.size(),
             });
 
-            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-            }) {
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+            {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 extracted_sprites.sprites.push(ExtractedSprite {
                     main_entity,
                     render_entity,
                     transform,
-                    color,
+                    color: *color,
                     image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,

@@ -92,6 +92,7 @@ pub type Update2dText = Text2dUpdateSystems;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TextSystems {
+    Hierarchy,
     RegisterFontAssets,
 }
 
@@ -104,6 +105,10 @@ impl Plugin for TextPlugin {
             .init_resource::<FontCx>()
             .init_resource::<LayoutCx>()
             .init_resource::<ScaleCx>()
+            .add_systems(
+                PostUpdate,
+                update_text_entities_system.in_set(TextSystems::Hierarchy),
+            )
             .add_systems(
                 PostUpdate,
                 register_font_assets_system

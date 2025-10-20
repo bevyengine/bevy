@@ -5,7 +5,7 @@ use bevy_camera::visibility::{
     self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
 };
 use bevy_camera::Camera;
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_ecs::query::With;
@@ -23,7 +23,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, FontAtlasSet,
     FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
-    TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
+    TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -88,6 +88,9 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
+    ComputedTextBlock,
+    TextRoot,
+    TextLayoutInfo,
     Transform
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
@@ -197,7 +200,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, _computed) in &mut text_query {
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, computed) in &mut text_query {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
         let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
@@ -227,13 +230,14 @@ pub fn update_text2d_layout(
         };
 
         let mut text_sections: Vec<&str> = Vec::new();
-        let mut text_section_styles: Vec<TextSectionStyle> = Vec::new();
-        for (_, _, text, font, _) in text_reader.iter(entity) {
+        let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
+        for (_, _, text, font, color) in text_reader.iter(entity) {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 font.font.as_str(),
                 font.font_size,
                 font.line_height.eval(font.font_size),
+                color.to_linear(),
             ));
         }
 

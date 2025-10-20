@@ -1,12 +1,12 @@
 use crate::add_glyph_to_atlas;
 use crate::get_glyph_atlas_info;
-use crate::FontAtlas;
 use crate::FontAtlasKey;
 use crate::FontAtlasSet;
 use crate::FontSmoothing;
 use crate::GlyphCacheKey;
 use crate::TextLayoutInfo;
 use bevy_asset::Assets;
+use bevy_color::LinearRgba;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
 use bevy_math::UVec2;
@@ -41,27 +41,30 @@ fn concat_text_for_layout<'a>(
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct TextSectionStyle<'a> {
+pub struct TextSectionStyle<'a, B> {
     font_family: &'a str,
     font_size: f32,
     line_height: LineHeight,
+    brush: B,
 }
 
-impl<'a> TextSectionStyle<'a> {
-    pub fn new(family: &'a str, size: f32, line_height: f32) -> Self {
+impl<'a, B: Brush> TextSectionStyle<'a, B> {
+    pub fn new(family: &'a str, size: f32, line_height: f32, brush: B) -> Self {
         Self {
             font_family: family,
             font_size: size,
             line_height: LineHeight::Absolute(line_height),
+            brush,
         }
     }
 }
 
+/// Create layout given text sections and styles
 pub fn build_layout_from_text_sections<'a, B: Brush>(
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<B>,
     text_sections: impl Iterator<Item = &'a str>,
-    text_section_styles: impl Iterator<Item = TextSectionStyle<'a>>,
+    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, B>>,
     scale_factor: f32,
 ) -> Layout<B> {
     let (text, section_ranges) = concat_text_for_layout(text_sections);
@@ -75,8 +78,8 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
 }
 
 /// create a TextLayoutInfo
-pub fn build_text_layout_info<B: Brush>(
-    mut layout: Layout<B>,
+pub fn build_text_layout_info(
+    mut layout: Layout<LinearRgba>,
     max_advance: Option<f32>,
     alignment: Alignment,
     scale_cx: &mut ScaleContext,
@@ -92,12 +95,17 @@ pub fn build_text_layout_info<B: Brush>(
     let mut info = TextLayoutInfo::default();
 
     info.scale_factor = layout.scale();
-    info.size = (layout.width(), layout.height()).into();
+    info.size = (
+        layout.width() / layout.scale(),
+        layout.height() / layout.scale(),
+    )
+        .into();
 
     for line in layout.lines() {
         for (line_index, item) in line.items().enumerate() {
             match item {
                 PositionedLayoutItem::GlyphRun(glyph_run) => {
+                    let color = glyph_run.style().brush;
                     let run = glyph_run.run();
                     let font = run.font();
                     let font_size = run.font_size();
@@ -153,14 +161,18 @@ pub fn build_text_layout_info<B: Brush>(
                         let location = atlas_info.location;
                         let glyph_rect = texture_atlas.textures[location.glyph_index];
                         let glyph_size = UVec2::new(glyph_rect.width(), glyph_rect.height());
+                        let x = glyph_size.x as f32 / 2. + glyph.x + location.offset.x as f32;
+                        let y = glyph_size.y as f32 / 2. + glyph.y - location.offset.y as f32;
+
                         info.glyphs.push(crate::PositionedGlyph {
-                            position: (glyph.x, glyph.y).into(),
+                            position: (x, y).into(),
                             size: glyph_size.as_vec2(),
                             atlas_info,
                             span_index: 0,
                             line_index,
                             byte_index: line.text_range().start,
                             byte_length: line.text_range().len(),
+                            color,
                         });
                     }
                 }

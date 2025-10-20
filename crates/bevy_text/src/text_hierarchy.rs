@@ -3,10 +3,10 @@ use bevy_ecs::{prelude::*, relationship::Relationship};
 
 use crate::TextSpan;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct ComputedTextBlock(pub Vec<Entity>);
 
-#[derive(Component)]
+#[derive(Component, Default)]
 /// Root text element
 pub struct TextRoot;
 
