@@ -4,8 +4,12 @@ use crate::{
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, WorldQuery},
+    query::{
+        Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
+        WorldQuery,
+    },
     storage::{ComponentSparseSet, Table, TableRow},
+    system::Query,
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
@@ -2257,6 +2261,213 @@ impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for Mut<'_, T> {
         item
     }
 }
+
+/// A helper type for accessing a [`Query`] within a [`QueryData`].
+///
+/// This is intended to be used inside other implementations of [`QueryData`],
+/// either for manual implementations or `#[derive(QueryData)]`.
+/// It is not normally useful to query directly,
+/// since it's equivalent to adding another [`Query`] parameter to a system.
+///
+/// Note that this is only an [`IterQueryData`] if the underlying query data is [`ReadOnlyQueryData`],
+/// to prevent mutable aliasing.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::NestedQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// fn system(mut query: Query<NestedQuery<&mut A>>, entity: Entity) {
+///     // This works, because it performs read-only iteration
+///     for a in &query {
+///         let a: Query<&A> = a;
+///     }
+///     // And this works, because it can only be called for one entity at a time
+///     let a: Query<&mut A> = query.get_mut(entity).unwrap();
+/// }
+/// ```
+///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::NestedQuery;
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// fn system(mut query: Query<NestedQuery<&mut A>>) {
+///     // This fails, because it would allow mutable aliasing of `&mut A`
+///     for a in &mut query {
+/// //           ^^^^^^^^^^ `&mut bevy_ecs::system::Query<'_, '_, NestedQuery<&mut A>>` is not an iterator
+///         let a: Query<&mut A> = a;
+///     }
+/// }
+/// ```
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::query::{QueryData, NestedQuery};
+/// #
+/// #[derive(Component)]
+/// struct A(Entity);
+///
+/// #[derive(Component)]
+/// struct Name(String);
+///
+/// #[derive(QueryData)]
+/// struct NameFromA {
+///     a: &'static A,
+///     query: NestedQuery<&'static Name>,
+/// }
+///
+/// impl<'w, 's> NameFromAItem<'w, 's> {
+///     fn name(&self) -> Option<&str> {
+///         self.query.get(self.a.0).ok().map(|name| &*name.0)
+///     }
+/// }
+///
+/// fn system(query: Query<NameFromA>) {
+///     for item in query {
+///         let name: Option<&str> = item.name();
+///     }
+/// }
+/// ```
+pub struct NestedQuery<D: QueryData + 'static, F: QueryFilter + 'static = ()>(
+    PhantomData<Query<'static, 'static, D, F>>,
+);
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct NestedQueryFetch<'w> {
+    world: UnsafeWorldCell<'w>,
+    last_run: Tick,
+    this_run: Tick,
+}
+
+// SAFETY:
+// Does not access any components on the current entity
+// Accesses through the nested query are registered in `init_nested_access`
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for NestedQuery<D, F> {
+    type Fetch<'w> = NestedQueryFetch<'w>;
+    // Ideally this would be `QueryState<D, F>`,
+    // but `QueryData` requires `Self::State == Self::ReadOnly::State`,
+    // and `QueryState<D, F> != QueryState<D::ReadOnly, F>`.
+    // `QueryState` does support *transmuting* between those types, though,
+    // so we convert the state to `QueryState<D::ReadOnly, F>` and transmute it back to use it.
+    type State = QueryState<D::ReadOnly, F>;
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    #[inline]
+    unsafe fn init_fetch<'w, 's>(
+        world: UnsafeWorldCell<'w>,
+        _state: &'s Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        NestedQueryFetch {
+            world,
+            last_run,
+            this_run,
+        }
+    }
+
+    const IS_DENSE: bool = true;
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &'w Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
+
+    fn init_nested_access(
+        state: &Self::State,
+        system_name: Option<&str>,
+        component_access_set: &mut FilteredAccessSet,
+        world: UnsafeWorldCell,
+    ) {
+        state.init_access(system_name, component_access_set, world);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        QueryState::<D, F>::new(world).into_readonly()
+    }
+
+    fn get_state(_components: &Components) -> Option<Self::State> {
+        // This is not currently possible.
+        // `QueryState::new` requires read access to the `DefaultQueryFilters` resource,
+        // but this method may be called during `transmute` or `join`
+        // when we have no such access.
+        None
+    }
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+
+    fn update_archetypes(state: &mut Self::State, world: UnsafeWorldCell) {
+        state.update_archetypes_unsafe_world_cell(world);
+    }
+}
+
+// SAFETY:
+// `Self::ReadOnly` accesses `D::ReadOnly`, which is a subset of the data accessed by `D`
+// `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for NestedQuery<D, F> {
+    const IS_READ_ONLY: bool = D::IS_READ_ONLY;
+    type ReadOnly = NestedQuery<D::ReadOnly, F>;
+    type Item<'w, 's> = Query<'w, 's, D, F>;
+
+    fn shrink<'wlong: 'wshort, 'wshort, 's>(
+        item: Self::Item<'wlong, 's>,
+    ) -> Self::Item<'wshort, 's> {
+        item
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w, 's>(
+        state: &'s Self::State,
+        fetch: &mut Self::Fetch<'w>,
+        _entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w, 's> {
+        // SAFETY: The state was either created from `D`, or it was created from
+        // another `NestedQuery` and converted to `NestedQuery<D::ReadOnly, F>`,
+        // in which case `D::ReadOnly == D`.
+        let state = unsafe { QueryState::from_readonly(state) };
+        // SAFETY:
+        // - We registered the required access in `init_nested_access`, so it's available.
+        // - If we are fetching multiple entities concurrently,
+        //   then `Self: IterQueryData`, so `D: ReadOnlyQueryData`,
+        //   so it's safe to alias the queries.
+        unsafe {
+            state.query_unchecked_manual_with_ticks(fetch.world, fetch.last_run, fetch.this_run)
+        }
+    }
+}
+
+// SAFETY: All access is through `D`, which is read-only
+unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> ReadOnlyQueryData for NestedQuery<D, F> {}
+
+// SAFETY: All access to other entities is through `D`, which is read-only and does not conflict.
+// Note that we must not impl IterQueryData for queries with mutable access,
+// since the nested query must only be live for one entity at a time.
+unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {

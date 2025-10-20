@@ -111,6 +111,24 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+    /// Converts this `QueryState` into a `QueryState` that does not access anything mutably,
+    /// but that can be converted back to the original type using [`Self::from_readonly`].
+    pub(crate) fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+        QueryState {
+            world_id: self.world_id,
+            archetype_generation: self.archetype_generation,
+            matched_storage_ids: self.matched_storage_ids,
+            is_dense: self.is_dense,
+            fetch_state: self.fetch_state,
+            filter_state: self.filter_state,
+            component_access: self.component_access,
+            matched_tables: self.matched_tables,
+            matched_archetypes: self.matched_archetypes,
+            #[cfg(feature = "trace")]
+            par_iter_span: self.par_iter_span,
+        }
+    }
+
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -127,6 +145,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY: `NopWorldQuery` doesn't have any accesses and defers to
         // `D` for table/archetype matching
         unsafe { self.as_transmuted_state::<NopWorldQuery<D>, F>() }
+    }
+
+    /// Converts a reference to a read-only `QueryState` back to a reference to the original.
+    ///
+    /// This is used to implement `NestedQuery`, since it stores a `QueryState` in `WorldQuery::State`
+    /// and needs to ensure that `Self::ReadOnly::State == Self::State`.
+    ///
+    /// # Safety
+    ///
+    /// Either `D == D::ReadOnly`, or the referenced `QueryState` must have been
+    /// created from [`QueryState::into_readonly`] called on a `QueryState<D, F>`.
+    pub(crate) unsafe fn from_readonly(state: &QueryState<D::ReadOnly, F>) -> &Self {
+        // SAFETY: Caller ensures this is either a no-op,
+        // or that the contents were created as a valid `QueryState<D, F>`
+        unsafe { &*ptr::from_ref(state).cast::<QueryState<D, F>>() }
     }
 
     /// Converts this `QueryState` reference to any other `QueryState` with
