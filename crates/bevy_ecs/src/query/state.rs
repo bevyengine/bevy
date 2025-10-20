@@ -85,11 +85,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> fmt::Debug for QueryState<D, F
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
-            // .field("matched_table_count", &self.matched_tables.count_ones(..))
-            // .field(
-            //     "matched_archetype_count",
-            //     &self.matched_archetypes.count_ones(..),
-            // )
+            .field("cache", &self.cache)
             .finish_non_exhaustive()
     }
 }
@@ -210,7 +206,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
             default_filters.modify_access(&mut component_access);
         }
 
-        let cache = C::uninitialized::<D, F>(world);
+        let cache = C::from_world_uninitialized::<D, F>(world);
 
         Self {
             world_id: world.id(),
@@ -242,12 +238,11 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
 
         let mut component_access = builder.access().clone();
 
-
         if let Some(default_filters) = builder.world().get_resource::<DefaultQueryFilters>() {
             default_filters.modify_access(&mut component_access);
         }
 
-        let cache = C::uninitialized::<D, F>(builder.world());
+        let cache = C::from_builder_uninitialized(builder);
 
         let mut state = Self {
             world_id: builder.world().id(),

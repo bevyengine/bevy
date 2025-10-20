@@ -1,3 +1,4 @@
+use alloc::borrow::Cow;
 use core::fmt::{Debug, Formatter};
 use alloc::vec::Vec;
 use fixedbitset::FixedBitSet;
@@ -6,7 +7,7 @@ use bevy_ecs::archetype::{Archetype, ArchetypeGeneration, ArchetypeId, Archetype
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity_disabling::DefaultQueryFilters;
 use bevy_ecs::prelude::World;
-use bevy_ecs::query::{QueryData, QueryFilter};
+use bevy_ecs::query::{QueryBuilder, QueryData, QueryFilter};
 use bevy_ecs::query::state::StorageId;
 use bevy_ecs::storage::{SparseSetIndex, TableId};
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
@@ -131,17 +132,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
 
 pub trait QueryCache: Debug + Clone {
 
-    fn iteration_data<'s, D: QueryData, F: QueryFilter>(&self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell, storage_ids: &'s mut Vec<StorageId>) -> IterationData<'s>;
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell) -> IterationData<'s>;
 
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
     unsafe fn contains<D: QueryData, F: QueryFilter>(&self, query: &QueryState<D, F, Self>, archetype: &Archetype) -> bool;
 
     /// Creates a new [`QueryCache`] but does not populate it with the matched results from the World yet
-    ///
-    /// `new_archetype` and its variants must be called on all of the World's archetypes before the
-    /// state can return valid query results.
-    fn uninitialized<D: QueryData, F: QueryFilter>(world: &World) -> Self;
+    fn from_world_uninitialized<D: QueryData, F: QueryFilter>(world: &World) -> Self;
+
+    /// Creates a new [`QueryCache`] but does not populate it with the matched results from the World yet
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self;
 
     fn update_archetypes<D: QueryData, F: QueryFilter>(&mut self, uncached: &QueryState<D, F, Uncached>, world: UnsafeWorldCell);
 
@@ -152,9 +153,9 @@ pub trait QueryCache: Debug + Clone {
 }
 
 #[derive(Clone)]
-pub(super) struct IterationData<'s> {
+pub struct IterationData<'s> {
     pub(super) is_dense: bool,
-    pub(super) storage_ids: core::slice::Iter<'s, StorageId>,
+    pub(super) storage_ids: Cow<'s, [StorageId]>,
 }
 
 #[derive(Clone)]
@@ -173,9 +174,9 @@ pub struct CacheState {
 
 impl QueryCache for CacheState {
 
-    fn iteration_data<'s, D: QueryData, F: QueryFilter>(self: &Self, _: &QueryState<D, F, Self>, _: UnsafeWorldCell, _: &'s mut Vec<StorageId>) -> IterationData<'s> {
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, _: &QueryState<D, F, Self>, _: UnsafeWorldCell) -> IterationData<'s> {
         IterationData {
-            storage_ids: self.matched_storage_ids.iter(),
+            storage_ids: Cow::Borrowed(&self.matched_storage_ids),
             is_dense: self.is_dense,
         }
     }
@@ -184,14 +185,30 @@ impl QueryCache for CacheState {
         self.matched_archetypes.contains(archetype.id().index())
     }
 
-    fn uninitialized<D: QueryData, F: QueryFilter>(world: &World) -> Self {
+    fn from_world_uninitialized<D: QueryData, F: QueryFilter>(world: &World) -> Self {
         // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
         // of its static type parameters.
         let mut is_dense = D::IS_DENSE && F::IS_DENSE;
 
+        // TODO: disallow non-dense DefaultQueryFilters
         if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
             is_dense &= default_filters.is_dense(world.components());
         }
+
+        Self {
+            archetype_generation: ArchetypeGeneration::initial(),
+            matched_tables: Default::default(),
+            matched_archetypes: Default::default(),
+            matched_storage_ids: Vec::new(),
+            is_dense,
+        }
+    }
+
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self {
+        // For dynamic queries the dense-ness is given by the query builder.
+        let is_dense = builder.is_dense();
+
+        // TODO: disallow non-dense DefaultQueryFilters
 
         Self {
             archetype_generation: ArchetypeGeneration::initial(),
@@ -299,27 +316,27 @@ impl CacheState {
 
 
 #[derive(Debug, Clone)]
-pub struct Uncached;
+pub struct Uncached {
+    is_dense: bool,
+}
 
 
 
 impl QueryCache for Uncached {
 
-    fn iteration_data<'s, D: QueryData, F: QueryFilter>(&self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell, storage_ids: &'s mut Vec<StorageId>) -> IterationData<'s> {
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell) -> IterationData<'s> {
         let generation = world.archetypes().generation();
-        // TODO: what about computing is_dense from DefaultQueryFilters?
-        //  Realistically all DefaultQueryFilters would be dense. We should enforce it.
-        let is_dense = D::IS_DENSE && F::IS_DENSE;
+        let mut storage_ids = Vec::new();
         query.iter_archetypes(generation, world.archetypes(), |archetype| {
-            storage_ids.push(if !is_dense {
+            storage_ids.push(if !self.is_dense {
                 StorageId { archetype_id: archetype.id() }
             } else {
                 StorageId { table_id: archetype.table_id() }
             })
         });
         IterationData {
-            is_dense,
-            storage_ids: storage_ids.iter()
+            is_dense: self.is_dense,
+            storage_ids: Cow::Owned(storage_ids),
         }
     }
 
@@ -328,8 +345,22 @@ impl QueryCache for Uncached {
         unsafe { query.matches_archetype(archetype) }
     }
 
-    fn uninitialized<D: QueryData, F: QueryFilter>(_: &World) -> Self {
-        Uncached
+    fn from_world_uninitialized<D: QueryData, F: QueryFilter>(_: &World) -> Self {
+        // For queries without dynamic filters the dense-ness of the query is equal to the dense-ness
+        // of its static type parameters.
+        // TODO: what about computing is_dense from DefaultQueryFilters?
+        //  Realistically all DefaultQueryFilters would be dense. We should enforce it.
+        Uncached {
+            is_dense: D::IS_DENSE && F::IS_DENSE
+        }
+    }
+
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self {
+        // TODO: what about computing is_dense from DefaultQueryFilters?
+        //  Realistically all DefaultQueryFilters would be dense. We should enforce it.
+        Uncached {
+            is_dense: builder.is_dense(),
+        }
     }
 
     /// We do not update anything. This is here for feature parity.
