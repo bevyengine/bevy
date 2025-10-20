@@ -18,8 +18,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, Font, FontAtlasSet, LineBreak, TextBounds, TextColor, TextError, TextFont,
-    TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter,
+    ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, LineBreak, TextBounds, TextColor, TextError, TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -161,6 +160,20 @@ pub struct TextMeasureInfo {
     pub min: Vec2,
     pub max: Vec2,
     pub entity: Entity,
+}
+
+impl TextMeasureInfo {
+    /// Computes the size of the text area within the provided bounds.
+    pub fn compute_size(
+        &mut self,
+        bounds: TextBounds,
+        layout: &mut ComputedTextLayout,
+    ) -> Vec2 {
+        // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
+        // whenever a canonical state is required.
+        layout.break_all_lines(bounds.width);
+        Vec2::new(layout.width(), layout.height())
+    }
 }
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
