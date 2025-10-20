@@ -157,7 +157,7 @@ pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
-    //pub info: TextMeasureInfo,
+    pub info: TextMeasureInfo,
 }
 
 impl TextMeasure {
@@ -169,48 +169,47 @@ impl TextMeasure {
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
-        //     let MeasureArgs {
-        //         width,
-        //         height,
-        //         available_width,
-        //         buffer,
-        //         ..
-        //     } = measure_args;
-        //     let x = width.unwrap_or_else(|| match available_width {
-        //         AvailableSpace::Definite(x) => {
-        //             // It is possible for the "min content width" to be larger than
-        //             // the "max content width" when soft-wrapping right-aligned text
-        //             // and possibly other situations.
+    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+            let MeasureArgs {
+                width,
+                height,
+                available_width,
+                text_layout: buffer,
+                ..
+            } = measure_args;
+            let x = width.unwrap_or_else(|| match available_width {
+                AvailableSpace::Definite(x) => {
+                    // It is possible for the "min content width" to be larger than
+                    // the "max content width" when soft-wrapping right-aligned text
+                    // and possibly other situations.
 
-        //             x.max(self.info.min.x).min(self.info.max.x)
-        //         }
-        //         AvailableSpace::MinContent => self.info.min.x,
-        //         AvailableSpace::MaxContent => self.info.max.x,
-        //     });
+                    x.max(self.info.min.x).min(self.info.max.x)
+                }
+                AvailableSpace::MinContent => self.info.min.x,
+                AvailableSpace::MaxContent => self.info.max.x,
+            });
 
-        //     height
-        //         .map_or_else(
-        //             || match available_width {
-        //                 AvailableSpace::Definite(_) => {
-        //                     if let Some(buffer) = buffer {
-        //                         self.info.compute_size(
-        //                             TextBounds::new_horizontal(x),
-        //                             buffer,
-        //                             font_system,
-        //                         )
-        //                     } else {
-        //                         error!("text measure failed, buffer is missing");
-        //                         Vec2::default()
-        //                     }
-        //                 }
-        //                 AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-        //                 AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-        //             },
-        //             |y| Vec2::new(x, y),
-        //         )
-        //         .ceil()
-        Vec2::ZERO
+            height
+                .map_or_else(
+                    || match available_width {
+                        AvailableSpace::Definite(_) => {
+                            if let Some(buffer) = buffer {
+                                self.info.compute_size(
+                                    TextBounds::new_horizontal(x),
+                                    buffer,
+                                    font_system,
+                                )
+                            } else {
+                                error!("text measure failed, buffer is missing");
+                                Vec2::default()
+                            }
+                        }
+                        AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                        AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
+                    },
+                    |y| Vec2::new(x, y),
+                )
+                .ceil()
     }
 }
 
@@ -223,36 +222,35 @@ fn create_text_measure<'a>(
     block: Ref<TextLayout>,
     mut content_size: Mut<ContentSize>,
     mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
+    mut computed: Mut<ComputedTextLayout>,
 ) {
-    // match text_pipeline.create_text_measure(
-    //     entity,
-    //     fonts,
-    //     spans,
-    //     scale_factor,
-    //     &block,
-    //     computed.as_mut(),
-    //     font_system,
-    // ) {
-    //     Ok(measure) => {
-    //         if block.linebreak == LineBreak::NoWrap {
-    //             content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-    //         } else {
-    //             content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
-    //         }
+    match text_pipeline.create_text_measure(
+        entity,
+        fonts,
+        spans,
+        scale_factor,
+        &block,
+        computed.as_mut(),
+    ) {
+        Ok(measure) => {
+            if block.linebreak == LineBreak::NoWrap {
+                content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+            } else {
+                content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
+            }
 
-    //         // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-    //         text_flags.needs_measure_fn = false;
-    //         text_flags.needs_recompute = true;
-    //     }
-    //     Err(TextError::NoSuchFont) => {
-    //         // Try again next frame
-    //         text_flags.needs_measure_fn = true;
-    //     }
-    //     Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage) => {
-    //         panic!("Fatal error when processing text: {e}.");
-    //     }
-    // };
+            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+            text_flags.needs_measure_fn = false;
+            text_flags.needs_recompute = true;
+        }
+        Err(TextError::NoSuchFont) => {
+            // Try again next frame
+            text_flags.needs_measure_fn = true;
+        }
+        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage) => {
+            panic!("Fatal error when processing text: {e}.");
+        }
+    }
 }
 
 /// Generates a new [`Measure`] for a text node on changes to its [`Text`] component.
@@ -273,7 +271,7 @@ pub fn measure_text_system(
             Ref<TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
-            &mut ComputedTextBlock,
+            &mut ComputedTextLayout,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
         ),
@@ -281,31 +279,30 @@ pub fn measure_text_system(
     >,
     mut text_reader: TextUiReader,
 ) {
-    // for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-    //     &mut text_query
-    // {
-    //     // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-    //     // 1e-5 epsilon to ignore tiny scale factor float errors
-    //     if 1e-5
-    //         < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-    //         || computed.needs_rerender()
-    //         || text_flags.needs_measure_fn
-    //         || content_size.is_added()
-    //     {
-    //         create_text_measure(
-    //             entity,
-    //             &fonts,
-    //             computed_target.scale_factor.into(),
-    //             text_reader.iter(entity),
-    //             block,
-    //             &mut text_pipeline,
-    //             content_size,
-    //             text_flags,
-    //             computed,
-    //             &mut font_system,
-    //         );
-    //     }
-    //}
+    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
+        &mut text_query
+    {
+        // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
+        // 1e-5 epsilon to ignore tiny scale factor float errors
+        if 1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            || computed.needs_rerender()
+            || text_flags.needs_measure_fn
+            || content_size.is_added()
+        {
+            create_text_measure(
+                entity,
+                &fonts,
+                computed_target.scale_factor.into(),
+                text_reader.iter(entity),
+                block,
+                &mut text_pipeline,
+                content_size,
+                text_flags,
+                computed,
+            );
+        }
+    }
 }
 
 #[inline]
@@ -410,4 +407,14 @@ pub fn text_system(
     //         );
     //     }
     // }
+}
+
+
+pub fn update_text_layout(
+) {
+}
+
+
+pub fn update_text_layout_info(
+) {
 }
