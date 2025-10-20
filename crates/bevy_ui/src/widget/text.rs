@@ -305,65 +305,6 @@ pub fn measure_text_system(
     }
 }
 
-#[inline]
-fn queue_text(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    font_atlas_set: &mut FontAtlasSet,
-    texture_atlases: &mut Assets<TextureAtlasLayout>,
-    textures: &mut Assets<Image>,
-    scale_factor: f32,
-    inverse_scale_factor: f32,
-    block: &TextLayout,
-    node: Ref<ComputedNode>,
-    mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
-    computed: &mut ComputedTextBlock,
-    text_reader: &mut TextUiReader,
-) {
-    // // Skip the text node if it is waiting for a new measure func
-    // if text_flags.needs_measure_fn {
-    //     return;
-    // }
-
-    // let physical_node_size = if block.linebreak == LineBreak::NoWrap {
-    //     // With `NoWrap` set, no constraints are placed on the width of the text.
-    //     TextBounds::UNBOUNDED
-    // } else {
-    //     // `scale_factor` is already multiplied by `UiScale`
-    //     TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
-    // };
-
-    // let text_layout_info = text_layout_info.into_inner();
-    // match text_pipeline.queue_text(
-    //     text_layout_info,
-    //     fonts,
-    //     text_reader.iter(entity),
-    //     scale_factor.into(),
-    //     block,
-    //     physical_node_size,
-    //     font_atlas_set,
-    //     texture_atlases,
-    //     textures,
-    //     computed,
-    //     font_system,
-    //     swash_cache,
-    // ) {
-    //     Err(TextError::NoSuchFont) => {
-    //         // There was an error processing the text layout, try again next frame
-    //         text_flags.needs_recompute = true;
-    //     }
-    //     Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage)) => {
-    //         panic!("Fatal error when processing text: {e}.");
-    //     }
-    //     Ok(()) => {
-    //         text_layout_info.scale_factor = scale_factor;
-    //         text_layout_info.size *= inverse_scale_factor;
-    //         text_flags.needs_recompute = false;
-    //     }
-    //}
-}
-
 /// Updates the layout and size information for a UI text node on changes to the size value of its [`Node`] component,
 /// or when the `needs_recompute` field of [`TextNodeFlags`] is set to true.
 /// This information is computed by the [`TextPipeline`] and then stored in [`TextLayoutInfo`].
@@ -372,7 +313,7 @@ fn queue_text(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-pub fn text_system(
+pub fn update_text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
@@ -384,37 +325,21 @@ pub fn text_system(
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
     )>,
-    mut text_reader: TextUiReader,
 ) {
-    // for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
-    //     if node.is_changed() || text_flags.needs_recompute {
-    //         queue_text(
-    //             entity,
-    //             &fonts,
-    //             &mut text_pipeline,
-    //             &mut font_atlas_set,
-    //             &mut texture_atlases,
-    //             &mut textures,
-    //             node.inverse_scale_factor.recip(),
-    //             node.inverse_scale_factor,
-    //             block,
-    //             node,
-    //             text_flags,
-    //             text_layout_info,
-    //             computed.as_mut(),
-
-    //         );
-    //     }
-    // }
-}
-
-
-pub fn update_text_layout(
-) {
-}
-
-
-pub fn update_text_layout_info(
-) {
+    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+        if node.is_changed() || text_flags.needs_recompute {
+                *text_layout_info = build_text_layout_info(
+                    &mut clayout.0,
+                    Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
+                    block.justify.into(),
+                    &mut scale_cx,
+                    &mut font_atlas_set,
+                    &mut texture_atlases,
+                    &mut textures,
+                    bevy_text::FontSmoothing::AntiAliased,
+                );
+        }
+    }
 }
