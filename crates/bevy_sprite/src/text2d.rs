@@ -220,23 +220,15 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        let text_bounds = TextBounds {
-            width: if block.linebreak == LineBreak::NoWrap {
-                None
-            } else {
-                bounds.width.map(|width| width * scale_factor)
-            },
-            height: bounds.height.map(|height| height * scale_factor),
-        };
-
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
+
         for (_, _, text, font, color) in text_reader.iter(entity) {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 font.font.as_str(),
                 font.font_size,
-                font.line_height.eval(font.font_size),
+                font.line_height,
                 color.to_linear(),
             ));
         }
@@ -253,7 +245,7 @@ pub fn update_text2d_layout(
 
         *text_layout_info = build_text_layout_info(
             layout,
-            bounds.width,
+            bounds.width.map(|w| w * scale_factor),
             block.justify.into(),
             &mut scale_cx,
             &mut font_cx,

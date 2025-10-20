@@ -92,6 +92,7 @@ impl Plugin for SpritePlugin {
                 .chain()
                 .in_set(bevy_text::Text2dUpdateSystems)
                 .after(TextSystems::Hierarchy)
+                .after(TextSystems::RegisterFontAssets)
                 .after(bevy_app::AnimationSystems),
         );
 

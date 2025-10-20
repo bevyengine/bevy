@@ -2,18 +2,23 @@ use crate::{FontAtlas, FontSmoothing, GlyphCacheKey};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
-use parley::fontique;
+use parley::FontData;
 
 /// Identifies the font atlases for a particular font in [`FontAtlasSet`]
 ///
 /// Allows an `f32` font size to be used as a key in a `HashMap`, by its binary representation.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
-pub struct FontAtlasKey(pub fontique::SourceId, pub u32, pub u32, pub FontSmoothing);
+pub struct FontAtlasKey(pub u64, pub u32, pub u32, pub FontSmoothing);
 
 impl FontAtlasKey {
     /// new key
-    pub fn new(info: &fontique::FontInfo, size: f32, smoothing: FontSmoothing) -> Self {
-        Self(info.source().id(), info.index(), size.to_bits(), smoothing)
+    pub fn new(font_data: &FontData, size: f32, smoothing: FontSmoothing) -> Self {
+        Self(
+            font_data.data.id(),
+            font_data.index,
+            size.to_bits(),
+            smoothing,
+        )
     }
 }
 

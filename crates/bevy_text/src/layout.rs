@@ -44,16 +44,16 @@ fn concat_text_for_layout<'a>(
 pub struct TextSectionStyle<'a, B> {
     font_family: &'a str,
     font_size: f32,
-    line_height: LineHeight,
+    line_height: crate::text::LineHeight,
     brush: B,
 }
 
 impl<'a, B: Brush> TextSectionStyle<'a, B> {
-    pub fn new(family: &'a str, size: f32, line_height: f32, brush: B) -> Self {
+    pub fn new(family: &'a str, size: f32, line_height: crate::LineHeight, brush: B) -> Self {
         Self {
             font_family: family,
             font_size: size,
-            line_height: LineHeight::Absolute(line_height),
+            line_height,
             brush,
         }
     }
@@ -70,9 +70,10 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
     let (text, section_ranges) = concat_text_for_layout(text_sections);
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
     for (style, range) in text_section_styles.zip(section_ranges) {
+        builder.push(StyleProperty::Brush(style.brush), range.clone());
         builder.push(FontStack::from(style.font_family), range.clone());
         builder.push(StyleProperty::FontSize(style.font_size), range.clone());
-        builder.push(style.line_height, range);
+        builder.push(style.line_height.eval(), range);
     }
     builder.build(&text)
 }
@@ -110,30 +111,8 @@ pub fn build_text_layout_info(
                     let font = run.font();
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
-                    let font_ref =
-                        FontRef::from_index(font.data.as_ref(), font.index as usize).unwrap();
 
-                    let font_collection =
-                        font_cx.collection.register_fonts(font.data.clone(), None);
-
-                    let (_family_id, font_info) = font_collection
-                        .into_iter()
-                        .find_map(|(fid, faces)| {
-                            faces
-                                .into_iter()
-                                .find(|fi| fi.index() == font.index)
-                                .map(|fi| (fid, fi))
-                        })
-                        .unwrap();
-
-                    let font_atlas_key = FontAtlasKey::new(&font_info, font_size, font_smoothing);
-
-                    let mut scaler = scale_cx
-                        .builder(font_ref)
-                        .size(font_size)
-                        .hint(true)
-                        .normalized_coords(coords)
-                        .build();
+                    let font_atlas_key = FontAtlasKey::new(&font, font_size, font_smoothing);
 
                     for glyph in glyph_run.positioned_glyphs() {
                         let font_atlases = font_atlas_set.entry(font_atlas_key).or_default();
@@ -145,6 +124,15 @@ pub fn build_text_layout_info(
                         )
                         .map(Ok)
                         .unwrap_or_else(|| {
+                            let font_ref =
+                                FontRef::from_index(font.data.as_ref(), font.index as usize)
+                                    .unwrap();
+                            let mut scaler = scale_cx
+                                .builder(font_ref)
+                                .size(font_size)
+                                .hint(true)
+                                .normalized_coords(coords)
+                                .build();
                             add_glyph_to_atlas(
                                 font_atlases,
                                 texture_atlases,
