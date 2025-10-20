@@ -1,37 +1,55 @@
-use super::{compute_builder::ComputeCommandBuilder, RenderTask};
+use super::{compute_builder::ComputeCommandBuilder, pipeline_cache::PipelineCache, RenderTask};
 use crate::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
+    PipelineCache as PipelineCompiler,
 };
-use bevy_asset::Handle;
 use bevy_ecs::{
+    entity::Entity,
     query::QueryItem,
     world::{FromWorld, World},
 };
-use bevy_shader::Shader;
-use std::marker::PhantomData;
-use wgpu::{CommandEncoder, ComputePass, ComputePassDescriptor};
+use std::{
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
+use wgpu::{CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDescriptor};
 
 #[derive(FromWorld)]
-pub struct RenderTaskNode<T: RenderTask>(PhantomData<T>);
+pub struct RenderTaskNode<T: RenderTask> {
+    pipeline_cache: Arc<Mutex<PipelineCache>>,
+    _phantom_data: PhantomData<T>,
+}
 
-// TODO: Can't implement ViewNode directly for T: RenderTask
 impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
-    type ViewQuery = (&'static T,);
+    type ViewQuery = (&'static T, Entity);
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        (task,): QueryItem<Self::ViewQuery>,
-        _world: &World,
+        render_context: &mut RenderContext<'w>,
+        (task, entity): QueryItem<'w, '_, Self::ViewQuery>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let mut encoder = RenderTaskEncoder {
-            command_encoder: render_context.command_encoder(),
-            compute_pass: None,
-        };
+        let pipeline_cache = Arc::clone(&self.pipeline_cache);
 
-        task.encode_commands(&mut encoder);
+        render_context.add_command_buffer_generation_task(move |render_device| {
+            let mut command_encoder =
+                render_device.create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("todo"),
+                });
+
+            let task_encoder = RenderTaskEncoder {
+                command_encoder: &mut command_encoder,
+                compute_pass: None,
+                pipeline_cache: &mut pipeline_cache.lock().unwrap(),
+                pipeline_compiler: world.resource::<PipelineCompiler>(),
+            };
+
+            task.encode_commands(task_encoder, entity, world);
+
+            command_encoder.finish()
+        });
 
         Ok(())
     }
@@ -39,26 +57,30 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
 
 pub struct RenderTaskEncoder<'a> {
     command_encoder: &'a mut CommandEncoder,
-    compute_pass: Option<ComputePass<'a>>,
+    compute_pass: Option<ComputePass<'static>>,
+    pipeline_cache: &'a mut PipelineCache,
+    pipeline_compiler: &'a PipelineCompiler,
 }
 
 impl<'a> RenderTaskEncoder<'a> {
-    pub fn begin_render_pass(&mut self) {
+    pub fn render_pass(&mut self) {
         todo!()
     }
 
-    pub fn compute_command(
-        &mut self,
-        pass_name: &'a str,
-        shader: Handle<Shader>,
-    ) -> ComputeCommandBuilder<'a> {
+    pub fn compute_pass<'b>(&'b mut self, pass_name: &'b str) -> ComputeCommandBuilder<'b> {
         if self.compute_pass.is_none() {
             self.compute_pass = Some(
                 self.command_encoder
-                    .begin_compute_pass(&ComputePassDescriptor::default()),
+                    .begin_compute_pass(&ComputePassDescriptor::default())
+                    .forget_lifetime(),
             );
         }
 
-        ComputeCommandBuilder::new(self.compute_pass.as_mut().unwrap(), pass_name, shader)
+        ComputeCommandBuilder::new(
+            self.compute_pass.as_mut().unwrap(),
+            pass_name,
+            self.pipeline_cache,
+            self.pipeline_compiler,
+        )
     }
 }

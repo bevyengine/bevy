@@ -41,7 +41,7 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_cam::{FreeCam, FreeCamPlugin, FreeCamState},
     color::palettes::tailwind,
     prelude::*,
 };
@@ -130,8 +130,11 @@ fn spawn_text(mut commands: Commands, freecam_query: Query<&FreeCam>) {
     ));
 }
 
-fn update_camera_settings(mut camera_query: Query<&mut FreeCam>, input: Res<ButtonInput<KeyCode>>) {
-    let mut free_cam = camera_query.single_mut().unwrap();
+fn update_camera_settings(
+    mut camera_query: Query<(&mut FreeCam, &mut FreeCamState)>,
+    input: Res<ButtonInput<KeyCode>>,
+) {
+    let (mut free_cam, mut free_cam_state) = camera_query.single_mut().unwrap();
 
     if input.pressed(KeyCode::KeyZ) {
         free_cam.sensitivity = (free_cam.sensitivity - 0.005).max(0.005);
@@ -152,24 +155,27 @@ fn update_camera_settings(mut camera_query: Query<&mut FreeCam>, input: Res<Butt
         free_cam.scroll_factor += 0.02;
     }
     if input.just_pressed(KeyCode::KeyB) {
-        free_cam.enabled = !free_cam.enabled;
+        free_cam_state.enabled = !free_cam_state.enabled;
     }
 }
 
-fn update_text(mut text_query: Query<&mut Text, With<InfoText>>, camera_query: Query<&FreeCam>) {
+fn update_text(
+    mut text_query: Query<&mut Text, With<InfoText>>,
+    camera_query: Query<(&FreeCam, &FreeCamState)>,
+) {
     let mut text = text_query.single_mut().unwrap();
 
-    let free_cam = camera_query.single().unwrap();
+    let (free_cam, free_cam_state) = camera_query.single().unwrap();
 
     text.0 = format!(
         "Enabled: {},\nSensitivity: {:.03}\nFriction: {:.01}\nScroll factor: {:.02}\nWalk Speed: {:.02}\nRun Speed: {:.02}\nSpeed: {:.02}",
-        free_cam.enabled,
+        free_cam_state.enabled,
         free_cam.sensitivity,
         free_cam.friction,
         free_cam.scroll_factor,
         free_cam.walk_speed,
         free_cam.run_speed,
-        free_cam.velocity.length(),
+        free_cam_state.velocity.length(),
     );
 }
 

@@ -310,6 +310,7 @@ bevy_dev_tools = ["dep:bevy_dev_tools"]
 # Provides a collection of prebuilt camera controllers
 bevy_camera_controller = ["dep:bevy_camera_controller"]
 free_cam = ["bevy_camera_controller/free_cam"]
+pan_cam = ["bevy_camera_controller/pan_cam"]
 
 # Enable support for the Bevy Remote Protocol
 bevy_remote = ["dep:bevy_remote", "serialize"]
@@ -425,7 +426,7 @@ web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-debug = ["bevy_utils/debug"]
+debug = ["bevy_utils/debug", "bevy_ecs/debug"]
 
 [dependencies]
 # bevy (no_std)

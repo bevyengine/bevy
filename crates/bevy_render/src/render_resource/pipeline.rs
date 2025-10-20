@@ -1,6 +1,5 @@
-use super::empty_bind_group_layout;
+use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
-use crate::{define_atomic_id, render_resource::BindGroupLayout};
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
 use bevy_mesh::VertexBufferLayout;
@@ -9,7 +8,8 @@ use core::iter;
 use core::ops::Deref;
 use thiserror::Error;
 use wgpu::{
-    ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
+    BindGroupLayoutEntry, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
+    PushConstantRange,
 };
 
 define_atomic_id!(RenderPipelineId);
@@ -87,13 +87,29 @@ impl Deref for ComputePipeline {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct BindGroupLayoutDescriptor {
+    /// Debug label of the bind group layout descriptor. This will show up in graphics debuggers for easy identification.
+    pub label: Cow<'static, str>,
+    pub entries: Vec<BindGroupLayoutEntry>,
+}
+
+impl BindGroupLayoutDescriptor {
+    pub fn new(label: impl Into<Cow<'static, str>>, entries: &[BindGroupLayoutEntry]) -> Self {
+        Self {
+            label: label.into(),
+            entries: entries.into(),
+        }
+    }
+}
+
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Hash)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
     /// The layout of bind groups for this pipeline.
-    pub layout: Vec<BindGroupLayout>,
+    pub layout: Vec<BindGroupLayoutDescriptor>,
     /// The push constant ranges for this pipeline.
     /// Supply an empty vector if the pipeline doesn't use push constants.
     pub push_constant_ranges: Vec<PushConstantRange>,
@@ -121,12 +137,12 @@ impl RenderPipelineDescriptor {
         self.fragment.as_mut().ok_or(NoFragmentStateError)
     }
 
-    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
-        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayoutDescriptor) {
+        filling_set_at(&mut self.layout, index, bevy_utils::default(), layout);
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Clone, Debug, Eq, PartialEq, Default, Hash)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -139,7 +155,7 @@ pub struct VertexState {
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Hash)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
@@ -158,10 +174,10 @@ impl FragmentState {
 }
 
 /// Describes a compute pipeline.
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Hash)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
-    pub layout: Vec<BindGroupLayout>,
+    pub layout: Vec<BindGroupLayoutDescriptor>,
     pub push_constant_ranges: Vec<PushConstantRange>,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
