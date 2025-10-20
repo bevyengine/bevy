@@ -66,6 +66,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
+
     let text_font = TextFont {
         font_size: 4.,
         ..Default::default()

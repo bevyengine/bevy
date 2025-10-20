@@ -16,13 +16,29 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        //.add_systems(Startup, hello_setup)
+        //.add_systems(Startup, glyph_setup)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (animate_translation, animate_rotation, animate_scale),
         )
         .run();
+}
+
+fn glyph_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.insert_resource(FontHolder(font));
+    let text_font = TextFont {
+        font: "Fira Sans".to_string(),
+        font_size: 50.0,
+        ..default()
+    };
+    commands.spawn((
+        Text2d::new("a"),
+        text_font.clone(),
+        TextBackgroundColor(MAGENTA.into()),
+    ));
 }
 
 fn hello_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
