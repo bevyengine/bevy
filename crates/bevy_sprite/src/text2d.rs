@@ -28,7 +28,6 @@ use bevy_text::{
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
-use std::collections::HashSet;
 
 /// The top-level 2D text component.
 ///
@@ -165,8 +164,6 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut previous: Local<HashSet<Entity>>,
-    mut rerender: Local<HashSet<Entity>>,
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     mut textures: ResMut<Assets<Image>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
@@ -221,7 +218,6 @@ pub fn update_text2d_layout(
                 .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
                 .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
             else {
-                rerender.insert(entity);
                 continue;
             };
             previous_scale_factor = *scale_factor;
@@ -229,10 +225,12 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if !previous.contains(&entity) {
-            if !computed.is_changed() {
-                continue;
-            }
+        if !(computed.is_changed()
+            || block.is_changed()
+            || bounds.is_changed()
+            || scale_factor != text_layout_info.scale_factor)
+        {
+            continue;
         }
 
         let mut text_sections: Vec<&str> = Vec::new();
@@ -270,8 +268,6 @@ pub fn update_text2d_layout(
             bevy_text::FontSmoothing::AntiAliased,
         );
     }
-    core::mem::swap(&mut *previous, &mut *rerender);
-    rerender.clear();
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some
