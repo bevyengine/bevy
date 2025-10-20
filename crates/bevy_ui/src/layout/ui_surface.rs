@@ -219,7 +219,7 @@ impl UiSurface {
                                     height: known_dimensions.height,
                                     available_width: available_space.width,
                                     available_height: available_space.height,
-                                    buffer,
+                                    text_layout: buffer,
                                 },
                                 style,
                             );
@@ -283,18 +283,17 @@ impl UiSurface {
 pub fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
-    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-) -> Option<&'a mut bevy_text::ComputedTextBlock> {
-    // // We avoid a query lookup whenever the buffer is not required.
-    // if !needs_buffer {
-    //     return None;
-    // }
-    // let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
-    //     return None;
-    // };
-    // let Ok(computed) = query.get_mut(info.entity) else {
-    //     return None;
-    // };
-    // Some(computed.into_inner())
-    None
+    query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextLayout>,
+) -> Option<&'a mut bevy_text::ComputedTextLayout> {
+    // We avoid a query lookup whenever the buffer is not required.
+    if !needs_buffer {
+        return None;
+    }
+    let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
+        return None;
+    };
+    let Ok(computed) = query.get_mut(info.entity) else {
+        return None;
+    };
+    Some(computed.into_inner())
 }

@@ -89,7 +89,7 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-    mut buffer_query: Query<&mut ComputedTextBlock>,
+    mut buffer_query: Query<&mut ComputedTextLayout>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
