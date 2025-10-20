@@ -1,13 +1,13 @@
 use crate::{
     render_resource::{
         CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
-        ComputePipelineDescriptor, RenderPipeline, RenderPipelineDescriptor,
+        ComputePipelineDescriptor, IntoBindingArray, RenderPipeline, RenderPipelineDescriptor,
     },
     PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::entity::Entity;
 use std::collections::HashMap;
-use wgpu::{Buffer, BufferDescriptor, TextureDescriptor, TextureView};
+use wgpu::{BindGroup, Buffer, BufferDescriptor, TextureDescriptor, TextureView};
 
 #[derive(Default)]
 pub struct ResourceCache {
@@ -49,6 +49,13 @@ impl ResourceCache {
     }
 
     pub fn get_or_create_buffer(&mut self) -> Buffer {
+        todo!()
+    }
+
+    pub fn get_or_create_bind_group<'b, const N: usize>(
+        &mut self,
+        resources: impl IntoBindingArray<'b, N>,
+    ) -> BindGroup {
         todo!()
     }
 }
