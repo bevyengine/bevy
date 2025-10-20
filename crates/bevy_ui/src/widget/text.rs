@@ -155,6 +155,14 @@ pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 /// UI alias for [`TextWriter`].
 pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
+
+/// Data for `TextMeasure`
+pub struct TextMeasureInfo {
+    pub min: Vec2,
+    pub max: Vec2,
+    pub entity: Entity,
+}
+
 /// Text measurement for UI layout. See [`NodeMeasure`].
 pub struct TextMeasure {
     pub info: TextMeasureInfo,
