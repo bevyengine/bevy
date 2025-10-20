@@ -137,3 +137,19 @@ pub const SWITCH_SLIDE: ThemeToken = ThemeToken::new_static("feathers.switch.sli
 /// Switch slide (disabled)
 pub const SWITCH_SLIDE_DISABLED: ThemeToken =
     ThemeToken::new_static("feathers.switch.slide.disabled");
+
+// Menus
+
+/// Menu background
+pub const MENU_BG: ThemeToken = ThemeToken::new_static("feathers.menu.bg");
+/// Menu border
+pub const MENU_BORDER: ThemeToken = ThemeToken::new_static("feathers.menu.border");
+/// Menu item hovered
+pub const MENUITEM_BG_HOVER: ThemeToken = ThemeToken::new_static("feathers.menuitem.bg.hover");
+/// Menu item pressed
+pub const MENUITEM_BG_PRESSED: ThemeToken = ThemeToken::new_static("feathers.menuitem.bg.pressed");
+/// Menu item text
+pub const MENUITEM_TEXT: ThemeToken = ThemeToken::new_static("feathers.menuitem.text");
+/// Menu item text (disabled)
+pub const MENUITEM_TEXT_DISABLED: ThemeToken =
+    ThemeToken::new_static("feathers.menuitem.text.disabled");

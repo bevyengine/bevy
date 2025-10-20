@@ -4,9 +4,9 @@ use bevy::{
     color::palettes,
     feathers::{
         controls::{
-            button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
-            ButtonProps, ButtonVariant, ColorChannel, ColorSlider, ColorSliderProps, ColorSwatch,
-            SliderBaseColor, SliderProps,
+            button, checkbox, color_slider, color_swatch, menu, menu_button, menu_item, menu_popup,
+            radio, slider, toggle_switch, ButtonProps, ButtonVariant, ColorChannel, ColorSlider,
+            ColorSliderProps, ColorSwatch, MenuButtonProps, SliderBaseColor, SliderProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -22,6 +22,7 @@ use bevy::{
         SliderPrecision, SliderStep, SliderValue, ValueChange,
     },
 };
+use bevy_scene2::SpawnRelatedScenes as _;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
@@ -123,6 +124,40 @@ fn demo_root() -> impl Scene {
                             })
                             [ (Text::new("Primary") ThemedText) ]
                         ),
+                        (
+                            menu(|parent| {
+                                parent.spawn_related_scenes::<Children>(bsn_list!(
+                                    :menu_popup()
+                                    [
+                                        (
+                                            :menu_item()
+                                            on(|_: On<Activate>| {
+                                                info!("Menu button clicked!");
+                                            })
+                                            [
+                                                (Text("MenuItem") ThemedText)
+                                            ]
+                                        ),
+                                        (
+                                            :menu_item()
+                                            on(|_: On<Activate>| {
+                                                info!("Menu button clicked!");
+                                            })
+                                            [
+                                                (Text("MenuItem") ThemedText)
+                                            ]
+                                        )
+                                    ]
+                                ));
+                            }) [
+                                (
+                                    :menu_button(MenuButtonProps::default())
+                                    [
+                                        (Text("Menu") ThemedText)
+                                    ]
+                                )
+                            ]
+                        )
                     ]
                 ),
                 (
