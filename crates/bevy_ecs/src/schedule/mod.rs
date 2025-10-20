@@ -570,7 +570,12 @@ mod tests {
             schedule.configure_sets(TestSystems::X.after(TestSystems::X));
             let mut world = World::new();
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
         }
 
         #[test]
@@ -579,7 +584,12 @@ mod tests {
             schedule.configure_sets((TestSystems::X, TestSystems::X).chain());
             let mut world = World::new();
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
         }
 
         #[test]
@@ -593,7 +603,9 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::DependencyCycle(_))
+                Err(ScheduleBuildError::DependencySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
             ));
 
             fn foo() {}
@@ -606,7 +618,9 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::DependencyCycle(_))
+                Err(ScheduleBuildError::FlatDependencySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
             ));
         }
 
@@ -616,7 +630,12 @@ mod tests {
             schedule.configure_sets(TestSystems::X.in_set(TestSystems::X));
             let mut world = World::new();
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::HierarchyLoop(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::HierarchySort(
+                    DiGraphToposortError::Loop(_)
+                ))
+            ));
         }
 
         #[test]
@@ -628,7 +647,12 @@ mod tests {
             schedule.configure_sets(TestSystems::B.in_set(TestSystems::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::HierarchySort(
+                    DiGraphToposortError::Cycle(_)
+                ))
+            ));
         }
 
         #[test]
