@@ -204,7 +204,7 @@ pub fn run_freecamera_controller(
 ) {
     let dt = time.delta_secs();
 
-    let Ok((mut transform, mut state, controller)) = query.single_mut() else {
+    let Ok((mut transform, mut state, config)) = query.single_mut() else {
         return;
     };
 
@@ -213,11 +213,11 @@ pub fn run_freecamera_controller(
         state.yaw = yaw;
         state.pitch = pitch;
         state.initialized = true;
-        info!("{}", *controller);
+        info!("{}", *config);
     }
 
     if !state.enabled {
-        // don't keep the cursor grabbed if the controller was disabled.
+        // don't keep the cursor grabbed if the camera controller was disabled.
         if *toggle_cursor_grab || *mouse_cursor_grab {
             *toggle_cursor_grab = false;
             *mouse_cursor_grab = false;
@@ -239,41 +239,41 @@ pub fn run_freecamera_controller(
         }
     };
     scroll += amount;
-    state.speed_multiplier += scroll * controller.scroll_factor;
+    state.speed_multiplier += scroll * config.scroll_factor;
     // Clamp the speed multiplier for safety
     state.speed_multiplier = state.speed_multiplier.clamp(0.0, f32::MAX);
 
     // Handle key input
     let mut axis_input = Vec3::ZERO;
-    if key_input.pressed(controller.key_forward) {
+    if key_input.pressed(config.key_forward) {
         axis_input.z += 1.0;
     }
-    if key_input.pressed(controller.key_back) {
+    if key_input.pressed(config.key_back) {
         axis_input.z -= 1.0;
     }
-    if key_input.pressed(controller.key_right) {
+    if key_input.pressed(config.key_right) {
         axis_input.x += 1.0;
     }
-    if key_input.pressed(controller.key_left) {
+    if key_input.pressed(config.key_left) {
         axis_input.x -= 1.0;
     }
-    if key_input.pressed(controller.key_up) {
+    if key_input.pressed(config.key_up) {
         axis_input.y += 1.0;
     }
-    if key_input.pressed(controller.key_down) {
+    if key_input.pressed(config.key_down) {
         axis_input.y -= 1.0;
     }
 
     let mut cursor_grab_change = false;
-    if key_input.just_pressed(controller.keyboard_key_toggle_cursor_grab) {
+    if key_input.just_pressed(config.keyboard_key_toggle_cursor_grab) {
         *toggle_cursor_grab = !*toggle_cursor_grab;
         cursor_grab_change = true;
     }
-    if mouse_button_input.just_pressed(controller.mouse_key_cursor_grab) {
+    if mouse_button_input.just_pressed(config.mouse_key_cursor_grab) {
         *mouse_cursor_grab = true;
         cursor_grab_change = true;
     }
-    if mouse_button_input.just_released(controller.mouse_key_cursor_grab) {
+    if mouse_button_input.just_released(config.mouse_key_cursor_grab) {
         *mouse_cursor_grab = false;
         cursor_grab_change = true;
     }
@@ -281,14 +281,14 @@ pub fn run_freecamera_controller(
 
     // Update velocity
     if axis_input != Vec3::ZERO {
-        let max_speed = if key_input.pressed(controller.key_run) {
-            controller.run_speed * state.speed_multiplier
+        let max_speed = if key_input.pressed(config.key_run) {
+            config.run_speed * state.speed_multiplier
         } else {
-            controller.walk_speed * state.speed_multiplier
+            config.walk_speed * state.speed_multiplier
         };
         state.velocity = axis_input.normalize() * max_speed;
     } else {
-        let friction = controller.friction.clamp(0.0, f32::MAX);
+        let friction = config.friction.clamp(0.0, f32::MAX);
         state.velocity.smooth_nudge(&Vec3::ZERO, friction, dt);
         if state.velocity.length_squared() < 1e-6 {
             state.velocity = Vec3::ZERO;
@@ -327,9 +327,9 @@ pub fn run_freecamera_controller(
     if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
         // Apply look update
         state.pitch = (state.pitch
-            - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * controller.sensitivity)
+            - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * config.sensitivity)
             .clamp(-PI / 2., PI / 2.);
-        state.yaw -= accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
+        state.yaw -= accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * config.sensitivity;
         transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, state.yaw, state.pitch);
     }
 }
