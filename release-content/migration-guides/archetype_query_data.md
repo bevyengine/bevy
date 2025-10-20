@@ -1,6 +1,6 @@
 ---
 title: "`ArchetypeQueryData` trait"
-pull_requests: []
+pull_requests: [21581]
 ---
 
 To support richer querying across relations,
