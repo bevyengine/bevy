@@ -227,11 +227,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
         if relationship.is_some() {
             quote! {
-                Some(unsafe {
-                    #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
-                        core::mem::offset_of!(Self, #relationship_member)
-                    )
-                })
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
             }
         } else {
             quote! {
