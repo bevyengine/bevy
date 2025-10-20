@@ -2,6 +2,7 @@
 
 mod access;
 mod builder;
+mod cache;
 mod error;
 mod fetch;
 mod filter;
@@ -9,7 +10,6 @@ mod iter;
 mod par_iter;
 mod state;
 mod world_query;
-mod cache;
 
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
@@ -122,10 +122,10 @@ mod tests {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::query::CacheState;
     use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
-    use bevy_ecs::query::CacheState;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
     struct A(usize);

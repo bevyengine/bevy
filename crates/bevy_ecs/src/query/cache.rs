@@ -1,28 +1,26 @@
+use crate::query::QueryState;
 use alloc::borrow::Cow;
-use core::fmt::{Debug, Formatter};
 use alloc::vec::Vec;
-use fixedbitset::FixedBitSet;
-use log::warn;
 use bevy_ecs::archetype::{Archetype, ArchetypeGeneration, ArchetypeId, Archetypes};
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity_disabling::DefaultQueryFilters;
 use bevy_ecs::prelude::World;
-use bevy_ecs::query::{QueryBuilder, QueryData, QueryFilter};
 use bevy_ecs::query::state::StorageId;
+use bevy_ecs::query::{QueryBuilder, QueryData, QueryFilter};
 use bevy_ecs::storage::{SparseSetIndex, TableId};
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
-use crate::query::QueryState;
+use core::fmt::{Debug, Formatter};
+use fixedbitset::FixedBitSet;
+use log::warn;
 
 impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
-
     /// Splits self into an immutable view of the "prefix"
     /// (all fields *except* cache) and a mutable ref to the `cache`.
     pub fn split_cache(&mut self) -> (&QueryState<D, F, Uncached>, &mut C) {
         // This is safe because `QueryState<..., Uncached>` is a
         // valid "prefix" of `QueryState<..., C>`, and QueryState uses `repr(c)`
-        let rest: &QueryState<D, F, Uncached> = unsafe {
-            &*(self as *mut Self as *const QueryState<D, F, Uncached>)
-        };
+        let rest: &QueryState<D, F, Uncached> =
+            unsafe { &*(self as *mut Self as *const QueryState<D, F, Uncached>) };
 
         // This is safe because `cache` is disjoint from the prefix.
         let cache_mut: &mut C = &mut self.cache;
@@ -46,6 +44,20 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
     pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
         let (uncached_state, cache) = self.split_cache();
         cache.update_archetypes(uncached_state, world);
@@ -57,7 +69,6 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         unsafe { self.cache.contains(self, archetype) }
     }
 }
-
 
 impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
@@ -85,15 +96,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
 
     /// Iterate through all archetypes that match the [`QueryState`] with an [`ArchetypeGeneration`] higher than the provided one,
     /// and call `f` on each of them.
-    fn iter_archetypes(&self, archetype_generation: ArchetypeGeneration, archetypes: &Archetypes, mut f: impl FnMut(&Archetype)) {
+    fn iter_archetypes(
+        &self,
+        archetype_generation: ArchetypeGeneration,
+        archetypes: &Archetypes,
+        mut f: impl FnMut(&Archetype),
+    ) {
         if self.component_access.required.is_empty() {
-            archetypes[archetype_generation..].iter().for_each(|archetype| {
-                // SAFETY: The validate_world call ensures that the world is the same the QueryState
-                // was initialized from.
-                if unsafe { self.matches_archetype(archetype) }  {
-                    f(archetype);
-                }
-            })
+            archetypes[archetype_generation..]
+                .iter()
+                .for_each(|archetype| {
+                    // SAFETY: The validate_world call ensures that the world is the same the QueryState
+                    // was initialized from.
+                    if unsafe { self.matches_archetype(archetype) } {
+                        f(archetype);
+                    }
+                })
         } else {
             // if there are required components, we can optimize by only iterating through archetypes
             // that contain at least one of the required components
@@ -127,37 +145,52 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
             }
         }
     }
-
 }
 
-pub trait QueryCache: Debug + Clone {
-
-    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell) -> IterationData<'s>;
+/// Types that can cache archetypes matched by a `Query`.
+pub trait QueryCache: Debug + Clone + Sync {
+    /// Returns the data needed to iterate through the archetypes that match the query.
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(
+        &'a self,
+        query: &QueryState<D, F, Self>,
+        world: UnsafeWorldCell,
+    ) -> IterationData<'s>;
 
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    unsafe fn contains<D: QueryData, F: QueryFilter>(&self, query: &QueryState<D, F, Self>, archetype: &Archetype) -> bool;
+    unsafe fn contains<D: QueryData, F: QueryFilter>(
+        &self,
+        query: &QueryState<D, F, Self>,
+        archetype: &Archetype,
+    ) -> bool;
 
     /// Creates a new [`QueryCache`] but does not populate it with the matched results from the World yet
     fn from_world_uninitialized<D: QueryData, F: QueryFilter>(world: &World) -> Self;
 
     /// Creates a new [`QueryCache`] but does not populate it with the matched results from the World yet
-    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self;
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(
+        builder: &QueryBuilder<D, F>,
+    ) -> Self;
 
-    fn update_archetypes<D: QueryData, F: QueryFilter>(&mut self, uncached: &QueryState<D, F, Uncached>, world: UnsafeWorldCell);
+    /// Update the [`QueryCache`] by storing in the cache every new archetypes that match the query.
+    fn update_archetypes<D: QueryData, F: QueryFilter>(
+        &mut self,
+        uncached: &QueryState<D, F, Uncached>,
+        world: UnsafeWorldCell,
+    );
 
     /// Return a new cache that contains the archetypes matched by the query joining self and other
     fn join(&self, other: &Self) -> Self;
-
-
 }
 
+/// Data needed to iterate through query results
 #[derive(Clone)]
 pub struct IterationData<'s> {
     pub(super) is_dense: bool,
     pub(super) storage_ids: Cow<'s, [StorageId]>,
 }
 
+/// Default [`QueryCache`] to use if caching is enabled for a query.
 #[derive(Clone)]
 pub struct CacheState {
     pub(crate) archetype_generation: ArchetypeGeneration,
@@ -173,15 +206,22 @@ pub struct CacheState {
 }
 
 impl QueryCache for CacheState {
-
-    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, _: &QueryState<D, F, Self>, _: UnsafeWorldCell) -> IterationData<'s> {
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(
+        &'a self,
+        _: &QueryState<D, F, Self>,
+        _: UnsafeWorldCell,
+    ) -> IterationData<'s> {
         IterationData {
             storage_ids: Cow::Borrowed(&self.matched_storage_ids),
             is_dense: self.is_dense,
         }
     }
 
-    unsafe fn contains<D: QueryData, F: QueryFilter>(&self, _: &QueryState<D, F, Self>, archetype: &Archetype) -> bool {
+    unsafe fn contains<D: QueryData, F: QueryFilter>(
+        &self,
+        _: &QueryState<D, F, Self>,
+        archetype: &Archetype,
+    ) -> bool {
         self.matched_archetypes.contains(archetype.id().index())
     }
 
@@ -204,7 +244,9 @@ impl QueryCache for CacheState {
         }
     }
 
-    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self {
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(
+        builder: &QueryBuilder<D, F>,
+    ) -> Self {
         // For dynamic queries the dense-ness is given by the query builder.
         let is_dense = builder.is_dense();
 
@@ -218,15 +260,23 @@ impl QueryCache for CacheState {
             is_dense,
         }
     }
-    fn update_archetypes<D: QueryData, F: QueryFilter>(&mut self, uncached: &QueryState<D, F, Uncached>, world: UnsafeWorldCell) {
+    fn update_archetypes<D: QueryData, F: QueryFilter>(
+        &mut self,
+        uncached: &QueryState<D, F, Uncached>,
+        world: UnsafeWorldCell,
+    ) {
         uncached.validate_world(world.id());
         if self.archetype_generation == world.archetypes().generation() {
             // skip if we are already up to date
-            return
+            return;
         }
-        let old_generation =
-                core::mem::replace(&mut self.archetype_generation, world.archetypes().generation());
-        uncached.iter_archetypes(old_generation, world.archetypes(), |archetype| self.cache_archetype(archetype));
+        let old_generation = core::mem::replace(
+            &mut self.archetype_generation,
+            world.archetypes().generation(),
+        );
+        uncached.iter_archetypes(old_generation, world.archetypes(), |archetype| {
+            self.cache_archetype(archetype)
+        });
     }
 
     fn join(&self, other: &Self) -> Self {
@@ -262,10 +312,8 @@ impl QueryCache for CacheState {
             matched_storage_ids,
             is_dense,
         }
-
     }
 }
-
 
 impl Debug for CacheState {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
@@ -311,27 +359,34 @@ impl CacheState {
             }
         }
     }
-
 }
 
-
+/// [`QueryCache`] used if caching is disabled for a query.
+///
+/// We will not cache any matching archetypes for a query, so they will have to be recomputed
+/// from scratch every time.
 #[derive(Debug, Clone)]
 pub struct Uncached {
     is_dense: bool,
 }
 
-
-
 impl QueryCache for Uncached {
-
-    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(&'a self, query: &QueryState<D, F, Self>, world: UnsafeWorldCell) -> IterationData<'s> {
+    fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(
+        &'a self,
+        query: &QueryState<D, F, Self>,
+        world: UnsafeWorldCell,
+    ) -> IterationData<'s> {
         let generation = world.archetypes().generation();
         let mut storage_ids = Vec::new();
         query.iter_archetypes(generation, world.archetypes(), |archetype| {
             storage_ids.push(if !self.is_dense {
-                StorageId { archetype_id: archetype.id() }
+                StorageId {
+                    archetype_id: archetype.id(),
+                }
             } else {
-                StorageId { table_id: archetype.table_id() }
+                StorageId {
+                    table_id: archetype.table_id(),
+                }
             })
         });
         IterationData {
@@ -340,7 +395,11 @@ impl QueryCache for Uncached {
         }
     }
 
-    unsafe fn contains<D: QueryData, F: QueryFilter>(&self, query: &QueryState<D, F, Self>, archetype: &Archetype) -> bool {
+    unsafe fn contains<D: QueryData, F: QueryFilter>(
+        &self,
+        query: &QueryState<D, F, Self>,
+        archetype: &Archetype,
+    ) -> bool {
         // SAFETY: satisfied from QueryCache::contains's safety constraints
         unsafe { query.matches_archetype(archetype) }
     }
@@ -351,11 +410,13 @@ impl QueryCache for Uncached {
         // TODO: what about computing is_dense from DefaultQueryFilters?
         //  Realistically all DefaultQueryFilters would be dense. We should enforce it.
         Uncached {
-            is_dense: D::IS_DENSE && F::IS_DENSE
+            is_dense: D::IS_DENSE && F::IS_DENSE,
         }
     }
 
-    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(builder: &QueryBuilder<D, F>) -> Self {
+    fn from_builder_uninitialized<D: QueryData, F: QueryFilter>(
+        builder: &QueryBuilder<D, F>,
+    ) -> Self {
         // TODO: what about computing is_dense from DefaultQueryFilters?
         //  Realistically all DefaultQueryFilters would be dense. We should enforce it.
         Uncached {
@@ -364,7 +425,11 @@ impl QueryCache for Uncached {
     }
 
     /// We do not update anything. This is here for feature parity.
-    fn update_archetypes<D: QueryData, F: QueryFilter>(&mut self, _: &QueryState<D, F, Uncached>, _: UnsafeWorldCell) {
+    fn update_archetypes<D: QueryData, F: QueryFilter>(
+        &mut self,
+        _: &QueryState<D, F, Uncached>,
+        _: UnsafeWorldCell,
+    ) {
     }
 
     fn join(&self, _: &Self) -> Self {

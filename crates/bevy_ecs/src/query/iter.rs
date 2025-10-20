@@ -1,4 +1,3 @@
-use alloc::borrow::Cow;
 use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
@@ -12,7 +11,9 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef,
     },
 };
+use alloc::borrow::Cow;
 use alloc::vec::Vec;
+use bevy_ecs::query::cache::QueryCache;
 use core::{
     cmp::Ordering,
     fmt::{self, Debug, Formatter},
@@ -21,7 +22,6 @@ use core::{
     ops::Range,
 };
 use nonmax::NonMaxU32;
-use bevy_ecs::query::cache::QueryCache;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -955,16 +955,28 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Iterator for QueryIter
 }
 
 // This is correct as [`QueryIter`] always returns `None` once exhausted.
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> FusedIterator for QueryIter<'w, 's, D, F, C> {}
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> FusedIterator
+    for QueryIter<'w, 's, D, F, C>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator for QueryIter<'w, 's, Entity, F, C> {}
+unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator
+    for QueryIter<'w, 's, Entity, F, C>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator for QueryIter<'w, 's, EntityRef<'_>, F, C> {}
+unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator
+    for QueryIter<'w, 's, EntityRef<'_>, F, C>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
-unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator for QueryIter<'w, 's, EntityMut<'_>, F, C> {}
+unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator
+    for QueryIter<'w, 's, EntityMut<'_>, F, C>
+{
+}
 
 // SAFETY: [`QueryIter`] is guaranteed to return every matching entity once and only once.
 unsafe impl<'w, 's, F: QueryFilter, C: QueryCache> EntitySetIterator
@@ -996,7 +1008,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Debug for QueryIter<'w
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache> Clone for QueryIter<'w, 's, D, F, C> {
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache> Clone
+    for QueryIter<'w, 's, D, F, C>
+{
     fn clone(&self) -> Self {
         self.remaining()
     }
@@ -1019,7 +1033,8 @@ where
     query_state: &'s QueryState<D, F, C>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator> QuerySortedIter<'w, 's, D, F, C, I>
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator>
+    QuerySortedIter<'w, 's, D, F, C, I>
 where
     I: Iterator<Item = Entity>,
 {
@@ -1159,8 +1174,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Ent
 /// Entities that don't match the query are skipped.
 ///
 /// This struct is created by the [`Query::iter_many`](crate::system::Query::iter_many) and [`Query::iter_many_mut`](crate::system::Query::iter_many_mut) methods.
-pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: EntityEquivalent>>
-{
+pub struct QueryManyIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    C: QueryCache,
+    I: Iterator<Item: EntityEquivalent>,
+> {
     world: UnsafeWorldCell<'w>,
     entity_iter: I,
     entities: &'w Entities,
@@ -1776,8 +1797,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: Enti
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: DoubleEndedIterator<Item: EntityEquivalent>>
-    QueryManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: QueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: DoubleEndedIterator<Item: EntityEquivalent>,
+    > QueryManyIter<'w, 's, D, F, C, I>
 {
     /// Get next result from the back of the query
     #[inline(always)]
@@ -1802,8 +1829,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: DoubleEndedIterator
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: EntityEquivalent>> Iterator
-    for QueryManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: Iterator<Item: EntityEquivalent>,
+    > Iterator for QueryManyIter<'w, 's, D, F, C, I>
 {
     type Item = D::Item<'w, 's>;
 
@@ -1860,8 +1893,14 @@ impl<
 }
 
 // This is correct as [`QueryManyIter`] always returns `None` once exhausted.
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: EntityEquivalent>>
-    FusedIterator for QueryManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: Iterator<Item: EntityEquivalent>,
+    > FusedIterator for QueryManyIter<'w, 's, D, F, C, I>
 {
 }
 
@@ -1892,9 +1931,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: Enti
 /// [`iter_many_unique`]: crate::system::Query::iter_many
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_mut
 /// [`Query`]: crate::system::Query
-pub struct QueryManyUniqueIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: EntitySetIterator>(
-    QueryManyIter<'w, 's, D, F, C, I>,
-);
+pub struct QueryManyUniqueIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    C: QueryCache,
+    I: EntitySetIterator,
+>(QueryManyIter<'w, 's, D, F, C, I>);
 
 impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: EntitySetIterator>
     QueryManyUniqueIter<'w, 's, D, F, C, I>
@@ -1971,7 +2015,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: EntitySetIterator> 
 /// This struct is created by the [`sort`](QueryManyIter), [`sort_unstable`](QueryManyIter),
 /// [`sort_by`](QueryManyIter), [`sort_unstable_by`](QueryManyIter), [`sort_by_key`](QueryManyIter),
 /// [`sort_unstable_by_key`](QueryManyIter), and [`sort_by_cached_key`](QueryManyIter) methods of [`QueryManyIter`].
-pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Entity>> {
+pub struct QuerySortedManyIter<
+    'w,
+    's,
+    D: QueryData,
+    F: QueryFilter,
+    C: QueryCache,
+    I: Iterator<Item = Entity>,
+> {
     entity_iter: I,
     entities: &'w Entities,
     tables: &'w Tables,
@@ -2070,8 +2121,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Ent
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: DoubleEndedIterator<Item = Entity>>
-    QuerySortedManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: QueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: DoubleEndedIterator<Item = Entity>,
+    > QuerySortedManyIter<'w, 's, D, F, C, I>
 {
     /// Get next result from the query
     #[inline(always)]
@@ -2089,8 +2146,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: DoubleEndedIterator
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Entity>> Iterator
-    for QuerySortedManyIter<'w, 's, D, F, C, I>
+impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Entity>>
+    Iterator for QuerySortedManyIter<'w, 's, D, F, C, I>
 {
     type Item = D::Item<'w, 's>;
 
@@ -2108,8 +2165,14 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: Iterator<It
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: DoubleEndedIterator<Item = Entity>>
-    DoubleEndedIterator for QuerySortedManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: DoubleEndedIterator<Item = Entity>,
+    > DoubleEndedIterator for QuerySortedManyIter<'w, 's, D, F, C, I>
 {
     #[inline(always)]
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -2121,8 +2184,14 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: DoubleEnded
     }
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, I: ExactSizeIterator<Item = Entity>>
-    ExactSizeIterator for QuerySortedManyIter<'w, 's, D, F, C, I>
+impl<
+        'w,
+        's,
+        D: ReadOnlyQueryData,
+        F: QueryFilter,
+        C: QueryCache,
+        I: ExactSizeIterator<Item = Entity>,
+    > ExactSizeIterator for QuerySortedManyIter<'w, 's, D, F, C, I>
 {
 }
 
@@ -2197,14 +2266,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item = Ent
 /// [`Query`]: crate::system::Query
 /// [`Query::iter_combinations`]: crate::system::Query::iter_combinations
 /// [`Query::iter_combinations_mut`]: crate::system::Query::iter_combinations_mut
-pub struct QueryCombinationIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize> {
+pub struct QueryCombinationIter<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize>
+{
     tables: &'w Tables,
     archetypes: &'w Archetypes,
     query_state: &'s QueryState<D, F, C>,
     cursors: [QueryIterationCursor<'w, 's, D, F, C>; K],
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize> QueryCombinationIter<'w, 's, D, F, C, K> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize>
+    QueryCombinationIter<'w, 's, D, F, C, K>
+{
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -2218,7 +2290,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize> QueryC
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
 
-        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, D, F, C>; K]> = MaybeUninit::uninit();
+        let mut array: MaybeUninit<[QueryIterationCursor<'w, 's, D, F, C>; K]> =
+            MaybeUninit::uninit();
         let ptr = array
             .as_mut_ptr()
             .cast::<QueryIterationCursor<'w, 's, D, F, C>>();
@@ -2349,7 +2422,8 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache, const K: usize
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> ExactSizeIterator for QueryIter<'w, 's, D, F, C>
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> ExactSizeIterator
+    for QueryIter<'w, 's, D, F, C>
 where
     F: ArchetypeFilter,
 {
@@ -2400,12 +2474,14 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> Clone for QueryIterationCursor
             filter: self.filter.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
-            _cache: core::marker::PhantomData
+            _cache: core::marker::PhantomData,
         }
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's> QueryIterationCursor<'w, 's, D, F, C> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
+    QueryIterationCursor<'w, 's, D, F, C>
+{
     /// # Safety
     /// - `world` must have permission to access any of the components registered in `query_state`.
     /// - `world` must be the same one used to initialize `query_state`.
@@ -2433,10 +2509,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's> QueryIterationCur
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         let iteration_data = query_state.cache.iteration_data(query_state, world);
-        let (owned_storage_ids, storage_id_iter)  =match iteration_data.storage_ids {
-            Cow::Borrowed(slice) => {
-                (None, slice.iter())
-            }
+        let (owned_storage_ids, storage_id_iter) = match iteration_data.storage_ids {
+            Cow::Borrowed(slice) => (None, slice.iter()),
             Cow::Owned(owned) => {
                 let owned_ids = Some(owned);
                 let slice_ptr: *const [StorageId] = owned_ids.as_ref().unwrap().as_slice();
@@ -2463,7 +2537,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's> QueryIterationCur
         }
     }
 
-
     fn reborrow(&mut self) -> QueryIterationCursor<'_, 's, D, F, C> {
         QueryIterationCursor {
             is_dense: self.is_dense,
@@ -2475,7 +2548,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's> QueryIterationCur
             owned_storage_ids: self.owned_storage_ids.clone(),
             current_len: self.current_len,
             current_row: self.current_row,
-            _cache: core::marker::PhantomData
+            _cache: core::marker::PhantomData,
         }
     }
 
@@ -2485,7 +2558,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's> QueryIterationCur
     /// The result of `next` and any previous calls to `peek_last` with this row must have been
     /// dropped to prevent aliasing mutable references.
     #[inline]
-    unsafe fn peek_last(&mut self, query_state: &'s QueryState<D, F, C>) -> Option<D::Item<'w, 's>> {
+    unsafe fn peek_last(
+        &mut self,
+        query_state: &'s QueryState<D, F, C>,
+    ) -> Option<D::Item<'w, 's>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if self.is_dense {

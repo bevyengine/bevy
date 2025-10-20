@@ -1,11 +1,11 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId},
+    archetype::ArchetypeId,
     change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
-    storage::{TableId},
+    storage::TableId,
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
@@ -13,17 +13,15 @@ use crate::{
 #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
 use crate::entity::UniqueEntityEquivalentSlice;
 
-use bevy_utils::prelude::DebugName;
-use core::{fmt, ptr};
-#[cfg(feature = "trace")]
-use tracing::Span;
-use bevy_ecs::query::cache::{CacheState, QueryCache};
-#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-use bevy_ecs::query::IterationData;
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
     QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
+use bevy_ecs::query::cache::{CacheState, QueryCache};
+use bevy_utils::prelude::DebugName;
+use core::{fmt, ptr};
+#[cfg(feature = "trace")]
+use tracing::Span;
 
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
@@ -80,7 +78,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = CacheSt
     pub(crate) cache: C,
 }
 
-
 impl<D: QueryData, F: QueryFilter, C: QueryCache> fmt::Debug for QueryState<D, F, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
@@ -97,7 +94,6 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
-
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F, C> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -1179,7 +1175,10 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
     /// [`par_iter`]: Self::par_iter
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
-    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F, C> {
+    pub fn par_iter_mut<'w, 's>(
+        &'s mut self,
+        world: &'w mut World,
+    ) -> QueryParIter<'w, 's, D, F, C> {
         self.query_mut(world).par_iter_inner()
     }
 
@@ -1216,7 +1215,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
-        let iteration_data = self.iteration_data(world);
+        let iteration_data = self.cache.iteration_data(self, world);
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             // SAFETY: We only access table data that has been registered in `self.component_access`.
@@ -1265,14 +1264,14 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
             };
 
             let storage_entity_count = |storage_id: StorageId| -> u32 {
-                if iteration_data.is_dense() {
+                if iteration_data.is_dense {
                     tables[storage_id.table_id].entity_count()
                 } else {
                     archetypes[storage_id.archetype_id].len()
                 }
             };
 
-            for storage_id in &iteration_data.storage_ids() {
+            for storage_id in iteration_data.storage_ids.iter() {
                 let count = storage_entity_count(*storage_id);
 
                 // skip empty storage
@@ -1568,7 +1567,9 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter, C: QueryCache> From<QueryBuilder<'_, D, F>> for QueryState<D, F, C> {
+impl<D: QueryData, F: QueryFilter, C: QueryCache> From<QueryBuilder<'_, D, F>>
+    for QueryState<D, F, C>
+{
     fn from(mut value: QueryBuilder<D, F>) -> Self {
         QueryState::from_builder(&mut value)
     }

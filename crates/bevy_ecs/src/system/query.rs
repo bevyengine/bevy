@@ -11,12 +11,12 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use bevy_ecs::query::{CacheState, QueryCache};
 use core::{
     marker::PhantomData,
     mem::MaybeUninit,
     ops::{Deref, DerefMut},
 };
-use bevy_ecs::query::{CacheState, QueryCache};
 
 /// A [system parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -791,7 +791,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Query<'w, 's, D, F, C>
     /// - [`iter_combinations`](Self::iter_combinations) for read-only query item combinations.
     /// - [`iter_combinations_mut`](Self::iter_combinations_mut) for mutable query item combinations.
     #[inline]
-    pub fn iter_combinations_inner<const K: usize>(self) -> QueryCombinationIter<'w, 's, D, F, C, K> {
+    pub fn iter_combinations_inner<const K: usize>(
+        self,
+    ) -> QueryCombinationIter<'w, 's, D, F, C, K> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe { QueryCombinationIter::new(self.world, self.state, self.last_run, self.this_run) }
     }
@@ -1259,7 +1261,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Query<'w, 's, D, F, C>
             world: self.world,
             state: self.state,
             #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-            iteration_data: self.state.iteration_data(self.world),
+            iteration_data: self.state.cache.iteration_data(self.state, self.world),
             last_run: self.last_run,
             this_run: self.this_run,
             batching_strategy: BatchingStrategy::new(),
@@ -2511,7 +2513,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for Query
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &'w Query<'_, 's, D, F, C> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator
+    for &'w Query<'_, 's, D, F, C>
+{
     type Item = ROQueryItem<'w, 's, D>;
     type IntoIter = QueryIter<'w, 's, D::ReadOnly, F, C>;
 
@@ -2520,7 +2524,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &'w Q
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &'w mut Query<'_, 's, D, F, C> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator
+    for &'w mut Query<'_, 's, D, F, C>
+{
     type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F, C>;
 
@@ -2675,7 +2681,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
 /// See [`Query`] for more details.
 ///
 /// [System parameter]: crate::system::SystemParam
-pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = (), C: QueryCache = CacheState>(pub(crate) Query<'w, 's, D, F, C>);
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = (), C: QueryCache = CacheState>(
+    pub(crate) Query<'w, 's, D, F, C>,
+);
 
 impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Deref for Populated<'w, 's, D, F, C> {
     type Target = Query<'w, 's, D, F, C>;
@@ -2698,7 +2706,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Populated<'w, 's, D, F
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for Populated<'w, 's, D, F, C> {
+impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator
+    for Populated<'w, 's, D, F, C>
+{
     type Item = <Query<'w, 's, D, F, C> as IntoIterator>::Item;
 
     type IntoIter = <Query<'w, 's, D, F, C> as IntoIterator>::IntoIter;
@@ -2708,7 +2718,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for Popul
     }
 }
 
-impl<'a, 'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &'a Populated<'w, 's, D, F, C> {
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator
+    for &'a Populated<'w, 's, D, F, C>
+{
     type Item = <&'a Query<'w, 's, D, F, C> as IntoIterator>::Item;
 
     type IntoIter = <&'a Query<'w, 's, D, F, C> as IntoIterator>::IntoIter;
@@ -2718,7 +2730,9 @@ impl<'a, 'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &
     }
 }
 
-impl<'a, 'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator for &'a mut Populated<'w, 's, D, F, C> {
+impl<'a, 'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> IntoIterator
+    for &'a mut Populated<'w, 's, D, F, C>
+{
     type Item = <&'a mut Query<'w, 's, D, F, C> as IntoIterator>::Item;
 
     type IntoIter = <&'a mut Query<'w, 's, D, F, C> as IntoIterator>::IntoIter;
