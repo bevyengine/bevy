@@ -2,10 +2,12 @@
 
 mod maybe_location;
 mod params;
+mod tick;
 mod traits;
 
 pub use maybe_location::MaybeLocation;
 pub use params::*;
+pub use tick::*;
 pub use traits::{DetectChanges, DetectChangesMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -32,10 +34,10 @@ mod tests {
 
     use crate::{
         change_detection::{
-            ComponentTicksMut, MaybeLocation, Mut, NonSendMut, Ref, ResMut, CHECK_TICK_THRESHOLD,
-            MAX_CHANGE_AGE,
+            ComponentTicks, ComponentTicksMut, MaybeLocation, Mut, NonSendMut, Ref, ResMut, Tick,
+            CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
-        component::{Component, ComponentTicks, Tick},
+        component::Component,
         system::{IntoSystem, Single, System},
         world::World,
     };

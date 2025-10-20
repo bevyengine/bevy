@@ -52,7 +52,7 @@ use crate::meshlet::{
 
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Tick, system::SystemChangeTick};
+use bevy_ecs::{change_detection::Tick, system::SystemChangeTick};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     erased_render_asset::ErasedRenderAssets,

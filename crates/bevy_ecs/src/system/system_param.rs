@@ -2,8 +2,8 @@ pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{ComponentTicksMut, ComponentTicksRef},
-    component::{ComponentId, Components, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
+    component::{ComponentId, Components},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,

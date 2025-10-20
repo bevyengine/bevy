@@ -1,8 +1,8 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},

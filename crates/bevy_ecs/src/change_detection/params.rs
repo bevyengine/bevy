@@ -1,6 +1,5 @@
 use crate::{
-    change_detection::{traits::*, MaybeLocation},
-    component::{ComponentTickCells, Tick},
+    change_detection::{traits::*, ComponentTickCells, MaybeLocation, Tick},
     ptr::PtrMut,
     resource::Resource,
 };

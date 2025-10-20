@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
