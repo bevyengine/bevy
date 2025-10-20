@@ -22,7 +22,7 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, FontAtlasSet,
-    FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
+    FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
     TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
@@ -200,7 +200,7 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, computed) in &mut text_query {
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, _computed) in &mut text_query {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
         let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
@@ -222,7 +222,6 @@ pub fn update_text2d_layout(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
-
         for (_, _, text, font, color) in text_reader.iter(entity) {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
@@ -241,6 +240,7 @@ pub fn update_text2d_layout(
             text_sections.iter().copied(),
             text_section_styles.iter().copied(),
             scale_factor,
+            block.linebreak,
         );
 
         *text_layout_info = build_text_layout_info(

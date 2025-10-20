@@ -21,8 +21,10 @@ use parley::LayoutContext;
 use parley::LineHeight;
 use parley::PositionedLayoutItem;
 use parley::StyleProperty;
+use parley::WordBreakStrength;
 use std::ops::Range;
 use swash::scale::ScaleContext;
+use swash::text::LineBreak;
 
 fn concat_text_for_layout<'a>(
     text_sections: impl Iterator<Item = &'a str>,
@@ -66,9 +68,18 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
     text_sections: impl Iterator<Item = &'a str>,
     text_section_styles: impl Iterator<Item = TextSectionStyle<'a, B>>,
     scale_factor: f32,
+    line_break: crate::text::LineBreak,
 ) -> Layout<B> {
     let (text, section_ranges) = concat_text_for_layout(text_sections);
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
+    if let Some(word_break_strength) = match line_break {
+        crate::LineBreak::WordBoundary => Some(WordBreakStrength::Normal),
+        crate::LineBreak::AnyCharacter => Some(WordBreakStrength::BreakAll),
+        crate::LineBreak::WordOrCharacter => Some(WordBreakStrength::KeepAll),
+        _ => None,
+    } {
+        builder.push_default(StyleProperty::WordBreak(word_break_strength));
+    };
     for (style, range) in text_section_styles.zip(section_ranges) {
         builder.push(StyleProperty::Brush(style.brush), range.clone());
         builder.push(FontStack::from(style.font_family), range.clone());
