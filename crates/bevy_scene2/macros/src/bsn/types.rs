@@ -1,5 +1,5 @@
 use proc_macro2::TokenStream;
-use syn::{punctuated::Punctuated, Block, Expr, Ident, Lit, LitStr, Path, Token};
+use syn::{punctuated::Punctuated, Expr, Ident, Lit, LitStr, Path, Stmt, Token};
 
 #[derive(Debug)]
 pub struct BsnRoot(pub Bsn<true>);
@@ -46,7 +46,7 @@ pub struct BsnSceneListItems(pub Vec<BsnSceneListItem>);
 #[derive(Debug)]
 pub enum BsnSceneListItem {
     Scene(Bsn<true>),
-    Expression(Block),
+    Expression(Vec<Stmt>),
 }
 
 #[derive(Debug)]

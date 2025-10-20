@@ -410,7 +410,7 @@ impl BsnSceneListItems {
                 let tokens = bsn.to_tokens(bevy_scene, bevy_ecs, bevy_asset, entity_refs);
                 quote! {#bevy_scene::EntityScene(#tokens)}
             }
-            BsnSceneListItem::Expression(block) => quote! {#block},
+            BsnSceneListItem::Expression(statements) => quote! {#(#statements)*},
         });
         quote! {
             #bevy_scene::auto_nest_tuple!(#(#scenes),*)

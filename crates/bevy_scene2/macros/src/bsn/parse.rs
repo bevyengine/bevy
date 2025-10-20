@@ -179,7 +179,8 @@ impl Parse for BsnSceneListItems {
 impl Parse for BsnSceneListItem {
     fn parse(input: ParseStream) -> Result<Self> {
         Ok(if input.peek(Brace) {
-            BsnSceneListItem::Expression(input.parse::<Block>()?)
+            let block = input.parse::<Block>()?;
+            BsnSceneListItem::Expression(block.stmts)
         } else {
             BsnSceneListItem::Scene(input.parse::<Bsn<true>>()?)
         })
