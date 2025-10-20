@@ -235,8 +235,6 @@ pub fn update_text2d_layout(
             }
         }
 
-        println!("\n************** UPDATE ************\n");
-
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
         for (_, _, text, font, color) in text_reader.iter(entity) {
@@ -266,7 +264,6 @@ pub fn update_text2d_layout(
             bounds.width.map(|w| w * scale_factor),
             block.justify.into(),
             &mut scale_cx,
-            &mut font_cx,
             &mut font_atlas_set,
             &mut texture_atlases,
             &mut textures,

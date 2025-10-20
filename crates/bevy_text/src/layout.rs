@@ -18,13 +18,11 @@ use parley::FontContext;
 use parley::FontStack;
 use parley::Layout;
 use parley::LayoutContext;
-use parley::LineHeight;
 use parley::PositionedLayoutItem;
 use parley::StyleProperty;
 use parley::WordBreakStrength;
 use std::ops::Range;
 use swash::scale::ScaleContext;
-use swash::text::LineBreak;
 
 fn concat_text_for_layout<'a>(
     text_sections: impl Iterator<Item = &'a str>,
@@ -42,6 +40,7 @@ fn concat_text_for_layout<'a>(
     (out, ranges)
 }
 
+/// Resolved text style
 #[derive(Clone, Copy, Debug)]
 pub struct TextSectionStyle<'a, B> {
     font_family: &'a str,
@@ -51,6 +50,7 @@ pub struct TextSectionStyle<'a, B> {
 }
 
 impl<'a, B: Brush> TextSectionStyle<'a, B> {
+    /// new text section style
     pub fn new(family: &'a str, size: f32, line_height: crate::LineHeight, brush: B) -> Self {
         Self {
             font_family: family,
@@ -96,7 +96,6 @@ pub fn build_text_layout_info(
     max_advance: Option<f32>,
     alignment: Alignment,
     scale_cx: &mut ScaleContext,
-    font_cx: &mut FontContext,
     font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,

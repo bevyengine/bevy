@@ -23,25 +23,36 @@ impl Default for TextTarget {
 /// update text entities lists
 pub fn update_text_entities_system(
     mut buffer: Local<Vec<Entity>>,
-    mut root_query: Query<(Entity, &mut ComputedTextBlock), With<TextRoot>>,
+    mut root_query: Query<(Entity, &mut ComputedTextBlock, Option<&Children>), With<TextRoot>>,
     mut targets_query: Query<&mut TextTarget>,
     children_query: Query<&Children, With<TextSpan>>,
 ) {
-    for (root_id, mut entities) in root_query.iter_mut() {
+    for (root_id, mut entities, maybe_children) in root_query.iter_mut() {
         buffer.push(root_id);
-        for entity in children_query.iter_descendants_depth_first(root_id) {
-            buffer.push(entity);
+        if let Some(children) = maybe_children {
+            for entity in children.iter() {
+                buffer.push(entity);
+                for entity in children_query.iter_descendants_depth_first(root_id) {
+                    buffer.push(entity);
+                }
+            }
         }
         if buffer.as_slice() != entities.0.as_slice() {
             entities.0.clear();
             entities.0.extend_from_slice(&buffer);
 
-            let mut targets_iter = targets_query.iter_many_mut(entities.0.as_slice());
+            let mut targets_iter = targets_query.iter_many_mut(entities.0.iter().skip(1).copied());
             while let Some(mut target) = targets_iter.fetch_next() {
                 target.0 = root_id;
             }
         }
         buffer.clear();
+    }
+}
+
+pub fn update_roots(mut root_query: Query<(Entity, &mut TextTarget), With<TextRoot>>) {
+    for (e, mut t) in root_query.iter_mut() {
+        t.0 = e;
     }
 }
 

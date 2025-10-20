@@ -107,7 +107,7 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .add_systems(
                 PostUpdate,
-                update_text_entities_system.in_set(TextSystems::Hierarchy),
+                (update_roots, update_text_entities_system).in_set(TextSystems::Hierarchy),
             )
             .add_systems(
                 PostUpdate,
