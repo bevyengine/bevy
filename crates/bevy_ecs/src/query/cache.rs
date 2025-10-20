@@ -20,7 +20,9 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         // This is safe because `QueryState<..., Uncached>` is a
         // valid "prefix" of `QueryState<..., C>`, and QueryState uses `repr(c)`
         let rest: &QueryState<D, F, Uncached> =
-            unsafe { &*(self as *mut Self as *const QueryState<D, F, Uncached>) };
+            // SAFETY: This is safe because `QueryState<..., Uncached>` is a
+            // valid "prefix" of `QueryState<..., C>`, and QueryState uses `repr(c)`
+            unsafe { &*(core::ptr::from_mut::<Self>(self) as *const QueryState<D, F, Uncached>) };
 
         // This is safe because `cache` is disjoint from the prefix.
         let cache_mut: &mut C = &mut self.cache;
@@ -111,7 +113,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
                     if unsafe { self.matches_archetype(archetype) } {
                         f(archetype);
                     }
-                })
+                });
         } else {
             // if there are required components, we can optimize by only iterating through archetypes
             // that contain at least one of the required components
@@ -139,7 +141,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     if unsafe { self.matches_archetype(archetype) } {
-                        f(archetype)
+                        f(archetype);
                     }
                 }
             }
@@ -275,7 +277,7 @@ impl QueryCache for CacheState {
             world.archetypes().generation(),
         );
         uncached.iter_archetypes(old_generation, world.archetypes(), |archetype| {
-            self.cache_archetype(archetype)
+            self.cache_archetype(archetype);
         });
     }
 
@@ -387,7 +389,7 @@ impl QueryCache for Uncached {
                 StorageId {
                     table_id: archetype.table_id(),
                 }
-            })
+            });
         });
         IterationData {
             is_dense: self.is_dense,
