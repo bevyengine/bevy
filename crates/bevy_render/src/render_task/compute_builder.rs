@@ -1,4 +1,4 @@
-use super::pipeline_cache::PipelineCache;
+use super::resource_cache::ResourceCache;
 use crate::{
     render_resource::{BindGroupLayoutDescriptor, ComputePipelineDescriptor},
     PipelineCache as PipelineCompiler,
@@ -18,7 +18,7 @@ pub struct ComputeCommandBuilder<'a> {
     push_constants: Option<&'a [u8]>,
     bind_groups: Vec<Option<BindGroup>>,
     bind_group_layouts: Vec<BindGroupLayoutDescriptor>,
-    pipeline_cache: &'a mut PipelineCache,
+    resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
 }
 
@@ -26,7 +26,7 @@ impl<'a> ComputeCommandBuilder<'a> {
     pub fn new(
         pass: &'a mut ComputePass<'static>,
         pass_name: &'a str,
-        pipeline_cache: &'a mut PipelineCache,
+        resource_cache: &'a mut ResourceCache,
         pipeline_compiler: &'a PipelineCompiler,
     ) -> Self {
         Self {
@@ -38,7 +38,7 @@ impl<'a> ComputeCommandBuilder<'a> {
             push_constants: None,
             bind_groups: Vec::new(),
             bind_group_layouts: Vec::new(),
-            pipeline_cache,
+            resource_cache,
             pipeline_compiler,
         }
     }
@@ -115,7 +115,7 @@ impl<'a> ComputeCommandBuilder<'a> {
             })
             .unwrap_or_default();
 
-        let pipeline = self.pipeline_cache.get_or_compile_compute_pipeline(
+        let pipeline = self.resource_cache.get_or_compile_compute_pipeline(
             ComputePipelineDescriptor {
                 label: Some(self.pass_name.to_owned().into()),
                 layout: self.bind_group_layouts.clone(),

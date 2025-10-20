@@ -1,4 +1,4 @@
-use super::{compute_builder::ComputeCommandBuilder, pipeline_cache::PipelineCache, RenderTask};
+use super::{compute_builder::ComputeCommandBuilder, resource_cache::ResourceCache, RenderTask};
 use crate::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::RenderContext,
@@ -17,7 +17,7 @@ use wgpu::{CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDes
 
 #[derive(FromWorld)]
 pub struct RenderTaskNode<T: RenderTask> {
-    pipeline_cache: Arc<Mutex<PipelineCache>>,
+    resource_cache: Arc<Mutex<ResourceCache>>,
     _phantom_data: PhantomData<T>,
 }
 
@@ -31,7 +31,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
         (task, entity): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        let pipeline_cache = Arc::clone(&self.pipeline_cache);
+        let resource_cache = Arc::clone(&self.resource_cache);
 
         render_context.add_command_buffer_generation_task(move |render_device| {
             let mut command_encoder =
@@ -42,7 +42,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
             let task_encoder = RenderTaskEncoder {
                 command_encoder: &mut command_encoder,
                 compute_pass: None,
-                pipeline_cache: &mut pipeline_cache.lock().unwrap(),
+                resource_cache: &mut resource_cache.lock().unwrap(),
                 pipeline_compiler: world.resource::<PipelineCompiler>(),
             };
 
@@ -58,7 +58,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
 pub struct RenderTaskEncoder<'a> {
     command_encoder: &'a mut CommandEncoder,
     compute_pass: Option<ComputePass<'static>>,
-    pipeline_cache: &'a mut PipelineCache,
+    resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
 }
 
@@ -79,7 +79,7 @@ impl<'a> RenderTaskEncoder<'a> {
         ComputeCommandBuilder::new(
             self.compute_pass.as_mut().unwrap(),
             pass_name,
-            self.pipeline_cache,
+            self.resource_cache,
             self.pipeline_compiler,
         )
     }
