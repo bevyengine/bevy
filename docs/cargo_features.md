@@ -124,7 +124,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
 |force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
-|free_camera|Enables the free camera from bevy_camera_controller|
+|free_camera|Enables the free cam from bevy_camera_controller|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
