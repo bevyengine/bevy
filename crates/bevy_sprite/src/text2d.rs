@@ -21,8 +21,8 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, FontAtlasSet,
-    FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
+    build_layout_from_text_sections, build_text_layout_info, ComputedLayout, ComputedTextBlock,
+    FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
     TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
@@ -91,7 +91,8 @@ use core::any::TypeId;
     ComputedTextBlock,
     TextRoot,
     TextLayoutInfo,
-    Transform
+    Transform,
+    ComputedLayout
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -178,6 +179,7 @@ pub fn update_text2d_layout(
             Ref<TextBounds>,
             &mut TextLayoutInfo,
             &mut ComputedTextBlock,
+            &mut ComputedLayout,
         ),
         With<Text2d>,
     >,
@@ -200,7 +202,9 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, _computed) in &mut text_query {
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, _computed, mut clayout) in
+        &mut text_query
+    {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
         let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
@@ -234,7 +238,8 @@ pub fn update_text2d_layout(
 
         let text_layout_info = text_layout_info.into_inner();
 
-        let layout = build_layout_from_text_sections(
+        build_layout_from_text_sections(
+            &mut clayout.0,
             &mut font_cx.0,
             &mut layout_cx.0,
             text_sections.iter().copied(),
@@ -244,7 +249,7 @@ pub fn update_text2d_layout(
         );
 
         *text_layout_info = build_text_layout_info(
-            layout,
+            &mut clayout.0,
             bounds.width.map(|w| w * scale_factor),
             block.justify.into(),
             &mut scale_cx,

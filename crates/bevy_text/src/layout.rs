@@ -63,13 +63,14 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
 
 /// Create layout given text sections and styles
 pub fn build_layout_from_text_sections<'a, B: Brush>(
+    layout: &mut Layout<B>,
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<B>,
     text_sections: impl Iterator<Item = &'a str>,
     text_section_styles: impl Iterator<Item = TextSectionStyle<'a, B>>,
     scale_factor: f32,
     line_break: crate::text::LineBreak,
-) -> Layout<B> {
+) {
     let (text, section_ranges) = concat_text_for_layout(text_sections);
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
     if let Some(word_break_strength) = match line_break {
@@ -86,12 +87,12 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
         builder.push(StyleProperty::FontSize(style.font_size), range.clone());
         builder.push(style.line_height.eval(), range);
     }
-    builder.build(&text)
+    builder.build_into(layout, &text);
 }
 
 /// create a TextLayoutInfo
 pub fn build_text_layout_info(
-    mut layout: Layout<LinearRgba>,
+    layout: &mut Layout<LinearRgba>,
     max_advance: Option<f32>,
     alignment: Alignment,
     scale_cx: &mut ScaleContext,
