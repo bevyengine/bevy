@@ -175,6 +175,11 @@ where
         self.system.initialize(world)
     }
 
+    #[inline]
+    fn configurate(&mut self, config: &mut dyn core::any::Any) {
+        self.system.configurate(config);
+    }
+
     fn check_change_tick(&mut self, check: crate::component::CheckChangeTicks) {
         self.system.check_change_tick(check);
     }
