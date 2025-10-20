@@ -22,7 +22,7 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    build_layout_from_text_sections, build_text_layout_info, ComputedLayout, ComputedTextBlock,
+    build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, ComputedTextLayout,
     FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
     TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
@@ -93,7 +93,7 @@ use core::any::TypeId;
     TextRoot,
     TextLayoutInfo,
     Transform,
-    ComputedLayout
+    ComputedTextLayout
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
@@ -180,7 +180,7 @@ pub fn update_text2d_layout(
             Ref<TextBounds>,
             &mut TextLayoutInfo,
             &mut ComputedTextBlock,
-            &mut ComputedLayout,
+            &mut ComputedTextLayout,
         ),
         With<Text2d>,
     >,

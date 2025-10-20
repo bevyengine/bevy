@@ -395,5 +395,6 @@ pub enum FontSmoothing {
     // SubpixelAntiAliased,
 }
 
+/// Computed text layout
 #[derive(Component, Default)]
-pub struct ComputedLayout(pub Layout<LinearRgba>);
+pub struct ComputedTextLayout(pub Layout<LinearRgba>);
