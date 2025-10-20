@@ -11,13 +11,28 @@ use wgpu::{BindGroup, Buffer, BufferDescriptor, TextureDescriptor, TextureView};
 
 #[derive(Default)]
 pub struct ResourceCache {
-    compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
-    render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
     textures: HashMap<(Entity, TextureDescriptor<'static>), TextureView>,
     buffers: HashMap<(Entity, BufferDescriptor<'static>), Buffer>,
+    compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
+    render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
 }
 
 impl ResourceCache {
+    pub fn get_or_create_texture(&mut self) -> TextureView {
+        todo!()
+    }
+
+    pub fn get_or_create_buffer(&mut self) -> Buffer {
+        todo!()
+    }
+
+    pub fn get_or_create_bind_group<'b, const N: usize>(
+        &mut self,
+        resources: impl IntoBindingArray<'b, N>,
+    ) -> BindGroup {
+        todo!()
+    }
+
     pub fn get_or_compile_compute_pipeline(
         &mut self,
         descriptor: ComputePipelineDescriptor,
@@ -42,20 +57,5 @@ impl ResourceCache {
             .or_insert_with(|| pipeline_compiler.queue_render_pipeline(descriptor));
 
         pipeline_compiler.get_render_pipeline(pipeline_id).cloned()
-    }
-
-    pub fn get_or_create_texture(&mut self) -> TextureView {
-        todo!()
-    }
-
-    pub fn get_or_create_buffer(&mut self) -> Buffer {
-        todo!()
-    }
-
-    pub fn get_or_create_bind_group<'b, const N: usize>(
-        &mut self,
-        resources: impl IntoBindingArray<'b, N>,
-    ) -> BindGroup {
-        todo!()
     }
 }
