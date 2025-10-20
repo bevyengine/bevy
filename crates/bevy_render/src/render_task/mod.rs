@@ -1,8 +1,8 @@
 mod compute_builder;
 mod extract;
 mod node;
-mod pipeline_cache;
 mod plugin;
+mod resource_cache;
 
 pub use compute_builder::ComputeCommandBuilder;
 pub use node::RenderTaskEncoder;

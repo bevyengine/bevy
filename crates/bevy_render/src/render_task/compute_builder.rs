@@ -1,5 +1,8 @@
-use super::pipeline_cache::PipelineCache;
-use crate::{render_resource::ComputePipelineDescriptor, PipelineCache as PipelineCompiler};
+use super::resource_cache::ResourceCache;
+use crate::{
+    render_resource::{BindGroupLayoutDescriptor, ComputePipelineDescriptor},
+    PipelineCache as PipelineCompiler,
+};
 use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
@@ -14,7 +17,8 @@ pub struct ComputeCommandBuilder<'a> {
     shader_defs: Vec<ShaderDefVal>,
     push_constants: Option<&'a [u8]>,
     bind_groups: Vec<Option<BindGroup>>,
-    pipeline_cache: &'a mut PipelineCache,
+    bind_group_layouts: Vec<BindGroupLayoutDescriptor>,
+    resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
 }
 
@@ -22,7 +26,7 @@ impl<'a> ComputeCommandBuilder<'a> {
     pub fn new(
         pass: &'a mut ComputePass<'static>,
         pass_name: &'a str,
-        pipeline_cache: &'a mut PipelineCache,
+        resource_cache: &'a mut ResourceCache,
         pipeline_compiler: &'a PipelineCompiler,
     ) -> Self {
         Self {
@@ -33,7 +37,8 @@ impl<'a> ComputeCommandBuilder<'a> {
             shader_defs: Vec::new(),
             push_constants: None,
             bind_groups: Vec::new(),
-            pipeline_cache,
+            bind_group_layouts: Vec::new(),
+            resource_cache,
             pipeline_compiler,
         }
     }
@@ -65,8 +70,13 @@ impl<'a> ComputeCommandBuilder<'a> {
         self
     }
 
-    pub fn bind_group<T: NoUninit>(mut self, bind_group: impl Into<Option<BindGroup>>) -> Self {
+    pub fn bind_group<T: NoUninit>(
+        mut self,
+        bind_group: impl Into<Option<BindGroup>>,
+        layout: BindGroupLayoutDescriptor,
+    ) -> Self {
         self.bind_groups.push(bind_group.into());
+        self.bind_group_layouts.push(layout);
         self
     }
 
@@ -105,10 +115,10 @@ impl<'a> ComputeCommandBuilder<'a> {
             })
             .unwrap_or_default();
 
-        let pipeline = self.pipeline_cache.get_or_compile_compute_pipeline(
+        let pipeline = self.resource_cache.get_or_compile_compute_pipeline(
             ComputePipelineDescriptor {
-                label: Some("todo".into()),
-                layout: Vec::new(), // TODO
+                label: Some(self.pass_name.to_owned().into()),
+                layout: self.bind_group_layouts.clone(),
                 push_constant_ranges,
                 shader: self.shader.clone(),
                 shader_defs: self.shader_defs.clone(),
@@ -118,13 +128,15 @@ impl<'a> ComputeCommandBuilder<'a> {
             self.pipeline_compiler,
         )?;
 
-        self.pass.set_pipeline(&pipeline); // TODO: Only set if changed
+        self.pass.set_pipeline(&pipeline);
 
         if let Some(push_constants) = self.push_constants {
             self.pass.set_push_constants(0, push_constants);
         }
 
-        // TODO: Set bind groups if changed
+        for (i, bind_group) in self.bind_groups.iter().enumerate() {
+            self.pass.set_bind_group(i as u32, bind_group, &[]); // TODO: Only set if changed
+        }
 
         Some(())
     }
