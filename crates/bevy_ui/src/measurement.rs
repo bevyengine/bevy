@@ -19,7 +19,7 @@ pub struct MeasureArgs<'a> {
     pub height: Option<f32>,
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
-    pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
+    pub text_layout: Option<&'a mut bevy_text::ComputedTextLayout>,
 }
 
 /// A `Measure` is used to compute the size of a ui node
@@ -35,7 +35,6 @@ pub trait Measure: Send + Sync + 'static {
 /// by wrapping them in a closure and a Custom variant that allows arbitrary measurement closures if required.
 pub enum NodeMeasure {
     Fixed(FixedMeasure),
-
     Text(TextMeasure),
     Image(ImageMeasure),
     Custom(Box<dyn Measure>),
