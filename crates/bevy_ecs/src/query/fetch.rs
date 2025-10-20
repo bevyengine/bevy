@@ -340,11 +340,19 @@ pub unsafe trait QueryData: WorldQuery {
 
 /// A [`QueryData`] for which instances may be alive for different entities concurrently.
 ///
-/// This is always the case for queries that only access the current entity,
-/// or that only perform read access on other entities.
-/// Queries may perform mutable access on other entities if they
-/// can prove that the other entities are all distinct,
-/// such as if they are on the appropriate side of a one-to-many or one-to-one relation.
+/// Rust [`Iterator`]s don't connect the lifetime in [`Iterator::next`] to anything in [`Iterator::Item`],
+/// so later calls don't invalidate earlier items.
+/// This is how methods like [`Iterator::collect`] work.
+/// It is therefore unsound to offer an [`Iterator`] for a [`QueryData`] for which only one instance may be alive concurrently.
+///
+/// All [`SingleEntityQueryData`] types are [`IterQueryData`],
+/// because queries on different entities would not alias.
+///
+/// All [`ReadOnlyQueryData`] types are [`IterQueryData`],
+/// because it's sound for read-only queries to alias.
+///
+/// Queries with a nested query that performs mutable access should generally *not* be [`IterQueryData`],
+/// although they can be if they have a way to prove that all accesses through the nested query are disjoint.
 ///
 /// # Safety
 ///
