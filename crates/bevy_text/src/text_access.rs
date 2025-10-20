@@ -16,7 +16,7 @@ pub trait TextSpanAccess: Component<Mutability = Mutable> {
 }
 
 /// Helper trait for the root text component in a text block.
-pub trait TextRoot: TextSpanAccess + From<String> {}
+pub trait TextHead: TextSpanAccess + From<String> {}
 
 /// Helper trait for the text span components in a text block.
 pub trait TextSpanComponent: TextSpanAccess + From<String> {}
@@ -48,7 +48,7 @@ impl TextIterScratch {
 ///
 /// `R` is the root text component.
 #[derive(SystemParam)]
-pub struct TextReader<'w, 's, R: TextRoot> {
+pub struct TextReader<'w, 's, R: TextHead> {
     // This is a local to avoid system ambiguities when TextReaders run in parallel.
     scratch: Local<'s, TextIterScratch>,
     roots: Query<
@@ -73,7 +73,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
     >,
 }
 
-impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
+impl<'w, 's, R: TextHead> TextReader<'w, 's, R> {
     /// Returns an iterator over text spans in a text block, starting with the root entity.
     pub fn iter(&mut self, root_entity: Entity) -> TextSpanIter<'_, R> {
         let stack = self.scratch.take();
@@ -139,7 +139,7 @@ impl<'w, 's, R: TextRoot> TextReader<'w, 's, R> {
 /// Iterates all spans in a text block according to hierarchy traversal order.
 /// Does *not* flatten interspersed ghost nodes. Only contiguous spans are traversed.
 // TODO: Use this iterator design in UiChildrenIter to reduce allocations.
-pub struct TextSpanIter<'a, R: TextRoot> {
+pub struct TextSpanIter<'a, R: TextHead> {
     scratch: &'a mut TextIterScratch,
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
@@ -166,7 +166,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     >,
 }
 
-impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
+impl<'a, R: TextHead> Iterator for TextSpanIter<'a, R> {
     /// Item = (entity in text block, hierarchy depth in the block, span text, span style).
     type Item = (Entity, usize, &'a str, &'a TextFont, Color);
     fn next(&mut self) -> Option<Self::Item> {
@@ -211,7 +211,7 @@ impl<'a, R: TextRoot> Iterator for TextSpanIter<'a, R> {
     }
 }
 
-impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
+impl<'a, R: TextHead> Drop for TextSpanIter<'a, R> {
     fn drop(&mut self) {
         // Return the internal stack.
         let stack = core::mem::take(&mut self.stack);
@@ -223,7 +223,7 @@ impl<'a, R: TextRoot> Drop for TextSpanIter<'a, R> {
 ///
 /// `R` is the root text component, and `S` is the text span component on children.
 #[derive(SystemParam)]
-pub struct TextWriter<'w, 's, R: TextRoot> {
+pub struct TextWriter<'w, 's, R: TextHead> {
     // This is a resource because two TextWriters can't run in parallel.
     scratch: ResMut<'w, TextIterScratch>,
     roots: Query<
@@ -249,7 +249,7 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
     children: Query<'w, 's, &'static Children>,
 }
 
-impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
+impl<'w, 's, R: TextHead> TextWriter<'w, 's, R> {
     /// Gets a mutable reference to a text span within a text block at a specific index in the flattened span list.
     pub fn get(
         &mut self,

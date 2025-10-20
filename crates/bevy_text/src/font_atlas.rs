@@ -10,6 +10,7 @@ use crate::{FontSmoothing, GlyphAtlasInfo, GlyphAtlasLocation, TextError};
 /// Key identifying a glyph
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GlyphCacheKey {
+    /// glyh id
     pub glyph_id: u16,
 }
 

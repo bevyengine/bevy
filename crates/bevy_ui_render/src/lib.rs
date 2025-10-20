@@ -958,8 +958,7 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if current_span_index != *span_index
-                && let Some(span_entity) =
-                    computed_block.entities().get(*span_index).map(|t| t.entity)
+                && let Some(span_entity) = computed_block.0.get(*span_index).copied()
             {
                 color = text_styles
                     .get(span_entity)

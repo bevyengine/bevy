@@ -1,7 +1,6 @@
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_text::CosmicFontSystem;
 use core::fmt::Formatter;
 pub use taffy::style::AvailableSpace;
 
@@ -20,7 +19,6 @@ pub struct MeasureArgs<'a> {
     pub height: Option<f32>,
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
-    pub font_system: &'a mut CosmicFontSystem,
     pub buffer: Option<&'a mut bevy_text::ComputedTextBlock>,
 }
 

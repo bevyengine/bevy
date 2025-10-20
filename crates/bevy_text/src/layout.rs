@@ -40,10 +40,21 @@ fn concat_text_for_layout<'a>(
     (out, ranges)
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct TextSectionStyle<'a> {
     font_family: &'a str,
     font_size: f32,
     line_height: LineHeight,
+}
+
+impl<'a> TextSectionStyle<'a> {
+    pub fn new(family: &'a str, size: f32, line_height: f32) -> Self {
+        Self {
+            font_family: family,
+            font_size: size,
+            line_height: LineHeight::Absolute(line_height),
+        }
+    }
 }
 
 pub fn build_layout_from_text_sections<'a, B: Brush>(
@@ -63,6 +74,7 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
     builder.build(&text)
 }
 
+/// create a TextLayoutInfo
 pub fn build_text_layout_info<B: Brush>(
     mut layout: Layout<B>,
     max_advance: Option<f32>,
@@ -70,7 +82,6 @@ pub fn build_text_layout_info<B: Brush>(
     scale_cx: &mut ScaleContext,
     font_cx: &mut FontContext,
     font_atlas_set: &mut FontAtlasSet,
-    font_atlases: &mut Vec<FontAtlas>,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     font_smoothing: FontSmoothing,

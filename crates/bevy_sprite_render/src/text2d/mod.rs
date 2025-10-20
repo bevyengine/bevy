@@ -165,9 +165,9 @@ pub fn extract_text2d_sprite(
                 color = text_colors
                     .get(
                         computed_block
-                            .entities()
+                            .0
                             .get(*span_index)
-                            .map(|t| t.entity)
+                            .map(|t| *t)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))

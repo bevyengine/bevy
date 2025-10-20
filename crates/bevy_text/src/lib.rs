@@ -42,6 +42,7 @@ mod glyph;
 mod layout;
 mod text;
 mod text_access;
+mod text_hierarchy;
 
 pub use bounds::*;
 pub use context::*;
@@ -51,8 +52,10 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use layout::*;
 pub use text::*;
 pub use text_access::*;
+pub use text_hierarchy::*;
 
 /// The text prelude.
 ///

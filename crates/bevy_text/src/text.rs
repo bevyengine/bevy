@@ -178,7 +178,7 @@ pub struct TextFont {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
-    pub font: Handle<Font>,
+    pub font: String,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -203,8 +203,8 @@ impl TextFont {
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.
-    pub fn with_font(mut self, font: Handle<Font>) -> Self {
-        self.font = font;
+    pub fn with_font(mut self, font: &str) -> Self {
+        self.font = font.to_string();
         self
     }
 
@@ -227,9 +227,12 @@ impl TextFont {
     }
 }
 
-impl From<Handle<Font>> for TextFont {
-    fn from(font: Handle<Font>) -> Self {
-        Self { font, ..default() }
+impl From<&str> for TextFont {
+    fn from(font: &str) -> Self {
+        Self {
+            font: font.to_string(),
+            ..default()
+        }
     }
 }
 
@@ -266,7 +269,8 @@ pub enum LineHeight {
 }
 
 impl LineHeight {
-    pub(crate) fn eval(self, font_size: f32) -> f32 {
+    /// eval
+    pub fn eval(self, font_size: f32) -> f32 {
         match self {
             LineHeight::Px(px) => px,
             LineHeight::RelativeToFont(scale) => scale * font_size,
@@ -389,6 +393,3 @@ pub enum FontSmoothing {
     // TODO: Add subpixel antialias support
     // SubpixelAntiAliased,
 }
-
-#[derive(Component)]
-pub struct ComputedTextBlock(Vec<Entity>);

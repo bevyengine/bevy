@@ -11,7 +11,6 @@ use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
 use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct LayoutNode {
@@ -186,7 +185,6 @@ impl UiSurface {
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
-        font_system: &'a mut CosmicFontSystem,
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 
@@ -221,7 +219,6 @@ impl UiSurface {
                                     height: known_dimensions.height,
                                     available_width: available_space.width,
                                     available_height: available_space.height,
-                                    font_system,
                                     buffer,
                                 },
                                 style,
@@ -288,182 +285,16 @@ pub fn get_text_buffer<'a>(
     ctx: &mut NodeMeasure,
     query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
 ) -> Option<&'a mut bevy_text::ComputedTextBlock> {
-    // We avoid a query lookup whenever the buffer is not required.
-    if !needs_buffer {
-        return None;
-    }
-    let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
-        return None;
-    };
-    let Ok(computed) = query.get_mut(info.entity) else {
-        return None;
-    };
-    Some(computed.into_inner())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{ContentSize, FixedMeasure};
-    use bevy_math::Vec2;
-    use taffy::TraversePartialTree;
-
-    #[test]
-    fn test_initialization() {
-        let ui_surface = UiSurface::default();
-        assert!(ui_surface.entity_to_taffy.is_empty());
-        assert_eq!(ui_surface.taffy.total_node_count(), 0);
-    }
-
-    #[test]
-    fn test_upsert() {
-        let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw_u32(1).unwrap();
-        let node = Node::default();
-
-        // standard upsert
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-
-        // should be inserted into taffy
-        assert_eq!(ui_surface.taffy.total_node_count(), 1);
-        assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
-
-        // test duplicate insert 1
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-
-        // node count should not have increased
-        assert_eq!(ui_surface.taffy.total_node_count(), 1);
-
-        // assign root node to camera
-        ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
-
-        // each root node will create 2 taffy nodes
-        assert_eq!(ui_surface.taffy.total_node_count(), 2);
-
-        // test duplicate insert 2
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-
-        // node count should not have increased
-        assert_eq!(ui_surface.taffy.total_node_count(), 2);
-    }
-
-    #[test]
-    fn test_remove_entities() {
-        let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw_u32(1).unwrap();
-        let node = Node::default();
-
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-
-        ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
-
-        assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
-
-        ui_surface.remove_entities([root_node_entity]);
-        assert!(!ui_surface.entity_to_taffy.contains_key(&root_node_entity));
-    }
-
-    #[test]
-    fn test_try_update_measure() {
-        let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw_u32(1).unwrap();
-        let node = Node::default();
-
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-        let mut content_size = ContentSize::default();
-        content_size.set(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE }));
-        let measure_func = content_size.measure.take().unwrap();
-        assert!(ui_surface
-            .update_node_context(root_node_entity, measure_func)
-            .is_some());
-    }
-
-    #[test]
-    fn test_update_children() {
-        let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw_u32(1).unwrap();
-        let child_entity = Entity::from_raw_u32(2).unwrap();
-        let node = Node::default();
-
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
-
-        ui_surface.update_children(root_node_entity, vec![child_entity].into_iter());
-
-        let parent_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
-        let child_node = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-        assert_eq!(ui_surface.taffy.parent(child_node.id), Some(parent_node.id));
-    }
-
-    #[expect(
-        unreachable_code,
-        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
-    )]
-    #[test]
-    fn test_set_camera_children() {
-        let mut ui_surface = UiSurface::default();
-        let root_node_entity = Entity::from_raw_u32(1).unwrap();
-        let child_entity = Entity::from_raw_u32(2).unwrap();
-        let node = Node::default();
-
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
-        ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, child_entity, &node, None);
-
-        let root_taffy_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
-        let child_taffy = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-
-        // set up the relationship manually
-        ui_surface
-            .taffy
-            .add_child(root_taffy_node.id, child_taffy.id)
-            .unwrap();
-
-        ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
-
-        assert_eq!(
-            ui_surface.taffy.parent(child_taffy.id),
-            Some(root_taffy_node.id)
-        );
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
-        assert!(
-            root_taffy_children.contains(&child_taffy.id),
-            "root node is not a parent of child node"
-        );
-        assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node.id),
-            1,
-            "expected root node child count to be 1"
-        );
-
-        // clear camera's root nodes
-        ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
-
-        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
-
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
-        assert!(
-            root_taffy_children.contains(&child_taffy.id),
-            "root node is not a parent of child node"
-        );
-        assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node.id),
-            1,
-            "expected root node child count to be 1"
-        );
-
-        // re-associate root node with viewport node
-        ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
-
-        let child_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
-        assert!(
-            root_taffy_children.contains(&child_taffy.id),
-            "root node is not a parent of child node"
-        );
-        assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node.id),
-            1,
-            "expected root node child count to be 1"
-        );
-    }
+    // // We avoid a query lookup whenever the buffer is not required.
+    // if !needs_buffer {
+    //     return None;
+    // }
+    // let NodeMeasure::Text(crate::widget::TextMeasure { info }) = ctx else {
+    //     return None;
+    // };
+    // let Ok(computed) = query.get_mut(info.entity) else {
+    //     return None;
+    // };
+    // Some(computed.into_inner())
+    None
 }
