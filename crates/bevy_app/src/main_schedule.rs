@@ -33,6 +33,7 @@ use bevy_ecs::{
 /// * [`RunFixedMainLoop`]
 ///     * This will run [`FixedMain`] zero to many times, based on how much time has elapsed.
 /// * [`Update`]
+/// * [`SpawnScene`]
 /// * [`PostUpdate`]
 /// * [`Last`]
 ///
