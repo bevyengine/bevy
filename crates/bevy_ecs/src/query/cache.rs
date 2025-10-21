@@ -6,80 +6,40 @@ use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity_disabling::DefaultQueryFilters;
 use bevy_ecs::prelude::World;
 use bevy_ecs::query::state::StorageId;
-use bevy_ecs::query::{QueryBuilder, QueryData, QueryFilter};
+use bevy_ecs::query::{FilteredAccess, QueryBuilder, QueryData, QueryFilter};
 use bevy_ecs::storage::{SparseSetIndex, TableId};
 use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
+use bevy_ecs::world::WorldId;
 use core::fmt::{Debug, Formatter};
 use fixedbitset::FixedBitSet;
 use log::warn;
 
-impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
-    /// Splits self into an immutable view of the "prefix"
-    /// (all fields *except* cache) and a mutable ref to the `cache`.
-    pub fn split_cache(&mut self) -> (&QueryState<D, F, Uncached>, &mut C) {
-        // This is safe because `QueryState<..., Uncached>` is a
-        // valid "prefix" of `QueryState<..., C>`, and QueryState uses `repr(c)`
-        let rest: &QueryState<D, F, Uncached> =
-            // SAFETY: This is safe because `QueryState<..., Uncached>` is a
-            // valid "prefix" of `QueryState<..., C>`, and QueryState uses `repr(c)`
-            unsafe { &*(core::ptr::from_mut::<Self>(self) as *const QueryState<D, F, Uncached>) };
-
-        // This is safe because `cache` is disjoint from the prefix.
-        let cache_mut: &mut C = &mut self.cache;
-
-        (rest, cache_mut)
-    }
-
-    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
-    ///
-    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using [`QueryState::update_archetypes_unsafe_world_cell`].
-    ///
-    /// # Panics
-    ///
-    /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes(&mut self, world: &World) {
-        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
-    }
-
-    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
-    /// the results may not accurately reflect what is in the `world`.
-    ///
-    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
-    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
-    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
-    ///
-    /// # Note
-    ///
-    /// This method only accesses world metadata.
-    ///
-    /// # Panics
-    ///
-    /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
-        let (uncached_state, cache) = self.split_cache();
-        cache.update_archetypes(uncached_state, world);
-    }
-
-    /// Safety: todo.
-    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
-        // SAFETY: from parent function's safety constraint
-        unsafe { self.cache.contains(self, archetype) }
-    }
+/// Borrow-only view over the non-cache fields of a QueryState.
+pub struct QueryPrefix<'a, D: QueryData, F: QueryFilter> {
+    pub(crate) world_id: WorldId,
+    pub(crate) component_access: &'a FilteredAccess,
+    pub(crate) fetch_state: &'a D::State,
+    pub(crate) filter_state: &'a F::State,
 }
 
-impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
+impl<'a, D: QueryData, F: QueryFilter> QueryPrefix<'a, D, F> {
+    #[inline]
+    pub fn validate_world(&self, world_id: WorldId) {
+        if self.world_id != world_id {
+            panic!(
+                "Encountered a mismatched World. This QueryState was created from {:?}, but a method was called using {:?}.",
+                self.world_id, world_id
+            );
+        }
+    }
+
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// # Safety
     /// `archetype` must be from the `World` this state was initialized from.
-    unsafe fn matches_archetype(&self, archetype: &Archetype) -> bool {
-        D::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
+    pub unsafe fn matches_archetype(&self, archetype: &Archetype) -> bool {
+        D::matches_component_set(self.fetch_state, &|id| archetype.contains(id))
+            && F::matches_component_set(self.filter_state, &|id| archetype.contains(id))
             && self.matches_component_set(&|id| archetype.contains(id))
     }
 
@@ -96,9 +56,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
         })
     }
 
-    /// Iterate through all archetypes that match the [`QueryState`] with an [`ArchetypeGeneration`] higher than the provided one,
+    /// Iterate through all archetypes that match the query with an ArchetypeGeneration higher than the provided one,
     /// and call `f` on each of them.
-    fn iter_archetypes(
+    pub fn iter_archetypes(
         &self,
         archetype_generation: ArchetypeGeneration,
         archetypes: &Archetypes,
@@ -149,6 +109,80 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
     }
 }
 
+impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
+
+
+    /// Updates the state's internal view of the [`World`]'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// If you have an [`UnsafeWorldCell`] instead of `&World`, consider using [`QueryState::update_archetypes_unsafe_world_cell`].
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    pub fn update_archetypes(&mut self, world: &World) {
+        self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
+    }
+
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before querying data,
+    /// the results may not accurately reflect what is in the `world`.
+    ///
+    /// This is only required if a `manual` method (such as [`Self::get_manual`]) is being called, and it only needs to
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using
+    /// non-`manual` methods such as [`QueryState::get`] do not need to call this as it will be automatically called for them.
+    ///
+    /// # Note
+    ///
+    /// This method only accesses world metadata.
+    ///
+    /// # Panics
+    ///
+    /// If `world` does not match the one used to call `QueryState::new` for this instance.
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+        self.with_prefix(|prefix, cache| {
+            cache.update_archetypes(&prefix, world);
+        });
+    }
+
+    /// Safety: todo.
+    pub(crate) fn matches(&self, archetype: &Archetype) -> bool {
+        // SAFETY: from parent function's safety constraint
+        unsafe { self.cache.contains(self, archetype) }
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    ///
+    /// # Safety
+    /// `archetype` must be from the `World` this state was initialized from.
+    unsafe fn matches_archetype(&self, archetype: &Archetype) -> bool {
+        // Delegate to read-only prefix to avoid duplication
+        unsafe { self.as_prefix().matches_archetype(archetype) }
+    }
+
+    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
+    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        self.as_prefix().matches_component_set(set_contains_id)
+    }
+
+    /// Iterate through all archetypes that match the [`QueryState`] with an [`ArchetypeGeneration`] higher than the provided one,
+    /// and call `f` on each of them.
+    fn iter_archetypes(
+        &self,
+        archetype_generation: ArchetypeGeneration,
+        archetypes: &Archetypes,
+        mut f: impl FnMut(&Archetype),
+    ) {
+        self.as_prefix()
+            .iter_archetypes(archetype_generation, archetypes, f)
+    }
+}
+
 /// Types that can cache archetypes matched by a `Query`.
 pub trait QueryCache: Debug + Clone + Sync {
     /// Returns the data needed to iterate through the archetypes that match the query.
@@ -177,7 +211,7 @@ pub trait QueryCache: Debug + Clone + Sync {
     /// Update the [`QueryCache`] by storing in the cache every new archetypes that match the query.
     fn update_archetypes<D: QueryData, F: QueryFilter>(
         &mut self,
-        uncached: &QueryState<D, F, Uncached>,
+        prefix: &QueryPrefix<'_, D, F>,
         world: UnsafeWorldCell,
     );
 
@@ -264,10 +298,10 @@ impl QueryCache for CacheState {
     }
     fn update_archetypes<D: QueryData, F: QueryFilter>(
         &mut self,
-        uncached: &QueryState<D, F, Uncached>,
+        prefix: &QueryPrefix<'_, D, F>,
         world: UnsafeWorldCell,
     ) {
-        uncached.validate_world(world.id());
+        prefix.validate_world(world.id());
         if self.archetype_generation == world.archetypes().generation() {
             // skip if we are already up to date
             return;
@@ -276,7 +310,7 @@ impl QueryCache for CacheState {
             &mut self.archetype_generation,
             world.archetypes().generation(),
         );
-        uncached.iter_archetypes(old_generation, world.archetypes(), |archetype| {
+        prefix.iter_archetypes(old_generation, world.archetypes(), |archetype| {
             self.cache_archetype(archetype);
         });
     }

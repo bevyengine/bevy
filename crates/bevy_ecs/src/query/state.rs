@@ -17,7 +17,7 @@ use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
     QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
-use bevy_ecs::query::cache::{CacheState, QueryCache};
+use bevy_ecs::query::cache::{CacheState, QueryCache, QueryPrefix, Uncached};
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 #[cfg(feature = "trace")]
@@ -78,6 +78,9 @@ pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = CacheSt
     pub(crate) cache: C,
 }
 
+/// Convenience alias for an uncached query state using the on-the-fly matching strategy.
+pub type UncachedQueryState<D, F = ()> = QueryState<D, F, Uncached>;
+
 impl<D: QueryData, F: QueryFilter, C: QueryCache> fmt::Debug for QueryState<D, F, C> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
@@ -94,6 +97,36 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
+    /// Returns a borrow-only prefix view for read-only operations.
+    #[inline]
+    pub(crate) fn as_prefix(&self) -> QueryPrefix<'_, D, F> {
+        QueryPrefix {
+            world_id: self.world_id,
+            component_access: &self.component_access,
+            fetch_state: &self.fetch_state,
+            filter_state: &self.filter_state,
+        }
+    }
+    /// Safely provides access to a borrow-only prefix view and a mutable reference to the cache.
+    #[inline]
+    pub fn with_prefix<R>(&mut self, f: impl for<'a> FnOnce(QueryPrefix<'a, D, F>, &mut C) -> R) -> R {
+        // Create raw pointers to immutably borrowed fields to avoid overlapping borrows with &mut cache.
+        let world_id = self.world_id;
+        let component_access = ptr::from_ref(&self.component_access);
+        let fetch_state = ptr::from_ref(&self.fetch_state);
+        let filter_state = ptr::from_ref(&self.filter_state);
+        // SAFETY: We only create shared references to fields distinct from `cache` and do not move `self`.
+        let prefix = unsafe {
+            QueryPrefix {
+                world_id,
+                component_access: &*component_access,
+                fetch_state: &*fetch_state,
+                filter_state: &*filter_state,
+            }
+        };
+        let cache = &mut self.cache;
+        f(prefix, cache)
+    }
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F, C> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -931,7 +964,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
     ///
     /// The `iter_combinations` method does not guarantee order of iteration.
     ///
-    /// This iterator is always guaranteed to return results from each unique pair of matching entities.
+    /// This iterator is always guaranteed to return results from each unique pai/*  */r of matching entities.
     /// Iteration order is not guaranteed.
     ///
     /// This can only be called for read-only queries, see [`Self::iter_combinations_mut`] for
