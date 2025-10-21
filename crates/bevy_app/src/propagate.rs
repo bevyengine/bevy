@@ -140,9 +140,9 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
             self.schedule,
             (
                 update_source::<C, F>,
-                update_stopped::<C, F>,
                 update_reparented::<C, F, R>,
                 propagate_inherited::<C, F, R>,
+                // update_skipped::<C, F>,
                 propagate_output::<C, F>,
             )
                 .chain()
@@ -154,13 +154,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
 /// add/remove `Inherited::<C>` and `C` for entities with a direct `Propagate::<C>`
 pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
     mut commands: Commands,
-    changed: Query<
-        (Entity, &Propagate<C>),
-        (
-            Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,
-            Without<PropagateStop<C>>,
-        ),
-    >,
+    changed: Query<(Entity, &Propagate<C>), (Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,)>,
     mut removed: RemovedComponents<Propagate<C>>,
 ) {
     for (entity, source) in &changed {
@@ -176,29 +170,21 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
     }
 }
 
-/// remove `Inherited::<C>` and `C` for entities with a `PropagateStop::<C>`
-pub fn update_stopped<C: Component + Clone + PartialEq, F: QueryFilter>(
+/// remove `Inherited::<C>` for entities with a `PropagateOver::<C>`
+pub fn update_skipped<C: Component + Clone + PartialEq, F: QueryFilter>(
     mut commands: Commands,
-    q: Query<Entity, (With<Inherited<C>>, With<PropagateStop<C>>, F)>,
+    q: Query<Entity, (With<Inherited<C>>, With<PropagateOver<C>>, F)>,
 ) {
     for entity in q.iter() {
         let mut cmds = commands.entity(entity);
-        cmds.remove::<(Inherited<C>, C)>();
+        cmds.remove::<Inherited<C>>();
     }
 }
 
 /// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
 pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
-    moved: Query<
-        (Entity, &R, Option<&Inherited<C>>),
-        (
-            Changed<R>,
-            Without<Propagate<C>>,
-            Without<PropagateStop<C>>,
-            F,
-        ),
-    >,
+    moved: Query<(Entity, &R, Option<&Inherited<C>>), (Changed<R>, Without<Propagate<C>>, F)>,
     relations: Query<&Inherited<C>>,
     orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
@@ -219,18 +205,29 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
 pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     changed: Query<
-        (&Inherited<C>, &R::RelationshipTarget),
-        (Changed<Inherited<C>>, Without<PropagateStop<C>>, F),
+        (
+            &Inherited<C>,
+            &R::RelationshipTarget,
+            Option<&PropagateStop<C>>,
+        ),
+        (Changed<Inherited<C>>, F),
     >,
     recurse: Query<
-        (Option<&R::RelationshipTarget>, Option<&Inherited<C>>),
-        (Without<Propagate<C>>, Without<PropagateStop<C>>, F),
+        (
+            Option<&R::RelationshipTarget>,
+            Option<&Inherited<C>>,
+            Option<&PropagateStop<C>>,
+        ),
+        (Without<Propagate<C>>, F),
     >,
     mut removed: RemovedComponents<Inherited<C>>,
     mut to_process: Local<Vec<(Entity, Option<Inherited<C>>)>>,
 ) {
     // gather changed
-    for (inherited, targets) in &changed {
+    for (inherited, targets, maybe_stop) in &changed {
+        if maybe_stop.is_some() {
+            continue;
+        }
         to_process.extend(
             targets
                 .iter()
@@ -240,14 +237,17 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(targets), _)) = recurse.get(entity) {
+        if let Ok((Some(targets), _, maybe_stop)) = recurse.get(entity) {
+            if maybe_stop.is_some() {
+                continue;
+            }
             to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
 
     // propagate
     while let Some((entity, maybe_inherited)) = (*to_process).pop() {
-        let Ok((maybe_targets, maybe_current)) = recurse.get(entity) else {
+        let Ok((maybe_targets, maybe_current, maybe_stop)) = recurse.get(entity) else {
             continue;
         };
 
@@ -255,7 +255,9 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
             continue;
         }
 
-        if let Some(targets) = maybe_targets {
+        if maybe_stop.is_none()
+            && let Some(targets) = maybe_targets
+        {
             to_process.extend(
                 targets
                     .iter()
@@ -454,7 +456,7 @@ mod tests {
         let propagate_over = app
             .world_mut()
             .spawn(TestValue(2))
-            .insert(ChildOf(propagator))
+            .insert((PropagateOver::<TestValue>::default(), ChildOf(propagator)))
             .id();
         let propagatee = app
             .world_mut()
