@@ -18,7 +18,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, ComputedTextLayout,
+    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout,
     FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
     TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
@@ -300,7 +300,7 @@ pub fn shape_text_system(
             ));
         }
 
-        build_layout_from_text_sections(
+        shape_text_from_sections(
             &mut computed_layout.0,
             &mut font_cx.0,
             &mut layout_cx.0,
@@ -352,7 +352,7 @@ pub fn layout_text_system(
     let e = info_span!("update_text_system", name = "update_text_system").entered();
     for (node, block, mut text_layout_info, mut text_flags, mut layout) in &mut text_query {
         if node.is_changed() || layout.is_changed() || text_flags.needs_recompute {
-            *text_layout_info = build_text_layout_info(
+            *text_layout_info = update_text_layout_info(
                 &mut layout.0,
                 Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
                 block.justify.into(),

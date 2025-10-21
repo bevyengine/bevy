@@ -63,7 +63,7 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
 }
 
 /// Create layout given text sections and styles
-pub fn build_layout_from_text_sections<'a, B: Brush>(
+pub fn shape_text_from_sections<'a, B: Brush>(
     layout: &mut Layout<B>,
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<B>,
@@ -72,11 +72,6 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
     scale_factor: f32,
     line_break: crate::text::LineBreak,
 ) {
-    let e = info_span!(
-        "build_layout_from_text_sections",
-        name = "build_layout_from_text_sections"
-    )
-    .entered();
     let (text, section_ranges) = concat_text_for_layout(text_sections);
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
     if let Some(word_break_strength) = match line_break {
@@ -97,7 +92,7 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
 }
 
 /// create a TextLayoutInfo
-pub fn build_text_layout_info(
+pub fn update_text_layout_info(
     layout: &mut Layout<LinearRgba>,
     max_advance: Option<f32>,
     alignment: Alignment,
@@ -107,8 +102,6 @@ pub fn build_text_layout_info(
     textures: &mut Assets<Image>,
     font_smoothing: FontSmoothing,
 ) -> TextLayoutInfo {
-    let e = info_span!("build_text_layout_info", name = "build_text_layout_info").entered();
-
     layout.break_all_lines(max_advance);
     layout.align(None, alignment, AlignmentOptions::default());
 

@@ -22,7 +22,7 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, ComputedTextLayout,
+    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout,
     FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
     TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
@@ -247,7 +247,7 @@ pub fn update_text2d_layout(
 
         let text_layout_info = text_layout_info.into_inner();
 
-        build_layout_from_text_sections(
+        shape_text_from_sections(
             &mut clayout.0,
             &mut font_cx.0,
             &mut layout_cx.0,
@@ -257,7 +257,7 @@ pub fn update_text2d_layout(
             block.linebreak,
         );
 
-        *text_layout_info = build_text_layout_info(
+        *text_layout_info = update_text_layout_info(
             &mut clayout.0,
             bounds.width.map(|w| w * scale_factor),
             block.justify.into(),
