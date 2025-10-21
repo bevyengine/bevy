@@ -267,9 +267,6 @@ impl Falloff {
     }
 }
 
-// TODO: research if absorption is also always wavelength (in)dependent,
-// or if only scattering is.
-
 /// Describes how a [`ScatteringTerm`] scatters light in different directions.
 ///
 /// A [phase function] is a function `f: [-1, 1] -> [0, ∞)`, symmetric about `x=0`
