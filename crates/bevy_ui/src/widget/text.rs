@@ -347,7 +347,7 @@ pub fn update_text_system(
     mut scale_cx: ResMut<ScaleCx>,
 ) {
     for (node, block, mut text_layout_info, text_flags, mut layout) in &mut text_query {
-        if node.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || layout.is_changed() || text_flags.needs_recompute {
             *text_layout_info = build_text_layout_info(
                 &mut layout.0,
                 Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),

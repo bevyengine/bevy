@@ -31,17 +31,25 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
+struct Fonts(Vec<Handle<Font>>);
+
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
+    let font_handle: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     commands.spawn(Camera2d);
+
+    commands.insert_resource(Fonts(vec![font_handle]));
+
+    let font = "fira mono".to_string();
 
     let make_spans = |i| {
         [
             (
                 TextSpan("text".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                    font: font.clone(),
                     font_size: (4 + i % 10) as f32,
                     ..Default::default()
                 },
@@ -50,7 +58,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 TextSpan("pipeline".repeat(i)),
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: font.clone(),
                     font_size: (4 + i % 11) as f32,
                     ..default()
                 },
