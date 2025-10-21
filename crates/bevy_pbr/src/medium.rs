@@ -187,9 +187,9 @@ pub struct ScatteringTerm {
 /// [`Falloff`] determines how the density of a medium changes as a function of
 /// an abstract "falloff parameter" `p`. `p = 1` denotes where the medium is the
 /// densest, i.e. at the surface of the Earth, `p = 0` denotes where the medium
-/// fades away completely, i.e. at the edge of space, and values between linearly
-/// with distance, so `p = 0.5` would be halfway between the surface and the edge
-/// of space.
+/// fades away completely, i.e. at the edge of space, and values between scale
+/// linearly with distance, so `p = 0.5` would be halfway between the surface
+/// and the edge of space.
 ///
 /// When processing a [`ScatteringMedium`], the `absorption` and `scattering` values
 /// for each [`ScatteringTerm`] are multiplied by the value of the falloff function, `f(p)`.
@@ -294,7 +294,7 @@ pub enum PhaseFunction {
     /// Rayleigh scattering occurs naturally for particles much smaller than
     /// the wavelengths of visible light, such as gas molecules in the atmosphere.
     /// It's generally wavelength-dependent, where shorter wavelengths are scattered
-    /// more strongly, so [scattering](ScatteringMedium::scattering) should have
+    /// more strongly, so [scattering](ScatteringTerm::scattering) should have
     /// higher values for blue than green and green than red. Particles that
     /// participate in Rayleigh scattering don't absorb any light, either.
     ///
@@ -306,8 +306,8 @@ pub enum PhaseFunction {
     /// Mie scattering occurs naturally for spherical particles of dust
     /// and aerosols roughly the same size as the wavelengths of visible light,
     /// so it's useful for representing dust or sea spray. It's generally
-    /// wavelength-independent, so [absorption](ScatteringMedium::absorption)
-    /// and [scattering](ScatteringMedium::scattering) should be set to a greyscale value.
+    /// wavelength-independent, so [absorption](ScatteringTerm::absorption)
+    /// and [scattering](ScatteringTerm::scattering) should be set to a greyscale value.
     ///
     /// [Mie scattering]: https://en.wikipedia.org/wiki/Mie_scattering
     /// [Henyey-Greenstein phase function]: https://www.oceanopticsbook.info/view/scattering/level-2/the-henyey-greenstein-phase-function
