@@ -49,7 +49,7 @@ impl Default for AmbientLight {
 ///
 /// ```
 /// # use bevy_ecs::system::ResMut;
-/// # use bevy_light::AmbientLight;
+/// # use bevy_light::GlobalAmbientLight;
 /// fn setup_ambient_light(mut ambient_light: ResMut<GlobalAmbientLight>) {
 ///    ambient_light.brightness = 100.0;
 /// }
