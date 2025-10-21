@@ -126,7 +126,7 @@ pub unsafe trait WorldQuery {
     /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
     ///
     /// This is used for queries to request access to entities other than the current one,
-    /// such as to read resources or to follow relations.
+    /// such as to follow relations.
     fn init_nested_access(
         _state: &Self::State,
         _system_name: Option<&str>,
