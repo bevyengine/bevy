@@ -466,6 +466,12 @@ mod tests {
         assert_eq!(
             app.world_mut()
                 .query::<&TestValue>()
+                .get(app.world(), propagate_over),
+            Ok(&TestValue(2))
+        );
+        assert_eq!(
+            app.world_mut()
+                .query::<&TestValue>()
                 .get(app.world(), propagatee),
             Ok(&TestValue(1))
         );
@@ -490,6 +496,12 @@ mod tests {
             .id();
 
         app.update();
+        assert_eq!(
+            app.world_mut()
+                .query::<&TestValue>()
+                .get(app.world(), propagate_stop),
+            Ok(&TestValue(1))
+        );
         assert!(app
             .world_mut()
             .query::<&TestValue>()
