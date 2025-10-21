@@ -2410,7 +2410,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
     }
 
     fn init_state(world: &mut World) -> Self::State {
-        QueryState::<D, F>::new(world).into_readonly()
+        // SAFETY: `WorldQuery::init_nested_access` calls `QueryState::init_access`,
+        // `WorldQuery::init_nested_access` must be called before `WorldQuery::init_fetch,
+        // which must be called before `QueryData::fetch`,
+        // and we only call methods on the `QueryState` in `fetch`.
+        unsafe { QueryState::<D, F>::new_unchecked(world).into_readonly() }
     }
 
     fn get_state(_components: &Components) -> Option<Self::State> {

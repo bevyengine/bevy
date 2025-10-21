@@ -63,6 +63,13 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
+///
+/// # Safety
+///
+/// If the query is not read-only,
+/// then before calling any other methods on a new `QueryState`
+/// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+/// or `QueryState::into_readonly`, [`Self::init_access`] must be called.
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
@@ -113,7 +120,15 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Converts this `QueryState` into a `QueryState` that does not access anything mutably,
     /// but that can be converted back to the original type using [`Self::from_readonly`].
-    pub(crate) fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+    ///
+    /// # Safety
+    ///
+    /// If the query is not read-only,
+    /// then before calling any other methods on the returned `QueryState`
+    /// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+    /// or [`QueryState::into_readonly`], [`Self::init_access`] must be called.
+    pub(crate) unsafe fn into_readonly(self) -> QueryState<D::ReadOnly, F> {
+        // SAFETY: Caller ensures `init_access` is called
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
@@ -201,8 +216,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     ///
-    /// Before calling any other methods on the returned `QueryState`,
-    /// [`Self::init_access`] must be called.
+    /// If the query is not read-only,
+    /// then before calling any other methods on the returned `QueryState`
+    /// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+    /// or `QueryState::into_readonly`, [`Self::init_access`] must be called.
     pub unsafe fn new_unchecked(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
@@ -260,8 +277,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // SAFETY: We immediately call `init_access`
         let mut state =
             unsafe { Self::from_states_uninitialized(world, fetch_state, filter_state) };
-        state.update_archetypes(world);
         state.init_access(None, &mut FilteredAccessSet::new(), world.into());
+        state.update_archetypes(world);
         Some(state)
     }
 
@@ -272,9 +289,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Safety
     ///
-    /// Before calling any other methods on the returned `QueryState`,
-    /// [`Self::init_access`] must be called with a `FilteredAccessSet`
-    /// that includes the `component_access_set` of the returned `QueryState`.
+    /// If the query is not read-only,
+    /// then before calling any other methods on the returned `QueryState`
+    /// other than [`QueryState::update_archetypes`], [`QueryState::update_archetypes_unsafe_world_cell`],
+    /// or [`QueryState::into_readonly`], [`Self::init_access`] must be called.
     unsafe fn from_states_uninitialized(
         world: &World,
         fetch_state: <D as WorldQuery>::State,
@@ -302,6 +320,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense &= default_filters.is_dense(world.components());
         }
 
+        // SAFETY: Caller ensures `init_access` is called
         Self {
             world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -344,6 +363,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             is_dense &= default_filters.is_dense(builder.world().components());
         }
 
+        // SAFETY: We immediately call `init_access`
         let mut state = Self {
             world_id: builder.world().id(),
             archetype_generation: ArchetypeGeneration::initial(),
@@ -361,8 +381,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 filter = core::any::type_name::<F>(),
             ),
         };
-        state.update_archetypes(builder.world());
         state.init_access(None, &mut FilteredAccessSet::new(), builder.world().into());
+        state.update_archetypes(builder.world());
         state
     }
 
