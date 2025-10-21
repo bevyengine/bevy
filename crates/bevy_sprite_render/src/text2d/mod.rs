@@ -15,7 +15,7 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikeout, TextBackgroundColor, TextBounds, TextColor,
+    ComputedTextBlock, PositionedGlyph, Strikethrough, TextBackgroundColor, TextBounds, TextColor,
     TextLayoutInfo, Underline,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -41,7 +41,7 @@ pub fn extract_text2d_sprite(
     >,
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
-    decoration_query: Extract<Query<(&TextColor, Has<Strikeout>, Has<Underline>)>>,
+    decoration_query: Extract<Query<(&TextColor, Has<Strikethrough>, Has<Underline>)>>,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -149,18 +149,19 @@ pub fn extract_text2d_sprite(
                 end += 1;
             }
 
-            for &(section_index, rect, strikeout_y, stroke, underline_y) in
+            for &(section_index, rect, strikethrough_y, stroke, underline_y) in
                 text_layout_info.section_geometry.iter()
             {
                 let section_entity = computed_block.entities()[section_index].entity;
-                let Ok((_, has_strikeout, has_underline)) = decoration_query.get(section_entity)
+                let Ok((_, has_strikethrough, has_underline)) =
+                    decoration_query.get(section_entity)
                 else {
                     continue;
                 };
 
-                if has_strikeout {
+                if has_strikethrough {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                    let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
+                    let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
                     extracted_sprites.sprites.push(ExtractedSprite {
@@ -201,6 +202,34 @@ pub fn extract_text2d_sprite(
                         },
                     });
                 }
+            }
+
+            for &(section_index, rect, strikethrough_y, stroke) in
+                text_layout_info.section_geometry.iter()
+            {
+                let section_entity = computed_block.entities()[section_index].entity;
+                let Ok(_) = strikethrough_query.get(section_entity) else {
+                    continue;
+                };
+                let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
+                let transform =
+                    shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
+                extracted_sprites.sprites.push(ExtractedSprite {
+                    main_entity,
+                    render_entity,
+                    transform,
+                    color,
+                    image_handle_id: AssetId::default(),
+                    flip_x: false,
+                    flip_y: false,
+                    kind: ExtractedSpriteKind::Single {
+                        anchor: Vec2::ZERO,
+                        rect: None,
+                        scaling_mode: None,
+                        custom_size: Some(Vec2::new(rect.size().x, stroke)),
+                    },
+                });
             }
         }
 
@@ -265,61 +294,36 @@ pub fn extract_text2d_sprite(
             end += 1;
         }
 
-        for &(section_index, rect, strikeout_y, stroke, underline_y) in
+        for &(section_index, rect, strikethrough_y, stroke, underline_y) in
             text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok((text_color, has_strike_out, has_underline)) =
+            let Ok((text_color, has_strike_through, has_underline)) =
                 decoration_query.get(section_entity)
             else {
                 continue;
             };
-            if has_strike_out {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
-                let transform = *global_transform
-                    * GlobalTransform::from_translation(top_left.extend(0.))
-                    * scaling
-                    * GlobalTransform::from_translation(offset.extend(0.));
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    main_entity,
-                    render_entity,
-                    transform,
-                    color: text_color.0.into(),
-                    image_handle_id: AssetId::default(),
-                    flip_x: false,
-                    flip_y: false,
-                    kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(Vec2::new(rect.size().x, stroke)),
-                    },
-                });
-            }
-            if has_underline {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                let offset = Vec2::new(rect.center().x, -underline_y - 0.5 * stroke);
-                let transform = *global_transform
-                    * GlobalTransform::from_translation(top_left.extend(0.))
-                    * scaling
-                    * GlobalTransform::from_translation(offset.extend(0.));
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    main_entity,
-                    render_entity,
-                    transform,
-                    color: text_color.0.into(),
-                    image_handle_id: AssetId::default(),
-                    flip_x: false,
-                    flip_y: false,
-                    kind: ExtractedSpriteKind::Single {
-                        anchor: Vec2::ZERO,
-                        rect: None,
-                        scaling_mode: None,
-                        custom_size: Some(Vec2::new(rect.size().x, stroke)),
-                    },
-                });
-            }
+            let render_entity = commands.spawn(TemporaryRenderEntity).id();
+            let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
+            let transform = *global_transform
+                * GlobalTransform::from_translation(top_left.extend(0.))
+                * scaling
+                * GlobalTransform::from_translation(offset.extend(0.));
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                transform,
+                color: text_color.0.into(),
+                image_handle_id: AssetId::default(),
+                flip_x: false,
+                flip_y: false,
+                kind: ExtractedSpriteKind::Single {
+                    anchor: Vec2::ZERO,
+                    rect: None,
+                    scaling_mode: None,
+                    custom_size: Some(Vec2::new(rect.size().x, stroke)),
+                },
+            });
         }
     }
 }

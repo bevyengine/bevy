@@ -59,8 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, Strikeout, TextColor, TextError, TextFont, TextLayout, TextSpan,
-        Underline,
+        Font, Justify, LineBreak, Strikethrough, TextColor, TextError, TextFont, TextLayout,
+        TextSpan, Underline,
     };
 }
 

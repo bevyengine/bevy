@@ -425,10 +425,10 @@ pub enum LineBreak {
     NoWrap,
 }
 
-/// Draw the text with strikeout.
+/// A text entity with this component is drawn with strikethrough.
 #[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
-pub struct Strikeout;
+pub struct Strikethrough;
 
 /// Draw the text with underline.
 #[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
