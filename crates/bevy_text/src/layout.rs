@@ -65,7 +65,7 @@ fn shape_text_from_indexed_sections<'a>(
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<u32>,
     text_sections: impl Iterator<Item = &'a str>,
-    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, u32>>,
+    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, ()>>,
     scale_factor: f32,
     line_break: crate::text::LineBreak,
 ) {
