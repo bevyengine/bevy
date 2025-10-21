@@ -15,6 +15,14 @@
     },
 }
 
+#ifdef CLOUDS_ENABLED
+#import bevy_pbr::atmosphere::clouds::{
+    get_cloud_density,
+    sample_cloud_contribution,
+    compute_cloud_shadow,
+}
+#endif
+
 // NOTE FOR CONVENTIONS: 
 // r:
 //   radius, or distance from planet center 
@@ -203,10 +211,16 @@ fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, world_pos: vec3<f32>, pixel_coords: vec2<f32>) -> vec3<f32> {
     let local_r = length(world_pos);
     let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
+    
+    #ifdef CLOUDS_ENABLED
+    // Sample cloud density at this point
+    let cloud_density = get_cloud_density(local_r, world_pos);
+    #endif
+    
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
 
@@ -217,8 +231,23 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         let neg_LdotV = dot((*light).direction_to_light, ray_dir);
 
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
-        let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
-        let scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
+        var shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
+        var scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
+        
+        #ifdef CLOUDS_ENABLED
+        // Add volumetric cloud shadows and cloud scattering
+        if (cloud_density > 0.001) {
+            // Use fewer samples (8) since we call this frequently
+            let cloud_shadow = compute_cloud_shadow(world_pos, (*light).direction_to_light, 8u, pixel_coords);
+            shadow_factor *= cloud_shadow;
+            
+            // Add cloud scattering with proper phase function
+            let cloud_scattering = cloud_density * 0.1; // TODO: get from cloud_layer
+            let g = 0.3; // Cloud asymmetry parameter (forward scattering)
+            let cloud_phase = FRAC_4_PI * (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * neg_LdotV, 1.5);
+            scattering_coeff += cloud_scattering * cloud_phase;
+        }
+        #endif
 
         // Transmittance from scattering event to light source
         let scattering_factor = shadow_factor * scattering_coeff;
@@ -433,6 +462,9 @@ fn raymarch_atmosphere(
     let up = normalize(pos);
     let mu = dot(ray_dir, up);
 
+    // Convert UV to pixel coordinates for noise jittering
+    // Assuming viewport size from view uniform (typically available)
+    let pixel_coords = uv * view.viewport.zw;
     // Optimization: Reduce sample count at close proximity to the scene
     let sample_count = mix(1.0, f32(max_samples), saturate(t_max * 0.01));
 
@@ -466,16 +498,32 @@ fn raymarch_atmosphere(
 
         let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
         let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
-        let extinction = absorption + scattering;
+        var extinction = absorption + scattering;
 
-        let sample_optical_depth = extinction * dt_i;
+        var sample_optical_depth = extinction * dt_i;
         optical_depth += sample_optical_depth;
+
+        #ifdef CLOUDS_ENABLED
+        // Add cloud extinction to optical depth
+        let cloud_density = get_cloud_density(local_r, sample_pos);
+        if (cloud_density > 0.001) {
+            let cloud_scattering = cloud_density * 0.1; // TODO: get from cloud_layer
+            let cloud_absorption = cloud_density * 0.05; // TODO: get from cloud_layer
+            let cloud_extinction = cloud_scattering + cloud_absorption;
+            
+            // Add cloud extinction to both optical depth and extinction coefficient
+            extinction += vec3(cloud_extinction);
+            sample_optical_depth += vec3(cloud_extinction * dt_i);
+        }
+        #endif
+
         let sample_transmittance = exp(-sample_optical_depth);
 
         let inscattering = sample_local_inscattering(
             scattering,
             ray_dir,
-            sample_pos
+            sample_pos,
+            pixel_coords
         );
 
         let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);

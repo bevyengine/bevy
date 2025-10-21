@@ -18,8 +18,8 @@ use bevy::{
         VolumetricFog, VolumetricLight,
     },
     pbr::{
-        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, CloudLayer, DefaultOpaqueRendererMethod,
+        EarthlikeAtmosphere, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -56,6 +56,8 @@ fn print_controls() {
     println!("Atmosphere Example Controls:");
     println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
+    println!("    C          - Toggle cloud layer");
+    println!("    Left/Right - Decrease/Increase cloud density");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
 }
@@ -63,6 +65,9 @@ fn print_controls() {
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut atmosphere_settings: Query<&mut AtmosphereSettings>,
+    mut cloud_layers: Query<&mut CloudLayer>,
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera3d>>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
@@ -81,6 +86,38 @@ fn atmosphere_controls(
         }
     }
 
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
+        if cloud_layers.iter().count() > 0 {
+            // Remove cloud layer
+            for entity in &cameras {
+                commands.entity(entity).remove::<CloudLayer>();
+            }
+            println!("Cloud layer disabled");
+        } else {
+            // Add cloud layer
+            for entity in &cameras {
+                commands.entity(entity).insert(CloudLayer::default());
+            }
+            println!("Cloud layer enabled");
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowLeft) {
+        for mut cloud_layer in &mut cloud_layers {
+            cloud_layer.cloud_density =
+                (cloud_layer.cloud_density - time.delta_secs() * 0.5).max(0.0);
+            println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+        }
+    }
+
+    if keyboard_input.pressed(KeyCode::ArrowRight) {
+        for mut cloud_layer in &mut cloud_layers {
+            cloud_layer.cloud_density =
+                (cloud_layer.cloud_density + time.delta_secs() * 0.5).min(2.0);
+            println!("Cloud density: {:.2}", cloud_layer.cloud_density);
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Enter) {
         game_state.paused = !game_state.paused;
     }
@@ -96,6 +133,11 @@ fn atmosphere_controls(
             exposure.ev100 += time.delta_secs() * 2.0;
         }
     }
+
+    // Animate clouds by updating noise offset
+    for mut cloud_layer in &mut cloud_layers {
+        cloud_layer.noise_offset.x += time.delta_secs() * 100.0;
+    }
 }
 
 fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
@@ -105,7 +147,21 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
         // get the default `Atmosphere` component
         earth_atmosphere.get(),
         // Can be adjusted to change the scene scale and rendering quality
-        AtmosphereSettings::default(),
+        AtmosphereSettings {
+            rendering_method: AtmosphereMode::Raymarched,
+            scene_units_to_m: 1000.0,
+            ..default()
+        },
+        // Add a volumetric cloud layer using 3D FBM noise
+        CloudLayer {
+            cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
+            cloud_layer_end: 6_365_000.0,   // 5km above Earth's surface
+            cloud_density: 0.5,
+            cloud_absorption: 0.3,
+            cloud_scattering: 1.2,
+            noise_scale: 8000.0,
+            noise_offset: Vec3::ZERO,
+        },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps

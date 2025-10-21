@@ -1,6 +1,6 @@
 use crate::{
-    ExtractedAtmosphere, GpuLights, GpuScatteringMedium, LightMeta, ScatteringMedium,
-    ScatteringMediumSampler,
+    fbm_noise::FbmNoiseTexture, CloudLayer, ExtractedAtmosphere, GpuLights, GpuScatteringMedium,
+    LightMeta, ScatteringMedium, ScatteringMediumSampler,
 };
 use bevy_asset::{load_embedded_asset, AssetId, Handle};
 use bevy_camera::{Camera, Camera3d};
@@ -189,6 +189,13 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (12, sampler(SamplerBindingType::Filtering)),
                     // view depth texture
                     (13, texture_2d(TextureSampleType::Depth)),
+                    (14, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
+                    (
+                        // 3D noise texture for clouds
+                        15,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (16, sampler(SamplerBindingType::Filtering)), // noise sampler
                 ),
             ),
         );
@@ -215,6 +222,13 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (12, sampler(SamplerBindingType::Filtering)),
                     // view depth texture
                     (13, texture_2d_multisampled(TextureSampleType::Depth)),
+                    (14, uniform_buffer::<CloudLayer>(true)), // cloud layer parameters
+                    (
+                        // 3D noise texture for clouds
+                        15,
+                        texture_3d(TextureSampleType::Float { filterable: true }),
+                    ),
+                    (16, sampler(SamplerBindingType::Filtering)), // noise sampler
                 ),
             ),
         );
@@ -278,6 +292,8 @@ impl FromWorld for AtmosphereLutPipelines {
             label: Some("sky_view_lut_pipeline".into()),
             layout: vec![layouts.sky_view_lut.clone()],
             shader: load_embedded_asset!(world, "sky_view_lut.wgsl"),
+            // Note: Clouds disabled for sky_view_lut - too complex for precomputation
+            // Clouds are rendered in real-time raymarching instead
             ..default()
         });
 
@@ -318,6 +334,9 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
         if key.dual_source_blending {
             shader_defs.push("DUAL_SOURCE_BLENDING".into());
         }
+
+        // Enable cloud rendering
+        shader_defs.push("CLOUDS_ENABLED".into());
 
         let dst_factor = if key.dual_source_blending {
             BlendFactor::Src1
@@ -611,6 +630,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
     gpu_media: Res<RenderAssets<GpuScatteringMedium>>,
     medium_sampler: Res<ScatteringMediumSampler>,
     pipeline_cache: Res<PipelineCache>,
+    cloud_layer_uniforms: Res<ComponentUniforms<CloudLayer>>,
+    fbm_noise_texture: Res<FbmNoiseTexture>,
     mut commands: Commands,
 ) -> Result<(), BevyError> {
     if views.iter().len() == 0 {
@@ -640,11 +661,12 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .ok_or(AtmosphereBindGroupError::LightUniforms)?;
 
+    let cloud_layer_binding = cloud_layer_uniforms.binding().unwrap();
+
     for (entity, atmosphere, textures, view_depth_texture, msaa) in &views {
         let gpu_medium = gpu_media
             .get(atmosphere.medium)
             .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
-
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.transmittance_lut),
@@ -751,6 +773,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (12, &**atmosphere_sampler),
                 // view depth texture
                 (13, view_depth_texture.view()),
+                (14, cloud_layer_binding.clone()),
+                (15, &fbm_noise_texture.texture.default_view),
+                (16, &**atmosphere_sampler),
             )),
         );
 

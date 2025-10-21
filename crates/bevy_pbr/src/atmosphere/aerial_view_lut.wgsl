@@ -16,7 +16,9 @@
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     if any(idx.xy > settings.aerial_view_lut_size.xy) { return; }
 
-    let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
+    // Use global invocation ID as pixel coordinates for jittering
+    let pixel_coords = vec2<f32>(idx.xy);
+    let uv = (pixel_coords + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv);
     let world_pos = get_view_position();
 
@@ -45,7 +47,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let sample_transmittance = exp(-sample_optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos);
+            var inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos, pixel_coords);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
             let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);

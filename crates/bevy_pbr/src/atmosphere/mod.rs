@@ -34,6 +34,7 @@
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
 
 mod environment;
+pub mod fbm_noise;
 mod node;
 pub mod resources;
 
@@ -71,6 +72,10 @@ use environment::{
     prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
     prepare_probe_textures, AtmosphereEnvironmentMap, EnvironmentNode,
 };
+use fbm_noise::{
+    generate_fbm_noise_once, init_fbm_noise_params_buffer, init_fbm_noise_texture,
+    prepare_fbm_noise_bind_group, FbmNoiseBindGroupLayout, FbmNoisePipeline, NoiseGenerated,
+};
 use resources::{
     prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
     AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
@@ -90,6 +95,19 @@ use self::{
     },
 };
 
+/// Creates a default CloudLayer entity to ensure there's always at least one uniform available
+fn init_default_cloud_layer(mut commands: bevy_ecs::system::Commands) {
+    commands.spawn(CloudLayer {
+        cloud_layer_start: 0.0,
+        cloud_layer_end: 0.0,
+        cloud_density: 0.0, // Disabled by default
+        cloud_absorption: 0.0,
+        cloud_scattering: 0.0,
+        noise_scale: 1.0,
+        noise_offset: Vec3::ZERO,
+    });
+}
+
 #[doc(hidden)]
 pub struct AtmospherePlugin;
 
@@ -99,6 +117,7 @@ impl Plugin for AtmospherePlugin {
         load_shader_library!(app, "functions.wgsl");
         load_shader_library!(app, "bruneton_functions.wgsl");
         load_shader_library!(app, "bindings.wgsl");
+        load_shader_library!(app, "clouds.wgsl");
 
         embedded_asset!(app, "transmittance_lut.wgsl");
         embedded_asset!(app, "multiscattering_lut.wgsl");
@@ -106,13 +125,16 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "aerial_view_lut.wgsl");
         embedded_asset!(app, "render_sky.wgsl");
         embedded_asset!(app, "environment.wgsl");
+        embedded_asset!(app, "fbm_noise_3d.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            ExtractComponentPlugin::<CloudLayer>::default(),
             UniformComponentPlugin::<GpuAtmosphere>::default(),
             UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
+            UniformComponentPlugin::<CloudLayer>::default(),
         ))
         .add_systems(Update, prepare_atmosphere_probe_components);
 
@@ -155,12 +177,18 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .init_resource::<FbmNoiseBindGroupLayout>()
+            .init_resource::<FbmNoisePipeline>()
+            .init_resource::<NoiseGenerated>()
             .add_systems(
                 RenderStartup,
                 (
                     init_atmosphere_probe_layout,
                     init_atmosphere_probe_pipeline,
                     init_atmosphere_buffer,
+                    init_fbm_noise_texture,
+                    init_fbm_noise_params_buffer,
+                    init_default_cloud_layer,
                 )
                     .chain(),
             )
@@ -179,6 +207,10 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_fbm_noise_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                    generate_fbm_noise_once
+                        .in_set(RenderSystems::Render)
+                        .after(RenderSystems::PrepareBindGroups),
                     write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
                 ),
             )
@@ -462,4 +494,57 @@ pub enum AtmosphereMode {
     /// Best for cinematic shots, planets seen from orbit, and scenes requiring
     /// accurate long-distance lighting.
     Raymarched = 1,
+}
+
+/// Component that adds a volumetric cloud layer to the atmosphere.
+/// Add this component to a camera with [`Atmosphere`] to enable clouds.
+#[derive(Clone, Component, Reflect, ShaderType)]
+#[reflect(Clone, Default)]
+pub struct CloudLayer {
+    /// Altitude at which the cloud layer starts (from planet center)
+    /// units: m
+    pub cloud_layer_start: f32,
+
+    /// Altitude at which the cloud layer ends (from planet center)
+    /// units: m
+    pub cloud_layer_end: f32,
+
+    /// Density multiplier for the clouds
+    pub cloud_density: f32,
+
+    /// Absorption coefficient for clouds
+    pub cloud_absorption: f32,
+
+    /// Scattering coefficient for clouds
+    pub cloud_scattering: f32,
+
+    /// Scale of the noise texture in world space
+    pub noise_scale: f32,
+
+    /// Offset for animating the noise texture
+    pub noise_offset: Vec3,
+}
+
+impl Default for CloudLayer {
+    fn default() -> Self {
+        Self {
+            cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
+            cloud_layer_end: 6_365_000.0,   // 5km above Earth's surface
+            cloud_density: 0.3,
+            cloud_absorption: 0.5,
+            cloud_scattering: 1.0,
+            noise_scale: 10000.0,
+            noise_offset: Vec3::ZERO,
+        }
+    }
+}
+
+impl ExtractComponent for CloudLayer {
+    type QueryData = Read<CloudLayer>;
+    type QueryFilter = (With<Camera3d>, With<Atmosphere>);
+    type Out = CloudLayer;
+
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
+        Some(item.clone())
+    }
 }
