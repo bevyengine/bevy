@@ -235,7 +235,7 @@ pub fn update_text2d_layout(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (_, i, text, font, _) in text_reader.iter(entity) {
+        for (i, (_, _, text, font, _)) in text_reader.iter(entity).enumerate() {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 font.font.as_str(),

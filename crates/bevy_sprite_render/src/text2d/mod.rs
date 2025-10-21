@@ -166,16 +166,16 @@ pub fn extract_text2d_sprite(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if *span_index != current_span {
+                current_span = *span_index;
                 color = text_colors_query
                     .get(
                         computed_block
-                            .get(*span_index)
+                            .get(current_span)
                             .map(|t| *t)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
-                current_span = *span_index;
             }
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)

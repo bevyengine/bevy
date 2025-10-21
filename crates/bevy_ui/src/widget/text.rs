@@ -290,13 +290,13 @@ pub fn shape_text_system(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (_, section_index, text, font, _) in text_reader.iter(entity) {
+        for (i, (_, _, text, font, _)) in text_reader.iter(entity).enumerate() {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 font.font.as_str(),
                 font.font_size,
                 font.line_height,
-                section_index as u32,
+                i as u32,
             ));
         }
 
