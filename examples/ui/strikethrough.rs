@@ -1,4 +1,4 @@
-//! This example illustrates UI text with strikeout
+//! This example illustrates UI text with strikethrough
 
 use bevy::{
     color::palettes::css::{GREEN, NAVY, RED},
@@ -16,8 +16,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("struck\nstruck"),
-        // Just add the `Strikeout` component to any `Text`, `Text2d` or `TextSpan` and it's text will be struck out.
-        Strikeout,
+        // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and it's text will be struck through.
+        Strikethrough,
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
@@ -45,22 +45,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![
             (
                 Text::new("struck\nstruckstruck\nstruckstuckstruck"),
-                Strikeout,
+                Strikethrough,
                 TextBackgroundColor(GREEN.into()),
             ),
             Text::new("normal"),
             (
                 Text::new("struck"),
-                Strikeout,
+                Strikethrough,
                 TextBackgroundColor(GREEN.into()),
                 children![
                     TextSpan::new("normal"),
-                    (TextSpan::new("struck"), Strikeout,)
+                    (TextSpan::new("struck"), Strikethrough,)
                 ],
             ),
             (
                 Text::new("struck struck"),
-                Strikeout,
+                Strikethrough,
                 TextFont {
                     font_size: 67.0,
                     ..default()
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ),
             (
                 Text::new("2struck\nstruck"),
-                Strikeout,
+                Strikethrough,
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: 67.0,
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     (
                         TextSpan::new("struck"),
-                        Strikeout,
+                        Strikethrough,
                         TextFont {
                             font_size: 15.,
                             ..default()
@@ -104,7 +104,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 50.,
                             ..default()
                         },
-                        Strikeout,
+                        Strikethrough,
                         TextColor(RED.into()),
                         TextBackgroundColor(NAVY.into())
                     ),
@@ -114,7 +114,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             font_size: 70.,
                             ..default()
                         },
-                        Strikeout,
+                        Strikethrough,
                         TextColor(RED.into()),
                         TextBackgroundColor(NAVY.into())
                     )

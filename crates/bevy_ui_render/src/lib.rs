@@ -60,7 +60,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikeout, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, Strikethrough, TextBackgroundColor, TextColor,
+    TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1020,7 +1021,7 @@ pub fn extract_text_shadows(
             &ComputedTextBlock,
         )>,
     >,
-    text_decoration_query: Extract<Query<&Strikeout>>,
+    text_decoration_query: Extract<Query<&Strikethrough>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
@@ -1146,7 +1147,7 @@ pub fn extract_text_decorations(
         )>,
     >,
     text_background_colors_query: Extract<
-        Query<(AnyOf<(&TextBackgroundColor, &Strikeout)>, &TextColor)>,
+        Query<(AnyOf<(&TextBackgroundColor, &Strikethrough)>, &TextColor)>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {

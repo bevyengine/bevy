@@ -15,7 +15,7 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikeout, TextBackgroundColor, TextBounds, TextColor,
+    ComputedTextBlock, PositionedGlyph, Strikethrough, TextBackgroundColor, TextBounds, TextColor,
     TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -41,7 +41,7 @@ pub fn extract_text2d_sprite(
     >,
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
-    strikeout_query: Extract<Query<&TextColor, With<Strikeout>>>,
+    strikethrough_query: Extract<Query<&TextColor, With<Strikethrough>>>,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -149,15 +149,15 @@ pub fn extract_text2d_sprite(
                 end += 1;
             }
 
-            for &(section_index, rect, strikeout_y, stroke) in
+            for &(section_index, rect, strikethrough_y, stroke) in
                 text_layout_info.section_geometry.iter()
             {
                 let section_entity = computed_block.entities()[section_index].entity;
-                let Ok(_) = strikeout_query.get(section_entity) else {
+                let Ok(_) = strikethrough_query.get(section_entity) else {
                     continue;
                 };
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
+                let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
                 let transform =
                     shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
                 extracted_sprites.sprites.push(ExtractedSprite {
@@ -239,14 +239,15 @@ pub fn extract_text2d_sprite(
             end += 1;
         }
 
-        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        for &(section_index, rect, strikethrough_y, stroke) in
+            text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok(text_color) = strikeout_query.get(section_entity) else {
+            let Ok(text_color) = strikethrough_query.get(section_entity) else {
                 continue;
             };
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
-            let offset = Vec2::new(rect.center().x, -strikeout_y - 0.5 * stroke);
+            let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
                 * scaling
