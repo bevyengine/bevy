@@ -26,6 +26,8 @@ struct FpsText;
 struct AnimatedText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let _fontx: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let _font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
     // UI camera
     commands.spawn(Camera2d);
     // Text with one section
@@ -34,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("hello\nbevy!"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: "fira_sans".to_string(),
             font_size: 67.0,
             ..default()
         },
@@ -58,7 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("FPS: "),
             TextFont {
                 // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font: "fira sans".to_string(),
                 font_size: 42.0,
                 ..default()
             },
@@ -78,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 (
                     // "default_font" feature is unavailable, load a font to use instead.
                     TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                        font: "fira mono".to_string(),
                         font_size: 33.0,
                         ..Default::default()
                     },
@@ -105,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::new("Default font disabled"),
         TextFont {
-            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+            font: "fira mono".to_string(),
             ..default()
         },
         Node {

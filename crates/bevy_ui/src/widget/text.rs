@@ -3,7 +3,7 @@ use crate::{
     Node, NodeMeasure,
 };
 use bevy_asset::Assets;
-use bevy_color::Color;
+use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -18,7 +18,10 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, ComputedTextLayout, Font, FontAtlasSet, LineBreak, TextBounds, TextColor, TextError, TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSpanAccess, TextWriter
+    build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, ComputedTextLayout,
+    Font, FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextError,
+    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess,
+    TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -154,21 +157,16 @@ pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 /// UI alias for [`TextWriter`].
 pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
-
 /// Data for `TextMeasure`
 pub struct TextMeasureInfo {
-    pub min: Vec2,
-    pub max: Vec2,
+    // pub min: Vec2,
+    // pub max: Vec2,
     pub entity: Entity,
 }
 
 impl TextMeasureInfo {
     /// Computes the size of the text area within the provided bounds.
-    pub fn compute_size(
-        &mut self,
-        bounds: TextBounds,
-        layout: &mut ComputedTextLayout,
-    ) -> Vec2 {
+    pub fn compute_size(&mut self, bounds: TextBounds, layout: &mut ComputedTextLayout) -> Vec2 {
         // Note that this arbitrarily adjusts the buffer layout. We assume the buffer is always 'refreshed'
         // whenever a canonical state is required.
         layout.break_all_lines(bounds.width);
@@ -191,86 +189,52 @@ impl TextMeasure {
 
 impl Measure for TextMeasure {
     fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
-            let MeasureArgs {
-                width,
-                height,
-                available_width,
-                text_layout: buffer,
-                ..
-            } = measure_args;
-            let x = width.unwrap_or_else(|| match available_width {
-                AvailableSpace::Definite(x) => {
-                    // It is possible for the "min content width" to be larger than
-                    // the "max content width" when soft-wrapping right-aligned text
-                    // and possibly other situations.
+        let MeasureArgs {
+            width,
+            height,
+            available_width,
+            available_height,
+            maybe_text_layout,
+            ..
+        } = measure_args;
 
-                    x.max(self.info.min.x).min(self.info.max.x)
-                }
-                AvailableSpace::MinContent => self.info.min.x,
-                AvailableSpace::MaxContent => self.info.max.x,
-            });
+        let Some(text_layout) = maybe_text_layout else {
+            error!("text measure failed, buffer is missing");
+            return Vec2::ZERO;
+        };
 
-            height
-                .map_or_else(
-                    || match available_width {
-                        AvailableSpace::Definite(_) => {
-                            if let Some(buffer) = buffer {
-                                self.info.compute_size(
-                                    TextBounds::new_horizontal(x),
-                                    buffer,
-                                    font_system,
-                                )
-                            } else {
-                                error!("text measure failed, buffer is missing");
-                                Vec2::default()
-                            }
-                        }
-                        AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
-                        AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
-                    },
-                    |y| Vec2::new(x, y),
-                )
-                .ceil()
-    }
-}
+        let max = self.info.compute_size(TextBounds::default(), text_layout);
 
-#[inline]
-fn create_text_measure<'a>(
-    entity: Entity,
-    fonts: &Assets<Font>,
-    scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
-    block: Ref<TextLayout>,
-    mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextLayout>,
-) {
-    match text_pipeline.create_text_measure(
-        entity,
-        fonts,
-        spans,
-        scale_factor,
-        &block,
-        computed.as_mut(),
-    ) {
-        Ok(measure) => {
-            if block.linebreak == LineBreak::NoWrap {
-                content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-            } else {
-                content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
+        let min = self
+            .info
+            .compute_size(TextBounds::new_horizontal(0.), text_layout);
+
+        let x = width.unwrap_or_else(|| match available_width {
+            AvailableSpace::Definite(x) => {
+                self.info
+                    .compute_size(TextBounds::new_horizontal(x), text_layout)
+                    .x
             }
+            AvailableSpace::MinContent => {
+                self.info
+                    .compute_size(TextBounds::new_horizontal(0.), text_layout)
+                    .x
+            }
+            AvailableSpace::MaxContent => {
+                self.info.compute_size(TextBounds::default(), text_layout).x
+            }
+        });
 
-            // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-            text_flags.needs_measure_fn = false;
-            text_flags.needs_recompute = true;
-        }
-        Err(TextError::NoSuchFont) => {
-            // Try again next frame
-            text_flags.needs_measure_fn = true;
-        }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage) => {
-            panic!("Fatal error when processing text: {e}.");
-        }
+        height
+            .map_or_else(
+                || match available_height {
+                    AvailableSpace::Definite(y) => (x, y.min(min.y)).into(),
+                    AvailableSpace::MinContent => max,
+                    AvailableSpace::MaxContent => min,
+                },
+                |y| Vec2::new(x, y),
+            )
+            .ceil()
     }
 }
 
@@ -284,14 +248,17 @@ fn create_text_measure<'a>(
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
-pub fn measure_text_system(
-    fonts: Res<Assets<Font>>,
+pub fn prepare_text_layout_system(
+    mut font_cx: ResMut<FontCx>,
+    mut layout_cx: ResMut<LayoutCx>,
+
     mut text_query: Query<
         (
             Entity,
             Ref<TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
+            Ref<ComputedTextBlock>,
             &mut ComputedTextLayout,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
@@ -300,29 +267,84 @@ pub fn measure_text_system(
     >,
     mut text_reader: TextUiReader,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
-        &mut text_query
+    for (
+        entity,
+        block,
+        mut content_size,
+        text_flags,
+        computed_block,
+        mut computed_layout,
+        computed_target,
+        computed_node,
+    ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
-        if 1e-5
+        if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            || computed.needs_rerender()
+            || computed_block.is_changed()
             || text_flags.needs_measure_fn
-            || content_size.is_added()
+            || content_size.is_added())
         {
-            create_text_measure(
-                entity,
-                &fonts,
-                computed_target.scale_factor.into(),
-                text_reader.iter(entity),
-                block,
-                &mut text_pipeline,
-                content_size,
-                text_flags,
-                computed,
-            );
+            continue;
         }
+
+        let mut text_sections: Vec<&str> = Vec::new();
+        let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
+        for (_, _, text, font, color) in text_reader.iter(entity) {
+            text_sections.push(text);
+            text_section_styles.push(TextSectionStyle::new(
+                font.font.as_str(),
+                font.font_size,
+                font.line_height,
+                color.to_linear(),
+            ));
+        }
+
+        build_layout_from_text_sections(
+            &mut computed_layout.0,
+            &mut font_cx.0,
+            &mut layout_cx.0,
+            text_sections.iter().copied(),
+            text_section_styles.iter().copied(),
+            computed_target.scale_factor,
+            block.linebreak,
+        );
+
+        content_size.set(NodeMeasure::Text(TextMeasure {
+            info: TextMeasureInfo {
+                // min: (),
+                // max: (),
+                entity,
+            },
+        }));
+
+        // match text_pipeline.create_text_measure(
+        //     entity,
+        //     fonts,
+        //     spans,
+        //     scale_factor,
+        //     &block,
+        //     computed_layout.as_mut(),
+        // ) {
+        //     Ok(measure) => {
+        //         if block.linebreak == LineBreak::NoWrap {
+        //             content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
+        //         } else {
+        //             content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
+        //         }
+
+        //         // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
+        //         text_flags.needs_measure_fn = false;
+        //         text_flags.needs_recompute = true;
+        //     }
+        //     Err(TextError::NoSuchFont) => {
+        //         // Try again next frame
+        //         text_flags.needs_measure_fn = true;
+        //     }
+        //     Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage)) => {
+        //         panic!("Fatal error when processing text: {e}.");
+        //     }
     }
 }
 
@@ -336,31 +358,29 @@ pub fn measure_text_system(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn update_text_system(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_query: Query<(
-        Entity,
         Ref<ComputedNode>,
         &TextLayout,
         &mut TextLayoutInfo,
         &mut TextNodeFlags,
-        &mut ComputedTextBlock,
         &mut ComputedTextLayout,
     )>,
+    mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (node, block, mut text_layout_info, text_flags, mut layout) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
-                *text_layout_info = build_text_layout_info(
-                    &mut clayout.0,
-                    Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
-                    block.justify.into(),
-                    &mut scale_cx,
-                    &mut font_atlas_set,
-                    &mut texture_atlases,
-                    &mut textures,
-                    bevy_text::FontSmoothing::AntiAliased,
-                );
+            *text_layout_info = build_text_layout_info(
+                &mut layout.0,
+                Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
+                block.justify.into(),
+                &mut scale_cx,
+                &mut font_atlas_set,
+                &mut texture_atlases,
+                &mut textures,
+                bevy_text::FontSmoothing::AntiAliased,
+            );
         }
     }
 }

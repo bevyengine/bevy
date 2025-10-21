@@ -184,7 +184,7 @@ impl UiSurface {
         &mut self,
         ui_root_entity: Entity,
         render_target_resolution: UVec2,
-        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
+        buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextLayout>,
     ) {
         let implicit_viewport_node = self.get_or_insert_taffy_viewport_node(ui_root_entity);
 
@@ -219,7 +219,7 @@ impl UiSurface {
                                     height: known_dimensions.height,
                                     available_width: available_space.width,
                                     available_height: available_space.height,
-                                    text_layout: buffer,
+                                    maybe_text_layout: buffer,
                                 },
                                 style,
                             );

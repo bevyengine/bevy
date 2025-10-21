@@ -45,7 +45,7 @@ use bevy_camera::{
 };
 use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_text")]
-use bevy_text::{TextSectionStyle, TextSystems};
+use bevy_text::TextSystems;
 #[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;

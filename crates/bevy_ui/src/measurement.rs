@@ -19,7 +19,7 @@ pub struct MeasureArgs<'a> {
     pub height: Option<f32>,
     pub available_width: AvailableSpace,
     pub available_height: AvailableSpace,
-    pub text_layout: Option<&'a mut bevy_text::ComputedTextLayout>,
+    pub maybe_text_layout: Option<&'a mut bevy_text::ComputedTextLayout>,
 }
 
 /// A `Measure` is used to compute the size of a ui node
