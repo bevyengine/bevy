@@ -25,9 +25,36 @@ struct FpsText;
 #[derive(Component)]
 struct AnimatedText;
 
+#[derive(Resource)]
+struct Fonts(Vec<Handle<Font>>);
+
+fn setup_hello(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    commands.insert_resource(Fonts(vec![
+        asset_server.load("fonts/FiraSans-Bold.ttf"),
+        asset_server.load("fonts/FiraMono-Medium.ttf"),
+    ]));
+    commands.spawn((
+        Text::new("Hello"),
+        TextFont {
+            // This font is loaded and will be used instead of the default font.
+            font: "fira sans".to_string(),
+            font_size: 67.0,
+            ..default()
+        },
+        // Outline {
+        //     width: Val::Px(2.),
+        //     offset: Val::Px(1.),
+        //     color: Color::WHITE,
+        // },
+    ));
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let _fontx: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let _font: Handle<Font> = asset_server.load("fonts/FiraMono-Medium.ttf");
+    commands.insert_resource(Fonts(vec![
+        asset_server.load("fonts/FiraSans-Bold.ttf"),
+        asset_server.load("fonts/FiraMono-Medium.ttf"),
+    ]));
     // UI camera
     commands.spawn(Camera2d);
     // Text with one section
@@ -36,7 +63,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("hello\nbevy!"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: "fira_sans".to_string(),
+            font: "fira sans".to_string(),
             font_size: 67.0,
             ..default()
         },

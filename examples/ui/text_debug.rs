@@ -30,8 +30,13 @@ fn main() {
 #[derive(Component)]
 struct TextChanges;
 
+#[derive(Resource)]
+struct Fonts(Vec<Handle<Font>>);
+
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font_handle: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.insert_resource(Fonts(vec![font_handle]));
+    let font = "fira sans".to_string();
     let background_color = MAROON.into();
     commands.spawn(Camera2d);
 

@@ -96,7 +96,16 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    TextNodeFlags,
+    ContentSize,
+    ComputedTextBlock,
+    ComputedTextLayout
+)]
 pub struct Text(pub String);
 
 impl Text {
@@ -199,7 +208,7 @@ impl Measure for TextMeasure {
         } = measure_args;
 
         let Some(text_layout) = maybe_text_layout else {
-            error!("text measure failed, buffer is missing");
+            //error!("text measure failed, buffer is missing");
             return Vec2::ZERO;
         };
 
