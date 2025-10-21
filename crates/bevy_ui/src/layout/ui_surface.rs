@@ -206,7 +206,7 @@ impl UiSurface {
                     context
                         .map(|ctx| {
                             let buffer = get_text_buffer(
-                                crate::widget::TextMeasure::needs_buffer(
+                                crate::widget::TextMeasure::needs_text_layout(
                                     known_dimensions.height,
                                     available_space.width,
                                 ),

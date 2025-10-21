@@ -11,17 +11,16 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, Res, ResMut},
-    world::{Mut, Ref},
+    system::{Query, ResMut},
+    world::Ref,
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     build_layout_from_text_sections, build_text_layout_info, ComputedTextBlock, ComputedTextLayout,
-    Font, FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextError,
-    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess,
-    TextWriter,
+    FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
+    TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -168,8 +167,8 @@ pub type TextUiWriter<'w, 's> = TextWriter<'w, 's, Text>;
 
 /// Data for `TextMeasure`
 pub struct TextMeasureInfo {
-    // pub min: Vec2,
-    // pub max: Vec2,
+    pub min: Vec2,
+    pub max: Vec2,
     pub entity: Entity,
 }
 
@@ -191,55 +190,46 @@ pub struct TextMeasure {
 impl TextMeasure {
     /// Checks if the cosmic text buffer is needed for measuring the text.
     #[inline]
-    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+    pub const fn needs_text_layout(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
     }
 }
 
 impl Measure for TextMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
         let MeasureArgs {
             width,
             height,
             available_width,
-            available_height,
+            available_height: _,
             maybe_text_layout,
-            ..
         } = measure_args;
-
-        let Some(text_layout) = maybe_text_layout else {
-            //error!("text measure failed, buffer is missing");
-            return Vec2::ZERO;
-        };
-
-        let max = self.info.compute_size(TextBounds::default(), text_layout);
-
-        let min = self
-            .info
-            .compute_size(TextBounds::new_horizontal(0.), text_layout);
-
         let x = width.unwrap_or_else(|| match available_width {
             AvailableSpace::Definite(x) => {
-                self.info
-                    .compute_size(TextBounds::new_horizontal(x), text_layout)
-                    .x
+                // It is possible for the "min content width" to be larger than
+                // the "max content width" when soft-wrapping right-aligned text
+                // and possibly other situations.
+
+                x.max(self.info.min.x).min(self.info.max.x)
             }
-            AvailableSpace::MinContent => {
-                self.info
-                    .compute_size(TextBounds::new_horizontal(0.), text_layout)
-                    .x
-            }
-            AvailableSpace::MaxContent => {
-                self.info.compute_size(TextBounds::default(), text_layout).x
-            }
+            AvailableSpace::MinContent => self.info.min.x,
+            AvailableSpace::MaxContent => self.info.max.x,
         });
 
         height
             .map_or_else(
-                || match available_height {
-                    AvailableSpace::Definite(y) => (x, y.min(min.y)).into(),
-                    AvailableSpace::MinContent => max,
-                    AvailableSpace::MaxContent => min,
+                || match available_width {
+                    AvailableSpace::Definite(_) => {
+                        if let Some(text_layout) = maybe_text_layout {
+                            self.info
+                                .compute_size(TextBounds::new_horizontal(x), text_layout)
+                        } else {
+                            error!("text measure failed, buffer is missing");
+                            Vec2::default()
+                        }
+                    }
+                    AvailableSpace::MinContent => Vec2::new(x, self.info.min.y),
+                    AvailableSpace::MaxContent => Vec2::new(x, self.info.max.y),
                 },
                 |y| Vec2::new(x, y),
             )
@@ -320,40 +310,18 @@ pub fn prepare_text_layout_system(
             block.linebreak,
         );
 
-        content_size.set(NodeMeasure::Text(TextMeasure {
-            info: TextMeasureInfo {
-                // min: (),
-                // max: (),
-                entity,
-            },
-        }));
+        computed_layout.break_all_lines(None);
+        let max = (computed_layout.width(), computed_layout.height()).into();
 
-        // match text_pipeline.create_text_measure(
-        //     entity,
-        //     fonts,
-        //     spans,
-        //     scale_factor,
-        //     &block,
-        //     computed_layout.as_mut(),
-        // ) {
-        //     Ok(measure) => {
-        //         if block.linebreak == LineBreak::NoWrap {
-        //             content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
-        //         } else {
-        //             content_size.set(NodeMeasure::Text(TextMeasure { info: measure }));
-        //         }
-
-        //         // Text measure func created successfully, so set `TextNodeFlags` to schedule a recompute
-        //         text_flags.needs_measure_fn = false;
-        //         text_flags.needs_recompute = true;
-        //     }
-        //     Err(TextError::NoSuchFont) => {
-        //         // Try again next frame
-        //         text_flags.needs_measure_fn = true;
-        //     }
-        //     Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage)) => {
-        //         panic!("Fatal error when processing text: {e}.");
-        //     }
+        if block.linebreak == LineBreak::NoWrap {
+            content_size.set(NodeMeasure::Fixed(FixedMeasure { size: max }));
+        } else {
+            computed_layout.break_all_lines(Some(0.));
+            let min = (computed_layout.width(), computed_layout.height()).into();
+            content_size.set(NodeMeasure::Text(TextMeasure {
+                info: TextMeasureInfo { min, max, entity },
+            }));
+        }
     }
 }
 
