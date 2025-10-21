@@ -142,7 +142,6 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
                 update_source::<C, F>,
                 update_reparented::<C, F, R>,
                 propagate_inherited::<C, F, R>,
-                // update_skipped::<C, F>,
                 propagate_output::<C, F>,
             )
                 .chain()
@@ -167,17 +166,6 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
         if let Ok(mut commands) = commands.get_entity(removed) {
             commands.remove::<(Inherited<C>, C)>();
         }
-    }
-}
-
-/// remove `Inherited::<C>` for entities with a `PropagateOver::<C>`
-pub fn update_skipped<C: Component + Clone + PartialEq, F: QueryFilter>(
-    mut commands: Commands,
-    q: Query<Entity, (With<Inherited<C>>, With<PropagateOver<C>>, F)>,
-) {
-    for entity in q.iter() {
-        let mut cmds = commands.entity(entity);
-        cmds.remove::<Inherited<C>>();
     }
 }
 
