@@ -118,7 +118,7 @@ pub mod stack_z_offsets {
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
-    pub const TEXT_STRIKEOUT: f32 = 0.07;
+    pub const TEXT_STRIKETHROUGH: f32 = 0.07;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -1094,7 +1094,8 @@ pub fn extract_text_shadows(
             end += 1;
         }
 
-        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        for &(section_index, rect, strikethrough_y, stroke) in
+            text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
             if !text_decoration_query.contains(section_entity) {
@@ -1110,7 +1111,7 @@ pub fn extract_text_shadows(
                 transform: node_transform
                     * Affine2::from_translation(Vec2::new(
                         rect.center().x,
-                        strikeout_y + 0.5 * stroke,
+                        strikethrough_y + 0.5 * stroke,
                     )),
                 item: ExtractedUiItem::Node {
                     color: shadow.color.into(),
@@ -1175,10 +1176,11 @@ pub fn extract_text_decorations(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for &(section_index, rect, strikeout_y, stroke) in text_layout_info.section_geometry.iter()
+        for &(section_index, rect, strikethrough_y, stroke) in
+            text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok(((text_background_color, maybe_strikeout), text_color)) =
+            let Ok(((text_background_color, maybe_strikethrough), text_color)) =
                 text_background_colors_query.get(section_entity)
             else {
                 continue;
@@ -1209,9 +1211,9 @@ pub fn extract_text_decorations(
                 });
             }
 
-            if maybe_strikeout.is_some() {
+            if maybe_strikethrough.is_some() {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1219,7 +1221,7 @@ pub fn extract_text_decorations(
                     transform: transform
                         * Affine2::from_translation(Vec2::new(
                             rect.center().x,
-                            strikeout_y + 0.5 * stroke,
+                            strikethrough_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
