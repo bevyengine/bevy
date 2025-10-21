@@ -195,7 +195,7 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
-                    .ambiguous_with(widget::prepare_text_layout_system)
+                    .ambiguous_with(widget::shape_text_system)
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
@@ -231,7 +231,7 @@ fn build_text_interop(app: &mut App) {
         (
             (
                 bevy_text::detect_text_needs_rerender::<Text>,
-                widget::prepare_text_layout_system,
+                widget::shape_text_system,
             )
                 .chain()
                 .in_set(UiSystems::Content)
@@ -244,7 +244,7 @@ fn build_text_interop(app: &mut App) {
                 // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
-            widget::update_text_system
+            widget::layout_text_system
                 .in_set(UiSystems::PostLayout)
                 //.after(bevy_text::free_unused_font_atlases_system)
                 .before(bevy_asset::AssetEventSystems)
@@ -266,7 +266,7 @@ fn build_text_interop(app: &mut App) {
 
     app.configure_sets(
         PostUpdate,
-        AmbiguousWithText.ambiguous_with(widget::update_text_system),
+        AmbiguousWithText.ambiguous_with(widget::layout_text_system),
     );
 
     app.configure_sets(

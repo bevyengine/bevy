@@ -247,7 +247,7 @@ impl Measure for TextMeasure {
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
-pub fn prepare_text_layout_system(
+pub fn shape_text_system(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
 
@@ -266,11 +266,6 @@ pub fn prepare_text_layout_system(
     >,
     mut text_reader: TextUiReader,
 ) {
-    let e = info_span!(
-        "prepare_text_layout_system",
-        name = "prepare_text_layout_system"
-    )
-    .entered();
     for (
         entity,
         block,
@@ -341,7 +336,7 @@ pub fn prepare_text_layout_system(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-pub fn update_text_system(
+pub fn layout_text_system(
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
