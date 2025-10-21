@@ -207,6 +207,27 @@ fn load_module(
     Ok(shader_module)
 }
 
+#[derive(Default)]
+struct BindGroupLayoutCache {
+    bgls: HashMap<BindGroupLayoutDescriptor, BindGroupLayout>,
+}
+
+impl BindGroupLayoutCache {
+    fn get(
+        &mut self,
+        render_device: &RenderDevice,
+        descriptor: BindGroupLayoutDescriptor,
+    ) -> BindGroupLayout {
+        self.bgls
+            .entry(descriptor)
+            .or_insert_with_key(|descriptor| {
+                render_device
+                    .create_bind_group_layout(descriptor.label.as_ref(), &descriptor.entries)
+            })
+            .clone()
+    }
+}
+
 /// Cache for render and compute pipelines.
 ///
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
@@ -222,6 +243,7 @@ fn load_module(
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
+    bindgroup_layout_cache: Arc<Mutex<BindGroupLayoutCache>>,
     shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
@@ -275,6 +297,7 @@ impl PipelineCache {
             ))),
             device,
             layout_cache: default(),
+            bindgroup_layout_cache: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
@@ -449,6 +472,16 @@ impl PipelineCache {
         id
     }
 
+    pub fn get_bind_group_layout(
+        &self,
+        bind_group_layout_descriptor: &BindGroupLayoutDescriptor,
+    ) -> BindGroupLayout {
+        self.bindgroup_layout_cache
+            .lock()
+            .unwrap()
+            .get(&self.device, bind_group_layout_descriptor.clone())
+    }
+
     fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
         let pipelines_to_queue = shader_cache.set_shader(id, shader);
@@ -475,6 +508,14 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        let bind_group_layout = descriptor
+            .layout
+            .iter()
+            .map(|bind_group_layout_descriptor| {
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+            })
+            .collect::<Vec<_>>();
 
         create_pipeline_task(
             async move {
@@ -512,7 +553,7 @@ impl PipelineCache {
                     } else {
                         Some(layout_cache.get(
                             &device,
-                            &descriptor.layout,
+                            &bind_group_layout,
                             descriptor.push_constant_ranges.to_vec(),
                         ))
                     };
@@ -586,6 +627,14 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+        let mut bindgroup_layout_cache = self.bindgroup_layout_cache.lock().unwrap();
+        let bind_group_layout = descriptor
+            .layout
+            .iter()
+            .map(|bind_group_layout_descriptor| {
+                bindgroup_layout_cache.get(&self.device, bind_group_layout_descriptor.clone())
+            })
+            .collect::<Vec<_>>();
 
         create_pipeline_task(
             async move {
@@ -608,7 +657,7 @@ impl PipelineCache {
                     } else {
                         Some(layout_cache.get(
                             &device,
-                            &descriptor.layout,
+                            &bind_group_layout,
                             descriptor.push_constant_ranges.to_vec(),
                         ))
                     };

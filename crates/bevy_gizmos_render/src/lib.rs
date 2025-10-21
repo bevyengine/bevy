@@ -51,9 +51,8 @@ use {
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
-            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, ShaderStages,
-            ShaderType, VertexFormat,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayoutEntries,
+            Buffer, BufferInitDescriptor, BufferUsages, ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
@@ -62,7 +61,9 @@ use {
     bytemuck::cast_slice,
 };
 
-use bevy_render::render_resource::{VertexAttribute, VertexStepMode};
+use bevy_render::render_resource::{
+    BindGroupLayoutDescriptor, PipelineCache, VertexAttribute, VertexStepMode,
+};
 
 use bevy_gizmos::{
     config::{GizmoConfigStore, GizmoLineJoint},
@@ -114,11 +115,8 @@ impl Plugin for GizmoRenderPlugin {
     }
 }
 
-fn init_line_gizmo_uniform_bind_group_layout(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-) {
-    let line_layout = render_device.create_bind_group_layout(
+fn init_line_gizmo_uniform_bind_group_layout(mut commands: Commands) {
+    let line_layout = BindGroupLayoutDescriptor::new(
         "LineGizmoUniform layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX,
@@ -274,7 +272,7 @@ impl RenderAsset for GpuLineGizmo {
 
 #[derive(Resource)]
 struct LineGizmoUniformBindgroupLayout {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -286,13 +284,14 @@ fn prepare_line_gizmo_bind_group(
     mut commands: Commands,
     line_gizmo_uniform_layout: Res<LineGizmoUniformBindgroupLayout>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     line_gizmo_uniforms: Res<ComponentUniforms<LineGizmoUniform>>,
 ) {
     if let Some(binding) = line_gizmo_uniforms.uniforms().binding() {
         commands.insert_resource(LineGizmoUniformBindgroup {
             bindgroup: render_device.create_bind_group(
                 "LineGizmoUniform bindgroup",
-                &line_gizmo_uniform_layout.layout,
+                &pipeline_cache.get_bind_group_layout(&line_gizmo_uniform_layout.layout),
                 &BindGroupEntries::single(binding),
             ),
         });

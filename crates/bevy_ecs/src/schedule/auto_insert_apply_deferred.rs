@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
+    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ScheduleBuildError,
     ScheduleBuildPass, ScheduleGraph,
 };
 
@@ -75,7 +75,9 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         dependency_flattened: &mut DiGraph<SystemKey>,
     ) -> Result<(), ScheduleBuildError> {
         let mut sync_point_graph = dependency_flattened.clone();
-        let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
+        let topo = dependency_flattened
+            .toposort()
+            .map_err(ScheduleBuildError::FlatDependencySort)?;
 
         fn set_has_conditions(graph: &ScheduleGraph, set: SystemSetKey) -> bool {
             graph.system_sets.has_conditions(set)

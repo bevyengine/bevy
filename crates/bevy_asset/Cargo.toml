@@ -26,6 +26,7 @@ bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = fa
   "bevy_reflect",
 ] }
 bevy_asset_macros = { path = "macros", version = "0.18.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-features = false, features = [
   "uuid",

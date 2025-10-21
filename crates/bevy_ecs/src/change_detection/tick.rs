@@ -1,10 +1,9 @@
 use bevy_ecs_macros::Event;
-use bevy_ptr::UnsafeCellDeref;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use core::cell::UnsafeCell;
+use core::{cell::UnsafeCell, panic::Location};
 
-use crate::change_detection::MAX_CHANGE_AGE;
+use crate::change_detection::{MaybeLocation, MAX_CHANGE_AGE};
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
@@ -101,7 +100,7 @@ impl Tick {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::component::CheckChangeTicks;
+/// use bevy_ecs::change_detection::CheckChangeTicks;
 ///
 /// #[derive(Resource)]
 /// struct CustomSchedule(Schedule);
@@ -121,27 +120,15 @@ impl CheckChangeTicks {
     }
 }
 
-/// Interior-mutable access to the [`Tick`]s for a single component or resource.
+/// Interior-mutable access to the [`Tick`]s of a single component or resource.
 #[derive(Copy, Clone, Debug)]
-pub struct TickCells<'a> {
+pub struct ComponentTickCells<'a> {
     /// The tick indicating when the value was added to the world.
     pub added: &'a UnsafeCell<Tick>,
     /// The tick indicating the last time the value was modified.
     pub changed: &'a UnsafeCell<Tick>,
-}
-
-impl<'a> TickCells<'a> {
-    /// # Safety
-    /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
-    #[inline]
-    pub(crate) unsafe fn read(&self) -> ComponentTicks {
-        ComponentTicks {
-            // SAFETY: The callers uphold the invariants for `read`.
-            added: unsafe { self.added.read() },
-            // SAFETY: The callers uphold the invariants for `read`.
-            changed: unsafe { self.changed.read() },
-        }
-    }
+    /// The calling location that last modified the value.
+    pub changed_by: MaybeLocation<&'a UnsafeCell<&'static Location<'static>>>,
 }
 
 /// Records when a component or resource was added and when it was last mutably dereferenced (or added).
@@ -186,7 +173,7 @@ impl ComponentTicks {
     ///
     /// # Example
     /// ```no_run
-    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// # use bevy_ecs::{world::World, change_detection::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
     ///
