@@ -1,5 +1,6 @@
 use crate::{ExtractedSlice, TextureAtlasLayout};
 use bevy_asset::{AssetEvent, Assets};
+use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
@@ -23,6 +24,7 @@ impl ComputedTextureSlices {
         &'a self,
         sprite: &'a Sprite,
         anchor: Vec2,
+        color: LinearRgba,
     ) -> impl ExactSizeIterator<Item = ExtractedSlice> + 'a {
         let mut flip = Vec2::ONE;
         if sprite.flip_x {
@@ -39,6 +41,7 @@ impl ComputedTextureSlices {
             offset: slice.offset * flip - anchor,
             rect: slice.texture_rect,
             size: slice.draw_size,
+            color,
         })
     }
 }

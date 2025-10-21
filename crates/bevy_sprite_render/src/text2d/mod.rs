@@ -76,7 +76,6 @@ pub fn extract_text2d_sprite(
                 main_entity,
                 render_entity,
                 transform,
-                color: text_background_color.0.into(),
                 image_handle_id: AssetId::default(),
                 flip_x: false,
                 flip_y: false,
@@ -85,6 +84,7 @@ pub fn extract_text2d_sprite(
                     rect: None,
                     scaling_mode: None,
                     custom_size: Some(rect.size()),
+                    color: text_background_color.0.into(),
                 },
             });
         }
@@ -113,6 +113,7 @@ pub fn extract_text2d_sprite(
                     offset: Vec2::new(position.x, -position.y),
                     rect,
                     size: rect.size(),
+                    color,
                 });
 
                 if text_layout_info
@@ -125,7 +126,6 @@ pub fn extract_text2d_sprite(
                         main_entity,
                         render_entity,
                         transform: shadow_transform,
-                        color,
                         image_handle_id: atlas_info.texture,
                         flip_x: false,
                         flip_y: false,
@@ -163,6 +163,7 @@ pub fn extract_text2d_sprite(
                 offset: Vec2::new(position.x, -position.y),
                 rect,
                 size: rect.size(),
+                color: *color,
             });
 
             if text_layout_info
@@ -175,7 +176,6 @@ pub fn extract_text2d_sprite(
                     main_entity,
                     render_entity,
                     transform,
-                    color: *color,
                     image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,

@@ -25,7 +25,7 @@ fn main() {
         .run();
 }
 
-fn glyph_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn glyph_setup1(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.insert_resource(FontHolder(font));
@@ -39,6 +39,28 @@ fn glyph_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         text_font.clone(),
         TextBackgroundColor(MAGENTA.into()),
     ));
+}
+
+fn glyph_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn(Camera2d);
+    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
+    commands.insert_resource(FontHolder(font));
+    let text_font = TextFont {
+        font: "Fira Sans".to_string(),
+        font_size: 50.0,
+        ..default()
+    };
+    commands
+        .spawn((
+            Text2d::new("a"),
+            text_font.clone(),
+            TextColor(MAGENTA.into()),
+        ))
+        .with_child((
+            TextSpan::new("b"),
+            text_font.clone(),
+            TextColor(BLUE.into()),
+        ));
 }
 
 fn hello_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
