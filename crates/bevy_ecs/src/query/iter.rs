@@ -945,7 +945,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Iterator for QueryIter
             accum = func(accum, item);
         }
 
-        for id in self.cursor.storage_id_iter.clone().copied() {
+        let mut i = self.cursor.storage_index;
+        let len = self.cursor.storage_ids.as_ref().len();
+        while i < len {
+            // Take a short-lived copy of the id to avoid holding a borrow of `self` across the call
+            let id = self.cursor.storage_ids.as_ref()[i];
+            i += 1;
             // SAFETY:
             // - The range(None) is equivalent to [0, storage.entity_count)
             accum = unsafe { self.fold_over_storage_range(accum, &mut func, id, None) };
@@ -2449,8 +2454,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, const K: usize> Debug
 struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> {
     // whether the query iteration is dense or not.
     is_dense: bool,
-    storage_id_iter: core::slice::Iter<'s, StorageId>,
-    owned_storage_ids: Option<Vec<StorageId>>,
+    // Storage ids to iterate over; owned for uncached, borrowed for cached
+    storage_ids: Cow<'s, [StorageId]>,
+    // Current index into storage_ids
+    storage_index: usize,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
     fetch: D::Fetch<'w>,
@@ -2466,8 +2473,8 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> Clone for QueryIterationCursor
     fn clone(&self) -> Self {
         Self {
             is_dense: self.is_dense,
-            storage_id_iter: self.storage_id_iter.clone(),
-            owned_storage_ids: self.owned_storage_ids.clone(),
+            storage_ids: self.storage_ids.clone(),
+            storage_index: self.storage_index,
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
             fetch: self.fetch.clone(),
@@ -2492,7 +2499,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
         this_run: Tick,
     ) -> Self {
         QueryIterationCursor {
-            storage_id_iter: [].iter(),
+            storage_ids: Cow::Borrowed(&[]),
+            storage_index: 0,
             ..Self::init(world, query_state, last_run, this_run)
         }
     }
@@ -2509,27 +2517,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
         let fetch = D::init_fetch(world, &query_state.fetch_state, last_run, this_run);
         let filter = F::init_fetch(world, &query_state.filter_state, last_run, this_run);
         let iteration_data = query_state.cache.iteration_data(query_state, world);
-        let (owned_storage_ids, storage_id_iter) = match iteration_data.storage_ids {
-            Cow::Borrowed(slice) => (None, slice.iter()),
-            Cow::Owned(owned) => {
-                let owned_ids = Some(owned);
-                let slice_ptr: *const [StorageId] = owned_ids.as_ref().unwrap().as_slice();
-                // SAFETY:
-                // - The slice pointer refers to memory owned by `owned_ids`
-                // - `owned_ids` is moved *as a whole* into the struct below and won’t move afterward
-                // - The struct owns `owned_ids` for the same lifetime as `ids_iter`
-                // => Safe as long as `Cursor` isn’t moved after creation (so don’t mem::swap etc.)
-                let ids_iter = unsafe { (&*slice_ptr).iter() };
-                (owned_ids, ids_iter)
-            }
-        };
+        let storage_ids = iteration_data.storage_ids;
         QueryIterationCursor {
             fetch,
             filter,
             table_entities: &[],
             archetype_entities: &[],
-            storage_id_iter,
-            owned_storage_ids,
+            storage_ids,
+            storage_index: 0,
             is_dense: iteration_data.is_dense,
             current_len: 0,
             current_row: 0,
@@ -2544,8 +2539,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
             filter: F::shrink_fetch(self.filter.clone()),
             table_entities: self.table_entities,
             archetype_entities: self.archetype_entities,
-            storage_id_iter: self.storage_id_iter.clone(),
-            owned_storage_ids: self.owned_storage_ids.clone(),
+            storage_ids: self.storage_ids.clone(),
+            storage_index: self.storage_index,
             current_len: self.current_len,
             current_row: self.current_row,
             _cache: core::marker::PhantomData,
@@ -2605,7 +2600,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
     /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> u32 {
-        let ids = self.storage_id_iter.clone();
+        let ids = self.storage_ids.as_ref()[self.storage_index..].iter().copied();
         let remaining_matched: u32 = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
@@ -2635,7 +2630,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
-                    let table_id = self.storage_id_iter.next()?.table_id;
+                    let table_id = {
+                        let id = *self
+                            .storage_ids
+                            .as_ref()
+                            .get(self.storage_index)?;
+                        self.storage_index += 1;
+                        id.table_id
+                    };
                     let table = tables.get(table_id).debug_checked_unwrap();
                     if table.is_empty() {
                         continue;
@@ -2676,7 +2678,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
         } else {
             loop {
                 if self.current_row == self.current_len {
-                    let archetype_id = self.storage_id_iter.next()?.archetype_id;
+                    let archetype_id = {
+                        let id = *self
+                            .storage_ids
+                            .as_ref()
+                            .get(self.storage_index)?;
+                        self.storage_index += 1;
+                        id.archetype_id
+                    };
                     let archetype = archetypes.get(archetype_id).debug_checked_unwrap();
                     if archetype.is_empty() {
                         continue;

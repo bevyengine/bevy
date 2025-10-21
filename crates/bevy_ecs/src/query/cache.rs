@@ -463,7 +463,7 @@ impl QueryCache for Uncached {
     /// We do not update anything. This is here for feature parity.
     fn update_archetypes<D: QueryData, F: QueryFilter>(
         &mut self,
-        _: &QueryState<D, F, Uncached>,
+        _: &QueryPrefix<D, F>,
         _: UnsafeWorldCell,
     ) {
     }

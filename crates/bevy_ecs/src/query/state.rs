@@ -57,11 +57,16 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
+#[cfg(feature = "query_uncached_default")]
+pub type DefaultCache = Uncached;
+#[cfg(not(feature = "query_uncached_default"))]
+pub type DefaultCache = CacheState;
+
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = CacheState> {
+pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = DefaultCache> {
     world_id: WorldId,
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
