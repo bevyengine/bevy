@@ -16,6 +16,7 @@ app.insert_resource(AmbientLight {
     color: Color::WHITE,
     brightness: 2000.,
     ..default()
+});
 ```
 
 After:
@@ -25,4 +26,5 @@ app.insert_resource(GlobalAmbientLight {
     color: Color::WHITE,
     brightness: 2000.,
     ..default()
+});
 ```
