@@ -1,6 +1,7 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    change_detection::Tick,
+    component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
