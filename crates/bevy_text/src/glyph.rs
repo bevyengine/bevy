@@ -28,7 +28,6 @@ pub struct PositionedGlyph {
     pub byte_index: usize,
     /// The byte length of the glyph.
     pub byte_length: usize,
-    pub color: LinearRgba,
 }
 
 /// Information about a glyph in an atlas.

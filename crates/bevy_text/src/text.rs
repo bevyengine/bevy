@@ -397,4 +397,4 @@ pub enum FontSmoothing {
 
 /// Computed text layout
 #[derive(Component, Default, Deref, DerefMut)]
-pub struct ComputedTextLayout(pub Layout<LinearRgba>);
+pub struct ComputedTextLayout(pub Layout<u32>);

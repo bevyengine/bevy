@@ -3,6 +3,7 @@ use crate::{
 };
 use bevy_asset::{AssetId, Assets};
 use bevy_camera::visibility::ViewVisibility;
+use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
     query::With,
@@ -13,7 +14,9 @@ use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2d, Text2dShadow};
-use bevy_text::{PositionedGlyph, TextBackgroundColor, TextBounds, TextLayoutInfo};
+use bevy_text::{
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextLayoutInfo,
+};
 use bevy_transform::prelude::GlobalTransform;
 
 /// This system extracts the sprites from the 2D text components and adds them to the
@@ -33,10 +36,12 @@ pub fn extract_text2d_sprite(
                 &Anchor,
                 Option<&Text2dShadow>,
                 &GlobalTransform,
+                &ComputedTextBlock,
             ),
             With<Text2d>,
         >,
     >,
+    text_colors_query: Extract<Query<&bevy_text::TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
@@ -50,6 +55,7 @@ pub fn extract_text2d_sprite(
         anchor,
         maybe_shadow,
         global_transform,
+        computed_block,
     ) in text2d_query.iter()
     {
         let scaling = GlobalTransform::from_scale(
@@ -146,18 +152,31 @@ pub fn extract_text2d_sprite(
 
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
+        let mut color = LinearRgba::WHITE;
+        let mut current_span = usize::MAX;
 
         for (
             i,
             PositionedGlyph {
                 position,
                 atlas_info,
-
-                color,
+                span_index,
                 ..
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            if *span_index != current_span {
+                color = text_colors_query
+                    .get(
+                        computed_block
+                            .get(*span_index)
+                            .map(|t| *t)
+                            .unwrap_or(Entity::PLACEHOLDER),
+                    )
+                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .unwrap_or_default();
+                current_span = *span_index;
+            }
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
                 .unwrap()
@@ -167,7 +186,7 @@ pub fn extract_text2d_sprite(
                 offset: Vec2::new(position.x, -position.y),
                 rect,
                 size: rect.size(),
-                color: *color,
+                color,
             });
 
             if text_layout_info

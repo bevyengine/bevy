@@ -6,7 +6,6 @@ use crate::FontSmoothing;
 use crate::GlyphCacheKey;
 use crate::TextLayoutInfo;
 use bevy_asset::Assets;
-use bevy_color::LinearRgba;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
 use bevy_math::UVec2;
@@ -23,7 +22,6 @@ use parley::StyleProperty;
 use parley::WordBreakStrength;
 use std::ops::Range;
 use swash::scale::ScaleContext;
-use tracing::info_span;
 
 fn concat_text_for_layout<'a>(
     text_sections: impl Iterator<Item = &'a str>,
@@ -62,6 +60,33 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
     }
 }
 
+fn shape_text_from_indexed_sections<'a>(
+    layout: &mut Layout<u32>,
+    font_cx: &'a mut FontContext,
+    layout_cx: &'a mut LayoutContext<u32>,
+    text_sections: impl Iterator<Item = &'a str>,
+    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, u32>>,
+    scale_factor: f32,
+    line_break: crate::text::LineBreak,
+) {
+    let (text, section_ranges) = concat_text_for_layout(text_sections);
+    let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
+    if let Some(word_break_strength) = match line_break {
+        crate::LineBreak::WordBoundary => Some(WordBreakStrength::Normal),
+        crate::LineBreak::AnyCharacter => Some(WordBreakStrength::BreakAll),
+        crate::LineBreak::WordOrCharacter => Some(WordBreakStrength::KeepAll),
+        _ => None,
+    } {
+        builder.push_default(StyleProperty::WordBreak(word_break_strength));
+    };
+    for (section_index, (style, range)) in text_section_styles.zip(section_ranges).enumerate() {
+        builder.push(StyleProperty::Brush(section_index as u32), range.clone());
+        builder.push(FontStack::from(style.font_family), range.clone());
+        builder.push(StyleProperty::FontSize(style.font_size), range.clone());
+        builder.push(style.line_height.eval(), range);
+    }
+    builder.build_into(layout, &text);
+}
 /// Create layout given text sections and styles
 pub fn shape_text_from_sections<'a, B: Brush>(
     layout: &mut Layout<B>,
@@ -93,7 +118,7 @@ pub fn shape_text_from_sections<'a, B: Brush>(
 
 /// create a TextLayoutInfo
 pub fn update_text_layout_info(
-    layout: &mut Layout<LinearRgba>,
+    layout: &mut Layout<u32>,
     max_advance: Option<f32>,
     alignment: Alignment,
     scale_cx: &mut ScaleContext,
@@ -168,11 +193,10 @@ pub fn update_text_layout_info(
                             position: (x, y).into(),
                             size: glyph_size.as_vec2(),
                             atlas_info,
-                            span_index: 0,
+                            span_index: color as usize,
                             line_index,
                             byte_index: line.text_range().start,
                             byte_length: line.text_range().len(),
-                            color,
                         });
                     }
                 }

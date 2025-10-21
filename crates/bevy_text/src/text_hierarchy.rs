@@ -1,9 +1,9 @@
-use bevy_derive::Deref;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, relationship::Relationship};
 
 use crate::TextSpan;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Deref, DerefMut)]
 pub struct ComputedTextBlock(pub Vec<Entity>);
 
 #[derive(Component, Default)]

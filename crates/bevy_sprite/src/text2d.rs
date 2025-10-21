@@ -5,7 +5,7 @@ use bevy_camera::visibility::{
     self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
 };
 use bevy_camera::Camera;
-use bevy_color::{Color, LinearRgba};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_ecs::change_detection::DetectChanges;
@@ -234,14 +234,14 @@ pub fn update_text2d_layout(
         }
 
         let mut text_sections: Vec<&str> = Vec::new();
-        let mut text_section_styles: Vec<TextSectionStyle<LinearRgba>> = Vec::new();
-        for (_, _, text, font, color) in text_reader.iter(entity) {
+        let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
+        for (_, i, text, font, _) in text_reader.iter(entity) {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 font.font.as_str(),
                 font.font_size,
                 font.line_height,
-                color.to_linear(),
+                i as u32,
             ));
         }
 
