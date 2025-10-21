@@ -151,8 +151,11 @@ impl ScatteringMedium {
 
 /// An individual element of a [`ScatteringMedium`].
 ///
-/// Scattering media are often made up of multiple independent components
-///
+/// A [`ScatteringMedium`] can be built out of a number of simpler [`ScatteringTerm`]s,
+/// which correspond to an individual element of the medium. For example, Earth's
+/// atmosphere would be (roughly) composed of two [`ScatteringTerm`]s: the atmospheric
+/// gases themselves, which extend to the edge of space, and suspended dust particles,
+/// which are denser but lie closer to the ground.
 #[derive(Default, Clone)]
 pub struct ScatteringTerm {
     /// This term's optical obsorption density, or how much light of each wavelength
@@ -267,19 +270,33 @@ impl Falloff {
 // TODO: research if absorption is also always wavelength (in)dependent,
 // or if only scattering is.
 
-/// Describes how likely a medium is to scatter light in a given direction.
+/// Describes how a [`ScatteringTerm`] scatters light in different directions.
+///
+/// A [phase function] is a function `f: [-1, 1] -> [0, ∞)`, symmetric about `x=0`
+/// whose input is the cosine of the angle between an incoming light direction and
+/// and outgoing light direction, and whose output is the proportion of the incoming
+/// light that is actually scattered in that direction.
+///
+/// The phase function has an important effect on the "look" of a medium in a scene.
+/// Media consisting of particles of a different size or shape scatter light differently,
+/// and our brains are very good at telling the difference. A dust cloud, which might
+/// correspond roughly to `PhaseFunction::Mie { asymmetry: 0.8 }`, looks quite different
+/// from the rest of the sky (atmospheric gases), which correspond to `PhaseFunction::Rayleigh`
+///
+/// [phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions
 #[derive(Clone)]
 pub enum PhaseFunction {
     /// A phase function that scatters light evenly in all directions.
     Isotropic,
 
-    /// A phase function which represents [Rayleigh scattering].
+    /// A phase function representing [Rayleigh scattering].
     ///
     /// Rayleigh scattering occurs naturally for particles much smaller than
     /// the wavelengths of visible light, such as gas molecules in the atmosphere.
     /// It's generally wavelength-dependent, where shorter wavelengths are scattered
     /// more strongly, so [scattering](ScatteringMedium::scattering) should have
-    /// higher values for blue than green and green than red.
+    /// higher values for blue than green and green than red. Particles that
+    /// participate in Rayleigh scattering don't absorb any light, either.
     ///
     /// [Rayleigh scattering]: https://en.wikipedia.org/wiki/Rayleigh_scattering
     Rayleigh,
@@ -288,9 +305,9 @@ pub enum PhaseFunction {
     ///
     /// Mie scattering occurs naturally for spherical particles of dust
     /// and aerosols roughly the same size as the wavelengths of visible light,
-    /// so it's useful for representing dust or sea spray for example.
-    /// It's generally wavelength-independent, so [absorption](ScatteringMedium::absorption)
-    /// and [scattering](ScatteringMedium::scattering) should be set to greyscale values.
+    /// so it's useful for representing dust or sea spray. It's generally
+    /// wavelength-independent, so [absorption](ScatteringMedium::absorption)
+    /// and [scattering](ScatteringMedium::scattering) should be set to a greyscale value.
     ///
     /// [Mie scattering]: https://en.wikipedia.org/wiki/Mie_scattering
     /// [Henyey-Greenstein phase function]: https://www.oceanopticsbook.info/view/scattering/level-2/the-henyey-greenstein-phase-function
