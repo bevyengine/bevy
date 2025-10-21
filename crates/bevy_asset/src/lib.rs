@@ -204,8 +204,6 @@ pub use reflect::*;
 pub use render_asset::*;
 pub use server::*;
 
-/// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
-pub use ron;
 pub use uuid;
 
 use crate::{
