@@ -1563,3 +1563,8 @@ pub enum SetTransactionLogFactoryError {
     #[error("Transaction log is already in use so setting the factory does nothing")]
     AlreadyInUse,
 }
+
+// The asset processor currently requires multi_threaded.
+#[cfg(feature = "multi_threaded")]
+#[cfg(test)]
+mod tests;
