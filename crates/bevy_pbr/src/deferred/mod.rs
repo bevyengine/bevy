@@ -4,7 +4,9 @@ use crate::{
     ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
     TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
-use crate::{DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset};
+use crate::{
+    init_mesh_pipeline, DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -106,7 +108,10 @@ impl Plugin for DeferredPbrLightingPlugin {
 
         render_app
             .init_resource::<SpecializedRenderPipelines<DeferredLightingLayout>>()
-            .add_systems(RenderStartup, init_deferred_lighting_layout)
+            .add_systems(
+                RenderStartup,
+                init_deferred_lighting_layout.after(init_mesh_pipeline),
+            )
             .add_systems(
                 Render,
                 (prepare_deferred_lighting_pipelines.in_set(RenderSystems::Prepare),),

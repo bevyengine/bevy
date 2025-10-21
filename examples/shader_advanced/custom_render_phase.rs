@@ -13,7 +13,7 @@
 use std::ops::Range;
 
 use bevy::camera::Viewport;
-use bevy::pbr::SetMeshViewEmptyBindGroup;
+use bevy::pbr::{init_mesh_pipeline, SetMeshViewEmptyBindGroup};
 use bevy::{
     camera::MainPassResolutionOverride,
     core_pipeline::core_3d::graph::{Core3d, Node3d},
@@ -130,7 +130,10 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
-            .add_systems(RenderStartup, init_stencil_pipeline)
+            .add_systems(
+                RenderStartup,
+                init_stencil_pipeline.after(init_mesh_pipeline),
+            )
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,

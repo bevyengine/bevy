@@ -35,7 +35,6 @@ extern crate core;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_render;
 
-pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
@@ -48,6 +47,7 @@ pub mod extract_resource;
 pub mod globals;
 pub mod gpu_component_array_buffer;
 pub mod gpu_readback;
+pub mod lightmap;
 pub mod mesh;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod pipelined_rendering;
@@ -72,6 +72,11 @@ pub mod prelude {
         alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
         view::Msaa, ExtractSchedule,
     };
+}
+
+#[doc(hidden)]
+pub mod alpha {
+    pub use bevy_material::alpha::AlphaMode;
 }
 
 pub use extract_param::Extract;

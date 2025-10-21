@@ -33,6 +33,10 @@ pub use crate::camera::prelude::*;
 #[cfg(feature = "bevy_shader")]
 pub use crate::shader::prelude::*;
 
+#[doc(hidden)]
+#[cfg(feature = "bevy_material")]
+pub use crate::material::prelude::*;
+
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
