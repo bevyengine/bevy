@@ -97,7 +97,7 @@
 //! [`Query` performance]: crate::prelude::Query#performance
 
 use crate::{
-    component::{ComponentId, Components, StorageType},
+    component::ComponentId,
     query::FilteredAccess,
     world::{FromWorld, World},
 };
@@ -247,14 +247,6 @@ impl DefaultQueryFilters {
                 component_access.and_without(component_id);
             }
         }
-    }
-
-    pub(super) fn is_dense(&self, components: &Components) -> bool {
-        self.disabling_ids().all(|component_id| {
-            components
-                .get_info(component_id)
-                .is_some_and(|info| info.storage_type() == StorageType::Table)
-        })
     }
 }
 

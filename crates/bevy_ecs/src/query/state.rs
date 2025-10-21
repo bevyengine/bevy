@@ -17,7 +17,7 @@ use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
     QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
-use bevy_ecs::query::cache::{CacheState, QueryCache, QueryPrefix, Uncached};
+use bevy_ecs::query::cache::{QueryCache, Uncached, UncachedQueryBorrow};
 use bevy_utils::prelude::DebugName;
 use core::{fmt, ptr};
 #[cfg(feature = "trace")]
@@ -45,6 +45,16 @@ pub(super) union StorageId {
     pub(super) archetype_id: ArchetypeId,
 }
 
+/// Makes queries uncached by default if they don't explicitly specify the caching behaviour.
+///
+/// This is mostly useful for unit tests.
+#[cfg(feature = "query_uncached_default")]
+pub type DefaultCache = Uncached;
+
+/// Makes queries cached by default if they don't explicitly specify the caching behaviour.
+#[cfg(not(feature = "query_uncached_default"))]
+pub type DefaultCache = bevy_ecs::query::cache::CacheState;
+
 /// Provides scoped access to a [`World`] state according to a given [`QueryData`] and [`QueryFilter`].
 ///
 /// This data is cached between system runs, and is used to:
@@ -57,17 +67,14 @@ pub(super) union StorageId {
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
-#[cfg(feature = "query_uncached_default")]
-pub type DefaultCache = Uncached;
-#[cfg(not(feature = "query_uncached_default"))]
-pub type DefaultCache = CacheState;
-
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
 pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = DefaultCache> {
     world_id: WorldId,
+    /// Cache that can store archetypes and tables that match the query so that we can iterate through them faster.
+    pub(crate) cache: C,
     /// [`FilteredAccess`] computed by combining the `D` and `F` access. Used to check which other queries
     /// this query can run in parallel with.
     /// Note that because we do a zero-cost reference conversion in `Query::as_readonly`,
@@ -78,9 +85,6 @@ pub struct QueryState<D: QueryData, F: QueryFilter = (), C: QueryCache = Default
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
-    /// Cache that can store archetypes and tables that match the query so that we can iterate through them faster.
-    /// This field MUST BE LAST.
-    pub(crate) cache: C,
 }
 
 /// Convenience alias for an uncached query state using the on-the-fly matching strategy.
@@ -102,19 +106,23 @@ impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
 }
 
 impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
-    /// Returns a borrow-only prefix view for read-only operations.
+    /// Returns a borrow-only view of the [`QueryState`] that doesn't use a cache
     #[inline]
-    pub(crate) fn as_prefix(&self) -> QueryPrefix<'_, D, F> {
-        QueryPrefix {
+    pub(crate) fn as_uncached(&self) -> UncachedQueryBorrow<'_, D, F> {
+        UncachedQueryBorrow {
             world_id: self.world_id,
             component_access: &self.component_access,
             fetch_state: &self.fetch_state,
             filter_state: &self.filter_state,
         }
     }
-    /// Safely provides access to a borrow-only prefix view and a mutable reference to the cache.
+
+    /// Safely provides access to a borrow-only uncached view and a mutable reference to the cache.
     #[inline]
-    pub fn with_prefix<R>(&mut self, f: impl for<'a> FnOnce(QueryPrefix<'a, D, F>, &mut C) -> R) -> R {
+    pub fn split_cache<R>(
+        &mut self,
+        f: impl for<'a> FnOnce(UncachedQueryBorrow<'a, D, F>, &mut C) -> R,
+    ) -> R {
         // Create raw pointers to immutably borrowed fields to avoid overlapping borrows with &mut cache.
         let world_id = self.world_id;
         let component_access = ptr::from_ref(&self.component_access);
@@ -122,7 +130,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         let filter_state = ptr::from_ref(&self.filter_state);
         // SAFETY: We only create shared references to fields distinct from `cache` and do not move `self`.
         let prefix = unsafe {
-            QueryPrefix {
+            UncachedQueryBorrow {
                 world_id,
                 component_access: &*component_access,
                 fetch_state: &*fetch_state,
@@ -132,6 +140,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
         let cache = &mut self.cache;
         f(prefix, cache)
     }
+
     /// Converts this `QueryState` reference to a `QueryState` that does not access anything mutably.
     pub fn as_readonly(&self) -> &QueryState<D::ReadOnly, F, C> {
         // SAFETY: invariant on `WorldQuery` trait upholds that `D::ReadOnly` and `F::ReadOnly`
@@ -481,16 +490,7 @@ impl<D: QueryData, F: QueryFilter, C: QueryCache> QueryState<D, F, C> {
     #[inline]
     #[track_caller]
     pub fn validate_world(&self, world_id: WorldId) {
-        #[inline(never)]
-        #[track_caller]
-        #[cold]
-        fn panic_mismatched(this: WorldId, other: WorldId) -> ! {
-            panic!("Encountered a mismatched World. This QueryState was created from {this:?}, but a method was called using {other:?}.");
-        }
-
-        if self.world_id != world_id {
-            panic_mismatched(self.world_id, world_id);
-        }
+        self.as_uncached().validate_world(world_id);
     }
 
     /// Use this to transform a [`QueryState`] into a more generic [`QueryState`].
@@ -2055,14 +2055,6 @@ mod tests {
         // There are no sparse components involved thus the query is dense
         assert!(query.cache.is_dense);
         assert_eq!(3, query.query(&world).count());
-
-        world.register_disabling_component::<Sparse>();
-
-        let mut query = QueryState::<()>::new(&mut world);
-        // The query doesn't ask for sparse components, but the default filters adds
-        // a sparse components thus it is NOT dense
-        assert!(!query.cache.is_dense);
-        assert_eq!(1, query.query(&world).count());
 
         let mut df = DefaultQueryFilters::from_world(&mut world);
         df.register_disabling_component(world.register_component::<Table>());

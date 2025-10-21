@@ -27,6 +27,13 @@ impl Prepare for TestCommand {
             PreparedCommand::new::<Self>(
                 cmd!(
                     sh,
+                    "cargo test bevy_ecs --lib --bins --tests --features bevy_ecs/track_location,bevy_ecs/query_uncached_default {no_fail_fast...} {jobs_ref...} -- {test_threads_ref...}"
+                ),
+                "Please fix failing tests in output above.",
+            ),
+            PreparedCommand::new::<Self>(
+                cmd!(
+                    sh,
                     // `--benches` runs each benchmark once in order to verify that they behave
                     // correctly and do not panic.
                     "cargo test --workspace --benches {no_fail_fast...} {jobs...}"

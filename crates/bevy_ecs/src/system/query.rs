@@ -11,7 +11,7 @@ use crate::{
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_ecs::query::{CacheState, QueryCache};
+use bevy_ecs::query::{DefaultCache, QueryCache, Uncached};
 use core::{
     marker::PhantomData,
     mem::MaybeUninit,
@@ -483,13 +483,33 @@ use core::{
 /// ```
 ///
 /// [autovectorization]: https://en.wikipedia.org/wiki/Automatic_vectorization
-pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = (), C: QueryCache = CacheState> {
+pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = (), C: QueryCache = DefaultCache> {
     // SAFETY: Must have access to the components registered in `state`.
     world: UnsafeWorldCell<'world>,
     state: &'state QueryState<D, F, C>,
     last_run: Tick,
     this_run: Tick,
 }
+
+/// Similar to [`Query`] but does not perform any caching of the [`Archetype`]s that match the query.
+///
+/// This can be useful for one-off queries that don't need to pay the extra memory cost of storing the list
+/// of matched archetypes. However the query iteration time will be slower on repeated usages since it won't
+/// make use of the cache.
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct ComponentA;
+///
+/// let mut world = World::new();
+/// world.spawn(ComponentA);
+///
+/// world.query()
+///
+/// ```
+pub type UncachedQuery<'world, 'state, D, F = ()> = Query<'world, 'state, D, F, Uncached>;
 
 impl<D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache> Clone for Query<'_, '_, D, F, C> {
     fn clone(&self) -> Self {
@@ -1556,7 +1576,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache> Query<'w, 's, D, F, C>
                 .archetypes()
                 .get(location.archetype_id)
                 .debug_checked_unwrap();
-            if !self.state.matches(archetype) {
+            if !self.state.matches_archetype(archetype) {
                 return Err(QueryEntityError::QueryDoesNotMatch(
                     entity,
                     location.archetype_id,
@@ -2568,7 +2588,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache> Query<'w, 's, 
 /// Type returned from [`Query::transmute_lens`] containing the new [`QueryState`].
 ///
 /// Call [`query`](QueryLens::query) or [`into`](Into::into) to construct the resulting [`Query`]
-pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = (), C: QueryCache = CacheState> {
+pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = (), C: QueryCache = DefaultCache> {
     world: UnsafeWorldCell<'w>,
     state: QueryState<Q, F, C>,
     last_run: Tick,
@@ -2681,7 +2701,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
 /// See [`Query`] for more details.
 ///
 /// [System parameter]: crate::system::SystemParam
-pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = (), C: QueryCache = CacheState>(
+pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = (), C: QueryCache = DefaultCache>(
     pub(crate) Query<'w, 's, D, F, C>,
 );
 

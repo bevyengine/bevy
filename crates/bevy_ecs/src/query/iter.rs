@@ -1251,7 +1251,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache, I: Iterator<Item: Enti
             };
 
             let archetype = archetypes.get(location.archetype_id).debug_checked_unwrap();
-            if !query_state.matches(archetype) {
+            if !query_state.matches_archetype(archetype) {
                 continue;
             }
             let table = tables.get(location.table_id).debug_checked_unwrap();
@@ -2600,7 +2600,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
     /// Note that if `F::IS_ARCHETYPAL`, the return value
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> u32 {
-        let ids = self.storage_ids.as_ref()[self.storage_index..].iter().copied();
+        let ids = self.storage_ids.as_ref()[self.storage_index..]
+            .iter()
+            .copied();
         let remaining_matched: u32 = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
             unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
@@ -2631,10 +2633,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_row == self.current_len {
                     let table_id = {
-                        let id = *self
-                            .storage_ids
-                            .as_ref()
-                            .get(self.storage_index)?;
+                        let id = *self.storage_ids.as_ref().get(self.storage_index)?;
                         self.storage_index += 1;
                         id.table_id
                     };
@@ -2679,10 +2678,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, C: QueryCache + 's>
             loop {
                 if self.current_row == self.current_len {
                     let archetype_id = {
-                        let id = *self
-                            .storage_ids
-                            .as_ref()
-                            .get(self.storage_index)?;
+                        let id = *self.storage_ids.as_ref().get(self.storage_index)?;
                         self.storage_index += 1;
                         id.archetype_id
                     };

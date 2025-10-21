@@ -186,7 +186,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryState<D, F, CacheState>>();
+            let query_type = type_name::<QueryState<D, F>>();
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
             assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
