@@ -20,9 +20,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    ComputedTextBlock, ComputedTextFont, CosmicFontSystem, Font, FontAtlasSet, LineBreak,
+    SwashCache, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -178,6 +178,7 @@ pub fn update_text2d_layout(
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
+    mut commands: Commands,
 ) {
     target_scale_factors.clear();
     target_scale_factors.extend(
@@ -258,6 +259,12 @@ pub fn update_text2d_layout(
                 Ok(()) => {
                     text_layout_info.scale_factor = scale_factor;
                     text_layout_info.size *= scale_factor.recip();
+
+                    for (section_entity, _, _, font, _) in text_reader.iter(entity) {
+                        commands
+                            .entity(section_entity)
+                            .insert(ComputedTextFont::new(font, scale_factor));
+                    }
                 }
             }
         }
@@ -309,7 +316,7 @@ mod tests {
     use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_math::UVec2;
-    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, FontAtlasManager, TextIterScratch};
 
     use super::*;
 
@@ -326,6 +333,7 @@ mod tests {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<FontAtlasManager>()
             .add_systems(
                 Update,
                 (

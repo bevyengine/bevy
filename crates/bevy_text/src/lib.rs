@@ -59,7 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        ComputedTextFont, Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout,
+        TextSpan,
     };
 }
 
@@ -95,11 +96,15 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .init_resource::<FontAtlasManager>()
             .add_systems(
                 PostUpdate,
-                free_unused_font_atlases_system.before(AssetEventSystems),
+                (free_unused_font_atlases_system.before(AssetEventSystems),),
             )
-            .add_systems(Last, trim_cosmic_cache);
+            .add_systems(
+                Last,
+                (trim_cosmic_cache, free_unused_font_atlases_computed_system),
+            );
 
         #[cfg(feature = "default_font")]
         {
