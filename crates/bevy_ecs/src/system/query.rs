@@ -491,7 +491,7 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = (), C: QueryCach
     this_run: Tick,
 }
 
-/// Similar to [`Query`] but does not perform any caching of the [`Archetype`]s that match the query.
+/// Similar to [`Query`] but does not perform any caching of the archetypes that match the query.
 ///
 /// This can be useful for one-off queries that don't need to pay the extra memory cost of storing the list
 /// of matched archetypes. However the query iteration time will be slower on repeated usages since it won't

@@ -26,9 +26,9 @@ use tracing::Span;
 /// An ID for either a table or an archetype. Used for Query iteration.
 ///
 /// Query iteration is exclusively dense (over tables) or archetypal (over archetypes) based on whether
-/// the query filters are dense or not. This is represented by the [`QueryState::is_dense`] field.
+/// the query filters are dense or not.
 ///
-/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with `QueryState::is_dense` and
+/// Note that `D::IS_DENSE` and `F::IS_DENSE` have no relationship with the dense-ness of the query and
 /// any combination of their values can happen.
 ///
 /// This is a union instead of an enum as the usage is determined at compile time, as all [`StorageId`]s for
@@ -67,6 +67,7 @@ pub type DefaultCache = bevy_ecs::query::cache::CacheState;
 /// [`State`]: crate::query::world_query::WorldQuery::State
 /// [`Fetch`]: crate::query::world_query::WorldQuery::Fetch
 /// [`Table`]: crate::storage::Table
+/// [`Archetype`]: crate::archetype::Archetype
 #[repr(C)]
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may

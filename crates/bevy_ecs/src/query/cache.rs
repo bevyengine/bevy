@@ -179,7 +179,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F, Uncached> {
 /// Types that can cache archetypes matched by a `Query`.
 pub trait QueryCache: Debug + Clone + Sync {
     /// Returns the data needed to iterate through the archetypes that match the query.
-    /// Usually used to populate a [`QueryIterationCursor`](super::iter::QueryIterationCursor)
+    /// Usually used to populate a `QueryIterationCursor`
     fn iteration_data<'s, 'a: 's, D: QueryData, F: QueryFilter>(
         &'a self,
         query: &QueryState<D, F, Self>,
