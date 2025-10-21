@@ -45,13 +45,13 @@ pub(super) union StorageId {
     pub(super) archetype_id: ArchetypeId,
 }
 
-/// Makes queries uncached by default if they don't explicitly specify the caching behaviour.
+/// Makes queries uncached by default if they don't explicitly specify the caching behavior.
 ///
 /// This is mostly useful for unit tests.
 #[cfg(feature = "query_uncached_default")]
 pub type DefaultCache = Uncached;
 
-/// Makes queries cached by default if they don't explicitly specify the caching behaviour.
+/// Makes queries cached by default if they don't explicitly specify the caching behavior.
 #[cfg(not(feature = "query_uncached_default"))]
 pub type DefaultCache = bevy_ecs::query::cache::CacheState;
 

@@ -496,19 +496,6 @@ pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = (), C: QueryCach
 /// This can be useful for one-off queries that don't need to pay the extra memory cost of storing the list
 /// of matched archetypes. However the query iteration time will be slower on repeated usages since it won't
 /// make use of the cache.
-///
-/// ```rust
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(Component)]
-/// # struct ComponentA;
-///
-/// let mut world = World::new();
-/// world.spawn(ComponentA);
-///
-/// world.query()
-///
-/// ```
 pub type UncachedQuery<'world, 'state, D, F = ()> = Query<'world, 'state, D, F, Uncached>;
 
 impl<D: ReadOnlyQueryData, F: QueryFilter, C: QueryCache> Clone for Query<'_, '_, D, F, C> {
