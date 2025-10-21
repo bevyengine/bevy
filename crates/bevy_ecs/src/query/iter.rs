@@ -422,6 +422,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -549,6 +553,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This includes the allowed parameter type changes listed under [allowed transmutes]..
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -605,6 +613,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
@@ -670,6 +682,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -701,6 +717,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
@@ -795,6 +815,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -830,6 +854,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -859,6 +887,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
@@ -1308,6 +1340,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -1417,6 +1453,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// This includes the allowed parameter type changes listed under [allowed transmutes]..
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -1474,6 +1514,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
@@ -1540,6 +1584,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -1570,6 +1618,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
@@ -1666,6 +1718,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -1700,6 +1756,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
     ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
+    ///
     /// The sort is not cached across system runs.
     ///
     /// [allowed transmutes]: crate::system::Query#allowed-transmutes
@@ -1728,6 +1788,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityEquivalent>>
     /// Defining the lens works like [`transmute_lens`](crate::system::Query::transmute_lens).
     /// This includes the allowed parameter type changes listed under [allowed transmutes].
     /// However, the lens uses the filter of the original query when present.
+    ///
+    /// The lens needs to be a [`SingleEntityQueryData`] because the current implementation
+    /// of query transmutes does not support nested queries.
+    /// This restriction may be lifted in the future.
     ///
     /// The sort is not cached across system runs.
     ///
