@@ -23,6 +23,7 @@ use parley::StyleProperty;
 use parley::WordBreakStrength;
 use std::ops::Range;
 use swash::scale::ScaleContext;
+use tracing::info_span;
 
 fn concat_text_for_layout<'a>(
     text_sections: impl Iterator<Item = &'a str>,
@@ -71,6 +72,11 @@ pub fn build_layout_from_text_sections<'a, B: Brush>(
     scale_factor: f32,
     line_break: crate::text::LineBreak,
 ) {
+    let e = info_span!(
+        "build_layout_from_text_sections",
+        name = "build_layout_from_text_sections"
+    )
+    .entered();
     let (text, section_ranges) = concat_text_for_layout(text_sections);
     let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
     if let Some(word_break_strength) = match line_break {
@@ -101,6 +107,8 @@ pub fn build_text_layout_info(
     textures: &mut Assets<Image>,
     font_smoothing: FontSmoothing,
 ) -> TextLayoutInfo {
+    let e = info_span!("build_text_layout_info", name = "build_text_layout_info").entered();
+
     layout.break_all_lines(max_advance);
     layout.align(None, alignment, AlignmentOptions::default());
 

@@ -5,13 +5,14 @@ use bevy_asset::{AssetId, Assets};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::{
     entity::Entity,
+    query::With,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::{Anchor, Text2dShadow};
+use bevy_sprite::{Anchor, Text2d, Text2dShadow};
 use bevy_text::{PositionedGlyph, TextBackgroundColor, TextBounds, TextLayoutInfo};
 use bevy_transform::prelude::GlobalTransform;
 
@@ -23,15 +24,18 @@ pub fn extract_text2d_sprite(
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     text2d_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &TextLayoutInfo,
-            &TextBounds,
-            &Anchor,
-            Option<&Text2dShadow>,
-            &GlobalTransform,
-        )>,
+        Query<
+            (
+                Entity,
+                &ViewVisibility,
+                &TextLayoutInfo,
+                &TextBounds,
+                &Anchor,
+                Option<&Text2dShadow>,
+                &GlobalTransform,
+            ),
+            With<Text2d>,
+        >,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {

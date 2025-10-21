@@ -23,7 +23,7 @@ use bevy_text::{
     TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
-use tracing::error;
+use tracing::{error, info_span};
 
 /// UI text system flags.
 ///
@@ -266,11 +266,16 @@ pub fn prepare_text_layout_system(
     >,
     mut text_reader: TextUiReader,
 ) {
+    let e = info_span!(
+        "prepare_text_layout_system",
+        name = "prepare_text_layout_system"
+    )
+    .entered();
     for (
         entity,
         block,
         mut content_size,
-        text_flags,
+        mut text_flags,
         computed_block,
         mut computed_layout,
         computed_target,
@@ -322,6 +327,9 @@ pub fn prepare_text_layout_system(
                 info: TextMeasureInfo { min, max, entity },
             }));
         }
+
+        text_flags.needs_measure_fn = false;
+        text_flags.needs_recompute = true;
     }
 }
 
@@ -346,7 +354,8 @@ pub fn update_text_system(
     )>,
     mut scale_cx: ResMut<ScaleCx>,
 ) {
-    for (node, block, mut text_layout_info, text_flags, mut layout) in &mut text_query {
+    let e = info_span!("update_text_system", name = "update_text_system").entered();
+    for (node, block, mut text_layout_info, mut text_flags, mut layout) in &mut text_query {
         if node.is_changed() || layout.is_changed() || text_flags.needs_recompute {
             *text_layout_info = build_text_layout_info(
                 &mut layout.0,
@@ -358,6 +367,8 @@ pub fn update_text_system(
                 &mut textures,
                 bevy_text::FontSmoothing::AntiAliased,
             );
+
+            text_flags.needs_recompute = false;
         }
     }
 }
