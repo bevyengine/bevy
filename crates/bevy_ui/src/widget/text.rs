@@ -3,7 +3,7 @@ use crate::{
     Node, NodeMeasure,
 };
 use bevy_asset::Assets;
-use bevy_color::{Color, LinearRgba};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -23,7 +23,7 @@ use bevy_text::{
     TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
-use tracing::{error, info_span};
+use tracing::error;
 
 /// UI text system flags.
 ///
