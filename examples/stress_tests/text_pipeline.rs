@@ -39,7 +39,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
     let make_spans = |i| {
         [
             (
-                TextSpan("text".repeat(i)),
+                Text2d("text".repeat(i)),
                 TextFont {
                     font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: (4 + i % 10) as f32,
@@ -48,7 +48,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextColor(BLUE.into()),
             ),
             (
-                TextSpan("pipeline".repeat(i)),
+                Text2d("pipeline".repeat(i)),
                 TextFont {
                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                     font_size: (4 + i % 11) as f32,

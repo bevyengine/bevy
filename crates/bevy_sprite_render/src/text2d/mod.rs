@@ -14,7 +14,8 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
+    PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextEntities, TextLayoutInfo,
+    TextOutput,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -25,16 +26,15 @@ pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    text2d_query: Extract<
+    text2d_query: Extract<Query<(&TextLayoutInfo, &TextOutput, &TextEntities)>>,
+    root_query: Extract<
         Query<(
             Entity,
             &ViewVisibility,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
             &TextBounds,
             &Anchor,
-            Option<&Text2dShadow>,
             &GlobalTransform,
+            Option<&Text2dShadow>,
         )>,
     >,
     text_colors: Extract<Query<&TextColor>>,
@@ -43,23 +43,19 @@ pub fn extract_text2d_sprite(
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
-    for (
-        main_entity,
-        view_visibility,
-        computed_block,
-        text_layout_info,
-        text_bounds,
-        anchor,
-        maybe_shadow,
-        global_transform,
-    ) in text2d_query.iter()
-    {
-        let scaling = GlobalTransform::from_scale(
-            Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
-        );
+    for (text_layout_info, relation, sections) in text2d_query.iter() {
+        let Ok((main_entity, view_visibility, text_bounds, anchor, global_transform, maybe_shadow)) =
+            root_query.get(**relation)
+        else {
+            continue;
+        };
         if !view_visibility.get() {
             continue;
         }
+
+        let scaling = GlobalTransform::from_scale(
+            Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
+        );
 
         let size = Vec2::new(
             text_bounds.width.unwrap_or(text_layout_info.size.x),
@@ -164,10 +160,10 @@ pub fn extract_text2d_sprite(
             if *span_index != current_span {
                 color = text_colors
                     .get(
-                        computed_block
-                            .entities()
+                        sections
+                            .0
                             .get(*span_index)
-                            .map(|t| t.entity)
+                            .copied()
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))

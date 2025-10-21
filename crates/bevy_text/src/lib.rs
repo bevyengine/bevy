@@ -23,7 +23,7 @@
 //! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
-//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlas`]es if necessary.
+//! 1. updates a [`Buffer`](cosmic_text::Buffer) from the text entities, generating new [`FontAtlas`]es if necessary.
 //! 2. iterates over each glyph in the [`Buffer`](cosmic_text::Buffer) to create a [`PositionedGlyph`],
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
@@ -41,6 +41,7 @@ mod glyph;
 mod pipeline;
 mod text;
 mod text_access;
+mod text_hierarchy;
 
 pub use bounds::*;
 pub use error::*;
@@ -52,6 +53,7 @@ pub use glyph::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
+pub use text_hierarchy::*;
 
 /// The text prelude.
 ///
@@ -59,7 +61,7 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Font, Justify, LineBreak, TextColor, TextError, TextFont, TextLayout, TextWriter,
     };
 }
 
@@ -78,6 +80,10 @@ pub const DEFAULT_FONT_DATA: &[u8] = include_bytes!("FiraMono-subset.ttf");
 #[derive(Default)]
 pub struct TextPlugin;
 
+/// System set in [`PostUpdate`] where all text update systems are executed.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct TextUpdateSystems;
+
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
@@ -95,6 +101,12 @@ impl Plugin for TextPlugin {
             .init_resource::<CosmicFontSystem>()
             .init_resource::<SwashCache>()
             .init_resource::<TextIterScratch>()
+            .add_systems(
+                PostUpdate,
+                (update_text_roots_system, update_text_entities_system)
+                    .chain()
+                    .in_set(TextUpdateSystems),
+            )
             .add_systems(
                 PostUpdate,
                 free_unused_font_atlases_system.before(AssetEventSystems),

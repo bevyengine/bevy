@@ -128,7 +128,7 @@ impl fmt::Display for Target {
 
 impl Target {
     fn text_span(&self, key: &str, style: TextFont) -> (TextSpan, TextFont) {
-        (TextSpan::new(format!("[{key}] {self}\n")), style)
+        (Text::new(format!("[{key}] {self}\n")), style)
     }
     fn new(
         entity_name: Option<&Name>,
@@ -270,8 +270,8 @@ fn detect_morphs(
         ..default()
     };
     let mut spans = vec![
-        (TextSpan::new("Morph Target Controls\n"), style.clone()),
-        (TextSpan::new("---------------\n"), style.clone()),
+        (Text::new("Morph Target Controls\n"), style.clone()),
+        (Text::new("---------------\n"), style.clone()),
     ];
     let target_to_text =
         |(i, target): (usize, &Target)| target.text_span(AVAILABLE_KEYS[i].name, style.clone());

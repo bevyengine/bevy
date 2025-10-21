@@ -223,12 +223,12 @@ mod text {
                 },
                 children![
                     (
-                        TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
+                        Text2d::new(format!("{}, {}\n", anchor.x, anchor.y)),
                         TextFont::from_font_size(14.0),
                         TextColor(palettes::tailwind::BLUE_400.into()),
                     ),
                     (
-                        TextSpan::new(format!("{justify:?}")),
+                        Text2d::new(format!("{justify:?}")),
                         TextFont::from_font_size(14.0),
                         TextColor(palettes::tailwind::GREEN_400.into()),
                     ),

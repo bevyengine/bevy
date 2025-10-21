@@ -43,14 +43,14 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         children![
-            TextSpan::new("Click to toggle IME. Press return to start a new line.\n\n",),
-            TextSpan::new("IME Enabled: "),
-            TextSpan::new("false\n"),
-            TextSpan::new("IME Active:  "),
-            TextSpan::new("false\n"),
-            TextSpan::new("IME Buffer:  "),
+            Text::new("Click to toggle IME. Press return to start a new line.\n\n",),
+            Text::new("IME Enabled: "),
+            Text::new("false\n"),
+            Text::new("IME Active:  "),
+            Text::new("false\n"),
+            Text::new("IME Buffer:  "),
             (
-                TextSpan::new("\n"),
+                Text::new("\n"),
                 TextFont {
                     font: font.clone(),
                     ..default()

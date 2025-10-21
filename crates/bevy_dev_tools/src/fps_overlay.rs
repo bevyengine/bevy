@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_text::{Font, TextColor, TextFont};
 use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
@@ -175,7 +175,7 @@ fn setup(
                 FpsText,
                 Pickable::IGNORE,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .with_child((Text::default(), overlay_config.text_config.clone()));
 
             let font_size = overlay_config.text_config.font_size;
             p.spawn((
