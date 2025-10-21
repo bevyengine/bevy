@@ -117,10 +117,10 @@ impl ScatteringMedium {
     }
 
     /// Returns a scattering medium representing an earthlike atmosphere.
-    pub fn earth_atmosphere() -> Self {
+    pub fn earthlike(falloff_resolution: u32, phase_resolution: u32) -> Self {
         Self::new(
-            256,
-            256,
+            falloff_resolution,
+            phase_resolution,
             [
                 ScatteringTerm {
                     absorption: Vec3::ZERO,
@@ -145,7 +145,7 @@ impl ScatteringMedium {
                 },
             ],
         )
-        .with_label("earth_atmosphere")
+        .with_label("earthlike_atmosphere")
     }
 }
 

@@ -114,15 +114,10 @@ impl Plugin for AtmospherePlugin {
         .add_systems(Update, prepare_atmosphere_probe_components);
 
         let world = app.world_mut();
-        let earth_atmosphere = world
+        let earthlike_medium = world
             .resource_mut::<Assets<ScatteringMedium>>()
-            .add(ScatteringMedium::earth_atmosphere());
-        world.insert_resource(EarthAtmosphere(Atmosphere {
-            bottom_radius: 6_360_000.0,
-            top_radius: 6_460_000.0,
-            ground_albedo: Vec3::splat(0.3),
-            medium: earth_atmosphere,
-        }));
+            .add(ScatteringMedium::earthlike(256, 256));
+        world.insert_resource(EarthlikeAtmosphere(Atmosphere::earthlike(earthlike_medium)));
     }
 
     fn finish(&self, app: &mut App) {
@@ -208,9 +203,9 @@ impl Plugin for AtmospherePlugin {
 }
 
 #[derive(Resource)]
-pub struct EarthAtmosphere(Atmosphere);
+pub struct EarthlikeAtmosphere(Atmosphere);
 
-impl EarthAtmosphere {
+impl EarthlikeAtmosphere {
     pub fn get(&self) -> Atmosphere {
         self.0.clone()
     }
@@ -240,6 +235,20 @@ pub struct Atmosphere {
     /// A handle to a [`ScatteringMedium`], which describes the substance
     /// of the atmosphere and how it scatters light.
     pub medium: Handle<ScatteringMedium>,
+}
+
+impl Atmosphere {
+    pub fn earthlike(medium: Handle<ScatteringMedium>) -> Self {
+        const EARTH_BOTTOM_RADIUS: f32 = 6_360_000.0;
+        const EARTH_TOP_RADIUS: f32 = 6_460_000.0;
+        const EARTH_ALBEDO: Vec3 = Vec3::splat(0.3);
+        Self {
+            bottom_radius: EARTH_BOTTOM_RADIUS,
+            top_radius: EARTH_TOP_RADIUS,
+            ground_albedo: EARTH_ALBEDO,
+            medium,
+        }
+    }
 }
 
 impl ExtractComponent for Atmosphere {

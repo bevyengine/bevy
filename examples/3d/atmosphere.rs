@@ -6,7 +6,7 @@ use bevy::{
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
     light::{light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder},
-    pbr::{AtmosphereSettings, EarthAtmosphere},
+    pbr::{AtmosphereSettings, EarthlikeAtmosphere},
     post_process::bloom::Bloom,
     prelude::*,
 };
@@ -19,7 +19,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthAtmosphere>) {
+fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
