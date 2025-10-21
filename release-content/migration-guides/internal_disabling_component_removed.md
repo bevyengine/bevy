@@ -4,7 +4,11 @@ pull_requests: [ TODO ]
 ---
 
 The `Internal` component, previously added as a required component to both one-shot systems and observer entities has been removed.
+
 You can remove all references to it: these entities are no longer hidden by default query filters.
+If you have tests which rely on a specific number of entities existing in the world,
+you should refactor them to query for entities with a component that you care about:
+this is much more robust in general.
 
 This component was previously motivated by two factors:
 
