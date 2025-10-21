@@ -52,7 +52,7 @@ pub(crate) struct AtmosphereProbeBindGroups {
 
 #[derive(Resource)]
 pub struct AtmosphereProbeLayouts {
-    pub environment: BindGroupLayout,
+    pub environment: BindGroupLayoutDescriptor,
 }
 
 #[derive(Resource)]
@@ -60,10 +60,10 @@ pub struct AtmosphereProbePipeline {
     pub environment: CachedComputePipelineId,
 }
 
-pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
+pub fn init_atmosphere_probe_layout(mut commands: Commands) {
     const FILTERED_TEX: TextureSampleType = TextureSampleType::Float { filterable: true };
     const FILTERED_SMP: SamplerBindingType = SamplerBindingType::Filtering;
-    let environment = render_device.create_bind_group_layout(
+    let environment = BindGroupLayoutDescriptor::new(
         "environment_bind_group_layout",
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
@@ -110,12 +110,13 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<GpuAtmosphere>>,
     settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
+    pipeline_cache: Res<PipelineCache>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &probes {
         let environment = render_device.create_bind_group(
             "environment_bind_group",
-            &layouts.environment,
+            &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::with_indices((
                 (0, atmosphere_uniforms.binding().unwrap()),
                 (1, settings_uniforms.binding().unwrap()),

@@ -1,10 +1,8 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,
@@ -14,7 +12,6 @@ use bevy::{
         renderer::RenderDevice,
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
@@ -39,7 +36,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(CameraControllerPlugin)
+        .add_plugins(FreeCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -77,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FreeCamera::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
@@ -157,7 +154,9 @@ fn asset_loaded(
         // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
         // so they appear as one texture. The following code reconfigures the texture as necessary.
         if image.texture_descriptor.array_layer_count() == 1 {
-            image.reinterpret_stacked_2d_as_array(image.height() / image.width());
+            image
+                .reinterpret_stacked_2d_as_array(image.height() / image.width())
+                .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..default()

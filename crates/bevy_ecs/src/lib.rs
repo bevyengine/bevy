@@ -10,7 +10,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -178,8 +178,10 @@ mod tests {
     };
     use std::sync::Mutex;
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
+    #[derive(Resource, Debug, PartialEq, Eq)]
+    struct ResA(usize);
     #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
@@ -1421,10 +1423,10 @@ mod tests {
     #[test]
     fn non_send_resource_points_to_distinct_data() {
         let mut world = World::default();
-        world.insert_resource(A(123));
-        world.insert_non_send_resource(A(456));
-        assert_eq!(*world.resource::<A>(), A(123));
-        assert_eq!(*world.non_send_resource::<A>(), A(456));
+        world.insert_resource(ResA(123));
+        world.insert_non_send_resource(ResA(456));
+        assert_eq!(*world.resource::<ResA>(), ResA(123));
+        assert_eq!(*world.non_send_resource::<ResA>(), ResA(456));
     }
 
     #[test]
@@ -1570,13 +1572,13 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
-        assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
-        world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        world.resource_scope(|world: &mut World, mut value: Mut<ResA>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<A>());
+            assert!(!world.contains_resource::<ResA>());
         });
-        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<ResA>().0, 1);
     }
 
     #[test]
@@ -1636,7 +1638,7 @@ mod tests {
     fn clear_entities() {
         let mut world = World::default();
 
-        world.insert_resource(A(0));
+        world.insert_resource(ResA(0));
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 
@@ -1666,7 +1668,7 @@ mod tests {
             "world should not have any entities"
         );
         assert_eq!(
-            world.resource::<A>().0,
+            world.resource::<ResA>().0,
             0,
             "world should still contain resources"
         );
@@ -1946,9 +1948,17 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,

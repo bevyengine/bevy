@@ -3,8 +3,8 @@ use crate::{
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
+    Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
+    Handle, UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -144,7 +144,7 @@ pub(crate) struct LabeledAsset {
 /// * Loader dependencies: dependencies whose actual asset values are used during the load process
 pub struct LoadedAsset<A: Asset> {
     pub(crate) value: A,
-    pub(crate) dependencies: HashSet<UntypedAssetId>,
+    pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
 }
@@ -154,7 +154,10 @@ impl<A: Asset> LoadedAsset<A> {
     pub fn new_with_dependencies(value: A) -> Self {
         let mut dependencies = <HashSet<_>>::default();
         value.visit_dependencies(&mut |id| {
-            dependencies.insert(id);
+            let Ok(asset_index) = id.try_into() else {
+                return;
+            };
+            dependencies.insert(asset_index);
         });
         LoadedAsset {
             value,
@@ -197,7 +200,7 @@ impl<A: Asset> From<A> for LoadedAsset<A> {
 /// A "type erased / boxed" counterpart to [`LoadedAsset`]. This is used in places where the loaded type is not statically known.
 pub struct ErasedLoadedAsset {
     pub(crate) value: Box<dyn AssetContainer>,
-    pub(crate) dependencies: HashSet<UntypedAssetId>,
+    pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
 }
@@ -267,20 +270,20 @@ impl ErasedLoadedAsset {
 }
 
 /// A type erased container for an [`Asset`] value that is capable of inserting the [`Asset`] into a [`World`]'s [`Assets`] collection.
-pub trait AssetContainer: Downcast + Any + Send + Sync + 'static {
-    fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World);
+pub(crate) trait AssetContainer: Downcast + Any + Send + Sync + 'static {
+    fn insert(self: Box<Self>, id: AssetIndex, world: &mut World);
     fn asset_type_name(&self) -> &'static str;
 }
 
 impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
-    fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
+    fn insert(self: Box<Self>, index: AssetIndex, world: &mut World) {
         // We only ever call this if we know the asset is still alive, so it is fine to unwrap here.
         world
             .resource_mut::<Assets<A>>()
-            .insert(id.typed(), *self)
-            .expect("the AssetId is still valid");
+            .insert(index, *self)
+            .expect("the AssetIndex is still valid");
     }
 
     fn asset_type_name(&self) -> &'static str {
@@ -321,7 +324,7 @@ pub struct LoadContext<'a> {
     pub(crate) should_load_dependencies: bool,
     populate_hashes: bool,
     asset_path: AssetPath<'static>,
-    pub(crate) dependencies: HashSet<UntypedAssetId>,
+    pub(crate) dependencies: HashSet<ErasedAssetIndex>,
     /// Direct dependencies used by this loader.
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
@@ -518,7 +521,9 @@ impl<'a> LoadContext<'a> {
     ) -> Handle<A> {
         let path = self.asset_path.clone().with_label(label);
         let handle = self.asset_server.get_or_create_path_handle::<A>(path, None);
-        self.dependencies.insert(handle.id().untyped());
+        // `get_or_create_path_handle` always returns a Strong variant, so we are safe to unwrap.
+        let index = (&handle).try_into().unwrap();
+        self.dependencies.insert(index);
         handle
     }
 

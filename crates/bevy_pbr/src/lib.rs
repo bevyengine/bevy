@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -29,6 +29,7 @@ mod cluster;
 mod components;
 pub mod decal;
 pub mod deferred;
+pub mod diagnostic;
 mod extended_material;
 mod fog;
 mod light_probe;
@@ -225,7 +226,6 @@ impl Plugin for PbrPlugin {
                     debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {
-                    prepass_enabled: self.prepass_enabled,
                     debug_flags: self.debug_flags,
                     ..Default::default()
                 },

@@ -146,7 +146,7 @@ impl Plugin for AtmospherePlugin {
         }
 
         render_app
-            .init_resource::<AtmosphereBindGroupLayouts>()
+            .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
             .init_resource::<AtmosphereSamplers>()
             .init_resource::<AtmosphereLutPipelines>()

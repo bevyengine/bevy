@@ -1252,4 +1252,15 @@ mod tests {
         assert_eq!(r.top, Val::Percent(20.));
         assert_eq!(r.bottom, Val::Percent(99.));
     }
+
+    #[test]
+    fn val_constructor_fns_return_correct_val_variant() {
+        assert_eq!(auto(), Val::Auto);
+        assert_eq!(px(0.0), Val::Px(0.0));
+        assert_eq!(percent(0.0), Val::Percent(0.0));
+        assert_eq!(vw(0.0), Val::Vw(0.0));
+        assert_eq!(vh(0.0), Val::Vh(0.0));
+        assert_eq!(vmin(0.0), Val::VMin(0.0));
+        assert_eq!(vmax(0.0), Val::VMax(0.0));
+    }
 }

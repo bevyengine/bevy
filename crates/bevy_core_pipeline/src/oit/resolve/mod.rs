@@ -11,9 +11,10 @@ use bevy_image::BevyDefault as _;
 use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
-        BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages, TextureFormat,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        BlendComponent, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+        DownlevelFlags, FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
+        TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
@@ -57,7 +58,7 @@ impl Plugin for OitResolvePlugin {
                     prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
-            .init_resource::<OitResolvePipeline>();
+            .insert_resource(OitResolvePipeline::new());
     }
 }
 
@@ -97,16 +98,14 @@ pub struct OitResolveBindGroup(pub BindGroup);
 #[derive(Resource)]
 pub struct OitResolvePipeline {
     /// View bind group layout.
-    pub view_bind_group_layout: BindGroupLayout,
+    pub view_bind_group_layout: BindGroupLayoutDescriptor,
     /// Depth bind group layout.
-    pub oit_depth_bind_group_layout: BindGroupLayout,
+    pub oit_depth_bind_group_layout: BindGroupLayoutDescriptor,
 }
 
-impl FromWorld for OitResolvePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let view_bind_group_layout = render_device.create_bind_group_layout(
+impl OitResolvePipeline {
+    fn new() -> Self {
+        let view_bind_group_layout = BindGroupLayoutDescriptor::new(
             "oit_resolve_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
@@ -120,7 +119,7 @@ impl FromWorld for OitResolvePipeline {
             ),
         );
 
-        let oit_depth_bind_group_layout = render_device.create_bind_group_layout(
+        let oit_depth_bind_group_layout = BindGroupLayoutDescriptor::new(
             "oit_depth_bind_group_layout",
             &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
         );
@@ -238,6 +237,7 @@ pub fn prepare_oit_resolve_bind_group(
     resolve_pipeline: Res<OitResolvePipeline>,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
+    pipeline_cache: Res<PipelineCache>,
     buffers: Res<OitBuffers>,
 ) {
     if let (Some(binding), Some(layers_binding), Some(layer_ids_binding)) = (
@@ -247,7 +247,7 @@ pub fn prepare_oit_resolve_bind_group(
     ) {
         let bind_group = render_device.create_bind_group(
             "oit_resolve_bind_group",
-            &resolve_pipeline.view_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&resolve_pipeline.view_bind_group_layout),
             &BindGroupEntries::sequential((binding.clone(), layers_binding, layer_ids_binding)),
         );
         commands.insert_resource(OitResolveBindGroup(bind_group));
