@@ -1,4 +1,4 @@
-use crate::{change_detection::MaybeLocation, component::Tick};
+use crate::{change_detection::MaybeLocation, change_detection::Tick};
 use alloc::borrow::ToOwned;
 use core::mem;
 

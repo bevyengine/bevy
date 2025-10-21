@@ -1,8 +1,9 @@
 use crate::{
-    change_detection::{ComponentTicksMut, MaybeLocation, MutUntyped},
-    component::{
-        CheckChangeTicks, ComponentId, ComponentTickCells, ComponentTicks, Components, Tick,
+    change_detection::{
+        CheckChangeTicks, ComponentTickCells, ComponentTicks, ComponentTicksMut, MaybeLocation,
+        MutUntyped, Tick,
     },
+    component::{ComponentId, Components},
     storage::{blob_array::BlobArray, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};

@@ -1,8 +1,6 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{
-        CheckChangeTicks, ComponentId, ComponentInfo, ComponentTickCells, ComponentTicks, Tick,
-    },
+    change_detection::{CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityRow},
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, Column, TableRow, VecExtensions},

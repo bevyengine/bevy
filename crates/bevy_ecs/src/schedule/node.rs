@@ -10,7 +10,7 @@ use bevy_platform::collections::HashMap;
 use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
     schedule::{

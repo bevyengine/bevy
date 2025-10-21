@@ -21,7 +21,7 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::Tick;
+    use crate::change_detection::Tick;
     use crate::lifecycle::HookContext;
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},

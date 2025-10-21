@@ -3,7 +3,9 @@ use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    entity_disabling::{Disabled, Internal},
     message::MessageReader,
+    query::Allow,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -72,7 +74,8 @@ pub type StateScoped<S> = DespawnOnExit<S>;
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnExit<S>)>,
+    // TODO: Use `AllowAll` once it exists: https://github.com/bevyengine/bevy/issues/21615
+    query: Query<(Entity, &DespawnOnExit<S>), (Allow<Disabled>, Allow<Internal>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
@@ -138,7 +141,8 @@ pub struct DespawnOnEnter<S: States>(pub S);
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
-    query: Query<(Entity, &DespawnOnEnter<S>)>,
+    // TODO: Use `AllowAll` once it exists: https://github.com/bevyengine/bevy/issues/21615
+    query: Query<(Entity, &DespawnOnEnter<S>), (Allow<Disabled>, Allow<Internal>)>,
 ) {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened

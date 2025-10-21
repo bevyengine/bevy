@@ -2,7 +2,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     batching::BatchingStrategy,
-    component::Tick,
+    change_detection::Tick,
     entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,

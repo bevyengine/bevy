@@ -2,7 +2,7 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     pbr::ScreenSpaceAmbientOcclusion,
@@ -36,7 +36,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(FreeCamPlugin)
+        .add_plugins(FreeCameraPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -74,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        FreeCam::default(),
+        FreeCamera::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,

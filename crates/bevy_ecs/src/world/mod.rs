@@ -35,11 +35,13 @@ use crate::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
     },
-    change_detection::{ComponentTicksMut, MaybeLocation, MutUntyped},
+    change_detection::{
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+    },
     component::{
-        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
-        RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
+        ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
+        RequiredComponentsError,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
@@ -3997,6 +3999,7 @@ mod tests {
                 }),
                 true,
                 ComponentCloneBehavior::Default,
+                None,
             )
         };
 
