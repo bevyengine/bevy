@@ -268,6 +268,8 @@ impl ExtractComponent for Atmosphere {
     }
 }
 
+/// The render-world representation of an `Atmosphere`, but which
+/// hasn't been converted into shader uniforms yet.
 #[derive(Clone, Component)]
 pub struct ExtractedAtmosphere {
     pub bottom_radius: f32,

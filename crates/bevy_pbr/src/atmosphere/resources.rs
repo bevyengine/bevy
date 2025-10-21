@@ -520,8 +520,10 @@ pub(super) fn prepare_atmosphere_textures(
 #[error("ScatteringMedium missing with id {0:?}: make sure the asset was not removed.")]
 struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 
+/// The shader-uniform representation of an Atmosphere.
 #[derive(Clone, Component, ShaderType)]
 pub struct GpuAtmosphere {
+    //TODO: rename to Planet later?
     pub ground_albedo: Vec3,
     pub bottom_radius: f32,
     pub top_radius: f32,
