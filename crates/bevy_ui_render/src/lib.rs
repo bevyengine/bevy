@@ -1161,42 +1161,6 @@ pub fn extract_text_shadows(
                 });
             }
         }
-
-        for &(section_index, rect, strikethrough_y, stroke) in
-            text_layout_info.section_geometry.iter()
-        {
-            let section_entity = computed_block.entities()[section_index].entity;
-            if !text_decoration_query.contains(section_entity) {
-                continue;
-            }
-
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                clip: clip.map(|clip| clip.clip),
-                image: AssetId::default(),
-                extracted_camera_entity,
-                transform: node_transform
-                    * Affine2::from_translation(Vec2::new(
-                        rect.center().x,
-                        strikethrough_y + 0.5 * stroke,
-                    )),
-                item: ExtractedUiItem::Node {
-                    color: shadow.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: Vec2::new(rect.size().x, stroke),
-                    },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border: BorderRect::ZERO,
-                    border_radius: ResolvedBorderRadius::ZERO,
-                    node_type: NodeType::Rect,
-                },
-                main_entity: entity.into(),
-            });
-        }
     }
 }
 
