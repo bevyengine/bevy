@@ -228,7 +228,9 @@ pub unsafe trait SystemParam: Sized {
     /// Creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World) -> Self::State;
 
-    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// Registers any [`World`] access used by this [`SystemParam`].
+    ///
+    /// This method must panic if the access would conflict with any existing access in the [`FilteredAccessSet`].
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
@@ -306,6 +308,9 @@ pub unsafe trait SystemParam: Sized {
     ///
     /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
     ///   in [`init_access`](SystemParam::init_access).
+    /// - [`SystemParam::init_access`] must not request conflicting access.
+    ///   If `Self` is `ReadOnlySystemParam`, the access is read-only and can never conflict.
+    ///   Otherwise, [`SystemParam::init_access`] must be called to ensure it does not panic.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
@@ -338,7 +343,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
 
     fn init_state(world: &mut World) -> Self::State {
         // SAFETY: `SystemParam::init_access` calls `QueryState::init_access`,
-        // and no other query methods may be called before `SystemParam::init_access`.
+        // `SystemParam::init_access` must be called before `SystemParam::get_param`,
+        // and we only call methods on the `QueryState` in `get_param`.
         unsafe { QueryState::new_unchecked(world) }
     }
 
