@@ -23,7 +23,7 @@ use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-use crate::{component::CheckChangeTicks, system::System};
+use crate::{change_detection::CheckChangeTicks, system::System};
 use crate::{
     component::{ComponentId, Components},
     prelude::Component,
@@ -1168,8 +1168,11 @@ impl ScheduleGraph {
         let mut warnings = Vec::new();
 
         // check hierarchy for cycles
-        self.hierarchy.topsort =
-            self.topsort_graph(&self.hierarchy.graph, ReportCycles::Hierarchy)?;
+        self.hierarchy.topsort = self
+            .hierarchy
+            .graph
+            .toposort()
+            .map_err(ScheduleBuildError::HierarchySort)?;
 
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
         if let Some(warning) =
@@ -1182,8 +1185,11 @@ impl ScheduleGraph {
         self.hierarchy.graph = hier_results.transitive_reduction;
 
         // check dependencies for cycles
-        self.dependency.topsort =
-            self.topsort_graph(&self.dependency.graph, ReportCycles::Dependency)?;
+        self.dependency.topsort = self
+            .dependency
+            .graph
+            .toposort()
+            .map_err(ScheduleBuildError::DependencySort)?;
 
         // check for systems or system sets depending on sets they belong to
         let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
@@ -1209,7 +1215,9 @@ impl ScheduleGraph {
 
         // topsort
         let mut dependency_flattened_dag = Dag {
-            topsort: self.topsort_graph(&dependency_flattened, ReportCycles::Dependency)?,
+            topsort: dependency_flattened
+                .toposort()
+                .map_err(ScheduleBuildError::FlatDependencySort)?,
             graph: dependency_flattened,
         };
 
@@ -1615,14 +1623,6 @@ impl ProcessScheduleConfig for InternedSystemSet {
     }
 }
 
-/// Used to select the appropriate reporting function.
-pub enum ReportCycles {
-    /// When sets contain themselves
-    Hierarchy,
-    /// When the graph is no longer a DAG
-    Dependency,
-}
-
 /// Policy to use when removing systems.
 #[derive(Default)]
 pub enum ScheduleCleanupPolicy {
@@ -1723,73 +1723,6 @@ impl ScheduleGraph {
                 Err(ScheduleBuildWarning::HierarchyRedundancy(transitive_edges.to_vec()).into())
             }
             _ => Ok(None),
-        }
-    }
-
-    /// Tries to topologically sort `graph`.
-    ///
-    /// If the graph is acyclic, returns [`Ok`] with the list of [`NodeId`] in a valid
-    /// topological order. If the graph contains cycles, returns [`Err`] with the list of
-    /// strongly-connected components that contain cycles (also in a valid topological order).
-    ///
-    /// # Errors
-    ///
-    /// If the graph contain cycles, then an error is returned.
-    pub fn topsort_graph<N: GraphNodeId + Into<NodeId>>(
-        &self,
-        graph: &DiGraph<N>,
-        report: ReportCycles,
-    ) -> Result<Vec<N>, ScheduleBuildError> {
-        // Check explicitly for self-edges.
-        // `iter_sccs` won't report them as cycles because they still form components of one node.
-        if let Some((node, _)) = graph.all_edges().find(|(left, right)| left == right) {
-            let error = match report {
-                ReportCycles::Hierarchy => ScheduleBuildError::HierarchyLoop(node.into()),
-                ReportCycles::Dependency => ScheduleBuildError::DependencyLoop(node.into()),
-            };
-            return Err(error);
-        }
-
-        // Tarjan's SCC algorithm returns elements in *reverse* topological order.
-        let mut top_sorted_nodes = Vec::with_capacity(graph.node_count());
-        let mut sccs_with_cycles = Vec::new();
-
-        for scc in graph.iter_sccs() {
-            // A strongly-connected component is a group of nodes who can all reach each other
-            // through one or more paths. If an SCC contains more than one node, there must be
-            // at least one cycle within them.
-            top_sorted_nodes.extend_from_slice(&scc);
-            if scc.len() > 1 {
-                sccs_with_cycles.push(scc);
-            }
-        }
-
-        if sccs_with_cycles.is_empty() {
-            // reverse to get topological order
-            top_sorted_nodes.reverse();
-            Ok(top_sorted_nodes)
-        } else {
-            let mut cycles = Vec::new();
-            for scc in &sccs_with_cycles {
-                cycles.append(&mut simple_cycles_in_component(graph, scc));
-            }
-
-            let error = match report {
-                ReportCycles::Hierarchy => ScheduleBuildError::HierarchyCycle(
-                    cycles
-                        .into_iter()
-                        .map(|c| c.into_iter().map(Into::into).collect())
-                        .collect(),
-                ),
-                ReportCycles::Dependency => ScheduleBuildError::DependencyCycle(
-                    cycles
-                        .into_iter()
-                        .map(|c| c.into_iter().map(Into::into).collect())
-                        .collect(),
-                ),
-            };
-
-            Err(error)
         }
     }
 

@@ -7,8 +7,8 @@ use thiserror::Error;
 
 use crate::{
     bundle::BundleInfo,
-    change_detection::MaybeLocation,
-    component::{Component, ComponentId, Components, ComponentsRegistrator, Tick},
+    change_detection::{MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
     query::DebugCheckedUnwrap as _,
     storage::{SparseSets, Table, TableRow},
