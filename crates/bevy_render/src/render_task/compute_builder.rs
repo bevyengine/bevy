@@ -1,7 +1,8 @@
 use super::resource_cache::ResourceCache;
 use crate::{
     render_resource::{
-        BindGroup, BindGroupLayoutDescriptor, Buffer, ComputePipelineDescriptor, IntoBindingArray,
+        BindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Buffer,
+        ComputePipelineDescriptor, IntoBindGroupLayoutEntryBuilderArray, IntoBindingArray,
     },
     renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
@@ -78,13 +79,16 @@ impl<'a> ComputeCommandBuilder<'a> {
 
     pub fn bind_resources<'b, const N: usize>(
         mut self,
-        resources: impl IntoBindingArray<'b, N>,
+        resources: impl IntoBindingArray<'b, N> + IntoBindGroupLayoutEntryBuilderArray<N> + Clone,
     ) -> Self {
         self.bind_groups.push(Some(
             self.resource_cache
-                .get_or_create_bind_group(resources, self.render_device),
+                .get_or_create_bind_group(resources.clone(), self.render_device),
         ));
-        self.bind_group_layouts.push(todo!());
+        self.bind_group_layouts.push(BindGroupLayoutDescriptor::new(
+            "TODO",
+            &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, resources),
+        ));
         self
     }
 
@@ -146,10 +150,10 @@ impl<'a> ComputeCommandBuilder<'a> {
             self.pipeline_compiler,
         )?;
 
-        self.pass.set_pipeline(&pipeline);
+        self.pass.set_pipeline(&pipeline); // TODO: Only set if changed
 
         if let Some(push_constants) = self.push_constants {
-            self.pass.set_push_constants(0, push_constants);
+            self.pass.set_push_constants(0, push_constants); // TODO: Only set if pipeline changed
         }
 
         for (i, bind_group) in self.bind_groups.iter().enumerate() {
