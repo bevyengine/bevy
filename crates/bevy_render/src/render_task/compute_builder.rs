@@ -1,6 +1,8 @@
 use super::resource_cache::ResourceCache;
 use crate::{
-    render_resource::{BindGroup, BindGroupLayoutDescriptor, Buffer, ComputePipelineDescriptor},
+    render_resource::{
+        BindGroup, BindGroupLayoutDescriptor, Buffer, ComputePipelineDescriptor, IntoBindingArray,
+    },
     renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
 };
@@ -74,10 +76,13 @@ impl<'a> ComputeCommandBuilder<'a> {
         self
     }
 
-    pub fn bind_resources(mut self) -> Self {
+    pub fn bind_resources<'b, const N: usize>(
+        mut self,
+        resources: impl IntoBindingArray<'b, N>,
+    ) -> Self {
         self.bind_groups.push(Some(
             self.resource_cache
-                .get_or_create_bind_group(todo!(), todo!()),
+                .get_or_create_bind_group(resources, self.render_device),
         ));
         self.bind_group_layouts.push(todo!());
         self

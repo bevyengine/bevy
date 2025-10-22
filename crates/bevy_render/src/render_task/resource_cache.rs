@@ -33,6 +33,7 @@ impl ResourceCache {
         resources: impl IntoBindingArray<'b, N>,
         render_device: &RenderDevice,
     ) -> BindGroup {
+        // TODO: Cache
         render_device.create_bind_group("TODO", todo!(), &BindGroupEntries::sequential(resources))
     }
 
