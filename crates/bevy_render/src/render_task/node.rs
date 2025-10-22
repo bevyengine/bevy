@@ -1,7 +1,7 @@
 use super::{compute_builder::ComputeCommandBuilder, resource_cache::ResourceCache, RenderTask};
 use crate::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderDevice},
     PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::{
@@ -44,6 +44,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
                 compute_pass: None,
                 resource_cache: &mut resource_cache.lock().unwrap(),
                 pipeline_compiler: world.resource::<PipelineCompiler>(),
+                render_device: &render_device,
             };
 
             task.encode_commands(task_encoder, entity, world);
@@ -60,6 +61,7 @@ pub struct RenderTaskEncoder<'a> {
     compute_pass: Option<ComputePass<'static>>,
     resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
+    render_device: &'a RenderDevice,
 }
 
 impl<'a> RenderTaskEncoder<'a> {
@@ -81,6 +83,7 @@ impl<'a> RenderTaskEncoder<'a> {
             pass_name,
             self.resource_cache,
             self.pipeline_compiler,
+            self.render_device,
         )
     }
 }
