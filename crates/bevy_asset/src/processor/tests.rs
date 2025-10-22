@@ -2,6 +2,7 @@ use alloc::{
     boxed::Box,
     collections::BTreeMap,
     string::{String, ToString},
+    sync::Arc,
     vec,
     vec::Vec,
 };
@@ -18,17 +19,144 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetSource, AssetSourceId, Reader,
+        AssetSource, AssetSourceBuilders, AssetSourceId, Reader,
     },
+    meta::AssetMeta,
     processor::{
-        AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorTransactionLog,
-        ProcessorTransactionLogFactory,
+        AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
+        ProcessError, ProcessorTransactionLog, ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
     tests::{CoolText, CoolTextLoader, CoolTextRon, SubText},
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
+
+#[derive(TypePath)]
+struct MyProcessor<T>(PhantomData<fn() -> T>);
+
+impl<T: TypePath + 'static> Process for MyProcessor<T> {
+    type OutputLoader = ();
+    type Settings = ();
+
+    async fn process(
+        &self,
+        _context: &mut ProcessContext<'_>,
+        _meta: AssetMeta<(), Self>,
+        _writer: &mut crate::io::Writer,
+    ) -> Result<(), ProcessError> {
+        Ok(())
+    }
+}
+
+#[derive(TypePath)]
+struct Marker;
+
+fn create_empty_asset_processor() -> AssetProcessor {
+    let mut sources = AssetSourceBuilders::default();
+    // Create an empty asset source so that AssetProcessor is happy.
+    let dir = Dir::default();
+    let memory_reader = MemoryAssetReader { root: dir.clone() };
+    sources.insert(
+        AssetSourceId::Default,
+        AssetSource::build().with_reader(move || Box::new(memory_reader.clone())),
+    );
+
+    AssetProcessor::new(&mut sources)
+}
+
+#[test]
+fn get_asset_processor_by_name() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+
+    let long_processor = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let short_processor = asset_processor
+        .get_processor("MyProcessor<Marker>")
+        .expect("Processor was previously registered");
+
+    // We can use either the long or short processor name and we will get the same processor
+    // out.
+    assert!(Arc::ptr_eq(&long_processor, &short_processor));
+}
+
+#[test]
+fn missing_processor_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+
+    let Err(long_processor_err) = asset_processor.get_processor(
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+    ) else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(
+        long_processor_err,
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>"
+    );
+
+    // Short paths should also return an error.
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though we never registered any.");
+    };
+    let GetProcessorError::Missing(long_processor_err) = &long_processor_err else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(long_processor_err, "MyProcessor<Marker>");
+}
+
+// Create another marker type whose short name will overlap `Marker`.
+mod sneaky {
+    use bevy_reflect::TypePath;
+
+    #[derive(TypePath)]
+    pub struct Marker;
+}
+
+#[test]
+fn ambiguous_short_path_returns_error() {
+    let asset_processor = create_empty_asset_processor();
+    asset_processor.register_processor(MyProcessor::<Marker>(PhantomData));
+    asset_processor.register_processor(MyProcessor::<sneaky::Marker>(PhantomData));
+
+    let Err(long_processor_err) = asset_processor.get_processor("MyProcessor<Marker>") else {
+        panic!("Processor was returned even though the short path is ambiguous.");
+    };
+    let GetProcessorError::Ambiguous {
+        processor_short_name,
+        ambiguous_processor_names,
+    } = &long_processor_err
+    else {
+        panic!("get_processor returned incorrect error: {long_processor_err}");
+    };
+    assert_eq!(processor_short_name, "MyProcessor<Marker>");
+    let expected_ambiguous_names = [
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+    ];
+    assert_eq!(ambiguous_processor_names, &expected_ambiguous_names);
+
+    let processor_1 = asset_processor
+        .get_processor(
+            "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::Marker>",
+        )
+        .expect("Processor was previously registered");
+    let processor_2 = asset_processor
+            .get_processor(
+                "bevy_asset::processor::tests::MyProcessor<bevy_asset::processor::tests::sneaky::Marker>",
+            )
+            .expect("Processor was previously registered");
+
+    // If we fully specify the paths, we get the two different processors.
+    assert!(!Arc::ptr_eq(&processor_1, &processor_2));
+}
 
 struct AppWithProcessor {
     app: App,
@@ -120,6 +248,7 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
     }
 }
 
+#[derive(TypePath)]
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -159,9 +288,10 @@ impl AssetSaver for CoolTextSaver {
 // Note: while we allow any Fn, since closures are unnameable types, creating a processor with a
 // closure cannot be used (since we need to include the name of the transformer in the meta
 // file).
+#[derive(TypePath)]
 struct RootAssetTransformer<M: MutateAsset<A>, A: Asset>(M, PhantomData<fn(&mut A)>);
 
-trait MutateAsset<A: Asset>: Send + Sync + 'static {
+trait MutateAsset<A: Asset>: TypePath + Send + Sync + 'static {
     fn mutate(&self, asset: &mut A);
 }
 
@@ -227,6 +357,19 @@ fn no_meta_or_default_processor_copies_asset() {
     assert_eq!(processed_asset, source_asset);
 }
 
+// The asset processor currently requires multi_threaded.
+#[cfg(feature = "multi_threaded")]
+#[derive(TypePath)]
+struct AddText;
+
+// The asset processor currently requires multi_threaded.
+#[cfg(feature = "multi_threaded")]
+impl MutateAsset<CoolText> for AddText {
+    fn mutate(&self, text: &mut CoolText) {
+        text.text.push_str("_def");
+    }
+}
+
 #[test]
 fn asset_processor_transforms_asset_default_processor() {
     let AppWithProcessor {
@@ -234,14 +377,6 @@ fn asset_processor_transforms_asset_default_processor() {
         source_dir,
         processed_dir,
     } = create_app_with_asset_processor();
-
-    struct AddText;
-
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -293,13 +428,65 @@ fn asset_processor_transforms_asset_with_meta() {
         processed_dir,
     } = create_app_with_asset_processor();
 
-    struct AddText;
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(AddText),
+            CoolTextSaver,
+        ));
 
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
+    let path = Path::new("abc.cool.ron");
+    source_dir.insert_asset_text(
+        path,
+        r#"(
+    text: "abc",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#,
+    );
+    source_dir.insert_meta_text(path, r#"(
+    meta_format_version: "1.0",
+    asset: Process(
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        settings: (
+            loader_settings: (),
+            transformer_settings: (),
+            saver_settings: (),
+        ),
+    ),
+)"#);
+
+    // Start the app, which also starts the asset processor.
+    app.update();
+
+    // Wait for all processing to finish.
+    bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_finished(),
+    );
+
+    let processed_asset = processed_dir.get_asset(path).unwrap();
+    let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
+    assert_eq!(
+        processed_asset,
+        r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+    );
+}
+
+#[test]
+fn asset_processor_transforms_asset_with_short_path_meta() {
+    let AppWithProcessor {
+        mut app,
+        source_dir,
+        processed_dir,
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -325,7 +512,7 @@ fn asset_processor_transforms_asset_with_meta() {
     source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "LoadTransformAndSave<CoolTextLoader, RootAssetTransformer<AddText, CoolText>, CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -358,6 +545,7 @@ struct FakeGltf {
     gltf_nodes: BTreeMap<String, String>,
 }
 
+#[derive(TypePath)]
 struct FakeGltfLoader;
 
 impl AssetLoader for FakeGltfLoader {
@@ -394,6 +582,7 @@ struct FakeBsn {
 // scene that holds all the data including parents.
 // TODO: It would be nice if the inlining was actually done as an `AssetTransformer`, but
 // `Process` currently has no way to load nested assets.
+#[derive(TypePath)]
 struct FakeBsnLoader;
 
 impl AssetLoader for FakeBsnLoader {

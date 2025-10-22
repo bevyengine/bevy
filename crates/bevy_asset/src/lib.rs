@@ -778,7 +778,7 @@ mod tests {
         pub sub_texts: Vec<String>,
     }
 
-    #[derive(Default)]
+    #[derive(Default, TypePath)]
     pub struct CoolTextLoader;
 
     #[derive(Error, Debug)]
@@ -1932,6 +1932,7 @@ mod tests {
             .init_asset::<SubText>()
             .register_asset_loader(CoolTextLoader);
 
+        #[derive(TypePath)]
         struct NestedLoadOfSubassetLoader;
 
         impl AssetLoader for NestedLoadOfSubassetLoader {
@@ -2152,6 +2153,7 @@ mod tests {
     // Note: we can't just use the GatedReader, since currently we hold the handle until after
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
+    #[derive(TypePath)]
     struct GatedLoader {
         in_loader_sender: async_channel::Sender<()>,
         gate_receiver: async_channel::Receiver<()>,
@@ -2469,6 +2471,7 @@ mod tests {
         #[derive(Serialize, Deserialize, Default)]
         struct U8LoaderSettings(u8);
 
+        #[derive(TypePath)]
         struct U8Loader;
 
         impl AssetLoader for U8Loader {
@@ -2566,6 +2569,7 @@ mod tests {
             .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
             .init_asset::<TestAsset>();
 
+        #[derive(TypePath)]
         struct TwoSubassetLoader;
 
         impl AssetLoader for TwoSubassetLoader {
@@ -2618,6 +2622,7 @@ mod tests {
             .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
             .init_asset::<TestAsset>();
 
+        #[derive(TypePath)]
         struct TrivialLoader;
 
         impl AssetLoader for TrivialLoader {
