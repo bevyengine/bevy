@@ -337,7 +337,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityCommands {
+    pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
         let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
@@ -391,7 +391,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
     #[track_caller]
-    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'_> {
         let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
@@ -486,7 +486,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn get_entity(
         &mut self,
         entity: Entity,
-    ) -> Result<EntityCommands, EntityDoesNotExistError> {
+    ) -> Result<EntityCommands<'_>, EntityDoesNotExistError> {
         let _location = self.entities.get(entity)?;
         Ok(EntityCommands {
             entity,
@@ -543,7 +543,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn get_constructed_entity(
         &mut self,
         entity: Entity,
-    ) -> Result<EntityCommands, ConstructedEntityDoesNotExistError> {
+    ) -> Result<EntityCommands<'_>, ConstructedEntityDoesNotExistError> {
         let _location = self.entities.get_constructed(entity)?;
         Ok(EntityCommands {
             entity,

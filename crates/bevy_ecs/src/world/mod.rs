@@ -1301,7 +1301,7 @@ impl World {
         &mut self,
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         let entity = self.spawn_null();
         // This was just spawned from null, so it shouldn't panic.
         self.construct_unchecked(entity, bundle, caller)
@@ -1333,11 +1333,11 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.spawn_empty_with_caller(MaybeLocation::caller())
     }
 
-    pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut {
+    pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
         let entity = self.spawn_null();
         // This was just spawned from null, so it shouldn't panic.
         self.construct_empty_unchecked(entity, caller)
