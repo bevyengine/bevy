@@ -182,6 +182,9 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
 
 // ATMOSPHERE SAMPLING
 
+const ABSORPTION_DENSITY: f32 = 0.0;
+const SCATTERING_DENSITY: f32 = 1.0;
+
 // samples from the atmosphere density LUT.
 //
 // calling with `component = 0.0` will return the atmosphere's absorption density,
@@ -190,14 +193,15 @@ fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
     // sampler clamps to [0, 1] anyways, no need to clamp the altitude
     let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
     let uv = vec2(1.0 - normalized_altitude, component);
-    return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz; 
+    return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz;
 }
 
-// samples from the atmosphere scattering LUT. `neg_LdotV` is the ()
+// samples from the atmosphere scattering LUT. `neg_LdotV` is the dot product
+// of the light direction and the incoming view vector.
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
     let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
     let uv = vec2(1.0 - normalized_altitude, neg_LdotV * 0.5 + 0.5);
-    return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz; 
+    return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz;
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
@@ -365,9 +369,9 @@ fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     // Get both intersection points with atmosphere
     let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
     let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
-    
+
     var segment: RaymarchSegment;
-    
+
     if r < atmosphere.bottom_radius {
         // Inside planet - start from bottom of atmosphere
         segment.start = ground_intersections.y; // Use second intersection point with ground
@@ -438,8 +442,8 @@ fn raymarch_atmosphere(
         let local_r = length(sample_pos);
         let local_up = normalize(sample_pos);
 
-        let absorption = sample_density_lut(local_r, 0.0);
-        let scattering = sample_density_lut(local_r, 1.0);
+        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
         let extinction = absorption + scattering;
 
         let sample_optical_depth = extinction * dt_i;

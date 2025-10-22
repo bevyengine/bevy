@@ -7,7 +7,8 @@
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
             get_local_r, get_local_up, sample_density_lut, FRAC_4_PI,
             max_atmosphere_distance, rayleigh, henyey_greenstein,
-            zenith_azimuth_to_ray_dir, MIN_EXTINCTION
+            zenith_azimuth_to_ray_dir, MIN_EXTINCTION, ABSORPTION_DENSITY,
+            SCATTERING_DENSITY,
         },
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
@@ -100,8 +101,8 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         let local_r = get_local_r(r, mu_view, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
 
-        let absorption = sample_density_lut(local_r, 0.0);
-        let scattering = sample_density_lut(local_r, 1.0);
+        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
         let extinction = absorption + scattering;
 
         let sample_optical_depth = extinction * dt;

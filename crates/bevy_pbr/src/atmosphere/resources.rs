@@ -45,9 +45,6 @@ pub(crate) struct RenderSkyBindGroupLayouts {
     pub fragment_shader: Handle<Shader>,
 }
 
-const FILTERED_TEX: TextureSampleType = TextureSampleType::Float { filterable: true };
-const FILTERED_SMP: SamplerBindingType = SamplerBindingType::Filtering;
-
 impl AtmosphereBindGroupLayouts {
     pub fn new() -> Self {
         let transmittance_lut = BindGroupLayoutDescriptor::new(
@@ -58,9 +55,9 @@ impl AtmosphereBindGroupLayouts {
                     (0, uniform_buffer::<GpuAtmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     // transmittance lut storage texture
                     (
                         16,
@@ -81,12 +78,12 @@ impl AtmosphereBindGroupLayouts {
                     (0, uniform_buffer::<GpuAtmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     //transmittance lut and sampler
-                    (8, texture_2d(FILTERED_TEX)),
-                    (9, sampler(FILTERED_SMP)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, sampler(SamplerBindingType::Filtering)),
                     //multiscattering lut storage texture
                     (
                         16,
@@ -110,15 +107,15 @@ impl AtmosphereBindGroupLayouts {
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     //transmittance lut and sampler
-                    (8, texture_2d(FILTERED_TEX)),
-                    (9, sampler(FILTERED_SMP)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, sampler(SamplerBindingType::Filtering)),
                     //multiscattering lut and sampler
-                    (10, texture_2d(FILTERED_TEX)),
-                    (11, sampler(FILTERED_SMP)),
+                    (10, texture_2d(TextureSampleType::default())),
+                    (11, sampler(SamplerBindingType::Filtering)),
                     (
                         16,
                         texture_storage_2d(
@@ -140,15 +137,15 @@ impl AtmosphereBindGroupLayouts {
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     //transmittance lut and sampler
-                    (8, texture_2d(FILTERED_TEX)),
-                    (9, sampler(FILTERED_SMP)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, sampler(SamplerBindingType::Filtering)),
                     //multiscattering lut and sampler
-                    (10, texture_2d(FILTERED_TEX)),
-                    (11, sampler(FILTERED_SMP)),
+                    (10, texture_2d(TextureSampleType::default())),
+                    (11, sampler(SamplerBindingType::Filtering)),
                     //Aerial view lut storage texture
                     (
                         16,
@@ -183,21 +180,21 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     // transmittance lut and sampler
-                    (8, texture_2d(FILTERED_TEX)),
-                    (9, sampler(FILTERED_SMP)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, sampler(SamplerBindingType::Filtering)),
                     // multiscattering lut and sampler,
-                    (10, texture_2d(FILTERED_TEX)),
-                    (11, sampler(FILTERED_SMP)),
+                    (10, texture_2d(TextureSampleType::default())),
+                    (11, sampler(SamplerBindingType::Filtering)),
                     //sky view lut and sampler
-                    (12, texture_2d(FILTERED_TEX)),
-                    (13, sampler(FILTERED_SMP)),
+                    (12, texture_2d(TextureSampleType::default())),
+                    (13, sampler(SamplerBindingType::Filtering)),
                     // aerial view lut and sampler
-                    (14, texture_3d(FILTERED_TEX)),
-                    (15, sampler(FILTERED_SMP)),
+                    (14, texture_3d(TextureSampleType::default())),
+                    (15, sampler(SamplerBindingType::Filtering)),
                     //view depth texture
                     (16, texture_2d(TextureSampleType::Depth)),
                 ),
@@ -215,21 +212,21 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     // scattering medium luts and sampler
-                    (5, texture_2d(FILTERED_TEX)),
-                    (6, texture_2d(FILTERED_TEX)),
-                    (7, sampler(FILTERED_SMP)),
+                    (5, texture_2d(TextureSampleType::default())),
+                    (6, texture_2d(TextureSampleType::default())),
+                    (7, sampler(SamplerBindingType::Filtering)),
                     // transmittance lut and sampler
-                    (8, texture_2d(FILTERED_TEX)),
-                    (9, sampler(FILTERED_SMP)),
+                    (8, texture_2d(TextureSampleType::default())),
+                    (9, sampler(SamplerBindingType::Filtering)),
                     // multiscattering lut and sampler
-                    (10, texture_2d(FILTERED_TEX)),
-                    (11, sampler(FILTERED_SMP)),
+                    (10, texture_2d(TextureSampleType::default())),
+                    (11, sampler(SamplerBindingType::Filtering)),
                     //sky view lut and sampler
-                    (12, texture_2d(FILTERED_TEX)),
-                    (13, sampler(FILTERED_SMP)),
+                    (12, texture_2d(TextureSampleType::default())),
+                    (13, sampler(SamplerBindingType::Filtering)),
                     // aerial view lut and sampler
-                    (14, texture_3d(FILTERED_TEX)),
-                    (15, sampler(FILTERED_SMP)),
+                    (14, texture_3d(TextureSampleType::default())),
+                    (15, sampler(SamplerBindingType::Filtering)),
                     //view depth texture
                     (16, texture_2d_multisampled(TextureSampleType::Depth)),
                 ),

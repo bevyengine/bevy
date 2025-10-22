@@ -61,8 +61,6 @@ pub struct AtmosphereProbePipeline {
 }
 
 pub fn init_atmosphere_probe_layout(mut commands: Commands) {
-    const FILTERED_TEX: TextureSampleType = TextureSampleType::Float { filterable: true };
-    const FILTERED_SMP: SamplerBindingType = SamplerBindingType::Filtering;
     let environment = BindGroupLayoutDescriptor::new(
         "environment_bind_group_layout",
         &BindGroupLayoutEntries::with_indices(
@@ -74,17 +72,17 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
                 (3, uniform_buffer::<ViewUniform>(true)),
                 (4, uniform_buffer::<GpuLights>(true)),
                 //transmittance lut and sampler
-                (8, texture_2d(FILTERED_TEX)),
-                (9, sampler(FILTERED_SMP)),
+                (8, texture_2d(TextureSampleType::default())),
+                (9, sampler(SamplerBindingType::Filtering)),
                 //multiscattering lut and sampler
-                (10, texture_2d(FILTERED_TEX)),
-                (11, sampler(FILTERED_SMP)),
+                (10, texture_2d(TextureSampleType::default())),
+                (11, sampler(SamplerBindingType::Filtering)),
                 //sky view lut and sampler
-                (12, texture_2d(FILTERED_TEX)),
-                (13, sampler(FILTERED_SMP)),
+                (12, texture_2d(TextureSampleType::default())),
+                (13, sampler(SamplerBindingType::Filtering)),
                 //aerial view lut ans sampler
-                (14, texture_3d(FILTERED_TEX)),
-                (15, sampler(FILTERED_SMP)),
+                (14, texture_3d(TextureSampleType::default())),
+                (15, sampler(SamplerBindingType::Filtering)),
                 // output 2D array texture
                 (
                     16,
