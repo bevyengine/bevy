@@ -34,6 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::TextSystems;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -184,8 +185,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
+            .ambiguous_with(bevy_sprite::update_text2d_layout);
 
         app.add_systems(
             PostUpdate,
@@ -224,19 +224,15 @@ impl Plugin for UiPlugin {
 }
 
 fn build_text_interop(app: &mut App) {
-    use widget::Text;
-
     app.add_systems(
         PostUpdate,
         (
-            (
-                bevy_text::detect_text_needs_rerender::<Text>,
-                widget::shape_text_system,
-            )
+            (widget::shape_text_system,)
                 .chain()
+                .after(TextSystems::Hierarchy)
+                .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
@@ -245,11 +241,12 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::layout_text_system
+                .after(TextSystems::Hierarchy)
+                .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::PostLayout)
                 //.after(bevy_text::free_unused_font_atlases_system)
-                .before(bevy_asset::AssetEventSystems)
+                .after(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),

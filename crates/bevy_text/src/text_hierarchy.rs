@@ -1,8 +1,10 @@
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{prelude::*, relationship::Relationship};
+use bevy_ecs::prelude::*;
 
 use crate::TextSpan;
 
+/// Contains the entities comprising a text hierarchy.
+/// In order as read, starting from the root text element.
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ComputedTextBlock(pub Vec<Entity>);
 
@@ -23,7 +25,7 @@ impl Default for TextTarget {
 /// update text entities lists
 pub fn update_text_entities_system(
     mut buffer: Local<Vec<Entity>>,
-    mut root_query: Query<(Entity, &mut ComputedTextBlock, Option<&Children>), With<TextRoot>>,
+    mut root_query: Query<(Entity, &mut ComputedTextBlock, Option<&Children>)>,
     mut targets_query: Query<&mut TextTarget>,
     children_query: Query<&Children, With<TextSpan>>,
 ) {
@@ -40,8 +42,7 @@ pub fn update_text_entities_system(
         if buffer.as_slice() != entities.0.as_slice() {
             entities.0.clear();
             entities.0.extend_from_slice(&buffer);
-
-            let mut targets_iter = targets_query.iter_many_mut(entities.0.iter().skip(1).copied());
+            let mut targets_iter = targets_query.iter_many_mut(entities.0.iter());
             while let Some(mut target) = targets_iter.fetch_next() {
                 target.0 = root_id;
             }
@@ -50,15 +51,9 @@ pub fn update_text_entities_system(
     }
 }
 
-pub fn update_roots(mut root_query: Query<(Entity, &mut TextTarget), With<TextRoot>>) {
-    for (e, mut t) in root_query.iter_mut() {
-        t.0 = e;
-    }
-}
-
 /// detect changes
-pub fn detect_text_needs_rerender<T: Component>(
-    text_query: Query<&TextTarget, Or<(Changed<T>, Changed<crate::TextFont>)>>,
+pub fn detect_text_spans_needs_rerender(
+    text_query: Query<&TextTarget, Or<(Changed<TextSpan>, Changed<crate::TextFont>)>>,
     mut output_query: Query<&mut ComputedTextBlock>,
 ) {
     for target in text_query.iter() {

@@ -92,7 +92,9 @@ pub type Update2dText = Text2dUpdateSystems;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TextSystems {
+    /// Update text hierarchy and check for changes
     Hierarchy,
+    /// Register new font assets with Parley's `FontContext` after loading
     RegisterFontAssets,
 }
 
@@ -107,7 +109,12 @@ impl Plugin for TextPlugin {
             .init_resource::<ScaleCx>()
             .add_systems(
                 PostUpdate,
-                (update_roots, update_text_entities_system).in_set(TextSystems::Hierarchy),
+                (
+                    update_text_entities_system,
+                    detect_text_spans_needs_rerender,
+                )
+                    .chain()
+                    .in_set(TextSystems::Hierarchy),
             )
             .add_systems(
                 PostUpdate,

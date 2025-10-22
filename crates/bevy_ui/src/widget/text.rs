@@ -250,7 +250,6 @@ impl Measure for TextMeasure {
 pub fn shape_text_system(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
-
     mut text_query: Query<
         (
             Entity,
