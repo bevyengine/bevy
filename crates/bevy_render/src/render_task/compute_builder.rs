@@ -1,13 +1,14 @@
 use super::resource_cache::ResourceCache;
 use crate::{
-    render_resource::{BindGroupLayoutDescriptor, ComputePipelineDescriptor},
+    render_resource::{BindGroup, BindGroupLayoutDescriptor, Buffer, ComputePipelineDescriptor},
+    renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
 };
 use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
 use std::borrow::Cow;
-use wgpu::{BindGroup, Buffer, ComputePass, PushConstantRange, ShaderStages};
+use wgpu::{ComputePass, PushConstantRange, ShaderStages};
 
 pub struct ComputeCommandBuilder<'a> {
     pass: &'a mut ComputePass<'static>,
@@ -20,6 +21,7 @@ pub struct ComputeCommandBuilder<'a> {
     bind_group_layouts: Vec<BindGroupLayoutDescriptor>,
     resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
+    render_device: &'a RenderDevice,
 }
 
 impl<'a> ComputeCommandBuilder<'a> {
@@ -28,6 +30,7 @@ impl<'a> ComputeCommandBuilder<'a> {
         pass_name: &'a str,
         resource_cache: &'a mut ResourceCache,
         pipeline_compiler: &'a PipelineCompiler,
+        render_device: &'a RenderDevice,
     ) -> Self {
         Self {
             pass,
@@ -40,6 +43,7 @@ impl<'a> ComputeCommandBuilder<'a> {
             bind_group_layouts: Vec::new(),
             resource_cache,
             pipeline_compiler,
+            render_device,
         }
     }
 
@@ -144,7 +148,8 @@ impl<'a> ComputeCommandBuilder<'a> {
         }
 
         for (i, bind_group) in self.bind_groups.iter().enumerate() {
-            self.pass.set_bind_group(i as u32, bind_group, &[]); // TODO: Only set if changed
+            self.pass
+                .set_bind_group(i as u32, bind_group.as_deref(), &[]); // TODO: Only set if changed
         }
 
         Some(())
