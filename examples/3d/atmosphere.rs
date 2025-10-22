@@ -1,8 +1,6 @@
 //! This example showcases pbr atmospheric scattering
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
-use camera_controller::{CameraController, CameraControllerPlugin};
+#[cfg(feature = "free_camera")]
+use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
 use std::f32::consts::PI;
 
 use bevy::{
@@ -42,7 +40,8 @@ fn main() {
         .insert_resource(GameState::default())
         .add_plugins((
             DefaultPlugins,
-            CameraControllerPlugin,
+            #[cfg(feature = "free_camera")]
+            FreeCameraPlugin,
             LogDiagnosticsPlugin::default(),
         ))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
@@ -120,7 +119,8 @@ fn setup_camera_fog(mut commands: Commands) {
         Bloom::NATURAL,
         // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
         AtmosphereEnvironmentMapLight::default(),
-        CameraController::default(),
+        #[cfg(feature = "free_camera")]
+        FreeCamera::default(),
         VolumetricFog::default(),
         Msaa::Off,
         Fxaa::default(),
