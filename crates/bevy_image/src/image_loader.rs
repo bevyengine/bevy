@@ -133,6 +133,7 @@ pub struct ImageLoaderSettings {
     /// Interpret the image as an array of images. This is
     /// primarily for use with the `texture2DArray` shader
     /// uniform type.
+    #[serde(default)]
     pub array_layout: Option<ImageArrayLayout>,
 }
 
