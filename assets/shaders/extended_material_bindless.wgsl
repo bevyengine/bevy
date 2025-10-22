@@ -42,19 +42,19 @@ struct ExampleBindlessExtendedMaterial {
 
 // The indices of the bindless resources in the bindless resource arrays, for
 // the `ExampleBindlessExtension` fields.
-@group(3) @binding(100) var<storage> example_extended_material_indices:
+@group(#{MATERIAL_BIND_GROUP}) @binding(100) var<storage> example_extended_material_indices:
     array<ExampleBindlessExtendedMaterialIndices>;
 // An array that holds the `ExampleBindlessExtendedMaterial` plain old data,
 // indexed by `ExampleBindlessExtendedMaterialIndices.material`.
-@group(3) @binding(101) var<storage> example_extended_material:
+@group(#{MATERIAL_BIND_GROUP}) @binding(101) var<storage> example_extended_material:
     array<ExampleBindlessExtendedMaterial>;
 
 #else   // BINDLESS
 
 // In non-bindless mode, we simply use a uniform for the plain old data.
-@group(3) @binding(50) var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
-@group(3) @binding(51) var modulate_texture: texture_2d<f32>;
-@group(3) @binding(52) var modulate_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(50) var<uniform> example_extended_material: ExampleBindlessExtendedMaterial;
+@group(#{MATERIAL_BIND_GROUP}) @binding(51) var modulate_texture: texture_2d<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(52) var modulate_sampler: sampler;
 
 #endif  // BINDLESS
 

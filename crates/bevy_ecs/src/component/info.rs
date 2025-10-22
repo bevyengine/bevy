@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::{collections::HashSet, sync::PoisonError};
+use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -10,6 +10,7 @@ use core::{
     fmt::Debug,
     mem::needs_drop,
 };
+use indexmap::IndexSet;
 
 use crate::{
     archetype::ArchetypeFlags,
@@ -19,6 +20,7 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
+    relationship::RelationshipAccessor,
     resource::Resource,
     storage::SparseSetIndex,
 };
@@ -30,7 +32,9 @@ pub struct ComponentInfo {
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
-    pub(super) required_by: HashSet<ComponentId>,
+    /// The set of components that require this components.
+    /// Invariant: components in this set always appear after the components that they require.
+    pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
 }
 
 impl ComponentInfo {
@@ -137,6 +141,11 @@ impl ComponentInfo {
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
+
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
+    pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
+        self.descriptor.relationship_accessor.as_ref()
+    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -216,6 +225,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
+    relationship_accessor: Option<RelationshipAccessor>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -229,6 +239,7 @@ impl Debug for ComponentDescriptor {
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
             .field("clone_behavior", &self.clone_behavior)
+            .field("relationship_accessor", &self.relationship_accessor)
             .finish()
     }
 }
@@ -255,6 +266,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
+            relationship_accessor: T::relationship_accessor().map(|v| v.accessor),
         }
     }
 
@@ -263,6 +275,7 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    /// - `relationship_accessor` must be valid for this component type if not `None`
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -270,6 +283,7 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
+        relationship_accessor: Option<RelationshipAccessor>,
     ) -> Self {
         Self {
             name: name.into().into(),
@@ -280,6 +294,7 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
+            relationship_accessor,
         }
     }
 
@@ -298,6 +313,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None,
         }
     }
 
@@ -311,6 +327,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None,
         }
     }
 
@@ -506,6 +523,13 @@ impl Components {
     }
 
     #[inline]
+    pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
+        self.components
+            .get(id.0)
+            .and_then(|info| info.as_ref().map(|info| &info.required_components))
+    }
+
+    #[inline]
     pub(crate) fn get_required_components_mut(
         &mut self,
         id: ComponentId,
@@ -516,7 +540,10 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
+    pub(crate) fn get_required_by(
+        &self,
+        id: ComponentId,
+    ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get(id.0)
             .and_then(|info| info.as_ref().map(|info| &info.required_by))
@@ -526,7 +553,7 @@ impl Components {
     pub(crate) fn get_required_by_mut(
         &mut self,
         id: ComponentId,
-    ) -> Option<&mut HashSet<ComponentId>> {
+    ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get_mut(id.0)
             .and_then(|info| info.as_mut().map(|info| &mut info.required_by))

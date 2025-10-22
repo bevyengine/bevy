@@ -1,3 +1,5 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
@@ -13,7 +15,7 @@ use core::iter::FusedIterator;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
     spawner: BundleSpawner<'w>,
@@ -50,7 +52,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -64,12 +66,13 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
+        move_as_ptr!(bundle);
         Some(if let Some(bulk) = self.allocator.next() {
             // SAFETY: bundle matches spawner type and we just allocated it
             unsafe {
@@ -78,7 +81,7 @@ where
             bulk
         } else {
             // SAFETY: bundle matches spawner type
-            unsafe { self.spawner.spawn(bundle, self.caller).0 }
+            unsafe { self.spawner.spawn(bundle, self.caller) }
         })
     }
 
@@ -90,7 +93,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -100,7 +103,7 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }
 
@@ -108,6 +111,6 @@ where
 unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }

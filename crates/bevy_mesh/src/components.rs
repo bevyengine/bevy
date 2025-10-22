@@ -2,7 +2,7 @@ use crate::mesh::Mesh;
 use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, event::EventReader,
+    change_detection::DetectChangesMut, component::Component, message::MessageReader,
     reflect::ReflectComponent, system::Query,
 };
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
@@ -12,15 +12,15 @@ use derive_more::derive::From;
 
 /// A component for 2D meshes. Requires a [`MeshMaterial2d`] to be rendered, commonly using a [`ColorMaterial`].
 ///
-/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.MeshMaterial2d.html>
-/// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/sprite/struct.ColorMaterial.html>
+/// [`MeshMaterial2d`]: <https://docs.rs/bevy/latest/bevy/prelude/struct.MeshMaterial2d.html>
+/// [`ColorMaterial`]: <https://docs.rs/bevy/latest/bevy/prelude/struct.ColorMaterial.html>
 ///
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Circle;
@@ -72,7 +72,7 @@ impl AsAssetId for Mesh2d {
 /// ```ignore
 /// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Capsule3d;
@@ -126,7 +126,7 @@ impl AsAssetId for Mesh3d {
 /// needs to be kept up to date if the contents of the mesh change.
 pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
     mut meshes_3d: Query<&mut Mesh3d>,
-    mut mesh_asset_events: EventReader<AssetEvent<Mesh>>,
+    mut mesh_asset_events: MessageReader<AssetEvent<Mesh>>,
 ) {
     let mut changed_meshes: HashSet<AssetId<Mesh>, FixedHasher> = HashSet::default();
     for mesh_asset_event in mesh_asset_events.read() {

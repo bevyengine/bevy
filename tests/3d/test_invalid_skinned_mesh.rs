@@ -1,24 +1,22 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
 use bevy::{
-    core_pipeline::motion_blur::MotionBlur,
+    asset::RenderAssetUsages,
+    camera::ScalingMode,
     math::ops,
-    prelude::*,
-    render::{
-        camera::ScalingMode,
-        mesh::{
-            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-            Indices, PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::RenderAssetUsages,
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    post_process::motion_blur::MotionBlur,
+    prelude::*,
 };
 use core::f32::consts::TAU;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             brightness: 20_000.0,
             ..default()
         })
@@ -42,8 +40,8 @@ fn setup_environment(
         Text::new(description),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

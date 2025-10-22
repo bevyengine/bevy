@@ -2,7 +2,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     batching::BatchingStrategy,
-    component::Tick,
+    change_detection::Tick,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
         DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
@@ -1948,7 +1948,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    /// - [`single_inner`](Self::single_inner) for the panicking version.
     #[inline]
     pub fn single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError> {
         let mut query = self.into_iter();
@@ -2025,6 +2024,40 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
         self.as_nop().get(entity).is_ok()
+    }
+
+    /// Counts the number of entities that match the query.
+    ///
+    /// This is equivalent to `self.iter().count()` but may be more efficient in some cases.
+    ///
+    /// If [`F::IS_ARCHETYPAL`](QueryFilter::IS_ARCHETYPAL) is `true`,
+    /// this will do work proportional to the number of matched archetypes or tables, but will not iterate each entity.
+    /// If it is `false`, it will have to do work for each entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct InRange;
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>) {
+    ///     let count = in_range_query.count();
+    ///     println!("{count} targets in range!");
+    /// }
+    /// # bevy_ecs::system::assert_is_system(targeting_system);
+    /// ```
+    pub fn count(&self) -> usize {
+        let iter = self.as_nop().into_iter();
+        if F::IS_ARCHETYPAL {
+            // For archetypal queries, the `size_hint()` is exact,
+            // and we can get the count from the archetype and table counts.
+            iter.size_hint().0
+        } else {
+            // If we have non-archetypal filters, we have to check each entity.
+            iter.count()
+        }
     }
 
     /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more

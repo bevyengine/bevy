@@ -12,11 +12,11 @@
 //! | `V`                | Visualize Metering Mask                |
 
 use bevy::{
-    core_pipeline::{
-        auto_exposure::{AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin},
-        Skybox,
-    },
+    core_pipeline::Skybox,
     math::{cubic_splines::LinearSpline, primitives::Plane3d, vec2},
+    post_process::auto_exposure::{
+        AutoExposure, AutoExposureCompensationCurve, AutoExposurePlugin,
+    },
     prelude::*,
 };
 
@@ -97,7 +97,7 @@ fn setup(
         }
     }
 
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::WHITE,
         brightness: 0.0,
         ..default()
@@ -117,8 +117,8 @@ fn setup(
             ..default()
         },
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             ..default()
         },
     ));
@@ -128,8 +128,8 @@ fn setup(
     commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
             text_font.clone(), Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         })
     );
@@ -139,8 +139,8 @@ fn setup(
         text_font,
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            right: Val::Px(12.0),
+            top: px(12),
+            right: px(12),
             ..default()
         },
         ExampleDisplay,

@@ -1,14 +1,15 @@
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, Handle};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+};
+use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    load_shader_library,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
         *,
@@ -18,6 +19,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
 #[cfg(not(feature = "tonemapping_luts"))]
 use tracing::error;
@@ -82,9 +84,6 @@ impl Plugin for TonemappingPlugin {
 
         app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
-        app.register_type::<Tonemapping>();
-        app.register_type::<DebandDither>();
-
         app.add_plugins((
             ExtractComponentPlugin::<Tonemapping>::default(),
             ExtractComponentPlugin::<DebandDither>::default(),
@@ -105,7 +104,7 @@ impl Plugin for TonemappingPlugin {
 
 #[derive(Resource)]
 pub struct TonemappingPipeline {
-    texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayoutDescriptor,
     sampler: Sampler,
     fullscreen_shader: FullscreenShader,
     fragment_shader: Handle<Shader>,
@@ -305,8 +304,8 @@ pub fn init_tonemapping_pipeline(
     let lut_layout_entries = get_lut_bind_group_layout_entries();
     entries = entries.extend_with_indices(((3, lut_layout_entries[0]), (4, lut_layout_entries[1])));
 
-    let tonemap_texture_bind_group = render_device
-        .create_bind_group_layout("tonemapping_hdr_texture_bind_group_layout", &entries);
+    let tonemap_texture_bind_group =
+        BindGroupLayoutDescriptor::new("tonemapping_hdr_texture_bind_group_layout", &entries);
 
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 

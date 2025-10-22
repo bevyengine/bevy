@@ -120,6 +120,8 @@ fn pbr_input_from_standard_material(
     let uv_transform = pbr_bindings::material.uv_transform;
 #endif  // BINDLESS
 
+pbr_input.material.uv_transform = uv_transform;
+
 #ifdef VERTEX_UVS_A
     var uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 #endif

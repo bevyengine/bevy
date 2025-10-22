@@ -2,15 +2,18 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    generate_tangents_for_mesh, scale_normal, triangle_area_normal, triangle_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
+    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
+    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
+    VertexAttributeValues, VertexBufferLayout,
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-use bevy_asset::{Asset, Handle, RenderAssetUsages};
+#[cfg(feature = "morph")]
+use bevy_asset::Handle;
+use bevy_asset::{Asset, RenderAssetUsages};
+#[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 #[cfg(feature = "serialize")]
@@ -33,8 +36,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// or by converting a [primitive](bevy_math::primitives) using [`into`](Into).
 /// It is also possible to create one manually. They can be edited after creation.
 ///
-/// Meshes can be rendered with a `Mesh2d` and `MeshMaterial2d`
-/// or `Mesh3d` and `MeshMaterial3d` for 2D and 3D respectively.
+/// Meshes can be rendered with a [`Mesh2d`](crate::Mesh2d) and `MeshMaterial2d`
+/// or [`Mesh3d`](crate::Mesh3d) and `MeshMaterial3d` for 2D and 3D respectively.
 ///
 /// A [`Mesh`] in Bevy is equivalent to a "primitive" in the glTF format, for a
 /// glTF Mesh representation, see `GltfMesh`.
@@ -78,7 +81,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 ///
 /// You can see how it looks like [here](https://github.com/bevyengine/bevy/blob/main/assets/docs/Mesh.png),
-/// used in a `Mesh3d` with a square bevy logo texture, with added axis, points,
+/// used in a [`Mesh3d`](crate::Mesh3d) with a square bevy logo texture, with added axis, points,
 /// lines and text for clarity.
 ///
 /// ## Other examples
@@ -110,6 +113,11 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///
+/// ## Remote Inspection
+///
+/// To transmit a [`Mesh`] between two running Bevy apps, e.g. through BRP, use [`SerializedMesh`].
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct Mesh {
@@ -122,7 +130,9 @@ pub struct Mesh {
     #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    #[cfg(feature = "morph")]
     morph_targets: Option<Handle<Image>>,
+    #[cfg(feature = "morph")]
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
@@ -225,7 +235,9 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            #[cfg(feature = "morph")]
             morph_targets: None,
+            #[cfg(feature = "morph")]
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
@@ -601,7 +613,7 @@ impl Mesh {
             match topology {
                 PrimitiveTopology::TriangleList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 3 != 0 {
+                    if !indices.len().is_multiple_of(3) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     for chunk in indices.chunks_mut(3) {
@@ -615,7 +627,7 @@ impl Mesh {
                 }
                 PrimitiveTopology::LineList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 2 != 0 {
+                    if !indices.len().is_multiple_of(2) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     indices.reverse();
@@ -930,8 +942,9 @@ impl Mesh {
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        let tangents = generate_tangents_for_mesh(self)?;
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn generate_tangents(&mut self) -> Result<(), super::GenerateTangentsError> {
+        let tangents = super::generate_tangents_for_mesh(self)?;
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
@@ -943,7 +956,8 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, super::GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
     }
@@ -1226,55 +1240,6 @@ impl Mesh {
         }
     }
 
-    /// Whether this mesh has morph targets.
-    pub fn has_morph_targets(&self) -> bool {
-        self.morph_targets.is_some()
-    }
-
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
-        self.morph_targets = Some(morph_targets);
-    }
-
-    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
-        self.morph_targets.as_ref()
-    }
-
-    /// Consumes the mesh and returns a mesh with the given [morph targets].
-    ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    #[must_use]
-    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
-        self.set_morph_targets(morph_targets);
-        self
-    }
-
-    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
-    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
-        self.morph_target_names = Some(names);
-    }
-
-    /// Consumes the mesh and returns a mesh with morph target names.
-    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
-    #[must_use]
-    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
-        self.set_morph_target_names(names);
-        self
-    }
-
-    /// Gets a list of all morph target names, if they exist.
-    pub fn morph_target_names(&self) -> Option<&[String]> {
-        self.morph_target_names.as_deref()
-    }
-
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
@@ -1396,6 +1361,73 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+}
+
+#[cfg(feature = "morph")]
+impl Mesh {
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+        self.morph_targets.as_ref()
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
+    }
+}
+
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
+
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
     }
 }
 

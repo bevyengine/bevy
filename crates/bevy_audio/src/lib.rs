@@ -1,5 +1,5 @@
 #![forbid(unsafe_code)]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -80,13 +80,7 @@ pub struct AudioPlugin {
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Volume>()
-            .register_type::<GlobalVolume>()
-            .register_type::<SpatialListener>()
-            .register_type::<DefaultSpatialScale>()
-            .register_type::<PlaybackMode>()
-            .register_type::<PlaybackSettings>()
-            .insert_resource(self.global_volume)
+        app.insert_resource(self.global_volume)
             .insert_resource(DefaultSpatialScale(self.default_spatial_scale))
             .configure_sets(
                 PostUpdate,

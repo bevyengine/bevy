@@ -16,8 +16,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -64,7 +65,7 @@ pub struct FontFaceInfo {
     pub family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -76,7 +77,7 @@ pub struct TextPipeline {
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing)>,
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32)>,
 }
 
 impl TextPipeline {
@@ -98,8 +99,8 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut font_size: f32 = 0.;
-        let mut line_height: f32 = 0.0;
+        let mut max_font_size: f32 = 0.;
+        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -131,8 +132,8 @@ impl TextPipeline {
             }
 
             // Get max font size for use in cosmic Metrics.
-            font_size = font_size.max(text_font.font_size);
-            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
+            max_font_size = max_font_size.max(text_font.font_size);
+            max_line_height = max_line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -153,7 +154,7 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
         // deallocating the buffer.
@@ -229,7 +230,7 @@ impl TextPipeline {
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
-        font_atlas_sets: &mut FontAtlasSets,
+        font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
@@ -237,7 +238,7 @@ impl TextPipeline {
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
-        layout_info.section_rects.clear();
+        layout_info.section_geometry.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -247,7 +248,13 @@ impl TextPipeline {
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, text_font, _)| {
-            glyph_info.push((text_font.font.id(), text_font.font_smoothing));
+            glyph_info.push((
+                text_font.font.id(),
+                text_font.font_smoothing,
+                text_font.font_size,
+                0.,
+                0.,
+            ));
         });
 
         let update_result = self.update_buffer(
@@ -260,9 +267,23 @@ impl TextPipeline {
             computed,
             font_system,
         );
-        if let Err(err) = update_result {
-            self.glyph_info = glyph_info;
-            return Err(err);
+
+        self.glyph_info = glyph_info;
+
+        update_result?;
+
+        for (font, _, size, strike_offset, stroke) in self.glyph_info.iter_mut() {
+            let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
+                continue;
+            };
+            if let Some(font) = font_system.get_font(*id) {
+                let swash = font.as_swash();
+                let metrics = swash.metrics(&[]);
+                let upem = metrics.units_per_em as f32;
+                let scalar = *size * scale_factor as f32 / upem;
+                *strike_offset = (metrics.strikeout_offset * scalar).round();
+                *stroke = (metrics.stroke_size * scalar).round().max(1.);
+            }
         }
 
         let buffer = &mut computed.buffer;
@@ -280,14 +301,16 @@ impl TextPipeline {
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
-                                layout_info.section_rects.push((
-                                    computed.entities[section].entity,
+                                layout_info.section_geometry.push((
+                                    section,
                                     Rect::new(
                                         start,
                                         run.line_top,
                                         end,
                                         run.line_top + run.line_height,
                                     ),
+                                    (run.line_y - self.glyph_info[section].3).round(),
+                                    self.glyph_info[section].4,
                                 ));
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
@@ -303,8 +326,8 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = glyph_info[span_index].0;
-                    let font_smoothing = glyph_info[span_index].1;
+                    let font_id = self.glyph_info[span_index].0;
+                    let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
@@ -322,15 +345,21 @@ impl TextPipeline {
                         layout_glyph
                     };
 
-                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
-
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                    let font_atlases = font_atlas_set
+                        .entry(FontAtlasKey(
+                            font_id,
+                            physical_glyph.cache_key.font_size_bits,
+                            font_smoothing,
+                        ))
+                        .or_default();
+
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
                         .map(Ok)
                         .unwrap_or_else(|| {
-                            font_atlas_set.add_glyph_to_atlas(
+                            add_glyph_to_atlas(
+                                font_atlases,
                                 texture_atlases,
                                 textures,
                                 &mut font_system.0,
@@ -367,17 +396,16 @@ impl TextPipeline {
                     Ok(())
                 });
             if let Some(section) = current_section {
-                layout_info.section_rects.push((
-                    computed.entities[section].entity,
+                layout_info.section_geometry.push((
+                    section,
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    (run.line_y - self.glyph_info[section].3).round(),
+                    self.glyph_info[section].4,
                 ));
             }
 
             result
         });
-
-        // Return the scratch vec.
-        self.glyph_info = glyph_info;
 
         // Check result.
         result?;
@@ -449,11 +477,13 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Rects bounding the text block's text sections.
-    /// A text section spanning more than one line will have multiple bounding rects.
-    pub section_rects: Vec<(Entity, Rect)>,
+    /// Geometry of each text segment: (section index, bounding rect, strikeout offset, strikeout stroke thickness)
+    /// A text section spanning more than one line will have multiple segments.
+    pub section_geometry: Vec<(usize, Rect, f32, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
@@ -510,10 +540,11 @@ pub fn load_font_to_fontdb(
             // TODO: it is assumed this is the right font face
             let face_id = *ids.last().unwrap();
             let face = font_system.db().face(face_id).unwrap();
-            let family_name = Arc::from(face.families[0].0.as_str());
 
+            let family_name = Arc::from(face.families[0].0.as_str());
             (face_id, family_name)
         });
+
     let face = font_system.db().face(*face_id).unwrap();
 
     FontFaceInfo {

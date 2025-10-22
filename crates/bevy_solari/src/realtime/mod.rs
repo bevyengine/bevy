@@ -18,6 +18,7 @@ use bevy_render::{
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
 use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;
@@ -31,11 +32,19 @@ pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "gbuffer_utils.wgsl");
+        load_shader_library!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
+        embedded_asset!(app, "specular_gi.wgsl");
+        load_shader_library!(app, "world_cache_query.wgsl");
+        embedded_asset!(app, "world_cache_compact.wgsl");
+        embedded_asset!(app, "world_cache_update.wgsl");
 
-        app.register_type::<SolariLighting>()
-            .insert_resource(DefaultOpaqueRendererMethod::deferred());
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        embedded_asset!(app, "resolve_dlss_rr_textures.wgsl");
+
+        app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
 
     fn finish(&self, app: &mut App) {
@@ -50,6 +59,7 @@ impl Plugin for SolariLightingPlugin {
             );
             return;
         }
+
         render_app
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(
@@ -62,7 +72,11 @@ impl Plugin for SolariLightingPlugin {
             )
             .add_render_graph_edges(
                 Core3d,
-                (Node3d::EndMainPass, node::graph::SolariLightingNode),
+                (
+                    Node3d::EndPrepasses,
+                    node::graph::SolariLightingNode,
+                    Node3d::EndMainPass,
+                ),
             );
     }
 }

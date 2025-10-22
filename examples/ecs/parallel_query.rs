@@ -19,7 +19,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             Sprite::from_image(texture.clone()),
             Transform::from_scale(Vec3::splat(0.1))
                 .with_translation(Vec2::splat(0.0).extend(z as f32)),
-            Velocity(20.0 * Vec2::new(rng.r#gen::<f32>() - 0.5, rng.r#gen::<f32>() - 0.5)),
+            Velocity(20.0 * Vec2::new(rng.random::<f32>() - 0.5, rng.random::<f32>() - 0.5)),
         ));
     }
 }

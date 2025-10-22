@@ -69,8 +69,8 @@ use thiserror::Error;
 /// #     fn try_as_reflect(&self) -> Option<&dyn Reflect> { todo!() }
 /// #     fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> { todo!() }
 /// #     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> { todo!() }
-/// #     fn reflect_ref(&self) -> ReflectRef { todo!() }
-/// #     fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #     fn reflect_ref(&self) -> ReflectRef<'_> { todo!() }
+/// #     fn reflect_mut(&mut self) -> ReflectMut<'_> { todo!() }
 /// #     fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// # }
 /// # impl Reflect for MyStruct {
@@ -289,7 +289,7 @@ impl TypeInfo {
     }
 
     /// The docstring of the underlying type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&str> {
         match self {
             Self::Struct(info) => info.docs(),
@@ -580,7 +580,7 @@ pub(crate) use impl_type_methods;
 pub struct OpaqueInfo {
     ty: Type,
     generics: Generics,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -590,13 +590,13 @@ impl OpaqueInfo {
         Self {
             ty: Type::of::<T>(),
             generics: Generics::new(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this type.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, doc: Option<&'static str>) -> Self {
         Self { docs: doc, ..self }
     }
@@ -604,7 +604,7 @@ impl OpaqueInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this dynamic type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

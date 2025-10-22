@@ -4,21 +4,19 @@ mod clone;
 mod info;
 mod register;
 mod required;
-mod tick;
 
 pub use clone::*;
 pub use info::*;
 pub use register::*;
 pub use required::*;
-pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
     lifecycle::ComponentHook,
+    relationship::ComponentRelationshipAccessor,
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
-use alloc::vec::Vec;
 pub use bevy_ecs_macros::Component;
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
@@ -523,12 +521,13 @@ pub trait Component: Send + Sync + 'static {
     }
 
     /// Registers required components.
+    ///
+    /// # Safety
+    ///
+    /// - `_required_components` must only contain components valid in `_components`.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-        _inheritance_depth: u16,
-        _recursion_check_stack: &mut Vec<ComponentId>,
+        _required_components: &mut RequiredComponentsRegistrator,
     ) {
     }
 
@@ -625,6 +624,13 @@ pub trait Component: Send + Sync + 'static {
     /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
+
+    /// Returns [`ComponentRelationshipAccessor`] required for working with relationships in dynamic contexts.
+    ///
+    /// If component is not a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget), this should return `None`.
+    fn relationship_accessor() -> Option<ComponentRelationshipAccessor<Self>> {
+        None
+    }
 }
 
 mod private {
