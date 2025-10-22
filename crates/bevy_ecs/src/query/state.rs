@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,

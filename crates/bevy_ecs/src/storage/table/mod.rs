@@ -1,16 +1,15 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
-    alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
@@ -138,7 +137,7 @@ impl TableRow {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
+    columns: SparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
 }
 
@@ -151,12 +150,12 @@ impl TableBuilder {
         }
     }
 
-    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
+    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](Column) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.entities.capacity()),
+            Column::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
@@ -175,7 +174,7 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
-/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
@@ -189,17 +188,8 @@ impl TableBuilder {
 // it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
-}
-
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
 }
 
 impl Table {
@@ -263,6 +253,10 @@ impl Table {
     /// the caller's responsibility to drop them.  Failure to do so may result in resources not
     /// being released (i.e. files handles not being released, memory leaks, etc.)
     ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
+    ///
     /// # Safety
     /// - `row` must be in-bounds
     pub(crate) unsafe fn move_to_and_forget_missing_unchecked(
@@ -302,6 +296,10 @@ impl Table {
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in).
     ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
+    ///
     /// # Safety
     /// row must be in-bounds
     pub(crate) unsafe fn move_to_and_drop_missing_unchecked(
@@ -339,6 +337,10 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in).
+    ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// - `row` must be in-bounds
@@ -480,28 +482,28 @@ impl Table {
         })
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     ///
@@ -538,6 +540,10 @@ impl Table {
 
     /// Allocate memory for the columns in the [`Table`]
     ///
+    /// # Panics
+    /// - Panics if any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if any of the new allocations causes an out-of-memory error.
+    ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
     ///
     /// # Safety
@@ -556,6 +562,10 @@ impl Table {
     }
 
     /// Reallocate memory for the columns in the [`Table`]
+    ///
+    /// # Panics
+    /// - Panics if any of the new capacities overflows `isize::MAX` bytes.
+    /// - Panics if any of the new reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
@@ -584,6 +594,10 @@ impl Table {
     }
 
     /// Allocates space for a new entity
+    ///
+    /// # Panics
+    /// - Panics if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
+    /// - Panics if the allocation forces a reallocation and causes an out-of-memory error.
     ///
     /// # Safety
     ///
@@ -656,12 +670,15 @@ impl Table {
         }
     }
 
-    /// Iterates over the [`ThinColumn`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
+    /// Iterates over the [`Column`]s of the [`Table`].
+    pub fn iter_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
 
     /// Clears all of the stored components in the [`Table`].
+    ///
+    /// # Panics
+    /// - Panics if any of the components in any of the columns panics while being dropped.
     pub(crate) fn clear(&mut self) {
         let len = self.entity_count() as usize;
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
@@ -841,7 +858,7 @@ impl Drop for Table {
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
+            // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
                 col.drop(cap, len);
             }
@@ -852,8 +869,8 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::MaybeLocation,
-        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
+        change_detection::{MaybeLocation, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator},
         entity::{Entity, EntityRow},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},

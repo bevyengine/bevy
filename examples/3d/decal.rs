@@ -1,22 +1,19 @@
 //! Decal rendering.
 //! Note: On Wasm, this example only runs on WebGPU
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
     anti_alias::fxaa::Fxaa,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::DepthPrepass,
     pbr::decal::{ForwardDecal, ForwardDecalMaterial, ForwardDecalMaterialExt},
     prelude::*,
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((DefaultPlugins, FreeCameraPlugin))
         .add_systems(Startup, setup)
         .run();
 }
@@ -47,7 +44,7 @@ fn setup(
     commands.spawn((
         Name::new("Camera"),
         Camera3d::default(),
-        CameraController::default(),
+        FreeCamera::default(),
         // Must enable the depth prepass to render forward decals
         DepthPrepass,
         // Must disable MSAA to use decals on WebGPU

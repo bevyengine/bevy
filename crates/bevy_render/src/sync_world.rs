@@ -119,7 +119,7 @@ impl Plugin for SyncWorldPlugin {
 /// [`ExtractComponentPlugin`]: crate::extract_component::ExtractComponentPlugin
 /// [`SyncComponentPlugin`]: crate::sync_component::SyncComponentPlugin
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]
-#[reflect[Component, Default, Clone]]
+#[reflect(Component, Default, Clone)]
 #[component(storage = "SparseSet")]
 pub struct SyncToRenderWorld;
 
@@ -278,7 +278,8 @@ mod render_entities_world_query_impls {
 
     use bevy_ecs::{
         archetype::Archetype,
-        component::{ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{ComponentId, Components},
         entity::Entity,
         query::{
             FilteredAccess, IterQueryData, QueryData, ReadOnlyQueryData, ReleaseStateQueryData,

@@ -42,7 +42,7 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        // TODO: Switch to using RwLockWriteGuard::downgrade when it stablizes.
+        // TODO: Switch to using RwLockWriteGuard::downgrade when it stabilizes.
         MANIFESTS
             .write()
             .unwrap_or_else(PoisonError::into_inner)

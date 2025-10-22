@@ -17,6 +17,11 @@ pub struct VirtualKeyPressed<T> {
 }
 
 /// Function to spawn a virtual keyboard
+///
+/// # Emitted events
+/// * [`crate::controls::VirtualKeyPressed<T>`] when a virtual key on the keyboard is un-pressed.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn virtual_keyboard<T>(
     keys: impl Iterator<Item = Vec<T>> + Send + Sync + 'static,
 ) -> impl Bundle

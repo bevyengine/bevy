@@ -330,6 +330,7 @@ pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
     mut q_slider: Query<
         (
+            &SliderValue,
             &ComputedNode,
             &SliderRange,
             Option<&SliderPrecision>,
@@ -344,7 +345,8 @@ pub(crate) fn slider_on_drag(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((node, range, precision, transform, drag, disabled)) = q_slider.get_mut(event.entity)
+    if let Ok((value, node, range, precision, transform, drag, disabled)) =
+        q_slider.get_mut(event.entity)
     {
         event.propagate(false);
         if drag.dragging && !disabled {
@@ -369,10 +371,12 @@ pub(crate) fn slider_on_drag(
                     .unwrap_or(new_value),
             );
 
-            commands.trigger(ValueChange {
-                source: event.entity,
-                value: rounded_value,
-            });
+            if rounded_value != value.0 {
+                commands.trigger(ValueChange {
+                    source: event.entity,
+                    value: rounded_value,
+                });
+            }
         }
     }
 }

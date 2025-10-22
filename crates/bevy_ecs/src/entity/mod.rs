@@ -75,8 +75,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, MaybeLocation, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -841,8 +840,8 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             let raw = self.meta.len() as IdCursor - n;
-            if raw >= u32::MAX as IdCursor {
-                panic!("too many entities");
+            if raw == IdCursor::MAX {
+                panic!("number of entities can't exceed {}", IdCursor::MAX);
             }
             // SAFETY: We just checked the bounds
             let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };

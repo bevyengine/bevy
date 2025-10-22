@@ -1,6 +1,6 @@
 use crate::{
     batching::BatchingStrategy,
-    component::Tick,
+    change_detection::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
     world::unsafe_world_cell::UnsafeWorldCell,
 };

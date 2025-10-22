@@ -7,8 +7,8 @@ use thiserror::Error;
 
 use crate::{
     bundle::BundleInfo,
-    change_detection::MaybeLocation,
-    component::{Component, ComponentId, Components, ComponentsRegistrator, Tick},
+    change_detection::{MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, ComponentsRegistrator},
     entity::Entity,
     query::DebugCheckedUnwrap as _,
     storage::{SparseSets, Table, TableRow},
@@ -296,7 +296,7 @@ impl RequiredComponents {
         // Note that `insert` does not change the order of components, meaning `component_id` will still appear
         // before any other component that requires it.
         //
-        // SAFETY: the caller guaranees that `required_component` is valid for the component with ID `required_id`.
+        // SAFETY: the caller guarantees that `required_component` is valid for the component with ID `required_id`.
         all.insert(required_id, required_component);
     }
 

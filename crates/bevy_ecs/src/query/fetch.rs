@@ -1,8 +1,8 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, FilteredAccessSet, QueryFilter, QueryState,
@@ -1900,18 +1900,18 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 
                 Ref {
                     value: component.deref(),
-                    ticks: Ticks {
+                    ticks: ComponentTicksRef {
                         added: added.deref(),
                         changed: changed.deref(),
+                        changed_by: caller.map(|caller| caller.deref()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    changed_by: caller.map(|caller| caller.deref()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, caller) = unsafe {
+                let (component, ticks) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -1920,8 +1920,11 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 
                 Ref {
                     value: component.deref(),
-                    ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    changed_by: caller.map(|caller| caller.deref()),
+                    ticks: ComponentTicksRef::from_tick_cells(
+                        ticks,
+                        fetch.last_run,
+                        fetch.this_run,
+                    ),
                 }
             },
         )
@@ -2112,18 +2115,18 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 
                 Mut {
                     value: component.deref_mut(),
-                    ticks: TicksMut {
+                    ticks: ComponentTicksMut {
                         added: added.deref_mut(),
                         changed: changed.deref_mut(),
+                        changed_by: caller.map(|caller| caller.deref_mut()),
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, caller) = unsafe {
+                let (component, ticks) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -2132,8 +2135,11 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
 
                 Mut {
                     value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    changed_by: caller.map(|caller| caller.deref_mut()),
+                    ticks: ComponentTicksMut::from_tick_cells(
+                        ticks,
+                        fetch.last_run,
+                        fetch.this_run,
+                    ),
                 }
             },
         )
