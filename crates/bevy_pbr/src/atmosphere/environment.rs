@@ -73,8 +73,8 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
                 (3, uniform_buffer::<ViewUniform>(true)),
                 (4, uniform_buffer::<GpuLights>(true)),
                 // atmosphere luts and sampler
-                (8, texture_2d(TextureSampleType::default())),  // transmittance
-                (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                (8, texture_2d(TextureSampleType::default())), // transmittance
+                (9, texture_2d(TextureSampleType::default())), // multiscattering
                 (10, texture_2d(TextureSampleType::default())), // sky view
                 (11, texture_3d(TextureSampleType::default())), // aerial view
                 (12, sampler(SamplerBindingType::Filtering)),

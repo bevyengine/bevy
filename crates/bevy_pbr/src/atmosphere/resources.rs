@@ -182,8 +182,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (6, texture_2d(TextureSampleType::default())),
                     (7, sampler(SamplerBindingType::Filtering)),
                     // atmosphere luts and sampler
-                    (8, texture_2d(TextureSampleType::default())),  // transmittance
-                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (10, texture_2d(TextureSampleType::default())), // sky view
                     (11, texture_3d(TextureSampleType::default())), // aerial view
                     (12, sampler(SamplerBindingType::Filtering)),
@@ -208,8 +208,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (6, texture_2d(TextureSampleType::default())),
                     (7, sampler(SamplerBindingType::Filtering)),
                     // atmosphere luts and sampler
-                    (8, texture_2d(TextureSampleType::default())),  // transmittance
-                    (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                    (8, texture_2d(TextureSampleType::default())), // transmittance
+                    (9, texture_2d(TextureSampleType::default())), // multiscattering
                     (10, texture_2d(TextureSampleType::default())), // sky view
                     (11, texture_3d(TextureSampleType::default())), // aerial view
                     (12, sampler(SamplerBindingType::Filtering)),
