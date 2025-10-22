@@ -7,7 +7,7 @@ use crate::{
     ops,
     primitives::{
         Capsule2d, Cuboid, Cylinder, Ellipse, Extrusion, Line2d, Primitive2d, Rectangle,
-        RegularPolygon, Segment2d, Triangle2d,
+        RegularPolygon, Ring, Segment2d, Triangle2d,
     },
     Isometry2d, Isometry3d, Quat, Rot2,
 };
@@ -162,6 +162,21 @@ impl BoundedExtrusion for Capsule2d {
         let up = isometry.rotation * Vec3A::new(0., self.half_length, 0.);
         let half_size = aabb.max + up.abs();
         Aabb3d::new(isometry.translation, half_size)
+    }
+}
+
+impl<T: BoundedExtrusion> BoundedExtrusion for Ring<T> {
+    fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
+        self.outer_shape.extrusion_aabb_3d(half_depth, isometry)
+    }
+
+    fn extrusion_bounding_sphere(
+        &self,
+        half_depth: f32,
+        isometry: impl Into<Isometry3d>,
+    ) -> BoundingSphere {
+        self.outer_shape
+            .extrusion_bounding_sphere(half_depth, isometry)
     }
 }
 

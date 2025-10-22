@@ -24,14 +24,14 @@
     atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
 }
 #import bevy_pbr::mesh_view_types::{
-    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT, 
-    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT, 
+    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
+    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     ClusterableObject
 }
 #import bevy_pbr::shadow_sampling::{
-    sample_shadow_map_hardware, 
+    sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
@@ -395,7 +395,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
-            
+
             // Calculate absorption (amount of light absorbed by the fog) and
             // out-scattering (amount of light the fog scattered away).
             let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
@@ -405,7 +405,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
             let light_factors_per_step = fog_color * light_tint * light_attenuation *
-                scattering * density * step_size_world * light_intensity * 0.1;
+                scattering * density * step_size_world * light_intensity * exposure;
 
             // Modulate the factor we calculated above by the phase, fog color,
             // light color, light tint.

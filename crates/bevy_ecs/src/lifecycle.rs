@@ -50,8 +50,8 @@
 //! For example, [`Add`] corresponds to [`ADD`].
 //! This is used to skip [`TypeId`](core::any::TypeId) lookups in hot paths.
 use crate::{
-    change_detection::MaybeLocation,
-    component::{Component, ComponentId, ComponentIdFor, Tick},
+    change_detection::{MaybeLocation, Tick},
+    component::{Component, ComponentId, ComponentIdFor},
     entity::Entity,
     event::{EntityComponentsTrigger, EntityEvent, EventKey},
     message::{

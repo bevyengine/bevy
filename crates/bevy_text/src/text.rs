@@ -425,6 +425,11 @@ pub enum LineBreak {
     NoWrap,
 }
 
+/// A text entity with this component is drawn with strikethrough.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct Strikethrough;
+
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///

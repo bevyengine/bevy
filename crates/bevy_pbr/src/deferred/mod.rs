@@ -28,7 +28,7 @@ use bevy_render::{
     },
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderContext,
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
@@ -184,7 +184,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
         let bind_group_2 = render_context.render_device().create_bind_group(
             "deferred_lighting_layout_group_2",
-            &deferred_lighting_layout.bind_group_layout_2,
+            &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
@@ -230,7 +230,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 #[derive(Resource)]
 pub struct DeferredLightingLayout {
     mesh_pipeline: MeshPipeline,
-    bind_group_layout_2: BindGroupLayout,
+    bind_group_layout_2: BindGroupLayoutDescriptor,
     deferred_lighting_shader: Handle<Shader>,
 }
 
@@ -401,11 +401,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
 
 pub fn init_deferred_lighting_layout(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     asset_server: Res<AssetServer>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "deferred_lighting_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,

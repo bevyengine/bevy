@@ -473,7 +473,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of `T`.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for `T`.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for `T`.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`MovingPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`MovingPtr`] is live.
@@ -812,7 +812,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned]for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
@@ -838,7 +838,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -873,7 +873,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`PtrMut`] is live.
@@ -897,7 +897,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`PtrMut`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -983,7 +983,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -1007,7 +1007,7 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be [properly aligned]
     ///   for the pointee type `T`.
     ///
     /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
@@ -1173,17 +1173,11 @@ trait DebugEnsureAligned {
 impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
     fn debug_ensure_aligned(self) -> Self {
-        let align = align_of::<T>();
-        // Implementation shamelessly borrowed from the currently unstable
-        // ptr.is_aligned_to.
-        //
-        // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
-        assert_eq!(
-            self as usize & (align - 1),
-            0,
+        assert!(
+            self.is_aligned(),
             "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,
-            align,
+            align_of::<T>(),
             core::any::type_name::<T>()
         );
         self
@@ -1214,7 +1208,7 @@ macro_rules! move_as_ptr {
     };
 }
 
-/// Helper macro used by [`deconstruct_moving_ptr`] to to extract
+/// Helper macro used by [`deconstruct_moving_ptr`] to extract
 /// the pattern from `field: pattern` or `field` shorthand.
 #[macro_export]
 #[doc(hidden)]

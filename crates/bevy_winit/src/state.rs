@@ -478,7 +478,7 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
                 })
             }
 
-            if !self.app_exit.is_some()
+            if self.app_exit.is_none()
                 && (self.startup_forced_updates > 0
                     || matches!(self.update_mode, UpdateMode::Reactive { .. })
                     || self.window_event_received
