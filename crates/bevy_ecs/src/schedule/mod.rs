@@ -734,6 +734,88 @@ mod tests {
         }
 
         #[test]
+        fn empty_set() {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                empty_set_detection: true,
+                ..Default::default()
+            });
+
+            // Add `A`.
+            schedule.configure_sets(TestSystems::A);
+
+            _ = schedule.initialize(&mut world);
+            let warnings = schedule.warnings();
+
+            assert!(matches!(warnings[0], ScheduleBuildWarning::EmptySet(_)));
+        }
+
+        #[test]
+        fn empty_set_with_edges() {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                empty_set_detection: true,
+                ..Default::default()
+            });
+
+            // Add `A`.
+            schedule.configure_sets(TestSystems::A.after(TestSystems::B));
+
+            _ = schedule.initialize(&mut world);
+            let warnings = schedule.warnings();
+
+            assert!(matches!(warnings[0], ScheduleBuildWarning::EmptySet(_)));
+        }
+
+        #[test]
+        fn empty_set_with_condition() {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                empty_set_detection: true,
+                ..Default::default()
+            });
+
+            fn true_condition() -> bool {
+                true
+            }
+
+            // Add `A`.
+            schedule.configure_sets(TestSystems::A.run_if(true_condition));
+
+            _ = schedule.initialize(&mut world);
+            let warnings = schedule.warnings();
+
+            assert!(matches!(warnings[0], ScheduleBuildWarning::EmptySet(_)));
+        }
+
+        #[test]
+        fn empty_set_with_system() {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                empty_set_detection: true,
+                ..Default::default()
+            });
+
+            fn system() {}
+
+            // Add `A`.
+            schedule.add_systems(system.in_set(TestSystems::A));
+
+            _ = schedule.initialize(&mut world);
+            let warnings = schedule.warnings();
+
+            assert!(warnings.is_empty());
+        }
+
+        #[test]
         fn cross_dependency() {
             let mut world = World::new();
             let mut schedule = Schedule::default();

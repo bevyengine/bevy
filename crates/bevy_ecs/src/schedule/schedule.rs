@@ -1197,8 +1197,11 @@ impl ScheduleGraph {
 
         // map all system sets to their systems
         // go in reverse topological order (bottom-up) for efficiency
-        let (set_systems, set_system_bitsets) =
-            self.map_sets_to_systems(&self.hierarchy.topsort, &self.hierarchy.graph);
+        let (set_systems, set_system_bitsets) = self.map_sets_to_systems(
+            &self.hierarchy.topsort,
+            &self.hierarchy.graph,
+            &mut warnings,
+        );
         self.check_order_but_intersect(&dep_results.connected, &set_system_bitsets)?;
 
         // check that there are no edges to system-type sets that have multiple instances
@@ -1258,6 +1261,7 @@ impl ScheduleGraph {
         &self,
         hierarchy_topsort: &[NodeId],
         hierarchy_graph: &DiGraph<NodeId>,
+        warnings: &mut Vec<ScheduleBuildWarning>,
     ) -> (
         HashMap<SystemSetKey, Vec<SystemKey>>,
         HashMap<SystemSetKey, HashSet<SystemKey>>,
@@ -1287,6 +1291,10 @@ impl ScheduleGraph {
                         system_set.extend(child_system_set.iter());
                     }
                 }
+            }
+
+            if self.settings.empty_set_detection && systems.is_empty() {
+                warnings.push(ScheduleBuildWarning::EmptySet(id));
             }
 
             set_systems.insert(set_key, systems);
@@ -1875,6 +1883,10 @@ pub struct ScheduleBuildSettings {
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,
+    /// If set to `true`, warnings will be emitted if any system set contains no systems.
+    ///
+    /// Defaults to `true`.
+    pub empty_set_detection: bool,
     /// Auto insert [`ApplyDeferred`] systems into the schedule,
     /// when there are [`Deferred`](crate::prelude::Deferred)
     /// in one system and there are ordering dependencies on that system. [`Commands`](crate::system::Commands) is one
@@ -1908,6 +1920,7 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
+            empty_set_detection: false,
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,

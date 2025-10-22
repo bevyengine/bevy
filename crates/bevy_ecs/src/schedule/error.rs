@@ -68,6 +68,14 @@ pub enum ScheduleBuildWarning {
     /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("Systems with conflicting access have indeterminate run order: {0:?}")]
     Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
+    /// The system set contains no systems.
+    ///
+    /// This warning is **disabled** by default, but can be enabled by setting
+    /// [`ScheduleBuildSettings::empty_set_detection`] to `true`].
+    ///
+    /// [`ScheduleBuildSettings::empty_set_detection`]: crate::schedule::ScheduleBuildSettings::empty_set_detection
+    #[error("The system set contains no systems: {0:?}")]
+    EmptySet(NodeId),
 }
 
 impl ScheduleBuildError {
@@ -160,6 +168,14 @@ impl ScheduleBuildError {
             .unwrap();
         }
         message
+    }
+
+    fn empty_set_to_string(node_id: &NodeId, graph: &ScheduleGraph) -> String {
+        format!(
+            "{} `{}` contains no systems",
+            node_id.kind(),
+            graph.get_node_name(node_id)
+        )
     }
 
     fn dependency_loop_to_string(node_id: &NodeId, graph: &ScheduleGraph) -> String {
@@ -266,6 +282,9 @@ impl ScheduleBuildWarning {
             }
             ScheduleBuildWarning::Ambiguity(ambiguities) => {
                 ScheduleBuildError::ambiguity_to_string(ambiguities, graph, world.components())
+            }
+            ScheduleBuildWarning::EmptySet(node_id) => {
+                ScheduleBuildError::empty_set_to_string(node_id, graph)
             }
         }
     }
