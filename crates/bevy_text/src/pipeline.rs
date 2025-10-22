@@ -485,7 +485,7 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text segment: (section index, bounding rect, strikeout offset, stroke thickness, underline offset)
+    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
     /// A text section spanning more than one line will have multiple segments.
     pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
     /// The glyphs resulting size

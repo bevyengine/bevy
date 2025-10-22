@@ -118,7 +118,7 @@ pub mod stack_z_offsets {
     pub const IMAGE: f32 = 0.04;
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
-    pub const TEXT_STRIKEOUT: f32 = 0.07;
+    pub const TEXT_STRIKETHROUGH: f32 = 0.07;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -1248,7 +1248,7 @@ pub fn extract_text_decorations(
 
             if maybe_strikethrough.is_some() {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
@@ -1277,7 +1277,7 @@ pub fn extract_text_decorations(
 
             if maybe_underline.is_some() {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKEOUT,
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),

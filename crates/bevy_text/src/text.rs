@@ -430,7 +430,7 @@ pub enum LineBreak {
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Strikethrough;
 
-/// Draw the text with underline.
+/// Add to a text entity to draw its text with underline.
 #[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Underline;
