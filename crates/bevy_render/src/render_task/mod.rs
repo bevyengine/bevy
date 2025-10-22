@@ -1,3 +1,4 @@
+pub mod bind;
 mod compute_builder;
 mod extract;
 mod node;
