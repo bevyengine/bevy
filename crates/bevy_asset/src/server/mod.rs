@@ -1836,14 +1836,14 @@ pub fn handle_internal_asset_events(world: &mut World) {
             match server.data.mode {
                 AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {
-                        for event in receiver.try_iter() {
+                        while let Ok(event) = receiver.try_recv() {
                             handle_event(source.id(), event);
                         }
                     }
                 }
                 AssetServerMode::Processed => {
                     if let Some(receiver) = source.processed_event_receiver() {
-                        for event in receiver.try_iter() {
+                        while let Ok(event) = receiver.try_recv() {
                             handle_event(source.id(), event);
                         }
                     }

@@ -737,6 +737,7 @@ mod tests {
         vec,
         vec::Vec,
     };
+    use async_channel::{Receiver, Sender};
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_diagnostic::{DiagnosticsPlugin, DiagnosticsStore};
     use bevy_ecs::{
@@ -750,7 +751,6 @@ mod tests {
     };
     use bevy_reflect::TypePath;
     use core::time::Duration;
-    use crossbeam_channel::Sender;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
@@ -2153,8 +2153,8 @@ mod tests {
     // we've selected the reader. The GatedReader blocks this process, so we need to wait until
     // we gate in the loader instead.
     struct GatedLoader {
-        in_loader_sender: async_channel::Sender<()>,
-        gate_receiver: async_channel::Receiver<()>,
+        in_loader_sender: Sender<()>,
+        gate_receiver: Receiver<()>,
     }
 
     impl AssetLoader for GatedLoader {
@@ -2381,7 +2381,7 @@ mod tests {
         // Sending an asset event should result in the asset being reloaded - resulting in a
         // "Modified" message.
         source_events
-            .send(AssetSourceEvent::ModifiedAsset(PathBuf::from(
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
                 "abc.cool.ron",
             )))
             .unwrap();
@@ -2436,7 +2436,7 @@ mod tests {
 )"#,
         );
         source_events
-            .send(AssetSourceEvent::AddedAsset(PathBuf::from("abc.cool.ron")))
+            .send_blocking(AssetSourceEvent::AddedAsset(PathBuf::from("abc.cool.ron")))
             .unwrap();
 
         run_app_until(&mut app, |world| {
