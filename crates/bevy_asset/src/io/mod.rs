@@ -712,7 +712,7 @@ impl Reader for SliceReader<'_> {
 }
 
 /// Performs a read from the `slice` into `buf`.
-fn slice_read(slice: &[u8], bytes_read: &mut usize, buf: &mut [u8]) -> usize {
+pub(crate) fn slice_read(slice: &[u8], bytes_read: &mut usize, buf: &mut [u8]) -> usize {
     if *bytes_read >= slice.len() {
         0
     } else {
@@ -723,7 +723,7 @@ fn slice_read(slice: &[u8], bytes_read: &mut usize, buf: &mut [u8]) -> usize {
 }
 
 /// Performs a "seek" and updates the cursor of `bytes_read`. Returns the new byte position.
-fn slice_seek_forward(bytes_read: &mut usize, offset: u64) -> std::io::Result<u64> {
+pub(crate) fn slice_seek_forward(bytes_read: &mut usize, offset: u64) -> std::io::Result<u64> {
     let make_err = || {
         Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -744,7 +744,7 @@ fn slice_seek_forward(bytes_read: &mut usize, offset: u64) -> std::io::Result<u6
 ///
 /// This is effectively the impl for [`SliceReader::read_to_end`], but this is provided here so the
 /// lifetimes are only tied to the buffer and not the [`SliceReader`] itself.
-fn read_to_end<'a>(
+pub(crate) fn read_to_end<'a>(
     source: &'a [u8],
     bytes_read: &'a mut usize,
     dest: &'a mut Vec<u8>,

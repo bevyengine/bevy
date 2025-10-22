@@ -6,7 +6,7 @@ use bevy_platform::{
 };
 use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncWrite};
-use futures_lite::{ready, Stream};
+use futures_lite::Stream;
 use std::{
     io::{Error, ErrorKind},
     path::{Path, PathBuf},
@@ -314,18 +314,17 @@ struct DataReader {
 
 impl AsyncRead for DataReader {
     fn poll_read(
-        mut self: Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
+        self: Pin<&mut Self>,
+        _cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
-        if self.bytes_read >= self.data.value().len() {
-            Poll::Ready(Ok(0))
-        } else {
-            let n =
-                ready!(Pin::new(&mut &self.data.value()[self.bytes_read..]).poll_read(cx, buf))?;
-            self.bytes_read += n;
-            Poll::Ready(Ok(n))
-        }
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(Ok(crate::io::slice_read(
+            this.data.value(),
+            &mut this.bytes_read,
+            buf,
+        )))
     }
 }
 
@@ -335,20 +334,7 @@ impl AsyncSeekForward for DataReader {
         _cx: &mut core::task::Context<'_>,
         offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = self
-            .bytes_read
-            .try_into()
-            .map(|bytes_read: u64| bytes_read + offset);
-
-        if let Ok(new_pos) = result {
-            self.bytes_read = new_pos as _;
-            Poll::Ready(Ok(new_pos as _))
-        } else {
-            Poll::Ready(Err(Error::new(
-                ErrorKind::InvalidInput,
-                "seek position is out of range",
-            )))
-        }
+        Poll::Ready(crate::io::slice_seek_forward(&mut self.bytes_read, offset))
     }
 }
 
@@ -357,16 +343,7 @@ impl Reader for DataReader {
         &'a mut self,
         buf: &'a mut Vec<u8>,
     ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
-        stackfuture::StackFuture::from(async {
-            if self.bytes_read >= self.data.value().len() {
-                Ok(0)
-            } else {
-                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
-                let n = self.data.value().len() - self.bytes_read;
-                self.bytes_read = self.data.value().len();
-                Ok(n)
-            }
-        })
+        crate::io::read_to_end(self.data.value(), &mut self.bytes_read, buf)
     }
 }
 
