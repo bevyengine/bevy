@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Mutable},
-    entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityIdLocation},
     query::Access,
     world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
 };
@@ -64,13 +64,19 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.entity.location()
+    }
+
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.entity.location().is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.entity.archetype()
     }
 
@@ -399,13 +405,19 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.entity.location()
+    }
+
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.entity.location().is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.entity.archetype()
     }
 

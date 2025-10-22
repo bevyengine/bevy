@@ -2,7 +2,7 @@ use crate::{
     archetype::Archetype,
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId},
-    entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityIdLocation},
     query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
@@ -58,13 +58,19 @@ impl<'w> EntityRef<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(&self) -> EntityIdLocation {
         self.cell.location()
+    }
+
+    /// Returns if the entity is constructed or not.
+    #[inline]
+    pub fn is_constructed(&self) -> bool {
+        self.cell.location().is_some()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(&self) -> Option<&Archetype> {
         self.cell.archetype()
     }
 
