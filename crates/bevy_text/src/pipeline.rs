@@ -273,7 +273,9 @@ impl TextPipeline {
 
         update_result?;
 
-        for (font, _, size, strike_offset, stroke, underline_offset) in self.glyph_info.iter_mut() {
+        for (font, _, size, strikethrough_offset, stroke, underline_offset) in
+            self.glyph_info.iter_mut()
+        {
             let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
                 continue;
             };
@@ -282,7 +284,7 @@ impl TextPipeline {
                 let metrics = swash.metrics(&[]);
                 let upem = metrics.units_per_em as f32;
                 let scalar = *size * scale_factor as f32 / upem;
-                *strike_offset = (metrics.strikeout_offset * scalar).round();
+                *strikethrough_offset = (metrics.strikeout_offset * scalar).round();
                 *stroke = (metrics.stroke_size * scalar).round().max(1.);
                 *underline_offset = (metrics.underline_offset * scalar).round();
             }
