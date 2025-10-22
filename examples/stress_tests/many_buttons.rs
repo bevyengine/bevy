@@ -117,7 +117,7 @@ fn main() {
         app.add_systems(Update, |mut text_query: Query<&mut TextNodeFlags>| {
             text_query
                 .iter_mut()
-                .for_each(|mut text| text.needs_measure_fn = true);
+                .for_each(|mut text| text.needs_shaping = true);
         });
     }
 

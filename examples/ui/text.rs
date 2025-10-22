@@ -42,11 +42,12 @@ fn setup_hello(mut commands: Commands, asset_server: Res<AssetServer>) {
             font_size: 67.0,
             ..default()
         },
-        // Outline {
-        //     width: Val::Px(2.),
-        //     offset: Val::Px(1.),
-        //     color: Color::WHITE,
-        // },
+        Outline {
+            width: Val::Px(2.),
+            offset: Val::Px(1.),
+            color: Color::WHITE,
+        },
+        children![TextSpan::new(" world!"), TextSpan::new(" orange!"),],
     ));
 }
 
@@ -94,6 +95,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_child((
             TextSpan::default(),
+            Outline {
+                width: Val::Px(2.),
+                color: Color::WHITE,
+                ..Default::default()
+            },
             if cfg!(feature = "default_font") {
                 (
                     TextFont {
