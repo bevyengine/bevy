@@ -1,8 +1,11 @@
 use crate::context::FontCx;
+use crate::TextFont;
 use bevy_asset::Asset;
 use bevy_asset::AssetEvent;
 use bevy_asset::Assets;
+use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::message::MessageReader;
+use bevy_ecs::system::Query;
 use bevy_ecs::system::ResMut;
 use bevy_reflect::TypePath;
 use parley::fontique::Blob;
@@ -41,16 +44,25 @@ pub fn register_font_assets_system(
     mut cx: ResMut<FontCx>,
     mut fonts: ResMut<Assets<Font>>,
     mut events: MessageReader<AssetEvent<Font>>,
+    mut text_font_query: Query<&mut TextFont>,
 ) {
+    let mut change = false;
     for event in events.read() {
         match event {
             AssetEvent::Added { id } => {
                 if let Some(font) = fonts.get_mut(*id) {
                     let collection = cx.collection.register_fonts(font.blob.clone(), None);
                     font.collection = collection;
+                    change = true;
                 }
             }
             _ => {}
+        }
+    }
+
+    if change {
+        for mut font in text_font_query.iter_mut() {
+            font.set_changed();
         }
     }
 }
