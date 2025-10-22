@@ -32,16 +32,16 @@ use tracing::error;
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextNodeFlags {
     /// If set then a new measure function for the text node will be created.
-    pub needs_measure_fn: bool,
+    pub needs_shaping: bool,
     /// If set then the text will be recomputed.
-    pub needs_recompute: bool,
+    pub needs_relayout: bool,
 }
 
 impl Default for TextNodeFlags {
     fn default() -> Self {
         Self {
-            needs_measure_fn: true,
-            needs_recompute: true,
+            needs_shaping: true,
+            needs_relayout: true,
         }
     }
 }
@@ -261,6 +261,8 @@ pub fn shape_text_system(
             &mut ComputedTextLayout,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
+            Ref<Text>,
+            Ref<TextFont>,
         ),
         With<Node>,
     >,
@@ -275,15 +277,20 @@ pub fn shape_text_system(
         mut computed_layout,
         computed_target,
         computed_node,
+        text,
+        text_font,
     ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
+
         if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed_block.is_changed()
-            || text_flags.needs_measure_fn
+            || text_flags.needs_shaping
             || content_size.is_added())
+            || text.is_changed()
+            || text_font.is_changed()
         {
             continue;
         }
@@ -323,8 +330,8 @@ pub fn shape_text_system(
             }));
         }
 
-        text_flags.needs_measure_fn = false;
-        text_flags.needs_recompute = true;
+        text_flags.needs_shaping = false;
+        text_flags.needs_relayout = true;
     }
 }
 
@@ -350,7 +357,7 @@ pub fn layout_text_system(
     mut scale_cx: ResMut<ScaleCx>,
 ) {
     for (node, block, mut text_layout_info, mut text_flags, mut layout) in &mut text_query {
-        if node.is_changed() || layout.is_changed() || text_flags.needs_recompute {
+        if node.is_changed() || layout.is_changed() || text_flags.needs_relayout {
             *text_layout_info = update_text_layout_info(
                 &mut layout.0,
                 Some(node.size.x).filter(|_| block.linebreak != LineBreak::NoWrap),
@@ -362,7 +369,7 @@ pub fn layout_text_system(
                 bevy_text::FontSmoothing::AntiAliased,
             );
 
-            text_flags.needs_recompute = false;
+            text_flags.needs_relayout = false;
         }
     }
 }
