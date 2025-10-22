@@ -9,7 +9,6 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::Ref,
     component::Component,
@@ -172,18 +171,17 @@ pub fn update_text2d_layout(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     mut scale_cx: ResMut<ScaleCx>,
-    mut text_query: Query<
-        (
-            Entity,
-            Option<&RenderLayers>,
-            Ref<TextLayout>,
-            Ref<TextBounds>,
-            &mut TextLayoutInfo,
-            &mut ComputedTextBlock,
-            &mut ComputedTextLayout,
-        ),
-        With<Text2d>,
-    >,
+    mut text_query: Query<(
+        Entity,
+        Option<&RenderLayers>,
+        Ref<TextLayout>,
+        Ref<TextBounds>,
+        &mut TextLayoutInfo,
+        &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
+        Ref<Text2d>,
+        Ref<TextFont>,
+    )>,
     mut text_reader: Text2dReader,
 ) {
     target_scale_factors.clear();
@@ -203,8 +201,17 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (entity, maybe_entity_mask, block, bounds, text_layout_info, computed, mut clayout) in
-        &mut text_query
+    for (
+        entity,
+        maybe_entity_mask,
+        block,
+        bounds,
+        text_layout_info,
+        computed,
+        mut clayout,
+        text2d,
+        text_font,
+    ) in &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -229,6 +236,8 @@ pub fn update_text2d_layout(
             || block.is_changed()
             || bounds.is_changed()
             || scale_factor != text_layout_info.scale_factor)
+            || text2d.is_changed()
+            || text_font.is_changed()
         {
             continue;
         }
