@@ -814,6 +814,46 @@ mod tests {
     }
 
     #[test]
+    fn get_components_mut_mutable() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        assert_eq!(
+            Some((&mut X(7), &mut Y(10))),
+            world
+                .entity_mut(e1)
+                .get_components_mut::<(&mut X, &mut Y)>()
+                .map(|(x, y)| (x.into_inner(), y.into_inner()))
+        );
+        assert!(world
+            .entity_mut(e2)
+            .get_components_mut::<(&mut X, &mut Y)>()
+            .is_none());
+        assert!(world
+            .entity_mut(e3)
+            .get_components_mut::<(&mut X, &mut Y)>()
+            .is_none());
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_components_mut_aliased_mut_mut() {
+        let mut world = World::default();
+        let mut e = world.spawn(X(8));
+        e.get_components_mut::<(&mut X, &mut X)>();
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_components_mut_aliased_mut_ref() {
+        let mut world = World::default();
+        let mut e = world.spawn(X(8));
+        e.get_components_mut::<(&mut X, &X)>();
+    }
+
+    #[test]
     fn get_by_id_array() {
         let mut world = World::default();
         let e1 = world.spawn((X(7), Y(10))).id();
