@@ -6,8 +6,8 @@
 //! light.
 
 use bevy::{
+    light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
-    pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
     render::view::Hdr,
 };

@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -23,7 +24,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
-use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
+use bevy_shader::Shader;
+use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
+use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
@@ -100,17 +103,13 @@ pub struct UiTextureSliceImageBindGroups {
 
 #[derive(Resource)]
 pub struct UiTextureSlicePipeline {
-    pub view_layout: BindGroupLayout,
-    pub image_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub image_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_ui_texture_slice_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_ui_texture_slice_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "ui_texture_slice_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -118,7 +117,7 @@ pub fn init_ui_texture_slice_pipeline(
         ),
     );
 
-    let image_layout = render_device.create_bind_group_layout(
+    let image_layout = BindGroupLayoutDescriptor::new(
         "ui_texture_slice_image_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -227,7 +226,7 @@ pub fn extract_ui_texture_slices(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -357,6 +356,7 @@ pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<UiTextureSliceMeta>,
     mut extracted_slices: ResMut<ExtractedUiTextureSlices>,
     view_uniforms: Res<ViewUniforms>,
@@ -387,7 +387,7 @@ pub fn prepare_ui_slices(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "ui_texture_slice_view_bind_group",
-            &texture_slicer_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&texture_slicer_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -433,7 +433,9 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &texture_slicer_pipeline.image_layout,
+                                        &pipeline_cache.get_bind_group_layout(
+                                            &texture_slicer_pipeline.image_layout,
+                                        ),
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
@@ -445,13 +447,14 @@ pub fn prepare_ui_slices(
                         } else {
                             continue;
                         }
-                    } else if batch_image_handle == AssetId::default()
+                    } else if let Some(ref mut existing_batch) = existing_batch
+                        && batch_image_handle == AssetId::default()
                         && texture_slices.image != AssetId::default()
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
                             batch_image_size = gpu_image.size_2d().as_vec2();
-                            existing_batch.as_mut().unwrap().1.image = texture_slices.image;
+                            existing_batch.1.image = texture_slices.image;
 
                             image_bind_groups
                                 .values
@@ -459,7 +462,9 @@ pub fn prepare_ui_slices(
                                 .or_insert_with(|| {
                                     render_device.create_bind_group(
                                         "ui_texture_slice_image_layout",
-                                        &texture_slicer_pipeline.image_layout,
+                                        &pipeline_cache.get_bind_group_layout(
+                                            &texture_slicer_pipeline.image_layout,
+                                        ),
                                         &BindGroupEntries::sequential((
                                             &gpu_image.texture_view,
                                             &gpu_image.sampler,
@@ -702,7 +707,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSlicer {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

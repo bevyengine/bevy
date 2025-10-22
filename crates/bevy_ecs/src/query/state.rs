@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeGeneration, ArchetypeId},
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
@@ -76,7 +77,7 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     /// Note that because we do a zero-cost reference conversion in `Query::as_readonly`,
     /// the access for a read-only query may include accesses for the original mutable version,
     /// but the `Query` does not have exclusive access to those components.
-    pub(crate) component_access: FilteredAccess<ComponentId>,
+    pub(crate) component_access: FilteredAccess,
     // NOTE: we maintain both a bitset and a vec because iterating the vec is faster
     pub(super) matched_storage_ids: Vec<StorageId>,
     // Represents whether this query iteration is dense or not. When this is true
@@ -145,7 +146,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 
     /// Returns the components accessed by this query.
-    pub fn component_access(&self) -> &FilteredAccess<ComponentId> {
+    pub fn component_access(&self) -> &FilteredAccess {
         &self.component_access
     }
 
@@ -2186,8 +2187,8 @@ mod tests {
         let mut query = QueryState::<Has<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
-        // Allows should bypass the filter entirely
-        let mut query = QueryState::<(), Allows<C>>::new(&mut world);
+        // Allow should bypass the filter entirely
+        let mut query = QueryState::<(), Allow<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected

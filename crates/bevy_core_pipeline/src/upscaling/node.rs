@@ -1,7 +1,9 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
+use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::{CameraOutputMode, ClearColor, ClearColorConfig, ExtractedCamera},
+    camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{BindGroup, PipelineCache, RenderPassDescriptor, TextureViewId},
     renderer::RenderContext,
@@ -32,6 +34,8 @@ impl ViewNode for UpscalingNode {
         let blit_pipeline = world.resource::<BlitPipeline>();
         let clear_color_global = world.resource::<ClearColor>();
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let clear_color = if let Some(camera) = camera {
             match camera.output_mode {
                 CameraOutputMode::Write { clear_color, .. } => clear_color,
@@ -53,8 +57,11 @@ impl ViewNode for UpscalingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if main_texture_view.id() == *id => bind_group,
             cached_bind_group => {
-                let bind_group = blit_pipeline
-                    .create_bind_group(render_context.render_device(), main_texture_view);
+                let bind_group = blit_pipeline.create_bind_group(
+                    render_context.render_device(),
+                    main_texture_view,
+                    pipeline_cache,
+                );
 
                 let (_, bind_group) =
                     cached_bind_group.insert((main_texture_view.id(), bind_group));
@@ -67,7 +74,7 @@ impl ViewNode for UpscalingNode {
         };
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("upscaling_pass"),
+            label: Some("upscaling"),
             color_attachments: &[Some(
                 target.out_texture_color_attachment(converted_clear_color),
             )],
@@ -79,18 +86,21 @@ impl ViewNode for UpscalingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling");
 
-        if let Some(camera) = camera {
-            if let Some(viewport) = &camera.viewport {
-                let size = viewport.physical_size;
-                let position = viewport.physical_position;
-                render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
-            }
+        if let Some(camera) = camera
+            && let Some(viewport) = &camera.viewport
+        {
+            let size = viewport.physical_size;
+            let position = viewport.physical_position;
+            render_pass.set_scissor_rect(position.x, position.y, size.x, size.y);
         }
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

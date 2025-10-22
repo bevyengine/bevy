@@ -6,7 +6,7 @@ pub mod prelude {
     pub use crate::{
         dynamic_texture_atlas_builder::DynamicTextureAtlasBuilder,
         texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
-        BevyDefault as _, Image, ImageFormat, TextureAtlasBuilder, TextureError,
+        BevyDefault as _, Image, ImageFormat, ImagePlugin, TextureAtlasBuilder, TextureError,
     };
 }
 
@@ -17,6 +17,10 @@ compile_error!(
 
 mod image;
 pub use self::image::*;
+#[cfg(feature = "serialize")]
+mod serialized_image;
+#[cfg(feature = "serialize")]
+pub use self::serialized_image::*;
 #[cfg(feature = "basis-universal")]
 mod basis;
 #[cfg(feature = "compressed_image_saver")]

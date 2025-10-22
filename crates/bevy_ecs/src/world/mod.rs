@@ -2,36 +2,29 @@
 
 pub(crate) mod command_queue;
 mod deferred_world;
+mod entity_access;
 mod entity_fetch;
-mod entity_ref;
-pub mod error;
 mod filtered_resource;
 mod identifier;
 mod spawn_batch;
-pub mod unsafe_world_cell;
 
+pub mod error;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod unsafe_world_cell;
 
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
-use crate::{
-    error::{DefaultErrorHandler, ErrorHandler},
-    event::BufferedEvent,
-    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
-};
 pub use bevy_ecs_macros::FromWorld;
-use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
-pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
-pub use entity_ref::{
+pub use entity_access::{
     ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
     EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
-    TryFromFilteredError, VacantComponentEntry,
+    TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
+pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -39,20 +32,24 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
+        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
     },
-    change_detection::{MaybeLocation, MutUntyped, TicksMut},
+    change_detection::{
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+    },
     component::{
-        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
-        RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
+        ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
+        RequiredComponentsError,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, WriteBatchIds},
-    lifecycle::RemovedComponentEvents,
+    error::{DefaultErrorHandler, ErrorHandler},
+    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
+    prelude::{Add, Despawn, Insert, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -68,7 +65,8 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
+use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -100,7 +98,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
-    pub(crate) removed_components: RemovedComponentEvents,
+    pub(crate) removed_components: RemovedComponentMessages,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -152,19 +150,19 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = Add::register_event_key(self);
+        let on_add = self.register_event_key::<Add>();
         assert_eq!(ADD, on_add);
 
-        let on_insert = Insert::register_event_key(self);
+        let on_insert = self.register_event_key::<Insert>();
         assert_eq!(INSERT, on_insert);
 
-        let on_replace = Replace::register_event_key(self);
+        let on_replace = self.register_event_key::<Replace>();
         assert_eq!(REPLACE, on_replace);
 
-        let on_remove = Remove::register_event_key(self);
+        let on_remove = self.register_event_key::<Remove>();
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = Despawn::register_event_key(self);
+        let on_despawn = self.register_event_key::<Despawn>();
         assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
@@ -232,14 +230,14 @@ impl World {
     /// **NOTE:** [`ComponentsQueuedRegistrator`] is easily misused.
     /// See its docs for important notes on when and how it should be used.
     #[inline]
-    pub fn components_queue(&self) -> ComponentsQueuedRegistrator {
+    pub fn components_queue(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: These are from the same world.
         unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
-    pub fn components_registrator(&mut self) -> ComponentsRegistrator {
+    pub fn components_registrator(&mut self) -> ComponentsRegistrator<'_> {
         // SAFETY: These are from the same world.
         unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
     }
@@ -256,9 +254,9 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves this world's [`RemovedComponentEvents`] collection
+    /// Retrieves this world's [`RemovedComponentMessages`] collection
     #[inline]
-    pub fn removed_components(&self) -> &RemovedComponentEvents {
+    pub fn removed_components(&self) -> &RemovedComponentMessages {
         &self.removed_components
     }
 
@@ -271,7 +269,7 @@ impl World {
     /// Creates a new [`Commands`] instance that writes to the world's command queue
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: command_queue is stored on world and always valid while the world exists
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
@@ -888,7 +886,7 @@ impl World {
             .expect("ArchetypeId was retrieved from an EntityLocation and should correspond to an Archetype");
 
         Ok(archetype
-            .components()
+            .iter_components()
             .filter_map(|id| self.components().get_info(id)))
     }
 
@@ -969,6 +967,7 @@ impl World {
     /// Returns an [`Entity`] iterator of current entities.
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityRef>()` instead")]
     #[inline]
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
@@ -990,6 +989,7 @@ impl World {
     }
 
     /// Returns a mutable iterator over all entities in the `World`.
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityMut>()` instead")]
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
         let last_change_tick = self.last_change_tick;
         let change_tick = self.change_tick();
@@ -1045,7 +1045,7 @@ impl World {
     /// # assert_eq!(world.get::<TargetedBy>(e1).unwrap().0, eid);
     /// # assert_eq!(world.get::<TargetedBy>(e2).unwrap().0, eid);
     /// ```
-    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher<'_>, Commands<'_, '_>) {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         let fetcher = unsafe { EntityFetcher::new(cell) };
@@ -1085,7 +1085,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
@@ -1153,22 +1153,30 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     #[track_caller]
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
+        move_as_ptr!(bundle);
         self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
     pub(crate) fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: B,
+        bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        let (bundle, entity_location) = bundle.partial_move(|bundle| {
+            // SAFETY:
+            // - `B` matches `bundle_spawner`'s type
+            // -  `entity` is allocated but non-existent
+            // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
+            // - This function ensures that the value pointed to by `bundle` must not be accessed for anything afterwards by consuming
+            //   the `MovingPtr`. The value is otherwise only used to call `apply_effect` within this function, and the safety invariants
+            //   of `DynamicBundle` ensure that only the elements that have not been moved out of by this call are accessed.
+            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
+        });
 
         let mut entity_location = Some(entity_location);
 
@@ -1180,7 +1188,10 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
+        // SAFETY:
+        // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
+        // - `bundle` had it's `get_components` function called exactly once inside `spawn_non_existent`.
+        unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
 
@@ -1190,7 +1201,7 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -1277,7 +1288,7 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<Mut<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -1658,7 +1669,7 @@ impl World {
     pub fn removed_with_id(&self, component_id: ComponentId) -> impl Iterator<Item = Entity> + '_ {
         self.removed_components
             .get(component_id)
-            .map(|removed| removed.iter_current_update_events().cloned())
+            .map(|removed| removed.iter_current_update_messages().cloned())
             .into_iter()
             .flatten()
             .map(Into::into)
@@ -1960,7 +1971,7 @@ impl World {
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -1978,13 +1989,13 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<'_, R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -2008,7 +2019,7 @@ impl World {
             None => panic!(
                 "Requested resource {} does not exist in the `World`.
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`?
-                Resources are also implicitly added via `app.add_event`,
+                Resources are also implicitly added via `app.add_message`,
                 and can be added by plugins.",
                 DebugName::type_name::<R>()
             ),
@@ -2026,7 +2037,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2300,12 +2311,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+        let bundle_id = self.register_bundle_info::<B>();
 
         let mut batch_iter = batch.into_iter();
 
@@ -2323,7 +2329,12 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                move_as_ptr!(first_bundle);
+                // SAFETY:
+                // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - `apply_effect` is never called on this bundle.
+                // - `first_bundle` is not be accessed or dropped after this.
                 unsafe {
                     cache.inserter.insert(
                         first_entity,
@@ -2351,7 +2362,12 @@ impl World {
                                 archetype_id: location.archetype_id,
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                        move_as_ptr!(bundle);
+                        // SAFETY:
+                        // - `entity` is valid, `location` matches entity, bundle matches inserter
+                        // - `apply_effect` is never called on this bundle.
+                        // - `bundle` is not be accessed or dropped after this.
                         unsafe {
                             cache.inserter.insert(
                                 entity,
@@ -2445,12 +2461,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+        let bundle_id = self.register_bundle_info::<B>();
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -2462,7 +2473,7 @@ impl World {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
                 if let Some(first_location) = self.entities().get(first_entity) {
                     let mut cache = InserterArchetypeCache {
-                        // SAFETY: we initialized this bundle_id in `register_info`
+                        // SAFETY: we initialized this bundle_id in `register_bundle_info`
                         inserter: unsafe {
                             BundleInserter::new_with_id(
                                 self,
@@ -2473,7 +2484,12 @@ impl World {
                         },
                         archetype_id: first_location.archetype_id,
                     };
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(first_bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2510,7 +2526,12 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             entity,
@@ -2596,13 +2617,13 @@ impl World {
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
+                changed_by: caller.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            changed_by: caller.as_mut(),
         };
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
@@ -2622,68 +2643,68 @@ impl World {
         Some(result)
     }
 
-    /// Writes a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the written `event`,
-    /// or [`None`] if the `event` could not be written.
+    /// Writes a [`Message`].
+    /// This method returns the [`MessageId`] of the written `message`,
+    /// or [`None`] if the `message` could not be written.
     #[inline]
-    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.write_event_batch(core::iter::once(event))?.next()
+    pub fn write_message<M: Message>(&mut self, message: M) -> Option<MessageId<M>> {
+        self.write_message_batch(core::iter::once(message))?.next()
     }
 
-    /// Writes a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes a [`Message`].
+    /// This method returns the [`MessageId`] of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event` instead.")]
-    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.write_event(event)
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message` instead.")]
+    pub fn send_event<E: Message>(&mut self, event: E) -> Option<MessageId<E>> {
+        self.write_message(event)
     }
 
-    /// Writes the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes the default value of the [`Message`] of type `M`.
+    /// This method returns the [`MessageId`] of the written message,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.write_event(E::default())
+    pub fn write_message_default<M: Message + Default>(&mut self) -> Option<MessageId<M>> {
+        self.write_message(M::default())
     }
 
-    /// Writes the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// Writes the default value of the [`Message`] of type `E`.
+    /// This method returns the [`MessageId`] of the written `event`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event_default` instead.")]
-    pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.write_event_default::<E>()
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message_default` instead.")]
+    pub fn send_event_default<E: Message + Default>(&mut self) -> Option<MessageId<E>> {
+        self.write_message_default::<E>()
     }
 
-    /// Writes a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
-    /// or [`None`] if the `event` could not be written.
+    /// Writes a batch of [`Message`]s from an iterator.
+    /// This method returns the [IDs](`MessageId`) of the written `messages`,
+    /// or [`None`] if the `events` could not be written.
     #[inline]
-    pub fn write_event_batch<E: BufferedEvent>(
+    pub fn write_message_batch<M: Message>(
         &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> Option<WriteBatchIds<E>> {
-        let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
+        messages: impl IntoIterator<Item = M>,
+    ) -> Option<WriteBatchIds<M>> {
+        let Some(mut events_resource) = self.get_resource_mut::<Messages<M>>() else {
             log::error!(
-                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                DebugName::type_name::<E>()
+                "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_message ",
+                DebugName::type_name::<M>()
             );
             return None;
         };
-        Some(events_resource.write_batch(events))
+        Some(events_resource.write_batch(messages))
     }
 
-    /// Writes a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// Writes a batch of [`Message`]s from an iterator.
+    /// This method returns the [IDs](`MessageId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_event_batch` instead.")]
-    pub fn send_event_batch<E: BufferedEvent>(
+    #[deprecated(since = "0.17.0", note = "Use `World::write_message_batch` instead.")]
+    pub fn send_event_batch<E: Message>(
         &mut self,
         events: impl IntoIterator<Item = E>,
     ) -> Option<WriteBatchIds<E>> {
-        self.write_event_batch(events)
+        self.write_message_batch(events)
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -3067,14 +3088,34 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+        let id = self.register_bundle_info::<B>();
+
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
-        // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+
+        // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
+        unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        }
+    }
+
+    pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+
+        // SAFETY: `registrator`, `self.bundles` and `self.storages` are all from this world.
+        unsafe {
+            self.bundles
+                .register_contributed_bundle_info::<B>(&mut registrator, &mut self.storages)
+        }
     }
 
     /// Registers the given [`ComponentId`]s as a dynamic bundle and returns both the required component ids and the bundle id.
@@ -3321,13 +3362,13 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                let (ptr, ticks, caller) = data.get_with_ticks()?;
+                let (ptr, ticks) = data.get_with_ticks()?;
 
                 // SAFETY:
-                // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
-                // - We only hold one `TicksMut` at a time, and we let go of it before getting the next one
+                // - We have exclusive access to the world, so no other code can be aliasing the `ComponentTickCells`
+                // - We only hold one `ComponentTicksMut` at a time, and we let go of it before getting the next one
                 let ticks = unsafe {
-                    TicksMut::from_tick_cells(
+                    ComponentTicksMut::from_tick_cells(
                         ticks,
                         self.last_change_tick(),
                         self.read_change_tick(),
@@ -3340,10 +3381,6 @@ impl World {
                     // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
                     value: unsafe { ptr.assert_unique() },
                     ticks,
-                    // SAFETY:
-                    // - We have exclusive access to the world, so no other code can be aliasing the `Ptr`
-                    // - We iterate one resource at a time, and we let go of each `PtrMut` before getting the next one
-                    changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
                 };
 
                 Some((component_info, mut_untyped))
@@ -3696,7 +3733,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Resource, Component)]
+    #[derive(Component)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,
@@ -3962,6 +3999,7 @@ mod tests {
                 }),
                 true,
                 ComponentCloneBehavior::Default,
+                None,
             )
         };
 
@@ -4099,6 +4137,7 @@ mod tests {
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
+            #[expect(deprecated, reason = "remove this test in 0.17.0")]
             for entity in world.iter_entities() {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
@@ -4176,6 +4215,7 @@ mod tests {
         let b1 = world.spawn(B(1)).id();
         let b2 = world.spawn(B(2)).id();
 
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut a) = entity.get_mut::<A>() {
                 a.0 -= 1;
@@ -4186,6 +4226,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(1)));
         assert_eq!(world.entity(b2).get(), Some(&B(2)));
 
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut b) = entity.get_mut::<B>() {
                 b.0 *= 2;
@@ -4196,6 +4237,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(2)));
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);
@@ -4338,7 +4380,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         world.despawn(entity);
@@ -4347,7 +4389,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
@@ -4357,7 +4399,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
         world.despawn(new);
@@ -4366,7 +4408,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
     }

@@ -29,6 +29,12 @@ impl Meshable for Segment3d {
     }
 }
 
+impl From<Segment3d> for Mesh {
+    fn from(segment: Segment3d) -> Self {
+        segment.mesh().build()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

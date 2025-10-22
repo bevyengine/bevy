@@ -1,11 +1,10 @@
-use crate::{ComputedNodeTarget, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_asset::{Assets, Handle};
+use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -137,6 +136,14 @@ impl From<Handle<Image>> for ImageNode {
     }
 }
 
+impl AsAssetId for ImageNode {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
+    }
+}
+
 /// Controls how the image is altered to fit within the layout and how the layout algorithm determines the space in the layout for the image
 #[derive(Default, Debug, Clone, PartialEq, Reflect)]
 #[reflect(Clone, Default, PartialEq)]
@@ -163,7 +170,7 @@ pub enum NodeImageMode {
 impl NodeImageMode {
     /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
     #[inline]
-    pub fn uses_slices(&self) -> bool {
+    pub const fn uses_slices(&self) -> bool {
         matches!(
             self,
             NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
@@ -185,7 +192,8 @@ pub struct ImageNodeSize {
 
 impl ImageNodeSize {
     /// The size of the image's texture
-    pub fn size(&self) -> UVec2 {
+    #[inline]
+    pub const fn size(&self) -> UVec2 {
         self.size
     }
 }
@@ -261,7 +269,7 @@ pub fn update_image_content_size_system(
             &mut ContentSize,
             Ref<ImageNode>,
             &mut ImageNodeSize,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
         UpdateImageFilter,
     >,

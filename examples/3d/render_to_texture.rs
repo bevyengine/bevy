@@ -2,10 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    prelude::*,
-    render::{render_resource::TextureFormat, view::RenderLayers},
-};
+use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()
@@ -67,6 +64,8 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
+            // render before the "main pass" camera
+            order: -1,
             target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()

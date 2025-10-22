@@ -11,9 +11,9 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     // * For ids, half are in [0, size), half are unboundedly larger.
     // * For generations, half are in [1, 3), half are unboundedly larger.
 
-    let x: f64 = rng.r#gen();
+    let x: f64 = rng.random();
     let id = -(1.0 - x).log2() * (size as f64);
-    let x: f64 = rng.r#gen();
+    let x: f64 = rng.random();
     let generation = 1.0 + -(1.0 - x).log2() * 2.0;
 
     // this is not reliable, but we're internal so a hack is ok

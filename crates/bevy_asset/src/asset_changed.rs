@@ -7,7 +7,8 @@ use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     prelude::{Entity, Resource, World},
     query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
     storage::{Table, TableRow},
@@ -229,7 +230,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     #[inline]
-    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
         access.add_resource_read(state.resource_id);
     }
@@ -297,7 +298,7 @@ mod tests {
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
-        event::EventWriter,
+        message::MessageWriter,
         resource::Resource,
         system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
@@ -333,7 +334,7 @@ mod tests {
     fn handle_filter_pos_ok() {
         fn compatible_filter(
             _query: Query<&mut MyComponent, AssetChanged<MyComponent>>,
-            mut exit: EventWriter<AppExit>,
+            mut exit: MessageWriter<AppExit>,
         ) {
             exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }

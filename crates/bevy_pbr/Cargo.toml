@@ -1,6 +1,6 @@
 [package]
 name = "bevy_pbr"
-version = "0.17.0-dev"
+version = "0.18.0-dev"
 edition = "2024"
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevy.org"
@@ -18,7 +18,8 @@ experimental_pbr_pcss = ["bevy_light/experimental_pbr_pcss"]
 pbr_specular_textures = []
 pbr_clustered_decals = []
 pbr_light_textures = []
-shader_format_glsl = ["bevy_render/shader_format_glsl"]
+bluenoise_texture = ["bevy_image/ktx2", "bevy_image/zstd"]
+shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:bevy_tasks"]
@@ -33,25 +34,30 @@ meshlet_processor = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
-bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }
-bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", features = [
-  "bevy_light",
-], version = "0.17.0-dev" }
-bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", optional = true }
-bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.18.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.18.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.18.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.18.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
+bevy_light = { path = "../bevy_light", version = "0.18.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev", features = [
+  "morph",
+  "bevy_mikktspace",
+] }
+bevy_shader = { path = "../bevy_shader", version = "0.18.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.18.0-dev", features = [
+  "morph",
+] }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.18.0-dev", optional = true }
+bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.18.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
   "std",
 ] }
 
@@ -83,3 +89,4 @@ workspace = true
 [package.metadata.docs.rs]
 rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true
+features = ["bevy_image/zstd_rust"]

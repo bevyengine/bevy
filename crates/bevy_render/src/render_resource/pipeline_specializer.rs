@@ -1,11 +1,9 @@
-use crate::{
-    mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout},
-    render_resource::{
-        CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
-        RenderPipelineDescriptor,
-    },
+use crate::render_resource::{
+    CachedComputePipelineId, CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache,
+    RenderPipelineDescriptor,
 };
 use bevy_ecs::resource::Resource;
+use bevy_mesh::{MeshVertexBufferLayoutRef, MissingVertexAttributeError, VertexBufferLayout};
 use bevy_platform::{
     collections::{
         hash_map::{Entry, RawEntryMut, VacantEntry},

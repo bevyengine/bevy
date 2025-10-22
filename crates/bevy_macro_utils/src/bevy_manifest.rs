@@ -1,39 +1,40 @@
 extern crate proc_macro;
 
 use alloc::collections::BTreeMap;
-use parking_lot::{lock_api::RwLockReadGuard, MappedRwLockReadGuard, RwLock, RwLockWriteGuard};
 use proc_macro::TokenStream;
+use std::sync::{PoisonError, RwLock};
 use std::{
     env,
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use toml_edit::{ImDocument, Item};
+use toml_edit::{Document, Item};
 
 /// The path to the `Cargo.toml` file for the Bevy project.
 #[derive(Debug)]
 pub struct BevyManifest {
-    manifest: ImDocument<Box<str>>,
+    manifest: Document<Box<str>>,
     modified_time: SystemTime,
 }
 
 const BEVY: &str = "bevy";
 
 impl BevyManifest {
-    /// Returns a global shared instance of the [`BevyManifest`] struct.
-    pub fn shared() -> MappedRwLockReadGuard<'static, BevyManifest> {
+    /// Calls `f` with a global shared instance of the [`BevyManifest`] struct.
+    pub fn shared<R>(f: impl FnOnce(&BevyManifest) -> R) -> R {
         static MANIFESTS: RwLock<BTreeMap<PathBuf, BevyManifest>> = RwLock::new(BTreeMap::new());
         let manifest_path = Self::get_manifest_path();
         let modified_time = Self::get_manifest_modified_time(&manifest_path)
             .expect("The Cargo.toml should have a modified time");
 
-        if let Ok(manifest) =
-            RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
+        let manifests = MANIFESTS.read().unwrap_or_else(PoisonError::into_inner);
+        if let Some(manifest) = manifests.get(&manifest_path)
+            && manifest.modified_time == modified_time
         {
-            if manifest.modified_time == modified_time {
-                return manifest;
-            }
+            return f(manifest);
         }
+
+        drop(manifests);
 
         let manifest = BevyManifest {
             manifest: Self::read_manifest(&manifest_path),
@@ -41,12 +42,17 @@ impl BevyManifest {
         };
 
         let key = manifest_path.clone();
-        let mut manifests = MANIFESTS.write();
-        manifests.insert(key, manifest);
+        // TODO: Switch to using RwLockWriteGuard::downgrade when it stabilizes.
+        MANIFESTS
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(key, manifest);
 
-        RwLockReadGuard::map(RwLockWriteGuard::downgrade(manifests), |manifests| {
-            manifests.get(&manifest_path).unwrap()
-        })
+        f(MANIFESTS
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&manifest_path)
+            .unwrap())
     }
 
     fn get_manifest_path() -> PathBuf {
@@ -70,11 +76,11 @@ impl BevyManifest {
         std::fs::metadata(cargo_manifest_path).and_then(|metadata| metadata.modified())
     }
 
-    fn read_manifest(path: &Path) -> ImDocument<Box<str>> {
+    fn read_manifest(path: &Path) -> Document<Box<str>> {
         let manifest = std::fs::read_to_string(path)
             .unwrap_or_else(|_| panic!("Unable to read cargo manifest: {}", path.display()))
             .into_boxed_str();
-        ImDocument::parse(manifest)
+        Document::parse(manifest)
             .unwrap_or_else(|_| panic!("Failed to parse cargo manifest: {}", path.display()))
     }
 

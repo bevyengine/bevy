@@ -23,7 +23,7 @@ use crate::{
     primitives::{Aabb, Frustum, MeshAabb, Sphere},
     Projection,
 };
-use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
@@ -150,11 +150,16 @@ impl InheritedVisibility {
 /// When adding a new renderable component, you'll typically want to write an
 /// add-component hook that adds the type ID of that component to the
 /// [`VisibilityClass`] array. See `custom_phase_item` for an example.
+///
+/// `VisibilityClass` is automatically added by a hook on the `Mesh3d` and
+/// `Mesh2d` components. To avoid duplicating the `VisibilityClass` and
+/// causing issues when cloning, we use `#[component(clone_behavior=Ignore)]`
 //
 // Note: This can't be a `ComponentId` because the visibility classes are copied
 // into the render world, and component IDs are per-world.
 #[derive(Clone, Component, Default, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Clone)]
+#[component(clone_behavior=Ignore)]
 pub struct VisibilityClass(pub SmallVec<[TypeId; 1]>);
 
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering.
@@ -340,23 +345,18 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.register_type::<VisibilityClass>()
-            .register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<CascadesVisibleEntities>()
-            .register_type::<VisibleMeshEntities>()
-            .register_type::<CubemapVisibleEntities>()
-            .register_required_components::<Mesh3d, Visibility>()
+        app.register_required_components::<Mesh3d, Visibility>()
             .register_required_components::<Mesh3d, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()
             .configure_sets(
                 PostUpdate,
-                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                (
+                    CalculateBounds
+                        .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
+                    UpdateFrusta,
+                    VisibilityPropagate,
+                )
                     .before(CheckVisibility)
                     .after(TransformSystems::Propagate),
             )
@@ -394,10 +394,10 @@ pub fn calculate_bounds(
     without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(mesh_handle)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
 }
@@ -533,7 +533,7 @@ pub fn check_visibility(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        &VisibilityClass,
+        Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
@@ -590,21 +590,22 @@ pub fn check_visibility(
                 }
 
                 // If we have an aabb, do frustum culling
-                if !no_frustum_culling && !no_cpu_culling {
-                    if let Some(model_aabb) = maybe_model_aabb {
-                        let world_from_local = transform.affine();
-                        let model_sphere = Sphere {
-                            center: world_from_local.transform_point3a(model_aabb.center),
-                            radius: transform.radius_vec3a(model_aabb.half_extents),
-                        };
-                        // Do quick sphere-based frustum culling
-                        if !frustum.intersects_sphere(&model_sphere, false) {
-                            return;
-                        }
-                        // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
-                            return;
-                        }
+                if !no_frustum_culling
+                    && !no_cpu_culling
+                    && let Some(model_aabb) = maybe_model_aabb
+                {
+                    let world_from_local = transform.affine();
+                    let model_sphere = Sphere {
+                        center: world_from_local.transform_point3a(model_aabb.center),
+                        radius: transform.radius_vec3a(model_aabb.half_extents),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // Do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                        return;
                     }
                 }
 
@@ -615,10 +616,15 @@ pub fn check_visibility(
                     view_visibility.set();
                 }
 
-                // Add the entity to the queue for all visibility classes the
-                // entity is in.
-                for visibility_class_id in visibility_class.iter() {
-                    queue.entry(*visibility_class_id).or_default().push(entity);
+                // The visibility class may be None here because AABB gizmos can be enabled via
+                // config without a renderable component being added to the entity. This workaround
+                // allows view visibility to be set for entities without a renderable component but
+                // that still need to render gizmos.
+                if let Some(visibility_class) = visibility_class {
+                    // Add the entity to the queue for all visibility classes the entity is in.
+                    for visibility_class_id in visibility_class.iter() {
+                        queue.entry(*visibility_class_id).or_default().push(entity);
+                    }
                 }
             },
         );
@@ -991,5 +997,28 @@ mod test {
     fn ensure_visibility_enum_size() {
         assert_eq!(1, size_of::<Visibility>());
         assert_eq!(1, size_of::<Option<Visibility>>());
+    }
+
+    #[derive(Component, Default, Clone, Reflect)]
+    #[require(VisibilityClass)]
+    #[reflect(Component, Default, Clone)]
+    #[component(on_add = add_visibility_class::<Self>)]
+    struct TestVisibilityClassHook;
+
+    #[test]
+    fn test_add_visibility_class_hook() {
+        let mut world = World::new();
+        let entity = world.spawn(TestVisibilityClassHook).id();
+        let entity_clone = world.spawn_empty().id();
+        world
+            .entity_mut(entity)
+            .clone_with_opt_out(entity_clone, |_| {});
+
+        let entity_visibility_class = world.entity(entity).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_visibility_class.len(), 1);
+
+        let entity_clone_visibility_class =
+            world.entity(entity_clone).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_clone_visibility_class.len(), 1);
     }
 }

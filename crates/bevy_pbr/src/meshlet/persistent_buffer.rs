@@ -39,7 +39,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
     /// Queue an item of type T to be added to the buffer, returning the byte range within the buffer that it will be located at.
     pub fn queue_write(&mut self, data: T, metadata: T::Metadata) -> Range<BufferAddress> {
         let data_size = data.size_in_bytes() as u64;
-        debug_assert!(data_size % COPY_BUFFER_ALIGNMENT == 0);
+        debug_assert!(data_size.is_multiple_of(COPY_BUFFER_ALIGNMENT));
         if let Ok(buffer_slice) = self.allocation_planner.allocate_range(data_size) {
             self.write_queue
                 .push((data, metadata, buffer_slice.clone()));

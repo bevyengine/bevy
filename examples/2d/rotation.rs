@@ -61,8 +61,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("Up Arrow: Move Forward\nLeft / Right Arrow: Turn"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

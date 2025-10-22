@@ -28,8 +28,6 @@ pub struct PathtracingPlugin;
 impl Plugin for PathtracingPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "pathtracer.wgsl");
-
-        app.register_type::<Pathtracer>();
     }
 
     fn finish(&self, app: &mut App) {

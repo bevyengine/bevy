@@ -12,6 +12,8 @@ use crate::AssetServer;
 use alloc::boxed::Box;
 use bevy_app::App;
 use bevy_ecs::{resource::Resource, world::World};
+#[cfg(feature = "embedded_watcher")]
+use bevy_platform::sync::{Arc, PoisonError, RwLock};
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
@@ -30,9 +32,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: alloc::sync::Arc<
-        parking_lot::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
-    >,
+    root_paths: Arc<RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
@@ -51,6 +51,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_asset(asset_path, value);
     }
@@ -70,6 +71,7 @@ impl EmbeddedAssetRegistry {
         #[cfg(feature = "embedded_watcher")]
         self.root_paths
             .write()
+            .unwrap_or_else(PoisonError::into_inner)
             .insert(full_path.into(), asset_path.to_owned());
         self.dir.insert_meta(asset_path, value);
     }
@@ -376,7 +378,7 @@ macro_rules! load_internal_asset {
                 .unwrap()
                 .join($path_str)
                 .to_string_lossy()
-        ));
+        )).unwrap();
     }};
     // we can't support params without variadic arguments, so internal assets with additional params can't be hot-reloaded
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr $(, $param:expr)+) => {{
@@ -389,7 +391,7 @@ macro_rules! load_internal_asset {
                 .join($path_str)
                 .to_string_lossy(),
             $($param),+
-        ));
+        )).unwrap();
     }};
 }
 
@@ -398,18 +400,20 @@ macro_rules! load_internal_asset {
 macro_rules! load_internal_binary_asset {
     ($app: ident, $handle: expr, $path_str: expr, $loader: expr) => {{
         let mut assets = $app.world_mut().resource_mut::<$crate::Assets<_>>();
-        assets.insert(
-            $handle.id(),
-            ($loader)(
-                include_bytes!($path_str).as_ref(),
-                std::path::Path::new(file!())
-                    .parent()
-                    .unwrap()
-                    .join($path_str)
-                    .to_string_lossy()
-                    .into(),
-            ),
-        );
+        assets
+            .insert(
+                $handle.id(),
+                ($loader)(
+                    include_bytes!($path_str).as_ref(),
+                    std::path::Path::new(file!())
+                        .parent()
+                        .unwrap()
+                        .join($path_str)
+                        .to_string_lossy()
+                        .into(),
+                ),
+            )
+            .unwrap();
     }};
 }
 

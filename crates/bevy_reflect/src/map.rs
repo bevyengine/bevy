@@ -118,7 +118,7 @@ pub struct MapInfo {
     key_ty: Type,
     value_info: fn() -> Option<&'static TypeInfo>,
     value_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -136,13 +136,13 @@ impl MapInfo {
             key_ty: Type::of::<TKey>(),
             value_info: TValue::maybe_type_info,
             value_ty: Type::of::<TValue>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this map.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -180,7 +180,7 @@ impl MapInfo {
     }
 
     /// The docstring of this map, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -375,11 +375,11 @@ impl PartialReflect for DynamicMap {
         ReflectKind::Map
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Map(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Map(self)
     }
 

@@ -17,14 +17,15 @@ pub fn world_despawn(criterion: &mut Criterion) {
             bencher.iter_batched_ref(
                 || {
                     let mut world = World::default();
-                    for _ in 0..entity_count {
-                        world.spawn((A(Mat4::default()), B(Vec4::default())));
-                    }
-                    let ents = world.iter_entities().map(|e| e.id()).collect::<Vec<_>>();
-                    (world, ents)
+                    let entities: Vec<Entity> = world
+                        .spawn_batch(
+                            (0..entity_count).map(|_| (A(Mat4::default()), B(Vec4::default()))),
+                        )
+                        .collect();
+                    (world, entities)
                 },
-                |(world, ents)| {
-                    ents.iter().for_each(|e| {
+                |(world, entities)| {
+                    entities.iter().for_each(|e| {
                         world.despawn(*e);
                     });
                 },
