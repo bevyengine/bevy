@@ -278,7 +278,8 @@ mod render_entities_world_query_impls {
 
     use bevy_ecs::{
         archetype::Archetype,
-        component::{ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{ComponentId, Components},
         entity::Entity,
         query::{FilteredAccess, QueryData, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery},
         storage::{Table, TableRow},

@@ -3,7 +3,7 @@
 // Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
 
 use bevy::{
-    camera_controller::free_cam::{FreeCam, FreeCamPlugin},
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
@@ -23,7 +23,7 @@ fn main() {
                 cluster_buffer_slots: 1 << 14,
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
-            FreeCamPlugin,
+            FreeCameraPlugin,
         ))
         .add_systems(Startup, setup)
         .run();
@@ -46,7 +46,7 @@ fn setup(
             intensity: 150.0,
             ..default()
         },
-        FreeCam::default(),
+        FreeCamera::default(),
     ));
 
     commands.spawn((

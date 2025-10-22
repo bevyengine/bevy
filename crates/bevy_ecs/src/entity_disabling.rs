@@ -134,27 +134,6 @@ use {
 // This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;
 
-/// A marker component for internal entities.
-///
-/// This component is used to mark entities as being internal to the engine.
-/// These entities should be hidden from the developer's view by default,
-/// as they are both noisy and expose confusing implementation details.
-/// Internal entities are hidden from queries using [`DefaultQueryFilters`].
-/// For more information, see [the module docs].
-/// We strongly advise against altering, removing or relying on entities tagged with this component in any way.
-/// These are "internal implementation details", and may not be robust to these changes or stable across minor Bevy versions.
-///
-/// [the module docs]: crate::entity_disabling
-#[derive(Component, Clone, Debug, Default)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Component),
-    reflect(Debug, Clone, Default)
-)]
-// This component is registered as a disabling component during World::bootstrap
-pub struct Internal;
-
 /// Default query filters work by excluding entities with certain components from most queries.
 ///
 /// If a query does not explicitly mention a given disabling component, it will not include entities with that component.
@@ -199,8 +178,6 @@ impl FromWorld for DefaultQueryFilters {
         let mut filters = DefaultQueryFilters::empty();
         let disabled_component_id = world.register_component::<Disabled>();
         filters.register_disabling_component(disabled_component_id);
-        let internal_component_id = world.register_component::<Internal>();
-        filters.register_disabling_component(internal_component_id);
         filters
     }
 }
@@ -263,10 +240,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        observer::Observer,
-        prelude::{Add, EntityMut, EntityRef, On, World},
+        prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
-        system::SystemIdMarker,
     };
     use alloc::{vec, vec::Vec};
 
@@ -375,23 +350,5 @@ mod tests {
         // We don't consider read access, since that would count `EntityRef` as a mention of *all* components.
         let mut query = world.query::<Option<&Disabled>>();
         assert_eq!(1, query.iter(&world).count());
-    }
-
-    #[test]
-    fn internal_entities() {
-        let mut world = World::default();
-        world.register_system(|| {});
-        let mut query = world.query::<()>();
-        assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<&SystemIdMarker, With<Internal>>();
-        assert_eq!(query.iter(&world).count(), 1);
-
-        #[derive(Component)]
-        struct A;
-        world.add_observer(|_: On<Add, A>| {});
-        let mut query = world.query::<()>();
-        assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<&Observer, With<Internal>>();
-        assert_eq!(query.iter(&world).count(), 1);
     }
 }

@@ -7,17 +7,21 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 
-/// An [`Event`] that an [`AnimationPlayer`](crate::AnimationPlayer) can trigger when playing an [`AnimationClip`](crate::AnimationClip).
-/// See [`AnimationClip::add_event`](crate::AnimationClip::add_event).
+/// An [`Event`] that an [`AnimationPlayer`](crate::AnimationPlayer) or an [`AnimationTargetId`](crate::AnimationTargetId) can trigger when playing an [`AnimationClip`](crate::AnimationClip).
+///
+/// - If you used [`AnimationClip::add_event`](crate::AnimationClip::add_event), this will be triggered by the [`AnimationPlayer`](crate::AnimationPlayer).
+/// - If you used [`AnimationClip::add_event_to_target`](crate::AnimationClip::add_event_to_target), this will be triggered by the [`AnimationTargetId`](crate::AnimationTargetId).
 ///
 /// This trait can be derived.
 pub trait AnimationEvent: Clone + for<'a> Event<Trigger<'a> = AnimationEventTrigger> {}
 
-/// The [`Trigger`] implementation for [`AnimationEvent`]. This passes in the [`AnimationPlayer`](crate::AnimationPlayer)
-/// context, and uses that to run any observers that target that entity.
+/// The [`Trigger`] implementation for [`AnimationEvent`]. This passes in either the [`AnimationPlayer`](crate::AnimationPlayer) or the [`AnimationTargetId`](crate::AnimationTargetId)
+/// context, and uses that to run any observers that target that entity. See [`AnimationEvent`] for when which entity is used.
+#[derive(Debug)]
 pub struct AnimationEventTrigger {
-    /// The [`AnimationPlayer`](crate::AnimationPlayer) where this [`AnimationEvent`] occurred.
-    pub animation_player: Entity,
+    /// The [`AnimationPlayer`](crate::AnimationPlayer) or the [`AnimationTargetId`](crate::AnimationTargetId) where this [`AnimationEvent`] occurred.
+    /// See [`AnimationEvent`] for when which entity is used.
+    pub target: Entity,
 }
 
 #[expect(
@@ -37,7 +41,7 @@ unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigge
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let animation_player = self.animation_player;
+        let target = self.target;
         // SAFETY:
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
@@ -50,7 +54,7 @@ unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigge
                 observers,
                 event.into(),
                 self.into(),
-                animation_player,
+                target,
                 trigger_context,
             );
         }
