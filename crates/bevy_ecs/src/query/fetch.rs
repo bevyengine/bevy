@@ -277,7 +277,6 @@ use variadics_please::all_tuples;
 ///   and `Self::ReadOnly` must match exactly the same archetypes/tables as `Self`
 /// - `IS_READ_ONLY` must be `true` if and only if `Self: ReadOnlyQueryData`
 ///
-/// [`Query`]: crate::system::Query
 /// [`ReadOnly`]: Self::ReadOnly
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not valid to request as data in a `Query`",
@@ -378,7 +377,7 @@ pub type QueryItem<'w, 's, Q> = <Q as QueryData>::Item<'w, 's>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
 pub type ROQueryItem<'w, 's, D> = QueryItem<'w, 's, <D as QueryData>::ReadOnly>;
 
-/// A [`QueryData`] that does not borrow from its [`QueryState`](crate::query::QueryState).
+/// A [`QueryData`] that does not borrow from its [`QueryState`].
 ///
 /// This is implemented by most `QueryData` types.
 /// The main exceptions are [`FilteredEntityRef`], [`FilteredEntityMut`], [`EntityRefExcept`], and [`EntityMutExcept`],
@@ -2651,7 +2650,7 @@ impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
 
 /// Returns a bool that describes if an entity has the component `T`.
 ///
-/// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities
+/// This can be used in a [`Query`] if you want to know whether or not entities
 /// have the component `T`  but don't actually care about the component's value.
 ///
 /// # Footguns
