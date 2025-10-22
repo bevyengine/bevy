@@ -19,7 +19,7 @@ use bevy_sprite::BorderRect;
 use thiserror::Error;
 use ui_surface::UiSurface;
 
-use bevy_text::{ComputedTextBlock, ComputedTextLayout};
+use bevy_text::ComputedTextLayout;
 
 mod convert;
 pub mod debug;

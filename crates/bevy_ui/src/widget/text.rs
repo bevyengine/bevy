@@ -27,11 +27,11 @@ use tracing::error;
 
 /// UI text system flags.
 ///
-/// Used internally by [`measure_text_system`] and [`text_system`] to schedule text for processing.
+/// Used internally by [`shape_text_system`] and [`layout_text_system`] to schedule text for processing.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextNodeFlags {
-    /// If set then a new measure function for the text node will be created.
+    /// If set then the text will be reshaped.
     pub needs_shaping: bool,
     /// If set then the text will be recomputed.
     pub needs_relayout: bool,
