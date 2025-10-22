@@ -70,7 +70,16 @@ impl<'a> ComputeCommandBuilder<'a> {
         self
     }
 
-    pub fn bind_group<T: NoUninit>(
+    pub fn bind_resources(mut self) -> Self {
+        self.bind_groups.push(Some(
+            self.resource_cache
+                .get_or_create_bind_group(todo!(), todo!()),
+        ));
+        self.bind_group_layouts.push(todo!());
+        self
+    }
+
+    pub fn bind_group(
         mut self,
         bind_group: impl Into<Option<BindGroup>>,
         layout: BindGroupLayoutDescriptor,
