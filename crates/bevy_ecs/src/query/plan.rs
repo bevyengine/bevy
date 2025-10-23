@@ -351,45 +351,49 @@ impl<'w, 's> Iter<'w, 's> {
 
         // the first time we evaluate the query, we set the list of potential tables
         if !self.iter_state.backtrack {
-            // if there are required components, we can optimize by only iterating through archetypes
-            // that contain at least one of the required components
-            let potential_archetypes = source
-                .access
-                .required
-                .ones()
-                .filter_map(|idx| {
-                    let component_id = ComponentId::get_sparse_set_index(idx);
-                    self.world
-                        .archetypes()
-                        .component_index()
-                        .get(&component_id)
-                        .map(|index| index.keys())
-                })
-                // select the component with the fewest archetypes
-                .min_by_key(ExactSizeIterator::len);
-            let mut matching_tables = Vec::new();
-            if let Some(archetypes) = potential_archetypes {
-                for archetype_id in archetypes {
-                    // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
-                    let archetype = &self.world.archetypes()[*archetype_id];
-                    if source.matches(archetype) {
-                        matching_tables.push(archetype.table_id())
+            let tables = &self.iter_state.storages_state[variable_idx].tables;
+            // only set the list of potential tables if we didn't do so before
+            if tables.len() == 0 {
+                // if there are required components, we can optimize by only iterating through archetypes
+                // that contain at least one of the required components
+                let potential_archetypes = source
+                    .access
+                    .required
+                    .ones()
+                    .filter_map(|idx| {
+                        let component_id = ComponentId::get_sparse_set_index(idx);
+                        self.world
+                            .archetypes()
+                            .component_index()
+                            .get(&component_id)
+                            .map(|index| index.keys())
+                    })
+                    // select the component with the fewest archetypes
+                    .min_by_key(ExactSizeIterator::len);
+                let mut matching_tables = Vec::new();
+                if let Some(archetypes) = potential_archetypes {
+                    for archetype_id in archetypes {
+                        // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                        let archetype = &self.world.archetypes()[*archetype_id];
+                        if source.matches(archetype) {
+                            matching_tables.push(archetype.table_id())
+                        }
                     }
                 }
+                let Some(&table) = matching_tables.first() else {
+                    return false;
+                };
+                self.iter_state.storages_state[variable_idx] = StorageState {
+                    tables: Cow::Owned(matching_tables)
+                };
+                self.set_variable_state(variable_idx as u8, VariableState::Search {
+                    table: Some(table),
+                    offset: 0,
+                    storage_idx: 0,
+                    current_len: 0,
+                });
+                return true;
             }
-            let Some(&table) = matching_tables.first() else {
-                return false;
-            };
-            self.iter_state.storages_state[variable_idx] = StorageState {
-                tables: Cow::Owned(matching_tables)
-            };
-            self.set_variable_state(variable_idx as u8, VariableState::Search {
-                table: Some(table),
-                offset: 0,
-                storage_idx: 0,
-                current_len: 0,
-            });
-            return true;
         }
 
         // else we backtracked! we need to advance in the current table, or go to the next table
@@ -579,13 +583,10 @@ mod tests {
     fn test_query_plan_basic() {
         let mut world = World::new();
 
-        // Create parent-child relationship
+        // Correct pair
         let parent = world.spawn_empty().id();
         let child = world.spawn((Marker, ChildOf(parent))).id();
-        world.flush(); // Ensure Children component is added to parent
-
-        let marker_id = world.register_component::<Marker>();
-        let child_of_id = world.register_component::<ChildOf>();
+        world.flush();
 
         // Build a simple plan using the builder API
         let mut builder = QueryPlanBuilder::new(&mut world);
@@ -600,6 +601,46 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].entities[0].entity(), child);
         assert_eq!(results[0].entities[1].entity(), parent);
+    }
+
+    /// Checks that filters in the source or target of the relationship are respected
+    #[test]
+    fn test_query_plan_single_relationship() {
+        let mut world = World::new();
+
+        // Parent does not have the marker
+        let parent1 = world.spawn_empty().id();
+        let child1 = world.spawn((Marker, ChildOf(parent1))).id();
+        world.flush();
+
+        // Child does not have the marker
+        let parent2 = world.spawn(Marker).id();
+        let child2 = world.spawn(ChildOf(parent2)).id();
+
+        // Both have markers but there is no relationship
+        let parent3 = world.spawn(Marker).id();
+        let child3 = world.spawn(Marker).id();
+
+        // Two correct pairs, (Child, Parent) and (Parent, Grandparent)
+        let grandparent4 = world.spawn(Marker).id();
+        let parent4 = world.spawn((Marker, ChildOf(grandparent4))).id();
+        let child4 = world.spawn((Marker, ChildOf(parent4))).id();
+
+        // Both sources must have the Marker
+        let mut builder = QueryPlanBuilder::new(&mut world);
+        builder.add_source::<&Marker, ()>();
+        builder.add_relationship::<ChildOf>(0, 1);
+        builder.add_source::<Entity, With<Marker>>();
+        let plan = builder.compile();
+
+        let iter = plan.query_iter(world.as_unsafe_world_cell());
+        let results: Vec<DynamicItem> = iter.collect();
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].entities[0].entity(), child4);
+        assert_eq!(results[0].entities[1].entity(), parent4);
+        assert_eq!(results[1].entities[0].entity(), parent4);
+        assert_eq!(results[2].entities[1].entity(), grandparent4);
     }
 }
 
