@@ -3,7 +3,7 @@ use futures_lite::Stream;
 
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
-    PathStream, Reader, Writer,
+    PathStream, Reader, ReaderRequiredFeatures, Writer,
 };
 
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
@@ -99,7 +99,11 @@ impl Stream for DirReader {
 }
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        _required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         match File::open(&full_path) {
             Ok(file) => Ok(FileReader(file)),

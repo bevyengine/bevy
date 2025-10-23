@@ -1,4 +1,7 @@
-use crate::io::{AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader};
+use crate::io::{
+    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, PathStream, Reader,
+    ReaderRequiredFeatures,
+};
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec, vec::Vec};
 use bevy_platform::{
     collections::HashMap,
@@ -348,7 +351,11 @@ impl Reader for DataReader {
 }
 
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        _required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
             .map(|data| DataReader {

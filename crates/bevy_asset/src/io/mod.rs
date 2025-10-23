@@ -41,6 +41,11 @@ use thiserror::Error;
 /// Errors that occur while loading assets.
 #[derive(Error, Debug, Clone)]
 pub enum AssetReaderError {
+    #[error(
+        "A reader feature was required, but this AssetReader does not support that feature: {0}"
+    )]
+    UnsupportedFeature(#[from] UnsupportedReaderFeature),
+
     /// Path not found.
     #[error("Path not found: {}", _0.display())]
     NotFound(PathBuf),
@@ -61,6 +66,9 @@ impl PartialEq for AssetReaderError {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
+            (Self::UnsupportedFeature(feature), Self::UnsupportedFeature(other_feature)) => {
+                feature == other_feature
+            }
             (Self::NotFound(path), Self::NotFound(other_path)) => path == other_path,
             (Self::Io(error), Self::Io(other_error)) => error.kind() == other_error.kind(),
             (Self::HttpError(code), Self::HttpError(other_code)) => code == other_code,
@@ -76,6 +84,22 @@ impl From<std::io::Error> for AssetReaderError {
         Self::Io(Arc::new(value))
     }
 }
+
+/// An error for when a particular feature in [`ReaderRequiredFeatures`] is not supported.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum UnsupportedReaderFeature {}
+
+/// The required features for a `Reader` that an `AssetLoader` may use.
+///
+/// This allows the asset loader to communicate with the asset source what features of the reader it
+/// will use. This allows the asset source to return an error early (if a feature is unsupported),
+/// or use a different reader implementation based on the required features to optimize reading
+/// (e.g., using a simpler reader implementation if some features are not required).
+///
+/// These features **only** apply to the asset itself, and not any nested loads - those loaders will
+/// request their own required features.
+#[derive(Clone, Copy, Default)]
+pub struct ReaderRequiredFeatures {}
 
 /// The maximum size of a future returned from [`Reader::read_to_end`].
 /// This is large enough to fit ten references.
@@ -164,6 +188,16 @@ impl<S: AsyncSeekForward + Unpin + ?Sized> Future for SeekForwardFuture<'_, S> {
 /// This is essentially a trait alias for types implementing [`AsyncRead`] and [`AsyncSeekForward`].
 /// The only reason a blanket implementation is not provided for applicable types is to allow
 /// implementors to override the provided implementation of [`Reader::read_to_end`].
+///
+/// # Reader features
+///
+/// This trait includes super traits. However, this **does not** mean that your type needs to
+/// support every feature of those super traits. If the caller never uses that feature, then a dummy
+/// implementation that just returns an error is sufficient.
+///
+/// The caller can request a compatible [`Reader`] using [`ReaderRequiredFeatures`]. This allows the
+/// caller to state which features of the reader it will use, avoiding cases where the caller uses a
+/// feature that the reader does not support.
 pub trait Reader: AsyncRead + AsyncSeekForward + Unpin + Send + Sync {
     /// Reads the entire contents of this reader and appends them to a vec.
     ///
@@ -214,15 +248,37 @@ where
 pub trait AssetReader: Send + Sync + 'static {
     /// Returns a future to load the full file data at the provided path.
     ///
+    /// # Required Features
+    ///
+    /// The `required_features` allows the caller to request that the returned reader implements
+    /// certain features, and consequently allows this trait to decide how to react to that request.
+    /// Namely, the implementor could:
+    ///
+    /// * Return an error if the caller requests an unsupported feature. This can give a nicer error
+    ///   message to make it clear that the caller (e.g., an asset loader) can't be used with this
+    ///   reader.
+    /// * Use a different implementation of a reader to ensure support of a feature (e.g., reading
+    ///   the entire asset into memory and then providing that buffer as a reader).
+    /// * Ignore the request and provide the regular reader anyway. Practically, if the caller never
+    ///   actually uses the feature, it's fine to continue using the reader. However the caller
+    ///   requesting a feature is a **strong signal** that they will use the given feature.
+    ///
+    /// The recommendation is to simply return an error for unsupported features. Callers can
+    /// generally work around this and have more understanding of their constraints. For example,
+    /// an asset loader may know that it will only load "small" assets, so reading the entire asset
+    /// into memory won't consume too much memory, and so it can use the regular [`AsyncRead`] API
+    /// to read the whole asset into memory. If this were done by this trait, the loader may
+    /// accidentally be allocating too much memory for a large asset without knowing it!
+    ///
     /// # Note for implementors
     /// The preferred style for implementing this method is an `async fn` returning an opaque type.
     ///
     /// ```no_run
     /// # use std::path::Path;
-    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError}};
+    /// # use bevy_asset::{prelude::*, io::{AssetReader, PathStream, Reader, AssetReaderError, ReaderRequiredFeatures}};
     /// # struct MyReader;
     /// impl AssetReader for MyReader {
-    ///     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    ///     async fn read<'a>(&'a self, path: &'a Path, required_features: ReaderRequiredFeatures) -> Result<impl Reader + 'a, AssetReaderError> {
     ///         // ...
     ///         # let val: Box<dyn Reader> = unimplemented!(); Ok(val)
     ///     }
@@ -233,7 +289,11 @@ pub trait AssetReader: Send + Sync + 'static {
     ///     # async fn read_meta_bytes<'a>(&'a self, path: &'a Path) -> Result<Vec<u8>, AssetReaderError> { unimplemented!() }
     /// }
     /// ```
-    fn read<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
+    fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(&'a self, path: &'a Path) -> impl AssetReaderFuture<Value: Reader + 'a>;
     /// Returns an iterator of directory entry names at the provided path.
@@ -268,6 +328,7 @@ pub trait ErasedAssetReader: Send + Sync + 'static {
     fn read<'a>(
         &'a self,
         path: &'a Path,
+        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>>;
     /// Returns a future to load the full file data at the provided path.
     fn read_meta<'a>(
@@ -296,9 +357,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     fn read<'a>(
         &'a self,
         path: &'a Path,
+        required_features: ReaderRequiredFeatures,
     ) -> BoxedFuture<'a, Result<Box<dyn Reader + 'a>, AssetReaderError>> {
-        Box::pin(async {
-            let reader = Self::read(self, path).await?;
+        Box::pin(async move {
+            let reader = Self::read(self, path, required_features).await?;
             Ok(Box::new(reader) as Box<dyn Reader>)
         })
     }
@@ -642,6 +704,7 @@ impl AsyncRead for VecReader {
         _cx: &mut Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
         let this = self.get_mut();
         Poll::Ready(Ok(slice_read(&this.bytes, &mut this.bytes_read, buf)))
     }

@@ -1,6 +1,6 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
-    PathStream, Reader, Writer,
+    PathStream, Reader, ReaderRequiredFeatures, Writer,
 };
 use async_fs::{read_dir, File};
 use futures_io::AsyncSeek;
@@ -34,7 +34,11 @@ impl AsyncSeekForward for File {
 impl Reader for File {}
 
 impl AssetReader for FileAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        _required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let full_path = self.root_path.join(path);
         File::open(&full_path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {

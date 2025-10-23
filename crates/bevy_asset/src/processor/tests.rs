@@ -26,7 +26,7 @@ use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
         AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
-        AssetWatcher, PathStream, Reader,
+        AssetWatcher, PathStream, Reader, ReaderRequiredFeatures,
     },
     processor::{
         AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
@@ -69,9 +69,13 @@ impl<R: AssetReader> LockGatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for LockGatedReader<R> {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let _guard = self.gate.read().await;
-        self.reader.read(path).await
+        self.reader.read(path, required_features).await
     }
 
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
@@ -550,6 +554,10 @@ impl AssetLoader for FakeGltfLoader {
             .map_err(|err| Error::new(ErrorKind::InvalidData, err.to_string()))
     }
 
+    fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
+    }
+
     fn extensions(&self) -> &[&str] {
         &["gltf"]
     }
@@ -601,6 +609,10 @@ impl AssetLoader for FakeBsnLoader {
             new_bsn.nodes.insert(name, node);
         }
         Ok(new_bsn)
+    }
+
+    fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {
@@ -792,6 +804,10 @@ fn asset_processor_loading_can_read_source_assets() {
             }
 
             Ok(FakeGltfx { gltfs })
+        }
+
+        fn reader_required_features(_: &Self::Settings) -> ReaderRequiredFeatures {
+            ReaderRequiredFeatures::default()
         }
 
         fn extensions(&self) -> &[&str] {

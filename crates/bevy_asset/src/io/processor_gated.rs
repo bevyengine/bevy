@@ -1,5 +1,7 @@
 use crate::{
-    io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
+    io::{
+        AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader, ReaderRequiredFeatures,
+    },
     processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
@@ -38,7 +40,11 @@ impl ProcessorGatedReader {
 }
 
 impl AssetReader for ProcessorGatedReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+    async fn read<'a>(
+        &'a self,
+        path: &'a Path,
+        required_features: ReaderRequiredFeatures,
+    ) -> Result<impl Reader + 'a, AssetReaderError> {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
@@ -56,7 +62,7 @@ impl AssetReader for ProcessorGatedReader {
             .processing_state
             .get_transaction_lock(&asset_path)
             .await?;
-        let asset_reader = self.reader.read(path).await?;
+        let asset_reader = self.reader.read(path, required_features).await?;
         let reader = TransactionLockedReader::new(asset_reader, lock);
         Ok(reader)
     }

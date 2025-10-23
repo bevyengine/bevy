@@ -48,6 +48,7 @@ use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
+        ReaderRequiredFeatures,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -1033,7 +1034,11 @@ impl AssetProcessor {
         let new_hash = {
             // Create a reader just for computing the hash. Keep this scoped here so that we drop it
             // as soon as the hash is computed.
-            let mut reader_for_hash = reader.read(path).await.map_err(reader_err)?;
+            let mut reader_for_hash = reader
+                .read(path, ReaderRequiredFeatures::default())
+                .await
+                .map_err(reader_err)?;
+
             get_asset_hash(&meta_bytes, &mut reader_for_hash)
                 .await
                 .map_err(reader_err)?
@@ -1068,16 +1073,6 @@ impl AssetProcessor {
             }
         }
 
-        // Create a reader just for the actual process. Note: this means that we're performing two
-        // reads for the same file (but we avoid having to load the whole file into memory). For
-        // some sources (like local file systems), this is not a big deal, but for other sources
-        // like an HTTP asset sources, this could be an entire additional download (if the asset
-        // source doesn't do any caching). In practice, most sources being processed are likely to
-        // be local, and processing in general is a publish-time operation, so it's not likely to be
-        // too big a deal. If in the future, we decide we want to avoid this repeated read, we could
-        // "ask" the asset source if it prefers avoiding repeated reads or not.
-        let mut reader_for_process = reader.read(path).await.map_err(reader_err)?;
-
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
@@ -1100,6 +1095,22 @@ impl AssetProcessor {
             // Unwrap is ok since we have a processor, so the `AssetAction` must have been
             // `AssetAction::Process` (which includes its settings).
             let settings = source_meta.process_settings().unwrap();
+
+            let reader_features = processor.reader_required_features(settings)?;
+            // Create a reader just for the actual process. Note: this means that we're performing
+            // two reads for the same file (but we avoid having to load the whole file into memory).
+            // For some sources (like local file systems), this is not a big deal, but for other
+            // sources like an HTTP asset sources, this could be an entire additional download (if
+            // the asset source doesn't do any caching). In practice, most sources being processed
+            // are likely to be local, and processing in general is a publish-time operation, so
+            // it's not likely to be too big a deal. If in the future, we decide we want to avoid
+            // this repeated read, we could "ask" the asset source if it prefers avoiding repeated
+            // reads or not.
+            let reader_for_process = reader
+                .read(path, reader_features)
+                .await
+                .map_err(reader_err)?;
+
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
                 let mut context = ProcessContext::new(
@@ -1137,8 +1148,13 @@ impl AssetProcessor {
                 .await
                 .map_err(writer_err)?;
         } else {
+            // See the reasoning for processing why it's ok to do a second read here.
+            let mut reader_for_copy = reader
+                .read(path, ReaderRequiredFeatures::default())
+                .await
+                .map_err(reader_err)?;
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
-            futures_lite::io::copy(&mut reader_for_process, &mut writer)
+            futures_lite::io::copy(&mut reader_for_copy, &mut writer)
                 .await
                 .map_err(|err| ProcessError::AssetWriterError {
                     path: asset_path.clone_owned(),
