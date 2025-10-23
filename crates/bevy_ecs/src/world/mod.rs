@@ -45,6 +45,7 @@ use crate::{
     },
     entity::{
         ConstructedEntityDoesNotExistError, ConstructionError, Entities, EntitiesAllocator, Entity,
+        EntityDoesNotExistError,
     },
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
@@ -1534,9 +1535,7 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        if let Err(EntityDestructError(ConstructedEntityDoesNotExistError::DidNotExist(error))) =
-            self.despawn_with_caller(entity, MaybeLocation::caller())
-        {
+        if let Err(error) = self.despawn_with_caller(entity, MaybeLocation::caller()) {
             warn!("{error}");
             false
         } else {
@@ -1555,7 +1554,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDestructError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDoesNotExistError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1564,14 +1563,25 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), EntityDestructError> {
-        let entity = self.get_entity_mut(entity).map_err(|err| match err {
-            EntityMutableFetchError::EntityDoesNotExist(err) => err,
+    ) -> Result<(), EntityDoesNotExistError> {
+        match self.get_entity_mut(entity) {
+            Ok(entity) => {
+                entity.despawn_with_caller(caller);
+                Ok(())
+            }
             // Only one entity.
-            EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
-        })?;
-        entity.despawn_with_caller(caller);
-        Ok(())
+            Err(EntityMutableFetchError::AliasedMutability(_)) => unreachable!(),
+            Err(EntityMutableFetchError::EntityDoesNotExist(
+                ConstructedEntityDoesNotExistError::DidNotExist(err),
+            )) => Err(err),
+            // The caller wants the entity to be left not constructed and in the allocator. In this case, we can just skip the destructing part.
+            Err(EntityMutableFetchError::EntityDoesNotExist(
+                ConstructedEntityDoesNotExistError::WasNotConstructed(_),
+            )) => {
+                self.allocator.free(entity);
+                Ok(())
+            }
+        }
     }
 
     /// Performs [`try_destruct`](Self::try_destruct), warning on errors.
