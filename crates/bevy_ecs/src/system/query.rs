@@ -2583,7 +2583,7 @@ pub type QueryLens<'w, Q, F = ()> = Query<'w, 'static, Q, F, Box<QueryState<Q, F
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].
     #[deprecated(
-        since = "0.17.0",
+        since = "0.18.0",
         note = "This can usually be removed, since `QueryLens` supports all methods from `Query`. If you need to consume the resulting `Query`, call `reborrow()` instead."
     )]
     pub fn query(&mut self) -> Query<'_, '_, Q, F> {

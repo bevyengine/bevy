@@ -10,10 +10,10 @@ If that doesn't work and you do need a fresh `Query`, the call to `.query()` can
 ```rust
 fn with_query(query: Query<&T>) {}
 fn with_lens(lens: QueryLens<&T>) -> Result {
-  // 0.16
+  // 0.17
   for item in lens.query().iter() {}
   with_query(lens.query());
-  // 0.17
+  // 0.18
   for item in lens.iter() {}
   with_query(lens.reborrow());
 }
