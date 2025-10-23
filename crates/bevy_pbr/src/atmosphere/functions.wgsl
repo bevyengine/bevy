@@ -262,8 +262,8 @@ fn calculate_visible_sun_ratio(atmosphere: Atmosphere, r: f32, mu: f32, sun_angu
     // Calculate the angle between horizon and sun center
     // Invert the horizon angle calculation to fix shading direction
     let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));
-    let horizon_angle = acos(horizon_cos);
-    let sun_zenith_angle = acos(mu);
+    let horizon_angle = fast_acos_4(horizon_cos);
+    let sun_zenith_angle = fast_acos_4(mu);
     
     // If sun is completely above horizon
     if sun_zenith_angle + sun_angular_size * 0.5 <= horizon_angle {

@@ -177,9 +177,7 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    write_atmosphere_buffer
-                        .in_set(RenderSystems::PrepareResources)
-                        .before(RenderSystems::PrepareBindGroups),
+                    write_atmosphere_buffer.in_set(RenderSystems::PrepareResources),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
