@@ -20,7 +20,7 @@ use bevy::{
     },
     pbr::{
         Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
-        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        EarthlikeAtmosphere, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -99,14 +99,20 @@ fn atmosphere_controls(
     }
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-3.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH,
-        // Can be adjusted to change the scene scale and rendering quality
-        AtmosphereSettings::default(),
+        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        // get the default `Atmosphere` component
+        earth_atmosphere.get(),
+        // The scene is in units of 10km, so we need to scale up the
+        // aerial view lut distance and set the scene scale accordingly.
+        // Most usages of this feature will not need to adjust this.
+        AtmosphereSettings {
+            aerial_view_lut_max_distance: 3.2e5,
+            scene_units_to_m: 1e+4,
+            ..Default::default()
+        },
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps

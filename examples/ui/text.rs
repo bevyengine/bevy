@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::Underline,
 };
 
 fn main() {
@@ -32,6 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
+        Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),

@@ -77,7 +77,7 @@ pub struct TextPipeline {
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32)>,
+    glyph_info: Vec<(AssetId<Font>, FontSmoothing, f32, f32, f32, f32)>,
 }
 
 impl TextPipeline {
@@ -254,6 +254,7 @@ impl TextPipeline {
                 text_font.font_size,
                 0.,
                 0.,
+                0.,
             ));
         });
 
@@ -272,7 +273,9 @@ impl TextPipeline {
 
         update_result?;
 
-        for (font, _, size, strike_offset, stroke) in self.glyph_info.iter_mut() {
+        for (font, _, size, strikethrough_offset, stroke, underline_offset) in
+            self.glyph_info.iter_mut()
+        {
             let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
                 continue;
             };
@@ -281,8 +284,9 @@ impl TextPipeline {
                 let metrics = swash.metrics(&[]);
                 let upem = metrics.units_per_em as f32;
                 let scalar = *size * scale_factor as f32 / upem;
-                *strike_offset = (metrics.strikeout_offset * scalar).round();
+                *strikethrough_offset = (metrics.strikeout_offset * scalar).round();
                 *stroke = (metrics.stroke_size * scalar).round().max(1.);
+                *underline_offset = (metrics.underline_offset * scalar).round();
             }
         }
 
@@ -311,6 +315,7 @@ impl TextPipeline {
                                     ),
                                     (run.line_y - self.glyph_info[section].3).round(),
                                     self.glyph_info[section].4,
+                                    (run.line_y - self.glyph_info[section].5).round(),
                                 ));
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
@@ -401,6 +406,7 @@ impl TextPipeline {
                     Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                     (run.line_y - self.glyph_info[section].3).round(),
                     self.glyph_info[section].4,
+                    (run.line_y - self.glyph_info[section].5).round(),
                 ));
             }
 
@@ -481,9 +487,9 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text segment: (section index, bounding rect, strikeout offset, strikeout stroke thickness)
+    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
     /// A text section spanning more than one line will have multiple segments.
-    pub section_geometry: Vec<(usize, Rect, f32, f32)>,
+    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
