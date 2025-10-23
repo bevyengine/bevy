@@ -141,7 +141,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
             (
                 update_source::<C, F>,
                 update_reparented::<C, F, R>,
-                update_removed_skip::<C, F, R>,
+                update_removed_limit::<C, F, R>,
                 propagate_inherited::<C, F, R>,
                 propagate_output::<C, F>,
             )
@@ -177,33 +177,48 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
         (Entity, &R, Option<&Inherited<C>>, Option<&PropagateOver<C>>),
         (Changed<R>, Without<Propagate<C>>, F),
     >,
-    relations: Query<&Inherited<C>>,
-    orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
+    relations: Query<(Entity, &Inherited<C>)>,
+    skipped_children: Query<&<R as Relationship>::RelationshipTarget, With<PropagateOver<C>>>,
+    orphaned: Query<(Entity, Option<&Inherited<C>>), (Without<Propagate<C>>, Without<R>, F)>,
 ) {
     for (entity, relation, maybe_inherited, maybe_skip) in &moved {
         if maybe_skip.is_some() {
             continue;
         }
-        if let Ok(inherited) = relations.get(relation.get()) {
+        if let Ok((_, inherited)) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
             commands.entity(entity).remove::<(Inherited<C>, C)>();
         }
     }
 
-    for orphan in &orphaned {
-        commands.entity(orphan).remove::<(Inherited<C>, C)>();
+    for (orphan, maybe_inherited) in &orphaned {
+        if maybe_inherited.is_some() {
+            commands.entity(orphan).remove::<(Inherited<C>, C)>();
+        } else if let Ok(children) = skipped_children.get(orphan) {
+            for (child, _) in relations.iter_many(children.iter()) {
+                commands.entity(child).remove::<(Inherited<C>, C)>();
+            }
+        }
     }
 }
 
 /// When PropagateOver is removed, connect into the inheritance chain
-pub fn update_removed_skip<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     parents: Query<&Inherited<C>>,
     children: Query<&R>,
-    mut removed: RemovedComponents<PropagateOver<C>>,
+    mut removed_skip: RemovedComponents<PropagateOver<C>>,
+    mut removed_stop: RemovedComponents<PropagateStop<C>>,
 ) {
-    for entity in removed.read() {
+    for entity in removed_skip.read() {
+        if let Ok(child_of) = children.get(entity)
+            && let Ok(parent) = parents.get(child_of.get())
+        {
+            commands.entity(entity).try_insert(parent.clone());
+        }
+    }
+    for entity in removed_stop.read() {
         if let Ok(child_of) = children.get(entity)
             && let Ok(parent) = parents.get(child_of.get())
         {
