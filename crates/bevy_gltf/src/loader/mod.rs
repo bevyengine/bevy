@@ -2327,4 +2327,72 @@ mod test {
         assert_eq!(skinned_node.children.len(), 2);
         assert_eq!(skinned_node.skin.as_ref(), Some(&gltf_root.skins[0]));
     }
+
+    fn test_app_custom_asset_source() -> (App, Dir) {
+        let dir = Dir::default();
+
+        let mut app = App::new();
+        let custom_reader = MemoryAssetReader { root: dir.clone() };
+        // Create a default asset source so we definitely don't try to read from disk.
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || {
+                Box::new(MemoryAssetReader {
+                    root: Dir::default(),
+                })
+            }),
+        )
+        .register_asset_source(
+            "custom",
+            AssetSource::build().with_reader(move || Box::new(custom_reader.clone())),
+        )
+        .add_plugins((
+            LogPlugin::default(),
+            TaskPoolPlugin::default(),
+            AssetPlugin::default(),
+            ScenePlugin,
+            MeshPlugin,
+            crate::GltfPlugin::default(),
+        ));
+
+        app.finish();
+        app.cleanup();
+
+        (app, dir)
+    }
+
+    #[test]
+    fn reads_buffer_in_custom_asset_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "buffers": [
+        {
+            "uri": "abc.bin",
+            "byteLength": 3
+        }
+    ]
+}
+"#,
+        );
+        // We don't care that the buffer contains reasonable info since we won't actually use it.
+        dir.insert_asset_text(Path::new("abc.bin"), "Sup");
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            let load_state = asset_server.get_load_state(handle.id()).unwrap();
+            match load_state {
+                LoadState::Loaded => Some(()),
+                LoadState::Failed(err) => panic!("{err}"),
+                _ => None,
+            }
+        });
+    }
 }
