@@ -8,7 +8,8 @@ use core::{
 use std::io;
 
 use bevy_asset::{
-    io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
+    io::{Reader, ReaderRequiredFeatures},
+    Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -792,6 +793,10 @@ impl AssetLoader for AnimationGraphAssetLoader {
             root: serialized_animation_graph.root,
             mask_groups: serialized_animation_graph.mask_groups,
         })
+    }
+
+    fn reader_required_features(_settings: &Self::Settings) -> ReaderRequiredFeatures {
+        ReaderRequiredFeatures::default()
     }
 
     fn extensions(&self) -> &[&str] {
