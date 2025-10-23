@@ -1,4 +1,4 @@
-//! Core widget components for popup menus. This module is only concerned with the actual
+//! Standard widget components for popup menus. This module is only concerned with the actual
 //! dropdown part, not the menu button widget, although it does define a set of events for
 //! communicating open and close events from the menu to the button.
 
