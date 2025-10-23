@@ -1096,7 +1096,7 @@ pub fn extract_text_shadows(
         for &(section_index, rect, strikethrough_y, stroke, underline_y) in
             text_layout_info.section_geometry.iter()
         {
-            let section_entity = computed_block.entities()[section_index].entity;
+            let section_entity = computed_block[section_index];
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
                 continue;
@@ -1213,7 +1213,7 @@ pub fn extract_text_decorations(
         for &(section_index, rect, strikethrough_y, stroke, underline_y) in
             text_layout_info.section_geometry.iter()
         {
-            let section_entity = computed_block.entities()[section_index].entity;
+            let section_entity = computed_block[section_index];
             let Ok(((text_background_color, maybe_strikethrough, maybe_underline), text_color)) =
                 text_background_colors_query.get(section_entity)
             else {
