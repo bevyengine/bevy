@@ -9,10 +9,10 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use async_lock::RwLockReadGuardArc;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use std::path::Path;
+use std::{io::SeekFrom, path::Path};
 use tracing::trace;
 
-use super::{AsyncSeekForward, ErasedAssetReader};
+use super::{AsyncSeek, ErasedAssetReader};
 
 /// An [`AssetReader`] that will prevent asset (and asset metadata) read futures from returning for a
 /// given path until that path has been processed by [`AssetProcessor`].
@@ -141,13 +141,13 @@ impl AsyncRead for TransactionLockedReader<'_> {
     }
 }
 
-impl AsyncSeekForward for TransactionLockedReader<'_> {
-    fn poll_seek_forward(
+impl AsyncSeek for TransactionLockedReader<'_> {
+    fn poll_seek(
         mut self: Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        Pin::new(&mut self.reader).poll_seek_forward(cx, offset)
+        Pin::new(&mut self.reader).poll_seek(cx, pos)
     }
 }
 

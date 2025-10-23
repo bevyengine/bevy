@@ -1713,6 +1713,7 @@ impl AssetServer {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }

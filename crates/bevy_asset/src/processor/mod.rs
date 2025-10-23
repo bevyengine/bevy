@@ -433,6 +433,7 @@ impl AssetProcessor {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
+            Err(AssetReaderError::UnsupportedFeature(feature)) => panic!("reading the meta file never requests a feature, but the following feature is unsupported: {feature}"),
             Err(AssetReaderError::NotFound(_)) => {
                 // The meta file couldn't be found so just fall through.
             }
@@ -533,6 +534,10 @@ impl AssetProcessor {
                     }
                     Err(err) => {
                         match err {
+                            // There is never a reason for a path check to return an
+                            // `UnsupportedFeature` error. This must be an incorrectly programmed
+                            // `AssetReader`, so just panic to make this clearly unsupported.
+                            AssetReaderError::UnsupportedFeature(feature) => panic!("checking whether a path is a file or folder resulted in unsupported feature: {feature}"),
                             AssetReaderError::NotFound(_) => {
                                 // if the path is not found, a processed version does not exist
                             }
@@ -604,6 +609,12 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
+                // There is never a reason for a directory read to return an `UnsupportedFeature`
+                // error. This must be an incorrectly programmed `AssetReader`, so just panic to
+                // make this clearly unsupported.
+                AssetReaderError::UnsupportedFeature(feature) => {
+                    panic!("reading a directory resulted in unsupported feature: {feature}")
+                }
                 AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
                 }

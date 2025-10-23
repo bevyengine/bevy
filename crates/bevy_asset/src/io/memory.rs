@@ -11,11 +11,11 @@ use core::{pin::Pin, task::Poll};
 use futures_io::{AsyncRead, AsyncWrite};
 use futures_lite::Stream;
 use std::{
-    io::{Error, ErrorKind},
+    io::{Error, ErrorKind, SeekFrom},
     path::{Path, PathBuf},
 };
 
-use super::AsyncSeekForward;
+use super::AsyncSeek;
 
 #[derive(Default, Debug)]
 struct DirInternal {
@@ -331,13 +331,19 @@ impl AsyncRead for DataReader {
     }
 }
 
-impl AsyncSeekForward for DataReader {
-    fn poll_seek_forward(
-        mut self: Pin<&mut Self>,
+impl AsyncSeek for DataReader {
+    fn poll_seek(
+        self: Pin<&mut Self>,
         _cx: &mut core::task::Context<'_>,
-        offset: u64,
+        pos: SeekFrom,
     ) -> Poll<std::io::Result<u64>> {
-        Poll::Ready(crate::io::slice_seek_forward(&mut self.bytes_read, offset))
+        // Get the mut borrow to avoid trying to borrow the pin itself multiple times.
+        let this = self.get_mut();
+        Poll::Ready(crate::io::slice_seek(
+            this.data.value(),
+            &mut this.bytes_read,
+            pos,
+        ))
     }
 }
 
