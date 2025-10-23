@@ -16,8 +16,9 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    add_glyph_to_atlas, error::TextError, get_glyph_atlas_info, ComputedTextBlock, Font,
+    FontAtlasKey, FontAtlasSet, FontSmoothing, Justify, LineBreak, PositionedGlyph, TextBounds,
+    TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -64,7 +65,7 @@ pub struct FontFaceInfo {
     pub family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -98,8 +99,8 @@ impl TextPipeline {
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
-        let mut font_size: f32 = 0.;
-        let mut line_height: f32 = 0.0;
+        let mut max_font_size: f32 = 0.;
+        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -131,8 +132,8 @@ impl TextPipeline {
             }
 
             // Get max font size for use in cosmic Metrics.
-            font_size = font_size.max(text_font.font_size);
-            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
+            max_font_size = max_font_size.max(text_font.font_size);
+            max_line_height = max_line_height.max(text_font.line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -153,7 +154,7 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
         // deallocating the buffer.
@@ -229,7 +230,7 @@ impl TextPipeline {
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
-        font_atlas_sets: &mut FontAtlasSets,
+        font_atlas_set: &mut FontAtlasSet,
         texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         computed: &mut ComputedTextBlock,
@@ -260,10 +261,10 @@ impl TextPipeline {
             computed,
             font_system,
         );
-        if let Err(err) = update_result {
-            self.glyph_info = glyph_info;
-            return Err(err);
-        }
+
+        self.glyph_info = glyph_info;
+
+        update_result?;
 
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
@@ -303,8 +304,8 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = glyph_info[span_index].0;
-                    let font_smoothing = glyph_info[span_index].1;
+                    let font_id = self.glyph_info[span_index].0;
+                    let font_smoothing = self.glyph_info[span_index].1;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
@@ -322,15 +323,21 @@ impl TextPipeline {
                         layout_glyph
                     };
 
-                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
-
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
-                    let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                    let font_atlases = font_atlas_set
+                        .entry(FontAtlasKey(
+                            font_id,
+                            physical_glyph.cache_key.font_size_bits,
+                            font_smoothing,
+                        ))
+                        .or_default();
+
+                    let atlas_info = get_glyph_atlas_info(font_atlases, physical_glyph.cache_key)
                         .map(Ok)
                         .unwrap_or_else(|| {
-                            font_atlas_set.add_glyph_to_atlas(
+                            add_glyph_to_atlas(
+                                font_atlases,
                                 texture_atlases,
                                 textures,
                                 &mut font_system.0,
@@ -340,7 +347,7 @@ impl TextPipeline {
                             )
                         })?;
 
-                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
                     let glyph_rect = texture_atlas.textures[location.glyph_index];
                     let left = location.offset.x as f32;
@@ -375,9 +382,6 @@ impl TextPipeline {
 
             result
         });
-
-        // Return the scratch vec.
-        self.glyph_info = glyph_info;
 
         // Check result.
         result?;
@@ -449,6 +453,8 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.

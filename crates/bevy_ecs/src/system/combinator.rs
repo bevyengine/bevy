@@ -3,7 +3,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -11,7 +11,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{IntoSystem, ReadOnlySystem, System};
+use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 
 /// Customizes the behavior of a [`CombinatorSystem`].
 ///
@@ -19,7 +19,7 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{CombinatorSystem, Combine};
+/// use bevy_ecs::system::{CombinatorSystem, Combine, RunSystemError};
 ///
 /// // A system combinator that performs an exclusive-or (XOR)
 /// // operation on the output of two systems.
@@ -36,12 +36,13 @@ use super::{IntoSystem, ReadOnlySystem, System};
 ///     type In = ();
 ///     type Out = bool;
 ///
-///     fn combine(
+///     fn combine<T>(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> A::Out,
-///         b: impl FnOnce(B::In) -> B::Out,
-///     ) -> Self::Out {
-///         a(()) ^ b(())
+///         data: &mut T,
+///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
+///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
+///     ) -> Result<Self::Out, RunSystemError> {
+///         Ok(a((), data)? ^ b((), data)?)
 ///     }
 /// }
 ///
@@ -99,11 +100,12 @@ pub trait Combine<A: System, B: System> {
     /// the two composite systems are invoked and their outputs are combined.
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out;
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, B>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError>;
 }
 
 /// A [`System`] defined by combining two other systems.
@@ -152,17 +154,27 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
+        struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
+
         Func::combine(
             input,
+            &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            |input| unsafe { self.a.run_unsafe(input, world) },
+            // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
+            // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
+            // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
+            // This means that the world accesses in the two closures will not conflict with each other.
+            |input, world| unsafe { self.a.run_unsafe(input, world.0) },
+            // `Self::validate_param_unsafe` already validated the first system,
+            // but we still need to validate the second system once the first one runs.
             // SAFETY: See the comment above.
-            |input| unsafe { self.b.run_unsafe(input, world) },
+            |input, world| unsafe {
+                self.b.validate_param_unsafe(world.0)?;
+                self.b.run_unsafe(input, world.0)
+            },
         )
     }
 
@@ -190,11 +202,15 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
+        // We only validate parameters for the first system,
+        // since it may make changes to the world that affect
+        // whether the second system has valid parameters.
+        // The second system will be validated in `Self::run_unsafe`.
         // SAFETY: Delegate to other `System` implementations.
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
@@ -243,6 +259,7 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+#[derive(Clone)]
 pub struct IntoPipeSystem<A, B> {
     a: A,
     b: B,
@@ -301,7 +318,7 @@ where
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
 ///     let mut piped_system = IntoSystem::into_system(parse_message_system.pipe(filter_system));
 ///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world), Some(42));
+///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -355,8 +372,11 @@ where
         &mut self,
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
-    ) -> Self::Out {
-        let value = self.a.run_unsafe(input, world);
+    ) -> Result<Self::Out, RunSystemError> {
+        let value = self.a.run_unsafe(input, world)?;
+        // `Self::validate_param_unsafe` already validated the first system,
+        // but we still need to validate the second system once the first one runs.
+        self.b.validate_param_unsafe(world)?;
         self.b.run_unsafe(value, world)
     }
 
@@ -377,30 +397,19 @@ where
         self.b.queue_deferred(world);
     }
 
-    /// This method uses "early out" logic: if the first system fails validation,
-    /// the second system is not validated.
-    ///
-    /// Because the system validation is performed upfront, this can lead to situations
-    /// where later systems pass validation, but fail at runtime due to changes made earlier
-    /// in the piped systems.
-    // TODO: ensure that systems are only validated just before they are run.
-    // Fixing this will require fundamentally rethinking how piped systems work:
-    // they're currently treated as a single system from the perspective of the scheduler.
-    // See https://github.com/bevyengine/bevy/issues/18796
     unsafe fn validate_param_unsafe(
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
+        // We only validate parameters for the first system,
+        // since it may make changes to the world that affect
+        // whether the second system has valid parameters.
+        // The second system will be validated in `Self::run_unsafe`.
         // SAFETY: Delegate to the `System` implementation for `a`.
-        unsafe { self.a.validate_param_unsafe(world) }?;
-
-        // SAFETY: Delegate to the `System` implementation for `b`.
-        unsafe { self.b.validate_param_unsafe(world) }?;
-
-        Ok(())
+        unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);

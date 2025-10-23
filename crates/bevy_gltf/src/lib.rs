@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -89,6 +89,43 @@
 //! Be careful when using this feature, if you misspell a label it will simply ignore it without warning.
 //!
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
+//!
+//! # Supported KHR Extensions
+//!
+//! glTF files may use functionality beyond the base glTF specification, specified as a list of
+//! required extensions. The table below shows which of the ratified Khronos extensions are
+//! supported by Bevy.
+//!
+//! | Extension                         | Supported | Requires feature                    |
+//! | --------------------------------- | --------- | ----------------------------------- |
+//! | `KHR_animation_pointer`           | ❌        |                                     |
+//! | `KHR_draco_mesh_compression`      | ❌        |                                     |
+//! | `KHR_lights_punctual`             | ✅        |                                     |
+//! | `KHR_materials_anisotropy`        | ✅        | `pbr_anisotropy_texture`            |
+//! | `KHR_materials_clearcoat`         | ✅        | `pbr_multi_layer_material_textures` |
+//! | `KHR_materials_dispersion`        | ❌        |                                     |
+//! | `KHR_materials_emissive_strength` | ✅        |                                     |
+//! | `KHR_materials_ior`               | ✅        |                                     |
+//! | `KHR_materials_iridescence`       | ❌        |                                     |
+//! | `KHR_materials_sheen`             | ❌        |                                     |
+//! | `KHR_materials_specular`          | ✅        | `pbr_specular_textures`             |
+//! | `KHR_materials_transmission`      | ✅        | `pbr_transmission_textures`         |
+//! | `KHR_materials_unlit`             | ✅        |                                     |
+//! | `KHR_materials_variants`          | ❌        |                                     |
+//! | `KHR_materials_volume`            | ✅        |                                     |
+//! | `KHR_mesh_quantization`           | ❌        |                                     |
+//! | `KHR_texture_basisu`              | ❌\*      |                                     |
+//! | `KHR_texture_transform`           | ✅\**     |                                     |
+//! | `KHR_xmp_json_ld`                 | ❌        |                                     |
+//! | `EXT_mesh_gpu_instancing`         | ❌        |                                     |
+//! | `EXT_meshopt_compression`         | ❌        |                                     |
+//! | `EXT_texture_webp`                | ❌\*      |                                     |
+//!
+//! \*Bevy supports ktx2 and webp formats but doesn't support the extension's syntax, see [#19104](https://github.com/bevyengine/bevy/issues/19104).
+//!
+//! \**`KHR_texture_transform` is only supported on `base_color_texture`, see [#15310](https://github.com/bevyengine/bevy/issues/15310).
+//!
+//! See the [glTF Extension Registry](https://github.com/KhronosGroup/glTF/blob/main/extensions/README.md) for more information on extensions.
 
 mod assets;
 mod convert_coordinates;
@@ -156,8 +193,23 @@ impl DefaultGltfImageSampler {
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
     ///
-    /// Can be modified with [`DefaultGltfImageSampler`] resource.
+    /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
+
+    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+    ///
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
+    ///
+    /// The default is `false`.
+    pub use_model_forward_direction: bool,
+
     /// Registry for custom vertex attributes.
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
@@ -169,6 +221,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
+            use_model_forward_direction: false,
         }
     }
 }
@@ -191,13 +244,7 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<GltfExtras>()
-            .register_type::<GltfSceneExtras>()
-            .register_type::<GltfMeshExtras>()
-            .register_type::<GltfMeshName>()
-            .register_type::<GltfMaterialExtras>()
-            .register_type::<GltfMaterialName>()
-            .init_asset::<Gltf>()
+        app.init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
@@ -219,10 +266,12 @@ impl Plugin for GltfPlugin {
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
+            default_use_model_forward_direction: self.use_model_forward_direction,
         });
     }
 }

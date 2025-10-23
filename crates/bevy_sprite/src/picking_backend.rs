@@ -7,19 +7,19 @@
 //!
 //! ## Implementation Notes
 //!
-//! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
+//! - The `position` reported in `HitData` in world space, and the `normal` is a normalized
 //!   vector provided by the target's `GlobalTransform::back()`.
 
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
@@ -76,9 +76,6 @@ pub struct SpritePickingPlugin;
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<SpritePickingCamera>()
-            .register_type::<SpritePickingMode>()
-            .register_type::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
@@ -104,7 +101,7 @@ fn sprite_picking(
         &Pickable,
         &ViewVisibility,
     )>,
-    mut output: EventWriter<PointerHits>,
+    mut pointer_hits_writer: MessageWriter<PointerHits>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
@@ -145,13 +142,15 @@ fn sprite_picking(
             continue;
         };
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
+        let viewport_pos = location.position;
+        if let Some(viewport) = camera.logical_viewport_rect()
+            && !viewport.contains(viewport_pos)
+        {
+            // The pointer is outside the viewport, skip it
+            continue;
+        }
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {
             continue;
         };
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
@@ -252,6 +251,6 @@ fn sprite_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.write(PointerHits::new(*pointer, picks, order));
+        pointer_hits_writer.write(PointerHits::new(*pointer, picks, order));
     }
 }

@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -275,7 +275,18 @@ type PreFmtSubscriber =
 pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
-pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+pub const DEFAULT_FILTER: &str = concat!(
+    "wgpu=error,",
+    "naga=warn,",
+    "symphonia_bundle_mp3::demuxer=warn,",
+    "symphonia_format_caf::demuxer=warn,",
+    "symphonia_format_isompf4::demuxer=warn,",
+    "symphonia_format_mkv::demuxer=warn,",
+    "symphonia_format_ogg::demuxer=warn,",
+    "symphonia_format_riff::demuxer=warn,",
+    "symphonia_format_wav::demuxer=warn,",
+    "calloop::loop_logic=error,",
+);
 
 impl Default for LogPlugin {
     fn default() -> Self {
@@ -314,7 +325,7 @@ impl Plugin for LogPlugin {
                     .and_then(|source| source.downcast_ref::<ParseError>())
                     .map(|parse_err| {
                         // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
                     });
 
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))

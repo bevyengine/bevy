@@ -4,7 +4,9 @@ use core::any::{Any, TypeId};
 use bevy_ecs::world::{unsafe_world_cell::UnsafeWorldCell, World};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect};
 
-use crate::{Asset, AssetId, Assets, Handle, UntypedAssetId, UntypedHandle};
+use crate::{
+    Asset, AssetId, Assets, Handle, InvalidGenerationError, UntypedAssetId, UntypedHandle,
+};
 
 /// Type data for the [`TypeRegistry`](bevy_reflect::TypeRegistry) used to operate on reflected [`Asset`]s.
 ///
@@ -24,7 +26,8 @@ pub struct ReflectAsset {
     // - may only be used to access **at most one** access at once
     get_unchecked_mut: unsafe fn(UnsafeWorldCell<'_>, UntypedAssetId) -> Option<&mut dyn Reflect>,
     add: fn(&mut World, &dyn PartialReflect) -> UntypedHandle,
-    insert: fn(&mut World, UntypedAssetId, &dyn PartialReflect),
+    insert:
+        fn(&mut World, UntypedAssetId, &dyn PartialReflect) -> Result<(), InvalidGenerationError>,
     len: fn(&World) -> usize,
     ids: for<'w> fn(&'w World) -> Box<dyn Iterator<Item = UntypedAssetId> + 'w>,
     remove: fn(&mut World, UntypedAssetId) -> Option<Box<dyn Reflect>>,
@@ -116,8 +119,8 @@ impl ReflectAsset {
         world: &mut World,
         asset_id: impl Into<UntypedAssetId>,
         value: &dyn PartialReflect,
-    ) {
-        (self.insert)(world, asset_id.into(), value);
+    ) -> Result<(), InvalidGenerationError> {
+        (self.insert)(world, asset_id.into(), value)
     }
 
     /// Equivalent of [`Assets::remove`]
@@ -173,7 +176,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
                 let mut assets = world.resource_mut::<Assets<A>>();
                 let value: A = FromReflect::from_reflect(value)
                     .expect("could not call `FromReflect::from_reflect` in `ReflectAsset::set`");
-                assets.insert(asset_id.typed_debug_checked(), value);
+                assets.insert(asset_id.typed_debug_checked(), value)
             },
             len: |world| {
                 let assets = world.resource::<Assets<A>>();

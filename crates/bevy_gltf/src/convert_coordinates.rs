@@ -24,6 +24,7 @@ pub(crate) trait ConvertCameraCoordinates {
     /// - up: Y
     /// - right: X
     ///
+    /// The same convention is used for lights.
     /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix>
     fn convert_camera_coordinates(self) -> Self;
 }

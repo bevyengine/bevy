@@ -1,7 +1,7 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
+    anti_alias::taa::TemporalAntiAliasing,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
@@ -79,8 +79,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -175,8 +175,7 @@ fn update(
 
     if let Some(thickness) = ssao.map(|s| s.constant_object_thickness) {
         text.push_str(&format!(
-            "Constant object thickness: {} (Up/Down)\n\n",
-            thickness
+            "Constant object thickness: {thickness} (Up/Down)\n\n"
         ));
     }
 

@@ -17,14 +17,14 @@
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
 #import bevy_pbr::mesh_view_bindings::{globals, lights, view, clusterable_objects}
 #import bevy_pbr::mesh_view_types::{
-    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT, 
-    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT, 
+    DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
+    POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
     POINT_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     ClusterableObject
 }
 #import bevy_pbr::shadow_sampling::{
-    sample_shadow_map_hardware, 
+    sample_shadow_map_hardware,
     sample_shadow_cubemap,
     sample_shadow_map,
     SPOT_SHADOW_TEXEL_SIZE
@@ -251,7 +251,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             // case.
             let P_uvw = Ro_uvw + Rd_step_uvw * f32(step);
             if (all(P_uvw >= vec3(0.0)) && all(P_uvw <= vec3(1.0))) {
-                density *= textureSample(density_texture, density_sampler, P_uvw + density_texture_offset).r;
+                density *= textureSampleLevel(density_texture, density_sampler, P_uvw + density_texture_offset, 0.0).r;
             } else {
                 density = 0.0;
             }
@@ -371,7 +371,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
                 }
                 local_light_attenuation *= spot_attenuation * shadow;
             }
-            
+
             // Calculate absorption (amount of light absorbed by the fog) and
             // out-scattering (amount of light the fog scattered away).
             let sample_attenuation = exp(-step_size_world * density * (absorption + scattering));
@@ -381,7 +381,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
             let light_factors_per_step = fog_color * light_tint * light_attenuation *
-                scattering * density * step_size_world * light_intensity * 0.1;
+                scattering * density * step_size_world * light_intensity * exposure;
 
             // Modulate the factor we calculated above by the phase, fog color,
             // light color, light tint.

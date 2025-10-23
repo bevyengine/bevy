@@ -20,6 +20,8 @@ pub trait HandleError<Out = ()>: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
     fn handle_error(self) -> impl Command;
+    /// Takes a [`Command`] that returns a Result and ignores any error that occurs.
+    fn ignore_error(self) -> impl Command;
 }
 
 impl<C, T, E> HandleError<Result<T, E>> for C
@@ -50,6 +52,12 @@ where
             ),
         }
     }
+
+    fn ignore_error(self) -> impl Command {
+        move |world: &mut World| {
+            let _ = self.apply(world);
+        }
+    }
 }
 
 impl<C> HandleError<Never> for C
@@ -68,6 +76,13 @@ where
             self.apply(world);
         }
     }
+
+    #[inline]
+    fn ignore_error(self) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
+        }
+    }
 }
 
 impl<C> HandleError for C
@@ -80,6 +95,10 @@ where
     }
     #[inline]
     fn handle_error(self) -> impl Command {
+        self
+    }
+    #[inline]
+    fn ignore_error(self) -> impl Command {
         self
     }
 }

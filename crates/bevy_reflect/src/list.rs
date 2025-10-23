@@ -95,7 +95,7 @@ pub trait List: PartialReflect {
     }
 
     /// Returns an iterator over the list.
-    fn iter(&self) -> ListIter;
+    fn iter(&self) -> ListIter<'_>;
 
     /// Drain the elements of this list to get a vector of owned values.
     ///
@@ -124,7 +124,7 @@ pub struct ListInfo {
     generics: Generics,
     item_info: fn() -> Option<&'static TypeInfo>,
     item_ty: Type,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -136,13 +136,13 @@ impl ListInfo {
             generics: Generics::new(),
             item_info: TItem::maybe_type_info,
             item_ty: Type::of::<TItem>(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this list.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -165,7 +165,7 @@ impl ListInfo {
     }
 
     /// The docstring of this list, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -238,7 +238,7 @@ impl List for DynamicList {
         self.values.len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -294,12 +294,12 @@ impl PartialReflect for DynamicList {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -382,7 +382,7 @@ pub struct ListIter<'a> {
 impl ListIter<'_> {
     /// Creates a new [`ListIter`].
     #[inline]
-    pub const fn new(list: &dyn List) -> ListIter {
+    pub const fn new(list: &dyn List) -> ListIter<'_> {
         ListIter { list, index: 0 }
     }
 }

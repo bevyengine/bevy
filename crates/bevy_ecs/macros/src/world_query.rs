@@ -113,8 +113,8 @@ pub(crate) fn world_query_impl(
             unsafe fn init_fetch<'__w, '__s>(
                 _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'__w>,
                 state: &'__s Self::State,
-                _last_run: #path::component::Tick,
-                _this_run: #path::component::Tick,
+                _last_run: #path::change_detection::Tick,
+                _this_run: #path::change_detection::Tick,
             ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                 #fetch_struct_name {
                     #(#named_field_idents:
@@ -152,7 +152,7 @@ pub(crate) fn world_query_impl(
                 #(<#field_types>::set_table(&mut _fetch.#named_field_idents, &_state.#named_field_idents, _table);)*
             }
 
-            fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
+            fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess) {
                 #( <#field_types>::update_component_access(&state.#named_field_idents, _access); )*
             }
 

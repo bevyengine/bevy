@@ -7,21 +7,103 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
-        .add_systems(Update, update_scroll_position);
+        .add_systems(Update, send_scroll_events)
+        .add_observer(on_scroll_handler);
 
     app.run();
 }
 
-const FONT_SIZE: f32 = 20.;
 const LINE_HEIGHT: f32 = 21.;
+
+/// Injects scroll events into the UI hierarchy.
+fn send_scroll_events(
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
+    hover_map: Res<HoverMap>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+) {
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let mut delta = -Vec2::new(mouse_wheel.x, mouse_wheel.y);
+
+        if mouse_wheel.unit == MouseScrollUnit::Line {
+            delta *= LINE_HEIGHT;
+        }
+
+        if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
+            std::mem::swap(&mut delta.x, &mut delta.y);
+        }
+
+        for pointer_map in hover_map.values() {
+            for entity in pointer_map.keys().copied() {
+                commands.trigger(Scroll { entity, delta });
+            }
+        }
+    }
+}
+
+/// UI scrolling event.
+#[derive(EntityEvent, Debug)]
+#[entity_event(propagate, auto_propagate)]
+struct Scroll {
+    entity: Entity,
+    /// Scroll delta in logical coordinates.
+    delta: Vec2,
+}
+
+fn on_scroll_handler(
+    mut scroll: On<Scroll>,
+    mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
+) {
+    let Ok((mut scroll_position, node, computed)) = query.get_mut(scroll.entity) else {
+        return;
+    };
+
+    let max_offset = (computed.content_size() - computed.size()) * computed.inverse_scale_factor();
+
+    let delta = &mut scroll.delta;
+    if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
+        // Is this node already scrolled all the way in the direction of the scroll?
+        let max = if delta.x > 0. {
+            scroll_position.x >= max_offset.x
+        } else {
+            scroll_position.x <= 0.
+        };
+
+        if !max {
+            scroll_position.x += delta.x;
+            // Consume the X portion of the scroll delta.
+            delta.x = 0.;
+        }
+    }
+
+    if node.overflow.y == OverflowAxis::Scroll && delta.y != 0. {
+        // Is this node already scrolled all the way in the direction of the scroll?
+        let max = if delta.y > 0. {
+            scroll_position.y >= max_offset.y
+        } else {
+            scroll_position.y <= 0.
+        };
+
+        if !max {
+            scroll_position.y += delta.y;
+            // Consume the Y portion of the scroll delta.
+            delta.y = 0.;
+        }
+    }
+
+    // Stop propagating when the delta is fully consumed.
+    if *delta == Vec2::ZERO {
+        scroll.propagate(false);
+    }
+}
+
+const FONT_SIZE: f32 = 20.;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
@@ -33,18 +115,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // root node
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             flex_direction: FlexDirection::Column,
             ..default()
         })
-        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // horizontal scroll example
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.),
+                    width: percent(100),
                     flex_direction: FlexDirection::Column,
                     ..default()
                 })
@@ -64,8 +145,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Percent(80.),
-                                margin: UiRect::all(Val::Px(10.)),
+                                width: percent(80),
+                                margin: UiRect::all(px(10)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
                                 ..default()
@@ -83,20 +164,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
+                                        Node {
+                                            min_width: px(200),
+                                            align_content: AlignContent::Center,
+                                            ..default()
+                                        },
                                     ))
-                                    .insert(Node {
-                                        min_width: Val::Px(200.),
-                                        align_content: AlignContent::Center,
-                                        ..default()
-                                    })
-                                    .insert(Pickable {
-                                        should_block_lower: false,
-                                        ..default()
-                                    })
                                     .observe(
-                                        |trigger: On<Pointer<Press>>, mut commands: Commands| {
-                                            if trigger.event().button == PointerButton::Primary {
-                                                commands.entity(trigger.target()).despawn();
+                                        |press: On<Pointer<Press>>, mut commands: Commands| {
+                                            if press.event().button == PointerButton::Primary {
+                                                commands.entity(press.entity).despawn();
                                             }
                                         },
                                     );
@@ -107,8 +184,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // container for all other examples
             parent.spawn((
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     ..default()
@@ -128,7 +205,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -147,7 +224,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
+                    height: percent(50),
                     overflow: Overflow::scroll_y(), // n.b.
                     ..default()
                 },
@@ -155,12 +232,8 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Children::spawn(SpawnIter((0..25).map(move |i| {
                     (
                         Node {
-                            min_height: Val::Px(LINE_HEIGHT),
-                            max_height: Val::Px(LINE_HEIGHT),
-                            ..default()
-                        },
-                        Pickable {
-                            should_block_lower: false,
+                            min_height: px(LINE_HEIGHT),
+                            max_height: px(LINE_HEIGHT),
                             ..default()
                         },
                         children![(
@@ -171,10 +244,6 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             },
                             Label,
                             AccessibilityNode(Accessible::new(Role::ListItem)),
-                            Pickable {
-                                should_block_lower: false,
-                                ..default()
-                            }
                         )],
                     )
                 })))
@@ -189,7 +258,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -206,7 +275,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
+                    height: percent(50),
                     overflow: Overflow::scroll(), // n.b.
                     ..default()
                 },
@@ -217,7 +286,6 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                             flex_direction: FlexDirection::Row,
                             ..default()
                         },
-                        Pickable::IGNORE,
                         Children::spawn(SpawnIter((0..10).map({
                             let value = font_handle.clone();
                             move |i| {
@@ -229,10 +297,6 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                                     },
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
-                                    Pickable {
-                                        should_block_lower: false,
-                                        ..default()
-                                    },
                                 )
                             }
                         }))),
@@ -249,7 +313,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -264,45 +328,38 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Label,
             ),
             (
-                // Outer, horizontal scrolling container
+                // Outer, bi-directional scrolling container
                 Node {
-                    column_gap: Val::Px(20.),
+                    column_gap: px(20),
                     flex_direction: FlexDirection::Row,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
-                    overflow: Overflow::scroll_x(), // n.b.
+                    height: percent(50),
+                    overflow: Overflow::scroll(),
                     ..default()
                 },
                 BackgroundColor(Color::srgb(0.10, 0.10, 0.10)),
                 // Inner, scrolling columns
-                Children::spawn(SpawnIter((0..30).map(move |oi| {
+                Children::spawn(SpawnIter((0..5).map(move |oi| {
                     (
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_self: AlignSelf::Stretch,
+                            height: percent(200. / 5. * (oi as f32 + 1.)),
                             overflow: Overflow::scroll_y(),
                             ..default()
                         },
                         BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
-                        Pickable {
-                            should_block_lower: false,
-                            ..default()
-                        },
-                        Children::spawn(SpawnIter((0..30).map({
+                        Children::spawn(SpawnIter((0..20).map({
                             let value = font_handle.clone();
                             move |i| {
                                 (
-                                    Text(format!("Item {}", (oi * 25) + i)),
+                                    Text(format!("Item {}", (oi * 20) + i)),
                                     TextFont {
                                         font: value.clone(),
                                         ..default()
                                     },
                                     Label,
                                     AccessibilityNode(Accessible::new(Role::ListItem)),
-                                    Pickable {
-                                        should_block_lower: false,
-                                        ..default()
-                                    },
                                 )
                             }
                         }))),
@@ -311,37 +368,4 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             )
         ],
     )
-}
-
-/// Updates the scroll position of scrollable nodes in response to mouse input
-pub fn update_scroll_position(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
-    hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<&mut ScrollPosition>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-) {
-    for mouse_wheel_event in mouse_wheel_events.read() {
-        let (mut dx, mut dy) = match mouse_wheel_event.unit {
-            MouseScrollUnit::Line => (
-                mouse_wheel_event.x * LINE_HEIGHT,
-                mouse_wheel_event.y * LINE_HEIGHT,
-            ),
-            MouseScrollUnit::Pixel => (mouse_wheel_event.x, mouse_wheel_event.y),
-        };
-
-        if keyboard_input.pressed(KeyCode::ControlLeft)
-            || keyboard_input.pressed(KeyCode::ControlRight)
-        {
-            std::mem::swap(&mut dx, &mut dy);
-        }
-
-        for (_pointer, pointer_map) in hover_map.iter() {
-            for (entity, _hit) in pointer_map.iter() {
-                if let Ok(mut scroll_position) = scrolled_node_query.get_mut(*entity) {
-                    scroll_position.offset_x -= dx;
-                    scroll_position.offset_y -= dy;
-                }
-            }
-        }
-    }
 }
