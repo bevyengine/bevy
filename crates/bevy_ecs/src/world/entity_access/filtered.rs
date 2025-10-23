@@ -13,6 +13,7 @@ use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
+use std::prelude::rust_2015::Box;
 use thiserror::Error;
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
@@ -196,6 +197,42 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
             .has_component_read(component_id)
             // SAFETY: We have read access
             .then(|| unsafe { self.entity.get_by_id(component_id) })
+            .flatten()
+    }
+
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        self.access
+            .has_component_read(relationship_id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_relationship_by_id(relationship_id) })
+            .flatten()
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    pub fn get_relationship_targets_by_id(
+        &self,
+        relationship_target_id: ComponentId,
+    ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
+        self.access
+            .has_component_read(relationship_target_id)
+            // SAFETY: We have read access
+            .then(|| unsafe {
+                self.entity
+                    .get_relationship_targets_by_id(relationship_target_id)
+            })
             .flatten()
     }
 
@@ -646,6 +683,32 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
             // and we promise to not create other references to the same component
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
+    }
+
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        self.as_readonly().get_relationship_by_id(relationship_id)
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    pub fn get_relationship_targets_by_id(
+        &self,
+        relationship_target_id: ComponentId,
+    ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
+        self.as_readonly()
+            .get_relationship_targets_by_id(relationship_target_id)
     }
 
     /// Returns the source code location from which this entity has last been spawned.
