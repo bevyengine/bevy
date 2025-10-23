@@ -45,7 +45,7 @@ impl<'w> EntityFetcher<'w> {
     /// # Errors
     ///
     /// If any of the given `entities` do not exist in the world, the first
-    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
+    /// [`Entity`] found to be missing will return an [`ConstructedEntityDoesNotExistError`].
     ///
     /// # Examples
     ///
@@ -142,7 +142,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
+    /// - Returns [`ConstructedEntityDoesNotExistError`] if the entity does not exist.
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
