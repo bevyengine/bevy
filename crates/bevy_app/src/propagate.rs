@@ -483,6 +483,43 @@ mod tests {
     }
 
     #[test]
+    fn test_orphaned_propagate_over() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let propagate_over = app
+            .world_mut()
+            .spawn(TestValue(2))
+            .insert((PropagateOver::<TestValue>::default(), ChildOf(propagator)))
+            .id();
+        let propagatee = app
+            .world_mut()
+            .spawn_empty()
+            .insert(ChildOf(propagate_over))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagate_over, propagatee]),
+            Ok([&TestValue(2), &TestValue(1)])
+        );
+
+        app.world_mut()
+            .commands()
+            .entity(propagate_over)
+            .remove::<ChildOf>();
+        app.update();
+
+        assert_eq!(query.get(app.world(), propagate_over), Ok(&TestValue(2)));
+        assert!(query.get(app.world(), propagatee).is_err());
+    }
+
+    #[test]
     fn test_propagate_stop() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
