@@ -939,7 +939,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///        unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -994,7 +994,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///
@@ -1050,7 +1050,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     ///     fn into_iter(self) -> Self::IntoIter {
     ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
-    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///         unsafe { UniqueEntityIter::from_iter_unchecked(self.unique_list.iter()) }
     ///     }
     /// }
     ///

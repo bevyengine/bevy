@@ -11,6 +11,7 @@ pub struct EntityHash;
 impl BuildHasher for EntityHash {
     type Hasher = EntityHasher;
 
+    #[inline]
     fn build_hasher(&self) -> Self::Hasher {
         Self::Hasher::default()
     }
