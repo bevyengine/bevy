@@ -429,7 +429,7 @@ pub fn prepare_ssr_pipelines(
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
-            With<Atmosphere>,
+            With<ExtractedAtmosphere>,
         ),
     >,
 ) {
