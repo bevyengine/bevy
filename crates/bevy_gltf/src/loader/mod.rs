@@ -1910,9 +1910,10 @@ mod test {
             memory::{Dir, MemoryAssetReader},
             AssetSource, AssetSourceId,
         },
-        AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
+    use bevy_image::{Image, ImageLoaderSettings};
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
@@ -2399,6 +2400,76 @@ mod test {
                 LoadState::Failed(err) => panic!("{err}"),
                 _ => None,
             }
+        });
+    }
+
+    #[test]
+    fn reads_images_in_custom_asset_source() {
+        let (mut app, dir) = test_app_custom_asset_source();
+
+        dir.insert_asset_text(
+            Path::new("abc.gltf"),
+            r#"
+{
+    "asset": {
+        "version": "2.0"
+    },
+    "textures": [
+        {
+            "source": 0,
+            "sampler": 0
+        }
+    ],
+    "images": [
+        {
+            "uri": "abc.png"
+        }
+    ],
+    "samplers": [
+        {
+            "magFilter": 9729,
+            "minFilter": 9729
+        }
+    ]
+}
+"#,
+        );
+        // We don't care that the image contains reasonable info since we won't actually use it.
+        dir.insert_asset_text(Path::new("abc.png"), "Sup");
+
+        /// A fake loader to avoid actually loading any image data and just return an image.
+        struct FakePngLoader;
+
+        impl AssetLoader for FakePngLoader {
+            type Asset = Image;
+            type Error = std::io::Error;
+            type Settings = ImageLoaderSettings;
+
+            async fn load(
+                &self,
+                _reader: &mut dyn bevy_asset::io::Reader,
+                _settings: &Self::Settings,
+                _load_context: &mut bevy_asset::LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                Ok(Image::default())
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["png"]
+            }
+        }
+
+        app.init_asset::<Image>()
+            .register_asset_loader(FakePngLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<Gltf> = asset_server.load("custom://abc.gltf");
+        run_app_until(&mut app, |_world| {
+            // Note: we can't assert for failure since it's the nested load that fails, not the GLTF
+            // load.
+            asset_server
+                .is_loaded_with_dependencies(&handle)
+                .then_some(())
         });
     }
 }
