@@ -1,15 +1,15 @@
 use crate::{
     render_resource::{
-        BindGroup, BindGroupEntries, CachedComputePipelineId, CachedRenderPipelineId,
+        BindGroup, BindGroupEntries, Buffer, CachedComputePipelineId, CachedRenderPipelineId,
         ComputePipeline, ComputePipelineDescriptor, IntoBindingArray, RenderPipeline,
-        RenderPipelineDescriptor,
+        RenderPipelineDescriptor, TextureView,
     },
     renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::entity::Entity;
 use std::collections::HashMap;
-use wgpu::{Buffer, BufferDescriptor, TextureDescriptor, TextureView};
+use wgpu::{BufferDescriptor, TextureDescriptor, TextureViewDescriptor};
 
 #[derive(Default)]
 pub struct ResourceCache {
@@ -20,12 +20,32 @@ pub struct ResourceCache {
 }
 
 impl ResourceCache {
-    pub fn get_or_create_texture(&mut self, render_device: &RenderDevice) -> TextureView {
-        todo!()
+    pub fn get_or_create_texture(
+        &mut self,
+        descriptor: TextureDescriptor<'static>,
+        entity: Entity,
+        render_device: &RenderDevice,
+    ) -> TextureView {
+        self.textures
+            .entry((entity, descriptor.clone()))
+            .or_insert_with(|| {
+                render_device
+                    .create_texture(&descriptor)
+                    .create_view(&TextureViewDescriptor::default())
+            })
+            .clone()
     }
 
-    pub fn get_or_create_buffer(&mut self, render_device: &RenderDevice) -> Buffer {
-        todo!()
+    pub fn get_or_create_buffer(
+        &mut self,
+        entity: Entity,
+        descriptor: BufferDescriptor<'static>,
+        render_device: &RenderDevice,
+    ) -> Buffer {
+        self.buffers
+            .entry((entity, descriptor.clone()))
+            .or_insert_with(|| render_device.create_buffer(&descriptor))
+            .clone()
     }
 
     pub fn get_or_create_bind_group<'b, const N: usize>(

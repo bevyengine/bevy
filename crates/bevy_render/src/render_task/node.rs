@@ -40,6 +40,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
                 });
 
             let task_encoder = RenderTaskEncoder {
+                entity,
                 command_encoder: &mut command_encoder,
                 compute_pass: None,
                 resource_cache: &mut resource_cache.lock().unwrap(),
@@ -57,6 +58,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
 }
 
 pub struct RenderTaskEncoder<'a> {
+    entity: Entity,
     command_encoder: &'a mut CommandEncoder,
     compute_pass: Option<ComputePass<'static>>,
     resource_cache: &'a mut ResourceCache,
