@@ -193,7 +193,7 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        Transform::from_xyz(-1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
         cascade_shadow_config,
     ));
