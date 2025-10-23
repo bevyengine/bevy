@@ -5,7 +5,8 @@ use crate::{
     TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{
-    Atmosphere, DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset,
+    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -457,7 +458,7 @@ pub fn prepare_deferred_lighting_pipelines(
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
         Has<SkipDeferredLighting>,
-        Has<Atmosphere>,
+        Has<ExtractedAtmosphere>,
     )>,
 ) {
     for (

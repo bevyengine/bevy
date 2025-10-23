@@ -45,7 +45,7 @@ use crate::{
     },
     prepass,
     resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSamplers, AtmosphereTextures},
-    Atmosphere, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
+    EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
     MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
@@ -585,7 +585,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Has<OrderIndependentTransparencySettings>,
         Option<&AtmosphereTextures>,
-        Has<Atmosphere>,
+        Has<ExtractedAtmosphere>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,

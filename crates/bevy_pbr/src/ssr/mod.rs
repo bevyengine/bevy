@@ -47,7 +47,7 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, Atmosphere, MeshPipelineViewLayoutKey,
+    binding_arrays_are_usable, graph::NodePbr, ExtractedAtmosphere, MeshPipelineViewLayoutKey,
     MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset,
@@ -422,13 +422,13 @@ pub fn prepare_ssr_pipelines(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
-            Has<Atmosphere>,
+            Has<ExtractedAtmosphere>,
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
-            With<Atmosphere>,
+            With<ExtractedAtmosphere>,
         ),
     >,
 ) {

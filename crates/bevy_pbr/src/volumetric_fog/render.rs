@@ -50,7 +50,7 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    Atmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
@@ -633,7 +633,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
-            Has<Atmosphere>,
+            Has<ExtractedAtmosphere>,
         ),
         With<VolumetricFog>,
     >,

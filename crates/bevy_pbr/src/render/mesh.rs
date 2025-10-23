@@ -329,7 +329,7 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         Has<OrderIndependentTransparencySettings>,
-        Has<Atmosphere>,
+        Has<ExtractedAtmosphere>,
     )>,
     ticks: SystemChangeTick,
 ) {
