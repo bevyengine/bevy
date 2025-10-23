@@ -2,16 +2,12 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use std::{
-    io::Error,
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
+use std::{io::Error, sync::Mutex};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ParseAssetPathError,
+    io::Reader, AssetLoadError, AssetLoader, AssetPath, Handle, LoadContext, ParseAssetPathError,
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
@@ -113,6 +109,9 @@ pub enum GltfError {
     /// Error when loading a texture. Might be due to a disabled image file format feature.
     #[error("You may need to add the feature for the file format: {0}")]
     ImageError(#[from] TextureError),
+    /// The image URI was unable to be resolved with respect to the asset path.
+    #[error("invalid image uri: {0}. asset path error={1}")]
+    InvalidImageUri(String, ParseAssetPathError),
     /// Failed to read bytes from an asset path.
     #[error("failed to read bytes from an asset path: {0}")]
     ReadAssetBytesError(#[from] ReadAssetBytesError),
@@ -598,12 +597,11 @@ impl GltfLoader {
         let mut _texture_handles = Vec::new();
         if gltf.textures().len() == 1 || cfg!(target_arch = "wasm32") {
             for texture in gltf.textures() {
-                let parent_path = load_context.path().parent().unwrap();
                 let image = load_image(
                     texture,
                     &buffer_data,
                     &linear_textures,
-                    parent_path,
+                    load_context.asset_path(),
                     loader.supported_compressed_formats,
                     default_sampler,
                     settings,
@@ -616,7 +614,7 @@ impl GltfLoader {
             IoTaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
-                        let parent_path = load_context.path().parent().unwrap();
+                        let asset_path = load_context.asset_path().clone();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
                         scope.spawn(async move {
@@ -624,7 +622,7 @@ impl GltfLoader {
                                 gltf_texture,
                                 buffer_data,
                                 linear_textures,
-                                parent_path,
+                                &asset_path,
                                 loader.supported_compressed_formats,
                                 default_sampler,
                                 settings,
@@ -1082,7 +1080,7 @@ async fn load_image<'a, 'b>(
     gltf_texture: gltf::Texture<'a>,
     buffer_data: &[Vec<u8>],
     linear_textures: &HashSet<usize>,
-    parent_path: &'b Path,
+    gltf_path: &'b AssetPath<'b>,
     supported_compressed_formats: CompressedImageFormats,
     default_sampler: &ImageSamplerDescriptor,
     settings: &GltfLoaderSettings,
@@ -1132,7 +1130,9 @@ async fn load_image<'a, 'b>(
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
             } else {
-                let image_path = parent_path.join(uri);
+                let image_path = gltf_path
+                    .resolve_embed(uri)
+                    .map_err(|err| GltfError::InvalidImageUri(uri.to_owned(), err))?;
                 Ok(ImageOrPath::Path {
                     path: image_path,
                     is_srgb,
@@ -1808,7 +1808,7 @@ enum ImageOrPath {
         label: GltfAssetLabel,
     },
     Path {
-        path: PathBuf,
+        path: AssetPath<'static>,
         is_srgb: bool,
         sampler_descriptor: ImageSamplerDescriptor,
     },
