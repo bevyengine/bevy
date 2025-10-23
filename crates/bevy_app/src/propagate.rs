@@ -193,29 +193,18 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
 pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     changed: Query<
-        (
-            &Inherited<C>,
-            &R::RelationshipTarget,
-            Option<&PropagateStop<C>>,
-        ),
-        (Changed<Inherited<C>>, F),
+        (&Inherited<C>, &R::RelationshipTarget),
+        (Changed<Inherited<C>>, Without<PropagateStop<C>>, F),
     >,
     recurse: Query<
-        (
-            Option<&R::RelationshipTarget>,
-            Option<&Inherited<C>>,
-            Option<&PropagateStop<C>>,
-        ),
-        (Without<Propagate<C>>, F),
+        (Option<&R::RelationshipTarget>, Option<&Inherited<C>>),
+        (Without<Propagate<C>>, Without<PropagateStop<C>>, F),
     >,
     mut removed: RemovedComponents<Inherited<C>>,
     mut to_process: Local<Vec<(Entity, Option<Inherited<C>>)>>,
 ) {
     // gather changed
-    for (inherited, targets, maybe_stop) in &changed {
-        if maybe_stop.is_some() {
-            continue;
-        }
+    for (inherited, targets) in &changed {
         to_process.extend(
             targets
                 .iter()
@@ -225,17 +214,14 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(targets), _, maybe_stop)) = recurse.get(entity) {
-            if maybe_stop.is_some() {
-                continue;
-            }
+        if let Ok((Some(targets), _)) = recurse.get(entity) {
             to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
 
     // propagate
     while let Some((entity, maybe_inherited)) = (*to_process).pop() {
-        let Ok((maybe_targets, maybe_current, maybe_stop)) = recurse.get(entity) else {
+        let Ok((maybe_targets, maybe_current)) = recurse.get(entity) else {
             continue;
         };
 
@@ -243,9 +229,7 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
             continue;
         }
 
-        if maybe_stop.is_none()
-            && let Some(targets) = maybe_targets
-        {
+        if let Some(targets) = maybe_targets {
             to_process.extend(
                 targets
                     .iter()
