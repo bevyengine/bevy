@@ -228,6 +228,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node { ..default() },
         DemoMenuAnchor,
+        observe(on_menu_event),
         children![(
             Node {
                 width: Val::Px(200.0),
@@ -246,7 +247,7 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
             BorderColor::all(Color::BLACK),
             BorderRadius::all(Val::Px(5.0)),
             BackgroundColor(NORMAL_BUTTON),
-            observe(spawn_popup),
+            observe(on_menu_button_press),
             children![
                 (
                     Text::new("Menu"),
@@ -792,15 +793,48 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
     )
 }
 
-fn spawn_popup(
-    _: On<Activate>,
-    menu: Query<Entity, With<DemoMenuAnchor>>,
+/// Note that we're using `Pointer<Press>` here instead of `Activate` because we want to
+/// catch the click before the focus change.
+fn on_menu_button_press(press: On<Pointer<Press>>, mut commands: Commands) {
+    commands.trigger(MenuEvent {
+        source: press.entity,
+        action: MenuAction::Toggle,
+    });
+}
+
+fn on_menu_event(
+    menu_event: On<MenuEvent>,
+    q_anchor: Single<(Entity, &Children), With<DemoMenuAnchor>>,
+    q_popup: Query<Entity, With<MenuPopup>>,
     assets: Res<AssetServer>,
+    mut focus: ResMut<InputFocus>,
     mut commands: Commands,
 ) {
-    let Ok(anchor) = menu.single() else {
-        return;
-    };
+    let (anchor, children) = q_anchor.into_inner();
+    let popup = children.iter().find_map(|c| q_popup.get(c).ok());
+    info!("Menu action: {:?}", menu_event.action);
+    match menu_event.action {
+        MenuAction::Open => {
+            if popup.is_none() {
+                spawn_menu(anchor, assets, commands);
+            }
+        }
+        MenuAction::Toggle => match popup {
+            Some(popup) => commands.entity(popup).despawn(),
+            None => spawn_menu(anchor, assets, commands),
+        },
+        MenuAction::Close | MenuAction::CloseAll => {
+            if let Some(popup) = popup {
+                commands.entity(popup).despawn();
+            }
+        }
+        MenuAction::FocusRoot => {
+            focus.0 = Some(anchor);
+        }
+    }
+}
+
+fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) {
     let menu = commands
         .spawn((
             Node {
@@ -849,20 +883,6 @@ fn spawn_popup(
         ))
         .id();
     commands.entity(anchor).add_child(menu);
-    commands.entity(menu).observe(
-        move |mut ev: On<MenuEvent>, mut commands: Commands, mut focus: ResMut<InputFocus>| {
-            info!("Got menu event: {:?}", ev.event());
-            ev.propagate(false);
-            match ev.event().action {
-                MenuAction::Close | MenuAction::CloseAll => commands.entity(menu).despawn(),
-                MenuAction::FocusRoot => {
-                    focus.0 = Some(anchor);
-                }
-                _ => (),
-            }
-        },
-    );
-    info!("Open menu");
 }
 
 fn menu_item(asset_server: &AssetServer) -> impl Bundle {

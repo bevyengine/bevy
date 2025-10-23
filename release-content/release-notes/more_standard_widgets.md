@@ -18,7 +18,7 @@ Popovers will be placed relative to an anchor element, and positioned so that th
 cut off by the window edge. You can specify a list of preferred "placements": top, bottom,
 left or right, along with alignment options for each. If the popup is so large that it's
 impossible to position it without it getting cut off, it will choose the placement that results
-in the most visibility (as determined by the area cut off). (A future version might also 
+in the most visibility (as determined by the area cut off). (A future version might also
 have an option to constrain the popup to be no larger than the window size, but this will be
 more useful once we have better support for scrolling.)
 
