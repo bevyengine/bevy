@@ -707,8 +707,14 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         &self,
         relationship_target_id: ComponentId,
     ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
-        self.as_readonly()
-            .get_relationship_targets_by_id(relationship_target_id)
+        self.access
+            .has_component_read(relationship_target_id)
+            // SAFETY: We have read access
+            .then(|| unsafe {
+                self.entity
+                    .get_relationship_targets_by_id(relationship_target_id)
+            })
+            .flatten()
     }
 
     /// Returns the source code location from which this entity has last been spawned.
