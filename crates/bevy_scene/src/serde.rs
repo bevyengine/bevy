@@ -52,7 +52,7 @@ pub const ENTITY_FIELD_COMPONENTS: &str = "components";
 /// let scene_serializer = SceneSerializer::new(&scene, &registry);
 ///
 /// // Serialize through any serde-compatible Serializer
-/// let ron_string = bevy_scene::ron::ser::to_string(&scene_serializer);
+/// let ron_string = ron::ser::to_string(&scene_serializer);
 /// ```
 pub struct SceneSerializer<'a> {
     /// The scene to serialize.
@@ -510,7 +510,6 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ron,
         serde::{SceneDeserializer, SceneSerializer},
         DynamicScene, DynamicSceneBuilder,
     };
@@ -522,6 +521,7 @@ mod tests {
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use ron;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
     use std::io::BufReader;
 

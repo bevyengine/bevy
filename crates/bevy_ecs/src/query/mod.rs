@@ -107,7 +107,8 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 mod tests {
     use crate::{
         archetype::Archetype,
-        component::{Component, ComponentId, Components, Tick},
+        change_detection::Tick,
+        component::{Component, ComponentId, Components},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,

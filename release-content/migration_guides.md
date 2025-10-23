@@ -1,6 +1,6 @@
 # Bevy's Migration Guide Process
 
-Hi! Did someone add `M-Needs-Migration-Guide` to your PR? If so, you're in the right place.
+Hi! Did someone add `M-Migration-Guide` to your PR? If so, you're in the right place.
 Let's talk about how this process works.
 
 When we make breaking changes to Bevy, we need to communicate them to users so their libraries and applications can be moved to the new Bevy version.
@@ -97,6 +97,6 @@ Keep it short and sweet:
   
   **Relocations**
   
-  |Item|0.15 Path|0.16 Path|
-  |-|-|-|
-  |`Foo`|`bar::foo`|`baz`|
+  | Item  | 0.15 Path  | 0.16 Path |
+  | ----- | ---------- | --------- |
+  | `Foo` | `bar::foo` | `baz`     |

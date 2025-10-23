@@ -20,7 +20,7 @@
         reason = "rustdoc_internals is needed for fake_variadic"
     )
 )]
-#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
+#![cfg_attr(any(docsrs, docsrs_dep), feature(doc_cfg, rustdoc_internals))]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
@@ -79,7 +79,7 @@ pub use extract_param::Extract;
 use crate::{
     camera::CameraPlugin,
     gpu_readback::GpuReadbackPlugin,
-    mesh::{MeshRenderAssetPlugin, MorphPlugin, RenderMesh},
+    mesh::{MeshRenderAssetPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderAdapterInfo},
@@ -186,7 +186,8 @@ pub enum RenderSystems {
     Render,
     /// Cleanup render resources here.
     Cleanup,
-    /// Final cleanup occurs: all entities will be despawned.
+    /// Final cleanup occurs: any entities with
+    /// [`TemporaryRenderEntity`](sync_world::TemporaryRenderEntity) will be despawned.
     ///
     /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,
@@ -368,7 +369,8 @@ impl Plugin for RenderPlugin {
             ViewPlugin,
             MeshRenderAssetPlugin,
             GlobalsPlugin,
-            MorphPlugin,
+            #[cfg(feature = "morph")]
+            mesh::MorphPlugin,
             TexturePlugin,
             BatchingPlugin {
                 debug_flags: self.debug_flags,

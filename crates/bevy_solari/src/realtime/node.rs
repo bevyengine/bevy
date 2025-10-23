@@ -22,11 +22,12 @@ use bevy_render::{
         binding_types::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
-        ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor, LoadOp,
+        PipelineCache, PushConstantRange, RenderPassDescriptor, ShaderStages, StorageTextureAccess,
+        TextureFormat, TextureSampleType,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::RenderContext,
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_shader::{Shader, ShaderDefVal};
@@ -40,10 +41,10 @@ pub mod graph {
 }
 
 pub struct SolariLightingNode {
-    bind_group_layout: BindGroupLayout,
-    bind_group_layout_world_cache_active_cells_dispatch: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
+    bind_group_layout_world_cache_active_cells_dispatch: BindGroupLayoutDescriptor,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    bind_group_layout_resolve_dlss_rr_textures: BindGroupLayout,
+    bind_group_layout_resolve_dlss_rr_textures: BindGroupLayoutDescriptor,
     decay_world_cache_pipeline: CachedComputePipelineId,
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
@@ -55,6 +56,7 @@ pub struct SolariLightingNode {
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
+    specular_gi_pipeline: CachedComputePipelineId,
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
@@ -120,6 +122,7 @@ impl ViewNode for SolariLightingNode {
             Some(di_spatial_and_shade_pipeline),
             Some(gi_initial_and_temporal_pipeline),
             Some(gi_spatial_and_shade_pipeline),
+            Some(specular_gi_pipeline),
             Some(scene_bindings),
             Some(gbuffer),
             Some(depth_buffer),
@@ -139,6 +142,7 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.di_spatial_and_shade_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_spatial_and_shade_pipeline),
+            pipeline_cache.get_compute_pipeline(self.specular_gi_pipeline),
             &scene_bindings.bind_group,
             view_prepass_textures.deferred_view(),
             view_prepass_textures.depth_view(),
@@ -156,12 +160,14 @@ impl ViewNode for SolariLightingNode {
             return Ok(());
         };
 
+        let view_target = view_target.get_unsampled_color_attachment();
+
         let s = solari_lighting_resources;
         let bind_group = render_context.render_device().create_bind_group(
             "solari_lighting_bind_group",
-            &self.bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
             &BindGroupEntries::sequential((
-                view_target.get_unsampled_color_attachment().view,
+                view_target.view,
                 s.light_tile_samples.as_entire_binding(),
                 s.light_tile_resolved_samples.as_entire_binding(),
                 &s.di_reservoirs_a.1,
@@ -189,7 +195,9 @@ impl ViewNode for SolariLightingNode {
         let bind_group_world_cache_active_cells_dispatch =
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_world_cache_active_cells_dispatch",
-                &self.bind_group_layout_world_cache_active_cells_dispatch,
+                &pipeline_cache.get_bind_group_layout(
+                    &self.bind_group_layout_world_cache_active_cells_dispatch,
+                ),
                 &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
             );
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -211,6 +219,17 @@ impl ViewNode for SolariLightingNode {
 
         let diagnostics = render_context.diagnostic_recorder();
         let command_encoder = render_context.command_encoder();
+
+        // Clear the view target if we're the first node to write to it
+        if matches!(view_target.ops.load, LoadOp::Clear(_)) {
+            command_encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("solari_lighting_clear"),
+                color_attachments: &[Some(view_target)],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+        }
 
         let mut pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
             label: Some("solari_lighting"),
@@ -237,6 +256,13 @@ impl ViewNode for SolariLightingNode {
             pass.set_pipeline(resolve_dlss_rr_textures_pipeline);
             pass.dispatch_workgroups(dx, dy, 1);
         }
+
+        pass.set_pipeline(presample_light_tiles_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
 
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
@@ -270,13 +296,6 @@ impl ViewNode for SolariLightingNode {
             0,
         );
 
-        pass.set_pipeline(presample_light_tiles_pipeline);
-        pass.set_push_constants(
-            0,
-            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
-        );
-        pass.dispatch_workgroups(LIGHT_TILE_BLOCKS as u32, 1, 1);
-
         pass.set_pipeline(di_initial_and_temporal_pipeline);
         pass.set_push_constants(
             0,
@@ -299,6 +318,13 @@ impl ViewNode for SolariLightingNode {
         pass.dispatch_workgroups(dx, dy, 1);
 
         pass.set_pipeline(gi_spatial_and_shade_pipeline);
+        pass.set_push_constants(
+            0,
+            bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
+        );
+        pass.dispatch_workgroups(dx, dy, 1);
+
+        pass.set_pipeline(specular_gi_pipeline);
         pass.set_push_constants(
             0,
             bytemuck::cast_slice(&[frame_index, solari_lighting.reset as u32]),
@@ -338,11 +364,10 @@ impl ViewNode for SolariLightingNode {
 
 impl FromWorld for SolariLightingNode {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let scene_bindings = world.resource::<RaytracingSceneBindings>();
 
-        let bind_group_layout = render_device.create_bind_group_layout(
+        let bind_group_layout = BindGroupLayoutDescriptor::new(
             "solari_lighting_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -377,17 +402,16 @@ impl FromWorld for SolariLightingNode {
             ),
         );
 
-        let bind_group_layout_world_cache_active_cells_dispatch = render_device
-            .create_bind_group_layout(
-                "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
-                &BindGroupLayoutEntries::single(
-                    ShaderStages::COMPUTE,
-                    storage_buffer_sized(false, None),
-                ),
-            );
+        let bind_group_layout_world_cache_active_cells_dispatch = BindGroupLayoutDescriptor::new(
+            "solari_lighting_bind_group_layout_world_cache_active_cells_dispatch",
+            &BindGroupLayoutEntries::single(
+                ShaderStages::COMPUTE,
+                storage_buffer_sized(false, None),
+            ),
+        );
 
         #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        let bind_group_layout_resolve_dlss_rr_textures = render_device.create_bind_group_layout(
+        let bind_group_layout_resolve_dlss_rr_textures = BindGroupLayoutDescriptor::new(
             "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::COMPUTE,
@@ -403,7 +427,7 @@ impl FromWorld for SolariLightingNode {
         let create_pipeline = |label: &'static str,
                                entry_point: &'static str,
                                shader: Handle<Shader>,
-                               extra_bind_group_layout: Option<&BindGroupLayout>,
+                               extra_bind_group_layout: Option<&BindGroupLayoutDescriptor>,
                                extra_shader_defs: Vec<ShaderDefVal>| {
             let mut layout = vec![
                 scene_bindings.bind_group_layout.clone(),
@@ -514,6 +538,13 @@ impl FromWorld for SolariLightingNode {
                 "solari_lighting_gi_spatial_and_shade_pipeline",
                 "spatial_and_shade",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
+                None,
+                vec![],
+            ),
+            specular_gi_pipeline: create_pipeline(
+                "solari_lighting_specular_gi_pipeline",
+                "specular_gi",
+                load_embedded_asset!(world, "specular_gi.wgsl"),
                 None,
                 vec![],
             ),
