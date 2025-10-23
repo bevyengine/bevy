@@ -45,13 +45,16 @@ no longer converted - instead a new conversion is applied to the scene root and
 mesh primitive entities. Whether these changes affect you will depend on how
 you're using glTFs.
 
+- If you never enabled the 0.17 conversion then you don't need to change
+  anything - conversion remains disabled by default in 0.18. To check if you
+  enabled the conversion, search for `use_model_forward_direction`.
+
 - If you simply spawn your glTF via `SceneRoot` and want it to visually match
   the `Transform::forward` of the entity it's spawned on, then you're still
-  supported. The internals of the scene will be different, but the visual result
-  will be the same. You can enable this conversion with the `GltfConvertCoordinates::scenes`
-  option.
+  supported. The internals of the scene will be different in 0.18, but the
+  visual result will be the same. The only option you need to enable is `GltfConvertCoordinates::scenes`.
 
-- If you want the `Mesh` assets in your glTF to be converted, then you're
+- If you also want the `Mesh` assets in your glTF to be converted then you're
   supported by the `GltfConvertCoordinates::meshes` option. This can be combined
   with the `scenes` option if you want both.
 
