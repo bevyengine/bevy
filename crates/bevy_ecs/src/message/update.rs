@@ -1,6 +1,6 @@
 use crate::{
     change_detection::Mut,
-    component::Tick,
+    change_detection::Tick,
     message::{MessageRegistry, ShouldUpdateMessages},
     system::{Local, Res, ResMut},
     world::World,

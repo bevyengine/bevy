@@ -15,8 +15,8 @@ use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{f32, ops::Range};
 use itertools::Itertools;
 use meshopt::{
-    build_meshlets, ffi::meshopt_Meshlet, generate_vertex_remap_multi,
-    simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter, VertexStream,
+    build_meshlets, ffi::meshopt_Meshlet, generate_position_remap,
+    simplify_with_attributes_and_locks, Meshlets, SimplifyOptions, VertexDataAdapter,
 };
 use metis::{option::Opt, Graph};
 use smallvec::SmallVec;
@@ -81,23 +81,11 @@ impl MeshletMesh {
         let vertex_normals = bytemuck::cast_slice(&vertex_buffer[12..16]);
 
         // Generate a position-only vertex buffer for determining triangle/meshlet connectivity
-        let (position_only_vertex_count, position_only_vertex_remap) = generate_vertex_remap_multi(
-            vertices.vertex_count,
-            &[VertexStream::new_with_stride::<Vec3, _>(
-                vertex_buffer.as_ptr(),
-                vertex_stride,
-            )],
-            Some(&indices),
-        );
+        let position_only_vertex_remap = generate_position_remap(&vertices);
 
         // Split the mesh into an initial list of meshlets (LOD 0)
-        let (mut meshlets, mut cull_data) = compute_meshlets(
-            &indices,
-            &vertices,
-            &position_only_vertex_remap,
-            position_only_vertex_count,
-            None,
-        );
+        let (mut meshlets, mut cull_data) =
+            compute_meshlets(&indices, &vertices, &position_only_vertex_remap, None);
 
         let mut vertex_locks = vec![false; vertices.vertex_count];
 
@@ -115,7 +103,6 @@ impl MeshletMesh {
                 &simplification_queue,
                 &meshlets,
                 &position_only_vertex_remap,
-                position_only_vertex_count,
             );
 
             // Group meshlets into roughly groups of size TARGET_MESHLETS_PER_GROUP,
@@ -133,7 +120,6 @@ impl MeshletMesh {
                 &groups,
                 &meshlets,
                 &position_only_vertex_remap,
-                position_only_vertex_count,
             );
 
             let simplified = groups.par_chunk_map(AsyncComputeTaskPool::get(), 1, |_, groups| {
@@ -172,7 +158,6 @@ impl MeshletMesh {
                     &simplified_group_indices,
                     &vertices,
                     &position_only_vertex_remap,
-                    position_only_vertex_count,
                     Some((group.lod_bounds, group.parent_error)),
                 );
 
@@ -295,11 +280,10 @@ fn compute_meshlets(
     indices: &[u32],
     vertices: &VertexDataAdapter,
     position_only_vertex_remap: &[u32],
-    position_only_vertex_count: usize,
     prev_lod_data: Option<(BoundingSphere, f32)>,
 ) -> (Meshlets, Vec<TempMeshletCullData>) {
     // For each vertex, build a list of all triangles that use it
-    let mut vertices_to_triangles = vec![Vec::new(); position_only_vertex_count];
+    let mut vertices_to_triangles = vec![Vec::new(); position_only_vertex_remap.len()];
     for (i, index) in indices.iter().enumerate() {
         let vertex_id = position_only_vertex_remap[*index as usize];
         let vertex_to_triangles = &mut vertices_to_triangles[vertex_id as usize];
@@ -408,10 +392,9 @@ fn find_connected_meshlets(
     simplification_queue: &[u32],
     meshlets: &Meshlets,
     position_only_vertex_remap: &[u32],
-    position_only_vertex_count: usize,
 ) -> Vec<Vec<(usize, usize)>> {
     // For each vertex, build a list of all meshlets that use it
-    let mut vertices_to_meshlets = vec![Vec::new(); position_only_vertex_count];
+    let mut vertices_to_meshlets = vec![Vec::new(); position_only_vertex_remap.len()];
     for (id_index, &meshlet_id) in simplification_queue.iter().enumerate() {
         let meshlet = meshlets.get(meshlet_id as _);
         for index in meshlet.triangles {
@@ -505,9 +488,8 @@ fn lock_group_borders(
     groups: &[TempMeshletGroup],
     meshlets: &Meshlets,
     position_only_vertex_remap: &[u32],
-    position_only_vertex_count: usize,
 ) {
-    let mut position_only_locks = vec![-1; position_only_vertex_count];
+    let mut position_only_locks = vec![-1; position_only_vertex_remap.len()];
 
     // Iterate over position-only based vertices of all meshlets in all groups
     for (group_id, group) in groups.iter().enumerate() {

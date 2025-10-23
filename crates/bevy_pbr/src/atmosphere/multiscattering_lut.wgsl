@@ -5,9 +5,10 @@
         bindings::{atmosphere, settings},
         functions::{
             multiscattering_lut_uv_to_r_mu, sample_transmittance_lut,
-            get_local_r, get_local_up, sample_atmosphere, FRAC_4_PI,
+            get_local_r, get_local_up, sample_density_lut, FRAC_4_PI,
             max_atmosphere_distance, rayleigh, henyey_greenstein,
-            zenith_azimuth_to_ray_dir,
+            zenith_azimuth_to_ray_dir, MIN_EXTINCTION, ABSORPTION_DENSITY,
+            SCATTERING_DENSITY,
         },
         bruneton_functions::{
             distance_to_top_atmosphere_boundary, distance_to_bottom_atmosphere_boundary, ray_intersects_ground
@@ -19,7 +20,7 @@
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 
-@group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(16) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
 fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
@@ -100,23 +101,24 @@ fn sample_multiscattering_dir(r: f32, ray_dir: vec3<f32>, light_dir: vec3<f32>) 
         let local_r = get_local_r(r, mu_view, t_i);
         let local_up = get_local_up(r, t_i, ray_dir);
 
-        let local_atmosphere = sample_atmosphere(local_r);
-        let sample_optical_depth = local_atmosphere.extinction * dt;
+        let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+        let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+        let extinction = absorption + scattering;
+
+        let sample_optical_depth = extinction * dt;
         let sample_transmittance = exp(-sample_optical_depth);
         optical_depth += sample_optical_depth;
 
-        let mu_light = dot(light_dir, local_up);
-        let scattering_no_phase = local_atmosphere.rayleigh_scattering + local_atmosphere.mie_scattering;
-
-        let ms = scattering_no_phase;
-        let ms_int = (ms - ms * sample_transmittance) / local_atmosphere.extinction;
+        let ms = scattering;
+        let ms_int = (ms - ms * sample_transmittance) / max(extinction, MIN_EXTINCTION);
         f_ms += throughput * ms_int;
 
+        let mu_light = dot(light_dir, local_up);
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
-        let s = scattering_no_phase * shadow_factor * FRAC_4_PI;
-        let s_int = (s - s * sample_transmittance) / local_atmosphere.extinction;
+        let s = scattering * shadow_factor * FRAC_4_PI;
+        let s_int = (s - s * sample_transmittance) / max(extinction, MIN_EXTINCTION);
         l_2 += throughput * s_int;
 
         throughput *= sample_transmittance;

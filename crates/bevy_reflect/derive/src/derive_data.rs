@@ -14,7 +14,7 @@ use crate::{
 };
 use bevy_macro_utils::ResultSifter;
 use quote::{format_ident, quote, ToTokens};
-use syn::token::Comma;
+use syn::{token::Comma, MacroDelimiter};
 
 use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
 use crate::field_attributes::CloneBehavior;
@@ -57,7 +57,7 @@ pub(crate) struct ReflectMeta<'a> {
     /// A cached instance of the path to the `bevy_reflect` crate.
     bevy_reflect_path: Path,
     /// The documentation for this type, if any
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: crate::documentation::Documentation,
 }
 
@@ -115,7 +115,7 @@ pub(crate) struct StructField<'a> {
     /// [ignored]: crate::field_attributes::ReflectIgnoreBehavior::IgnoreAlways
     pub reflection_index: Option<usize>,
     /// The documentation for this field, if any
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub doc: crate::documentation::Documentation,
 }
 
@@ -128,7 +128,7 @@ pub(crate) struct EnumVariant<'a> {
     /// The reflection-based attributes on the variant.
     pub attrs: FieldAttributes,
     /// The documentation for this variant, if any
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub doc: crate::documentation::Documentation,
 }
 
@@ -191,13 +191,22 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[type_name = "..."]` was used.
         let mut custom_type_name: Option<Ident> = None;
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         let mut doc = crate::documentation::Documentation::default();
 
         for attribute in &input.attrs {
             match &attribute.meta {
                 Meta::List(meta_list) if meta_list.path.is_ident(REFLECT_ATTRIBUTE_NAME) => {
-                    container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    if let MacroDelimiter::Paren(_) = meta_list.delimiter {
+                        container_attributes.parse_meta_list(meta_list, provenance.trait_)?;
+                    } else {
+                        return Err(syn::Error::new(
+                            meta_list.delimiter.span().join(),
+                            format_args!(
+                                "`#[{REFLECT_ATTRIBUTE_NAME}(\"...\")]` must use parentheses `(` and `)`"
+                            ),
+                        ));
+                    }
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
                     let syn::Expr::Lit(syn::ExprLit {
@@ -230,7 +239,7 @@ impl<'a> ReflectDerive<'a> {
 
                     custom_type_name = Some(parse_str(&lit.value())?);
                 }
-                #[cfg(feature = "documentation")]
+                #[cfg(feature = "reflect_documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
                     if let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Str(lit),
@@ -275,7 +284,7 @@ impl<'a> ReflectDerive<'a> {
             ));
         }
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         let meta = meta.with_docs(doc);
 
         if meta.attrs().is_opaque() {
@@ -382,7 +391,7 @@ impl<'a> ReflectDerive<'a> {
                         reflection_index,
                         attrs,
                         data: field,
-                        #[cfg(feature = "documentation")]
+                        #[cfg(feature = "reflect_documentation")]
                         doc: crate::documentation::Documentation::from_attributes(&field.attrs),
                     })
                 },
@@ -409,7 +418,7 @@ impl<'a> ReflectDerive<'a> {
                     fields,
                     attrs: FieldAttributes::parse_attributes(&variant.attrs)?,
                     data: variant,
-                    #[cfg(feature = "documentation")]
+                    #[cfg(feature = "reflect_documentation")]
                     doc: crate::documentation::Documentation::from_attributes(&variant.attrs),
                 })
             })
@@ -426,13 +435,13 @@ impl<'a> ReflectMeta<'a> {
             type_path,
             remote_ty: None,
             bevy_reflect_path: crate::meta::get_bevy_reflect_path(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: Default::default(),
         }
     }
 
     /// Sets the documentation for this type.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: crate::documentation::Documentation) -> Self {
         Self { docs, ..self }
     }
@@ -489,7 +498,7 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// The collection of docstrings for this type, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn doc(&self) -> &crate::documentation::Documentation {
         &self.docs
     }
@@ -527,7 +536,7 @@ impl<'a> StructField<'a> {
             });
         }
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         {
             let docs = &self.doc;
             if !docs.is_empty() {
@@ -675,7 +684,7 @@ impl<'a> ReflectStruct<'a> {
             });
         }
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         {
             let docs = self.meta().doc();
             if !docs.is_empty() {
@@ -898,7 +907,7 @@ impl<'a> ReflectEnum<'a> {
             });
         }
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         {
             let docs = self.meta().doc();
             if !docs.is_empty() {
@@ -1017,7 +1026,7 @@ impl<'a> EnumVariant<'a> {
             });
         }
 
-        #[cfg(feature = "documentation")]
+        #[cfg(feature = "reflect_documentation")]
         {
             let docs = &self.doc;
             if !docs.is_empty() {

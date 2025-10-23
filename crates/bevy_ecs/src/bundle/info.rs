@@ -11,10 +11,9 @@ use indexmap::{IndexMap, IndexSet};
 use crate::{
     archetype::{Archetype, BundleComponentStatus, ComponentStatus},
     bundle::{Bundle, DynamicBundle},
-    change_detection::MaybeLocation,
+    change_detection::{MaybeLocation, Tick},
     component::{
         ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
-        Tick,
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,

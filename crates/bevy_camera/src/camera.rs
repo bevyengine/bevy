@@ -362,9 +362,7 @@ pub struct Camera {
     pub computed: ComputedCameraValues,
     /// The "target" that this camera will render to.
     pub target: RenderTarget,
-    // todo: reflect this when #6042 lands
     /// The [`CameraOutputMode`] for this camera.
-    #[reflect(ignore, clone)]
     pub output_mode: CameraOutputMode,
     /// If this is enabled, a previous camera exists that shares this camera's render target, and this camera has MSAA enabled, then the previous camera's
     /// outputs will be written to the intermediate multi-sampled render target textures for this camera. This enables cameras with MSAA enabled to
@@ -729,12 +727,13 @@ impl Camera {
     /// Given a position in Normalized Device Coordinates,
     /// use the camera's viewport to compute the world space position.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
-    /// To get the world space coordinates with the viewport position, you should use
-    /// [`world_to_viewport`](Self::world_to_viewport).
+    /// The input is expected to be in NDC: `x` and `y` in the range `[-1.0, 1.0]`, and `z` in `[0.0, 1.0]`
+    /// (with `z = 0.0` at the far plane and `z = 1.0` at the near plane).
+    /// The returned value is a position in world space (your game's world units) and is not limited to `[-1.0, 1.0]`.
+    /// To convert from a viewport position to world space, you should use
+    /// [`viewport_to_world`](Self::viewport_to_world).
     ///
-    /// Returns `None` if the `camera_transform`, the `world_position`, or the projection matrix defined by
+    /// Returns `None` if the `camera_transform`, the `ndc_point`, or the projection matrix defined by
     /// [`Projection`](super::projection::Projection) contain `NAN`.
     ///
     /// # Panics
@@ -777,7 +776,7 @@ impl Camera {
 }
 
 /// Control how this [`Camera`] outputs once rendering is completed.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Reflect)]
 pub enum CameraOutputMode {
     /// Writes the camera output to configured render target.
     Write {
