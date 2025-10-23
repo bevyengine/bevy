@@ -11,8 +11,8 @@ use std::{
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
 use bevy_asset::{
-    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
-    RenderAssetUsages,
+    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ParseAssetPathError,
+    ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
     primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
@@ -103,6 +103,9 @@ pub enum GltfError {
     /// Unsupported buffer format.
     #[error("unsupported buffer format")]
     BufferFormatUnsupported,
+    /// The buffer URI was unable to be resolved with respect to the asset path.
+    #[error("invalid buffer uri: {0}. asset path error={1}")]
+    InvalidBufferUri(String, ParseAssetPathError),
     /// Invalid image mime type.
     #[error("invalid image mime type: {0}")]
     #[from(ignore)]
@@ -1740,7 +1743,10 @@ async fn load_buffers(
                     Ok(_) => return Err(GltfError::BufferFormatUnsupported),
                     Err(()) => {
                         // TODO: Remove this and add dep
-                        let buffer_path = load_context.path().parent().unwrap().join(uri);
+                        let buffer_path = load_context
+                            .asset_path()
+                            .resolve_embed(uri)
+                            .map_err(|err| GltfError::InvalidBufferUri(uri.to_owned(), err))?;
                         load_context.read_asset_bytes(buffer_path).await?
                     }
                 };
