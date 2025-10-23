@@ -9,6 +9,7 @@ mod iter;
 mod par_iter;
 mod state;
 mod world_query;
+mod plan;
 
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
