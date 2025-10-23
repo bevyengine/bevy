@@ -7,13 +7,13 @@ use crate::{
     world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
 };
 
+use alloc::boxed::Box;
 use bevy_ptr::Ptr;
 use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
 };
-use alloc::boxed::Box;
 use thiserror::Error;
 
 /// Provides read-only access to a single entity and some of its components defined by the contained [`Access`].
