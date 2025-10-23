@@ -203,7 +203,7 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
     }
 }
 
-/// When PropagateOver is removed, connect into the inheritance chain
+/// When `PropagateOver` or `PropagateStop` is removed, connect into the inheritance chain
 pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     parents: Query<&Inherited<C>>,
