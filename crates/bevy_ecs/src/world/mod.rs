@@ -1200,7 +1200,7 @@ impl World {
         Ok(self.construct_empty_unchecked(entity, caller))
     }
 
-    /// Constructs `bundle` on `entity`.
+    /// A faster version of [`construct_unchecked`](Self::construct_unchecked) for the empty bundle.
     ///
     /// # Panics
     ///

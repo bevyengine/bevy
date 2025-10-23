@@ -843,6 +843,10 @@ impl EntitiesAllocator {
 
     /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.
     /// See [`alloc`](Self::alloc) for details.
+    ///
+    /// Like [`alloc`](Self::alloc), these entities must be used, otherwise they will be forgotten.
+    /// If the iterator is not exhausted, its remaining entities are forgotten.
+    /// See [`AllocEntitiesIterator`] docs for more.
     pub(crate) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
         let current_len = if current_len < self.free.len() {
@@ -869,8 +873,9 @@ impl EntitiesAllocator {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from [`Entities`].
+/// An [`Iterator`] returning a sequence of unique [`Entity`] values from [`Entities`].
 /// Dropping this will still retain the entities as allocated; this is effectively a leak.
+/// To prevent this, ensure the iterator is exhausted before dropping it.
 pub struct AllocEntitiesIterator<'a> {
     reuse: core::slice::Iter<'a, Entity>,
     new: core::ops::Range<u32>,
@@ -1168,6 +1173,7 @@ impl Entities {
 
     /// Counts the number of entity rows currently constructed.
     /// See the module docs for a more precise explanation of what construction means.
+    /// Be aware that this is O(n) and is intended only to be used as a diagnostic for tests.
     pub fn count_constructed(&self) -> u32 {
         self.meta
             .iter()
