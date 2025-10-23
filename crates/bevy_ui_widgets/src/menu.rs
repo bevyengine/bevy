@@ -358,15 +358,15 @@ fn menu_on_menu_event(
     q_popup: Query<(), With<MenuPopup>>,
     mut commands: Commands,
 ) {
-    if q_popup.contains(ev.source) {
-        if let MenuAction::Close = ev.event().action {
-            ev.propagate(false);
-            commands.entity(ev.source).despawn();
-        }
+    if q_popup.contains(ev.source)
+        && let MenuAction::Close = ev.event().action
+    {
+        ev.propagate(false);
+        commands.entity(ev.source).despawn();
     }
 }
 
-/// Plugin that adds the observers for the [`CoreMenuItem`] widget.
+/// Plugin that adds the observers for the [`MenuItem`] component.
 pub struct MenuPlugin;
 
 impl Plugin for MenuPlugin {

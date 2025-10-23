@@ -39,7 +39,7 @@ impl PopoverSide {
 
 /// How the popover element should be aligned to the parent element. The alignment will be along an
 /// axis that is perpendicular to the direction of the popover side. So for example, if the popup is
-/// positioned below the parent, then the [`PopoverAlign`] variant controls the horizontal aligment
+/// positioned below the parent, then the [`PopoverAlign`] variant controls the horizontal alignment
 /// of the popup.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum PopoverAlign {
@@ -66,7 +66,7 @@ pub struct PopoverPlacement {
     pub align: PopoverAlign,
 
     /// The size of the gap between the parent and the popover element, in logical pixels. This will
-    /// offset the popover along the direction of [`side`].
+    /// offset the popover along the direction of `side`.
     pub gap: f32,
 }
 
