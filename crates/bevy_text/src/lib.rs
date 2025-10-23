@@ -63,7 +63,8 @@ pub use text_hierarchy::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, LineBreak, TextAlign, TextColor, TextError, TextFont, TextLayout, TextSpan,
+        Font, LineBreak, Strikethrough, TextAlign, TextColor, TextError, TextFont, TextLayout,
+        TextSpan, Underline,
     };
 }
 

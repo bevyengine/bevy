@@ -353,6 +353,16 @@ pub enum LineBreak {
     NoWrap,
 }
 
+/// A text entity with this component is drawn with strikethrough.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct Strikethrough;
+
+/// Add to a text entity to draw its text with underline.
+#[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize, Clone, Default)]
+pub struct Underline;
+
 /// Render information for a corresponding text block.
 ///
 /// Contains scaled glyphs and their size. Generated via [`TextPipeline::queue_text`] when an entity has
@@ -364,9 +374,9 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Rects bounding the text block's text sections.
-    /// A text section spanning more than one line will have multiple bounding rects.
-    pub section_rects: Vec<(Entity, Rect)>,
+    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
+    /// A text section spanning more than one line will have multiple segments.
+    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
