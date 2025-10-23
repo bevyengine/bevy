@@ -1,6 +1,7 @@
 //! Contains types that allow disjoint mutable access to a [`World`].
 
 use super::{Mut, Ref, World, WorldId};
+use crate::relationship::RelationshipAccessor;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -19,6 +20,7 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
+use alloc::boxed::Box;
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::Ptr;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
@@ -1134,6 +1136,70 @@ impl<'w> UnsafeEntityCell<'w> {
             })
             .ok_or(GetEntityMutByIdError::ComponentNotFound)
         }
+    }
+
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the relationship component
+    /// - no other mutable references to the component exist at the same time
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    #[inline]
+    pub unsafe fn get_relationship_by_id(self, relationship_id: ComponentId) -> Option<Entity> {
+        let ptr = self.get_by_id(relationship_id)?;
+        let RelationshipAccessor::Relationship {
+            entity_field_offset,
+            ..
+        } = self
+            .world
+            .components()
+            .get_info(relationship_id)?
+            .relationship_accessor()?
+        else {
+            return None;
+        };
+        // Safety:
+        // - offset is in bounds, aligned and has the same lifetime as the original pointer.
+        // - value at offset is guaranteed to be a valid Entity
+        let target: Entity = unsafe { *ptr.byte_add(*entity_field_offset).deref() };
+        Some(target)
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the relationship component
+    /// - no other mutable references to the component exist at the same time
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    #[inline]
+    pub unsafe fn get_relationship_targets_by_id(
+        self,
+        relationship_target_id: ComponentId,
+    ) -> Option<Box<dyn Iterator<Item = Entity> + 'w>> {
+        let ptr = self.get_by_id(relationship_target_id)?;
+        let RelationshipAccessor::RelationshipTarget { iter, .. } = self
+            .world
+            .components()
+            .get_info(relationship_target_id)?
+            .relationship_accessor()?
+        else {
+            return None;
+        };
+        // Safety: `ptr` contains value of the same type as the one this accessor was registered for.
+        let targets = unsafe { iter(ptr) };
+        Some(targets)
     }
 
     /// Returns the source code location from which this entity has been spawned.
