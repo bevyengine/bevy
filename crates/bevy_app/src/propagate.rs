@@ -88,7 +88,7 @@ pub struct PropagateSet<C: Component + Clone + PartialEq> {
 }
 
 /// Internal struct for managing propagation
-#[derive(Component, Clone, PartialEq)]
+#[derive(Component, Clone, PartialEq, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -141,6 +141,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
             (
                 update_source::<C, F>,
                 update_reparented::<C, F, R>,
+                update_removed_skip::<C, F, R>,
                 propagate_inherited::<C, F, R>,
                 propagate_output::<C, F>,
             )
@@ -172,11 +173,17 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
 /// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
 pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
-    moved: Query<(Entity, &R, Option<&Inherited<C>>), (Changed<R>, Without<Propagate<C>>, F)>,
+    moved: Query<
+        (Entity, &R, Option<&Inherited<C>>, Option<&PropagateOver<C>>),
+        (Changed<R>, Without<Propagate<C>>, F),
+    >,
     relations: Query<&Inherited<C>>,
     orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
-    for (entity, relation, maybe_inherited) in &moved {
+    for (entity, relation, maybe_inherited, maybe_skip) in &moved {
+        if maybe_skip.is_some() {
+            continue;
+        }
         if let Ok(inherited) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
@@ -189,6 +196,22 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
     }
 }
 
+/// When PropagateOver is removed, connect into the inheritance chain
+pub fn update_removed_skip<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+    mut commands: Commands,
+    parents: Query<&Inherited<C>>,
+    children: Query<&R>,
+    mut removed: RemovedComponents<PropagateOver<C>>,
+) {
+    for entity in removed.read() {
+        if let Ok(child_of) = children.get(entity)
+            && let Ok(parent) = parents.get(child_of.get())
+        {
+            commands.entity(entity).try_insert(parent.clone());
+        }
+    }
+}
+
 /// add/remove `Inherited::<C>` for targets of entities with modified `Inherited::<C>`
 pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
@@ -197,7 +220,11 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
         (Changed<Inherited<C>>, Without<PropagateStop<C>>, F),
     >,
     recurse: Query<
-        (Option<&R::RelationshipTarget>, Option<&Inherited<C>>),
+        (
+            Option<&R::RelationshipTarget>,
+            Option<&Inherited<C>>,
+            Option<&PropagateOver<C>>,
+        ),
         (Without<Propagate<C>>, Without<PropagateStop<C>>, F),
     >,
     mut removed: RemovedComponents<Inherited<C>>,
@@ -214,14 +241,14 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // and removed
     for entity in removed.read() {
-        if let Ok((Some(targets), _)) = recurse.get(entity) {
+        if let Ok((Some(targets), _, _)) = recurse.get(entity) {
             to_process.extend(targets.iter().map(|target| (target, None)));
         }
     }
 
     // propagate
     while let Some((entity, maybe_inherited)) = (*to_process).pop() {
-        let Ok((maybe_targets, maybe_current)) = recurse.get(entity) else {
+        let Ok((maybe_targets, maybe_current, maybe_skip)) = recurse.get(entity) else {
             continue;
         };
 
@@ -235,6 +262,10 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
                     .iter()
                     .map(|target| (target, maybe_inherited.clone())),
             );
+        }
+
+        if maybe_skip.is_some() {
+            continue;
         }
 
         if let Some(inherited) = maybe_inherited {
@@ -464,7 +495,17 @@ mod tests {
             .id();
 
         app.update();
-
+        assert!(app
+            .world_mut()
+            .query::<&Inherited<TestValue>>()
+            .get(app.world(), propagate_over)
+            .is_err());
+        assert_eq!(
+            app.world_mut()
+                .query::<&Inherited<TestValue>>()
+                .get(app.world(), propagatee),
+            Ok(&Inherited(TestValue(1)))
+        );
         assert_eq!(
             query.get_many(app.world(), [propagate_over, propagatee]),
             Ok([&TestValue(2), &TestValue(1)])
