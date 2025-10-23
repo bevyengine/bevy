@@ -8,7 +8,6 @@ use bevy::{
     camera::Exposure,
     color::palettes::css::BLACK,
     core_pipeline::tonemapping::Tonemapping,
-    diagnostic::LogDiagnosticsPlugin,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -19,8 +18,8 @@ use bevy::{
         VolumetricFog, VolumetricLight,
     },
     pbr::{
-        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
-        EarthlikeAtmosphere, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
+        AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod, EarthlikeAtmosphere,
+        ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     post_process::bloom::Bloom,
     prelude::*,
@@ -38,11 +37,11 @@ fn main() {
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GameState::default())
+        .insert_resource(GlobalAmbientLight::NONE)
         .add_plugins((
             DefaultPlugins,
             #[cfg(feature = "free_camera")]
             FreeCameraPlugin,
-            LogDiagnosticsPlugin::default(),
         ))
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(
@@ -102,17 +101,11 @@ fn atmosphere_controls(
 fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+        Transform::from_xyz(-2.4, 0.04, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // get the default `Atmosphere` component
         earth_atmosphere.get(),
-        // The scene is in units of 10km, so we need to scale up the
-        // aerial view lut distance and set the scene scale accordingly.
-        // Most usages of this feature will not need to adjust this.
-        AtmosphereSettings {
-            aerial_view_lut_max_distance: 3.2e5,
-            scene_units_to_m: 1e+4,
-            ..Default::default()
-        },
+        // Can be adjusted to change the scene scale and rendering quality
+        AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
@@ -127,7 +120,10 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
         AtmosphereEnvironmentMapLight::default(),
         #[cfg(feature = "free_camera")]
         FreeCamera::default(),
-        VolumetricFog::default(),
+        VolumetricFog {
+            ambient_intensity: 0.0,
+            ..default()
+        },
         Msaa::Off,
         Fxaa::default(),
         ScreenSpaceReflections::default(),
@@ -197,7 +193,7 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
-        Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(-1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         VolumetricLight,
         cascade_shadow_config,
     ));
@@ -205,7 +201,7 @@ fn setup_terrain_scene(
     // spawn the fog volume
     commands.spawn((
         FogVolume::default(),
-        Transform::from_scale(Vec3::splat(10.0)),
+        Transform::from_scale(Vec3::new(10.0, 1.0, 10.0)).with_translation(Vec3::Y * 0.5),
     ));
 
     let sphere_mesh = meshes.add(Mesh::from(Sphere { radius: 1.0 }));
@@ -219,7 +215,7 @@ fn setup_terrain_scene(
             perceptual_roughness: 0.0,
             ..default()
         })),
-        Transform::from_xyz(-0.3, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
+        Transform::from_xyz(-1.0, 0.1, -0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     commands.spawn((
@@ -230,7 +226,7 @@ fn setup_terrain_scene(
             perceptual_roughness: 1.0,
             ..default()
         })),
-        Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
+        Transform::from_xyz(-1.0, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
     // Terrain
