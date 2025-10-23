@@ -6,7 +6,7 @@ use crate::{
     entity::{hash_map::EntityHashMap, EntitiesAllocator, Entity, EntityMapper},
     query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
-    world::{unsafe_world_cell::UnsafeEntityCell, World},
+    world::World,
 };
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
@@ -575,11 +575,10 @@ impl EntityCloner {
         let mut deferred_cloned_component_ids: Vec<ComponentId> = Vec::new();
         {
             let world = world.as_unsafe_world_cell();
-            let (source_archetype, source_entity) = world
+            let source_entity = world
                 .get_entity(source)
-                .ok()
-                .and_then(|source| source.archetype().map(|archetype| (archetype, source)))
                 .expect("Source entity must exist constructed");
+            let source_archetype = source_entity.archetype();
 
             #[cfg(feature = "bevy_reflect")]
             // SAFETY: we have unique access to `world`, nothing else accesses the registry at this moment, and we clone
@@ -597,9 +596,8 @@ impl EntityCloner {
             let target_archetype = LazyCell::new(|| {
                 world
                     .get_entity(target)
-                    .ok()
-                    .and_then(UnsafeEntityCell::archetype)
                     .expect("Target entity must exist constructed")
+                    .archetype()
             });
 
             if state.move_components {

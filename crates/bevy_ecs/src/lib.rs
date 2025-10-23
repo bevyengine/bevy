@@ -161,12 +161,12 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::Component,
-        entity::{Entity, EntityMapper},
+        entity::{ConstructedEntityDoesNotExistError, Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{EntityMut, EntityRef, Mut, World},
+        world::{error::EntityDestructError, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
@@ -387,29 +387,30 @@ mod tests {
         let mut world = World::new();
         let e1 = world.spawn_null();
         world.construct(e1, (TableStored("abc"), A(123))).unwrap();
+
         let e2 = world.spawn_null();
-        assert!(world.destruct(e2).is_some());
+        assert!(matches!(
+            world.try_destruct(e2),
+            Err(EntityDestructError(
+                ConstructedEntityDoesNotExistError::WasNotConstructed(_)
+            ))
+        ));
         assert!(world.despawn(e2));
+
         let e3 = world.spawn_null();
-        let mut e3 = world.entity_mut(e3);
-        e3.destruct();
-        e3.despawn();
-        let e4 = world
-            .entity_mut(world.spawn_null())
-            .construct((TableStored("junk"), A(0)))
+        let e3 = world
+            .construct(e3, (TableStored("junk"), A(0)))
             .unwrap()
-            .destruct()
-            .construct((TableStored("def"), A(456)))
-            .unwrap()
-            .id();
+            .destruct();
+        world.construct(e3, (TableStored("def"), A(456))).unwrap();
 
         assert_eq!(world.entities.count_constructed(), 2);
         assert!(world.despawn(e1));
         assert_eq!(world.entities.count_constructed(), 1);
         assert!(world.get::<TableStored>(e1).is_none());
         assert!(world.get::<A>(e1).is_none());
-        assert_eq!(world.get::<TableStored>(e4).unwrap().0, "def");
-        assert_eq!(world.get::<A>(e4).unwrap().0, 456);
+        assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
+        assert_eq!(world.get::<A>(e3).unwrap().0, 456);
     }
 
     #[test]

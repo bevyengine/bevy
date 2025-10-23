@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(children.len(), 2);
 
         let finish_line = app.world().entity(children[0]);
-        assert_eq!(finish_line.archetype().unwrap().component_count(), 3);
+        assert_eq!(finish_line.archetype().component_count(), 3);
         let (rectangle, _, child_of) =
             finish_line.components::<(&Rectangle, &FinishLine, &ChildOf)>();
         assert_eq!(
@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(child_of.0, child_root);
 
         let circle = app.world().entity(children[1]);
-        assert_eq!(circle.archetype().unwrap().component_count(), 2);
+        assert_eq!(circle.archetype().component_count(), 2);
         let (circle, child_of) = circle.components::<(&Circle, &ChildOf)>();
         assert_eq!(circle, &Circle { radius: 7.0 });
         assert_eq!(child_of.0, child_root);
@@ -267,7 +267,7 @@ mod tests {
         assert_eq!(children.len(), 1);
 
         let triangle = app.world().entity(children[0]);
-        assert_eq!(triangle.archetype().unwrap().component_count(), 2);
+        assert_eq!(triangle.archetype().component_count(), 2);
         let (triangle, child_of) = triangle.components::<(&Triangle, &ChildOf)>();
         assert_eq!(
             triangle,
@@ -356,7 +356,7 @@ mod tests {
         assert_eq!(children.len(), 2);
 
         let finish_line = app.world().entity(children[0]);
-        assert_eq!(finish_line.archetype().unwrap().component_count(), 3);
+        assert_eq!(finish_line.archetype().component_count(), 3);
         let (rectangle, _, child_of) =
             finish_line.components::<(&Rectangle, &FinishLine, &ChildOf)>();
         assert_eq!(
@@ -369,7 +369,7 @@ mod tests {
         assert_eq!(child_of.0, child_root);
 
         let circle = app.world().entity(children[1]);
-        assert_eq!(circle.archetype().unwrap().component_count(), 2);
+        assert_eq!(circle.archetype().component_count(), 2);
         let (circle, child_of) = circle.components::<(&Circle, &ChildOf)>();
         assert_eq!(circle, &Circle { radius: 7.0 });
         assert_eq!(child_of.0, child_root);
@@ -413,7 +413,7 @@ mod tests {
         assert_eq!(children.len(), 1);
 
         let triangle = app.world().entity(children[0]);
-        assert_eq!(triangle.archetype().unwrap().component_count(), 2);
+        assert_eq!(triangle.archetype().component_count(), 2);
         let (triangle, child_of) = triangle.components::<(&Triangle, &ChildOf)>();
         assert_eq!(
             triangle,

@@ -5,7 +5,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     component::ComponentId,
-    entity::{Entity, EntityDoesNotExistError},
+    entity::{ConstructedEntityDoesNotExistError, Entity},
     schedule::InternedScheduleLabel,
 };
 
@@ -33,7 +33,7 @@ pub struct TryInsertBatchError {
 /// An error that occurs when a specified [`Entity`] could not be despawned.
 #[derive(thiserror::Error, Debug, Clone, Copy)]
 #[error("Could not destruct entity: {0}")]
-pub struct EntityDestructError(#[from] pub EntityMutableFetchError);
+pub struct EntityDestructError(#[from] pub ConstructedEntityDoesNotExistError);
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,7 +55,7 @@ pub enum EntityMutableFetchError {
     If you were attempting to apply a command to this entity,
     and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
     )]
-    EntityDoesNotExist(#[from] EntityDoesNotExistError),
+    EntityDoesNotExist(#[from] ConstructedEntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),

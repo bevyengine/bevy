@@ -236,7 +236,7 @@ mod tests {
         let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
 
         world.entity_mut(ent).retain::<()>();
-        assert_eq!(world.entity(ent).archetype().unwrap().components().len(), 0);
+        assert_eq!(world.entity(ent).archetype().components().len(), 0);
     }
 
     // Test removing some components with `retain`, including components not on the entity.
@@ -252,7 +252,7 @@ mod tests {
         // Check that marker 2 was retained.
         assert!(world.entity(ent).get::<Marker<2>>().is_some());
         // Check that only marker 2 was retained.
-        assert_eq!(world.entity(ent).archetype().unwrap().components().len(), 1);
+        assert_eq!(world.entity(ent).archetype().components().len(), 1);
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

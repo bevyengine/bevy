@@ -6,8 +6,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{
-        ConstructionError, Entity, EntityCloner, EntityClonerBuilder, EntityIdLocation,
-        EntityLocation, OptIn, OptOut,
+        Entity, EntityCloner, EntityClonerBuilder, EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -70,7 +69,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     fn as_unsafe_entity_cell_readonly(&self) -> UnsafeEntityCell<'_> {
-        let location = self.try_location();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.read_change_tick();
         UnsafeEntityCell::new(
@@ -84,7 +83,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     fn as_unsafe_entity_cell(&mut self) -> UnsafeEntityCell<'_> {
-        let location = self.try_location();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
@@ -98,7 +97,7 @@ impl<'w> EntityWorldMut<'w> {
 
     #[inline(always)]
     fn into_unsafe_entity_cell(self) -> UnsafeEntityCell<'w> {
-        let location = self.try_location();
+        let location = self.location();
         let last_change_tick = self.world.last_change_tick;
         let change_tick = self.world.change_tick();
         UnsafeEntityCell::new(
@@ -120,7 +119,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
-        location: Option<EntityLocation>,
+        location: EntityIdLocation,
     ) -> Self {
         debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity).unwrap(), location);
@@ -1432,44 +1431,15 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Constructs the entity.
-    /// If this entity has not yet been constructed or has been since destructed, this can construct it.
-    /// See [`World::construct`] for details and usage examples.
-    #[track_caller]
-    pub fn construct<B: Bundle>(&mut self, bundle: B) -> Result<&mut Self, ConstructionError> {
-        let Self {
-            world,
-            entity,
-            location,
-        } = self;
-        move_as_ptr!(bundle);
-        let found = world.construct_with_caller(*entity, bundle, MaybeLocation::caller())?;
-        *location = found.location;
-        Ok(self)
-    }
-
-    /// A faster version of [`construct`](Self::construct) for the empty bundle.
-    #[track_caller]
-    pub fn construct_empty(&mut self) -> Result<&mut Self, ConstructionError> {
-        let Self {
-            world,
-            entity,
-            location,
-        } = self;
-        let found = world.construct_empty_with_caller(*entity, MaybeLocation::caller())?;
-        *location = found.location;
-        Ok(self)
-    }
-
-    /// Destructs the entity, without releasing it.
-    /// This may be later [`constructed`](Self::construct).
+    /// Destructs the entity, returning the new [`Entity`] id, which you must manage.
     /// Note that this still increases the generation to differentiate different constructions of the same row.
+    ///
+    /// This may be later [`constructed`](World::construct).
     /// See [`World::destruct`] for details and usage examples.
     #[track_caller]
-    pub fn destruct(&mut self) -> &mut Self {
+    pub fn destruct(mut self) -> Entity {
         self.destruct_with_caller(MaybeLocation::caller());
-        self.update_location(); // In case some command re-constructs this entity.
-        self
+        self.entity
     }
 
     /// This destructs this entity if it is currently constructed, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`].

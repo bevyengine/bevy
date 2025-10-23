@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{Entity, EntityDoesNotExistError, EntityHashMap, EntityHashSet},
+    entity::{ConstructedEntityDoesNotExistError, Entity, EntityHashMap, EntityHashSet},
     error::Result,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
@@ -56,7 +56,7 @@ impl<'w> EntityFetcher<'w> {
     pub fn get<F: WorldEntityFetch>(
         &self,
         entities: F,
-    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<F::Ref<'_>, ConstructedEntityDoesNotExistError> {
         // SAFETY: `&self` gives read access to all entities, and prevents mutable access.
         unsafe { entities.fetch_ref(self.cell) }
     }
@@ -146,7 +146,7 @@ pub unsafe trait WorldEntityFetch {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError>;
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
     /// IDs, as determined by `self`.
@@ -204,7 +204,7 @@ unsafe impl WorldEntityFetch for Entity {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError> {
         let ecell = cell.get_entity(self)?;
         // SAFETY: caller ensures that the world cell has read-only access to the entity.
         Ok(unsafe { EntityRef::new(ecell) })
@@ -215,11 +215,11 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        let location = cell.entities().get(self)?;
+        let location = cell.entities().get_constructed(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.
-        Ok(unsafe { EntityWorldMut::new(world, self, location) })
+        Ok(unsafe { EntityWorldMut::new(world, self, Some(location)) })
     }
 
     #[inline]
@@ -246,7 +246,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError> {
         <&Self>::fetch_ref(&self, cell)
     }
 
@@ -280,7 +280,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError> {
         let mut refs = [MaybeUninit::uninit(); N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
             let ecell = cell.get_entity(id)?;
@@ -345,7 +345,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError> {
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;
@@ -404,7 +404,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     unsafe fn fetch_ref(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<Self::Ref<'_>, ConstructedEntityDoesNotExistError> {
         let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;

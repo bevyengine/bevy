@@ -45,7 +45,6 @@ use crate::{
     },
     entity::{
         ConstructedEntityDoesNotExistError, ConstructionError, Entities, EntitiesAllocator, Entity,
-        EntityDoesNotExistError,
     },
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
@@ -922,7 +921,7 @@ impl World {
     pub fn get_entity<F: WorldEntityFetch>(
         &self,
         entities: F,
-    ) -> Result<F::Ref<'_>, EntityDoesNotExistError> {
+    ) -> Result<F::Ref<'_>, ConstructedEntityDoesNotExistError> {
         let cell = self.as_unsafe_world_cell_readonly();
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
         unsafe { entities.fetch_ref(cell) }
@@ -984,7 +983,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         self.as_unsafe_world_cell_readonly(),
                         entity,
-                        Some(location),
+                        location,
                         self.last_change_tick,
                         self.read_change_tick(),
                     );
@@ -1008,7 +1007,7 @@ impl World {
                     let cell = UnsafeEntityCell::new(
                         world_cell,
                         entity,
-                        Some(location),
+                        location,
                         last_change_tick,
                         change_tick,
                     );
@@ -1504,11 +1503,13 @@ impl World {
         Ok(result)
     }
 
-    /// Despawns the given [`Entity`], if it exists. This will also remove all of the entity's
-    /// [`Components`](Component).
+    /// Despawns the given [`Entity`], if it exists.
+    /// This will also remove all of the entity's [`Components`](Component).
     ///
     /// Returns `true` if the entity is successfully despawned and `false` if
     /// the entity does not exist.
+    /// This counts despawning a not constructed entity as a success, and frees it to the allocator.
+    /// See [entity](crate::entity) module docs for more about construction.
     ///
     /// # Note
     ///
@@ -1533,7 +1534,9 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        if let Err(error) = self.despawn_with_caller(entity, MaybeLocation::caller()) {
+        if let Err(EntityDestructError(ConstructedEntityDoesNotExistError::DidNotExist(error))) =
+            self.despawn_with_caller(entity, MaybeLocation::caller())
+        {
             warn!("{error}");
             false
         } else {
@@ -1562,7 +1565,11 @@ impl World {
         entity: Entity,
         caller: MaybeLocation,
     ) -> Result<(), EntityDestructError> {
-        let entity = self.get_entity_mut(entity)?;
+        let entity = self.get_entity_mut(entity).map_err(|err| match err {
+            EntityMutableFetchError::EntityDoesNotExist(err) => err,
+            // Only one entity.
+            EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
+        })?;
         entity.despawn_with_caller(caller);
         Ok(())
     }
@@ -1571,7 +1578,7 @@ impl World {
     /// See that method for more information.
     #[track_caller]
     #[inline]
-    pub fn destruct(&mut self, entity: Entity) -> Option<EntityWorldMut<'_>> {
+    pub fn destruct(&mut self, entity: Entity) -> Option<Entity> {
         match self.destruct_with_caller(entity, MaybeLocation::caller()) {
             Ok(entity) => Some(entity),
             Err(error) => {
@@ -1581,13 +1588,14 @@ impl World {
         }
     }
 
-    /// Destructs the given `entity`, if it exists. This will also remove all of the entity's
-    /// [`Component`]s.
+    /// Destructs the given `entity`, if it exists.
+    /// This will also remove all of the entity's [`Component`]s.
     /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
     /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
     /// In general, [`despawn`](Self::despawn) should be used instead, which automatically allows the row to be reused.
     ///
-    /// Returns an [`EntityDestructError`] if the entity does not exist.
+    /// Returns the new [`Entity`] if of the destructed [`EntityRow`](crate::entity::EntityRow), which should eventually either be re-constructed or freed to the allocator.
+    /// Returns an [`EntityDestructError`] if the entity does not exist to be destructed.
     ///
     /// # Note
     ///
@@ -1602,10 +1610,7 @@ impl World {
     /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityRow`](crate::entity::EntityRow)s, etc.
     #[track_caller]
     #[inline]
-    pub fn try_destruct(
-        &mut self,
-        entity: Entity,
-    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
+    pub fn try_destruct(&mut self, entity: Entity) -> Result<Entity, EntityDestructError> {
         self.destruct_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1614,10 +1619,14 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<EntityWorldMut<'_>, EntityDestructError> {
-        let mut entity = self.get_entity_mut(entity)?;
+    ) -> Result<Entity, EntityDestructError> {
+        let mut entity = self.get_entity_mut(entity).map_err(|err| match err {
+            EntityMutableFetchError::EntityDoesNotExist(err) => err,
+            // Only one entity.
+            EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
+        })?;
         entity.destruct_with_caller(caller);
-        Ok(entity)
+        Ok(entity.id())
     }
 
     /// Clears the internal component tracker state.
@@ -4429,32 +4438,35 @@ mod tests {
 
         assert_eq!(
             Err(e1),
-            world.get_entity(e1).map(|_| {}).map_err(|e| e.entity)
+            world.get_entity(e1).map(|_| {}).map_err(|e| e.entity())
         );
         assert_eq!(
             Err(e1),
-            world.get_entity([e1, e2]).map(|_| {}).map_err(|e| e.entity)
+            world
+                .get_entity([e1, e2])
+                .map(|_| {})
+                .map_err(|e| e.entity())
         );
         assert_eq!(
             Err(e1),
             world
                 .get_entity(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {})
-                .map_err(|e| e.entity)
+                .map_err(|e| e.entity())
         );
         assert_eq!(
             Err(e1),
             world
                 .get_entity(&vec![e1, e2][..])
                 .map(|_| {})
-                .map_err(|e| e.entity)
+                .map_err(|e| e.entity())
         );
         assert_eq!(
             Err(e1),
             world
                 .get_entity(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {})
-                .map_err(|e| e.entity)
+                .map_err(|e| e.entity())
         );
     }
 
@@ -4499,25 +4511,25 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
         assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
         assert!(matches!(
             world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1,
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1,
         ));
         assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
     }
 
     #[test]
