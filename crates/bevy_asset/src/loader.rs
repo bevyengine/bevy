@@ -514,8 +514,12 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
-        Ok(bytes)
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+            Ok(bytes)
+        } else {
+            Err(AssetDependentOnSelf { asset_path: self.asset_path.clone_owned() }.into())
+        }
     }
 
     /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
@@ -557,8 +561,13 @@ impl<'a> LoadContext<'a> {
             })?;
         let info = meta.processed_info().as_ref();
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path, hash);
+            Ok(loaded_asset)
+        } else {
+            Err(AssetDependentOnSelf { asset_path: self.asset_path.clone_owned() }.into())
+        }
     }
 
     /// Create a builder for loading nested assets in this context.
