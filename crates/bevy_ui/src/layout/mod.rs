@@ -2,7 +2,7 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, LayoutConfig,
-    Node, Outline, OverflowAxis, ScrollPosition,
+    Node, Outline, OverflowAxis, ScrollPosition, ScrollSticky,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -90,6 +90,7 @@ pub fn ui_layout_system(
         Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
+        Option<&ScrollSticky>,
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -201,6 +202,7 @@ pub fn ui_layout_system(
             Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
+            Option<&ScrollSticky>,
         )>,
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
@@ -216,6 +218,7 @@ pub fn ui_layout_system(
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
+            maybe_scroll_sticky,
         )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
@@ -231,9 +234,13 @@ pub fn ui_layout_system(
             // Taffy layout position of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
+            let node_parent_scroll_position = maybe_scroll_sticky
+                .map(|scroll_sticky| parent_scroll_position * Vec2::from(!scroll_sticky.0))
+                .unwrap_or(parent_scroll_position);
+
             // The position of the center of the node relative to its top-left corner.
             let local_center =
-                layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
+                layout_location - node_parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
             if node.size != layout_size

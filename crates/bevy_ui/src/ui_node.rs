@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -343,6 +343,20 @@ impl ScrollPosition {
 
 impl From<Vec2> for ScrollPosition {
     fn from(value: Vec2) -> Self {
+        Self(value)
+    }
+}
+
+/// Determines which axes of a node are *sticky* during scrolling.
+///
+/// A **sticky** node maintains its position along the specified axes
+/// instead of moving with its scrolled parent content when [`ScrollPosition`] is applied.
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct ScrollSticky(pub BVec2);
+
+impl From<BVec2> for ScrollSticky {
+    fn from(value: BVec2) -> Self {
         Self(value)
     }
 }
