@@ -306,12 +306,14 @@ pub enum LoadDirectError {
         error: AssetLoadError,
     },
     #[error(transparent)]
-    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
+    AssetDependentOnSelf(#[from] AssetDependentOnSelf),
 }
 
 #[derive(Error, Debug, Clone)]
 #[error("The asset at path `{}` loads itself as a dependent.", asset_path)]
-pub struct AssetDependentOnSelf { pub asset_path: AssetPath<'static> }
+pub struct AssetDependentOnSelf {
+    pub asset_path: AssetPath<'static>,
+}
 
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -514,7 +516,9 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+        }
         Ok(bytes)
     }
 
@@ -540,6 +544,12 @@ impl<'a> LoadContext<'a> {
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
+        if self.asset_path == path {
+            return Err(AssetDependentOnSelf {
+                asset_path: self.asset_path.clone_owned(),
+            }
+            .into());
+        }
         let loaded_asset = self
             .asset_server
             .load_with_meta_loader_and_reader(
@@ -599,6 +609,4 @@ pub enum ReadAssetBytesError {
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
-    #[error(transparent)]
-    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
 }
