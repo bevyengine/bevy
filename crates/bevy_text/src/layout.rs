@@ -65,33 +65,6 @@ impl<'a, B: Brush> TextSectionStyle<'a, B> {
     }
 }
 
-fn shape_text_from_indexed_sections<'a>(
-    layout: &mut Layout<u32>,
-    font_cx: &'a mut FontContext,
-    layout_cx: &'a mut LayoutContext<u32>,
-    text_sections: impl Iterator<Item = &'a str>,
-    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, ()>>,
-    scale_factor: f32,
-    line_break: crate::text::LineBreak,
-) {
-    let (text, section_ranges) = concat_text_for_layout(text_sections);
-    let mut builder = layout_cx.ranged_builder(font_cx, &text, scale_factor, true);
-    if let Some(word_break_strength) = match line_break {
-        crate::LineBreak::WordBoundary => Some(WordBreakStrength::Normal),
-        crate::LineBreak::AnyCharacter => Some(WordBreakStrength::BreakAll),
-        crate::LineBreak::WordOrCharacter => Some(WordBreakStrength::KeepAll),
-        _ => None,
-    } {
-        builder.push_default(StyleProperty::WordBreak(word_break_strength));
-    };
-    for (section_index, (style, range)) in text_section_styles.zip(section_ranges).enumerate() {
-        builder.push(StyleProperty::Brush(section_index as u32), range.clone());
-        builder.push(FontStack::from(style.font_family), range.clone());
-        builder.push(StyleProperty::FontSize(style.font_size), range.clone());
-        builder.push(style.line_height.eval(), range);
-    }
-    builder.build_into(layout, &text);
-}
 /// Create layout given text sections and styles
 pub fn shape_text_from_sections<'a, B: Brush>(
     layout: &mut Layout<B>,
@@ -216,9 +189,10 @@ pub fn update_text_layout_info(
                                 line.metrics().max_coord,
                             ),
                         },
-                        strikethrough_offset: run.metrics().strikethrough_offset,
+                        strikethrough_offset: glyph_run.baseline()
+                            - run.metrics().strikethrough_offset,
                         strikethrough_size: run.metrics().strikethrough_size,
-                        underline_offset: run.metrics().underline_offset,
+                        underline_offset: glyph_run.baseline() - run.metrics().underline_offset,
                         underline_size: run.metrics().underline_size,
                     });
                 }

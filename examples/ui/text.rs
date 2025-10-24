@@ -13,6 +13,7 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
+        //.add_systems(Startup, setup_hello)
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
@@ -36,11 +37,11 @@ fn setup_hello(mut commands: Commands, asset_server: Res<AssetServer>) {
         asset_server.load("fonts/FiraMono-Medium.ttf"),
     ]));
     commands.spawn((
-        Text::new("Hello"),
+        Text::new("Hello\n"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: "fira sans".to_string(),
-            font_size: 67.0,
+            font_size: 200.0,
             ..default()
         },
         Outline {
@@ -48,7 +49,9 @@ fn setup_hello(mut commands: Commands, asset_server: Res<AssetServer>) {
             offset: Val::Px(1.),
             color: Color::WHITE,
         },
-        children![TextSpan::new(" world!"), TextSpan::new(" orange!"),],
+        Strikethrough,
+        Underline,
+        children![(TextSpan::new("world!"), Underline, Strikethrough)],
     ));
 }
 

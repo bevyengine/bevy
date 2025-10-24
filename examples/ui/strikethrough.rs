@@ -12,18 +12,25 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
+struct Fonts(Vec<Handle<Font>>);
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+    commands.insert_resource(Fonts(vec![
+        asset_server.load("fonts/FiraSans-Bold.ttf"),
+        asset_server.load("fonts/FiraMono-Medium.ttf"),
+    ]));
     commands.spawn((
         Text::new("struck\nstruck"),
         // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and it's text will be struck through.
         Strikethrough,
         TextFont {
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: "fira sans".to_string(),
             font_size: 67.0,
             ..default()
         },
-        TextLayout::new_with_justify(Justify::Center),
+        TextLayout::new_with_justify(TextAlign::Center),
         Node {
             position_type: PositionType::Absolute,
             bottom: px(5),
@@ -70,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Text::new("2struck\nstruck"),
                 Strikethrough,
                 TextFont {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font: "fira sans".to_string(),
                     font_size: 67.0,
                     ..default()
                 },
