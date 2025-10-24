@@ -1,6 +1,4 @@
-//! Standard widget components for popup menus. This module is only concerned with the actual
-//! dropdown part, not the menu button widget, although it does define a set of events for
-//! communicating open and close events from the menu to the button.
+//! Standard widget components for popup menus.
 
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
@@ -366,6 +364,52 @@ fn menu_on_menu_event(
     }
 }
 
+/// Headless menu button widget. This is similar to a button, except for a few differences:
+/// * It emits a menu toggle event when pressed or activated.
+/// * It uses `Pointer<Press>` rather than click, so as to process the pointer event before
+///   stealing focus from the menu.
+#[derive(Component, Default, Debug)]
+#[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
+pub struct MenuButton;
+
+fn menubutton_on_key_event(
+    mut event: On<FocusedInput<KeyboardInput>>,
+    q_state: Query<Has<InteractionDisabled>, With<MenuButton>>,
+    mut commands: Commands,
+) {
+    if let Ok(disabled) = q_state.get(event.focused_entity)
+        && !disabled
+    {
+        let input_event = &event.input;
+        if !input_event.repeat
+            && input_event.state == ButtonState::Pressed
+            && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
+        {
+            event.propagate(false);
+            commands.trigger(MenuEvent {
+                action: MenuAction::Toggle,
+                source: event.focused_entity,
+            });
+        }
+    }
+}
+
+fn menubutton_on_pointer_press(
+    mut press: On<Pointer<Press>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<MenuButton>>,
+    mut commands: Commands,
+) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(press.entity) {
+        press.propagate(false);
+        if !disabled && !pressed {
+            commands.trigger(MenuEvent {
+                action: MenuAction::Toggle,
+                source: button,
+            });
+        }
+    }
+}
+
 /// Plugin that adds the observers for the [`MenuItem`] component.
 pub struct MenuPlugin;
 
@@ -378,6 +422,8 @@ impl Plugin for MenuPlugin {
             .add_observer(menu_item_on_pointer_up)
             .add_observer(menu_item_on_pointer_click)
             .add_observer(menu_item_on_pointer_drag_end)
-            .add_observer(menu_item_on_pointer_cancel);
+            .add_observer(menu_item_on_pointer_cancel)
+            .add_observer(menubutton_on_key_event)
+            .add_observer(menubutton_on_pointer_press);
     }
 }

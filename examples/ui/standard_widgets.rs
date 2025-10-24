@@ -18,9 +18,9 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, observe,
         popover::{Popover, PopoverAlign, PopoverPlacement, PopoverSide},
-        Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuEvent, MenuItem,
-        MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb, SliderValue,
-        TrackClick, UiWidgetsPlugins, ValueChange,
+        Activate, Button, Checkbox, CoreSliderDragState, MenuAction, MenuButton, MenuEvent,
+        MenuItem, MenuPopup, RadioButton, RadioGroup, Slider, SliderRange, SliderThumb,
+        SliderValue, TrackClick, UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -231,23 +231,22 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
         observe(on_menu_event),
         children![(
             Node {
-                width: Val::Px(200.0),
-                height: Val::Px(65.0),
-                border: UiRect::all(Val::Px(5.0)),
+                width: px(200),
+                height: px(65),
+                border: UiRect::all(px(5)),
                 box_sizing: BoxSizing::BorderBox,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(16.0), Val::Px(0.0)),
+                padding: UiRect::axes(px(16), px(0)),
                 ..default()
             },
             DemoMenuButton,
-            Button,
+            MenuButton,
             Hovered::default(),
             TabIndex(0),
             BorderColor::all(Color::BLACK),
-            BorderRadius::all(Val::Px(5.0)),
+            BorderRadius::all(px(5)),
             BackgroundColor(NORMAL_BUTTON),
-            observe(on_menu_button_press),
             children![
                 (
                     Text::new("Menu"),
@@ -261,8 +260,8 @@ fn menu_button(asset_server: &AssetServer) -> impl Bundle {
                 ),
                 (
                     Node {
-                        width: Val::Px(12.0),
-                        height: Val::Px(12.0),
+                        width: px(12),
+                        height: px(12),
                         ..default()
                     },
                     BackgroundColor(GRAY.into()),
@@ -793,15 +792,6 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
     )
 }
 
-/// Note that we're using `Pointer<Press>` here instead of `Activate` because we want to
-/// catch the click before the focus change.
-fn on_menu_button_press(press: On<Pointer<Press>>, mut commands: Commands) {
-    commands.trigger(MenuEvent {
-        source: press.entity,
-        action: MenuAction::Toggle,
-    });
-}
-
 fn on_menu_event(
     menu_event: On<MenuEvent>,
     q_anchor: Single<(Entity, &Children), With<DemoMenuAnchor>>,
@@ -840,9 +830,9 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
             Node {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Column,
-                min_height: Val::Px(10.),
+                min_height: px(10.),
                 min_width: Val::Percent(100.),
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(px(1)),
                 position_type: PositionType::Absolute,
                 ..default()
             },
@@ -852,10 +842,10 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
             BackgroundColor(GRAY.into()),
             BoxShadow::new(
                 Srgba::BLACK.with_alpha(0.9).into(),
-                Val::Px(0.0),
-                Val::Px(0.0),
-                Val::Px(1.0),
-                Val::Px(4.0),
+                px(0),
+                px(0),
+                px(1),
+                px(4),
             ),
             GlobalZIndex(100),
             Popover {
@@ -888,9 +878,7 @@ fn spawn_menu(anchor: Entity, assets: Res<AssetServer>, mut commands: Commands) 
 fn menu_item(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
-            // width: Val::Px(150.0),
-            padding: UiRect::axes(Val::Px(8.0), Val::Px(2.0)),
-            // border: UiRect::all(Val::Px(5.0)),
+            padding: UiRect::axes(px(8), px(2)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Start,
             ..default()
