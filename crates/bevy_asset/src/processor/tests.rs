@@ -21,11 +21,11 @@ use crate::{
         AssetSource, AssetSourceId, Reader,
     },
     processor::{
-        AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorTransactionLog,
+        AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
         ProcessorTransactionLogFactory,
     },
     saver::AssetSaver,
-    tests::{CoolText, CoolTextLoader, CoolTextRon, SubText},
+    tests::{run_app_until, CoolText, CoolTextLoader, CoolTextRon, SubText},
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
@@ -120,6 +120,18 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
     }
 }
 
+fn run_app_until_finished_processing(app: &mut App) {
+    run_app_until(app, |world| {
+        if bevy_tasks::block_on(world.resource::<AssetProcessor>().get_state())
+            == ProcessorState::Finished
+        {
+            Some(())
+        } else {
+            None
+        }
+    });
+}
+
 struct CoolTextSaver;
 
 impl AssetSaver for CoolTextSaver {
@@ -211,16 +223,7 @@ fn no_meta_or_default_processor_copies_asset() {
 
     source_dir.insert_asset_text(path, source_asset);
 
-    // Start the app, which also starts the asset processor.
-    app.update();
-
-    // Wait for all processing to finish.
-    bevy_tasks::block_on(
-        app.world()
-            .resource::<AssetProcessor>()
-            .data()
-            .wait_until_finished(),
-    );
+    run_app_until_finished_processing(&mut app);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
@@ -266,16 +269,7 @@ fn asset_processor_transforms_asset_default_processor() {
 )"#,
     );
 
-    // Start the app, which also starts the asset processor.
-    app.update();
-
-    // Wait for all processing to finish.
-    bevy_tasks::block_on(
-        app.world()
-            .resource::<AssetProcessor>()
-            .data()
-            .wait_until_finished(),
-    );
+    run_app_until_finished_processing(&mut app);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
@@ -334,16 +328,7 @@ fn asset_processor_transforms_asset_with_meta() {
     ),
 )"#);
 
-    // Start the app, which also starts the asset processor.
-    app.update();
-
-    // Wait for all processing to finish.
-    bevy_tasks::block_on(
-        app.world()
-            .resource::<AssetProcessor>()
-            .data()
-            .wait_until_finished(),
-    );
+    run_app_until_finished_processing(&mut app);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
@@ -536,16 +521,7 @@ fn asset_processor_loading_can_read_processed_assets() {
 )"#,
     );
 
-    // Start the app, which also starts the asset processor.
-    app.update();
-
-    // Wait for all processing to finish.
-    bevy_tasks::block_on(
-        app.world()
-            .resource::<AssetProcessor>()
-            .data()
-            .wait_until_finished(),
-    );
+    run_app_until_finished_processing(&mut app);
 
     let processed_bsn = processed_dir.get_asset(bsn_path).unwrap();
     let processed_bsn = str::from_utf8(processed_bsn.value()).unwrap();
@@ -700,16 +676,7 @@ fn asset_processor_loading_can_read_source_assets() {
 )"#,
     );
 
-    // Start the app, which also starts the asset processor.
-    app.update();
-
-    // Wait for all processing to finish.
-    bevy_tasks::block_on(
-        app.world()
-            .resource::<AssetProcessor>()
-            .data()
-            .wait_until_finished(),
-    );
+    run_app_until_finished_processing(&mut app);
 
     // Sanity check that the two gltf files were actually processed.
     let processed_gltf_1 = processed_dir.get_asset(gltf_path_1).unwrap();

@@ -48,13 +48,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Strikethrough,
                 TextBackgroundColor(GREEN.into()),
             ),
-            Text::new("normal"),
+            (Text::new("underline"), Underline),
             (
                 Text::new("struck"),
                 Strikethrough,
                 TextBackgroundColor(GREEN.into()),
                 children![
-                    TextSpan::new("normal"),
+                    (TextSpan::new("underline"), Underline),
                     (TextSpan::new("struck"), Strikethrough,)
                 ],
             ),
@@ -90,7 +90,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBackgroundColor(Color::BLACK)
                     ),
                     (
-                        TextSpan::new("\nnormal"),
+                        TextSpan::new("\nunderline"),
+                        Underline,
                         TextFont {
                             font_size: 30.,
                             ..default()
@@ -109,12 +110,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextBackgroundColor(NAVY.into())
                     ),
                     (
-                        TextSpan::new("struck"),
+                        TextSpan::new("underlined and struck"),
                         TextFont {
                             font_size: 70.,
                             ..default()
                         },
                         Strikethrough,
+                        Underline,
                         TextColor(RED.into()),
                         TextBackgroundColor(NAVY.into())
                     )

@@ -3,8 +3,8 @@ use crate::{
     path::normalize_path,
 };
 use alloc::borrow::ToOwned;
+use async_channel::Sender;
 use core::time::Duration;
-use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -269,7 +269,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.send_blocking(event).unwrap();
         }
     }
 }
