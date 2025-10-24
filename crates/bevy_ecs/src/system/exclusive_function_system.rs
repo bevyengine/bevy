@@ -12,10 +12,12 @@ use crate::{
 
 use alloc::{borrow::Cow, vec, vec::Vec};
 use bevy_utils::prelude::DebugName;
-use core::marker::PhantomData;
+use core::{iter, marker::PhantomData};
 use variadics_please::all_tuples;
 
 use super::{RunSystemError, SystemParamValidationError, SystemStateFlags};
+
+use super::SystemMetaProvider;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -202,6 +204,35 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
+    }
+}
+
+impl<Marker, Out, F> SystemMetaProvider for ExclusiveFunctionSystem<Marker, Out, F>
+where
+    Marker: 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec: Vec<&mut SystemMeta> = Vec::new();
+        self.extend_with_system_metas_mut(&mut vec);
+        vec
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, extendable: &mut impl Extend<&'a SystemMeta>) {
+        extendable.extend(iter::once(&self.system_meta));
+    }
+
+    fn extend_with_system_metas_mut<'a>(
+        &'a mut self,
+        extendable_mut: &mut impl Extend<&'a mut SystemMeta>,
+    ) {
+        extendable_mut.extend(iter::once(&mut self.system_meta));
     }
 }
 
