@@ -73,8 +73,7 @@ use bevy_ecs::{component::Component, message::Message, resource::Resource, sched
 
 #[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::reflect::{ReflectComponent, ReflectResource},
-    bevy_reflect::std_traits::ReflectDefault,
+    bevy_ecs::reflect::ReflectResource, bevy_reflect::std_traits::ReflectDefault,
     bevy_reflect::Reflect,
 };
 

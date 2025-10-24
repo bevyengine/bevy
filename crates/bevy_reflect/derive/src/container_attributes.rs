@@ -279,17 +279,6 @@ impl ContainerAttributes {
 
         add_unique_ident(&mut self.idents, reflect_ident)?;
 
-        // When reflecting resources we also need to reflect component, since
-        // #[derive(Resource)] is equivalent to #[derive(Resource, Component)],
-        // we need to ensure that #[reflect(Resource)] is also equivalent to
-        // #[reflect(Resource, Component)]. This is necessary for bevy_scene
-        // serialization to work.
-        if &ident_name == "Resource" {
-            let mut reflect_component_ident = crate::ident::get_reflect_ident("Component");
-            reflect_component_ident.set_span(ident.span());
-            add_unique_ident(&mut self.idents, reflect_component_ident)?;
-        }
-
         Ok(())
     }
 
