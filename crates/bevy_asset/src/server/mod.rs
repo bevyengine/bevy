@@ -1775,6 +1775,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
             world.write_message_batch(untyped_failures);
         }
 
+        // The following code all deals with hot-reloading, which we can skip if the server isn't
+        // watching for changes.
+        if !infos.watching_for_changes {
+            return;
+        }
+
         fn queue_ancestors(
             asset_path: &AssetPath,
             infos: &AssetInfos,
