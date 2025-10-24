@@ -54,7 +54,7 @@ fn main() {
 
 fn print_controls() {
     println!("Atmosphere Example Controls:");
-    println!("    1          - Switch to default rendering method");
+    println!("    1          - Switch to lookup texture rendering method");
     println!("    2          - Switch to raymarched rendering method");
     println!("    Enter      - Pause/Resume sun motion");
     println!("    Up/Down    - Increase/Decrease exposure");
@@ -70,7 +70,7 @@ fn atmosphere_controls(
     if keyboard_input.just_pressed(KeyCode::Digit1) {
         for mut settings in &mut atmosphere_settings {
             settings.rendering_method = AtmosphereMode::LookupTexture;
-            println!("Switched to default rendering method");
+            println!("Switched to lookup texture rendering method");
         }
     }
 
