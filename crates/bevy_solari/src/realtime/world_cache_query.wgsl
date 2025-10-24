@@ -1,9 +1,9 @@
 #define_import_path bevy_solari::world_cache
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 20.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 5.0;
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
+const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
@@ -57,8 +57,8 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
         } else {
-            // Collision - jump to another entry
-            key = wrap_key(pcg_hash(key));
+            // Collision - linear probe to next entry
+            key += 1u;
         }
     }
 
