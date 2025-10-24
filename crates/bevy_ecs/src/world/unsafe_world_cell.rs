@@ -20,7 +20,6 @@ use crate::{
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use alloc::boxed::Box;
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::Ptr;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
@@ -1187,7 +1186,7 @@ impl<'w> UnsafeEntityCell<'w> {
     pub unsafe fn get_relationship_targets_by_id(
         self,
         relationship_target_id: ComponentId,
-    ) -> Option<Box<dyn Iterator<Item = Entity> + 'w>> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
         let ptr = self.get_by_id(relationship_target_id)?;
         let RelationshipAccessor::RelationshipTarget { iter, .. } = self
             .world

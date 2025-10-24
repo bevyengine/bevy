@@ -10,7 +10,6 @@ use crate::{
     },
 };
 
-use alloc::boxed::Box;
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -317,7 +316,7 @@ impl<'w> EntityRef<'w> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe {
             self.cell

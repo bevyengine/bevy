@@ -9,5 +9,6 @@ This resulted in changes to `ComponentDescriptor::new_with_layout`:
 
 `UnsafeEntityCell`, `EntityRef`, `EntityMut`, `FilteredEntityRef`, `FilteredEntityMut` can now access relationship values
 in dynamic contexts with the new public methods:
+
 - `get_relationship_by_id`
-- `get_relationship_targets_by_id`
+- `get_relationship_targets_by_id

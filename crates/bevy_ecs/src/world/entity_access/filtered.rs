@@ -7,7 +7,6 @@ use crate::{
     world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},
 };
 
-use alloc::boxed::Box;
 use bevy_ptr::Ptr;
 use core::{
     any::TypeId,
@@ -225,7 +224,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
+    ) -> Option<impl Iterator<Item = Entity> + 'w> {
         self.access
             .has_component_read(relationship_target_id)
             // SAFETY: We have read access
@@ -706,7 +705,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<Box<dyn Iterator<Item = Entity> + '_>> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
         self.access
             .has_component_read(relationship_target_id)
             // SAFETY: We have read access
