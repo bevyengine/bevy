@@ -1988,7 +1988,8 @@ mod tests {
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 let asset_path = load_context.asset_path().clone();
-                let loaded_asset = load_context.loader()
+                let loaded_asset = load_context
+                    .loader()
                     .immediate()
                     .load::<TestAsset>(asset_path)
                     .await?;
@@ -2009,7 +2010,11 @@ mod tests {
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
-                assert!(format!("{:?}", &err).contains("AssetDependentOnSelf"), "Error did not contain AssetDependentOnSelf: {:?}", &err);
+                assert!(
+                    format!("{:?}", &err).contains("AssetDependentOnSelf"),
+                    "Error did not contain AssetDependentOnSelf: {:?}",
+                    &err
+                );
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
@@ -2037,7 +2042,8 @@ mod tests {
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 let asset_path = load_context.asset_path().clone();
-                let loaded_asset = load_context.loader()
+                let loaded_asset = load_context
+                    .loader()
                     .immediate()
                     .with_unknown_type()
                     .load(asset_path)
@@ -2062,7 +2068,11 @@ mod tests {
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
-                assert!(format!("{:?}", &err).contains("AssetDependentOnSelf"), "Error did not contain AssetDependentOnSelf: {:?}", &err);
+                assert!(
+                    format!("{:?}", &err).contains("AssetDependentOnSelf"),
+                    "Error did not contain AssetDependentOnSelf: {:?}",
+                    &err
+                );
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
@@ -2132,7 +2142,7 @@ mod tests {
                 messages,
                 [
                     AssetEvent::LoadedWithDependencies { id: handle.id() },
-                    AssetEvent::Added  { id: handle.id() }
+                    AssetEvent::Added { id: handle.id() }
                 ]
             );
             Some(())
@@ -2274,7 +2284,8 @@ mod tests {
                 let untyped_handle: UntypedHandle = load_context
                     .loader()
                     .with_unknown_type()
-                    .load(asset_path).into();
+                    .load(asset_path)
+                    .into();
 
                 Ok(TestAssetUD(untyped_handle))
             }
@@ -2311,7 +2322,7 @@ mod tests {
                 messages,
                 [
                     AssetEvent::LoadedWithDependencies { id: handle.id() },
-                    AssetEvent::Added  { id: handle.id() }
+                    AssetEvent::Added { id: handle.id() }
                 ]
             );
             Some(())
