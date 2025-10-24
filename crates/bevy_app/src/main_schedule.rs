@@ -174,7 +174,7 @@ pub struct Update;
 
 /// The schedule that contains scene spawning.
 ///
-/// See the [`Main`] schedule for some details about how schedules are run.
+/// This runs after [`Update`] and before [`PostUpdate`]. See the [`Main`] schedule for more details about how schedules are run.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct SpawnScene;
 
