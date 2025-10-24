@@ -376,9 +376,22 @@ pub struct TextLayoutInfo {
     pub glyphs: Vec<PositionedGlyph>,
     /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
     /// A text section spanning more than one line will have multiple segments.
-    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
+    pub section_geometry: Vec<(SectionGeometry)>,
     /// The glyphs resulting size
     pub size: Vec2,
+}
+
+#[derive(Clone, Default, Debug, Reflect)]
+pub struct SectionGeometry {
+    /// index of span
+    pub span_index: usize,
+    /// bounding rect of section
+    pub rect: Rect,
+    /// offset of strikethrough
+    pub strikethrough_offset: f32,
+    pub strikethrough_size: f32,
+    pub underline_offset: f32,
+    pub underline_size: f32,
 }
 
 /// Determines which antialiasing method to use when rendering text. By default, text is

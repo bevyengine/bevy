@@ -1,14 +1,18 @@
 use crate::add_glyph_to_atlas;
 use crate::get_glyph_atlas_info;
+use crate::text;
 use crate::FontAtlasKey;
 use crate::FontAtlasSet;
 use crate::FontSmoothing;
 use crate::GlyphCacheKey;
+use crate::SectionGeometry;
 use crate::TextLayoutInfo;
 use bevy_asset::Assets;
 use bevy_image::Image;
 use bevy_image::TextureAtlasLayout;
+use bevy_math::Rect;
 use bevy_math::UVec2;
+use bevy_math::Vec2;
 use parley::swash::FontRef;
 use parley::Alignment;
 use parley::AlignmentOptions;
@@ -21,6 +25,7 @@ use parley::PositionedLayoutItem;
 use parley::StyleProperty;
 use parley::WordBreakStrength;
 use std::ops::Range;
+use std::usize;
 use swash::scale::ScaleContext;
 
 fn concat_text_for_layout<'a>(
@@ -143,8 +148,10 @@ pub fn update_text_layout_info(
         for (line_index, item) in line.items().enumerate() {
             match item {
                 PositionedLayoutItem::GlyphRun(glyph_run) => {
-                    let color = glyph_run.style().brush;
+                    let span_index = glyph_run.style().brush;
+
                     let run = glyph_run.run();
+
                     let font = run.font();
                     let font_size = run.font_size();
                     let coords = run.normalized_coords();
@@ -193,12 +200,27 @@ pub fn update_text_layout_info(
                             position: (x, y).into(),
                             size: glyph_size.as_vec2(),
                             atlas_info,
-                            span_index: color as usize,
+                            span_index: span_index as usize,
                             line_index,
                             byte_index: line.text_range().start,
                             byte_length: line.text_range().len(),
                         });
                     }
+
+                    info.section_geometry.push(SectionGeometry {
+                        span_index: span_index as usize,
+                        rect: Rect {
+                            min: Vec2::new(glyph_run.offset(), line.metrics().min_coord),
+                            max: Vec2::new(
+                                glyph_run.offset() + glyph_run.advance(),
+                                line.metrics().max_coord,
+                            ),
+                        },
+                        strikethrough_offset: run.metrics().strikethrough_offset,
+                        strikethrough_size: run.metrics().strikethrough_size,
+                        underline_offset: run.metrics().underline_offset,
+                        underline_size: run.metrics().underline_size,
+                    });
                 }
                 _ => {}
             }
