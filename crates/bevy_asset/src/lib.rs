@@ -1967,6 +1967,380 @@ mod tests {
         });
     }
 
+    #[test]
+    fn error_on_immediate_load_of_self_dependency() {
+        let (mut app, dir, _source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+
+        struct ImmediateSelfLoader;
+
+        impl AssetLoader for ImmediateSelfLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let asset_path = load_context.asset_path().clone();
+                let loaded_asset = load_context.loader()
+                    .immediate()
+                    .load::<TestAsset>(asset_path)
+                    .await?;
+                load_context.add_loaded_labeled_asset("myself".to_string(), loaded_asset);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(ImmediateSelfLoader);
+
+        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                assert!(format!("{:?}", &err).contains("AssetDependentOnSelf"), "Error did not contain AssetDependentOnSelf: {:?}", &err);
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
+    #[test]
+    fn error_on_unknown_type_immediate_load_of_self_dependency() {
+        let (mut app, dir, _source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+
+        struct ImmediateSelfLoader;
+
+        impl AssetLoader for ImmediateSelfLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let asset_path = load_context.asset_path().clone();
+                let loaded_asset = load_context.loader()
+                    .immediate()
+                    .with_unknown_type()
+                    .load(asset_path)
+                    .await?;
+                let Ok(loaded_asset) = loaded_asset.downcast::<TestAsset>() else {
+                    panic!("Could not downcast to `TestAsset`")
+                };
+                load_context.add_loaded_labeled_asset("myself".to_string(), loaded_asset);
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(ImmediateSelfLoader);
+
+        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Failed(err) => {
+                assert!(format!("{:?}", &err).contains("AssetDependentOnSelf"), "Error did not contain AssetDependentOnSelf: {:?}", &err);
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+    }
+
+    /// This is not a statement of intent but one of behavior: One may load
+    /// their own path deferred without error. It has the correct handle to
+    /// itself. And it can reload.
+    ///
+    /// I would have wanted this to produce an error. Instead it produces a
+    /// warning.
+    #[test]
+    fn no_error_on_deferred_load_of_self_dependency() {
+        let (mut app, dir, source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+
+        #[derive(Asset, TypePath)]
+        pub struct TestAsset(Handle<TestAsset>);
+        struct DeferredSelfLoader;
+
+        impl AssetLoader for DeferredSelfLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let asset_path = load_context.asset_path().clone();
+                let loaded_asset = load_context.load::<TestAsset>(asset_path);
+                Ok(TestAsset(loaded_asset))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(DeferredSelfLoader);
+
+        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+
+        run_app_until(&mut app, |world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Loaded => {
+                let test_assets = world.resource::<Assets<TestAsset>>();
+                let asset = test_assets.get(&handle).unwrap();
+                assert_eq!(handle, asset.0);
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Added  { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+
+        // Sending an asset event should result in the asset being reloaded - resulting in a
+        // "Modified" message.
+        source_events
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
+                "abc.cool.ron",
+            )))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Modified { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+    }
+
+    #[test]
+    fn no_error_on_read_bytes_of_self_dependency() {
+        let (mut app, dir, source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+
+        struct ReadBytesSelfLoader;
+
+        impl AssetLoader for ReadBytesSelfLoader {
+            type Asset = TestAsset;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let asset_path = load_context.asset_path().clone();
+                let _bytes = load_context.read_asset_bytes(asset_path).await.unwrap();
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(ReadBytesSelfLoader);
+
+        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+
+        run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Loaded => Some(()),
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Added { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+
+        // Sending an asset event should result in the asset being reloaded - resulting in a
+        // "Modified" message.
+        source_events
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
+                "abc.cool.ron",
+            )))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Modified { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+    }
+
+    /// This is not a statement of intent but one of behavior: One may load
+    /// their own path deferred of unknown type without error. It has the
+    /// correct handle to itself. And it can reload.
+    ///
+    /// I would have wanted this to produce an error. Instead it produces a
+    /// warning.
+    #[test]
+    fn no_error_on_unknown_type_deferred_load_of_self_dependency() {
+        let (mut app, dir, source_events) = create_app_with_source_event_sender();
+        let asset_server = app.world().resource::<AssetServer>().clone();
+
+        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+
+        #[derive(Asset, TypePath)]
+        pub struct TestAssetUD(UntypedHandle);
+        struct ImmediateSelfLoader;
+
+        impl AssetLoader for ImmediateSelfLoader {
+            type Asset = TestAssetUD;
+            type Error = crate::loader::LoadDirectError;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let asset_path = load_context.asset_path().clone();
+                let untyped_handle: UntypedHandle = load_context
+                    .loader()
+                    .with_unknown_type()
+                    .load(asset_path).into();
+
+                Ok(TestAssetUD(untyped_handle))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        app.init_asset::<TestAssetUD>()
+            .register_asset_loader(ImmediateSelfLoader);
+
+        let handle: Handle<TestAssetUD> = asset_server.load("abc.cool.ron");
+
+        run_app_until(&mut app, |world| match asset_server.load_state(&handle) {
+            LoadState::Loading => None,
+            LoadState::Loaded => {
+                let test_assets = world.resource::<Assets<TestAssetUD>>();
+                let asset = test_assets.get(&handle).unwrap();
+                assert_eq!(handle.id(), asset.0.id().typed_unchecked::<TestAssetUD>());
+                // This one fails.
+                // assert_eq!(handle.id(), asset.0.id().typed::<TestAssetUD>());
+                Some(())
+            }
+            state => panic!("Unexpected asset state: {state:?}"),
+        });
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Added  { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+
+        // Sending an asset event should result in the asset being reloaded - resulting in a
+        // "Modified" message.
+        source_events
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
+                "abc.cool.ron",
+            )))
+            .unwrap();
+
+        run_app_until(&mut app, |world| {
+            let messages = collect_asset_events(world);
+            if messages.is_empty() {
+                return None;
+            }
+            assert_eq!(
+                messages,
+                [
+                    AssetEvent::LoadedWithDependencies { id: handle.id() },
+                    AssetEvent::Modified { id: handle.id() }
+                ]
+            );
+            Some(())
+        });
+    }
+
     // validate the Asset derive macro for various asset types
     #[derive(Asset, TypePath)]
     pub struct TestAsset;

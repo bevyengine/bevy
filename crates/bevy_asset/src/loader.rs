@@ -305,7 +305,13 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
+    #[error(transparent)]
+    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
 }
+
+#[derive(Error, Debug, Clone)]
+#[error("The asset at path `{}` loads itself as a dependent.", asset_path)]
+pub struct AssetDependentOnSelf { pub asset_path: AssetPath<'static> }
 
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -588,4 +594,6 @@ pub enum ReadAssetBytesError {
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
+    #[error(transparent)]
+    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
 }
