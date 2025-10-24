@@ -23,7 +23,7 @@ use core::{
 /// Queries enable systems to access [entity identifiers] and [components] without requiring direct access to the [`World`].
 /// Its iterators and getter methods return *query items*, which are types containing data related to an entity.
 ///
-/// `Query` is a generic data structure that accepts two type parameters:
+/// `Query` is a generic data structure that accepts three type parameters:
 ///
 /// - **`D` (query data)**:
 ///   The type of data fetched by the query, which will be returned as the query item.
@@ -33,6 +33,11 @@ use core::{
 ///   An optional set of conditions that determine whether query items should be kept or discarded.
 ///   This defaults to [`unit`], which means no additional filters will be applied.
 ///   Must implement the [`QueryFilter`] trait.
+/// - **`S` (query state)**:
+///   An optional type that indicates how the internal state of the query is stored.
+///   For the query to be a system parameter, this must be the default of `&'state QueryState<D, F>`.
+///   That stores the state along with the system, and borrows from it when running.
+///   For cases where a query needs to contain an owned state, use the [`QueryLens`] type alias.
 ///
 /// [system parameter]: crate::system::SystemParam
 /// [`Component`]: crate::component::Component
