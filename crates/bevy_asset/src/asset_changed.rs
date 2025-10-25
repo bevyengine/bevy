@@ -279,7 +279,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
                 let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
-                fetch.check.has_changed(handle)
+                handle.is_some_and(|handle| fetch.check.has_changed(handle))
             }
         })
     }
