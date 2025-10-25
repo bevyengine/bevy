@@ -491,16 +491,16 @@ pub struct TextLayoutInfo {
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
-    /// A run in bevy_text is a contiguous sequence of glyphs on a line that share the same text attributes like `Font`,
-    /// `TextColor`, and `LineHeight`.
+    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
 
 /// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
-/// A run in bevy_text is a contiguous sequence of glyphs on a line that share the same text attributes like `Font`,
-/// `TextColor`, and `LineHeight`.
+/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+/// font size, and line height.
 #[derive(Default, Debug, Clone, Reflect)]
 pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
