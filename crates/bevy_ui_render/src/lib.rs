@@ -1217,12 +1217,12 @@ pub fn extract_text_decorations(
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
-                    transform: transform * Affine2::from_translation(run.rect.center()),
+                    transform: transform * Affine2::from_translation(run.bounds.center()),
                     item: ExtractedUiItem::Node {
                         color: text_background_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: run.rect.size(),
+                            max: run.bounds.size(),
                         },
                         atlas_scaling: None,
                         flip_x: false,

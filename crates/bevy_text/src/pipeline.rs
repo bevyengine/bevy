@@ -307,7 +307,7 @@ impl TextPipeline {
                             if section != layout_glyph.metadata {
                                 layout_info.run_geometry.push(RunGeometry {
                                     span_index: section,
-                                    rect: Rect::new(
+                                    bounds: Rect::new(
                                         start,
                                         run.line_top,
                                         end,
@@ -405,7 +405,7 @@ impl TextPipeline {
             if let Some(section) = current_section {
                 layout_info.run_geometry.push(RunGeometry {
                     span_index: section,
-                    rect: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
                     strikethrough_y: (run.line_y - self.glyph_info[section].3).round(),
                     strikethrough_thickness: self.glyph_info[section].4,
                     underline_y: (run.line_y - self.glyph_info[section].5).round(),
@@ -506,7 +506,7 @@ pub struct RunGeometry {
     /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
     pub span_index: usize,
     /// Bounding box around the text run
-    pub rect: Rect,
+    pub bounds: Rect,
     /// Y position of the strikethrough in the text layout.
     pub strikethrough_y: f32,
     /// Strikethrough stroke thickness.
@@ -521,27 +521,27 @@ impl RunGeometry {
     /// Returns the center of the strikethrough in the text layout.
     pub fn strikethrough_position(&self) -> Vec2 {
         Vec2::new(
-            self.rect.center().x,
+            self.bounds.center().x,
             self.strikethrough_y + 0.5 * self.strikethrough_thickness,
         )
     }
 
     /// Returns the size of the strikethrough.
     pub fn strikethrough_size(&self) -> Vec2 {
-        Vec2::new(self.rect.size().x, self.strikethrough_thickness)
+        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
     }
 
     /// Get the center of the underline in the text layout.
     pub fn underline_position(&self) -> Vec2 {
         Vec2::new(
-            self.rect.center().x,
+            self.bounds.center().x,
             self.underline_y + 0.5 * self.underline_thickness,
         )
     }
 
     /// Returns the size of the underline.
     pub fn underline_size(&self) -> Vec2 {
-        Vec2::new(self.rect.size().x, self.underline_thickness)
+        Vec2::new(self.bounds.size().x, self.underline_thickness)
     }
 }
 

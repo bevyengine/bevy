@@ -77,7 +77,7 @@ pub fn extract_text2d_sprite(
                 continue;
             };
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
-            let offset = Vec2::new(run.rect.center().x, -run.rect.center().y);
+            let offset = Vec2::new(run.bounds.center().x, -run.bounds.center().y);
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
                 * scaling
@@ -94,7 +94,7 @@ pub fn extract_text2d_sprite(
                     anchor: Vec2::ZERO,
                     rect: None,
                     scaling_mode: None,
-                    custom_size: Some(run.rect.size()),
+                    custom_size: Some(run.bounds.size()),
                 },
             });
         }
