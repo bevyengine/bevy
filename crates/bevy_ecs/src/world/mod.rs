@@ -64,6 +64,7 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_ecs::query::UncachedQueryState;
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
@@ -1552,6 +1553,44 @@ impl World {
         self.query_filtered::<D, ()>()
     }
 
+    /// Returns [`UncachedQueryState`] for the given [`QueryData`], which is used to
+    /// run queries on the [`World`]. In contrast to [`QueryState`], this won't cache any of the
+    /// archetypes that match the query.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component, Debug, PartialEq)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Velocity {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entities = world.spawn_batch(vec![
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 1.0, y: 0.0 }),
+    ///     (Position { x: 0.0, y: 0.0}, Velocity { x: 0.0, y: 1.0 }),
+    /// ]).collect::<Vec<Entity>>();
+    ///
+    /// let mut query = world.query_uncached::<(&mut Position, &Velocity)>();
+    /// for (mut position, velocity) in query.iter_mut(&mut world) {
+    ///    position.x += velocity.x;
+    ///    position.y += velocity.y;
+    /// }
+    ///
+    /// assert_eq!(world.get::<Position>(entities[0]).unwrap(), &Position { x: 1.0, y: 0.0 });
+    /// assert_eq!(world.get::<Position>(entities[1]).unwrap(), &Position { x: 0.0, y: 1.0 });
+    /// ```
+    #[inline]
+    pub fn query_uncached<D: QueryData>(&mut self) -> UncachedQueryState<D, ()> {
+        self.query_filtered_uncached::<D, ()>()
+    }
+
     /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
@@ -1573,6 +1612,33 @@ impl World {
     /// ```
     #[inline]
     pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+        QueryState::new(self)
+    }
+
+    /// Returns [`UncachedQueryState`] for the given [`QueryData`], which is used to
+    /// run queries on the [`World`]. In contrast to [`QueryState`], this won't cache any of the
+    /// archetypes that match the query.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
+    ///
+    /// let mut query = world.query_filtered_uncached::<Entity, With<B>>();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
+    #[inline]
+    pub fn query_filtered_uncached<D: QueryData, F: QueryFilter>(
+        &mut self,
+    ) -> UncachedQueryState<D, F> {
         QueryState::new(self)
     }
 
@@ -1627,6 +1693,33 @@ impl World {
         self.try_query_filtered::<D, ()>()
     }
 
+    /// Returns [`UncachedQueryState`] for the given [`QueryData`], which is used to
+    /// run queries on the [`World`]. In contrast to [`QueryState`], this won't cache any of the
+    /// archetypes that match the query.
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let none_query = world.try_query_uncached::<&A>();
+    /// assert!(none_query.is_none());
+    ///
+    /// world.register_component::<A>();
+    ///
+    /// let some_query = world.try_query_uncached::<&A>();
+    /// assert!(some_query.is_some());
+    /// ```
+    #[inline]
+    pub fn try_query_uncached<D: QueryData>(&mut self) -> Option<UncachedQueryState<D, ()>> {
+        self.try_query_filtered_uncached::<D, ()>()
+    }
+
     /// Returns [`QueryState`] for the given filtered [`QueryData`], which is used to efficiently
     /// run queries on the [`World`] by storing and reusing the [`QueryState`].
     /// ```
@@ -1651,6 +1744,36 @@ impl World {
     /// the components that make up this query have not been registered into the world.
     #[inline]
     pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
+        QueryState::try_new(self)
+    }
+
+    /// Returns [`UncachedQueryState`] for the given [`QueryData`], which is used to
+    /// run queries on the [`World`]. In contrast to [`QueryState`], this won't cache any of the
+    /// archetypes that match the query.
+    /// ```
+    /// use bevy_ecs::{component::Component, entity::Entity, world::World, query::With};
+    ///
+    /// #[derive(Component)]
+    /// struct A;
+    /// #[derive(Component)]
+    /// struct B;
+    ///
+    /// let mut world = World::new();
+    /// let e1 = world.spawn(A).id();
+    /// let e2 = world.spawn((A, B)).id();
+    ///
+    /// let mut query = world.try_query_filtered_uncached::<Entity, With<B>>().unwrap();
+    /// let matching_entities = query.iter(&world).collect::<Vec<Entity>>();
+    ///
+    /// assert_eq!(matching_entities, vec![e2]);
+    /// ```
+    ///
+    /// Requires only an immutable world reference, but may fail if, for example,
+    /// the components that make up this query have not been registered into the world.
+    #[inline]
+    pub fn try_query_filtered_uncached<D: QueryData, F: QueryFilter>(
+        &self,
+    ) -> Option<UncachedQueryState<D, F>> {
         QueryState::try_new(self)
     }
 

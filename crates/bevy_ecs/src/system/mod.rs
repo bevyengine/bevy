@@ -1391,9 +1391,9 @@ mod tests {
         world.spawn((A(2), B(2)));
         {
             let query = system_state.get(&world);
-            assert_eq!(
-                query.iter().collect::<Vec<_>>(),
-                vec![&A(1), &A(2)],
+            let result = query.iter().collect::<Vec<_>>();
+            assert!(
+                result.contains(&&A(1)) && result.contains(&&A(2)),
                 "components from both archetypes returned"
             );
         }

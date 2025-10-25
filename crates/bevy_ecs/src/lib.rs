@@ -88,7 +88,10 @@ pub mod prelude {
         message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
         name::{Name, NameOrEntity},
         observer::{Observer, On, Trigger},
-        query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{
+            Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, UncachedQueryState,
+            With, Without,
+        },
         related,
         relationship::RelationshipTarget,
         resource::Resource,
@@ -101,7 +104,7 @@ pub mod prelude {
             Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            SystemParamFunction, UncachedQuery,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
@@ -475,8 +478,12 @@ mod tests {
         assert_eq!(ents, &[(e, A(123))]);
 
         let f = world.spawn((TableStored("def"), A(456), B(1))).id();
-        let ents = query.iter(&world).map(|(e, &i)| (e, i)).collect::<Vec<_>>();
-        assert_eq!(ents, &[(e, A(123)), (f, A(456))]);
+        let ents = query
+            .iter(&world)
+            .map(|(e, &i)| (e, i))
+            .collect::<HashSet<_>>();
+        assert!(ents.contains(&(e, A(123))));
+        assert!(ents.contains(&(f, A(456))));
     }
 
     #[test]

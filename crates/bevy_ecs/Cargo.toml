@@ -52,6 +52,10 @@ bevy_debug_stepping = []
 ## This will often provide more detailed error messages.
 track_location = []
 
+## Makes queries become uncached by default.
+## Mostly useful for unit tests.
+query_uncached_default = []
+
 # Executor Backend
 
 ## Uses `async-executor` as a task execution backend.

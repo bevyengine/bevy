@@ -2,6 +2,7 @@
 
 mod access;
 mod builder;
+mod cache;
 mod error;
 mod fetch;
 mod filter;
@@ -13,6 +14,7 @@ mod world_query;
 pub use access::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
+pub use cache::*;
 pub use error::*;
 pub use fetch::*;
 pub use filter::*;
@@ -120,6 +122,7 @@ mod tests {
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};
+    use bevy_ecs::query::CacheState;
     use bevy_ecs_macros::QueryFilter;
     use core::{any::type_name, fmt::Debug, hash::Hash};
     use std::{collections::HashSet, println};
@@ -169,7 +172,7 @@ mod tests {
             F: ArchetypeFilter,
         {
             let mut query = world.query_filtered::<D, F>();
-            let query_type = type_name::<QueryCombinationIter<D, F, K>>();
+            let query_type = type_name::<QueryCombinationIter<D, F, CacheState, K>>();
             let iter = query.iter_combinations::<K>(world);
             assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
             let iter = query.iter_combinations::<K>(world);
