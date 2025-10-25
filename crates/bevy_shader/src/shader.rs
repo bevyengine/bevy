@@ -368,13 +368,13 @@ impl AssetLoader for ShaderLoader {
         load_context: &mut LoadContext<'_>,
     ) -> Result<Shader, Self::Error> {
         let ext = load_context
-            .asset_path()
+            .path()
             .path()
             .extension()
             .unwrap()
             .to_str()
             .unwrap();
-        let path = load_context.asset_path().to_string();
+        let path = load_context.path().to_string();
         // On windows, the path will inconsistently use \ or /.
         // TODO: remove this once AssetPath forces cross-platform "slash" consistency. See #10511
         let path = path.replace(std::path::MAIN_SEPARATOR, "/");
@@ -387,7 +387,7 @@ impl AssetLoader for ShaderLoader {
             );
         }
         let mut shader = match ext {
-            "spv" => Shader::from_spirv(bytes, load_context.asset_path().path().to_string_lossy()),
+            "spv" => Shader::from_spirv(bytes, load_context.path().path().to_string_lossy()),
             "wgsl" => Shader::from_wgsl_with_defs(
                 String::from_utf8(bytes)?,
                 path,

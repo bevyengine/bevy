@@ -181,7 +181,7 @@ impl AssetLoader for ImageLoader {
             ImageFormatSetting::FromExtension => {
                 // use the file extension for the image type
                 let ext = load_context
-                    .asset_path()
+                    .path()
                     .path()
                     .extension()
                     .unwrap()
@@ -193,12 +193,12 @@ impl AssetLoader for ImageLoader {
             ImageFormatSetting::Guess => {
                 let format = image::guess_format(&bytes).map_err(|err| FileTextureError {
                     error: err.into(),
-                    path: format!("{}", load_context.asset_path().path().display()),
+                    path: format!("{}", load_context.path().path().display()),
                 })?;
                 ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
                     || FileTextureError {
                         error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
-                        path: format!("{}", load_context.asset_path().path().display()),
+                        path: format!("{}", load_context.path().path().display()),
                     },
                 )?)
             }
@@ -214,7 +214,7 @@ impl AssetLoader for ImageLoader {
         )
         .map_err(|err| FileTextureError {
             error: err,
-            path: format!("{}", load_context.asset_path().path().display()),
+            path: format!("{}", load_context.path().path().display()),
         })?;
 
         if let Some(format) = settings.texture_format {

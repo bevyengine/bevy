@@ -466,7 +466,7 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Gets the source asset path for this load context.
-    pub fn asset_path(&self) -> &AssetPath<'static> {
+    pub fn path(&self) -> &AssetPath<'static> {
         &self.asset_path
     }
 
