@@ -1,40 +1,183 @@
-//! Entity handling types.
+//! This module contains all entity types and utilities for interacting with their ids.
 //!
-//! An **entity** exclusively owns zero or more [component] instances, all of different types, and can dynamically acquire or lose them over its lifetime.
+//! # What is an Entity?
 //!
-//! **empty entity**: Entity with zero components.
-//! **pending entity**: Entity reserved, but not flushed yet (see [`Entities::flush`] docs for reference).
-//! **reserved entity**: same as **pending entity**.
-//! **invalid entity**: **pending entity** flushed with invalid (see [`Entities::flush_as_invalid`] docs for reference).
+//! The ecs [docs](crate) give an overview of what entities are and generally how to use them.
+//! These docs provide more detail into how they actually work.
+//! In these docs [`Entity`] and "entity id" are synonymous and refer to the [`Entity`] type, which identifies an entity.
+//! The term "entity" used on its own refers to the "thing"/"game object" that id references.
 //!
-//! See [`Entity`] to learn more.
+//! # In this Module
 //!
-//! [component]: crate::component::Component
+//! This module contains four main things:
 //!
-//! # Usage
+//!  - Core ECS types like [`Entity`], [`Entities`], and [`EntitiesAllocator`].
+//!  - Utilities for [`Entity`] ids like [`MapEntities`], [`EntityHash`], and [`UniqueEntityVec`].
+//!  - Helpers for entity tasks like [`EntityCloner`].
+//!  - Entity-related error types like [`EntityNotSpawnedError`].
 //!
-//! Operations involving entities and their components are performed either from a system by submitting commands,
-//! or from the outside (or from an exclusive system) by directly using [`World`] methods:
+//! # Entity Life Cycle
 //!
-//! |Operation|Command|Method|
-//! |:---:|:---:|:---:|
-//! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
-//! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
-//! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
-//! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityWorldMut::insert`]|
-//! |Remove a component, bundle, or tuple of components and bundles from an entity|[`EntityCommands::remove`]|[`EntityWorldMut::remove`]|
+//! Entities have life cycles.
+//! They are created, used for a while, and eventually destroyed.
+//! Let's start from the top:
+//!
+//! **Spawn:** An entity is created.
+//! In bevy, this is called spawning.
+//! Most commonly, this is done through [`World::spawn`](crate::world::World::spawn) or [`Commands::spawn`](crate::system::Commands::spawn).
+//! This creates a fresh entity in the world and returns its [`Entity`] id, which can be used to interact with the entity it identifies.
+//! These methods initialize the entity with a [`Bundle`], a group of [components](crate::component::Component) that it starts with.
+//! It is also possible to use [`World::spawn_empty`](crate::world::World::spawn_empty) or [`Commands::spawn_empty`](crate::system::Commands::spawn_empty), which are similar but do not add any components to the entity.
+//! In either case, the returned [`Entity`] id is used to further interact with the entity.
+//!
+//! **Update:** Once an entity is created, you will need its [`Entity`] id to progress its life cycle.
+//! This can be done through [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
+//! Even if you don't store the id, you can still find the entity you spawned by searching for it in a [`Query`].
+//! Queries are also the primary way of interacting with an entity's components.
+//! You can use [`EntityWorldMut::remove`](crate::world::EntityWorldMut::remove) and [`EntityCommands::remove`](crate::system::EntityCommands::remove) to remove components,
+//! and you can use [`EntityWorldMut::insert`](crate::world::EntityWorldMut::insert) and [`EntityCommands::insert`](crate::system::EntityCommands::insert) to insert more components.
+//! Be aware that each entity can only have 0 or 1 values for each kind of component, so inserting a bundle may overwrite existing component values.
+//! This can also be further configured based on the insert method.
+//!
+//! **Despawn:** Despawn an entity when it is no longer needed.
+//! This destroys it and all its components.
+//! The entity is no longer reachable through the [`World`], [`Commands`], or [`Query`]s.
+//! Note that this means an [`Entity`] id may refer to an entity that has since been despawned!
+//! Not all [`Entity`] ids refer to active entities.
+//! If an [`Entity`] id is used when its entity has been despawned, an [`EntityNotSpawnedError`] is emitted.
+//! Any [`System`](crate::system) could despawn any entity; even if you never share its id, it could still be despawned unexpectedly.
+//! Your code should do its best to handle these errors gracefully.
+//!
+//! In short:
+//!
+//! - Entities are spawned through methods like [`World::spawn`](crate::world::World::spawn), which return an [`Entity`] id for the new entity.
+//! - Once spawned, they can be accessed and modified through [`Query`]s and other apis.
+//! - You can get the [`Entity`] id of an entity through [`Query`]s, so losing an [`Entity`] id is not a problem.
+//! - Entities can have components inserted and removed via [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
+//! - Entities are eventually despawned, destroying the entity and causing its [`Entity`] id to no longer refer to an entity.
+//! - Not all [`Entity`] ids point to actual entities, which makes many entity methods fallible.
+//!
+//! # Entity Ids
+//!
+//! As mentioned entities each have an [`Entity`] id, which is used to interact with that entity.
+//! But what actually is this id?
+//! This [`Entity`] id is the combination of two ideas: [`EntityRow`] and [`EntityGeneration`].
+//! You can think of the [`Entity`] type as a `struct Entity { row: u32, generation: u32 }`.
+//!
+//! To understand these ids, picture the ECS [`World`] as a spreadsheet.
+//! Each kind of component is represented by a column in the spreadsheet and each entity is a row.
+//! That's what the `row` does in [`Entity`]; it identifies where in the spreadsheet to find component values.
+//! If an entity doesn't have a component, picture leaving the cell at that entity row and component column blank or `None`.
+//! To find the component values of an entity, Bevy searches through the spreadsheet at the [`EntityRow`] for the entity and the [`ComponentId`](crate::component::ComponentId) for the component.
+//!
+//! An [`EntityRow`] always references exactly 1 entity in the [`World`].
+//! Think about it, even if the spreadsheet only *uses* rows 1, 2, and 12, it still *has* millions of rows.
+//! In the spreadsheet analogy, you can think of each row as being in one of 3 states:
+//!
+//!  1. The row is not used.
+//!     Think of this as graying out the row or otherwise hiding it.
+//!     This row doesn't just have no components; it isn't even participating at this point.
+//!  2. The row is empty.
+//!     The row is being used; it's visible, discoverable, etc; it just happens to not have any component values.
+//!  3. The row is full.
+//!     This is the "normal" state of a row.
+//!     It has some component values and is being used.
+//!
+//! [`EntityRow`] behaves much the same way as the spreadsheet row.
+//! Each row has a [`EntityRowLocation`] which defines that row/entity's state.
+//! The [`EntityRowLocation`] is an `Option` of [`EntityLocation`].
+//! If this is `Some`, the row is considered spawned (think *used* in the spreadsheet), otherwise it is considered despawned (think *grayed out* in the spreadsheet).
+//! Only spawned entities, entities with `Some` [`EntityLocation`], participate in the [`World`].
+//! The [`EntityLocation`] further describes which components an entity has and where to find them; it determines which spreadsheet cells are blank and which ones have values.
+//! Only spawned rows are discoverable through [`Query`]s, etc.
+//!
+//! With that spreadsheet intuition, lets get a bit more precise with some definitions:
+//!
+//! - An entity that is used, not grayed out in the spreadsheet, is considered *spawned*.
+//! - An entity that is is grayed out in the spreadsheet, not used, is considered *despawned*.
+//! - A spawned entity that has no components is considered *empty* or *void* though still *spawned*.
+//!   This is different from despawned since these are still participating, discoverable through queries and interact-able through commands;
+//!   they just happen to have no components.
+//!
+//! An [`EntityRow`] always references exactly 1 entity in the [`World`]; they always exist (even though they may still be despawned).
+//! This differs from [`Entity`] which references 0 or 1 entities, depending on if the entity it refers to still exists.
+//! The rows are represented with 32 bits, so there are always over 4 billion entities in the world.
+//! However, not all these entities are usable or stored in memory; Bevy doesn't store information for rows that have never been spawned.
+//!
+//! Rows can be repeatedly spawned and despawned.
+//! Each spawning and despawning corresponds to an [`EntityGeneration`].
+//! The first time a row is spawned, it has a generation of 0, and when it is despawned, it gets a generation of 1.
+//! This differentiates each spawning of that [`EntityRow`].
+//! Again, all an [`Entity`] id is is an [`EntityRow`] (where to find the component values) and an [`EntityGeneration`] (which version of that row it references).
+//! When an [`Entity`] id is invalid, it just means that that generation of its row has been despawned.
+//! It could still be despawned or it could have been re-spawned after it was despawned.
+//! Either way, that row-generation pair no longer exists.
+//! This produces the [`InvalidEntityError`].
+//!
+//! As mentioned, once an [`EntityRow`] is despawned, it is not discoverable until it is spawned again.
+//! To prevent these rows from being forgotten, bevy tracks them in an [`EntitiesAllocator`].
+//! When a new entity is spawned, all bevy does is allocate a new [`Entity`] id from the allocator and [`World::spawn_at`](crate::world::World::spawn_at) it.
+//! When it is despawned, all bevy does is [`World::despawn_no_free`](crate::world::World::despawn_no_free) it and return the [`Entity`] id (with the next [`EntityGeneration`] for that [`EntityRow`]) to the allocator.
+//! It's that simple.
+//!
+//! Bevy exposes this functionality as well.
+//! Spawning an entity requires full access to the [`World`], but using [`EntitiesAllocator::alloc`] can be done fully concurrently.
+//! Of course, to make that entity usable, it will need to be passed to [`World::spawn_at`](crate::world::World::spawn_at).
+//! Managing entity ids manually is advanced but can be very useful for concurrency, custom entity allocators, etc.
+//! But there are risks when used improperly:
+//! Losing a despawned entity row without returning it to bevy's allocator will cause that row to be unreachable, effectively a memory leak.
+//! Further, spawning an arbitrary [`EntityRow`] can cause problems if that same row is queued for reuse in the allocator.
+//! This is powerful, but use it with caution.
+//!
+//! Lots of information about the state of an [`EntityRow`] can be obtained through [`Entities`].
+//! For example, this can be used to get the most recent [`Entity`] of an [`EntityRow`] in [`Entities::resolve_from_row`].
+//! See its docs for more.
+//!
+//! In general, you won't need to interact with the [`Entities`] type directly, but you will still feel its impact, largely because of its error types.
+//! The big three to be aware of are:
+//!
+//! - [`InvalidEntityError`]: when the [`EntityGeneration`] of an [`Entity`] unexpectedly does not match the most recent generation of its [`EntityRow`],
+//! - [`EntityRowNotSpawnedError`]: when an [`EntityRow`] unexpectedly is not spawned,
+//! - [`EntityNotSpawnedError`]: the union of the other two; when [`Entity`]'s [`EntityGeneration`] doesn't match the most recent generation of its [`EntityRow`] or when that row is not spawned,
+//!
+//!
+//! To summarize:
+//!
+//! - An [`Entity`] id is just a [`EntityRow`] and a [`EntityGeneration`] of that row.
+//! - [`EntityRow`]s can be spawned and despawned repeatedly, where each spawning gets its own [`EntityGeneration`].
+//! - Bevy exposes this functionality through [`EntitiesAllocator::alloc`], [`World::spawn_at`](crate::world::World::spawn_at), and [`World::despawn_no_free`](crate::world::World::despawn_no_free).
+//! - While understanding these details help build an intuition for how bevy handles entities, using these apis directly is risky but powerful,
+//!   and you can usually use the easier [`World::spawn`](crate::world::World::spawn`), and [`World::despawn`](crate::world::World::despawn).
+//! - Lots of id information can be obtained from [`Entities`].
+//! - Watch out for the errors [`InvalidEntityError`], [`EntityRowNotSpawnedError`], and [`EntityNotSpawnedError`], explained above.
+//!
+//! # Storage
+//!
+//! As mentioned above, an ecs [`World`] can be imagined as a spreadsheet.
+//! One way that spreadsheet could be implemented is a list of [`Entity`]s and a hashmap for each component that maps an [`EntityRow`] to a component value if that row has the entity.
+//! Bevy's ECS is quite different from that implementation (and much, much faster).
+//! For details on how component storage actually works, see [`storage`](crate::storage).
+//!
+//! Regardless, the spreadsheet also needs a special column that tracks metadata about an entity.
+//! This column does not represents a component and is specific to the [`EntityRow`], not the [`Entity`].
+//! For example, one thing Bevy stores in this metadata is the current [`EntityGeneration`] of the row.
+//! It also stores more information like the [`Tick`] a row was last spawned or despawned, and the [`EntityRowLocation`] itself.
+//! For more information about what's stored here, see [`Entities`], Bevy's implementation of this special column.
+//!
+//! Entity spawning is done in two stages:
+//! First we create an entity id (alloc step), and then we spawn it (add components and other metadata).
+//! The reason for this split is that we need to be able to assign entity ids concurrently,
+//! while for spawning we need exclusive (non-concurrent) access to the world.
+//! That leaves three states for any given [`EntityRow`], where those two spawning stages serve to transition between states.
+//! First, a row could be unallocated; only the allocator has any knowledge of this [`Entity`].
+//! Second, the row is allocated, making it a "null" entity; it exists, and other code can have knowledge of its existence, but it is not spawned.
+//! Third, the row is spawned, adding any (or no) components to the entity; it is now discoverable through queries, etc.
 //!
 //! [`World`]: crate::world::World
-//! [`Commands::spawn`]: crate::system::Commands::spawn
-//! [`Commands::spawn_empty`]: crate::system::Commands::spawn_empty
-//! [`EntityCommands::despawn`]: crate::system::EntityCommands::despawn
-//! [`EntityCommands::insert`]: crate::system::EntityCommands::insert
-//! [`EntityCommands::remove`]: crate::system::EntityCommands::remove
-//! [`World::spawn`]: crate::world::World::spawn
-//! [`World::spawn_empty`]: crate::world::World::spawn_empty
-//! [`World::despawn`]: crate::world::World::despawn
-//! [`EntityWorldMut::insert`]: crate::world::EntityWorldMut::insert
-//! [`EntityWorldMut::remove`]: crate::world::EntityWorldMut::remove
+//! [`Query`]: crate::system::Query
+//! [`Bundle`]: crate::bundle::Bundle
+//! [`Component`]: crate::component::Component
+//! [`Commands`]: crate::system::Commands
 
 mod clone_entities;
 mod entity_set;
@@ -79,25 +222,12 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
-use bevy_platform::sync::atomic::Ordering;
+use bevy_platform::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
 use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(target_has_atomic = "64")]
-use bevy_platform::sync::atomic::AtomicI64 as AtomicIdCursor;
-#[cfg(target_has_atomic = "64")]
-type IdCursor = i64;
-
-/// Most modern platforms support 64-bit atomics, but some less-common platforms
-/// do not. This fallback allows compilation using a 32-bit cursor instead, with
-/// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(not(target_has_atomic = "64"))]
-use bevy_platform::sync::atomic::AtomicIsize as AtomicIdCursor;
-#[cfg(not(target_has_atomic = "64"))]
-type IdCursor = isize;
 
 /// This represents the row or "index" of an [`Entity`] within the [`Entities`] table.
 /// This is a lighter weight version of [`Entity`].
@@ -300,15 +430,10 @@ impl EntityGeneration {
     }
 }
 
-/// Lightweight identifier of an [entity](crate::entity).
-///
-/// The identifier is implemented using a [generational index]: a combination of an index ([`EntityRow`]) and a generation ([`EntityGeneration`]).
-/// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
-///
-/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
-/// fetch entity components or metadata from a different world will either fail or return unexpected results.
-///
-/// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
+/// Unique identifier for an entity in a [`World`].
+/// Note that this is just an id, not the entity itself.
+/// Further, the entity this id refers to may no longer exist in the [`World`].
+/// For more information about entities, their ids, and how to use them, see the module [docs](crate::entity).
 ///
 /// # Aliasing
 ///
@@ -320,7 +445,7 @@ impl EntityGeneration {
 /// Aliasing can happen without warning.
 /// Holding onto a [`Entity`] id corresponding to an entity well after that entity was despawned can cause un-intuitive behavior for both ordering, and comparing in general.
 /// To prevent these bugs, it is generally best practice to stop holding an [`Entity`] or [`EntityGeneration`] value as soon as you know it has been despawned.
-/// If you must do otherwise, do not assume the [`Entity`] corresponds to the same conceptual entity it originally did.
+/// If you must do otherwise, do not assume the [`Entity`] id corresponds to the same entity it originally did.
 /// See [`EntityGeneration`]'s docs for more information about aliasing and why it occurs.
 ///
 /// # Stability warning
@@ -660,487 +785,360 @@ impl SparseSetIndex for Entity {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`Entity`] values from
-pub struct ReserveEntitiesIterator<'a> {
-    // Metas, so we can recover the current generation for anything in the freelist.
-    meta: &'a [EntityMeta],
-
-    // Reserved indices formerly in the freelist to hand out.
-    freelist_indices: core::slice::Iter<'a, EntityRow>,
-
-    // New Entity indices to hand out, outside the range of meta.len().
-    new_indices: core::ops::Range<u32>,
+/// Allocates [`Entity`] ids uniquely.
+/// This is used in [`World::spawn_at`](crate::world::World::spawn_at) and [`World::despawn_no_free`](crate::world::World::despawn_no_free) to track entity ids no longer in use.
+/// Allocating is fully concurrent and can be done from multiple threads.
+///
+/// Conceptually, this is a collection of [`Entity`] ids who's [`EntityRow`] is despawned and who's [`EntityGeneration`] is the most recent.
+/// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
+#[derive(Default, Debug)]
+pub struct EntitiesAllocator {
+    /// All the entities to reuse.
+    /// This is a buffer, which contains an array of [`Entity`] ids to hand out.
+    /// The next id to hand out is tracked by `free_len`.
+    free: Vec<Entity>,
+    /// This is continually subtracted from.
+    /// If it wraps to a very large number, it will be outside the bounds of `free`,
+    /// and a new row will be needed.
+    free_len: AtomicUsize,
+    /// This is the next "fresh" row to hand out.
+    /// If there are no rows to reuse, this row, which has a generation of 0, is the next to return.
+    next_row: AtomicU32,
 }
 
-impl<'a> Iterator for ReserveEntitiesIterator<'a> {
+impl EntitiesAllocator {
+    /// Restarts the allocator.
+    pub(crate) fn restart(&mut self) {
+        self.free.clear();
+        *self.free_len.get_mut() = 0;
+        *self.next_row.get_mut() = 0;
+    }
+
+    /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
+    /// Freeing an [`Entity`] such that one [`EntityRow`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
+    /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
+    /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
+    pub fn free(&mut self, freed: Entity) {
+        let expected_len = *self.free_len.get_mut();
+        if expected_len > self.free.len() {
+            self.free.clear();
+        } else {
+            self.free.truncate(expected_len);
+        }
+        self.free.push(freed);
+        *self.free_len.get_mut() = self.free.len();
+    }
+
+    /// Allocates some [`Entity`].
+    /// The result could have come from a [`free`](Self::free) or be a brand new [`EntityRow`].
+    ///
+    /// The returned entity is valid and unique, but it is not yet spawned.
+    /// Using the id as if it were spawned may produce errors.
+    /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
+    /// See module [docs](crate::entity) for more information about entity validity vs spawning.
+    ///
+    /// This is different from empty entities, which are spawned and
+    /// just happen to have no components.
+    ///
+    /// These ids must be used; otherwise, they will be forgotten.
+    /// For example, the result must be eventually used to either spawn an entity or be [`free`](Self::free)d.
+    ///
+    /// # Panics
+    ///
+    /// If there are no more entities available, this panics.
+    ///
+    ///
+    /// # Example
+    ///
+    /// This is particularly useful when spawning entities in special ways.
+    /// For example, [`Commands`](crate::system::Commands) uses this to allocate an entity and [`spawn_at`](crate::world::World::spawn_at) it later.
+    /// But remember, since this entity is not queryable and is not discoverable, losing the returned [`Entity`] effectively leaks it, never to be used again!
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*};
+    /// let mut world = World::new();
+    /// let entity = world.entities_allocator().alloc();
+    /// // wait as long as you like
+    /// let entity_access = world.spawn_at_empty(entity).unwrap(); // or spawn_at(entity, my_bundle)
+    /// // treat it as a normal entity
+    /// entity_access.despawn();
+    /// ```
+    ///
+    /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
+    /// This is useful if you want to enforce properties about the [`EntityRow`](crate::entity::EntityRow)s of a group of entities, make a custom allocator, etc.
+    pub fn alloc(&self) -> Entity {
+        let index = self
+            .free_len
+            .fetch_sub(1, Ordering::Relaxed)
+            .wrapping_sub(1);
+        self.free.get(index).copied().unwrap_or_else(|| {
+            let row = self.next_row.fetch_add(1, Ordering::Relaxed);
+            let row = NonMaxU32::new(row).expect("too many entities");
+            Entity::from_row(EntityRow::new(row))
+        })
+    }
+
+    /// A more efficient way of calling [`alloc`](Self::alloc) repeatedly `count` times.
+    /// See [`alloc`](Self::alloc) for details.
+    ///
+    /// Like [`alloc`](Self::alloc), these entities must be used, otherwise they will be forgotten.
+    /// If the iterator is not exhausted, its remaining entities are forgotten.
+    /// See [`AllocEntitiesIterator`] docs for more.
+    pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
+        let current_len = self.free_len.fetch_sub(count as usize, Ordering::Relaxed);
+        let current_len = if current_len < self.free.len() {
+            current_len
+        } else {
+            0
+        };
+        let start = current_len.saturating_sub(count as usize);
+        let reuse = start..current_len;
+        let still_need = (count as usize - reuse.len()) as u32;
+        let new = if still_need > 0 {
+            let start_new = self.next_row.fetch_add(still_need, Ordering::Relaxed);
+            let end_new = start_new
+                .checked_add(still_need)
+                .expect("too many entities");
+            start_new..end_new
+        } else {
+            0..0
+        };
+        AllocEntitiesIterator {
+            reuse: self.free[reuse].iter(),
+            new,
+        }
+    }
+}
+
+/// An [`Iterator`] returning a sequence of unique [`Entity`] values from [`Entities`].
+/// Dropping this will still retain the entities as allocated; this is effectively a leak.
+/// To prevent this, ensure the iterator is exhausted before dropping it.
+pub struct AllocEntitiesIterator<'a> {
+    reuse: core::slice::Iter<'a, Entity>,
+    new: core::ops::Range<u32>,
+}
+
+impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.freelist_indices
-            .next()
-            .map(|&row| {
-                Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
+        self.reuse.next().copied().or_else(|| {
+            self.new.next().map(|index| {
+                // SAFETY: This came from an exclusive range so the max can't be hit.
+                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
+                Entity::from_row(row)
             })
-            .or_else(|| {
-                self.new_indices.next().map(|index| {
-                    // SAFETY: This came from an exclusive range so the max can't be hit.
-                    let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
-                    Entity::from_row(row)
-                })
-            })
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.freelist_indices.len() + self.new_indices.len();
+        let len = self.reuse.len() + self.new.len();
         (len, Some(len))
     }
 }
 
-impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> ExactSizeIterator for AllocEntitiesIterator<'a> {}
 
-impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
+impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 
-// SAFETY: Newly reserved entity values are unique.
-unsafe impl EntitySetIterator for ReserveEntitiesIterator<'_> {}
+// SAFETY: Newly allocated entity values are unique.
+unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
-/// A [`World`]'s internal metadata store on all of its entities.
-///
-/// Contains metadata on:
-///  - The generation of every entity.
-///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
-///  - The location of the entity's components in memory (via [`EntityLocation`])
-///
-/// [`World`]: crate::world::World
-#[derive(Debug)]
+/// [`Entities`] tracks all known [`EntityRow`]s and their metadata.
+/// This is like a base table of information all entities have.
+#[derive(Debug, Clone)]
 pub struct Entities {
     meta: Vec<EntityMeta>,
-
-    /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
-    /// that have been freed or are in the process of being allocated:
-    ///
-    /// - The `freelist` IDs, previously freed by `free()`. These IDs are available to any of
-    ///   [`alloc`], [`reserve_entity`] or [`reserve_entities`]. Allocation will always prefer
-    ///   these over brand new IDs.
-    ///
-    /// - The `reserved` list of IDs that were once in the freelist, but got reserved by
-    ///   [`reserve_entities`] or [`reserve_entity`]. They are now waiting for [`flush`] to make them
-    ///   fully allocated.
-    ///
-    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
-    ///   and reserved. [`flush`] will allocate room for them in `self.meta`.
-    ///
-    /// The contents of `pending` look like this:
-    ///
-    /// ```txt
-    /// ----------------------------
-    /// |  freelist  |  reserved   |
-    /// ----------------------------
-    ///              ^             ^
-    ///          free_cursor   pending.len()
-    /// ```
-    ///
-    /// As IDs are allocated, `free_cursor` is atomically decremented, moving
-    /// items from the freelist into the reserved list by sliding over the boundary.
-    ///
-    /// Once the freelist runs out, `free_cursor` starts going negative.
-    /// The more negative it is, the more IDs have been reserved starting exactly at
-    /// the end of `meta.len()`.
-    ///
-    /// This formulation allows us to reserve any number of IDs first from the freelist
-    /// and then from the new IDs, using only a single atomic subtract.
-    ///
-    /// Once [`flush`] is done, `free_cursor` will equal `pending.len()`.
-    ///
-    /// [`alloc`]: Entities::alloc
-    /// [`reserve_entity`]: Entities::reserve_entity
-    /// [`reserve_entities`]: Entities::reserve_entities
-    /// [`flush`]: Entities::flush
-    pending: Vec<EntityRow>,
-    free_cursor: AtomicIdCursor,
 }
 
 impl Entities {
     pub(crate) const fn new() -> Self {
-        Entities {
-            meta: Vec::new(),
-            pending: Vec::new(),
-            free_cursor: AtomicIdCursor::new(0),
-        }
+        Self { meta: Vec::new() }
     }
 
-    /// Reserve entity IDs concurrently.
-    ///
-    /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator<'_> {
-        // Use one atomic subtract to grab a range of new IDs. The range might be
-        // entirely nonnegative, meaning all IDs come from the freelist, or entirely
-        // negative, meaning they are all new IDs to allocate, or a mix of both.
-        let range_end = self.free_cursor.fetch_sub(
-            IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform."),
-            Ordering::Relaxed,
-        );
-        let range_start = range_end
-            - IdCursor::try_from(count)
-                .expect("64-bit atomic operations are not supported on this platform.");
-
-        let freelist_range = range_start.max(0) as usize..range_end.max(0) as usize;
-
-        let (new_id_start, new_id_end) = if range_start >= 0 {
-            // We satisfied all requests from the freelist.
-            (0, 0)
-        } else {
-            // We need to allocate some new Entity IDs outside of the range of self.meta.
-            //
-            // `range_start` covers some negative territory, e.g. `-3..6`.
-            // Since the nonnegative values `0..6` are handled by the freelist, that
-            // means we need to handle the negative range here.
-            //
-            // In this example, we truncate the end to 0, leaving us with `-3..0`.
-            // Then we negate these values to indicate how far beyond the end of `meta.end()`
-            // to go, yielding `meta.len()+0 .. meta.len()+3`.
-            let base = self.meta.len() as IdCursor;
-
-            let new_id_end = u32::try_from(base - range_start).expect("too many entities");
-
-            // `new_id_end` is in range, so no need to check `start`.
-            let new_id_start = (base - range_end.min(0)) as u32;
-
-            (new_id_start, new_id_end)
-        };
-
-        ReserveEntitiesIterator {
-            meta: &self.meta[..],
-            freelist_indices: self.pending[freelist_range].iter(),
-            new_indices: new_id_start..new_id_end,
-        }
-    }
-
-    /// Reserve one entity ID concurrently.
-    ///
-    /// Equivalent to `self.reserve_entities(1).next().unwrap()`, but more efficient.
-    pub fn reserve_entity(&self) -> Entity {
-        let n = self.free_cursor.fetch_sub(1, Ordering::Relaxed);
-        if n > 0 {
-            // Allocate from the freelist.
-            let row = self.pending[(n - 1) as usize];
-            Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
-        } else {
-            // Grab a new ID, outside the range of `meta.len()`. `flush()` must
-            // eventually be called to make it valid.
-            //
-            // As `self.free_cursor` goes more and more negative, we return IDs farther
-            // and farther beyond `meta.len()`.
-            let raw = self.meta.len() as IdCursor - n;
-            if raw == IdCursor::MAX {
-                panic!("number of entities can't exceed {}", IdCursor::MAX);
-            }
-            // SAFETY: We just checked the bounds
-            let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };
-            Entity::from_row(row)
-        }
-    }
-
-    /// Check that we do not have pending work requiring `flush()` to be called.
-    fn verify_flushed(&mut self) {
-        debug_assert!(
-            !self.needs_flush(),
-            "flush() needs to be called before this operation is legal"
-        );
-    }
-
-    /// Allocate an entity ID directly.
-    pub fn alloc(&mut self) -> Entity {
-        self.verify_flushed();
-        if let Some(row) = self.pending.pop() {
-            let new_free_cursor = self.pending.len() as IdCursor;
-            *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
-        } else {
-            let index = u32::try_from(self.meta.len())
-                .ok()
-                .and_then(NonMaxU32::new)
-                .expect("too many entities");
-            self.meta.push(EntityMeta::EMPTY);
-            Entity::from_row(EntityRow::new(index))
-        }
-    }
-
-    /// Destroy an entity, allowing it to be reused.
-    ///
-    /// Returns the `Option<EntityLocation>` of the entity or `None` if the `entity` was not present.
-    ///
-    /// Must not be called while reserved entities are awaiting `flush()`.
-    pub fn free(&mut self, entity: Entity) -> Option<EntityIdLocation> {
-        self.verify_flushed();
-
-        let meta = &mut self.meta[entity.index() as usize];
-        if meta.generation != entity.generation {
-            return None;
-        }
-
-        let (new_generation, aliased) = meta.generation.after_versions_and_could_alias(1);
-        meta.generation = new_generation;
-        if aliased {
-            warn!(
-                "Entity({}) generation wrapped on Entities::free, aliasing may occur",
-                entity.row()
-            );
-        }
-
-        let loc = mem::replace(&mut meta.location, EntityMeta::EMPTY.location);
-
-        self.pending.push(entity.row());
-
-        let new_free_cursor = self.pending.len() as IdCursor;
-        *self.free_cursor.get_mut() = new_free_cursor;
-        Some(loc)
-    }
-
-    /// Ensure at least `n` allocations can succeed without reallocating.
-    #[expect(
-        clippy::allow_attributes,
-        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
-    )]
-    #[allow(
-        clippy::unnecessary_fallible_conversions,
-        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
-    )]
-    pub fn reserve(&mut self, additional: u32) {
-        self.verify_flushed();
-
-        let freelist_size = *self.free_cursor.get_mut();
-        let shortfall = IdCursor::try_from(additional)
-            .expect("64-bit atomic operations are not supported on this platform.")
-            - freelist_size;
-        if shortfall > 0 {
-            self.meta.reserve(shortfall as usize);
-        }
-    }
-
-    /// Returns true if the [`Entities`] contains [`entity`](Entity).
-    // This will return false for entities which have been freed, even if
-    // not reallocated since the generation is incremented in `free`
-    pub fn contains(&self, entity: Entity) -> bool {
-        self.resolve_from_id(entity.row())
-            .is_some_and(|e| e.generation() == entity.generation())
-    }
-
-    /// Clears all [`Entity`] from the World.
+    /// Clears all entity information
     pub fn clear(&mut self) {
         self.meta.clear();
-        self.pending.clear();
-        *self.free_cursor.get_mut() = 0;
     }
 
-    /// Returns the [`EntityLocation`] of an [`Entity`].
-    /// Note: for pending entities and entities not participating in the ECS (entities with a [`EntityIdLocation`] of `None`), returns `None`.
+    /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned.
+    /// This can error if the [`EntityGeneration`] of this entity has passed or if the [`EntityRow`] is not spawned.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
-        self.get_id_location(entity).flatten()
+    pub fn get_spawned(&self, entity: Entity) -> Result<EntityLocation, EntityNotSpawnedError> {
+        let meta = self.meta.get(entity.index() as usize);
+        let meta = meta.unwrap_or(&EntityMeta::FRESH);
+        if entity.generation() != meta.generation {
+            return Err(EntityNotSpawnedError::Invalid(InvalidEntityError {
+                entity,
+                current_generation: meta.generation,
+            }));
+        };
+        meta.location.ok_or(EntityNotSpawnedError::RowNotSpawned(
+            EntityRowNotSpawnedError {
+                entity,
+                location: meta.spawned_or_despawned.by,
+            },
+        ))
     }
 
-    /// Returns the [`EntityIdLocation`] of an [`Entity`].
-    /// Note: for pending entities, returns `None`.
+    /// Returns the [`EntityRowLocation`] of an [`Entity`] if it exists.
+    /// This can fail if the id's [`EntityGeneration`] has passed.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn get_id_location(&self, entity: Entity) -> Option<EntityIdLocation> {
+    pub fn get(&self, entity: Entity) -> Result<EntityRowLocation, InvalidEntityError> {
+        match self.get_spawned(entity) {
+            Ok(location) => Ok(Some(location)),
+            Err(EntityNotSpawnedError::RowNotSpawned { .. }) => Ok(None),
+            Err(EntityNotSpawnedError::Invalid(err)) => Err(err),
+        }
+    }
+
+    /// Get the [`Entity`] for the given [`EntityRow`].
+    /// Note that this entity may not be spawned yet.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
+    #[inline]
+    pub fn resolve_from_row(&self, row: EntityRow) -> Entity {
         self.meta
-            .get(entity.index() as usize)
-            .filter(|meta| meta.generation == entity.generation)
-            .map(|meta| meta.location)
+            .get(row.index() as usize)
+            .map(|meta| Entity::from_row_and_generation(row, meta.generation))
+            .unwrap_or(Entity::from_row(row))
     }
 
-    /// Updates the location of an [`Entity`].
+    /// Returns whether the entity at this `row` is spawned or not.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
+    #[inline]
+    pub fn is_row_spawned(&self, row: EntityRow) -> bool {
+        self.meta
+            .get(row.index() as usize)
+            .is_some_and(|meta| meta.location.is_some())
+    }
+
+    /// Returns true if the entity is valid.
+    /// This will return true for entities that are valid but have not been spawned.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.resolve_from_row(entity.row()).generation() == entity.generation()
+    }
+
+    /// Returns true if the entity is valid and is spawned.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
+    pub fn contains_spawned(&self, entity: Entity) -> bool {
+        self.get_spawned(entity).is_ok()
+    }
+
+    /// Provides information regarding if `entity` may be safely spawned.
+    /// This can error if the entity is invalid or is already spawned.
+    ///
+    /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
+    #[inline]
+    pub fn check_can_spawn_at(&self, entity: Entity) -> Result<(), SpawnError> {
+        match self.get(entity) {
+            Ok(Some(_)) => Err(SpawnError::AlreadySpawned),
+            Ok(None) => Ok(()),
+            Err(err) => Err(SpawnError::Invalid(err)),
+        }
+    }
+
+    /// Updates the location of an [`EntityRow`].
     /// This must be called when moving the components of the existing entity around in storage.
+    /// Returns the previous location of the row.
     ///
     /// # Safety
-    ///  - `index` must be a valid entity index.
-    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///  - The current location of the `row` must already be set. If not, use [`set_location`](Self::set_location).
+    ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
-    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityIdLocation) {
-        // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.location = location;
-    }
-
-    /// Mark an [`Entity`] as spawned or despawned in the given tick.
-    ///
-    /// # Safety
-    ///  - `index` must be a valid entity index.
-    #[inline]
-    pub(crate) unsafe fn mark_spawn_despawn(&mut self, index: u32, by: MaybeLocation, tick: Tick) {
-        // SAFETY: Caller guarantees that `index` a valid entity index
-        let meta = unsafe { self.meta.get_unchecked_mut(index as usize) };
-        meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
-    }
-
-    /// Increments the `generation` of a freed [`Entity`]. The next entity ID allocated with this
-    /// `index` will count `generation` starting from the prior `generation` + the specified
-    /// value + 1.
-    ///
-    /// Does nothing if no entity with this `index` has been allocated yet.
-    pub(crate) fn reserve_generations(&mut self, index: u32, generations: u32) -> bool {
-        if (index as usize) >= self.meta.len() {
-            return false;
-        }
-
-        let meta = &mut self.meta[index as usize];
-        if meta.location.is_none() {
-            meta.generation = meta.generation.after_versions(generations);
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
-    /// Returns `None` if this [`Entity`] is outside of the range of currently reserved Entities
-    ///
-    /// Note: This method may return [`Entities`](Entity) which are currently free
-    /// Note that [`contains`](Entities::contains) will correctly return false for freed
-    /// entities, since it checks the generation
-    pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
-        let idu = row.index() as usize;
-        if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
-            Some(Entity::from_row_and_generation(row, generation))
-        } else {
-            // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
-            let free_cursor = self.free_cursor.load(Ordering::Relaxed);
-            // If this entity was manually created, then free_cursor might be positive
-            // Returning None handles that case correctly
-            let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_row(row))
-        }
-    }
-
-    fn needs_flush(&mut self) -> bool {
-        *self.free_cursor.get_mut() != self.pending.len() as IdCursor
-    }
-
-    /// Allocates space for entities previously reserved with [`reserve_entity`](Entities::reserve_entity) or
-    /// [`reserve_entities`](Entities::reserve_entities), then initializes each one using the supplied function.
-    ///
-    /// See [`EntityLocation`] for details on its meaning and how to set it.
-    ///
-    /// # Safety
-    /// Flush _must_ set the entity location to the correct [`ArchetypeId`] for the given [`Entity`]
-    /// each time init is called. This _can_ be [`ArchetypeId::INVALID`], provided the [`Entity`]
-    /// has not been assigned to an [`Archetype`][crate::archetype::Archetype].
-    ///
-    /// Note: freshly-allocated entities (ones which don't come from the pending list) are guaranteed
-    /// to be initialized with the invalid archetype.
-    pub unsafe fn flush(
+    pub(crate) unsafe fn update_existing_location(
         &mut self,
-        mut init: impl FnMut(Entity, &mut EntityIdLocation),
+        row: EntityRow,
+        location: EntityRowLocation,
+    ) -> EntityRowLocation {
+        // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
+        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        mem::replace(&mut meta.location, location)
+    }
+
+    /// Declares the location of an [`EntityRow`].
+    /// This must be called when spawning entities, but when possible, prefer [`update_existing_location`](Self::update_existing_location).
+    /// Returns the previous location of the row.
+    ///
+    /// # Safety
+    ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
+    ///    before handing control to unknown code.
+    #[inline]
+    pub(crate) unsafe fn set_location(
+        &mut self,
+        row: EntityRow,
+        location: EntityRowLocation,
+    ) -> EntityRowLocation {
+        self.ensure_row_index_is_valid(row);
+        // SAFETY: We just did `ensure_row`
+        self.update_existing_location(row, location)
+    }
+
+    /// Ensures the row is within the bounds of [`Self::meta`], expanding it if necessary.
+    #[inline]
+    fn ensure_row_index_is_valid(&mut self, row: EntityRow) {
+        #[cold] // to help with branch prediction
+        fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
+            meta.resize(len, EntityMeta::FRESH);
+            // Set these up too while we're here.
+            meta.resize(meta.capacity(), EntityMeta::FRESH);
+        }
+
+        let index = row.index() as usize;
+        if self.meta.len() <= index {
+            // TODO: hint unlikely once stable.
+            expand(&mut self.meta, index + 1);
+        }
+    }
+
+    /// Marks the `row` as free, returning the [`Entity`] to reuse that [`EntityRow`].
+    ///
+    /// # Safety
+    ///
+    /// - `row` must be despawned (have no location) already.
+    pub(crate) unsafe fn mark_free(&mut self, row: EntityRow, generations: u32) -> Entity {
+        // We need to do this in case an entity is being freed that was never spawned.
+        self.ensure_row_index_is_valid(row);
+        // SAFETY: We just did `ensure_row`
+        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+
+        let (new_generation, aliased) = meta.generation.after_versions_and_could_alias(generations);
+        meta.generation = new_generation;
+        if aliased {
+            warn!("EntityRow({row}) generation wrapped on Entities::free, aliasing may occur",);
+        }
+
+        Entity::from_row_and_generation(row, meta.generation)
+    }
+
+    /// Mark an [`EntityRow`] as spawned or despawned in the given tick.
+    ///
+    /// # Safety
+    ///  - `row` must have been spawned at least once, ensuring its row is valid.
+    #[inline]
+    pub(crate) unsafe fn mark_spawned_or_despawned(
+        &mut self,
+        row: EntityRow,
         by: MaybeLocation,
         tick: Tick,
     ) {
-        let free_cursor = self.free_cursor.get_mut();
-        let current_free_cursor = *free_cursor;
-
-        let new_free_cursor = if current_free_cursor >= 0 {
-            current_free_cursor as usize
-        } else {
-            let old_meta_len = self.meta.len();
-            let new_meta_len = old_meta_len + -current_free_cursor as usize;
-            self.meta.resize(new_meta_len, EntityMeta::EMPTY);
-            for (index, meta) in self.meta.iter_mut().enumerate().skip(old_meta_len) {
-                // SAFETY: the index is less than the meta length, which can not exceeded u32::MAX
-                let row = EntityRow::new(unsafe { NonMaxU32::new_unchecked(index as u32) });
-                init(
-                    Entity::from_row_and_generation(row, meta.generation),
-                    &mut meta.location,
-                );
-                meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
-            }
-
-            *free_cursor = 0;
-            0
-        };
-
-        for row in self.pending.drain(new_free_cursor..) {
-            let meta = &mut self.meta[row.index() as usize];
-            init(
-                Entity::from_row_and_generation(row, meta.generation),
-                &mut meta.location,
-            );
-            meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
-        }
+        // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
+        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
     }
 
-    /// Flushes all reserved entities to an "invalid" state. Attempting to retrieve them will return `None`
-    /// unless they are later populated with a valid archetype.
-    pub fn flush_as_invalid(&mut self, by: MaybeLocation, tick: Tick) {
-        // SAFETY: as per `flush` safety docs, the archetype id can be set to [`ArchetypeId::INVALID`] if
-        // the [`Entity`] has not been assigned to an [`Archetype`][crate::archetype::Archetype], which is the case here
-        unsafe {
-            self.flush(
-                |_entity, location| {
-                    *location = None;
-                },
-                by,
-                tick,
-            );
-        }
-    }
-
-    /// The count of all entities in the [`World`] that have ever been allocated
-    /// including the entities that are currently freed.
+    /// Try to get the source code location from which this entity has last been spawned or despawned.
     ///
-    /// This does not include entities that have been reserved but have never been
-    /// allocated yet.
-    ///
-    /// [`World`]: crate::world::World
-    #[inline]
-    pub fn total_count(&self) -> usize {
-        self.meta.len()
-    }
-
-    /// The count of all entities in the [`World`] that are used,
-    /// including both those allocated and those reserved, but not those freed.
-    ///
-    /// [`World`]: crate::world::World
-    #[inline]
-    pub fn used_count(&self) -> usize {
-        (self.meta.len() as isize - self.free_cursor.load(Ordering::Relaxed) as isize) as usize
-    }
-
-    /// The count of all entities in the [`World`] that have ever been allocated or reserved, including those that are freed.
-    /// This is the value that [`Self::total_count()`] would return if [`Self::flush()`] were called right now.
-    ///
-    /// [`World`]: crate::world::World
-    #[inline]
-    pub fn total_prospective_count(&self) -> usize {
-        self.meta.len() + (-self.free_cursor.load(Ordering::Relaxed)).min(0) as usize
-    }
-
-    /// The count of currently allocated entities.
-    #[inline]
-    pub fn len(&self) -> u32 {
-        // `pending`, by definition, can't be bigger than `meta`.
-        (self.meta.len() - self.pending.len()) as u32
-    }
-
-    /// Checks if any entity is currently active.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    /// Try to get the source code location from which this entity has last been
-    /// spawned, despawned or flushed.
-    ///
-    /// Returns `None` if its index has been reused by another entity
-    /// or if this entity has never existed.
+    /// Returns `None` if the entity does not exist or has never been construced/despawned.
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
@@ -1151,21 +1149,17 @@ impl Entities {
         })
     }
 
-    /// Try to get the [`Tick`] at which this entity has last been
-    /// spawned, despawned or flushed.
+    /// Try to get the [`Tick`] at which this entity has last been spawned or despawned.
     ///
-    /// Returns `None` if its index has been reused by another entity or if this entity
-    /// has never been spawned.
-    pub fn entity_get_spawn_or_despawn_tick(&self, entity: Entity) -> Option<Tick> {
+    /// Returns `None` if the entity does not exist or has never been construced/despawned.
+    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
             .map(|spawned_or_despawned| spawned_or_despawned.tick)
     }
 
-    /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawn,
-    /// despawn or flush.
+    /// Try to get the [`SpawnedOrDespawned`] related to the entity's last spawning or despawning.
     ///
-    /// Returns `None` if its index has been reused by another entity or if
-    /// this entity has never been spawned.
+    /// Returns `None` if the entity does not exist or has never been construced/despawned.
     #[inline]
     fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
@@ -1173,8 +1167,7 @@ impl Entities {
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
-            || meta.location.is_none()
-            && (meta.generation == entity.generation.after_versions(1)))
+            || (meta.location.is_none() && meta.generation == entity.generation.after_versions(1)))
             .map(|meta| meta.spawned_or_despawned)
     }
 
@@ -1202,55 +1195,101 @@ impl Entities {
         }
     }
 
-    /// Constructs a message explaining why an entity does not exist, if known.
-    pub(crate) fn entity_does_not_exist_error_details(
-        &self,
-        entity: Entity,
-    ) -> EntityDoesNotExistDetails {
-        EntityDoesNotExistDetails {
-            location: self.entity_get_spawned_or_despawned_by(entity),
-        }
+    /// The count of currently allocated entity rows.
+    /// For information on active entities, see [`Self::count_spawned`].
+    #[inline]
+    pub fn len(&self) -> u32 {
+        self.meta.len() as u32
+    }
+
+    /// Checks if any entity has been declared.
+    /// For information on active entities, see [`Self::any_spawned`].
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Counts the number of entity rows currently spawned.
+    /// See the module docs for a more precise explanation of what spawning means.
+    /// Be aware that this is O(n) and is intended only to be used as a diagnostic for tests.
+    pub fn count_spawned(&self) -> u32 {
+        self.meta
+            .iter()
+            .filter(|meta| meta.location.is_some())
+            .count() as u32
+    }
+
+    /// Returns true if there are any entity rows currently spawned.
+    /// See the module docs for a more precise explanation of what spawning means.
+    pub fn any_spawned(&self) -> bool {
+        self.meta.iter().any(|meta| meta.location.is_some())
     }
 }
 
-/// An error that occurs when a specified [`Entity`] does not exist.
+/// An error that occurs when a specified [`Entity`] can not be spawned.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[error("The entity with ID {entity} {details}")]
-pub struct EntityDoesNotExistError {
+pub enum SpawnError {
+    /// The [`Entity`] to spawn was invalid.
+    /// It probably had the wrong generation or was created erroneously.
+    #[error("Invalid id: {0}")]
+    Invalid(InvalidEntityError),
+    /// The [`Entity`] to spawn was already spawned.
+    #[error("The entity can not be spawned as it already has a location.")]
+    AlreadySpawned,
+}
+
+/// An error that occurs when a specified [`Entity`] does not exist in the entity id space.
+/// See [module](crate::entity) docs for more about entity validity.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("The entity with ID {entity} is invalid; its row now has generation {current_generation}.")]
+pub struct InvalidEntityError {
     /// The entity's ID.
     pub entity: Entity,
-    /// Details on why the entity does not exist, if available.
-    pub details: EntityDoesNotExistDetails,
+    /// The generation of the [`EntityRow`], which did not match the requested entity.
+    pub current_generation: EntityGeneration,
 }
 
-impl EntityDoesNotExistError {
-    pub(crate) fn new(entity: Entity, entities: &Entities) -> Self {
-        Self {
-            entity,
-            details: entities.entity_does_not_exist_error_details(entity),
+/// An error that occurs when a specified [`EntityRow`] is expected to be spawned but is not.
+/// This includes when an [`Entity`] that is known to be valid happens to not be spawned.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EntityRowNotSpawnedError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// The location of what last despawned the entity.
+    pub location: MaybeLocation<&'static Location<'static>>,
+}
+
+impl fmt::Display for EntityRowNotSpawnedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let entity = self.entity;
+        match self.location.into_option() {
+            Some(location) => write!(f, "The entity with ID {entity} is not spawned; its row was last despawned by {location}."),
+            None => write!(
+                f,
+                "The entity with ID {entity} is not spawned; enable `track_location` feature for more details."
+            ),
         }
     }
 }
 
-/// Helper struct that, when printed, will write the appropriate details
-/// regarding an entity that did not exist.
-#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct EntityDoesNotExistDetails {
-    location: MaybeLocation<Option<&'static Location<'static>>>,
+/// An error that occurs when a specified [`Entity`] is expected to be valid and spawned but is not.
+/// Represents an error of either [`InvalidEntityError`] (when the entity is invalid) or [`EntityRowNotSpawnedError`] (when the [`EntityGeneration`] is correct but the [`EntityRow`] is not spawned).
+#[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum EntityNotSpawnedError {
+    /// The entity was invalid.
+    #[error("{0}")]
+    Invalid(#[from] InvalidEntityError),
+    /// The entity was valid but was not spawned.
+    #[error("{0}")]
+    RowNotSpawned(#[from] EntityRowNotSpawnedError),
 }
 
-impl fmt::Display for EntityDoesNotExistDetails {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.location.into_option() {
-            Some(Some(location)) => write!(f, "was despawned by {location}"),
-            Some(None) => write!(
-                f,
-                "does not exist (index has been reused or was never spawned)"
-            ),
-            None => write!(
-                f,
-                "does not exist (enable `track_location` feature for more details)"
-            ),
+impl EntityNotSpawnedError {
+    /// The entity that did not exist or was not spawned.
+    pub fn entity(&self) -> Entity {
+        match self {
+            EntityNotSpawnedError::Invalid(err) => err.entity,
+            EntityNotSpawnedError::RowNotSpawned(err) => err.entity,
         }
     }
 }
@@ -1260,8 +1299,8 @@ struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
     generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    location: EntityIdLocation,
-    /// Location and tick of the last spawn, despawn or flush of this entity.
+    location: EntityRowLocation,
+    /// Location and tick of the last spawn/despawn
     spawned_or_despawned: SpawnedOrDespawned,
 }
 
@@ -1272,8 +1311,8 @@ struct SpawnedOrDespawned {
 }
 
 impl EntityMeta {
-    /// meta for **pending entity**
-    const EMPTY: EntityMeta = EntityMeta {
+    /// The metadata for a fresh entity: Never spawned/despawned, no location, etc.
+    const FRESH: EntityMeta = EntityMeta {
         generation: EntityGeneration::FIRST,
         location: None,
         spawned_or_despawned: SpawnedOrDespawned {
@@ -1307,15 +1346,16 @@ pub struct EntityLocation {
     pub table_row: TableRow,
 }
 
-/// An [`Entity`] id may or may not correspond to a valid conceptual entity.
-/// If it does, the conceptual entity may or may not have a location.
-/// If it has no location, the [`EntityLocation`] will be `None`.
+/// An [`EntityRow`] id may or may not currently be spawned.
+/// If it is not spawned, the [`EntityLocation`] will be `None`.
 /// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
 /// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
+/// For more information about what a `None` location means, see the module [docs](crate::entity).
 ///
 /// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
 /// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
-pub type EntityIdLocation = Option<EntityLocation>;
+/// For more information about these more complex entity life cycles, see the module [docs](crate::entity).
+pub type EntityRowLocation = Option<EntityLocation>;
 
 #[cfg(test)]
 mod tests {
@@ -1340,37 +1380,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_entity_len() {
-        let mut e = Entities::new();
-        e.reserve_entity();
-        // SAFETY: entity_location is left invalid
-        unsafe { e.flush(|_, _| {}, MaybeLocation::caller(), Tick::default()) };
-        assert_eq!(e.len(), 1);
-    }
-
-    #[test]
-    fn get_reserved_and_invalid() {
-        let mut entities = Entities::new();
-        let e = entities.reserve_entity();
-        assert!(entities.contains(e));
-        assert!(entities.get(e).is_none());
-
-        // SAFETY: entity_location is left invalid
-        unsafe {
-            entities.flush(
-                |_entity, _location| {
-                    // do nothing ... leaving entity location invalid
-                },
-                MaybeLocation::caller(),
-                Tick::default(),
-            );
-        };
-
-        assert!(entities.contains(e));
-        assert!(entities.get(e).is_none());
-    }
-
-    #[test]
     fn entity_const() {
         const C1: Entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
         assert_eq!(42, C1.index());
@@ -1387,34 +1396,6 @@ mod tests {
             .generation()
             .to_bits();
         assert_eq!(0x00dd_00ff, C4);
-    }
-
-    #[test]
-    fn reserve_generations() {
-        let mut entities = Entities::new();
-        let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), 1));
-    }
-
-    #[test]
-    fn reserve_generations_and_alloc() {
-        const GENERATIONS: u32 = 10;
-
-        let mut entities = Entities::new();
-        let entity = entities.alloc();
-        entities.free(entity);
-
-        assert!(entities.reserve_generations(entity.index(), GENERATIONS));
-
-        // The very next entity allocated should be a further generation on the same index
-        let next_entity = entities.alloc();
-        assert_eq!(next_entity.index(), entity.index());
-        assert!(next_entity
-            .generation()
-            .cmp_approx(&entity.generation().after_versions(GENERATIONS))
-            .is_gt());
     }
 
     #[test]
@@ -1633,5 +1614,29 @@ mod tests {
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity}");
         assert_eq!(string, "PLACEHOLDER");
+    }
+
+    #[test]
+    fn allocator() {
+        let mut allocator = EntitiesAllocator::default();
+        let mut entities = allocator.alloc_many(2048).collect::<Vec<_>>();
+        for _ in 0..2048 {
+            entities.push(allocator.alloc());
+        }
+
+        let pre_len = entities.len();
+        entities.sort();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
+
+        for e in entities.drain(..) {
+            allocator.free(e);
+        }
+
+        entities.extend(allocator.alloc_many(5000));
+        let pre_len = entities.len();
+        entities.sort();
+        entities.dedup();
+        assert_eq!(pre_len, entities.len());
     }
 }

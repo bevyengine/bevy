@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
     component::{ComponentId, Components},
-    entity::Entities,
+    entity::{Entities, EntitiesAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
@@ -1575,6 +1575,35 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
+    }
+}
+
+// SAFETY: Only reads World entities
+unsafe impl<'a> ReadOnlySystemParam for &'a EntitiesAllocator {}
+
+// SAFETY: no component value access
+unsafe impl<'a> SystemParam for &'a EntitiesAllocator {
+    type State = ();
+    type Item<'w, 's> = &'w EntitiesAllocator;
+
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        _system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn get_param<'w, 's>(
+        _state: &'s mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'w>,
+        _change_tick: Tick,
+    ) -> Self::Item<'w, 's> {
+        world.entities_allocator()
     }
 }
 

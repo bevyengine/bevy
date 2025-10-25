@@ -738,9 +738,9 @@ mod tests {
         let exclusive_system_id = world.register_system(|world: &mut World| {
             world.spawn_empty();
         });
-        let entity_count = world.entities.len();
+        let entity_count = world.entities.count_spawned();
         let _ = world.run_system(exclusive_system_id);
-        assert_eq!(world.entities.len(), entity_count + 1);
+        assert_eq!(world.entities.count_spawned(), entity_count + 1);
     }
 
     #[test]

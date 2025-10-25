@@ -849,8 +849,9 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
                 let all_optionals =
                     entity_ref
                         .archetype()
-                        .iter_components()
-                        .filter_map(|component_id| {
+                        .components()
+                        .iter()
+                        .filter_map(|&component_id| {
                             let info = world.components().get_info(component_id)?;
                             let type_id = info.type_id()?;
                             // Skip required components (already included)
@@ -1257,7 +1258,7 @@ pub fn process_remote_list_components_request(
     // If `Some`, return all components of the provided entity.
     if let Some(BrpListComponentsParams { entity }) = params.map(parse).transpose()? {
         let entity = get_entity(world, entity)?;
-        for component_id in entity.archetype().iter_components() {
+        for &component_id in entity.archetype().components().iter() {
             let Some(component_info) = world.components().get_info(component_id) else {
                 continue;
             };
@@ -1311,7 +1312,7 @@ pub fn process_remote_list_components_watching_request(
     let entity_ref = get_entity(world, entity)?;
     let mut response = BrpListComponentsWatchingResponse::default();
 
-    for component_id in entity_ref.archetype().iter_components() {
+    for &component_id in entity_ref.archetype().components().iter() {
         let ticks = entity_ref
             .get_change_ticks_by_id(component_id)
             .ok_or(BrpError::internal("Failed to get ticks"))?;

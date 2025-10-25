@@ -1138,7 +1138,7 @@ mod tests {
         ) {
             assert_eq!(query.iter().count(), 1, "entity exists");
             for entity in &query {
-                let location = entities.get(entity).unwrap();
+                let location = entities.get_spawned(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components();
                 let bundle_id = bundles

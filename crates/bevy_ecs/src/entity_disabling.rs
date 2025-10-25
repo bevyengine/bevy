@@ -72,7 +72,7 @@
 //!     // within this scope, we can query like no components are disabled.
 //!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
 //!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
-//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().count_spawned() as usize);
 //! })
 //! ```
 //!
