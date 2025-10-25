@@ -27,7 +27,7 @@
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
-const INITIAL_SAMPLES = 32u;
+const INITIAL_SAMPLES = 8u;
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 20.0;
 
@@ -73,7 +73,12 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let input_reservoir = load_reservoir_b(global_id.xy);
     let spatial_reservoir = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, spatial_reservoir, surface.world_position, surface.world_normal, diffuse_brdf, &rng);
-    let combined_reservoir = merge_result.merged_reservoir;
+    var combined_reservoir = merge_result.merged_reservoir;
+
+    if reservoir_valid(combined_reservoir) {
+        let resolved_light_sample = resolve_light_sample(combined_reservoir.sample, light_sources[combined_reservoir.sample.light_id >> 16u]);
+        combined_reservoir.unbiased_contribution_weight *= trace_light_visibility(surface.world_position, resolved_light_sample.world_position);
+    }
 
     store_reservoir_a(global_id.xy, combined_reservoir);
 
@@ -133,7 +138,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
-    let temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
+    let temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float));
 
     // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
     // or if all temporal history should assumed to be invalid
@@ -164,6 +169,15 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     return temporal_reservoir;
 }
 
+fn permute_pixel(pixel_id: vec2<u32>) -> vec2<u32> {
+    let r = constants.frame_index;
+    let offset = vec2(r & 3u, (r >> 2u) & 3u);
+    var shifted_pixel_id = pixel_id + offset;
+    shifted_pixel_id ^= vec2(3u);
+    shifted_pixel_id -= offset;
+    return min(shifted_pixel_id, vec2<u32>(view.main_pass_viewport.zw - 1.0));
+}
+
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> Reservoir {
     let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
 
@@ -173,14 +187,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
         return empty_reservoir();
     }
 
-    var spatial_reservoir = load_reservoir_b(spatial_pixel_id);
-
-    if reservoir_valid(spatial_reservoir) {
-        let resolved_light_sample = resolve_light_sample(spatial_reservoir.sample, light_sources[spatial_reservoir.sample.light_id >> 16u]);
-        spatial_reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, resolved_light_sample.world_position);
-    }
-
-    return spatial_reservoir;
+    return load_reservoir_b(spatial_pixel_id);
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {

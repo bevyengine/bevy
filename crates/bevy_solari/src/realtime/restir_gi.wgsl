@@ -67,7 +67,9 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material.base_color / PI,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.diffuse_brdf, &rng);
-    let combined_reservoir = merge_result.merged_reservoir;
+    var combined_reservoir = merge_result.merged_reservoir;
+
+    combined_reservoir.radiance *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
 
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 
@@ -120,6 +122,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> NeighborInfo {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
+    let temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float));
 
     // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
     // or if all temporal history should assumed to be invalid
@@ -127,31 +130,24 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    let temporal_pixel_id_base = vec2<u32>(round(temporal_pixel_id_float));
-    for (var i = 0u; i < 4u; i++) {
-        let temporal_pixel_id = permute_pixel(temporal_pixel_id_base, i);
-
-        // Check if the pixel features have changed heavily between the current and previous frame
-        let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
-        let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
-        let temporal_diffuse_brdf = temporal_surface.material.base_color / PI;
-        if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
-            continue;
-        }
-
-        let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
-        var temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
-
-        temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
-
-        return NeighborInfo(temporal_reservoir, temporal_surface.world_position, temporal_surface.world_normal, temporal_diffuse_brdf);
+    // Check if the pixel features have changed heavily between the current and previous frame
+    let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
+    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
+    let temporal_diffuse_brdf = temporal_surface.material.base_color / PI;
+    if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
+        return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
     }
 
-    return NeighborInfo(empty_reservoir(), vec3(0.0), vec3(0.0), vec3(0.0));
+    let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
+    var temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
+
+    temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
+
+    return NeighborInfo(temporal_reservoir, temporal_surface.world_position, temporal_surface.world_normal, temporal_diffuse_brdf);
 }
 
-fn permute_pixel(pixel_id: vec2<u32>, i: u32) -> vec2<u32> {
-    let r = constants.frame_index + i;
+fn permute_pixel(pixel_id: vec2<u32>) -> vec2<u32> {
+    let r = constants.frame_index;
     let offset = vec2(r & 3u, (r >> 2u) & 3u);
     var shifted_pixel_id = pixel_id + offset;
     shifted_pixel_id ^= vec2(3u);
@@ -170,9 +166,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     }
 
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-    var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
-
-    spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
+    let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
     return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
 }
