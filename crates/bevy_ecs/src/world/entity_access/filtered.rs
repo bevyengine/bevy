@@ -224,7 +224,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<impl Iterator<Item = Entity> + 'w> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
         self.access
             .has_component_read(relationship_target_id)
             // SAFETY: We have read access
@@ -706,14 +706,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         &self,
         relationship_target_id: ComponentId,
     ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
-        self.access
-            .has_component_read(relationship_target_id)
-            // SAFETY: We have read access
-            .then(|| unsafe {
-                self.entity
-                    .get_relationship_targets_by_id(relationship_target_id)
-            })
-            .flatten()
+        self.as_readonly().get_relationship_targets_by_id(relationship_target_id)
     }
 
     /// Returns the source code location from which this entity has last been spawned.
