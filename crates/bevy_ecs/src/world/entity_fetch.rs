@@ -75,7 +75,7 @@ impl<'w> EntityFetcher<'w> {
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
@@ -159,7 +159,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_mut(
@@ -182,7 +182,7 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::NotSpawned`] if the entity does not exist.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
     unsafe fn fetch_deferred_mut(

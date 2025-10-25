@@ -834,7 +834,7 @@ impl EntitiesAllocator {
     ///
     /// The returned entity is valid and unique, but it is not yet spawned.
     /// Using the id as if it were spawned may produce errors.
-    /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
+    /// It can not be queried, and it has no [`EntityLocation`].
     /// See module [docs](crate::entity) for more information about entity validity vs spawning.
     ///
     /// This is different from empty entities, which are spawned and
@@ -865,7 +865,7 @@ impl EntitiesAllocator {
     /// ```
     ///
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
-    /// This is useful if you want to enforce properties about the [`EntityRow`](crate::entity::EntityRow)s of a group of entities, make a custom allocator, etc.
+    /// This is useful if you want to enforce properties about the [`EntityRow`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
         let index = self
             .free_len
