@@ -1093,7 +1093,7 @@ pub fn extract_text_shadows(
             end += 1;
         }
 
-        for section in text_layout_info.section_geometry.iter() {
+        for section in text_layout_info.run_geometry.iter() {
             let section_entity = computed_block[section.span_index];
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
@@ -1109,14 +1109,17 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     transform: node_transform
                         * Affine2::from_translation(Vec2::new(
-                            section.rect.center().x,
-                            section.strikethrough_offset + 0.5 * section.strikethrough_size,
+                            section.bounds.center().x,
+                            section.strikethrough_y + 0.5 * section.strikethrough_thickness,
                         )),
                     item: ExtractedUiItem::Node {
                         color: shadow.color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.rect.size().x, section.strikethrough_size),
+                            max: Vec2::new(
+                                section.bounds.size().x,
+                                section.strikethrough_thickness,
+                            ),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1138,14 +1141,14 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     transform: node_transform
                         * Affine2::from_translation(Vec2::new(
-                            section.rect.center().x,
-                            section.underline_offset + 0.5 * section.underline_size,
+                            section.bounds.center().x,
+                            section.underline_y + 0.5 * section.underline_thickness,
                         )),
                     item: ExtractedUiItem::Node {
                         color: shadow.color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.rect.size().x, section.underline_size),
+                            max: Vec2::new(section.bounds.size().x, section.underline_thickness),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1208,7 +1211,7 @@ pub fn extract_text_decorations(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for section in text_layout_info.section_geometry.iter() {
+        for section in text_layout_info.run_geometry.iter() {
             let section_entity = computed_block[section.span_index];
             let Ok(((text_background_color, maybe_strikethrough, maybe_underline), text_color)) =
                 text_background_colors_query.get(section_entity)
@@ -1223,12 +1226,12 @@ pub fn extract_text_decorations(
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
-                    transform: transform * Affine2::from_translation(section.rect.center()),
+                    transform: transform * Affine2::from_translation(section.bounds.center()),
                     item: ExtractedUiItem::Node {
                         color: text_background_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: section.rect.size(),
+                            max: section.bounds.size(),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1250,14 +1253,17 @@ pub fn extract_text_decorations(
                     extracted_camera_entity,
                     transform: transform
                         * Affine2::from_translation(Vec2::new(
-                            section.rect.center().x,
-                            section.strikethrough_offset + 0.5 * section.strikethrough_size,
+                            section.bounds.center().x,
+                            section.strikethrough_y + 0.5 * section.strikethrough_thickness,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.rect.size().x, section.strikethrough_size),
+                            max: Vec2::new(
+                                section.bounds.size().x,
+                                section.strikethrough_thickness,
+                            ),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1279,14 +1285,14 @@ pub fn extract_text_decorations(
                     extracted_camera_entity,
                     transform: transform
                         * Affine2::from_translation(Vec2::new(
-                            section.rect.center().x,
-                            section.underline_offset + 0.5 * section.underline_size,
+                            section.bounds.center().x,
+                            section.underline_y + 0.5 * section.underline_thickness,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.rect.size().x, section.underline_size),
+                            max: Vec2::new(section.bounds.size().x, section.underline_thickness),
                         },
                         atlas_scaling: None,
                         flip_x: false,

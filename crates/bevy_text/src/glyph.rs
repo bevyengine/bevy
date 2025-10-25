@@ -1,7 +1,6 @@
 //! This module exports types related to rendering glyphs.
 
 use bevy_asset::AssetId;
-use bevy_color::LinearRgba;
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;

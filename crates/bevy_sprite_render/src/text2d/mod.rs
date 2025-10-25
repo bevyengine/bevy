@@ -75,13 +75,13 @@ pub fn extract_text2d_sprite(
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
 
-        for section in text_layout_info.section_geometry.iter() {
+        for section in text_layout_info.run_geometry.iter() {
             let section_entity = computed_block[section.span_index];
             let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
                 continue;
             };
             let render_entity = commands.spawn(TemporaryRenderEntity).id();
-            let offset = Vec2::new(section.rect.center().x, -section.rect.center().y);
+            let offset = Vec2::new(section.bounds.center().x, -section.bounds.center().y);
             let transform = *global_transform
                 * GlobalTransform::from_translation(top_left.extend(0.))
                 * scaling
@@ -97,7 +97,7 @@ pub fn extract_text2d_sprite(
                     anchor: Vec2::ZERO,
                     rect: None,
                     scaling_mode: None,
-                    custom_size: Some(section.rect.size()),
+                    custom_size: Some(section.bounds.size()),
                     color: text_background_color.0.into(),
                 },
             });
@@ -153,7 +153,7 @@ pub fn extract_text2d_sprite(
                 end += 1;
             }
 
-            for section in text_layout_info.section_geometry.iter() {
+            for section in text_layout_info.run_geometry.iter() {
                 let section_entity = computed_block[section.span_index];
                 let Ok((_, has_strikethrough, has_underline)) =
                     decoration_query.get(section_entity)
@@ -164,8 +164,8 @@ pub fn extract_text2d_sprite(
                 if has_strikethrough {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
                     let offset = Vec2::new(
-                        section.rect.center().x,
-                        -section.strikethrough_offset - 0.5 * section.strikethrough_size,
+                        section.bounds.center().x,
+                        -section.strikethrough_y - 0.5 * section.strikethrough_thickness,
                     );
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -181,8 +181,8 @@ pub fn extract_text2d_sprite(
                             rect: None,
                             scaling_mode: None,
                             custom_size: Some(Vec2::new(
-                                section.rect.size().x,
-                                section.strikethrough_size,
+                                section.bounds.size().x,
+                                section.strikethrough_thickness,
                             )),
                             color,
                         },
@@ -192,8 +192,8 @@ pub fn extract_text2d_sprite(
                 if has_underline {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
                     let offset = Vec2::new(
-                        section.rect.center().x,
-                        -section.underline_offset - 0.5 * section.underline_size,
+                        section.bounds.center().x,
+                        -section.underline_y - 0.5 * section.underline_thickness,
                     );
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
@@ -209,8 +209,8 @@ pub fn extract_text2d_sprite(
                             rect: None,
                             scaling_mode: None,
                             custom_size: Some(Vec2::new(
-                                section.rect.size().x,
-                                section.underline_size,
+                                section.bounds.size().x,
+                                section.underline_thickness,
                             )),
                             color,
                         },
@@ -281,7 +281,7 @@ pub fn extract_text2d_sprite(
             end += 1;
         }
 
-        for section in text_layout_info.section_geometry.iter() {
+        for section in text_layout_info.run_geometry.iter() {
             let section_entity = computed_block[section.span_index];
             let Ok((text_color, has_strike_through, has_underline)) =
                 decoration_query.get(section_entity)
@@ -291,8 +291,8 @@ pub fn extract_text2d_sprite(
             if has_strike_through {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 let offset = Vec2::new(
-                    section.rect.center().x,
-                    -section.strikethrough_offset - 0.5 * section.strikethrough_size,
+                    section.bounds.center().x,
+                    -section.strikethrough_y - 0.5 * section.strikethrough_thickness,
                 );
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
@@ -310,8 +310,8 @@ pub fn extract_text2d_sprite(
                         rect: None,
                         scaling_mode: None,
                         custom_size: Some(Vec2::new(
-                            section.rect.size().x,
-                            section.strikethrough_size,
+                            section.bounds.size().x,
+                            section.strikethrough_thickness,
                         )),
                         color: text_color.0.into(),
                     },
@@ -321,8 +321,8 @@ pub fn extract_text2d_sprite(
             if has_underline {
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 let offset = Vec2::new(
-                    section.rect.center().x,
-                    -section.underline_offset - 0.5 * section.underline_size,
+                    section.bounds.center().x,
+                    -section.underline_y - 0.5 * section.underline_thickness,
                 );
                 let transform = *global_transform
                     * GlobalTransform::from_translation(top_left.extend(0.))
@@ -339,7 +339,10 @@ pub fn extract_text2d_sprite(
                         anchor: Vec2::ZERO,
                         rect: None,
                         scaling_mode: None,
-                        custom_size: Some(Vec2::new(section.rect.size().x, section.underline_size)),
+                        custom_size: Some(Vec2::new(
+                            section.bounds.size().x,
+                            section.underline_thickness,
+                        )),
                         color: text_color.0.into(),
                     },
                 });

@@ -373,24 +373,59 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
-    /// A text section spanning more than one line will have multiple segments.
-    pub section_geometry: Vec<(SectionGeometry)>,
+    /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
+    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
+    pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
 }
 
-#[derive(Clone, Default, Debug, Reflect)]
-pub struct SectionGeometry {
-    /// index of span
+/// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
+/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+/// font size, and line height.
+#[derive(Default, Debug, Clone, Reflect)]
+pub struct RunGeometry {
+    /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
     pub span_index: usize,
-    /// bounding rect of section
-    pub rect: Rect,
-    /// offset of strikethrough
-    pub strikethrough_offset: f32,
-    pub strikethrough_size: f32,
-    pub underline_offset: f32,
-    pub underline_size: f32,
+    /// Bounding box around the text run
+    pub bounds: Rect,
+    /// Y position of the strikethrough in the text layout.
+    pub strikethrough_y: f32,
+    /// Strikethrough stroke thickness.
+    pub strikethrough_thickness: f32,
+    /// Y position of the underline  in the text layout.
+    pub underline_y: f32,
+    /// Underline stroke thickness.
+    pub underline_thickness: f32,
+}
+
+impl RunGeometry {
+    /// Returns the center of the strikethrough in the text layout.
+    pub fn strikethrough_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.strikethrough_y + 0.5 * self.strikethrough_thickness,
+        )
+    }
+
+    /// Returns the size of the strikethrough.
+    pub fn strikethrough_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
+    }
+
+    /// Get the center of the underline in the text layout.
+    pub fn underline_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.underline_y + 0.5 * self.underline_thickness,
+        )
+    }
+
+    /// Returns the size of the underline.
+    pub fn underline_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.underline_thickness)
+    }
 }
 
 /// Determines which antialiasing method to use when rendering text. By default, text is

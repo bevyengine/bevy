@@ -91,6 +91,7 @@ pub struct Text2dUpdateSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
 pub type Update2dText = Text2dUpdateSystems;
 
+/// Text Systems set
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TextSystems {
     /// Update text hierarchy and check for changes
