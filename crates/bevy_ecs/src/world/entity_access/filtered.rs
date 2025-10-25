@@ -706,7 +706,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
         &self,
         relationship_target_id: ComponentId,
     ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
-        self.as_readonly().get_relationship_targets_by_id(relationship_target_id)
+        self.as_readonly()
+            .get_relationship_targets_by_id(relationship_target_id)
     }
 
     /// Returns the source code location from which this entity has last been spawned.
