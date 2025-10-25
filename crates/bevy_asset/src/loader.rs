@@ -305,7 +305,13 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
+    #[error(transparent)]
+    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
 }
+
+#[derive(Error, Debug, Clone)]
+#[error("The asset at path `{}` loads itself as a dependent.", asset_path)]
+pub struct AssetDependentOnSelf { pub asset_path: AssetPath<'static> }
 
 /// An error that occurs while deserializing [`AssetMeta`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
@@ -508,8 +514,12 @@ impl<'a> LoadContext<'a> {
                 path: path.path().to_path_buf(),
                 source,
             })?;
-        self.loader_dependencies.insert(path.clone_owned(), hash);
-        Ok(bytes)
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path.clone_owned(), hash);
+            Ok(bytes)
+        } else {
+            Err(AssetDependentOnSelf { asset_path: self.asset_path.clone_owned() }.into())
+        }
     }
 
     /// Returns a handle to an asset of type `A` with the label `label`. This [`LoadContext`] must produce an asset of the
@@ -551,8 +561,13 @@ impl<'a> LoadContext<'a> {
             })?;
         let info = meta.processed_info().as_ref();
         let hash = info.map(|i| i.full_hash).unwrap_or_default();
-        self.loader_dependencies.insert(path, hash);
-        Ok(loaded_asset)
+
+        if self.asset_path != path {
+            self.loader_dependencies.insert(path, hash);
+            Ok(loaded_asset)
+        } else {
+            Err(AssetDependentOnSelf { asset_path: self.asset_path.clone_owned() }.into())
+        }
     }
 
     /// Create a builder for loading nested assets in this context.
@@ -593,4 +608,6 @@ pub enum ReadAssetBytesError {
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
+    #[error(transparent)]
+    AssetDependentOnSelf(#[from] AssetDependentOnSelf)
 }
