@@ -922,7 +922,7 @@ impl World {
     /// # Errors
     ///
     /// If any of the given `entities` do not exist in the world, the first
-    /// [`Entity`] found to be missing will return an [`EntityDoesNotExistError`].
+    /// [`Entity`] found to be missing will return an [`EntityNotSpawnedError`].
     ///
     /// # Examples
     ///
