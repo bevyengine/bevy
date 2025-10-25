@@ -9,8 +9,8 @@ use bevy::{
     },
     pbr::{
         late_sweep_material_instances, DrawMaterial, EntitiesNeedingSpecialization,
-        EntitySpecializationTickPair, EntitySpecializationTicks, MaterialBindGroupAllocator,
-        MaterialBindGroupAllocators, MaterialDrawFunction,
+        EntitySpecializationTickPair, EntitySpecializationTicks, MainPassOpaqueDrawFunction,
+        MaterialBindGroupAllocator, MaterialBindGroupAllocators,
         MaterialExtractEntitiesNeedingSpecializationSystems, MaterialExtractionSystems,
         MaterialFragmentShader, MaterialProperties, PreparedMaterial, RenderMaterialBindings,
         RenderMaterialInstance, RenderMaterialInstances, SpecializedMaterialPipelineCache,
@@ -200,7 +200,7 @@ impl ErasedRenderAsset for ImageMaterial {
             material_layout: Some(material_layout),
             ..Default::default()
         };
-        properties.add_draw_function(MaterialDrawFunction, draw_function_id);
+        properties.add_draw_function(MainPassOpaqueDrawFunction, draw_function_id);
         properties.add_shader(MaterialFragmentShader, asset_server.load(SHADER_ASSET_PATH));
 
         Ok(PreparedMaterial {
