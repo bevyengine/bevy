@@ -76,7 +76,7 @@ where
         Some(if let Some(bulk) = self.allocator.next() {
             // SAFETY: bundle matches spawner type and we just allocated it
             unsafe {
-                self.spawner.construct(bulk, bundle, self.caller);
+                self.spawner.spawn_at(bulk, bundle, self.caller);
             }
             bulk
         } else {

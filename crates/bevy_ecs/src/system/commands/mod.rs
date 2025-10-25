@@ -20,8 +20,8 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{
-        ConstructedEntityDoesNotExistError, Entities, EntitiesAllocator, Entity,
-        EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut,
+        Entities, EntitiesAllocator, Entity, EntityClonerBuilder, EntityNotSpawnedError,
+        InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{EntityEvent, Event},
@@ -341,9 +341,7 @@ impl<'w, 's> Commands<'w, 's> {
         let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
-            world
-                .construct_empty_with_caller(entity, caller)
-                .map(|_| ())
+            world.spawn_at_empty_with_caller(entity, caller).map(|_| ())
         });
         self.entity(entity)
     }
@@ -397,7 +395,7 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(move |world: &mut World| {
             move_as_ptr!(bundle);
             world
-                .construct_with_caller(entity, bundle, caller)
+                .spawn_at_with_caller(entity, bundle, caller)
                 .map(|_| ())
         });
         self.entity(entity)
@@ -439,17 +437,17 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists.
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it is valid.
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
-    /// This also does not error when the entity has not been constructed.
-    /// For that behavior, see [`get_constructed_entity`](Self::get_constructed_entity),
-    /// which should be preferred for accessing entities you expect to already exist, like those found from a query.
-    /// For details on entity construction, see [`entity`](crate::entity) module docs.
+    /// This also does not error when the entity has not been spawned.
+    /// For that behavior, see [`get_spawned_entity`](Self::get_spawned_entity),
+    /// which should be preferred for accessing entities you expect to already be spawned, like those found from a query.
+    /// For details on entity spawning vs validity, see [`entity`](crate::entity) module docs.
     ///
     /// # Errors
     ///
-    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
+    /// Returns [`InvalidEntityError`] if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -483,10 +481,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the infallible version.
     #[inline]
     #[track_caller]
-    pub fn get_entity(
-        &mut self,
-        entity: Entity,
-    ) -> Result<EntityCommands<'_>, EntityDoesNotExistError> {
+    pub fn get_entity(&mut self, entity: Entity) -> Result<EntityCommands<'_>, InvalidEntityError> {
         let _location = self.entities.get(entity)?;
         Ok(EntityCommands {
             entity,
@@ -494,19 +489,19 @@ impl<'w, 's> Commands<'w, 's> {
         })
     }
 
-    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists in the world *now*.
-    /// Note that for entities that have not been constructed, like ones from [`spawn`](Self::spawn), this will error.
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it spawned in the world *now*.
+    /// Note that for entities that have not been spawned *yet*, like ones from [`spawn`](Self::spawn), this will error.
     /// If that is not desired, try [`get_entity`](Self::get_entity).
-    /// This should be used over [`get_entity`](Self::get_entity) when you expect the entity to already exist constructed in the world.
-    /// If it doesn't currently exists but is not constructed, this will error that information, where [`get_entity`](Self::get_entity) would succeed, leading to potentially surprising results.
-    /// For details on entity construction, see [`entity`](crate::entity) module docs.
+    /// This should be used over [`get_entity`](Self::get_entity) when you expect the entity to already be spawned in the world.
+    /// If the entity is valid but not yet spawned, this will error that information, where [`get_entity`](Self::get_entity) would succeed, leading to potentially surprising results.
+    /// For details on entity spawning vs validity, see [`entity`](crate::entity) module docs.
     ///
     /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
     ///
     /// # Errors
     ///
-    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
+    /// Returns [`EntityNotSpawnedError`] if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -524,7 +519,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Get the entity if it still exists and store the `EntityCommands`.
     ///     // If it doesn't exist, the `?` operator will propagate the returned error
     ///     // to the system, and the system will pass it to an error handler.
-    ///     let mut entity_commands = commands.get_constructed_entity(player.entity)?;
+    ///     let mut entity_commands = commands.get_spawned_entity(player.entity)?;
     ///
     ///     // Add a component to the entity.
     ///     entity_commands.insert(Label("hello world"));
@@ -540,11 +535,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`entity`](Self::entity) for the infallible version.
     #[inline]
     #[track_caller]
-    pub fn get_constructed_entity(
+    pub fn get_spawned_entity(
         &mut self,
         entity: Entity,
-    ) -> Result<EntityCommands<'_>, ConstructedEntityDoesNotExistError> {
-        let _location = self.entities.get_constructed(entity)?;
+    ) -> Result<EntityCommands<'_>, EntityNotSpawnedError> {
+        let _location = self.entities.get_spawned(entity)?;
         Ok(EntityCommands {
             entity,
             commands: self.reborrow(),

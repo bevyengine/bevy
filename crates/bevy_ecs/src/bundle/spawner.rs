@@ -88,7 +88,7 @@ impl<'w> BundleSpawner<'w> {
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     #[track_caller]
-    pub unsafe fn construct<T: DynamicBundle>(
+    pub unsafe fn spawn_at<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         bundle: MovingPtr<'_, T>,
@@ -119,8 +119,8 @@ impl<'w> BundleSpawner<'w> {
                 InsertMode::Replace,
                 caller,
             );
-            entities.new_location(entity.row(), Some(location));
-            entities.mark_construct_or_destruct(entity.row(), caller, self.change_tick);
+            entities.set_location(entity.row(), Some(location));
+            entities.mark_spawned_or_despawned(entity.row(), caller, self.change_tick);
             location
         };
 
@@ -187,7 +187,7 @@ impl<'w> BundleSpawner<'w> {
     ) -> Entity {
         let entity = self.allocator().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let _ = unsafe { self.construct(entity, bundle, caller) };
+        let _ = unsafe { self.spawn_at(entity, bundle, caller) };
         entity
     }
 

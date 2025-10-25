@@ -44,8 +44,7 @@ use crate::{
         RequiredComponentsError,
     },
     entity::{
-        ConstructedEntityDoesNotExistError, ConstructionError, Entities, EntitiesAllocator, Entity,
-        EntityDoesNotExistError,
+        Entities, EntitiesAllocator, Entity, EntityNotSpawnedError, InvalidEntityError, SpawnError,
     },
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
@@ -62,7 +61,7 @@ use crate::{
     world::{
         command_queue::RawCommandQueue,
         error::{
-            EntityDestructError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
+            EntityDespawnError, EntityMutableFetchError, TryInsertBatchError, TryRunScheduleError,
         },
     },
 };
@@ -209,6 +208,18 @@ impl World {
         &self.entities
     }
 
+    /// Retrieves this world's [`EntitiesAllocator`] collection.
+    #[inline]
+    pub fn entities_allocator(&self) -> &EntitiesAllocator {
+        &self.allocator
+    }
+
+    /// Retrieves this world's [`EntitiesAllocator`] collection mutably.
+    #[inline]
+    pub fn entities_allocator_mut(&mut self) -> &mut EntitiesAllocator {
+        &mut self.allocator
+    }
+
     /// Retrieves this world's [`Entities`] collection mutably.
     ///
     /// # Safety
@@ -224,7 +235,7 @@ impl World {
     /// This is helpful as a diagnostic, but it can also be used effectively in tests.
     #[inline]
     pub fn entity_count(&self) -> u32 {
-        self.entities.count_constructed()
+        self.entities.count_spawned()
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
@@ -883,8 +894,8 @@ impl World {
     pub fn inspect_entity(
         &self,
         entity: Entity,
-    ) -> Result<impl Iterator<Item = &ComponentInfo>, ConstructedEntityDoesNotExistError> {
-        let entity_location = self.entities().get_constructed(entity)?;
+    ) -> Result<impl Iterator<Item = &ComponentInfo>, EntityNotSpawnedError> {
+        let entity_location = self.entities().get_spawned(entity)?;
 
         let archetype = self
             .archetypes()
@@ -922,7 +933,7 @@ impl World {
     pub fn get_entity<F: WorldEntityFetch>(
         &self,
         entities: F,
-    ) -> Result<F::Ref<'_>, ConstructedEntityDoesNotExistError> {
+    ) -> Result<F::Ref<'_>, EntityNotSpawnedError> {
         let cell = self.as_unsafe_world_cell_readonly();
         // SAFETY: `&self` gives read access to the entire world, and prevents mutable access.
         unsafe { entities.fetch_ref(cell) }
@@ -1067,83 +1078,53 @@ impl World {
         (fetcher, commands)
     }
 
-    /// Spawns an [`Entity`] that is null.
-    /// The returned entity id is valid and unique, but it is not yet constructed.
-    /// Using the id as if it were constructed may produce errors.
-    /// It can not be queried, and it has no [`EntityLocation`](crate::entity::EntityLocation).
-    /// See [entity docs](crate::entity) for more information about null entities and construction.
-    ///
-    /// This is different from empty entities, which do exist in the world and
-    /// just happen to have no components.
-    ///
-    /// This is particularly useful when spawning entities in special ways.
-    /// For example, [`Commands`] uses this to allocate an entity and [`construct`](Self::construct) it later.
-    /// Note that since this entity is not queryable and its id is not discoverable, losing the returned [`Entity`] effectively leaks it, never to be used again!
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::{prelude::*};
-    /// let mut world = World::new();
-    /// let entity = world.spawn_null();
-    /// // wait as long as you like
-    /// let entity_access = world.construct_empty(entity).unwrap();
-    /// // treat it as a normal entity
-    /// entity_access.despawn();
-    /// ```
-    pub fn spawn_null(&self) -> Entity {
-        self.allocator.alloc()
-    }
-
-    /// Constructs the bundle on the entity.
-    /// If the entity can not be constructed for any reason, returns an error.
+    /// Spawns the bundle on the valid but not spawned entity.
+    /// If the entity can not be spawned for any reason, returns an error.
     ///
     /// If it succeeds, this declares the entity to have this bundle.
     ///
     /// In general, you should prefer [`spawn`](Self::spawn).
     /// Spawn internally calls this method, but it takes care of finding a suitable [`Entity`] for you.
-    /// This is made available for advanced use, of which some examples are listed later.
+    /// This is made available for advanced use, which you can see at [`EntitiesAllocator::alloc`].
     ///
     /// # Risk
     ///
-    /// It is possible to construct an `entity` that has not been allocated yet;
-    /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not constructed.
+    /// It is possible to spawn an `entity` that has not been allocated yet;
+    /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not spawned.
     /// This would cause a panic.
     ///
-    /// Manual construction is a powerful tool, but must be used carefully.
+    /// Manual spawning is a powerful tool, but must be used carefully.
     ///
     /// # Example
     ///
-    /// Currently, this is primarily used to construct entities that come from [`spawn_null`](Self::spawn_null).
+    /// Currently, this is primarily used to spawn entities that come from [`EntitiesAllocator::alloc`].
     /// See that for an example.
-    /// More generally, manually constructing and [`destruct`](Self::destruct)ing entities allows you to skip bevy's default entity allocator.
-    /// This is useful if you want to enforce properties about the [`EntityRow`](crate::entity::EntityRow)s of a group of entities, make a custom allocator, etc.
     #[track_caller]
-    pub fn construct<B: Bundle>(
+    pub fn spawn_at<B: Bundle>(
         &mut self,
         entity: Entity,
         bundle: B,
-    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
+    ) -> Result<EntityWorldMut<'_>, SpawnError> {
         move_as_ptr!(bundle);
-        self.construct_with_caller(entity, bundle, MaybeLocation::caller())
+        self.spawn_at_with_caller(entity, bundle, MaybeLocation::caller())
     }
 
-    pub(crate) fn construct_with_caller<B: Bundle>(
+    pub(crate) fn spawn_at_with_caller<B: Bundle>(
         &mut self,
         entity: Entity,
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
-    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
-        self.entities.check_can_construct_entity(entity)?;
-        Ok(self.construct_unchecked(entity, bundle, caller))
+    ) -> Result<EntityWorldMut<'_>, SpawnError> {
+        self.entities.check_can_spawn_at(entity)?;
+        Ok(self.spawn_at_unchecked(entity, bundle, caller))
     }
 
-    /// Constructs `bundle` on `entity`.
+    /// Spawns `bundle` on `entity`.
     ///
     /// # Panics
     ///
     /// Panics if the entity row is already constructed
-    pub(crate) fn construct_unchecked<B: Bundle>(
+    pub(crate) fn spawn_at_unchecked<B: Bundle>(
         &mut self,
         entity: Entity,
         bundle: MovingPtr<'_, B>,
@@ -1159,7 +1140,7 @@ impl World {
             // - This function ensures that the value pointed to by `bundle` must not be accessed for anything afterwards by consuming
             //   the `MovingPtr`. The value is otherwise only used to call `apply_effect` within this function, and the safety invariants
             //   of `DynamicBundle` ensure that only the elements that have not been moved out of by this call are accessed.
-            unsafe { bundle_spawner.construct::<B>(entity, bundle, caller) }
+            unsafe { bundle_spawner.spawn_at::<B>(entity, bundle, caller) }
         });
 
         let mut entity_location = Some(entity_location);
@@ -1182,30 +1163,27 @@ impl World {
         entity
     }
 
-    /// A faster version of [`construct`](Self::construct) for the empty bundle.
+    /// A faster version of [`spawn_at`](Self::spawn_at) for the empty bundle.
     #[track_caller]
-    pub fn construct_empty(
-        &mut self,
-        entity: Entity,
-    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
-        self.construct_empty_with_caller(entity, MaybeLocation::caller())
+    pub fn spawn_at_empty(&mut self, entity: Entity) -> Result<EntityWorldMut<'_>, SpawnError> {
+        self.spawn_at_empty_with_caller(entity, MaybeLocation::caller())
     }
 
-    pub(crate) fn construct_empty_with_caller(
+    pub(crate) fn spawn_at_empty_with_caller(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<EntityWorldMut<'_>, ConstructionError> {
-        self.entities.check_can_construct_entity(entity)?;
-        Ok(self.construct_empty_unchecked(entity, caller))
+    ) -> Result<EntityWorldMut<'_>, SpawnError> {
+        self.entities.check_can_spawn_at(entity)?;
+        Ok(self.spawn_at_empty_unchecked(entity, caller))
     }
 
-    /// A faster version of [`construct_unchecked`](Self::construct_unchecked) for the empty bundle.
+    /// A faster version of [`spawn_at_unchecked`](Self::spawn_at_unchecked) for the empty bundle.
     ///
     /// # Panics
     ///
-    /// Panics if the entity row is already constructed
-    pub(crate) fn construct_empty_unchecked(
+    /// Panics if the entity row is already spawned
+    pub(crate) fn spawn_at_empty_unchecked(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
@@ -1219,13 +1197,13 @@ impl World {
             // empty
             let location = archetype.allocate(entity, table_row);
             let change_tick = self.change_tick();
-            let was_at = self.entities.new_location(entity.row(), Some(location));
+            let was_at = self.entities.set_location(entity.row(), Some(location));
             assert!(
                 was_at.is_none(),
                 "Attempting to construct an empty entity, but it was already constructed."
             );
             self.entities
-                .mark_construct_or_destruct(entity.row(), caller, change_tick);
+                .mark_spawned_or_despawned(entity.row(), caller, change_tick);
 
             EntityWorldMut::new(self, entity, Some(location))
         }
@@ -1302,9 +1280,9 @@ impl World {
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
-        let entity = self.spawn_null();
+        let entity = self.allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
-        self.construct_unchecked(entity, bundle, caller)
+        self.spawn_at_unchecked(entity, bundle, caller)
     }
 
     /// Spawns a new [`Entity`] and returns a corresponding [`EntityWorldMut`], which can be used
@@ -1338,9 +1316,9 @@ impl World {
     }
 
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
-        let entity = self.spawn_null();
+        let entity = self.allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
-        self.construct_empty_unchecked(entity, caller)
+        self.spawn_at_empty_unchecked(entity, caller)
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -1546,7 +1524,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns an [`EntityDestructError`] if the entity does not exist.
+    /// Returns an [`EntityDespawnError`] if the entity does not exist.
     ///
     /// # Note
     ///
@@ -1554,7 +1532,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDoesNotExistError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), InvalidEntityError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1563,7 +1541,7 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), EntityDoesNotExistError> {
+    ) -> Result<(), InvalidEntityError> {
         match self.get_entity_mut(entity) {
             Ok(entity) => {
                 entity.despawn_with_caller(caller);
@@ -1571,25 +1549,23 @@ impl World {
             }
             // Only one entity.
             Err(EntityMutableFetchError::AliasedMutability(_)) => unreachable!(),
-            Err(EntityMutableFetchError::EntityDoesNotExist(
-                ConstructedEntityDoesNotExistError::DidNotExist(err),
-            )) => Err(err),
-            // The caller wants the entity to be left not constructed and in the allocator. In this case, we can just skip the destructing part.
-            Err(EntityMutableFetchError::EntityDoesNotExist(
-                ConstructedEntityDoesNotExistError::WasNotConstructed(_),
-            )) => {
+            Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::Invalid(err))) => {
+                Err(err)
+            }
+            // The caller wants the entity to be left despawned and in the allocator. In this case, we can just skip the despawning part.
+            Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::RowNotSpawned(_))) => {
                 self.allocator.free(entity);
                 Ok(())
             }
         }
     }
 
-    /// Performs [`try_destruct`](Self::try_destruct), warning on errors.
+    /// Performs [`try_despawn_no_free`](Self::try_despawn_no_free), warning on errors.
     /// See that method for more information.
     #[track_caller]
     #[inline]
-    pub fn destruct(&mut self, entity: Entity) -> Option<Entity> {
-        match self.destruct_with_caller(entity, MaybeLocation::caller()) {
+    pub fn despawn_no_free(&mut self, entity: Entity) -> Option<Entity> {
+        match self.despawn_no_free_with_caller(entity, MaybeLocation::caller()) {
             Ok(entity) => Some(entity),
             Err(error) => {
                 warn!("{error}");
@@ -1598,14 +1574,15 @@ impl World {
         }
     }
 
-    /// Destructs the given `entity`, if it exists.
+    /// Despawns the given `entity`, if it exists.
     /// This will also remove all of the entity's [`Component`]s.
-    /// The *only* difference between destructing and despawning an entity is that destructing does not release the `entity` to be reused.
-    /// It is up to the caller to either re-construct or fully despawn the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    ///
+    /// The *only* difference between this and [despawning](Self::despawn) an entity is that this does not release the `entity` to be reused.
+    /// It is up to the caller to either re-spawn or free the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
     /// In general, [`despawn`](Self::despawn) should be used instead, which automatically allows the row to be reused.
     ///
-    /// Returns the new [`Entity`] if of the destructed [`EntityRow`](crate::entity::EntityRow), which should eventually either be re-constructed or freed to the allocator.
-    /// Returns an [`EntityDestructError`] if the entity does not exist to be destructed.
+    /// Returns the new [`Entity`] if of the despawned [`EntityRow`](crate::entity::EntityRow), which should eventually either be re-spawned or freed to the allocator.
+    /// Returns an [`EntityDespawnError`] if the entity is not spawned.
     ///
     /// # Note
     ///
@@ -1615,27 +1592,28 @@ impl World {
     /// # Example
     ///
     /// There is no simple example in which this would be practical, but one use for this is a custom entity allocator.
-    /// Despawning internally calls this and frees the entity id to bevy's default entity allocator.
+    /// Despawning internally calls this and frees the entity id to Bevy's default entity allocator.
     /// The same principal can be used to create custom allocators with additional properties.
     /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityRow`](crate::entity::EntityRow)s, etc.
+    /// See [`EntitiesAllocator::alloc`] for more on this.
     #[track_caller]
     #[inline]
-    pub fn try_destruct(&mut self, entity: Entity) -> Result<Entity, EntityDestructError> {
-        self.destruct_with_caller(entity, MaybeLocation::caller())
+    pub fn try_despawn_no_free(&mut self, entity: Entity) -> Result<Entity, EntityDespawnError> {
+        self.despawn_no_free_with_caller(entity, MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn destruct_with_caller(
+    pub(crate) fn despawn_no_free_with_caller(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<Entity, EntityDestructError> {
+    ) -> Result<Entity, EntityDespawnError> {
         let mut entity = self.get_entity_mut(entity).map_err(|err| match err {
-            EntityMutableFetchError::EntityDoesNotExist(err) => err,
+            EntityMutableFetchError::NotSpawned(err) => err,
             // Only one entity.
             EntityMutableFetchError::AliasedMutability(_) => unreachable!(),
         })?;
-        entity.destruct_with_caller(caller);
+        entity.despawn_no_free_with_caller(caller);
         Ok(entity.id())
     }
 
@@ -2513,7 +2491,7 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            match self.entities().get_constructed(first_entity) {
+            match self.entities().get_spawned(first_entity) {
                 Err(err) => {
                     panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity} because: {err}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>());
                 }
@@ -2544,7 +2522,7 @@ impl World {
                     };
 
                     for (entity, bundle) in batch_iter {
-                        match cache.inserter.entities().get_constructed(entity) {
+                        match cache.inserter.entities().get_spawned(entity) {
                             Ok(location) => {
                                 if location.archetype_id != cache.archetype_id {
                                     cache = InserterArchetypeCache {
@@ -2665,7 +2643,7 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                if let Ok(first_location) = self.entities().get_constructed(first_entity) {
+                if let Ok(first_location) = self.entities().get_spawned(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_bundle_info`
                         inserter: unsafe {
@@ -2705,7 +2683,7 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                if let Ok(location) = cache.inserter.entities().get_constructed(entity) {
+                if let Ok(location) = cache.inserter.entities().get_spawned(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
                             // SAFETY: we initialized this bundle_id in `register_info`
@@ -3804,7 +3782,7 @@ impl fmt::Debug for World {
         // Accessing any data stored in the world would be unsound.
         f.debug_struct("World")
             .field("id", &self.id)
-            .field("entity_count", &self.entities.count_constructed())
+            .field("entity_count", &self.entities.count_spawned())
             .field("archetype_count", &self.archetypes.len())
             .field("component_count", &self.components.len())
             .field("resource_count", &self.storages.resources.len())
@@ -4521,25 +4499,25 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1
+            Err(EntityMutableFetchError::NotSpawned(e)) if e.entity() == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
+            Err(EntityMutableFetchError::NotSpawned(e)) if e.entity() == e1));
         assert!(matches!(
             world
                 .get_entity_mut(&[e1, e2] /* this is an array not a slice */)
                 .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
+            Err(EntityMutableFetchError::NotSpawned(e)) if e.entity() == e1));
         assert!(matches!(
             world.get_entity_mut(&vec![e1, e2][..]).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1,
+            Err(EntityMutableFetchError::NotSpawned(e)) if e.entity() == e1,
         ));
         assert!(matches!(
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity() == e1));
+            Err(EntityMutableFetchError::NotSpawned(e)) if e.entity() == e1));
     }
 
     #[test]

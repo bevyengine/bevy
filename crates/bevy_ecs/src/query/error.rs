@@ -2,7 +2,7 @@ use bevy_utils::prelude::DebugName;
 
 use crate::{
     archetype::ArchetypeId,
-    entity::{ConstructedEntityDoesNotExistError, Entity},
+    entity::{Entity, EntityNotSpawnedError},
 };
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
@@ -14,9 +14,9 @@ pub enum QueryEntityError {
     /// Either it does not have a requested component, or it has a component which the query filters out.
     #[error("The query does not match entity {0}")]
     QueryDoesNotMatch(Entity, ArchetypeId),
-    /// The given [`Entity`] does not exist.
+    /// The given [`Entity`] is not spawned.
     #[error("{0}")]
-    EntityDoesNotExist(#[from] ConstructedEntityDoesNotExistError),
+    NotSpawned(#[from] EntityNotSpawnedError),
     /// The [`Entity`] was requested mutably more than once.
     ///
     /// See [`Query::get_many_mut`](crate::system::Query::get_many_mut) for an example.

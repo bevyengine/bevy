@@ -1,7 +1,7 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
-    entity::ConstructedEntityDoesNotExistError,
+    entity::EntityNotSpawnedError,
     hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
@@ -53,7 +53,7 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::EntityDoesNotExist(error) => {
+        QueryEntityError::NotSpawned(error) => {
             if ancestor {
                 MalformedHierarchy(error)
             } else {
@@ -72,11 +72,11 @@ pub enum ComputeGlobalTransformError {
     MissingTransform(Entity),
     /// The entity does not exist.
     #[error("The entity does not exist: {0}")]
-    NoSuchEntity(ConstructedEntityDoesNotExistError),
+    NoSuchEntity(EntityNotSpawnedError),
     /// An ancestor is missing.
     /// This probably means that your hierarchy has been improperly maintained.
     #[error("The ancestor is missing: {0}")]
-    MalformedHierarchy(ConstructedEntityDoesNotExistError),
+    MalformedHierarchy(EntityNotSpawnedError),
 }
 
 #[cfg(test)]

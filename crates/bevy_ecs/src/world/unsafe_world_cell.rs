@@ -10,8 +10,7 @@ use crate::{
     },
     component::{ComponentId, Components, Mutable, StorageType},
     entity::{
-        ConstructedEntityDoesNotExistError, ContainsEntity, Entities, EntitiesAllocator, Entity,
-        EntityLocation,
+        ContainsEntity, Entities, EntitiesAllocator, Entity, EntityLocation, EntityNotSpawnedError,
     },
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentMessages,
@@ -372,11 +371,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
-    pub fn get_entity(
-        self,
-        entity: Entity,
-    ) -> Result<UnsafeEntityCell<'w>, ConstructedEntityDoesNotExistError> {
-        let location = self.entities().get_constructed(entity)?;
+    pub fn get_entity(self, entity: Entity) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
+        let location = self.entities().get_spawned(entity)?;
         Ok(UnsafeEntityCell::new(
             self,
             entity,
@@ -394,8 +390,8 @@ impl<'w> UnsafeWorldCell<'w> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<UnsafeEntityCell<'w>, ConstructedEntityDoesNotExistError> {
-        let location = self.entities().get_constructed(entity)?;
+    ) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
+        let location = self.entities().get_spawned(entity)?;
         Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))

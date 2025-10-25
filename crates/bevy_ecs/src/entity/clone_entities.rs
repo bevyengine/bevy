@@ -566,7 +566,7 @@ impl EntityCloner {
         let target = mapper.get_mapped(source);
         // The target may need to be constructed if it hasn't been already.
         // If this fails, it either didn't need to be constructed (ok) or doesn't exist (caught better later).
-        let _ = world.construct_empty(target);
+        let _ = world.spawn_at_empty(target);
 
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bundle_scratch_allocator = Bump::new();

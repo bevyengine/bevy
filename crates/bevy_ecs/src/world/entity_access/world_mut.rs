@@ -6,7 +6,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{
-        Entity, EntityCloner, EntityClonerBuilder, EntityIdLocation, EntityLocation, OptIn, OptOut,
+        Entity, EntityCloner, EntityClonerBuilder, EntityLocation, EntityRowLocation, OptIn, OptOut,
     },
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
@@ -41,7 +41,7 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
-    location: EntityIdLocation,
+    location: EntityRowLocation,
 }
 
 impl<'w> EntityWorldMut<'w> {
@@ -52,10 +52,7 @@ impl<'w> EntityWorldMut<'w> {
         panic!(
             "Entity {} {}",
             self.entity,
-            self.world
-                .entities()
-                .get_constructed(self.entity)
-                .unwrap_err()
+            self.world.entities().get_spawned(self.entity).unwrap_err()
         );
     }
 
@@ -119,7 +116,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
-        location: EntityIdLocation,
+        location: EntityRowLocation,
     ) -> Self {
         debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity).unwrap(), location);
@@ -164,13 +161,13 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn try_location(&self) -> EntityIdLocation {
+    pub fn try_location(&self) -> EntityRowLocation {
         self.location
     }
 
-    /// Returns if the entity is constructed or not.
+    /// Returns if the entity is spawned or not.
     #[inline]
-    pub fn is_constructed(&self) -> bool {
+    pub fn is_spawned(&self) -> bool {
         self.try_location().is_some()
     }
 
@@ -1431,22 +1428,23 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Destructs the entity, returning the new [`Entity`] id, which you must manage.
-    /// Note that this still increases the generation to differentiate different constructions of the same row.
+    /// Despawns the entity without freeing it to the allocator.
+    /// This returns the new [`Entity`], which you must manage.
+    /// Note that this still increases the generation to differentiate different spawns of the same row.
     ///
-    /// This may be later [`constructed`](World::construct).
-    /// See [`World::destruct`] for details and usage examples.
+    /// This may be later [`spawn_at`](World::spawn_at).
+    /// See [`World::despawn_no_free`] for details and usage examples.
     #[track_caller]
-    pub fn destruct(mut self) -> Entity {
-        self.destruct_with_caller(MaybeLocation::caller());
+    pub fn despawn_no_free(mut self) -> Entity {
+        self.despawn_no_free_with_caller(MaybeLocation::caller());
         self.entity
     }
 
-    /// This destructs this entity if it is currently constructed, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`].
-    pub(crate) fn destruct_with_caller(&mut self, caller: MaybeLocation) {
+    /// This despawns this entity if it is currently spawned, storing the new [`EntityGeneration`](crate::entity::EntityGeneration) in [`Self::entity`] but not freeing it.
+    pub(crate) fn despawn_no_free_with_caller(&mut self, caller: MaybeLocation) {
         // setup
         let Some(location) = self.location else {
-            // If there is no location, we are already destructed
+            // If there is no location, we are already despawned
             return;
         };
         let archetype = &self.world.archetypes[location.archetype_id];
@@ -1520,7 +1518,7 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
-        // do the destruct
+        // do the despawn
         let change_tick = self.world.change_tick();
         for component_id in archetype.components() {
             self.world
@@ -1529,11 +1527,14 @@ impl<'w> EntityWorldMut<'w> {
         }
         // SAFETY: Since we had a location, and it was valid, this is safe.
         unsafe {
-            let was_at = self.world.entities.update_location(self.entity.row(), None);
+            let was_at = self
+                .world
+                .entities
+                .update_existing_location(self.entity.row(), None);
             debug_assert_eq!(was_at, Some(location));
             self.world
                 .entities
-                .mark_construct_or_destruct(self.entity.row(), caller, change_tick);
+                .mark_spawned_or_despawned(self.entity.row(), caller, change_tick);
         }
 
         let table_row;
@@ -1542,11 +1543,11 @@ impl<'w> EntityWorldMut<'w> {
             let archetype = &mut self.world.archetypes[location.archetype_id];
             let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                let swapped_location = self.world.entities.get_constructed(swapped_entity).unwrap();
+                let swapped_location = self.world.entities.get_spawned(swapped_entity).unwrap();
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    self.world.entities.update_location(
+                    self.world.entities.update_existing_location(
                         swapped_entity.row(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
@@ -1577,11 +1578,11 @@ impl<'w> EntityWorldMut<'w> {
 
         // Handle displaced entity
         if let Some(moved_entity) = moved_entity {
-            let moved_location = self.world.entities.get_constructed(moved_entity).unwrap();
+            let moved_location = self.world.entities.get_spawned(moved_entity).unwrap();
             // SAFETY: `moved_entity` is valid and the provided `EntityLocation` accurately reflects
             //         the current location of the entity and its component data.
             unsafe {
-                self.world.entities.update_location(
+                self.world.entities.update_existing_location(
                     moved_entity.row(),
                     Some(EntityLocation {
                         archetype_id: moved_location.archetype_id,
@@ -1596,7 +1597,7 @@ impl<'w> EntityWorldMut<'w> {
         }
 
         // finish
-        // SAFETY: We just destructed it.
+        // SAFETY: We just despawned it.
         self.entity = unsafe { self.world.entities.mark_free(self.entity.row(), 1) };
         self.world.flush();
     }
@@ -1615,14 +1616,14 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     pub(crate) fn despawn_with_caller(mut self, caller: MaybeLocation) {
-        self.destruct_with_caller(caller);
+        self.despawn_no_free_with_caller(caller);
         if let Ok(None) = self.world.entities.get(self.entity) {
             self.world.allocator.free(self.entity);
         }
 
         // Otherwise:
         // A command must have reconstructed it (had a location); don't free
-        // A command must have already despawned it (err) or otherwise made the free unneeded (ex by constructing and destructing in commands); don't free
+        // A command must have already despawned it (err) or otherwise made the free unneeded (ex by spawning and despawning in commands); don't free
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]

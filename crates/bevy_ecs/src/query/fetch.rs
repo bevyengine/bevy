@@ -517,7 +517,7 @@ unsafe impl QueryData for EntityLocation {
         _table_row: TableRow,
     ) -> Self::Item<'w, 's> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        unsafe { fetch.get_constructed(entity).debug_checked_unwrap() }
+        unsafe { fetch.get_spawned(entity).debug_checked_unwrap() }
     }
 }
 
@@ -1451,7 +1451,7 @@ unsafe impl QueryData for &Archetype {
     ) -> Self::Item<'w, 's> {
         let (entities, archetypes) = *fetch;
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        let location = unsafe { entities.get_constructed(entity).debug_checked_unwrap() };
+        let location = unsafe { entities.get_spawned(entity).debug_checked_unwrap() };
         // SAFETY: The assigned archetype for a living entity must always be valid.
         unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() }
     }
