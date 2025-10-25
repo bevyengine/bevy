@@ -1917,6 +1917,7 @@ mod test {
     use bevy_log::LogPlugin;
     use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
     use bevy_mesh::MeshPlugin;
+    use bevy_pbr::StandardMaterial;
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
@@ -2407,6 +2408,11 @@ mod test {
     fn reads_images_in_custom_asset_source() {
         let (mut app, dir) = test_app_custom_asset_source();
 
+        app.init_asset::<StandardMaterial>();
+
+        // Note: We need the material here since otherwise we don't store the texture handle, which
+        // can result in the image getting dropped leading to the gltf never being loaded with
+        // dependencies.
         dir.insert_asset_text(
             Path::new("abc.gltf"),
             r#"
@@ -2429,6 +2435,16 @@ mod test {
         {
             "magFilter": 9729,
             "minFilter": 9729
+        }
+    ],
+    "materials": [
+        {
+            "pbrMetallicRoughness": {
+                "baseColorTexture": {
+                    "index": 0,
+                    "texCoord": 0
+                }
+            }
         }
     ]
 }
