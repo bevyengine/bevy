@@ -316,7 +316,7 @@ impl<'w> EntityRef<'w> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe {
             self.cell

@@ -618,8 +618,9 @@ impl<'w> EntityMut<'w> {
     ///
     /// [`Relationship`]: crate::relationship::Relationship
     pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        self.as_readonly().get_relationship_by_id(relationship_id)
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.cell.get_relationship_by_id(relationship_id) }
+        // unsafe { self.cell.get_relationship_by_id(relationship_id) }
     }
 
     /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
@@ -652,11 +653,8 @@ impl<'w> EntityMut<'w> {
         &self,
         relationship_target_id: ComponentId,
     ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe {
-            self.cell
-                .get_relationship_targets_by_id(relationship_target_id)
-        }
+        self.as_readonly()
+            .get_relationship_targets_by_id(relationship_target_id)
     }
 
     /// Consumes `self` and returns untyped mutable reference(s)

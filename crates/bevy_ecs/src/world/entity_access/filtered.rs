@@ -705,7 +705,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     pub fn get_relationship_targets_by_id(
         &self,
         relationship_target_id: ComponentId,
-    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
+    ) -> Option<impl Iterator<Item = Entity> + use<'_>> {
         self.access
             .has_component_read(relationship_target_id)
             // SAFETY: We have read access
