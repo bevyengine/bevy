@@ -891,7 +891,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExistError(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many<'w, const N: usize>(
@@ -929,7 +929,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// let wrong_entity = Entity::from_raw_u32(365).unwrap();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExistError(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// ```
     #[inline]
     pub fn get_many_unique<'w, const N: usize>(
@@ -986,7 +986,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExistError(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
@@ -1032,7 +1032,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// let invalid_entity = world.spawn_empty().id();
     ///
-    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// assert_eq!(match query_state.get_many_unique(&mut world, UniqueEntityArray::from([wrong_entity])).unwrap_err() {QueryEntityError::EntityDoesNotExistError(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_unique_mut(&mut world, UniqueEntityArray::from([invalid_entity])).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// ```
     #[inline]
@@ -1366,7 +1366,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # let wrong_entity = Entity::from_raw_u32(57).unwrap();
     /// # let invalid_entity = world.spawn_empty().id();
     ///
-    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExist(error) => error.entity(), _ => panic!()}, wrong_entity);
+    /// # assert_eq!(match query_state.get_many(&mut world, [wrong_entity]).unwrap_err() {QueryEntityError::EntityDoesNotExistError(error) => error.entity(), _ => panic!()}, wrong_entity);
     /// assert_eq!(match query_state.get_many_mut(&mut world, [invalid_entity]).unwrap_err() {QueryEntityError::QueryDoesNotMatch(entity, _) => entity, _ => panic!()}, invalid_entity);
     /// # assert_eq!(query_state.get_many_mut(&mut world, [entities[0], entities[0]]).unwrap_err(), QueryEntityError::AliasedMutability(entities[0]));
     /// ```
