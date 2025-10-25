@@ -5,9 +5,10 @@ use crate::{
     change_detection::Tick,
     entity::{Entity, EntityDoesNotExistError, EntityEquivalent, EntitySet, UniqueEntityArray},
     query::{
-        DebugCheckedUnwrap, NopWorldQuery, QueryCombinationIter, QueryData, QueryEntityError,
-        QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
-        QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        DebugCheckedUnwrap, IterQueryData, NopWorldQuery, QueryCombinationIter, QueryData,
+        QueryEntityError, QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter,
+        QueryParManyIter, QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData, SingleEntityQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -701,7 +702,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`iter`](Self::iter) for read-only query items.
     #[inline]
-    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F> {
+    pub fn iter_mut(&mut self) -> QueryIter<'_, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().into_iter()
     }
 
@@ -1019,7 +1023,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_many_unique_mut<EntityList: EntitySet>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().iter_many_unique_inner(entities)
     }
 
@@ -1074,7 +1081,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn iter_many_unique_inner<EntityList: EntitySet>(
         self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'w, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
             QueryManyUniqueIter::new(
@@ -1101,7 +1111,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
     #[inline]
-    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, D, F> {
+    pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.into_iter()
     }
@@ -1166,7 +1179,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub unsafe fn iter_many_unique_unsafe<EntityList: EntitySet>(
         &self,
         entities: EntityList,
-    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: The caller promises that this will not result in multiple mutable references.
         unsafe { self.reborrow_unsafe() }.iter_many_unique_inner(entities)
     }
@@ -1222,7 +1238,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`par_iter`]: Self::par_iter
     /// [`World`]: crate::world::World
     #[inline]
-    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, 's, D, F> {
+    pub fn par_iter_mut(&mut self) -> QueryParIter<'_, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().par_iter_inner()
     }
 
@@ -1253,7 +1272,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(gravity_system);
     /// ```
     #[inline]
-    pub fn par_iter_inner(self) -> QueryParIter<'w, 's, D, F> {
+    pub fn par_iter_inner(self) -> QueryParIter<'w, 's, D, F>
+    where
+        D: IterQueryData,
+    {
         QueryParIter {
             world: self.world,
             state: self.state,
@@ -1340,7 +1362,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn par_iter_many_unique_mut<EntityList: EntitySet<Item: Sync>>(
         &mut self,
         entities: EntityList,
-    ) -> QueryParManyUniqueIter<'_, 's, D, F, EntityList::Item> {
+    ) -> QueryParManyUniqueIter<'_, 's, D, F, EntityList::Item>
+    where
+        D: IterQueryData,
+    {
         QueryParManyUniqueIter {
             world: self.world,
             state: self.state,
@@ -1674,7 +1699,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_mut<const N: usize>(
         &mut self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().get_many_mut_inner(entities)
     }
 
@@ -1742,7 +1770,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_unique_mut<const N: usize>(
         &mut self,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'_, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().get_many_unique_inner(entities)
     }
 
@@ -1761,7 +1792,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_mut_inner<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         // Verify that all entities are unique
         for i in 0..N {
             for j in 0..i {
@@ -1811,7 +1845,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_unique_inner<const N: usize>(
         self,
         entities: UniqueEntityArray<N>,
-    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         // SAFETY: All entities are unique, so the results don't alias.
         unsafe { self.get_many_impl(entities.into_inner()) }
     }
@@ -1826,11 +1863,15 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     unsafe fn get_many_impl<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError>
+    where
+        D: IterQueryData,
+    {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
         for (value, entity) in core::iter::zip(&mut values, entities) {
-            // SAFETY: The caller asserts that the results don't alias
+            // SAFETY: The caller asserts that the results don't alias,
+            // and `D: IterQueryData` so its valid to have items alive for different entitiess
             let item = unsafe { self.copy_unsafe() }.get_inner(entity)?;
             *value = MaybeUninit::new(item);
         }
@@ -1922,7 +1963,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`single`](Self::single) to get the read-only query item.
     #[inline]
-    pub fn single_mut(&mut self) -> Result<D::Item<'_, 's>, QuerySingleError> {
+    pub fn single_mut(&mut self) -> Result<D::Item<'_, 's>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         self.reborrow().single_inner()
     }
 
@@ -1953,7 +1997,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
     #[inline]
-    pub fn single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError> {
+    pub fn single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError>
+    where
+        D: IterQueryData,
+    {
         let mut query = self.into_iter();
         let first = query.next();
         let extra = query.next().is_some();
@@ -2170,16 +2217,16 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// #     prelude::*,
     /// #     archetype::Archetype,
     /// #     entity::EntityLocation,
-    /// #     query::{QueryData, QueryFilter},
+    /// #     query::{QueryData, QueryFilter, SingleEntityQueryData},
     /// #     world::{FilteredEntityMut, FilteredEntityRef},
     /// # };
     /// # use std::marker::PhantomData;
     /// #
-    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: SingleEntityQueryData>() {
     /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
     /// # }
     /// #
-    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: SingleEntityQueryData, NewF: QueryFilter>() {
     /// #     let mut world = World::new();
     /// #     // Make sure all components in the new query are initialized
     /// #     let state = world.query_filtered::<NewD, NewF>();
@@ -2240,7 +2287,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
     /// ```
     #[track_caller]
-    pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
+    pub fn transmute_lens<NewD: SingleEntityQueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
     }
 
@@ -2296,7 +2343,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`transmute_lens`](Self::transmute_lens) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_inner<NewD: QueryData>(self) -> QueryLens<'w, NewD> {
+    pub fn transmute_lens_inner<NewD: SingleEntityQueryData>(self) -> QueryLens<'w, NewD> {
         self.transmute_lens_filtered_inner::<NewD, ()>()
     }
 
@@ -2310,7 +2357,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// [`Changed`](crate::query::Changed) and [`Spawned`](crate::query::Spawned) will only be respected if they
     /// are in the type signature.
     #[track_caller]
-    pub fn transmute_lens_filtered<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         &mut self,
     ) -> QueryLens<'_, NewD, NewF> {
         self.reborrow().transmute_lens_filtered_inner()
@@ -2331,7 +2378,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`transmute_lens_filtered`](Self::transmute_lens_filtered) to convert to a lens using a mutable borrow of the [`Query`].
     #[track_caller]
-    pub fn transmute_lens_filtered_inner<NewD: QueryData, NewF: QueryFilter>(
+    pub fn transmute_lens_filtered_inner<NewD: SingleEntityQueryData, NewF: QueryFilter>(
         self,
     ) -> QueryLens<'w, NewD, NewF> {
         let state = self.state.transmute_filtered::<NewD, NewF>(self.world);
@@ -2344,7 +2391,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
-    pub fn as_query_lens(&mut self) -> QueryLens<'_, D> {
+    pub fn as_query_lens(&mut self) -> QueryLens<'_, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens()
     }
 
@@ -2353,7 +2403,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`as_query_lens`](Self::as_query_lens) to convert to a lens using a mutable borrow of the [`Query`].
-    pub fn into_query_lens(self) -> QueryLens<'w, D> {
+    pub fn into_query_lens(self) -> QueryLens<'w, D>
+    where
+        D: SingleEntityQueryData,
+    {
         self.transmute_lens_inner()
     }
 
@@ -2411,7 +2464,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// Like `transmute_lens` the query terms can be changed with some restrictions.
     /// See [`Self::transmute_lens`] for more details.
-    pub fn join<'a, OtherD: QueryData, NewD: QueryData>(
+    pub fn join<'a, OtherD: QueryData, NewD: SingleEntityQueryData>(
         &'a mut self,
         other: &'a mut Query<OtherD>,
     ) -> QueryLens<'a, NewD> {
@@ -2438,7 +2491,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`join`](Self::join) to join using a mutable borrow of the [`Query`].
-    pub fn join_inner<OtherD: QueryData, NewD: QueryData>(
+    pub fn join_inner<OtherD: QueryData, NewD: SingleEntityQueryData>(
         self,
         other: Query<'w, '_, OtherD>,
     ) -> QueryLens<'w, NewD> {
@@ -2456,7 +2509,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         'a,
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         &'a mut self,
@@ -2480,7 +2533,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn join_filtered_inner<
         OtherD: QueryData,
         OtherF: QueryFilter,
-        NewD: QueryData,
+        NewD: SingleEntityQueryData,
         NewF: QueryFilter,
     >(
         self,
@@ -2498,7 +2551,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
     type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F>;
 
@@ -2520,7 +2573,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D,
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for &'w mut Query<'_, 's, D, F> {
     type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F>;
 
@@ -2603,7 +2656,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
     }
 }
 
-impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
+impl<'w, 'q, Q: SingleEntityQueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
     for QueryLens<'q, Q, F>
 {
     fn from(value: &'q mut Query<'w, '_, Q, F>) -> QueryLens<'q, Q, F> {
@@ -2636,12 +2689,12 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// ```
 /// Note that because [`Single`] implements [`Deref`] and [`DerefMut`], methods and fields like `health` can be accessed directly.
 /// You can also access the underlying data manually, by calling `.deref`/`.deref_mut`, or by using the `*` operator.
-pub struct Single<'w, 's, D: QueryData, F: QueryFilter = ()> {
+pub struct Single<'w, 's, D: IterQueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w, 's>,
     pub(crate) _filter: PhantomData<F>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Single<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> Deref for Single<'w, 's, D, F> {
     type Target = D::Item<'w, 's>;
 
     fn deref(&self) -> &Self::Target {
@@ -2649,13 +2702,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Single<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> DerefMut for Single<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> DerefMut for Single<'w, 's, D, F> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.item
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> Single<'w, 's, D, F> {
     /// Returns the inner item with ownership.
     pub fn into_inner(self) -> D::Item<'w, 's> {
         self.item
@@ -2698,7 +2751,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Populated<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Populated<'w, 's, D, F> {
+impl<'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator for Populated<'w, 's, D, F> {
     type Item = <Query<'w, 's, D, F> as IntoIterator>::Item;
 
     type IntoIter = <Query<'w, 's, D, F> as IntoIterator>::IntoIter;
@@ -2718,7 +2771,9 @@ impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a Populated<'w
     }
 }
 
-impl<'a, 'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'a mut Populated<'w, 's, D, F> {
+impl<'a, 'w, 's, D: IterQueryData, F: QueryFilter> IntoIterator
+    for &'a mut Populated<'w, 's, D, F>
+{
     type Item = <&'a mut Query<'w, 's, D, F> as IntoIterator>::Item;
 
     type IntoIter = <&'a mut Query<'w, 's, D, F> as IntoIterator>::IntoIter;

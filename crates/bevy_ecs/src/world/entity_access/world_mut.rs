@@ -11,7 +11,9 @@ use crate::{
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
-    query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData, SingleEntityQueryData,
+    },
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
@@ -254,7 +256,9 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity does not have the components required by the query `Q` or if the entity
     /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(&self) -> Q::Item<'_, 'static> {
+    pub fn components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
+        &self,
+    ) -> Q::Item<'_, 'static> {
         self.as_readonly().components::<Q>()
     }
 
@@ -265,7 +269,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
+    pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData + SingleEntityQueryData>(
         &self,
     ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
@@ -299,7 +303,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
-    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData + SingleEntityQueryData>(
         &mut self,
     ) -> Option<Q::Item<'_, 'static>> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
@@ -334,7 +338,9 @@ impl<'w> EntityWorldMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
-    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+    pub unsafe fn into_components_mut_unchecked<
+        Q: ReleaseStateQueryData + SingleEntityQueryData,
+    >(
         self,
     ) -> Option<Q::Item<'w, 'static>> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
