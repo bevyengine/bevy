@@ -1,6 +1,5 @@
 use crate::add_glyph_to_atlas;
 use crate::get_glyph_atlas_info;
-use crate::text;
 use crate::FontAtlasKey;
 use crate::FontAtlasSet;
 use crate::FontSmoothing;

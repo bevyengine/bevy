@@ -1,6 +1,5 @@
-use crate::{Font, PositionedGlyph, TextSpanAccess, TextSpanComponent, TextTarget};
-use bevy_asset::Handle;
-use bevy_color::{Color, LinearRgba};
+use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent, TextTarget};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
