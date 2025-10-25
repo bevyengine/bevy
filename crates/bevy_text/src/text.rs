@@ -430,10 +430,44 @@ pub enum LineBreak {
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Strikethrough;
 
+/// Color for the text's strikethrough. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct StrikethroughColor(pub Color);
+
+impl Default for StrikethroughColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for StrikethroughColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
 /// Add to a text entity to draw its text with underline.
 #[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Underline;
+
+/// Color for the text's underline. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct UnderlineColor(pub Color);
+
+impl Default for UnderlineColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for UnderlineColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
 
 /// Determines which antialiasing method to use when rendering text. By default, text is
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
