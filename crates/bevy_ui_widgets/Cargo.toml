@@ -12,6 +12,7 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev" }
 bevy_a11y = { path = "../bevy_a11y", version = "0.18.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.18.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", version = "0.18.0-dev" }
