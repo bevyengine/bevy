@@ -906,7 +906,7 @@ impl MeshBuilder for RhombusMeshBuilder {
         ];
         let normals = vec![[0.0, 0.0, 1.0]; 4];
         let uvs = vec![[1.0, 0.5], [0.5, 0.0], [0.0, 0.5], [0.5, 1.0]];
-        let indices = Indices::U32(vec![0, 1, 2, 2, 3, 0]);
+        let indices = Indices::U32(vec![2, 0, 1, 2, 3, 0]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
