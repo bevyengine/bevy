@@ -55,11 +55,7 @@ pub fn run_condition_no(criterion: &mut Criterion) {
     group.finish();
 }
 
-<<<<<<< HEAD
-#[derive(Resource)]
-=======
 #[derive(Component)]
->>>>>>> 8253eabe593ce35845212dad9a3281e6b37fe18b
 struct TestBool(pub bool);
 
 pub fn run_condition_yes_with_query(criterion: &mut Criterion) {

@@ -100,8 +100,7 @@ pub struct World {
     /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
     /// A resource exists if all of the below is true:
     /// 1. `resource_entities` has an entry for the [`ComponentId`] associated with the resource.
-    /// 2. The entity associated with the resource has two components:
-    /// the resource (as a component) and [`IsResource`].
+    /// 2. The entity associated with the resource has two components: the resource (as a component) and [`IsResource`].
     ///
     /// If the resource does not exists, none of the above must be true, any inbetween state is invalid.
     pub resource_entities: HashMap<ComponentId, Entity>,

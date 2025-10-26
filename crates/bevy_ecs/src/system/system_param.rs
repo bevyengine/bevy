@@ -21,7 +21,6 @@ use crate::{
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
-use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::prelude::DebugName;
 use core::{
     any::Any,
