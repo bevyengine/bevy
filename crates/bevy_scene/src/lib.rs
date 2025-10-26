@@ -49,10 +49,7 @@ use bevy_app::prelude::*;
 use {
     bevy_asset::AssetApp,
     bevy_ecs::schedule::IntoScheduleConfigs,
-    bevy_ecs::{
-        entity_disabling::{DefaultQueryFilters, Internal},
-        resource::IsResource,
-    },
+    bevy_ecs::{entity_disabling::DefaultQueryFilters, resource::IsResource},
 };
 
 /// Plugin that provides scene functionality to an [`App`].
@@ -69,7 +66,6 @@ impl Plugin for ScenePlugin {
             .register_type::<SceneRoot>()
             .register_type::<DynamicSceneRoot>()
             .register_type::<IsResource>()
-            .register_type::<Internal>()
             .register_type::<DefaultQueryFilters>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
