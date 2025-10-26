@@ -160,7 +160,6 @@ macro_rules! flat_spawn_vec_impl {
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
         )]
-        #[allow(unused_parens)]
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R>
             for FlatSpawnVec<($($list,)*)>
         {
@@ -169,7 +168,7 @@ macro_rules! flat_spawn_vec_impl {
                 reason = "The names of these variables are provided by the caller, not by us."
             )]
             fn spawn(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity) {
-                for ($($alias),*) in _this.read().0 {$(
+                for ($($alias,)*) in _this.read().0 {$(
                     move_as_ptr!($alias);
                     SpawnableList::<R>::spawn($alias, _world, _entity);
                 )*}
