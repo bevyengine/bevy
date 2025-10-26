@@ -137,7 +137,7 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
 ///
 /// ```
 /// # use bevy_ecs::hierarchy::Children;
-/// # use bevy_ecs::spawn::{Spawn, SpawnIter, SpawnRelated};
+/// # use bevy_ecs::spawn::{Spawn, FlatSpawnVec, SpawnRelated};
 /// # use bevy_ecs::name::Name;
 /// # use bevy_ecs::world::World;
 /// let mut world = World::new();
@@ -147,7 +147,7 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
 ///         FlatSpawnVec([1, 2].into_iter().map(|i| (
 ///             Spawn(Name::new(format!("{i}.1"))),
 ///             Spawn(Name::new(format!("{i}.2"))),
-///         )))
+///         )).collect())
 ///     )),
 /// ));
 /// ```
