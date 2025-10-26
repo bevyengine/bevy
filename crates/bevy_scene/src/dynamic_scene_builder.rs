@@ -417,7 +417,6 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_ecs::{
         component::Component,
-        entity_disabling::Internal,
         prelude::{Entity, Resource},
         query::With,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
