@@ -631,7 +631,7 @@ mod tests {
 
     #[test]
     fn aabb_enclosing() {
-        assert_eq!(Aabb::enclosing(<[Vec3; 0]>::default()), None);
+        assert_eq!(Aabb::enclosing([] as [Vec3; 0]), None);
         assert_eq!(
             Aabb::enclosing(vec![Vec3::ONE]).unwrap(),
             Aabb::from_min_max(Vec3::ONE, Vec3::ONE)
