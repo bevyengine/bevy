@@ -15,11 +15,10 @@ use crate::{
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReleaseStateQueryData},
-    resource::Resource,
+    resource::{Resource, ResourceCache},
     storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
-use bevy_platform::collections::HashMap;
 use bevy_platform::sync::atomic::Ordering;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
@@ -280,8 +279,11 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 
     /// Retrieves this world's resource-entity map.
+    ///
+    /// # Safety
+    /// The caller must have exclusive read or write access to the resources that are updated in the cache.
     #[inline]
-    pub fn resource_entities(self) -> &'w HashMap<ComponentId, Entity> {
+    pub unsafe fn resource_entities(self) -> &'w ResourceCache {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.resource_entities
@@ -461,10 +463,9 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
-        let entity = self.resource_entities().get(&component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
-        // SAFETY: caller ensures that `self` has permission to access `R`
-        //  caller ensures that no mutable reference exists to `R`
         entity_cell.get_by_id(component_id)
     }
 
@@ -547,10 +548,9 @@ impl<'w> UnsafeWorldCell<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
         self.assert_allows_mutable_access();
-        let entity = self.resource_entities().get(&component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let entity_cell = self.get_entity(*entity).ok()?;
-        // SAFETY: we only access data that the caller has ensured is unaliased and `self`
-        //  has permission to access.
         entity_cell.get_mut_by_id(component_id).ok()
     }
 
@@ -625,7 +625,8 @@ impl<'w> UnsafeWorldCell<'w> {
         self,
         component_id: ComponentId,
     ) -> Option<(Ptr<'w>, ComponentTickCells<'w>)> {
-        let entity = self.resource_entities().get(&component_id)?;
+        // SAFETY: We have permission to access the resource of `component_id`.
+        let entity = unsafe { self.resource_entities() }.get(component_id)?;
         let storage_type = self.components().get_info(component_id)?.storage_type();
         let location = self.get_entity(*entity).ok()?.location();
         // SAFETY:

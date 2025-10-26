@@ -52,7 +52,7 @@ use crate::{
     prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource},
+    resource::{IsResource, Resource, ResourceCache},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -64,7 +64,6 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::collections::HashMap;
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
@@ -96,14 +95,7 @@ pub struct World {
     pub(crate) entities: Entities,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
-    /// A lookup for the entities on which resources are stored.
-    /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
-    /// A resource exists if all of the below is true:
-    /// 1. `resource_entities` has an entry for the [`ComponentId`] associated with the resource.
-    /// 2. The entity associated with the resource has two components: the resource (as a component) and [`IsResource`].
-    ///
-    /// If the resource does not exists, none of the above must be true, any inbetween state is invalid.
-    pub resource_entities: HashMap<ComponentId, Entity>,
+    pub(crate) resource_entities: ResourceCache,
     pub(crate) archetypes: Archetypes,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
@@ -1716,7 +1708,7 @@ impl World {
         let caller = MaybeLocation::caller();
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !self.resource_entities.contains_key(&component_id) {
+        if !self.resource_entities.contains(component_id) {
             let value = R::from_world(self);
             move_as_ptr!(value);
 
@@ -1751,7 +1743,7 @@ impl World {
     ) {
         let component_id = self.components_registrator().register_resource::<R>();
 
-        if !self.resource_entities.contains_key(&component_id) {
+        if !self.resource_entities.contains(component_id) {
             // the resource doesn't exist, so we make a new one.
             let resource_bundle = (value, IsResource);
             move_as_ptr!(resource_bundle);
@@ -1759,7 +1751,7 @@ impl World {
             let entity = self.spawn_with_caller(resource_bundle, caller).id();
             self.resource_entities.insert(component_id, entity);
         } else {
-            let entity = self.resource_entities.get(&component_id).unwrap();
+            let entity = self.resource_entities.get(component_id).unwrap();
             move_as_ptr!(value);
             if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
                 entity_mut.insert_with_caller(
@@ -1836,11 +1828,11 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.resource_entities.remove(&component_id)?;
+        let entity = self.resource_entities.remove(component_id)?;
         let mut entity_ref = self.get_entity_mut(entity).ok()?;
         let value = entity_ref.take::<R>()?;
         entity_ref.despawn();
-        self.resource_entities.remove(&component_id);
+        self.resource_entities.remove(component_id);
         Some(value)
     }
 
@@ -1878,7 +1870,7 @@ impl World {
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
-        if let Some(entity) = self.resource_entities.get(&component_id)
+        if let Some(entity) = self.resource_entities.get(component_id)
             && let Ok(entity_ref) = self.get_entity(*entity)
         {
             return entity_ref.contains_id(component_id) && entity_ref.contains::<IsResource>();
@@ -1968,7 +1960,7 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<ComponentTicks> {
-        let entity = self.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         let entity_ref = self.get_entity(*entity).ok()?;
         entity_ref.get_change_ticks_by_id(component_id)
     }
@@ -2098,11 +2090,11 @@ impl World {
 
         if !self.contains_resource_by_id(component_id) {
             let value = func();
-            if let Some(entity) = self.resource_entities.get(&component_id) {
+            if let Some(entity) = self.resource_entities.get(component_id) {
                 if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
                     entity_mut.insert(value);
                 } else {
-                    self.resource_entities.remove(&component_id);
+                    self.resource_entities.remove(component_id);
                     self.insert_resource_with_caller(value, caller);
                 }
             } else {
@@ -2596,7 +2588,7 @@ impl World {
         let change_tick = self.change_tick();
 
         let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.resource_entities.get(&component_id)?;
+        let entity = self.resource_entities.get(component_id)?;
         let mut entity_mut = self.get_entity_mut(*entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
@@ -2616,7 +2608,7 @@ impl World {
 
         // to fully remove the resource, we remove the entity and the resource_entities entry
         entity_mut.despawn();
-        self.resource_entities.remove(&component_id);
+        self.resource_entities.remove(component_id);
 
         // There may be commands that are registered by the closure, which interact with the resource.
         // In make sure that the resource is available, we avoid flushing until the resource is fully inserted back.
@@ -2732,7 +2724,7 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        if !self.resource_entities.contains_key(&component_id) {
+        if !self.resource_entities.contains(component_id) {
             let is_resource = IsResource;
             move_as_ptr!(is_resource);
 
@@ -3282,10 +3274,10 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids: Vec<ComponentId> = self.resource_entities.keys().copied().collect();
+        let component_ids = self.resource_entities.indices();
         component_ids.into_iter().filter_map(|component_id| {
-            let component_info = self.components().get_info(component_id)?;
-            let resource = self.get_resource_by_id(component_id)?;
+            let component_info = self.components().get_info(*component_id)?;
+            let resource = self.get_resource_by_id(*component_id)?;
             Some((component_info, resource))
         })
     }
@@ -3357,7 +3349,8 @@ impl World {
     /// ```
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
         let unsafe_world = self.as_unsafe_world_cell();
-        let resource_entities = unsafe_world.resource_entities();
+        // SAFETY: exclusive world access to all resources
+        let resource_entities = unsafe { unsafe_world.resource_entities() };
         let components = unsafe_world.components();
 
         resource_entities
@@ -3427,7 +3420,7 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        if let Some(entity) = self.resource_entities.remove(&component_id) {
+        if let Some(entity) = self.resource_entities.remove(component_id) {
             self.despawn(entity).then_some::<()>(())
         } else {
             None

@@ -14,11 +14,6 @@ use syn::{
 };
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
-    // The resource derive *also* implements the Component trait
-    // We generate the Component implementation first, then add the Resource implementation,
-    // so then we can pick up all of the attributes from the Component derive
-    let component_derive_token_stream = derive_component(input.clone());
-
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
@@ -37,13 +32,93 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         return err.into_compile_error().into();
     }
 
+    // implement the Component trait
+    let attrs = match parse_resource_attr(&ast) {
+        Ok(attrs) => attrs,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    let map_entities = map_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        Ident::new("this", Span::call_site()),
+        false,
+        false,
+        attrs.map_entities
+    ).map(|map_entities_impl| quote! {
+        fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
+            use #bevy_ecs_path::entity::MapEntities;
+            #map_entities_impl
+        }
+    });
+
+    let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
+
+    let on_add_path = Some(quote!(#bevy_ecs_path::resource::on_add_hook));
+    let on_remove_path = Some(quote!(#bevy_ecs_path::resource::on_remove_hook));
+    let on_insert_path = None;
+    let on_replace_path = None;
+    let on_despawn_path = None;
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
+    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let on_replace =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_despawn =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+
     ast.generics
         .make_where_clause()
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
+    let mut register_required = Vec::with_capacity(1);
+    register_required.push(quote! {
+        required_components.register_required::<#bevy_ecs_path::resource::IsResource>(<#bevy_ecs_path::resource::IsResource as Default>::default);
+    });
+
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
+
+    let clone_behavior = quote!(
+        use #bevy_ecs_path::relationship::{
+            RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
+            RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
+            };
+        (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
+    );
+
+    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
+    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
+    let component_derive_token_stream = TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            type Mutability = #bevy_ecs_path::component::Mutable;
+            fn register_required_components(
+                _requiree: #bevy_ecs_path::component::ComponentId,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
+            ) {
+                #(#register_required)*
+            }
+
+            #on_add
+            #on_insert
+            #on_replace
+            #on_remove
+            #on_despawn
+
+            fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
+                #clone_behavior
+            }
+
+            #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                None
+            }
+        }
+    });
 
     let resource_impl_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
@@ -386,6 +461,7 @@ pub(crate) fn map_entities(
 }
 
 pub const COMPONENT: &str = "component";
+pub const RESOURCE: &str = "resource";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
@@ -635,6 +711,27 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             ));
     }
 
+    Ok(attrs)
+}
+
+struct ResourceAttrs {
+    map_entities: Option<MapEntitiesAttributeKind>,
+}
+
+fn parse_resource_attr(ast: &DeriveInput) -> Result<ResourceAttrs> {
+    let mut attrs = ResourceAttrs { map_entities: None };
+    for attr in ast.attrs.iter() {
+        if attr.path().is_ident(RESOURCE) {
+            attr.parse_nested_meta(|nested| {
+                if nested.path.is_ident(MAP_ENTITIES) {
+                    attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            })?;
+        }
+    }
     Ok(attrs)
 }
 

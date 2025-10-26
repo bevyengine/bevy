@@ -1,12 +1,20 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
-use crate::component::Mutable;
-use crate::prelude::Component;
-use crate::prelude::ReflectComponent;
+use core::ops::{Deref, DerefMut};
+
+use crate::{
+    component::{Component, ComponentId, Mutable},
+    entity::Entity,
+    lifecycle::HookContext,
+    reflect::ReflectComponent,
+    storage::SparseSet,
+    world::DeferredWorld,
+};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
+use bevy_platform::cell::SyncUnsafeCell;
 
 /// A type that can be inserted into a [`World`] as a singleton.
 ///
@@ -78,6 +86,62 @@ pub use bevy_ecs_macros::Resource;
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
 pub trait Resource: Component<Mutability = Mutable> {}
+
+/// A cache that links each `ComponentId` from a resource to the corresponding entity.
+#[derive(Default)]
+pub struct ResourceCache(SyncUnsafeCell<SparseSet<ComponentId, Entity>>);
+
+impl Deref for ResourceCache {
+    type Target = SparseSet<ComponentId, Entity>;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: There are no other mutable references to the map.
+        // The underlying `SyncUnsafeCell` is never exposed outside this module,
+        // so mutable references are only created by the resource hooks.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
+        unsafe { &*self.0.get() }
+    }
+}
+
+impl DerefMut for ResourceCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0.get_mut()
+    }
+}
+
+pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+    let world = deferred_world.deref();
+
+    if let Some(&offending_entity) = world.resource_entities.get(context.component_id)
+        && offending_entity != context.entity
+    {
+        // the resource already exists and we need to overwrite it
+        deferred_world.commands().entity(offending_entity).despawn();
+    }
+
+    // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+    let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+    // SAFETY: There are no shared references to the map.
+    // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+    // and that would conflict with the `DeferredWorld` passed to the resource hook.
+    unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
+}
+
+pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+    let world = deferred_world.deref();
+    // If the resource is already linked to a new (different) entity, we don't remove it.
+    if let Some(entity) = world.resource_entities.get(context.component_id)
+        && *entity == context.entity
+    {
+        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+        let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+        // SAFETY: There are no shared references to the map.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
+        unsafe { &mut *cache.0.get() }.remove(context.component_id);
+    }
+}
 
 /// A marker component for entities which store resources.
 #[cfg_attr(
