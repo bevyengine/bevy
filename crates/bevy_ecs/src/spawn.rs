@@ -14,7 +14,7 @@ use core::{
     marker::PhantomData,
     mem::{self, MaybeUninit},
 };
-use variadics_please::all_tuples_enumerated;
+use variadics_please::{all_tuples_enumerated, all_tuples_with_size};
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
 /// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
@@ -154,7 +154,7 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
 pub struct FlatSpawnVec<T>(pub Vec<T>);
 
 macro_rules! flat_spawn_vec_impl {
-    ($(#[$meta:meta])* $(($index:tt, $list:ident, $alias:ident)),*) => {
+    ($N:expr, $(#[$meta:meta])* $(($list:ident, $alias:ident)),*) => {
         $(#[$meta])*
         #[expect(
             clippy::allow_attributes,
@@ -179,13 +179,13 @@ macro_rules! flat_spawn_vec_impl {
                 reason = "The names of these variables are provided by the caller, not by us."
             )]
             fn size_hint(&self) -> usize {
-                self.0.iter().size_hint().0
+                self.0.len() * $N
             }
         }
     };
 }
 
-all_tuples_enumerated!(
+all_tuples_with_size!(
     #[doc(fake_variadic)]
     flat_spawn_vec_impl,
     0,
