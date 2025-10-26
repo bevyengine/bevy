@@ -543,8 +543,6 @@ all_tuples_enumerated!(
 pub enum InterpolationError {
     /// The values to be interpolated are not in the same units.
     MismatchedUnits,
-    /// Data type cannot be interpolated because it is not contiguous
-    NonContiguous,
 }
 
 /// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
@@ -589,14 +587,6 @@ pub trait TryStableInterpolate: Clone {
 impl<T: StableInterpolate> TryStableInterpolate for T {
     fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
         Ok(self.interpolate_stable(other, t))
-    }
-}
-
-/// Boolean values can never be interpolated, but they can be animatable parameters (for things
-/// like enabling and disabling lighting).
-impl TryStableInterpolate for bool {
-    fn try_interpolate_stable(&self, _other: &Self, _t: f32) -> Result<Self, InterpolationError> {
-        Err(InterpolationError::NonContiguous)
     }
 }
 
