@@ -7,9 +7,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloc::vec;
-use fixedbitset::FixedBitSet;
 use bevy_ecs::archetype::Archetype;
-use bevy_ecs::component::{Component};
 use bevy_ecs::prelude::{QueryBuilder, World};
 use bevy_ecs::query::{QueryData, QueryFilter};
 use bevy_ecs::relationship::Relationship;
@@ -24,6 +22,11 @@ pub enum QueryOperation {
     Relationship(QueryRelationship),
     Source(QuerySource),
 }
+
+// - we want to track when we change the VariableState, so that we can backtrack and restore to the previous state
+// - we cannot just cancel a VariableState::Fixed, because the variable might have been Fixed in a previous operation.
+// - we want to handle queries like Q1, R21 (i.e. find all entities $2 where R($1, $2), which means the possibilities for $2 are within a list of entities: RelationshipTarget)
+
 
 #[derive(Debug, Clone)]
 pub struct QuerySource {
@@ -58,15 +61,18 @@ pub struct QueryRelationship {
     pub source_idx: u8,
     /// The target term index within the QueryPlan
     pub target_idx: u8,
-    /// The relationship component that links source to target.
+    /// The relationship component that links source to target. (e.g. ChildOf)
     pub relationship_component: ComponentId,
+    /// The relationship target component that links target to source. (e.g. Children)
+    pub relationship_target_component: ComponentId,
     /// Accessor to dynamically access the 'target' of the relationship
     pub relationship_accessor: RelationshipAccessor,
+    pub relationship_target_accessor: RelationshipAccessor,
 }
 
 impl QueryRelationship {
     /// Get the 'target' of the source entity
-    pub unsafe fn get(&self, source: Entity, world: UnsafeWorldCell<'_>) -> Option<Entity> {
+    pub unsafe fn get_target(&self, source: Entity, world: UnsafeWorldCell<'_>) -> Option<Entity> {
         let entity_field_offset = match self.relationship_accessor {
             RelationshipAccessor::Relationship { entity_field_offset, .. } => {entity_field_offset}
             RelationshipAccessor::RelationshipTarget { .. } => {
@@ -75,6 +81,18 @@ impl QueryRelationship {
         };
         let relationship_ptr = world.get_entity(source).ok()?.get_by_id(self.relationship_component)?;
         Some(unsafe { *relationship_ptr.byte_add(entity_field_offset).deref() })
+    }
+
+    pub unsafe fn get_sources(&self, target: Entity, world: UnsafeWorldCell<'_>) -> Option<Vec<Entity>> {
+        let iter = match self.relationship_target_accessor {
+            RelationshipAccessor::Relationship { .. } => {
+                unreachable!()
+            }
+            RelationshipAccessor::RelationshipTarget { iter, .. } => {iter}
+        };
+        let relationship_ptr = world.get_entity(target).ok()?.get_by_id(self.relationship_target_component)?;
+        let sources: Vec<_> = unsafe { iter(relationship_ptr).collect() };
+        Some(sources)
     }
 }
 
@@ -139,9 +157,16 @@ impl<'w> QueryPlanBuilder<'w> {
         target_term: u8,
     ) {
         let component_id = self.world.register_component::<R>();
+        let target_component_id = self.world.register_component::<<R as Relationship>::RelationshipTarget>();
         let accessor = self.world
             .components()
             .get_info(component_id)
+            .unwrap()
+            .relationship_accessor()
+            .unwrap().clone();
+        let target_accessor = self.world
+            .components()
+            .get_info(target_component_id)
             .unwrap()
             .relationship_accessor()
             .unwrap().clone();
@@ -150,7 +175,9 @@ impl<'w> QueryPlanBuilder<'w> {
             source_term,
             target_term,
             component_id,
+            target_component_id,
             accessor,
+            target_accessor,
         );
     }
 
@@ -187,11 +214,12 @@ impl QueryPlan {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum VariableState {
+    // Default state: we haven't applied any constraints yet
+    Unknown,
     // we are searching through all the entities of a table
     Search {
-        table: Option<TableId>,
         // offset in the current table
         offset: u32,
         // length of the current table
@@ -200,17 +228,17 @@ pub enum VariableState {
         storage_idx: u32,
     },
     // An entity has been found by following a relationship
-    FixedByRelationship(Entity)
+    FixedByRelationship(Entity),
+    // The entity is among the RelationshipTargets
+    FixedByRelationshipTarget {
+        sources: Vec<Entity>,
+        index: usize,
+    }
 }
 
 impl Default for VariableState {
     fn default() -> Self {
-        Self::Search {
-            table: None,
-            offset: 0,
-            current_len: 0,
-            storage_idx: 0,
-        }
+        Self::Unknown
     }
 }
 
@@ -227,10 +255,22 @@ pub struct IterState<'w> {
     pub curr_op: u8,
     /// Index of the current entity for each variable
     pub variable_state: Vec<VariableState>,
+    /// For each operation, store the previous variable state to restore on backtracking
+    /// in case this operation modified it
+    variable_state_diff: Vec<Option<PreviousVariableState>>,
     /// List of matching tables/archetypes to iterate through for each variable
     pub storages_state: Vec<StorageState<'w>>,
-    /// Whether we have already found an Entity for the source when we are about to process the next operation
-    written: Vec<FixedBitSet>,
+}
+
+pub struct PreviousVariableState {
+    variable_idx: u8,
+    previous_state: PreviousVariableDiff,
+}
+
+pub enum PreviousVariableDiff {
+    VariableState(VariableState),
+    // the previous variable state is obtained by decrementing the index in the list of candidates
+    Decrement,
 }
 
 impl<'w> IterState<'w> {
@@ -238,14 +278,15 @@ impl<'w> IterState<'w> {
         let num_operations = plan.operations.len();
         let num_variables = plan.num_variables as usize;
         let mut variable_state =  vec![VariableState::default(); num_variables];
+        let mut variable_state_diff = Vec::new();
+        variable_state_diff.resize_with(num_operations, Default::default);
         let mut storages_state = vec![StorageState::default(); num_variables];
-        let mut written = vec![FixedBitSet::with_capacity(num_variables); num_operations];
         Self {
             backtrack: false,
             curr_op: 0,
             variable_state,
+            variable_state_diff,
             storages_state,
-            written,
         }
     }
 
@@ -264,21 +305,27 @@ impl<'w, 's> Iter<'w, 's> {
 
     /// Returns true if the `variable` was currently assigned an Entity
     fn written(&self, variable: u8) -> bool {
-        self.iter_state.written[self.iter_state.curr_op as usize].contains(variable as usize)
+        !matches!(self.iter_state.variable_state[variable as usize], VariableState::Unknown)
     }
 
     /// Get the entity currently written to the variable indexed by `variable`, if it has been written
     fn written_entity(&self, variable: u8) -> Option<Entity> {
         let variable_idx = variable as usize;
-        Some(match self.iter_state.variable_state[variable_idx] {
-            VariableState::Search { table, offset, .. } => {
-                let table_id = table?;
-                // Safety:
-                let table = unsafe { self.world.storages() }.tables.get(table_id)?;
-                unsafe{ *table.entities().get_unchecked(offset as usize) }
+        match &self.iter_state.variable_state[variable_idx] {
+            VariableState::Unknown => {
+                None
             }
-            VariableState::FixedByRelationship(entity) => {entity}
-        })
+            VariableState::Search { storage_idx, offset, .. } => {
+                // Safety:
+                let table_id = &self.iter_state.storages_state[variable_idx].tables[*storage_idx as usize];
+                let table = unsafe { self.world.storages() }.tables.get(*table_id)?;
+                Some(unsafe{ *table.entities().get_unchecked(*offset as usize) })
+            }
+            VariableState::FixedByRelationship(entity) => {Some(*entity)}
+            VariableState::FixedByRelationshipTarget { sources, index } => {
+                Some(sources[*index])
+            }
+        }
     }
 
     // we found entity1, QueryOp:Rel -> set entity 2 to one of the entities via the RelationShip
@@ -292,68 +339,86 @@ impl<'w, 's> Iter<'w, 's> {
 
     /// Try to find an entity via the relationship
     fn op_relationship(&mut self) -> bool {
-        if self.iter_state.backtrack {
-            return false;
-        }
         let QueryOperation::Relationship(rel) = self.current_op() else {
             unreachable!()
         };
-        // TODO: do we always find the source first? what if the target was written but not the source?
-        debug_assert!(self.written(rel.source_idx), "we only support queries where the source has been found before we are querying the relationship");
-        // we already found the target term!
-        if self.written(rel.target_idx) {
-            let target_state = self.iter_state.variable_state[rel.target_idx as usize];
-            match target_state {
-                VariableState::Search { .. } => {
-                    todo!("Check if target_entity is equal to the relationship.get() value")
+        let source_idx = rel.source_idx as usize;
+        let target_idx = rel.target_idx as usize;
+        if self.iter_state.backtrack {
+            // possibly check the next source in the list
+            if let VariableState::FixedByRelationshipTarget { sources, index } = &mut self.iter_state.variable_state[source_idx] {
+                // TODO: this needs to be done via set_variable_state to track the changes for backtracking
+                *index += 1;
+                if *index >= sources.len() {
+                    return false;
                 }
-                VariableState::FixedByRelationship(_) => {
-                    true
+                self.set_variable_state_increment(source_idx as u8);
+                return true;
+            }
+            // possibly check the next source in the list
+            if let VariableState::FixedByRelationshipTarget { sources, index } = &mut self.iter_state.variable_state[target_idx] {
+                // TODO: this needs to be done via set_variable_state to track the changes for backtracking
+                *index += 1;
+                if *index >= sources.len() {
+                    return false;
+                }
+                self.set_variable_state_increment(target_idx as u8);
+                return true;
+            }
+            return false;
+        }
+
+        match (self.written(rel.source_idx), self.written(rel.target_idx)) {
+            (false, false) => {
+                unreachable!("we only support queries where the source has been found before we are querying the relationship");
+            }
+            (true, false) => {
+                // we found the source, need to find the target
+                let source_entity = self.written_entity(rel.source_idx).unwrap();
+                match unsafe { rel.get_target(source_entity, self.world) } {
+                    None => false,
+                    Some(target_entity) => {
+                        self.set_variable_state(rel.target_idx, VariableState::FixedByRelationship(target_entity));
+                        true
+                    }
                 }
             }
-        } else {
-            // need to find the target term! We do this by simply following the relationship.get()
-            let source_entity = self.written_entity(rel.source_idx).unwrap();
-            // it is guaranteed that the target exists, since the Relationship component is present
-            // on the source entity
-            // SAFETY: TODO
-            let target_entity = unsafe { rel.get(source_entity, self.world).unwrap_unchecked() };
-            self.set_variable_state(rel.target_idx, VariableState::FixedByRelationship(target_entity));
-            true
+            (false, true) => {
+                // we found the target, need to find the source
+                let target_entity = self.written_entity(rel.target_idx).unwrap();
+                match unsafe { rel.get_sources(target_entity, self.world) } {
+                    None => false,
+                    Some(sources) => {
+                        self.set_variable_state(rel.source_idx, VariableState::FixedByRelationshipTarget {
+                            sources,
+                            index: 0,
+                        });
+                        true
+                    }
+                }
+            }
+            (true, true) => {
+                // we found both, need to check if they are linked by the relationship
+                let source_entity = self.written_entity(rel.source_idx).unwrap();
+                let target_entity = self.written_entity(rel.target_idx).unwrap();
+                let expected_target_entity = unsafe { rel.get_target(source_entity, self.world).unwrap_unchecked() };
+                target_entity == expected_target_entity
+            }
         }
+
     }
 
     fn op_query(&mut self) -> bool {
-        let QueryOperation::Source(source) = self.current_op() else {
+        let QueryOperation::Source(source) = &self.query_state.operations[self.iter_state.curr_op as usize] else {
             unreachable!()
         };
         let variable_idx = source.variable_idx as usize;
-
-        // we already have a potential candidate: check if it matches the query
-        if let VariableState::FixedByRelationship(entity) = self.iter_state.variable_state[variable_idx] {
-            // in this case keep backtracking
-            if self.iter_state.backtrack {
-                return false
-            }
-            let archetype = unsafe { self.world.get_entity(entity).unwrap_unchecked().archetype() };
-            return source.matches(archetype)
-        }
-
-        // we haven't found the entity yet.
-        // - TODO: either we already had some constraints on the entity (i.e. a potential list of archetypes
-        //    that this entity can be part of), in which case we can further filter down these archetypes
-        //    -> this can only happen if we allow multiple queries for a single variable
-        //
-        // we need to use the component index to find a list of potential archetypes
-        // that could match the query
-
-        // TODO: what about caching?
-
-        // the first time we evaluate the query, we set the list of potential tables
-        if !self.iter_state.backtrack {
-            let tables = &self.iter_state.storages_state[variable_idx].tables;
-            // only set the list of potential tables if we didn't do so before
-            if tables.len() == 0 {
+        let storage_state = &self.iter_state.storages_state[variable_idx];
+        match &mut self.iter_state.variable_state[variable_idx] {
+            VariableState::Unknown => {
+                // the first time we evaluate the query, we set the list of potential tables
+                let tables = &storage_state.tables;
+                assert_eq!(tables.len(), 0);
                 // if there are required components, we can optimize by only iterating through archetypes
                 // that contain at least one of the required components
                 let potential_archetypes = source
@@ -380,73 +445,103 @@ impl<'w, 's> Iter<'w, 's> {
                         }
                     }
                 }
-                let Some(&table) = matching_tables.first() else {
+                if matching_tables.first().is_none() {
                     return false;
-                };
+                }
                 self.iter_state.storages_state[variable_idx] = StorageState {
                     tables: Cow::Owned(matching_tables)
                 };
                 self.set_variable_state(variable_idx as u8, VariableState::Search {
-                    table: Some(table),
                     offset: 0,
                     storage_idx: 0,
                     current_len: 0,
                 });
-                return true;
+                true
             }
-        }
+            VariableState::Search {
+                offset,
+                current_len,
+                storage_idx,
+            } => {
+                // we are already searching through a list of tables, we need to increment the index
+                assert!(self.iter_state.backtrack);
+                if *storage_idx >= storage_state.tables.len() as u32 {
+                    return false
+                }
+                let iteration_start = *current_len == 0;
+                // loop to skip empty tables
+                loop {
+                    // either beginning of the iteration, or finished processing a table, so skip to the next
+                    if offset == current_len {
+                        // go to next table
+                        if !iteration_start {
+                            *storage_idx += 1;
+                            if *storage_idx >= storage_state.tables.len() as u32 {
+                                return false
+                            }
+                            *offset = 0;
+                        }
+                        let table_id = storage_state.tables[*storage_idx as usize];
+                        let table = unsafe { self.world.world().storages().tables.get(table_id).unwrap_unchecked() };
 
-        // else we backtracked! we need to advance in the current table, or go to the next table
-        let storage_state = &self.iter_state.storages_state[variable_idx];
-        let target_state = &mut self.iter_state.variable_state[variable_idx];
-        let VariableState::Search { table: Some(table_id), offset, current_len, storage_idx, } = target_state else {
-            unreachable!();
-        };
-        if *storage_idx >= storage_state.tables.len() as u32 {
-            return false
-        }
-        let iteration_start = *current_len == 0;
-        // loop to skip empty tables
-        loop {
-            // either beginning of the iteration, or finished processing a table, so skip to the next
-            if offset == current_len {
-                // go to next table
-                if !iteration_start {
-                    *storage_idx += 1;
-                    if *storage_idx >= storage_state.tables.len() as u32 {
-                        return false
+                        *current_len = table.entity_count();
+                        if table.is_empty() {
+                            // skip table
+                            continue;
+                        }
+                        let storage_idx = *storage_idx;
+                        let current_len = *current_len;
+                        self.set_variable_state(variable_idx as u8, VariableState::Search {
+                            offset: 0,
+                            storage_idx,
+                            current_len,
+                        });
+                    } else {
+                        *offset += 1;
+                        self.set_variable_state_increment(variable_idx as u8);
                     }
-                    *table_id = storage_state.tables[*storage_idx as usize];
-                    *offset = 0;
-                }
-                let table = unsafe { self.world.world().storages().tables.get(*table_id).unwrap_unchecked() };
-                *current_len = table.entity_count();
-                let table = unsafe { self.world.world().storages().tables.get(*table_id).unwrap_unchecked() };
-                if table.is_empty() {
-                    // skip table
-                    continue;
+                    // this entity is our current candidate
+                    return true;
                 }
             }
-
-            // TODO: store `table.entities()` somewhere so we don't have to fetch it again every time
-            // let table = unsafe { self.world.world().storages().tables.get(*table_id).unwrap_unchecked() };
-            // let entity = unsafe{ table.entities().get_unchecked(*offset as usize) };
-            *offset += 1;
-
-            // this entity is our current candidate
-            return true;
+            _ => {
+                // the entity has been fixed by a relationship, we need to check if it matches the query
+                // (unless we are backtracking)
+                if self.iter_state.backtrack {
+                    return false
+                }
+                let candidate = unsafe { self.written_entity(source.variable_idx).unwrap_unchecked() };
+                let archetype = unsafe { self.world.get_entity(candidate).unwrap_unchecked().archetype() };
+                source.matches(archetype)
+            }
         }
     }
 
-    /// Assign the variable state (and also set the entity as written for the next op)
+    /// Assign the variable state (and keeps track of the previous state for backtracking)
     fn set_variable_state(&mut self, variable: u8, state: VariableState) {
-        // the operation writes the entity as written for the **next** operation
         let curr_op = self.iter_state.curr_op as usize;
         let variable_idx = variable as usize;
-        if curr_op + 1 < self.iter_state.written.len() {
-            self.iter_state.written[curr_op + 1].grow_and_insert(variable_idx);
+        if curr_op + 1 < self.iter_state.variable_state_diff.len() {
+            // store the previous state to restore on backtracking
+            self.iter_state.variable_state_diff[curr_op + 1] = Some(PreviousVariableState {
+                variable_idx: variable,
+                previous_state: PreviousVariableDiff::VariableState(self.iter_state.variable_state[variable_idx].clone()),
+            });
         }
         self.iter_state.variable_state[variable_idx] = state;
+    }
+
+    /// Assign the variable state (and keeps track of the previous state for backtracking)
+    fn set_variable_state_increment(&mut self, variable: u8) {
+        // the variable state has already been incremented
+        let curr_op = self.iter_state.curr_op as usize;
+        if curr_op + 1 < self.iter_state.variable_state_diff.len() {
+            // store the previous state to restore on backtracking
+            self.iter_state.variable_state_diff[curr_op + 1] = Some(PreviousVariableState {
+                variable_idx: variable,
+                previous_state: PreviousVariableDiff::Decrement,
+            });
+        }
     }
 
     fn current_op(&self) -> &QueryOperation {
@@ -469,6 +564,29 @@ impl<'w, 's> Iter<'w, 's> {
             if !matched {
                 // Operation did not match, return to previous op
                 self.iter_state.backtrack = true;
+                // restore the previous variable state if it was modified by this operation
+                if let Some(previous_state) = self.iter_state.variable_state_diff[op_index].take() {
+                    let variable_idx = previous_state.variable_idx as usize;
+                    match previous_state.previous_state {
+                        PreviousVariableDiff::VariableState(state) => {
+                            self.iter_state.variable_state[previous_state.variable_idx as usize] = state;
+                        }
+                        PreviousVariableDiff::Decrement => {
+                            // decrement the index in the list of candidates
+                            match &mut self.iter_state.variable_state[variable_idx] {
+                                VariableState::Search { offset, .. } => {
+                                    *offset -= 1;
+                                }
+                                VariableState::FixedByRelationshipTarget { index, .. } => {
+                                    *index -= 1;
+                                }
+                                _ => {
+                                    unreachable!()
+                                }
+                            };
+                        }
+                    }
+                }
                 // Returned from all operations, no more matches
                 if self.iter_state.curr_op == 0 {
                     return false;
@@ -478,16 +596,6 @@ impl<'w, 's> Iter<'w, 's> {
                 // Operation did match, move to next op
                 self.iter_state.backtrack = false;
                 self.iter_state.curr_op += 1;
-
-                if self.iter_state.curr_op < num_operations {
-                    // Setup written state for next operation. The ops themselves have already updated the written state for the next
-                    // op, but we also need to propagate the existing written from the current op
-
-                    // (we have a written bitset for each operation so that on backtracking we can retrieve the previous `written` state)
-                    let (written_next_op, written_op) = self.iter_state.written.get_mut(op_index..op_index + 2).unwrap().split_at_mut(1);
-                    // written[op_index + 1].union_with(written[op_index])
-                    written_next_op[0].union_with(&written_op[0]);
-                }
             }
         }
         true
@@ -547,13 +655,17 @@ impl QueryPlan {
         source: impl Into<QueryVariable>,
         target: impl Into<QueryVariable>,
         relationship_component: ComponentId,
+        relationship_target_component: ComponentId,
         accessor: RelationshipAccessor,
+        target_accessor: RelationshipAccessor,
     ) -> &mut Self {
         self.operations.push(QueryOperation::Relationship(QueryRelationship {
             source_idx: source.into().index,
             target_idx: target.into().index,
             relationship_component,
+            relationship_target_component,
             relationship_accessor: accessor,
+            relationship_target_accessor: target_accessor,
         }));
         self
     }
@@ -610,16 +722,16 @@ mod tests {
 
         // Parent does not have the marker
         let parent1 = world.spawn_empty().id();
-        let child1 = world.spawn((Marker, ChildOf(parent1))).id();
+        let _ = world.spawn((Marker, ChildOf(parent1))).id();
         world.flush();
 
         // Child does not have the marker
         let parent2 = world.spawn(Marker).id();
-        let child2 = world.spawn(ChildOf(parent2)).id();
+        let _ = world.spawn(ChildOf(parent2)).id();
 
         // Both have markers but there is no relationship
-        let parent3 = world.spawn(Marker).id();
-        let child3 = world.spawn(Marker).id();
+        let _ = world.spawn(Marker).id();
+        let _ = world.spawn(Marker).id();
 
         // Two correct pairs, (Child, Parent) and (Parent, Grandparent)
         let grandparent4 = world.spawn(Marker).id();
@@ -644,3 +756,6 @@ mod tests {
     }
 }
 
+
+// Add test-case: Q1, R21, Q2 (find sources)
+// Add test-case: Q1, R12, Q2, R13, Q3, R23 ($2 and $3 have been fixed, and then we check R23)
