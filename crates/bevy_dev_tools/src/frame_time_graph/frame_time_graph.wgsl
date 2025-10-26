@@ -7,16 +7,15 @@ struct Config {
     dt_min_log2: f32,
     dt_max_log2: f32,
     proportional_width: u32,
+    min_color: vec4<f32>,
+    max_color: vec4<f32>,
 }
 @group(1) @binding(1) var<uniform> config: Config;
-
-const RED: vec4<f32> = vec4(1.0, 0.0, 0.0, 1.0);
-const GREEN: vec4<f32> = vec4(0.0, 1.0, 0.0, 1.0);
 
 // Gets a color based on the delta time
 // TODO use customizable gradient
 fn color_from_dt(dt: f32) -> vec4<f32> {
-    return mix(GREEN, RED, dt / config.dt_max);
+    return mix(config.min_color, config.max_color, dt / config.dt_max);
 }
 
 // Draw an SDF square
