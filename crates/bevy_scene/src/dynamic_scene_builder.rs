@@ -727,13 +727,8 @@ mod tests {
 
     #[test]
     fn should_use_from_reflect() {
-<<<<<<< HEAD
-        #[derive(Resource, Reflect)]
-        #[reflect(Resource)]
-=======
         #[derive(Component, Reflect)]
         #[reflect(Component)]
->>>>>>> 8253eabe593ce35845212dad9a3281e6b37fe18b
         struct SomeType(i32);
 
         #[derive(Resource, Reflect)]
@@ -768,11 +763,7 @@ mod tests {
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
-<<<<<<< HEAD
             .is::<SomeType>());
         */
-=======
-            .is::<SomeResource>());
->>>>>>> 8253eabe593ce35845212dad9a3281e6b37fe18b
     }
 }
