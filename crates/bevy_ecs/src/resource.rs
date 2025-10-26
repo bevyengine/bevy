@@ -85,7 +85,42 @@ use bevy_platform::cell::SyncUnsafeCell;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Component<Mutability = Mutable> {}
+pub trait Resource: Component<Mutability = Mutable> {
+    /// The `on_add` component hook that maintains the uniqueness property of a resource.
+    fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+        let world = deferred_world.deref();
+
+        if let Some(&offending_entity) = world.resource_entities.get(context.component_id)
+            && offending_entity != context.entity
+        {
+            // the resource already exists and we need to overwrite it
+            deferred_world.commands().entity(offending_entity).despawn();
+        }
+
+        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+        let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+        // SAFETY: There are no shared references to the map.
+        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+        // and that would conflict with the `DeferredWorld` passed to the resource hook.
+        unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
+    }
+
+    /// The `on_remove` component hook that maintains the uniqueness property of a resource.
+    fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+        let world = deferred_world.deref();
+        // If the resource is already linked to a new (different) entity, we don't remove it.
+        if let Some(entity) = world.resource_entities.get(context.component_id)
+            && *entity == context.entity
+        {
+            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+            let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+            // SAFETY: There are no shared references to the map.
+            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+            // and that would conflict with the `DeferredWorld` passed to the resource hook.
+            unsafe { &mut *cache.0.get() }.remove(context.component_id);
+        }
+    }
+}
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
 #[derive(Default)]
@@ -107,39 +142,6 @@ impl Deref for ResourceCache {
 impl DerefMut for ResourceCache {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0.get_mut()
-    }
-}
-
-pub(crate) fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
-    let world = deferred_world.deref();
-
-    if let Some(&offending_entity) = world.resource_entities.get(context.component_id)
-        && offending_entity != context.entity
-    {
-        // the resource already exists and we need to overwrite it
-        deferred_world.commands().entity(offending_entity).despawn();
-    }
-
-    // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-    let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
-    // SAFETY: There are no shared references to the map.
-    // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-    // and that would conflict with the `DeferredWorld` passed to the resource hook.
-    unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
-}
-
-pub(crate) fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
-    let world = deferred_world.deref();
-    // If the resource is already linked to a new (different) entity, we don't remove it.
-    if let Some(entity) = world.resource_entities.get(context.component_id)
-        && *entity == context.entity
-    {
-        // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-        let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
-        // SAFETY: There are no shared references to the map.
-        // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-        // and that would conflict with the `DeferredWorld` passed to the resource hook.
-        unsafe { &mut *cache.0.get() }.remove(context.component_id);
     }
 }
 

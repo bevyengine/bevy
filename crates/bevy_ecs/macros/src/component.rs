@@ -54,8 +54,8 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, StorageTy::Table);
 
-    let on_add_path = Some(quote!(#bevy_ecs_path::resource::on_add_hook));
-    let on_remove_path = Some(quote!(#bevy_ecs_path::resource::on_remove_hook));
+    let on_add_path = Some(quote!(<Self as #bevy_ecs_path::resource::Resource>::on_add_hook));
+    let on_remove_path = Some(quote!(<Self as #bevy_ecs_path::resource::Resource>::on_remove_hook));
     let on_insert_path = None;
     let on_replace_path = None;
     let on_despawn_path = None;
