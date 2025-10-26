@@ -7,13 +7,15 @@ use crate::{
 };
 use alloc::vec::Vec;
 use alloc::vec;
+use std::ptr::NonNull;
 use fixedbitset::FixedBitSet;
 use bevy_ecs::archetype::Archetype;
 use bevy_ecs::prelude::{ContainsEntity, QueryBuilder, World};
 use bevy_ecs::query::{QueryData, QueryFilter};
 use bevy_ecs::relationship::{Relationship, RelationshipTarget};
-use bevy_ecs::storage::{SparseSetIndex, TableId};
+use bevy_ecs::storage::{SparseSetIndex, TableId, TableRow};
 use bevy_ecs::world::unsafe_world_cell::UnsafeEntityCell;
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use crate::relationship::RelationshipAccessor;
 
 /// Represents a single source in a multi-source query.
@@ -24,21 +26,53 @@ pub enum QueryOperation {
     Source(QuerySource),
 }
 
+type MatchesArchetypeFn = fn(archetype: &Archetype, component_access: &FilteredAccess, fetch_state: Ptr, filter_state: Ptr) -> bool;
+
+/// Check if the archetype should be considered
+pub unsafe fn matches_archetype<D: QueryData, F: QueryFilter>(archetype: &Archetype, component_access: &FilteredAccess, fetch_state: Ptr, filter_state: Ptr) -> bool {
+    let fetch_state = unsafe { fetch_state.deref::<D::State>() };
+    let filter_state = unsafe { filter_state.deref::<F::State>() };
+    // let fetch_state = unsafe { fetch_state.as_ptr().cast::<D::State>().as_ref().unwrap_unchecked() };
+    // let filter_state = unsafe { filter_state.as_ptr().cast::<F::State>().as_ref().unwrap_unchecked() };
+    D::matches_component_set(fetch_state, &|id| archetype.contains(id))
+            && F::matches_component_set(filter_state, &|id| archetype.contains(id))
+            && QuerySource::matches_component_set(component_access, &|id| archetype.contains(id))
+    }
+
+type FilterFetchFn = fn(state: Ptr, fetch: PtrMut, entity: Entity, table_row: TableRow) -> bool;
+
+/// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
+/// If false, the entity will be skipped.
+pub unsafe fn filter_fetch<F: QueryFilter>(state: Ptr, fetch: PtrMut, entity: Entity, table_row: TableRow) -> bool {
+    let state = unsafe { state.deref::<F::State>() };
+    let fetch = unsafe { fetch.deref_mut::<F::Fetch<'_>>() };
+    unsafe { F::filter_fetch(state, fetch, entity, table_row) }
+}
+
 #[derive(Debug, Clone)]
 pub struct QuerySource {
     access: FilteredAccess,
+    fetch_state: NonNull<u8>,
+    filter_state: NonNull<u8>,
+    matches_archetype_fn: MatchesArchetypeFn,
+    filter_fetch_fn: FilterFetchFn,
     variable_idx: u8,
 }
 
 
 impl QuerySource {
     pub fn matches(&self, archetype: &Archetype) -> bool {
-        self.matches_component_set(&|id| archetype.contains(id))
+        (self.matches_archetype_fn)(
+            archetype,
+            &self.access,
+            unsafe { Ptr::new(self.fetch_state) },
+            unsafe { Ptr::new(self.filter_state) },
+        )
     }
 
-    /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
-    pub fn matches_component_set(&self, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-        self.access.filter_sets.iter().any(|set| {
+    /// Returns `true` if this access matches a set of components. Otherwise, returns `false`.
+    pub fn matches_component_set(access: &FilteredAccess, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+        access.filter_sets.iter().any(|set| {
             set.with
                 .ones()
                 .all(|index| set_contains_id(ComponentId::get_sparse_set_index(index)))
@@ -119,10 +153,29 @@ impl<'w> QueryPlanBuilder<'w> {
         }
     }
 
-    pub fn add_source_from_builder(&mut self, f: impl Fn(QueryBuilder) -> QueryBuilder) -> &mut Self {
+    pub fn add_source_from_builder<D: QueryData, F: QueryFilter>(&mut self, f: impl Fn(QueryBuilder) -> QueryBuilder) -> &mut Self {
         let query_builder = QueryBuilder::new(&mut self.world);
-        let builder = f(query_builder);
-        self.plan.add_source(builder.access().clone());
+        let mut builder = f(query_builder);
+        let builder = builder.transmute_filtered::<D, F>();
+
+        let mut fetch_state = D::init_state(builder.world_mut());
+        let filter_state = F::init_state(builder.world_mut());
+
+        let mut component_access = FilteredAccess::default();
+        D::update_component_access(&fetch_state, &mut component_access);
+        D::provide_extra_access(
+            &mut fetch_state,
+            component_access.access_mut(),
+            builder.access().access(),
+        );
+
+        let access = builder.access().clone();
+        let fetch_state = NonNull::from(&fetch_state).cast::<u8>();
+        let filter_state = NonNull::from(&filter_state).cast::<u8>();
+
+        let matches_archetype_fn: MatchesArchetypeFn  = unsafe { core::mem::transmute(matches_archetype::<D, F>) };
+        let filter_fetch_fn: FilterFetchFn  = unsafe { core::mem::transmute(filter_fetch::<F>) };
+        self.plan.add_source(access, fetch_state, filter_state, matches_archetype_fn, filter_fetch_fn);
         self
     }
 
@@ -143,7 +196,13 @@ impl<'w> QueryPlanBuilder<'w> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         access.extend(&filter_access);
 
-        self.plan.add_source(access);
+        let fetch_state = NonNull::from(&fetch_state).cast::<u8>();
+        let filter_state = NonNull::from(&filter_state).cast::<u8>();
+
+        let matches_archetype_fn: MatchesArchetypeFn  = unsafe { core::mem::transmute(matches_archetype::<D, F>) };
+        let filter_fetch_fn: FilterFetchFn  = unsafe { core::mem::transmute(filter_fetch::<F>) };
+
+        self.plan.add_source(access, fetch_state, filter_state, matches_archetype_fn, filter_fetch_fn);
         self
     }
 
@@ -417,26 +476,11 @@ impl<'w, 's> Iter<'w, 's> {
                 // the first time we evaluate the query, we set the list of potential tables
                 let tables = &storage_state.tables;
                 assert_eq!(tables.len(), 0);
-                // if there are required components, we can optimize by only iterating through archetypes
-                // that contain at least one of the required components
-                let potential_archetypes = source
-                    .access
-                    .with_filters()
-                    .filter_map(|component_id| {
-                        self.world
-                            .archetypes()
-                            .component_index()
-                            .get(&component_id)
-                            .map(|index| index.keys())
-                    })
-                    // select the component with the fewest archetypes
-                    .min_by_key(ExactSizeIterator::len);
+
                 let mut matching_tables = Vec::new();
                 let mut current_len = 0;
-                if let Some(archetypes) = potential_archetypes {
-                    for archetype_id in archetypes {
-                        // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
-                        let archetype = &self.world.archetypes()[*archetype_id];
+                if source.access.required.is_empty() {
+                    for archetype in self.world.archetypes().iter() {
                         // NOTE: you could have empty archetypes even if the table is not empty
                         //  and you could have non-empty archetypes with empty tables (e.g. when the archetype only has sparse sets)
                         let table_id = archetype.table_id();
@@ -449,14 +493,48 @@ impl<'w, 's> Iter<'w, 's> {
                             matching_tables.push(archetype.table_id())
                         }
                     }
+                } else {
+                    // if there are required components, we can optimize by only iterating through archetypes
+                    // that contain at least one of the required components
+                    let potential_archetypes = source
+                        .access
+                        .required
+                        .ones()
+                        .filter_map(|idx| {
+                            let component_id = ComponentId::get_sparse_set_index(idx);
+                            self.world
+                                .archetypes()
+                                .component_index()
+                                .get(&component_id)
+                                .map(|index| index.keys())
+                        })
+                        // select the component with the fewest archetypes
+                        .min_by_key(ExactSizeIterator::len);
+                    if let Some(archetypes) = potential_archetypes {
+                        for archetype_id in archetypes {
+                            // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
+                            let archetype = &self.world.archetypes()[*archetype_id];
+                            // NOTE: you could have empty archetypes even if the table is not empty
+                            //  and you could have non-empty archetypes with empty tables (e.g. when the archetype only has sparse sets)
+                            let table_id = archetype.table_id();
+                            let table = unsafe { self.world.world().storages().tables.get(table_id).unwrap_unchecked() };
+                            // skip empty tables
+                            if !table.is_empty() && source.matches(archetype) {
+                                if current_len == 0 {
+                                    current_len = table.entity_count();
+                                }
+                                matching_tables.push(archetype.table_id())
+                            }
+                        }
+                    }
                 }
                 if matching_tables.first().is_none() {
                     return false;
                 }
-
                 self.iter_state.storages_state[variable_idx] = StorageState {
                     tables: Cow::Owned(matching_tables)
                 };
+                // TODO: need to iterate here until we find a good candidate! check with filter_fetch
                 self.set_variable_state(variable_idx as u8, VariableState::Search {
                     offset: 0,
                     storage_idx: 0,
@@ -617,10 +695,14 @@ impl QueryPlan {
     }
 
     /// Add a term to the query plan.
-    pub(crate) fn add_source(&mut self, access: FilteredAccess) -> usize {
+    pub(crate) fn add_source(&mut self, access: FilteredAccess, fetch_state: NonNull<u8>, filter_state: NonNull<u8>, matches_archetype_fn: MatchesArchetypeFn, filter_fetch_fn: FilterFetchFn) -> usize {
         let op_index = self.operations.len();
         self.operations.push(QueryOperation::Source(QuerySource {
             access,
+            fetch_state,
+            filter_state,
+            matches_archetype_fn,
+            filter_fetch_fn,
             variable_idx: self.num_variables,
         }));
         self.num_variables += 1;
@@ -658,8 +740,7 @@ impl QueryPlan {
 
 #[cfg(test)]
 mod tests {
-    use std::dbg;
-    use std::process::Child;
+    #![allow(unused_variables)]
     use bevy_ecs::prelude::*;
     use super::*;
     use crate::{
