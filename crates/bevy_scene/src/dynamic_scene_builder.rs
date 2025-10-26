@@ -358,7 +358,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (resource_id, entity) in self.original_world.resource_entities.iter() {
+        for (resource_id, entity) in self.original_world.resource_entities().iter() {
             if (Some(*resource_id) == original_world_dqf_id)
                 || (Some(*resource_id) == original_world_atr_id)
             {
@@ -590,7 +590,6 @@ mod tests {
         let atr = AppTypeRegistry::default();
         atr.write().register::<ResourceA>();
         atr.write().register::<IsResource>();
-        atr.write().register::<Internal>();
         world.insert_resource(atr);
 
         world.insert_resource(ResourceA);
@@ -601,9 +600,8 @@ mod tests {
 
         assert_eq!(scene.resources.len(), 1);
         assert_eq!(scene.resources[0].components.len(), 3);
-        assert!(scene.resources[0].components[0].represents::<Internal>());
-        assert!(scene.resources[0].components[1].represents::<IsResource>());
-        assert!(scene.resources[0].components[2].represents::<ResourceA>());
+        assert!(scene.resources[0].components[0].represents::<IsResource>());
+        assert!(scene.resources[0].components[1].represents::<ResourceA>());
     }
 
     #[test]

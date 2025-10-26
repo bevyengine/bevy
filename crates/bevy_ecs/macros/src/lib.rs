@@ -600,10 +600,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 }
 
 /// Implement the `Resource` trait.
-#[proc_macro_derive(
-    Resource,
-    attributes(component, require, relationship, relationship_target, entities)
-)]
+#[proc_macro_derive(Resource)]
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }

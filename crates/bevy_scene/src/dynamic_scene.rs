@@ -119,9 +119,6 @@ impl DynamicScene {
                 {
                     let component_id = reflect_component.register_component(world);
 
-                    // Really, really, really, hacky, but it does work, which is funny
-                    world.resource_entities.insert(component_id, entity);
-
                     // SAFETY: we registered the component above. the info exists
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
@@ -206,7 +203,7 @@ mod tests {
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
     #[derive(Resource, Reflect, MapEntities, Debug)]
-    #[reflect(Resource, MapEntities)]
+    #[reflect(Resource)]
     struct TestResource {
         #[entities]
         entity_a: Entity,

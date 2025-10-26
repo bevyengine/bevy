@@ -32,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, DynamicBundle,
+        InsertMode, NoBundleEffect,
     },
     change_detection::{
         CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
@@ -227,6 +227,12 @@ impl World {
     #[inline]
     pub fn components(&self) -> &Components {
         &self.components
+    }
+
+    /// Retrieves this world's [`ResourceCache`].
+    #[inline]
+    pub fn resource_entities(&self) -> &ResourceCache {
+        &self.resource_entities
     }
 
     /// Prepares a [`ComponentsQueuedRegistrator`] for the world.
@@ -1705,21 +1711,17 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        let caller = MaybeLocation::caller();
-        let component_id = self.components_registrator().register_resource::<R>();
-
-        if !self.resource_entities.contains(component_id) {
-            let value = R::from_world(self);
-            move_as_ptr!(value);
-
-            let entity = self
-                .spawn_with_caller(value, caller)
-                .insert(IsResource)
-                .id();
-            self.resource_entities.insert(component_id, entity);
+        // The default component hook behavior for adding an already existing reasource is to replace it.
+        // We don't want that here.
+        if self.contains_resource::<R>() {
+            return self.resource_id::<R>().unwrap(); // must exist
         }
 
-        component_id
+        let caller = MaybeLocation::caller();
+        let resource = R::from_world(self);
+        move_as_ptr!(resource);
+        self.spawn_with_caller(resource, caller);
+        self.resource_id::<R>().unwrap() // must exist
     }
 
     /// Inserts a new resource with the given `value`.
@@ -1741,31 +1743,20 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
-        let component_id = self.components_registrator().register_resource::<R>();
-
-        if !self.resource_entities.contains(component_id) {
-            // the resource doesn't exist, so we make a new one.
-            let resource_bundle = (value, IsResource);
-            move_as_ptr!(resource_bundle);
-
-            let entity = self.spawn_with_caller(resource_bundle, caller).id();
-            self.resource_entities.insert(component_id, entity);
+        move_as_ptr!(value);
+        // if the resource already exists, we replace it on the same entity
+        if let Some(component_id) = self.resource_id::<R>()
+            && let Some(entity) = self.resource_entities.get(component_id)
+            && let Ok(mut entity_mut) = self.get_entity_mut(*entity)
+        {
+            entity_mut.insert_with_caller(
+                value,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            );
         } else {
-            let entity = self.resource_entities.get(component_id).unwrap();
-            move_as_ptr!(value);
-            if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
-                entity_mut.insert_with_caller(
-                    value,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                );
-            } else {
-                panic!(
-                    "Resource {} is registered in `resource_entities` but the associated entity does not exist.",
-                    DebugName::type_name::<R>()
-                );
-            }
+            self.spawn_with_caller(value, caller);
         }
     }
 
@@ -1827,12 +1818,10 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.resource_entities.remove(component_id)?;
-        let mut entity_ref = self.get_entity_mut(entity).ok()?;
-        let value = entity_ref.take::<R>()?;
-        entity_ref.despawn();
-        self.resource_entities.remove(component_id);
+        let component_id = self.resource_id::<R>()?;
+        let entity = *self.resource_entities.get(component_id)?;
+        let value = self.get_entity_mut(entity).ok()?.take::<R>()?;
+        self.despawn(entity);
         Some(value)
     }
 
@@ -2085,24 +2074,10 @@ impl World {
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        let caller = MaybeLocation::caller();
-        let component_id = self.components_registrator().register_resource::<R>();
-
-        if !self.contains_resource_by_id(component_id) {
-            let value = func();
-            if let Some(entity) = self.resource_entities.get(component_id) {
-                if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
-                    entity_mut.insert(value);
-                } else {
-                    self.resource_entities.remove(component_id);
-                    self.insert_resource_with_caller(value, caller);
-                }
-            } else {
-                self.insert_resource_with_caller(value, caller);
-            }
+        if !self.contains_resource::<R>() {
+            self.insert_resource_with_caller(func(), MaybeLocation::caller());
         }
-        // SAFETY: If it didn't exist, we've just created the resource.
-        unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() }
+        self.get_resource_mut::<R>().unwrap() // must exist
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2139,14 +2114,11 @@ impl World {
     /// ```
     #[track_caller]
     pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
-        let caller = MaybeLocation::caller();
-
         if !self.contains_resource::<R>() {
-            let value = R::from_world(self);
-            self.insert_resource_with_caller(value, caller);
+            self.init_resource::<R>();
         }
-        // SAFETY: The resource either exists or we've just created it.
-        unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() }
+
+        self.get_resource_mut::<R>().unwrap() // must exist
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -2587,9 +2559,9 @@ impl World {
         let last_change_tick = self.last_change_tick();
         let change_tick = self.change_tick();
 
-        let component_id = self.components.get_valid_resource_id(TypeId::of::<R>())?;
-        let entity = self.resource_entities.get(component_id)?;
-        let mut entity_mut = self.get_entity_mut(*entity).ok()?;
+        let component_id = self.components.valid_resource_id::<R>()?;
+        let entity = *self.resource_entities.get(component_id)?;
+        let mut entity_mut = self.get_entity_mut(entity).ok()?;
 
         let mut ticks = entity_mut.get_change_ticks::<R>()?;
         let mut changed_by = entity_mut.get_changed_by::<R>()?;
@@ -2606,16 +2578,6 @@ impl World {
             },
         };
 
-        // to fully remove the resource, we remove the entity and the resource_entities entry
-        entity_mut.despawn();
-        self.resource_entities.remove(component_id);
-
-        // There may be commands that are registered by the closure, which interact with the resource.
-        // In make sure that the resource is available, we avoid flushing until the resource is fully inserted back.
-        // Since spawn calls flush, we do it before calling the closure, and check afterwards that it was not removed.
-        // world.flush() is now called at the end of `insert_with_caller()`.
-        let entity = self.spawn(IsResource).id();
-
         let result = f(self, value_mut);
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
@@ -2628,19 +2590,49 @@ impl World {
 
         move_as_ptr!(value);
 
-        entity_mut.insert_with_caller(
-            value,
-            InsertMode::Replace,
-            changed_by,
-            RelationshipHookMode::Skip,
-        );
+        // See EntityWorldMut::insert_with_caller for the original code.
+        // This is copied here to update the change ticks. This way we can ensure that the commands
+        // ran during self.flush(), interact with the correct ticks on the resource component.
+        {
+            let location = entity_mut.location();
+            let mut bundle_inserter = BundleInserter::new::<R>(
+                // SAFETY: We update the entity location like in EntityWorldMut::insert_with_caller
+                unsafe { entity_mut.world_mut() },
+                location.archetype_id,
+                ticks.changed,
+            );
+            // SAFETY:
+            // - `location` matches current entity and thus must currently exist in the source
+            //   archetype for this inserter and its location within the archetype.
+            // - `T` matches the type used to create the `BundleInserter`.
+            // - `apply_effect` is called exactly once after this function.
+            // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+            //   and the caller ensures that the value is not accessed or dropped after this function
+            //   returns.
+            let (bundle, _) = value.partial_move(|bundle| unsafe {
+                bundle_inserter.insert(
+                    entity,
+                    location,
+                    bundle,
+                    InsertMode::Replace,
+                    changed_by,
+                    RelationshipHookMode::Run,
+                )
+            });
+            entity_mut.update_location();
 
-        // Update ticks
-        entity_mut.get_mut::<R>()?.set_last_added(ticks.added);
-        entity_mut.get_mut::<R>()?.set_last_changed(ticks.changed);
+            // set the added tick to the original
+            entity_mut.get_mut::<R>()?.set_last_added(ticks.added);
 
-        let entity = entity_mut.id();
-        self.resource_entities.insert(component_id, entity);
+            // SAFETY: We update the entity location afterwards.
+            unsafe { entity_mut.world_mut() }.flush();
+
+            entity_mut.update_location();
+            // SAFETY:
+            // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+            // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
+            unsafe { R::apply_effect(bundle, &mut entity_mut) };
+        }
 
         Some(result)
     }
@@ -2724,17 +2716,13 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        if !self.resource_entities.contains(component_id) {
-            let is_resource = IsResource;
-            move_as_ptr!(is_resource);
-
-            // Since we don't know the type, we use a placeholder type.
-            let entity = self
-                .spawn_with_caller(is_resource, caller)
-                .insert_by_id(component_id, value)
-                .id();
-            self.resource_entities.insert(component_id, entity);
-        }
+        self.spawn_empty().insert_by_id_with_caller(
+            component_id,
+            value,
+            InsertMode::Replace,
+            caller,
+            RelationshipHookMode::Run,
+        );
     }
 
     /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already

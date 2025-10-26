@@ -33,18 +33,13 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     }
 
     // implement the Component trait
-    let attrs = match parse_resource_attr(&ast) {
-        Ok(attrs) => attrs,
-        Err(e) => return e.into_compile_error().into(),
-    };
-
     let map_entities = map_entities(
         &ast.data,
         &bevy_ecs_path,
         Ident::new("this", Span::call_site()),
         false,
         false,
-        attrs.map_entities
+        None
     ).map(|map_entities_impl| quote! {
         fn map_entities<M: #bevy_ecs_path::entity::EntityMapper>(this: &mut Self, mapper: &mut M) {
             use #bevy_ecs_path::entity::MapEntities;
@@ -120,6 +115,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     });
 
+    // implement the Resource trait
     let resource_impl_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
         }
@@ -461,7 +457,6 @@ pub(crate) fn map_entities(
 }
 
 pub const COMPONENT: &str = "component";
-pub const RESOURCE: &str = "resource";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
@@ -711,27 +706,6 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
             ));
     }
 
-    Ok(attrs)
-}
-
-struct ResourceAttrs {
-    map_entities: Option<MapEntitiesAttributeKind>,
-}
-
-fn parse_resource_attr(ast: &DeriveInput) -> Result<ResourceAttrs> {
-    let mut attrs = ResourceAttrs { map_entities: None };
-    for attr in ast.attrs.iter() {
-        if attr.path().is_ident(RESOURCE) {
-            attr.parse_nested_meta(|nested| {
-                if nested.path.is_ident(MAP_ENTITIES) {
-                    attrs.map_entities = Some(nested.input.parse::<MapEntitiesAttributeKind>()?);
-                    Ok(())
-                } else {
-                    Err(nested.error("Unsupported attribute"))
-                }
-            })?;
-        }
-    }
     Ok(attrs)
 }
 
