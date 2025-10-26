@@ -9,7 +9,7 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     query::FilteredAccessSet,
     resource::Resource,
     system::{

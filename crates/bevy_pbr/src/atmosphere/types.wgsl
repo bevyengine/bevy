@@ -1,25 +1,11 @@
 #define_import_path bevy_pbr::atmosphere::types
 
 struct Atmosphere {
+    ground_albedo: vec3<f32>,
     // Radius of the planet
     bottom_radius: f32, // units: m
-
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, // units: m
-
-    ground_albedo: vec3<f32>,
-
-    rayleigh_density_exp_scale: f32,
-    rayleigh_scattering: vec3<f32>,
-
-    mie_density_exp_scale: f32,
-    mie_scattering: f32, // units: m^-1
-    mie_absorption: f32, // units: m^-1
-    mie_asymmetry: f32, // the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
-
-    ozone_layer_altitude: f32, // units: m
-    ozone_layer_width: f32, // units: m
-    ozone_absorption: vec3<f32>, // ozone absorption. units: m^-1
 }
 
 struct AtmosphereSettings {
@@ -37,7 +23,6 @@ struct AtmosphereSettings {
     sky_max_samples: u32,
     rendering_method: u32,
 }
-
 
 // "Atmosphere space" is just the view position with y=0 and oriented horizontally,
 // so the horizon stays a horizontal line in our luts

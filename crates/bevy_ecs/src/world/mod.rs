@@ -2,8 +2,8 @@
 
 pub(crate) mod command_queue;
 mod deferred_world;
+mod entity_access;
 mod entity_fetch;
-mod entity_ref;
 mod filtered_resource;
 mod identifier;
 mod spawn_batch;
@@ -19,12 +19,12 @@ pub use crate::{
 };
 pub use bevy_ecs_macros::FromWorld;
 pub use deferred_world::DeferredWorld;
-pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
-pub use entity_ref::{
+pub use entity_access::{
     ComponentEntry, DynamicComponentFetch, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
     EntityWorldMut, FilteredEntityMut, FilteredEntityRef, OccupiedComponentEntry,
     TryFromFilteredError, UnsafeFilteredEntityMut, VacantComponentEntry,
 };
+pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use filtered_resource::*;
 pub use identifier::WorldId;
 pub use spawn_batch::*;
@@ -35,14 +35,16 @@ use crate::{
         Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
     },
-    change_detection::{MaybeLocation, MutUntyped, TicksMut},
+    change_detection::{
+        CheckChangeTicks, ComponentTicks, ComponentTicksMut, MaybeLocation, MutUntyped, Tick,
+    },
     component::{
-        CheckChangeTicks, Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo,
-        ComponentTicks, Components, ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable,
-        RequiredComponents, RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentId, ComponentIds, ComponentInfo, Components,
+        ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
+        RequiredComponentsError,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
-    entity_disabling::{DefaultQueryFilters, Internal},
+    entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     message::{Message, MessageId, Messages, WriteBatchIds},
@@ -98,8 +100,8 @@ pub struct World {
     /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
     /// A resource exists if all of the below is true:
     /// 1. `resource_entities` has an entry for the [`ComponentId`] associated with the resource.
-    /// 2. The entity associated with the resource has three components:
-    ///    the resource (as a component), [`IsResource`], and [`Internal`].
+    /// 2. The entity associated with the resource has two components:
+    /// the resource (as a component) and [`IsResource`].
     ///
     /// If the resource does not exists, none of the above must be true, any inbetween state is invalid.
     pub resource_entities: HashMap<ComponentId, Entity>,
@@ -1880,9 +1882,7 @@ impl World {
         if let Some(entity) = self.resource_entities.get(&component_id)
             && let Ok(entity_ref) = self.get_entity(*entity)
         {
-            return entity_ref.contains_id(component_id)
-                && entity_ref.contains::<IsResource>()
-                && entity_ref.contains::<Internal>();
+            return entity_ref.contains_id(component_id) && entity_ref.contains::<IsResource>();
         }
         false
     }
@@ -2606,13 +2606,13 @@ impl World {
 
         let value_mut = Mut {
             value: &mut value,
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
+                changed_by: changed_by.as_mut(),
                 last_run: last_change_tick,
                 this_run: change_tick,
             },
-            changed_by: changed_by.as_mut(),
         };
 
         // to fully remove the resource, we remove the entity and the resource_entities entry
@@ -3067,7 +3067,7 @@ impl World {
     pub fn clear_entities(&mut self) {
         self.resource_scope::<DefaultQueryFilters, ()>(|world: &mut World, _| {
             let to_remove: Vec<Entity> = world
-                .query_filtered::<Entity, Without<Internal>>()
+                .query_filtered::<Entity, Without<IsResource>>()
                 .query(world)
                 .into_iter()
                 .collect();
@@ -3699,10 +3699,10 @@ mod tests {
         change_detection::{DetectChangesMut, MaybeLocation},
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
-        entity_disabling::{DefaultQueryFilters, Disabled, Internal},
+        entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{Event, Mut, On, Res},
         ptr::OwningPtr,
-        resource::Resource,
+        resource::{IsResource, Resource},
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
@@ -3730,7 +3730,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Resource)]
+    #[derive(Component)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,
@@ -3996,6 +3996,7 @@ mod tests {
                 }),
                 true,
                 ComponentCloneBehavior::Default,
+                None,
             )
         };
 
@@ -4134,7 +4135,10 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             #[expect(deprecated, reason = "remove this test in in 0.17.0")]
-            for entity in world.iter_entities().filter(|e| !e.contains::<Internal>()) {
+            for entity in world
+                .iter_entities()
+                .filter(|e| !e.contains::<IsResource>())
+            {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
@@ -4236,7 +4240,7 @@ mod tests {
         #[expect(deprecated, reason = "remove this test in in 0.17.0")]
         let mut entities = world
             .iter_entities_mut()
-            .filter(|e| !e.contains::<Internal>())
+            .filter(|e| !e.contains::<IsResource>())
             .collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);

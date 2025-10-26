@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -523,6 +523,7 @@ mod tests {
     fn run_system_once_invalid_params() {
         #[derive(Resource)]
         struct T;
+
         fn system(_: Res<T>) {}
 
         let mut world = World::default();

@@ -100,7 +100,13 @@ fn init_image_material_resources(
 
     bind_group_allocators.insert(
         TypeId::of::<ImageMaterial>(),
-        MaterialBindGroupAllocator::new(&render_device, None, None, bind_group_layout, None),
+        MaterialBindGroupAllocator::new(
+            &render_device,
+            "image_material_allocator",
+            None,
+            bind_group_layout,
+            None,
+        ),
     );
 }
 

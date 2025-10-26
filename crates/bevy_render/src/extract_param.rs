@@ -1,6 +1,6 @@
 use crate::MainWorld;
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
     prelude::*,
     query::FilteredAccessSet,
     system::{

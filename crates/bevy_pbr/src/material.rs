@@ -17,7 +17,7 @@ use bevy_core_pipeline::{
     tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,

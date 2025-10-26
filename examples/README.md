@@ -285,8 +285,8 @@ Example | Description
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
 [First person view model](../examples/camera/first_person_view_model.rs) | A first-person camera that uses a world model and a view model with different field of views (FOV)
-[Free cam camera controller](../examples/camera/free_cam_controller.rs) | Shows the default free cam camera controller.
-[Pan Cam](../examples/camera/pan_cam_controller.rs) | Example Pan-Cam Styled Camera Controller for 2D scenes
+[Free Camera controller](../examples/camera/free_camera_controller.rs) | Demonstrates the FreeCamera controller for 3D scenes.
+[Pan Camera](../examples/camera/pan_camera_controller.rs) | Example Pan-Camera Styled Camera Controller for 2D scenes
 [Projection Zoom](../examples/camera/projection_zoom.rs) | Shows how to zoom orthographic and perspective projection cameras.
 [Screen Shake](../examples/camera/2d_screen_shake.rs) | A simple 2D screen shake effect
 
@@ -569,6 +569,7 @@ Example | Description
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Standard Widgets](../examples/ui/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
 [Standard Widgets (w/Observers)](../examples/ui/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikethrough](../examples/ui/strikethrough.rs) | Demonstrates how to display text with strikethrough.
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors

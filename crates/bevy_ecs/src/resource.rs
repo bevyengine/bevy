@@ -1,7 +1,6 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
 use crate::component::Mutable;
-use crate::entity_disabling::Internal;
 use crate::prelude::Component;
 use crate::prelude::ReflectComponent;
 use bevy_reflect::prelude::ReflectDefault;
@@ -87,7 +86,6 @@ pub trait Resource: Component<Mutability = Mutable> {}
     reflect(Component, Default, Debug)
 )]
 #[derive(Component, Debug, Default)]
-#[require(Internal)]
 pub struct IsResource;
 
 #[cfg(test)]

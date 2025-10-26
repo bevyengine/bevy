@@ -727,19 +727,29 @@ mod tests {
 
     #[test]
     fn should_use_from_reflect() {
+<<<<<<< HEAD
         #[derive(Resource, Reflect)]
         #[reflect(Resource)]
+=======
+        #[derive(Component, Reflect)]
+        #[reflect(Component)]
+>>>>>>> 8253eabe593ce35845212dad9a3281e6b37fe18b
         struct SomeType(i32);
+
+        #[derive(Resource, Reflect)]
+        #[reflect(Resource)]
+        struct SomeResource(i32);
 
         let mut world = World::default();
         let atr = AppTypeRegistry::default();
         {
             let mut register = atr.write();
             register.register::<SomeType>();
+            register.register::<SomeResource>();
         }
         world.insert_resource(atr);
 
-        world.insert_resource(SomeType(123));
+        world.insert_resource(SomeResource(123));
         let entity = world.spawn(SomeType(123)).id();
 
         let scene = DynamicSceneBuilder::from_world(&world)
@@ -758,7 +768,11 @@ mod tests {
         assert!(resource
             .try_as_reflect()
             .expect("resource should be concrete due to `FromReflect`")
+<<<<<<< HEAD
             .is::<SomeType>());
         */
+=======
+            .is::<SomeResource>());
+>>>>>>> 8253eabe593ce35845212dad9a3281e6b37fe18b
     }
 }

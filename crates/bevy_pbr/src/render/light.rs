@@ -12,7 +12,7 @@ use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -25,8 +25,8 @@ use bevy_light::cluster::GlobalVisibleClusterableObjects;
 use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
-    Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
-    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, GlobalAmbientLight, NotShadowCaster,
+    PointLight, PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -248,8 +248,8 @@ pub fn extract_shadow_filtering_method(
 // foreign trait ExtractResource on foreign type AmbientLight
 pub fn extract_ambient_light_resource(
     mut commands: Commands,
-    main_resource: Extract<Option<Res<AmbientLight>>>,
-    target_resource: Option<ResMut<AmbientLight>>,
+    main_resource: Extract<Option<Res<GlobalAmbientLight>>>,
+    target_resource: Option<ResMut<GlobalAmbientLight>>,
 ) {
     if let Some(main_resource) = main_resource.as_ref() {
         if let Some(mut target_resource) = target_resource {
@@ -720,7 +720,7 @@ pub fn prepare_lights(
         ),
         With<Camera3d>,
     >,
-    ambient_light: Res<AmbientLight>,
+    ambient_light: Res<GlobalAmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
@@ -1150,6 +1150,11 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
+        let ambient_light = AmbientLight {
+            color: ambient_light.color,
+            brightness: ambient_light.brightness,
+            affects_lightmapped_meshes: ambient_light.affects_lightmapped_meshes,
+        };
         let ambient_light = maybe_ambient_override.unwrap_or(&ambient_light);
 
         let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];

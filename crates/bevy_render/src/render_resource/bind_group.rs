@@ -5,7 +5,6 @@ use crate::{
     renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
-use alloc::borrow::Cow;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 use bevy_render::render_resource::BindGroupLayoutDescriptor;
@@ -525,9 +524,7 @@ pub trait AsBindGroup {
     }
 
     /// label
-    fn label() -> Option<&'static str> {
-        None
-    }
+    fn label() -> &'static str;
 
     /// Creates a bind group for `self` matching the layout defined in [`AsBindGroup::bind_group_layout`].
     fn as_bind_group(
@@ -599,7 +596,7 @@ pub trait AsBindGroup {
         Self: Sized,
     {
         BindGroupLayoutDescriptor {
-            label: Self::label().map(Into::<Cow<str>>::into),
+            label: Self::label().into(),
             entries: Self::bind_group_layout_entries(render_device, false),
         }
     }

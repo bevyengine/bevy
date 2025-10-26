@@ -506,7 +506,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                    change_tick: #path::component::Tick,
+                    change_tick: #path::change_detection::Tick,
                 ) -> Self::Item<'w, 's> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
