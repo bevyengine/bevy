@@ -1684,21 +1684,21 @@ impl World {
             .map(Into::into)
     }
 
-    /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.
+    /// Registers a new non-send resource type and returns the [`ComponentId`] created for it.
     ///
-    /// This enables the dynamic registration of new [`Resource`] definitions at runtime for
+    /// This enables the dynamic registration of new non-send resources definitions at runtime for
     /// advanced use cases.
     ///
     /// # Note
     ///
-    /// Registering a [`Resource`] does not insert it into [`World`]. For insertion, you could use
-    /// [`World::insert_resource_by_id`].
-    pub fn register_resource_with_descriptor(
+    /// Registering a non-send resource does not insert it into [`World`]. For insertion, you could use
+    /// [`World::insert_non_send_by_id`].
+    pub fn register_non_send_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components_registrator()
-            .register_resource_with_descriptor(descriptor)
+            .register_non_send_with_descriptor(descriptor)
     }
 
     /// Initializes a new resource and returns the [`ComponentId`] created for it.
@@ -3930,35 +3930,7 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_resource() {
-        let mut world = World::new();
-
-        let descriptor = ComponentDescriptor::new_resource::<TestResource>();
-
-        let component_id = world.register_resource_with_descriptor(descriptor);
-
-        let value = 0;
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: value is valid for the layout of `TestResource`
-            unsafe {
-                world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
-            }
-        });
-
-        // SAFETY: We know that the resource is of type `TestResource`
-        let resource = unsafe {
-            world
-                .get_resource_by_id(component_id)
-                .unwrap()
-                .deref::<TestResource>()
-        };
-        assert_eq!(resource.0, 0);
-
-        assert!(world.remove_resource_by_id(component_id).is_some());
-    }
-
-    #[test]
-    fn custom_resource_with_layout() {
+    fn custom_non_send_with_layout() {
         static DROP_COUNT: AtomicU32 = AtomicU32::new(0);
 
         let mut world = World::new();
@@ -3980,26 +3952,26 @@ mod tests {
             )
         };
 
-        let component_id = world.register_resource_with_descriptor(descriptor);
+        let component_id = world.register_non_send_with_descriptor(descriptor);
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
-                world.insert_resource_by_id(component_id, ptr, MaybeLocation::caller());
+                world.insert_non_send_by_id(component_id, ptr, MaybeLocation::caller());
             }
         });
 
         // SAFETY: [u8; 8] is the correct type for the resource
         let data = unsafe {
             world
-                .get_resource_by_id(component_id)
+                .get_non_send_by_id(component_id)
                 .unwrap()
                 .deref::<[u8; 8]>()
         };
         assert_eq!(*data, [0, 1, 2, 3, 4, 5, 6, 7]);
 
-        assert!(world.remove_resource_by_id(component_id).is_some());
+        assert!(world.remove_non_send_by_id(component_id).is_some());
 
         assert_eq!(DROP_COUNT.load(Ordering::SeqCst), 1);
     }
