@@ -76,14 +76,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let clone_behavior = quote!(
-        use #bevy_ecs_path::relationship::{
-            RelationshipCloneBehaviorBase, RelationshipCloneBehaviorViaClone, RelationshipCloneBehaviorViaReflect,
-            RelationshipTargetCloneBehaviorViaClone, RelationshipTargetCloneBehaviorViaReflect, RelationshipTargetCloneBehaviorHierarchy
-            };
-        (&&&&&&&#bevy_ecs_path::relationship::RelationshipCloneBehaviorSpecialization::<Self>::default()).default_clone_behavior()
-    );
-
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     let component_derive_token_stream = TokenStream::from(quote! {
@@ -104,7 +96,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
             #on_despawn
 
             fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
-                #clone_behavior
+                #bevy_ecs_path::component::ComponentCloneBehavior::Default
             }
 
             #map_entities

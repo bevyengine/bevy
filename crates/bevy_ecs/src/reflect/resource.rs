@@ -4,10 +4,9 @@
 //!
 //! See the module doc for [`reflect::component`](`crate::reflect::component`).
 
-use crate::{
-    reflect::{ReflectComponent, ReflectComponentFns},
-    resource::Resource,
-};
+use core::ops::Deref;
+
+use crate::{reflect::ReflectComponent, resource::Resource};
 use bevy_reflect::{FromReflect, FromType, TypePath};
 
 /// A struct used to operate on reflected [`Resource`] of a type.
@@ -15,17 +14,18 @@ use bevy_reflect::{FromReflect, FromType, TypePath};
 /// A [`ReflectResource`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
 #[derive(Clone)]
-pub struct ReflectResource(ReflectComponentFns);
+pub struct ReflectResource(ReflectComponent);
 
-impl ReflectResource {
-    /// Use as a [`ReflectComponent`].
-    pub fn as_reflect_component(self) -> ReflectComponent {
-        ReflectComponent::new(self.0)
+impl Deref for ReflectResource {
+    type Target = ReflectComponent;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
 impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
     fn from_type() -> Self {
-        ReflectResource(ReflectComponentFns::new::<R>())
+        ReflectResource(<ReflectComponent as FromType<R>>::from_type())
     }
 }

@@ -284,19 +284,19 @@ impl<'w> ComponentsRegistrator<'w> {
     pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
-            self.register_resource_with(TypeId::of::<T>(), || {
+            self.register_non_send_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
     }
 
-    /// Same as [`Components::register_resource_unchecked`] but handles safety.
+    /// Same as [`Components::register_non_send_unchecked`] but handles safety.
     ///
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`].
     #[inline]
-    unsafe fn register_resource_with(
+    unsafe fn register_non_send_with(
         &mut self,
         type_id: TypeId,
         descriptor: impl FnOnce() -> ComponentDescriptor,
@@ -322,7 +322,7 @@ impl<'w> ComponentsRegistrator<'w> {
         // SAFETY: The resource is not currently registered, the id is fresh, and the [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.components
-                .register_resource_unchecked(type_id, id, descriptor());
+                .register_non_send_unchecked(type_id, id, descriptor());
         }
         id
     }
@@ -610,7 +610,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         unsafe {
                             registrator
                                 .components
-                                .register_resource_unchecked(type_id, id, descriptor);
+                                .register_non_send_unchecked(type_id, id, descriptor);
                         }
                     },
                 )
@@ -644,7 +644,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
                         unsafe {
                             registrator
                                 .components
-                                .register_resource_unchecked(type_id, id, descriptor);
+                                .register_non_send_unchecked(type_id, id, descriptor);
                         }
                     },
                 )

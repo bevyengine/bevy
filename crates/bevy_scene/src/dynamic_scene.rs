@@ -1,8 +1,10 @@
+use std::ops::Deref;
+
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     resource::IsResource,
     world::World,
 };
@@ -110,11 +112,15 @@ impl DynamicScene {
                     }
                 })?;
                 let reflect_component =
-                    registration.data::<ReflectComponent>().ok_or_else(|| {
-                        SceneSpawnError::UnregisteredComponent {
+                    if let Some(reflect_component) = registration.data::<ReflectComponent>() {
+                        Ok(reflect_component)
+                    } else if let Some(reflect_resource) = registration.data::<ReflectResource>() {
+                        Ok(reflect_resource.deref())
+                    } else {
+                        Err(SceneSpawnError::UnregisteredComponent {
                             type_path: type_info.type_path().to_string(),
-                        }
-                    })?;
+                        })
+                    }?;
 
                 {
                     let component_id = reflect_component.register_component(world);
@@ -192,7 +198,7 @@ mod tests {
         component::Component,
         entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
         resource::Resource,
         world::World,
     };

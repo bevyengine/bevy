@@ -713,7 +713,7 @@ impl Components {
     /// The [`ComponentId`] must be unique.
     /// The [`TypeId`] and [`ComponentId`] must not be registered or queued.
     #[inline]
-    pub(super) unsafe fn register_resource_unchecked(
+    pub(super) unsafe fn register_non_send_unchecked(
         &mut self,
         type_id: TypeId,
         component_id: ComponentId,

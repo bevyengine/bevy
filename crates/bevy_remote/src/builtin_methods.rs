@@ -520,11 +520,7 @@ pub fn process_remote_get_resources_request(
         .map_err(BrpError::resource_error)?;
     let entity_ref = world.get_entity(entity).map_err(BrpError::resource_error)?;
 
-    let Some(reflected) = reflect_resource
-        .clone()
-        .as_reflect_component()
-        .reflect(entity_ref)
-    else {
+    let Some(reflected) = reflect_resource.reflect(entity_ref) else {
         return Err(BrpError::resource_not_present(&resource_path));
     };
 
@@ -1047,7 +1043,7 @@ pub fn process_remote_insert_resources_request(
         .ok_or(anyhow!("Resource is not registered: `{}`", resource_path))
         .map_err(BrpError::resource_error)?;
     // get the entity if it already exists, otherwise spawn a new one.
-    if let Some(entity) = world.resource_entities.get(&resource_id) {
+    if let Some(entity) = world.resource_entities().get(resource_id) {
         world.entity_mut(*entity).insert_reflect(reflected_resource);
     } else {
         world.spawn_empty().insert_reflect(reflected_resource);
@@ -1142,8 +1138,6 @@ pub fn process_remote_mutate_resources_request(
 
     // Get the actual resource value from the world as a `dyn Reflect`.
     let mut reflected_resource = reflect_resource
-        .clone()
-        .as_reflect_component()
         .reflect_mut(world.entity_mut(entity))
         .ok_or(BrpError::resource_not_present(&resource_path))?;
 
@@ -1639,8 +1633,8 @@ fn get_resource_entity<'r>(
         .get_resource_id(type_id)
         .ok_or(anyhow!("Resource not registered: `{}`", resource_path))?;
     let entity = world
-        .resource_entities
-        .get(&component_id)
+        .resource_entities()
+        .get(component_id)
         .ok_or(anyhow!("Resource entity does not exist."))?;
     Ok(*entity)
 }

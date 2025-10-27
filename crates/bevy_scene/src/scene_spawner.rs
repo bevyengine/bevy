@@ -709,7 +709,7 @@ mod tests {
         component::Component,
         hierarchy::Children,
         observer::On,
-        prelude::ReflectComponent,
+        prelude::{ReflectComponent, ReflectResource},
         query::With,
         system::{Commands, Query, Res, ResMut, RunSystemOnce},
     };
@@ -850,7 +850,7 @@ mod tests {
     struct ComponentF;
 
     #[derive(Resource, Default, Reflect)]
-    #[reflect(Component)]
+    #[reflect(Resource)]
     struct TriggerCount(u32);
 
     fn setup() -> App {
