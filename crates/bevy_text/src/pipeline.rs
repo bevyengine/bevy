@@ -493,6 +493,8 @@ pub struct TextLayoutInfo {
     /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
     /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
     /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
+    ///
+    /// The coordinates are unscaled and relative to the top left corner of the text layout.
     pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,

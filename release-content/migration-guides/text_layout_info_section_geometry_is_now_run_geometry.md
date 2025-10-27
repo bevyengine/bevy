@@ -1,6 +1,9 @@
 ---
-title: "`TextLayoutInfo`'s `section_geometry` field is now `run_geometry`"
+title: "`TextLayoutInfo`'s `section_rects` field has been replaced with `run_geometry`"
 pull_requests: []
 ---
 
-`TextLayoutInfo`'s `section_geometry` field is renamed to `run_geometry` and its `Vec` now contains a list of `RunGeometry`s instead of tuples.
+`TextLayoutInfo`'s `section_rects` field has been removed.
+In its place is a new field `run_geometry` that contains the non-glyph layout geometry for a run of glyphs: its span index, bounding rectangle, underline position and thickness, and strikethrough position and thickness. A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font, font size, and line height. The coordinates stored in `run_geometry` are unscaled and relative to the top left corner of the text layout.
+
+Unlike the `section_rects` tuples, `RunGeometry` does not include an `Entity` id. To find the corresponding text entity, call the `entities` method on the root text entity’s `ComputedTextBlock` component and use the `span_index` to index into the returned slice.
