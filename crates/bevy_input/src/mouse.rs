@@ -1,6 +1,6 @@
 //! The mouse input functionality.
 
-use crate::{ButtonInput, ButtonState};
+use crate::{touch::TouchPhase, ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -172,6 +172,8 @@ pub struct MouseWheel {
     pub y: f32,
     /// Window that received the input.
     pub window: Entity,
+    /// Phase of the wheel event.
+    pub phase: TouchPhase,
 }
 
 /// Updates the [`ButtonInput<MouseButton>`] resource with the latest [`MouseButtonInput`] events.
