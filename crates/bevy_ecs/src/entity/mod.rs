@@ -496,7 +496,7 @@ impl Entity {
     /// ```
     pub const PLACEHOLDER: Self = Self::from_row(EntityRow::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `row` and a generation of 1.
+    /// Creates a new entity ID with the specified `row` and an unspecified generation.
     ///
     /// # Note
     ///
