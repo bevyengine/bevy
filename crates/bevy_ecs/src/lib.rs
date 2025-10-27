@@ -1252,35 +1252,29 @@ mod tests {
         assert!(!world.contains_resource::<Num>());
         assert!(!world.is_resource_added::<Num>());
         assert!(!world.is_resource_changed::<Num>());
-        println!("WHat");
 
         world.insert_resource(Num(123));
         let resource_id = world
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        println!("WHat");
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
         assert!(world.is_resource_added::<Num>());
         assert!(world.is_resource_changed::<Num>());
-        println!("WHat");
 
         world.insert_resource(BigNum(456));
         assert_eq!(world.resource::<BigNum>().0, 456u64);
-        println!("WHat");
 
         world.insert_resource(BigNum(789));
         assert_eq!(world.resource::<BigNum>().0, 789);
-        println!("WHat");
 
         {
             let mut value = world.resource_mut::<BigNum>();
             assert_eq!(value.0, 789);
             value.0 = 10;
         }
-        println!("WHat");
 
         assert_eq!(
             world.resource::<BigNum>().0,
