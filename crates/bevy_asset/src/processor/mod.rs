@@ -40,6 +40,7 @@
 mod log;
 mod process;
 
+use bevy_tasks::BoxedFuture;
 pub use log::*;
 pub use process::*;
 
@@ -58,12 +59,18 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
-use bevy_platform::collections::{HashMap, HashSet};
-use bevy_tasks::IoTaskPool;
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    sync::{PoisonError, RwLock},
+};
+use bevy_tasks::{poll_once, IoTaskPool};
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
-use parking_lot::RwLock;
-use std::path::{Path, PathBuf};
+use futures_util::{future::join_all, stream::select_all};
+use std::{
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 use thiserror::Error;
 use tracing::{debug, error, trace, warn};
 
@@ -77,7 +84,7 @@ use {
 /// A "background" asset processor that reads asset values from a source [`AssetSource`] (which corresponds to an [`AssetReader`](crate::io::AssetReader) / [`AssetWriter`](crate::io::AssetWriter) pair),
 /// processes them in some way, and writes them to a destination [`AssetSource`].
 ///
-/// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetSource`] for assets that
+/// This will create .meta files (a human-editable serialized form of [`AssetMeta`]) in the source [`AssetSource`] for assets
 /// that can be loaded and/or processed. This enables developers to configure how each asset should be loaded and/or processed.
 ///
 /// [`AssetProcessor`] can be run in the background while a Bevy App is running. Changes to assets will be automatically detected and hot-reloaded.
@@ -98,7 +105,13 @@ pub struct AssetProcessor {
 /// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
-    log: async_lock::RwLock<Option<ProcessorTransactionLog>>,
+    /// The factory that creates the transaction log.
+    ///
+    /// Note: we use a regular Mutex instead of an async mutex since we expect users to only set
+    /// this once, and before the asset processor starts - there is no reason to await (and it
+    /// avoids needing to use [`block_on`](bevy_tasks::block_on) to set the factory).
+    log_factory: Mutex<Option<Box<dyn ProcessorTransactionLogFactory>>>,
+    log: async_lock::RwLock<Option<Box<dyn ProcessorTransactionLog>>>,
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
     default_processors: RwLock<HashMap<Box<str>, &'static str>>,
@@ -173,7 +186,13 @@ impl AssetProcessor {
     async fn log_unrecoverable(&self) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.unrecoverable().await.unwrap();
+        log.unrecoverable()
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::UnrecoverableError,
+                error,
+            })
+            .unwrap();
     }
 
     /// Logs the start of an asset being processed. If this is not followed at some point in the log by a closing [`AssetProcessor::log_end_processing`],
@@ -181,28 +200,37 @@ impl AssetProcessor {
     async fn log_begin_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.begin_processing(path).await.unwrap();
+        log.begin_processing(path)
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::BeginProcessing(path.clone_owned()),
+                error,
+            })
+            .unwrap();
     }
 
     /// Logs the end of an asset being successfully processed. See [`AssetProcessor::log_begin_processing`].
     async fn log_end_processing(&self, path: &AssetPath<'_>) {
         let mut log = self.data.log.write().await;
         let log = log.as_mut().unwrap();
-        log.end_processing(path).await.unwrap();
+        log.end_processing(path)
+            .await
+            .map_err(|error| WriteLogError {
+                log_entry: LogEntry::EndProcessing(path.clone_owned()),
+                error,
+            })
+            .unwrap();
     }
 
     /// Starts the processor in a background thread.
     pub fn start(_processor: Res<Self>) {
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        error!("Cannot run AssetProcessor in single threaded mode (or Wasm) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-        {
-            let processor = _processor.clone();
-            std::thread::spawn(move || {
-                processor.process_assets();
-                bevy_tasks::block_on(processor.listen_for_source_change_events());
-            });
-        }
+        let processor = _processor.clone();
+        IoTaskPool::get()
+            .spawn(async move {
+                processor.process_assets().await;
+                processor.listen_for_source_change_events().await;
+            })
+            .detach();
     }
 
     /// Processes all assets. This will:
@@ -215,23 +243,20 @@ impl AssetProcessor {
     /// * For each asset in the unprocessed [`AssetReader`](crate::io::AssetReader), kick off a new
     ///   "process job", which will process the asset
     ///   (if the latest version of the asset has not been processed).
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-    pub fn process_assets(&self) {
+    pub async fn process_assets(&self) {
         let start_time = std::time::Instant::now();
         debug!("Processing Assets");
-        IoTaskPool::get().scope(|scope| {
-            scope.spawn(async move {
-                self.initialize().await.unwrap();
-                for source in self.sources().iter_processed() {
-                    self.process_assets_internal(scope, source, PathBuf::from(""))
-                        .await
-                        .unwrap();
-                }
-            });
-        });
-        // This must happen _after_ the scope resolves or it will happen "too early"
-        // Don't move this into the async scope above! process_assets is a blocking/sync function this is fine
-        bevy_tasks::block_on(self.finish_processing_assets());
+        let mut tasks = vec![];
+        self.initialize().await.unwrap();
+        for source in self.sources().iter_processed() {
+            self.process_assets_internal(source, PathBuf::from(""), &mut tasks)
+                .await
+                .unwrap();
+        }
+
+        join_all(tasks).await;
+
+        self.finish_processing_assets().await;
         let end_time = std::time::Instant::now();
         debug!("Processing finished in {:?}", end_time - start_time);
     }
@@ -240,25 +265,51 @@ impl AssetProcessor {
     // PERF: parallelize change event processing
     pub async fn listen_for_source_change_events(&self) {
         debug!("Listening for changes to source assets");
-        loop {
-            let mut started_processing = false;
 
-            for source in self.data.sources.iter_processed() {
-                if let Some(receiver) = source.event_receiver() {
-                    for event in receiver.try_iter() {
-                        if !started_processing {
-                            self.set_state(ProcessorState::Processing).await;
-                            started_processing = true;
-                        }
+        // Collect all the event receivers and select across all of them.
+        let mut source_receivers = vec![];
+        for source in self.data.sources.iter_processed() {
+            let Some(receiver) = source.event_receiver() else {
+                continue;
+            };
+            let source_id = source.id();
+            let source_receiver = receiver
+                .clone()
+                .map(move |event| (source_id.clone(), event));
+            source_receivers.push(Box::pin(source_receiver));
+        }
+        let mut all_receiver = select_all(source_receivers);
 
-                        self.handle_asset_source_event(source, event).await;
+        // We want to await an entry in the stream, but once we have one, we want to process all the
+        // events in the channels before sending the "finished processing" state. So await the next
+        // item, then keep getting the next entry in the stream until we have to sleep.
+        let mut next = None;
+        while let Some(mut item) = {
+            if next.is_none() {
+                next = Some(all_receiver.next());
+            }
+            next.take().unwrap()
+        }
+        .await
+        {
+            self.set_state(ProcessorState::Processing).await;
+
+            loop {
+                let (source_id, event) = item;
+                self.handle_asset_source_event(self.data.sources.get(source_id).unwrap(), event)
+                    .await;
+                let mut next_next = all_receiver.next();
+                item = match poll_once(&mut next_next).await {
+                    None => {
+                        next = Some(next_next);
+                        break;
                     }
-                }
+                    Some(None) => return,
+                    Some(Some(item)) => item,
+                };
             }
 
-            if started_processing {
-                self.finish_processing_assets().await;
-            }
+            self.finish_processing_assets().await;
         }
     }
 
@@ -418,16 +469,12 @@ impl AssetProcessor {
             "Folder {} was added. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        error!("AddFolder event cannot be handled in single threaded mode (or Wasm) yet.");
-        #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
-        IoTaskPool::get().scope(|scope| {
-            scope.spawn(async move {
-                self.process_assets_internal(scope, source, path)
-                    .await
-                    .unwrap();
-            });
-        });
+        let mut tasks = vec![];
+        self.process_assets_internal(source, path, &mut tasks)
+            .await
+            .unwrap();
+
+        join_all(tasks).await;
     }
 
     /// Responds to a removed meta event by reprocessing the asset at the given path.
@@ -533,28 +580,27 @@ impl AssetProcessor {
     async fn finish_processing_assets(&self) {
         self.try_reprocessing_queued().await;
         // clean up metadata in asset server
-        self.server.data.infos.write().consume_handle_drop_events();
+        self.server.write_infos().consume_handle_drop_events();
         self.set_state(ProcessorState::Finished).await;
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     async fn process_assets_internal<'scope>(
         &'scope self,
-        scope: &'scope bevy_tasks::Scope<'scope, '_, ()>,
         source: &'scope AssetSource,
         path: PathBuf,
+        tasks: &mut Vec<BoxedFuture<'scope, ()>>,
     ) -> Result<(), AssetReaderError> {
         if source.reader().is_directory(&path).await? {
             let mut path_stream = source.reader().read_directory(&path).await?;
             while let Some(path) = path_stream.next().await {
-                Box::pin(self.process_assets_internal(scope, source, path)).await?;
+                Box::pin(self.process_assets_internal(source, path, tasks)).await?;
             }
         } else {
             // Files without extensions are skipped
             let processor = self.clone();
-            scope.spawn(async move {
+            tasks.push(Box::pin(async move {
                 processor.process_asset(source, path).await;
-            });
+            }));
         }
         Ok(())
     }
@@ -581,7 +627,11 @@ impl AssetProcessor {
 
     /// Register a new asset processor.
     pub fn register_processor<P: Process>(&self, processor: P) {
-        let mut process_plans = self.data.processors.write();
+        let mut process_plans = self
+            .data
+            .processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         #[cfg(feature = "trace")]
         let processor = InstrumentedAssetProcessor(processor);
         process_plans.insert(core::any::type_name::<P>(), Arc::new(processor));
@@ -589,20 +639,37 @@ impl AssetProcessor {
 
     /// Set the default processor for the given `extension`. Make sure `P` is registered with [`AssetProcessor::register_processor`].
     pub fn set_default_processor<P: Process>(&self, extension: &str) {
-        let mut default_processors = self.data.default_processors.write();
+        let mut default_processors = self
+            .data
+            .default_processors
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         default_processors.insert(extension.into(), core::any::type_name::<P>());
     }
 
     /// Returns the default processor for the given `extension`, if it exists.
     pub fn get_default_processor(&self, extension: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let default_processors = self.data.default_processors.read();
+        let default_processors = self
+            .data
+            .default_processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         let key = default_processors.get(extension)?;
-        self.data.processors.read().get(key).cloned()
+        self.data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(key)
+            .cloned()
     }
 
     /// Returns the processor with the given `processor_type_name`, if it exists.
     pub fn get_processor(&self, processor_type_name: &str) -> Option<Arc<dyn ErasedProcessor>> {
-        let processors = self.data.processors.read();
+        let processors = self
+            .data
+            .processors
+            .read()
+            .unwrap_or_else(PoisonError::into_inner);
         processors.get(processor_type_name).cloned()
     }
 
@@ -610,13 +677,6 @@ impl AssetProcessor {
     /// This info will later be used to determine whether or not to re-process an asset
     ///
     /// This will validate transactions and recover failed transactions when necessary.
-    #[cfg_attr(
-        any(target_arch = "wasm32", not(feature = "multi_threaded")),
-        expect(
-            dead_code,
-            reason = "This function is only used when the `multi_threaded` feature is enabled, and when not on WASM."
-        )
-    )]
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.asset_infos.write().await;
@@ -911,6 +971,7 @@ impl AssetProcessor {
                 }
             }
         }
+
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
@@ -951,6 +1012,7 @@ impl AssetProcessor {
             new_processed_info.full_hash = full_hash;
             *processed_meta.processed_info_mut() = Some(new_processed_info.clone());
             let meta_bytes = processed_meta.serialize();
+
             processed_writer
                 .write_meta_bytes(path, &meta_bytes)
                 .await
@@ -973,7 +1035,16 @@ impl AssetProcessor {
     }
 
     async fn validate_transaction_log_and_recover(&self) {
-        if let Err(err) = ProcessorTransactionLog::validate().await {
+        let log_factory = self
+            .data
+            .log_factory
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            // Take the log factory to indicate we've started and this should disable setting a new
+            // log factory.
+            .take()
+            .expect("the asset processor only starts once");
+        if let Err(err) = validate_transaction_log(log_factory.as_ref()).await {
             let state_is_valid = match err {
                 ValidateLogError::ReadLogError(err) => {
                     error!("Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}");
@@ -1051,7 +1122,7 @@ impl AssetProcessor {
             }
         }
         let mut log = self.data.log.write().await;
-        *log = match ProcessorTransactionLog::new().await {
+        *log = match log_factory.create_new_log().await {
             Ok(log) => Some(log),
             Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}", err),
         };
@@ -1075,11 +1146,34 @@ impl AssetProcessorData {
             initialized_sender,
             initialized_receiver,
             state: async_lock::RwLock::new(ProcessorState::Initializing),
+            log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),
             asset_infos: Default::default(),
             default_processors: Default::default(),
         }
+    }
+
+    /// Sets the transaction log factory for the processor.
+    ///
+    /// If this is called after asset processing has begun (in the `Startup` schedule), it will
+    /// return an error. If not called, the default transaction log will be used.
+    pub fn set_log_factory(
+        &self,
+        factory: Box<dyn ProcessorTransactionLogFactory>,
+    ) -> Result<(), SetTransactionLogFactoryError> {
+        let mut log_factory = self
+            .log_factory
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        if log_factory.is_none() {
+            // This indicates the asset processor has already started, so setting the factory does
+            // nothing here.
+            return Err(SetTransactionLogFactoryError::AlreadyInUse);
+        }
+
+        *log_factory = Some(factory);
+        Ok(())
     }
 
     /// Returns a future that will not finish until the path has been processed.
@@ -1474,3 +1568,13 @@ pub enum InitializeError {
     #[error("Failed to validate asset log: {0}")]
     ValidateLogError(#[from] ValidateLogError),
 }
+
+/// An error when attempting to set the transaction log factory.
+#[derive(Error, Debug)]
+pub enum SetTransactionLogFactoryError {
+    #[error("Transaction log is already in use so setting the factory does nothing")]
+    AlreadyInUse,
+}
+
+#[cfg(test)]
+mod tests;

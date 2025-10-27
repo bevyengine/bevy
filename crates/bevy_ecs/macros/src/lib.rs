@@ -1,6 +1,6 @@
 //! Macros for deriving ECS traits.
 
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 extern crate proc_macro;
 
@@ -506,7 +506,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s mut Self::State,
                     system_meta: &#path::system::SystemMeta,
                     world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
-                    change_tick: #path::component::Tick,
+                    change_tick: #path::change_detection::Tick,
                 ) -> Self::Item<'w, 's> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
@@ -566,7 +566,7 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::shared().get_path("bevy_ecs")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_ecs"))
 }
 
 /// Implement the `Event` trait.

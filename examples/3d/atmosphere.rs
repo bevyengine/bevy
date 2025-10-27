@@ -6,7 +6,7 @@ use bevy::{
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
     light::{light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder},
-    pbr::{Atmosphere, AtmosphereSettings},
+    pbr::{AtmosphereSettings, EarthlikeAtmosphere},
     post_process::bloom::Bloom,
     prelude::*,
 };
@@ -19,12 +19,12 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH,
+        // get the default `Atmosphere` component
+        earth_atmosphere.get(),
         // The scene is in units of 10km, so we need to scale up the
         // aerial view lut distance and set the scene scale accordingly.
         // Most usages of this feature will not need to adjust this.

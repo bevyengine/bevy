@@ -75,8 +75,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, MaybeLocation, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -123,6 +122,16 @@ impl EntityRow {
     /// Constructs a new [`EntityRow`] from its index.
     pub const fn new(index: NonMaxU32) -> Self {
         Self(index)
+    }
+
+    /// Equivalent to [`new`](Self::new) except that it takes a `u32` instead of a `NonMaxU32`.
+    ///
+    /// Returns `None` if the index is `u32::MAX`.
+    pub const fn from_raw_u32(index: u32) -> Option<Self> {
+        match NonMaxU32::new(index) {
+            Some(index) => Some(Self(index)),
+            None => None,
+        }
     }
 
     /// Gets the index of the entity.
@@ -445,13 +454,9 @@ impl Hash for Entity {
 }
 
 impl Entity {
-    /// Construct an [`Entity`] from a raw `row` value and a non-zero `generation` value.
-    /// Ensure that the generation value is never greater than `0x7FFF_FFFF`.
+    /// Creates a new instance with the given index and generation.
     #[inline(always)]
-    pub(crate) const fn from_raw_and_generation(
-        row: EntityRow,
-        generation: EntityGeneration,
-    ) -> Entity {
+    pub const fn from_row_and_generation(row: EntityRow, generation: EntityGeneration) -> Entity {
         Self { row, generation }
     }
 
@@ -489,9 +494,9 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub const PLACEHOLDER: Self = Self::from_raw(EntityRow::PLACEHOLDER);
+    pub const PLACEHOLDER: Self = Self::from_row(EntityRow::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `row` and a generation of 1.
+    /// Creates a new entity ID with the specified `row` and an unspecified generation.
     ///
     /// # Note
     ///
@@ -504,17 +509,17 @@ impl Entity {
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
     #[inline(always)]
-    pub const fn from_raw(row: EntityRow) -> Entity {
-        Self::from_raw_and_generation(row, EntityGeneration::FIRST)
+    pub const fn from_row(row: EntityRow) -> Entity {
+        Self::from_row_and_generation(row, EntityGeneration::FIRST)
     }
 
-    /// This is equivalent to [`from_raw`](Self::from_raw) except that it takes a `u32` instead of an [`EntityRow`].
+    /// This is equivalent to [`from_row`](Self::from_row) except that it takes a `u32` instead of an [`EntityRow`].
     ///
     /// Returns `None` if the row is `u32::MAX`.
     #[inline(always)]
     pub const fn from_raw_u32(row: u32) -> Option<Entity> {
         match NonMaxU32::new(row) {
-            Some(row) => Some(Self::from_raw(EntityRow::new(row))),
+            Some(row) => Some(Self::from_row(EntityRow::new(row))),
             None => None,
         }
     }
@@ -651,7 +656,7 @@ impl SparseSetIndex for Entity {
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_raw(EntityRow::get_sparse_set_index(value))
+        Entity::from_row(EntityRow::get_sparse_set_index(value))
     }
 }
 
@@ -674,13 +679,13 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
         self.freelist_indices
             .next()
             .map(|&row| {
-                Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
+                Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
             })
             .or_else(|| {
                 self.new_indices.next().map(|index| {
                     // SAFETY: This came from an exclusive range so the max can't be hit.
                     let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
-                    Entity::from_raw(row)
+                    Entity::from_row(row)
                 })
             })
     }
@@ -827,7 +832,7 @@ impl Entities {
         if n > 0 {
             // Allocate from the freelist.
             let row = self.pending[(n - 1) as usize];
-            Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
+            Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
         } else {
             // Grab a new ID, outside the range of `meta.len()`. `flush()` must
             // eventually be called to make it valid.
@@ -835,12 +840,12 @@ impl Entities {
             // As `self.free_cursor` goes more and more negative, we return IDs farther
             // and farther beyond `meta.len()`.
             let raw = self.meta.len() as IdCursor - n;
-            if raw >= u32::MAX as IdCursor {
-                panic!("too many entities");
+            if raw == IdCursor::MAX {
+                panic!("number of entities can't exceed {}", IdCursor::MAX);
             }
             // SAFETY: We just checked the bounds
             let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(raw as u32)) };
-            Entity::from_raw(row)
+            Entity::from_row(row)
         }
     }
 
@@ -858,14 +863,14 @@ impl Entities {
         if let Some(row) = self.pending.pop() {
             let new_free_cursor = self.pending.len() as IdCursor;
             *self.free_cursor.get_mut() = new_free_cursor;
-            Entity::from_raw_and_generation(row, self.meta[row.index() as usize].generation)
+            Entity::from_row_and_generation(row, self.meta[row.index() as usize].generation)
         } else {
             let index = u32::try_from(self.meta.len())
                 .ok()
                 .and_then(NonMaxU32::new)
                 .expect("too many entities");
             self.meta.push(EntityMeta::EMPTY);
-            Entity::from_raw(EntityRow::new(index))
+            Entity::from_row(EntityRow::new(index))
         }
     }
 
@@ -1006,14 +1011,14 @@ impl Entities {
     pub fn resolve_from_id(&self, row: EntityRow) -> Option<Entity> {
         let idu = row.index() as usize;
         if let Some(&EntityMeta { generation, .. }) = self.meta.get(idu) {
-            Some(Entity::from_raw_and_generation(row, generation))
+            Some(Entity::from_row_and_generation(row, generation))
         } else {
             // `id` is outside of the meta list - check whether it is reserved but not yet flushed.
             let free_cursor = self.free_cursor.load(Ordering::Relaxed);
             // If this entity was manually created, then free_cursor might be positive
             // Returning None handles that case correctly
             let num_pending = usize::try_from(-free_cursor).ok()?;
-            (idu < self.meta.len() + num_pending).then_some(Entity::from_raw(row))
+            (idu < self.meta.len() + num_pending).then_some(Entity::from_row(row))
         }
     }
 
@@ -1052,7 +1057,7 @@ impl Entities {
                 // SAFETY: the index is less than the meta length, which can not exceeded u32::MAX
                 let row = EntityRow::new(unsafe { NonMaxU32::new_unchecked(index as u32) });
                 init(
-                    Entity::from_raw_and_generation(row, meta.generation),
+                    Entity::from_row_and_generation(row, meta.generation),
                     &mut meta.location,
                 );
                 meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
@@ -1065,7 +1070,7 @@ impl Entities {
         for row in self.pending.drain(new_free_cursor..) {
             let meta = &mut self.meta[row.index() as usize];
             init(
-                Entity::from_raw_and_generation(row, meta.generation),
+                Entity::from_row_and_generation(row, meta.generation),
                 &mut meta.location,
             );
             meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
@@ -1324,12 +1329,11 @@ mod tests {
 
     #[test]
     fn entity_bits_roundtrip() {
-        let r = EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap());
+        let r = EntityRow::from_raw_u32(0xDEADBEEF).unwrap();
         assert_eq!(EntityRow::from_bits(r.to_bits()), r);
 
-        // Generation cannot be greater than 0x7FFF_FFFF else it will be an invalid Entity id
-        let e = Entity::from_raw_and_generation(
-            EntityRow::new(NonMaxU32::new(0xDEADBEEF).unwrap()),
+        let e = Entity::from_row_and_generation(
+            EntityRow::from_raw_u32(0xDEADBEEF).unwrap(),
             EntityGeneration::from_bits(0x5AADF00D),
         );
         assert_eq!(Entity::from_bits(e.to_bits()), e);
@@ -1368,7 +1372,7 @@ mod tests {
 
     #[test]
     fn entity_const() {
-        const C1: Entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        const C1: Entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
         assert_eq!(42, C1.index());
         assert_eq!(0, C1.generation().to_bits());
 
@@ -1376,7 +1380,7 @@ mod tests {
         assert_eq!(!0x0000_00cc, C2.index());
         assert_eq!(0x0000_00ff, C2.generation().to_bits());
 
-        const C3: u32 = Entity::from_raw(EntityRow::new(NonMaxU32::new(33).unwrap())).index();
+        const C3: u32 = Entity::from_row(EntityRow::from_raw_u32(33).unwrap()).index();
         assert_eq!(33, C3);
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_1111_1111)
@@ -1420,42 +1424,42 @@ mod tests {
     )]
     fn entity_comparison() {
         assert_eq!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             )
         );
         assert_ne!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(456).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(456).unwrap(),
                 EntityGeneration::from_bits(123)
             )
         );
@@ -1463,94 +1467,94 @@ mod tests {
         // ordering is by generation then by index
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                EntityGeneration::from_bits(456)
-            )
-        );
-        assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
-                EntityGeneration::from_bits(456)
-            ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            ) >= Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert!(
-            !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            ) <= Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
+                EntityGeneration::from_bits(456)
+            )
+        );
+        assert!(
+            !(Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
+                EntityGeneration::from_bits(456)
+            ) < Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
         assert!(
-            !(Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            !(Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(123).unwrap()),
+            ) > Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+            ) < Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
             )
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(9).unwrap()),
+            ) > Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
 
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(1)
-            ) > Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
-                EntityGeneration::from_bits(1)
-            )
-        );
-        assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
-                EntityGeneration::from_bits(1)
-            ) >= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+            ) > Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
+                EntityGeneration::from_bits(1)
+            ) >= Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(2).unwrap(),
+                EntityGeneration::from_bits(1)
+            )
+        );
+        assert!(
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
-            ) < Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+            ) < Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
         assert!(
-            Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(2).unwrap()),
+            Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
-            ) <= Entity::from_raw_and_generation(
-                EntityRow::new(NonMaxU32::new(1).unwrap()),
+            ) <= Entity::from_row_and_generation(
+                EntityRow::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
@@ -1564,15 +1568,12 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
-        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-            NonMaxU32::new(first_id).unwrap(),
-        )));
+        let first_hash =
+            hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(first_id).unwrap()));
 
         for i in 1..=255 {
             let id = first_id + i;
-            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-                NonMaxU32::new(id).unwrap(),
-            )));
+            let hash = hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(id).unwrap()));
             assert_eq!(first_hash.wrapping_sub(hash) as u32, i);
         }
     }
@@ -1584,15 +1585,12 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE;
-        let first_hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-            NonMaxU32::new(first_id).unwrap(),
-        ))) >> 57;
+        let first_hash =
+            hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(first_id).unwrap())) >> 57;
 
         for bit in 0..u32::BITS {
             let id = first_id ^ (1 << bit);
-            let hash = hash.hash_one(Entity::from_raw(EntityRow::new(
-                NonMaxU32::new(id).unwrap(),
-            ))) >> 57;
+            let hash = hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(id).unwrap())) >> 57;
             assert_ne!(hash, first_hash);
         }
     }
@@ -1617,7 +1615,7 @@ mod tests {
 
     #[test]
     fn entity_debug() {
-        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        let entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
         let string = format!("{entity:?}");
         assert_eq!(string, "42v0");
 
@@ -1628,7 +1626,7 @@ mod tests {
 
     #[test]
     fn entity_display() {
-        let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
+        let entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
         let string = format!("{entity}");
         assert_eq!(string, "42v0");
 

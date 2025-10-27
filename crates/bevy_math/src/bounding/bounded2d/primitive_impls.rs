@@ -5,7 +5,7 @@ use crate::{
     ops,
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
-        Plane2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Plane2d, Primitive2d, Rectangle, RegularPolygon, Rhombus, Ring, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
@@ -425,6 +425,16 @@ impl Bounded2d for Capsule2d {
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         let isometry = isometry.into();
         BoundingCircle::new(isometry.translation, self.radius + self.half_length)
+    }
+}
+
+impl<P: Bounded2d + Primitive2d> Bounded2d for Ring<P> {
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+        self.outer_shape.aabb_2d(isometry)
+    }
+
+    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
+        self.outer_shape.bounding_circle(isometry)
     }
 }
 

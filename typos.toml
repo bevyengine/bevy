@@ -14,6 +14,7 @@ reparametrization = "reparametrization" # Mathematical term in curve context (re
 reparametrize = "reparametrize"
 reparametrized = "reparametrized"
 mis = "mis"                             # mis - multiple importance sampling
+caf = "caf"                             # CAF - Core Audio Format
 
 # Match a Whole Word - Case Sensitive
 [default.extend-identifiers]

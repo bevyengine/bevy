@@ -10,7 +10,7 @@ use bevy_platform::collections::HashMap;
 use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
 
 use crate::{
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
     schedule::{
@@ -487,14 +487,10 @@ impl Systems {
         self.nodes.get_mut(key).and_then(|node| node.get_mut())
     }
 
-    /// Returns a mutable reference to the system with the given key, panicking
-    /// if it does not exist.
-    ///
-    /// # Panics
-    ///
-    /// If the system with the given key does not exist in this container.
-    pub(crate) fn node_mut(&mut self, key: SystemKey) -> &mut SystemNode {
-        &mut self.nodes[key]
+    /// Returns a mutable reference to the system with the given key. Will return
+    /// `None` if the key does not exist.
+    pub(crate) fn node_mut(&mut self, key: SystemKey) -> Option<&mut SystemNode> {
+        self.nodes.get_mut(key)
     }
 
     /// Returns `true` if the system with the given key has conditions.
@@ -552,6 +548,25 @@ impl Systems {
         );
         self.uninit.push(key);
         key
+    }
+
+    /// Remove a system with [`SystemKey`]
+    pub(crate) fn remove(&mut self, key: SystemKey) -> bool {
+        let mut found = false;
+        if self.nodes.remove(key).is_some() {
+            found = true;
+        }
+
+        if self.conditions.remove(key).is_some() {
+            found = true;
+        }
+
+        if let Some(index) = self.uninit.iter().position(|value| *value == key) {
+            self.uninit.remove(index);
+            found = true;
+        }
+
+        found
     }
 
     /// Returns `true` if all systems in this container have been initialized.
@@ -646,6 +661,11 @@ impl SystemSets {
         self.sets.get(key).map(|set| &**set)
     }
 
+    /// Returns the key for the given system set, returns None if it does not exist.
+    pub fn get_key(&self, set: InternedSystemSet) -> Option<SystemSetKey> {
+        self.ids.get(&set).copied()
+    }
+
     /// Returns the key for the given system set, inserting it into this
     /// container if it does not already exist.
     pub fn get_key_or_insert(&mut self, set: InternedSystemSet) -> SystemSetKey {
@@ -714,6 +734,14 @@ impl SystemSets {
             current_conditions.extend(new_conditions.into_iter().map(ConditionWithAccess::new));
         }
         key
+    }
+
+    /// Remove a set with a [`SystemSetKey`]
+    pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
+        self.sets.remove(key);
+        self.conditions.remove(key);
+        self.uninit.retain(|uninit| uninit.key != key);
+        true
     }
 
     /// Returns `true` if all system sets' conditions in this container have
