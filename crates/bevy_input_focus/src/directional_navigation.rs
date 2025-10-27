@@ -83,8 +83,8 @@ impl Plugin for DirectionalNavigationPlugin {
 /// # Requirements (for `bevy_ui`)
 ///
 /// Entities must also have:
-/// - [`ComputedNode`](bevy_ui::ComputedNode) - for size information
-/// - [`UiGlobalTransform`](bevy_ui::UiGlobalTransform) - for position information
+/// - [`ComputedNode`] - for size information
+/// - [`UiGlobalTransform`] - for position information
 ///
 /// These are automatically added by `bevy_ui` when you spawn UI entities.
 ///
