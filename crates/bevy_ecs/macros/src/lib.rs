@@ -18,7 +18,7 @@ use crate::{
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{format_ident, quote, ToTokens};
+use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
     ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
@@ -52,7 +52,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-    let mut errors = vec![];
 
     let mut attributes = BundleAttributes::default();
 
@@ -67,20 +66,20 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 Err(meta.error(format!("Invalid bundle container attribute. Allowed attributes: `{BUNDLE_ATTRIBUTE_NO_FROM_COMPONENTS}`")))
             });
 
-            if let Err(error) = parsing {
-                errors.push(error.into_compile_error());
+            if let Err(e) = parsing {
+                return e.into_compile_error().into()
             }
         }
     }
 
-    let named_fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
+    let fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let mut field_kind = Vec::with_capacity(named_fields.len());
+    let mut field_kinds = Vec::with_capacity(fields.len());
 
-    for field in named_fields {
+    for field in fields {
         let mut kind = BundleFieldKind::Component;
 
         for attr in field
@@ -102,42 +101,33 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
         }
 
-        field_kind.push(kind);
+        field_kinds.push(kind);
     }
 
-    let field = named_fields
-        .iter()
-        .map(|field| field.ident.as_ref())
-        .collect::<Vec<_>>();
+    let field_members = fields.members();
 
-    let field_type = named_fields
+    let field_types = fields
         .iter()
         .map(|field| &field.ty)
         .collect::<Vec<_>>();
 
     let mut active_field_types = Vec::new();
-    let mut active_field_tokens = Vec::new();
-    let mut active_field_alias: Vec<proc_macro2::TokenStream> = Vec::new();
-    let mut inactive_field_tokens = Vec::new();
-    for (((i, field_type), field_kind), field) in field_type
-        .iter()
-        .enumerate()
-        .zip(field_kind.iter())
-        .zip(field.iter())
+    let mut active_field_members    = Vec::new();
+    let mut active_field_aliases = Vec::new();
+    let mut inactive_field_members = Vec::new();
+    for ((field_member, field_type), field_kind) in field_members
+        .zip(field_types)
+        .zip(field_kinds)
     {
-        let field_alias = format_ident!("field_{}", i).to_token_stream();
-        let field_tokens = match field {
-            Some(field) => field.to_token_stream(),
-            None => Index::from(i).to_token_stream(),
-        };
+        let field_alias = format_ident!("field_{}", field_member);
+
         match field_kind {
             BundleFieldKind::Component => {
                 active_field_types.push(field_type);
-                active_field_alias.push(field_alias);
-                active_field_tokens.push(field_tokens);
-            }
-
-            BundleFieldKind::Ignore => inactive_field_tokens.push(field_tokens),
+                active_field_aliases.push(field_alias);
+                active_field_members.push(field_member);
+            },
+            BundleFieldKind::Ignore => inactive_field_members.push(field_member)
         }
     }
     let generics = ast.generics;
@@ -179,11 +169,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
                 #ecs_path::ptr::deconstruct_moving_ptr!({
-                    let #struct_name { #(#active_field_tokens: #active_field_alias,)* #(#inactive_field_tokens: _,)* } = ptr;
+                    let #struct_name { #(#active_field_members: #active_field_aliases,)* #(#inactive_field_members: _,)* } = ptr;
                 });
                 #(
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
-                        #active_field_alias,
+                        #active_field_aliases,
                         func
                     );
                 )*
@@ -210,17 +200,13 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 __F: FnMut(&mut __T) -> #ecs_path::ptr::OwningPtr<'_>
             {
                 Self {
-                    #(#active_field_tokens: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
-                    #(#inactive_field_tokens: ::core::default::Default::default(),)*
+                    #(#active_field_members: <#active_field_types as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),)*
+                    #(#inactive_field_members: ::core::default::Default::default(),)*
                 }
             }
         }
     });
-
-    let attribute_errors = &errors;
-
     TokenStream::from(quote! {
-        #(#attribute_errors)*
         #bundle_impl
         #from_components_impl
         #dynamic_bundle_impl
