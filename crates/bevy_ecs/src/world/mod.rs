@@ -1711,17 +1711,25 @@ impl World {
     #[inline]
     #[track_caller]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        // The default component hook behavior for adding an already existing reasource is to replace it.
-        // We don't want that here.
-        if self.contains_resource::<R>() {
-            return self.resource_id::<R>().unwrap(); // must exist
-        }
-
+        let resource_id = self.register_resource::<R>();
         let caller = MaybeLocation::caller();
         let resource = R::from_world(self);
         move_as_ptr!(resource);
-        self.spawn_with_caller(resource, caller);
-        self.resource_id::<R>().unwrap() // must exist
+
+        if let Some(entity) = self.resource_entities.get(resource_id) {
+            let mut entity_mut = self
+                .get_entity_mut(*entity)
+                .expect("ResourceCache is in sync");
+            entity_mut.insert_with_caller(
+                resource,
+                InsertMode::Keep, // don't change it if it already exists
+                caller,
+                RelationshipHookMode::Run,
+            );
+        } else {
+            self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
+        }
+        resource_id
     }
 
     /// Inserts a new resource with the given `value`.
@@ -1747,8 +1755,10 @@ impl World {
         // if the resource already exists, we replace it on the same entity
         if let Some(component_id) = self.resource_id::<R>()
             && let Some(entity) = self.resource_entities.get(component_id)
-            && let Ok(mut entity_mut) = self.get_entity_mut(*entity)
         {
+            let mut entity_mut = self
+                .get_entity_mut(*entity)
+                .expect("ResourceCache is in sync");
             entity_mut.insert_with_caller(
                 value,
                 InsertMode::Replace,
@@ -1818,10 +1828,12 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.resource_id::<R>()?;
-        let entity = *self.resource_entities.get(component_id)?;
-        let value = self.get_entity_mut(entity).ok()?.take::<R>()?;
-        self.despawn(entity);
+        let resource_id = self.resource_id::<R>()?;
+        let entity = *self.resource_entities.get(resource_id)?;
+        let value = self
+            .get_entity_mut(entity)
+            .expect("ResourceCache is in sync")
+            .take::<R>()?;
         Some(value)
     }
 

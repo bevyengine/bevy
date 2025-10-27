@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
@@ -344,9 +346,15 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn extract_resources(mut self) -> Self {
         // Don't extract the DefaultQueryFilters resource
-        let original_world_dqf_id = self.original_world.resource_id::<DefaultQueryFilters>();
+        let original_world_dqf_id = self
+            .original_world
+            .components()
+            .valid_resource_id::<DefaultQueryFilters>();
         // Don't extract the AppTypeRegistry resource
-        let original_world_atr_id = self.original_world.resource_id::<AppTypeRegistry>();
+        let original_world_atr_id = self
+            .original_world
+            .components()
+            .valid_resource_id::<AppTypeRegistry>();
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
@@ -362,7 +370,10 @@ impl<'w> DynamicSceneBuilder<'w> {
                 .components()
                 .get_info(*resource_id)
                 .and_then(bevy_ecs::component::ComponentInfo::type_id)
-                .is_some_and(|type_id| self.resource_filter.is_denied_by_id(type_id))
+                .is_some_and(|type_id| {
+                    self.resource_filter.is_denied_by_id(type_id)
+                        || !type_registry.contains(type_id)
+                })
             {
                 continue;
             }
@@ -384,18 +395,12 @@ impl<'w> DynamicSceneBuilder<'w> {
                     // The resource_id has been approved, so we don't do any other checks
                     let type_registration = type_registry.get(type_id)?;
 
-                    // A resource entity can have both components and resources, we handle both cases:
-                    let component = if let Some(reflect_resource) =
-                        type_registration.data::<ReflectResource>()
-                    {
-                        reflect_resource.reflect(original_entity)
-                    } else if let Some(reflect_component) =
-                        type_registration.data::<ReflectComponent>()
-                    {
-                        reflect_component.reflect(original_entity)
-                    } else {
-                        None
-                    }?;
+                    let component = type_registration
+                        .data::<ReflectComponent>()
+                        .or(type_registration
+                            .data::<ReflectResource>()
+                            .map(|rr| rr.deref()))?
+                        .reflect(original_entity)?;
 
                     let component =
                         clone_reflect_value(component.as_partial_reflect(), type_registration);

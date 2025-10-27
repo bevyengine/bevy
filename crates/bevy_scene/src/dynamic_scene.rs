@@ -5,7 +5,6 @@ use bevy_asset::Asset;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    resource::IsResource,
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
@@ -50,6 +49,8 @@ impl DynamicScene {
 
     /// Create a new dynamic scene from a given world.
     pub fn from_world(world: &World) -> Self {
+        let resource_entities: Vec<Entity> = world.resource_entities().values().copied().collect();
+
         DynamicSceneBuilder::from_world(world)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
@@ -59,11 +60,7 @@ impl DynamicScene {
                     .iter()
                     .flat_map(bevy_ecs::archetype::Archetype::entities)
                     .map(bevy_ecs::archetype::ArchetypeEntity::id)
-                    .filter(|id| {
-                        world
-                            .get_entity(*id)
-                            .is_ok_and(|entity| !entity.contains::<IsResource>())
-                    }),
+                    .filter(|entity| !resource_entities.contains(entity)),
             )
             .extract_resources()
             .build()

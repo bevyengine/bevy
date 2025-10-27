@@ -1,5 +1,3 @@
-use core::any::TypeId;
-
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
@@ -65,68 +63,6 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
-        let self_dqf_id = self
-            .world
-            .components()
-            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
-
-        // Resources archetype
-        for (component_id, entity) in self.world.resource_entities().iter() {
-            if Some(*component_id) == self_dqf_id {
-                continue;
-            }
-
-            let entity_ref = self
-                .world
-                .get_entity(*entity)
-                .expect("Resource entity should exist in the world.");
-
-            if !entity_ref.contains_id(*component_id) {
-                continue;
-            }
-
-            let component_info = self
-                .world
-                .components()
-                .get_info(*component_id)
-                .expect("component_ids in archetypes should have ComponentInfo");
-
-            let type_id = component_info
-                .type_id()
-                .expect("reflected resources must have a type_id");
-
-            let registration =
-                type_registry
-                    .get(type_id)
-                    .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name(),
-                    })?;
-            let reflect_component = registration.data::<ReflectComponent>().ok_or_else(|| {
-                SceneSpawnError::UnregisteredResource {
-                    type_path: registration.type_info().type_path().to_string(),
-                }
-            })?;
-
-            let Some(component) = reflect_component
-                .reflect(self.world.entity(*entity))
-                .map(|component| clone_reflect_value(component.as_partial_reflect(), registration))
-            else {
-                continue;
-            };
-
-            // If this component references entities in the scene,
-            // update them to the entities in the world.
-            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
-                reflect_component.apply_or_insert_mapped(
-                    &mut world.entity_mut(*entity),
-                    component.as_partial_reflect(),
-                    &type_registry,
-                    mapper,
-                    RelationshipHookMode::Skip,
-                );
-            });
-        }
-
         // Ensure that all scene entities have been allocated in the destination
         // world before handling components that may contain references that need mapping.
         for archetype in self.world.archetypes().iter() {
@@ -137,7 +73,13 @@ impl Scene {
             }
         }
 
+        let self_dqf_id = self.world.resource_id::<DefaultQueryFilters>();
+
         for archetype in self.world.archetypes().iter() {
+            if self_dqf_id.is_some_and(|dqf_id| archetype.contains(dqf_id)) {
+                continue;
+            }
+
             for scene_entity in archetype.entities() {
                 let entity = *entity_map
                     .get(&scene_entity.id())

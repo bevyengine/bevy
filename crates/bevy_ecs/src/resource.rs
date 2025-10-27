@@ -104,22 +104,6 @@ pub trait Resource: Component<Mutability = Mutable> {
         // and that would conflict with the `DeferredWorld` passed to the resource hook.
         unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
     }
-
-    /// The `on_remove` component hook that maintains the uniqueness property of a resource.
-    fn on_remove_hook(mut deferred_world: DeferredWorld, context: HookContext) {
-        let world = deferred_world.deref();
-        // If the resource is already linked to a new (different) entity, we don't remove it.
-        if let Some(entity) = world.resource_entities.get(context.component_id)
-            && *entity == context.entity
-        {
-            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-            let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
-            // SAFETY: There are no shared references to the map.
-            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
-            // and that would conflict with the `DeferredWorld` passed to the resource hook.
-            unsafe { &mut *cache.0.get() }.remove(context.component_id);
-        }
-    }
 }
 
 /// A cache that links each `ComponentId` from a resource to the corresponding entity.
@@ -194,10 +178,11 @@ mod tests {
         assert_eq!(world.entities().len(), start + 3);
         assert!(world.remove_resource_by_id(id).is_some());
         assert_eq!(world.entities().len(), start + 2);
+        // the entity is stable: removing the resource should only remove the component from the entity, not despawn the entity
         world.remove_resource::<TestResource1>();
-        assert_eq!(world.entities().len(), start + 1);
+        assert_eq!(world.entities().len(), start + 2);
         // make sure that trying to add a resource twice results, doesn't change the entity count
         world.insert_resource(TestResource2(String::from("Bar")));
-        assert_eq!(world.entities().len(), start + 1);
+        assert_eq!(world.entities().len(), start + 2);
     }
 }
