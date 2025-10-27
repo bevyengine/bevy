@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use alloc::borrow::Cow;
 use crate::{
     component::ComponentId,
@@ -5,41 +6,41 @@ use crate::{
     query::FilteredAccess,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use alloc::boxed::Box;
 use alloc::vec::Vec;
 use alloc::vec;
+use std::any::Any;
 use std::ptr::NonNull;
 use fixedbitset::FixedBitSet;
 use bevy_ecs::archetype::Archetype;
 use bevy_ecs::prelude::{ContainsEntity, QueryBuilder, World};
-use bevy_ecs::query::{QueryData, QueryFilter};
+use bevy_ecs::query::{QueryData, QueryFilter, WorldQuery};
 use bevy_ecs::relationship::{Relationship, RelationshipTarget};
 use bevy_ecs::storage::{SparseSetIndex, TableId, TableRow};
 use bevy_ecs::world::unsafe_world_cell::UnsafeEntityCell;
-use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_ptr::{Ptr, PtrMut};
 use crate::relationship::RelationshipAccessor;
 
 /// Represents a single source in a multi-source query.
 /// Each term has its own ComponentAccess requirements.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum QueryOperation {
     Relationship(QueryRelationship),
     Source(QuerySource),
 }
 
-type MatchesArchetypeFn = fn(archetype: &Archetype, component_access: &FilteredAccess, fetch_state: Ptr, filter_state: Ptr) -> bool;
+type MatchesArchetypeFn = unsafe fn(archetype: &Archetype, component_access: &FilteredAccess, fetch_state: Ptr, filter_state: Ptr) -> bool;
 
 /// Check if the archetype should be considered
 pub unsafe fn matches_archetype<D: QueryData, F: QueryFilter>(archetype: &Archetype, component_access: &FilteredAccess, fetch_state: Ptr, filter_state: Ptr) -> bool {
     let fetch_state = unsafe { fetch_state.deref::<D::State>() };
     let filter_state = unsafe { filter_state.deref::<F::State>() };
-    // let fetch_state = unsafe { fetch_state.as_ptr().cast::<D::State>().as_ref().unwrap_unchecked() };
-    // let filter_state = unsafe { filter_state.as_ptr().cast::<F::State>().as_ref().unwrap_unchecked() };
     D::matches_component_set(fetch_state, &|id| archetype.contains(id))
-            && F::matches_component_set(filter_state, &|id| archetype.contains(id))
-            && QuerySource::matches_component_set(component_access, &|id| archetype.contains(id))
-    }
+        && F::matches_component_set(filter_state, &|id| archetype.contains(id))
+        && QuerySource::matches_component_set(component_access, &|id| archetype.contains(id))
+}
 
-type FilterFetchFn = fn(state: Ptr, fetch: PtrMut, entity: Entity, table_row: TableRow) -> bool;
+type FilterFetchFn = unsafe fn(state: Ptr, fetch: PtrMut, entity: Entity, table_row: TableRow) -> bool;
 
 /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
 /// If false, the entity will be skipped.
@@ -49,11 +50,11 @@ pub unsafe fn filter_fetch<F: QueryFilter>(state: Ptr, fetch: PtrMut, entity: En
     unsafe { F::filter_fetch(state, fetch, entity, table_row) }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct QuerySource {
     access: FilteredAccess,
-    fetch_state: NonNull<u8>,
-    filter_state: NonNull<u8>,
+    fetch_state: Box<dyn Any>,
+    filter_state: Box<dyn Any>,
     matches_archetype_fn: MatchesArchetypeFn,
     filter_fetch_fn: FilterFetchFn,
     variable_idx: u8,
@@ -62,12 +63,14 @@ pub struct QuerySource {
 
 impl QuerySource {
     pub fn matches(&self, archetype: &Archetype) -> bool {
-        (self.matches_archetype_fn)(
+        let fetch_state = unsafe { NonNull::new_unchecked(self.fetch_state.as_ref() as *const dyn Any as *mut dyn Any) };
+        let filter_state = unsafe { NonNull::new_unchecked(self.filter_state.as_ref() as *const dyn Any as *mut dyn Any) };
+        unsafe { (self.matches_archetype_fn)(
             archetype,
             &self.access,
-            unsafe { Ptr::new(self.fetch_state) },
-            unsafe { Ptr::new(self.filter_state) },
-        )
+            Ptr::new(fetch_state.cast::<u8>()),
+            Ptr::new(filter_state.cast::<u8>()),
+        ) }
     }
 
     /// Returns `true` if this access matches a set of components. Otherwise, returns `false`.
@@ -153,7 +156,9 @@ impl<'w> QueryPlanBuilder<'w> {
         }
     }
 
-    pub fn add_source_from_builder<D: QueryData, F: QueryFilter>(&mut self, f: impl Fn(QueryBuilder) -> QueryBuilder) -> &mut Self {
+    pub fn add_source_from_builder<D: QueryData, F: QueryFilter>(&mut self, f: impl Fn(QueryBuilder) -> QueryBuilder) -> &mut Self
+        where <D as WorldQuery>::State: 'static,
+              <F as WorldQuery>::State: 'static, {
         let query_builder = QueryBuilder::new(&mut self.world);
         let mut builder = f(query_builder);
         let builder = builder.transmute_filtered::<D, F>();
@@ -170,16 +175,15 @@ impl<'w> QueryPlanBuilder<'w> {
         );
 
         let access = builder.access().clone();
-        let fetch_state = NonNull::from(&fetch_state).cast::<u8>();
-        let filter_state = NonNull::from(&filter_state).cast::<u8>();
-
-        let matches_archetype_fn: MatchesArchetypeFn  = unsafe { core::mem::transmute(matches_archetype::<D, F>) };
-        let filter_fetch_fn: FilterFetchFn  = unsafe { core::mem::transmute(filter_fetch::<F>) };
-        self.plan.add_source(access, fetch_state, filter_state, matches_archetype_fn, filter_fetch_fn);
+        let matches_archetype_fn: MatchesArchetypeFn  = matches_archetype::<D, F>;
+        let filter_fetch_fn: FilterFetchFn  = filter_fetch::<F>;
+        self.plan.add_source(access, Box::new(fetch_state), Box::new(filter_state), matches_archetype_fn, filter_fetch_fn);
         self
     }
 
-    pub fn add_source<D: QueryData, F: QueryFilter>(&mut self) -> &mut Self {
+    pub fn add_source<D: QueryData, F: QueryFilter>(&mut self) -> &mut Self
+    where <D as WorldQuery>::State: 'static,
+          <F as WorldQuery>::State: 'static, {
         let fetch_state = D::init_state(&mut self.world);
         let filter_state = F::init_state(&mut self.world);
 
@@ -196,13 +200,9 @@ impl<'w> QueryPlanBuilder<'w> {
         // properly considered in a global "cross-query" context (both within systems and across systems).
         access.extend(&filter_access);
 
-        let fetch_state = NonNull::from(&fetch_state).cast::<u8>();
-        let filter_state = NonNull::from(&filter_state).cast::<u8>();
-
-        let matches_archetype_fn: MatchesArchetypeFn  = unsafe { core::mem::transmute(matches_archetype::<D, F>) };
-        let filter_fetch_fn: FilterFetchFn  = unsafe { core::mem::transmute(filter_fetch::<F>) };
-
-        self.plan.add_source(access, fetch_state, filter_state, matches_archetype_fn, filter_fetch_fn);
+        let matches_archetype_fn: MatchesArchetypeFn = matches_archetype::<D, F>;
+        let filter_fetch_fn: FilterFetchFn  = filter_fetch::<F>;
+        self.plan.add_source(access, Box::new(fetch_state), Box::new(filter_state), matches_archetype_fn, filter_fetch_fn);
         self
     }
 
@@ -283,7 +283,7 @@ pub enum QueryPlanError {
 
 /// A dynamic query plan that describes how to match multiple entities
 /// connected through relationships.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct QueryPlan {
     /// All operations in this query.
     pub operations: Vec<QueryOperation>,
@@ -295,7 +295,7 @@ impl QueryPlan {
     pub fn query_iter<'w, 's>(&'s self, world: UnsafeWorldCell<'w>) -> Iter<'w, 's> {
         Iter {
             world,
-            query_state: Cow::Borrowed(self),
+            query_state: &self,
             iter_state: IterState::new(self),
         }
     }
@@ -373,7 +373,7 @@ impl<'w> IterState<'w> {
 /// Iterator that iterates through a dynamic query plan
 pub struct Iter<'w, 's> {
     world: UnsafeWorldCell<'w>,
-    query_state: Cow<'s, QueryPlan>,
+    query_state: &'s QueryPlan,
     iter_state: IterState<'s>,
 }
 
@@ -586,6 +586,7 @@ impl<'w, 's> Iter<'w, 's> {
                     if *storage_idx >= storage_state.tables.len() as u32 {
                         return false
                     }
+                    // TODO: apply filter_fetch
                     // either beginning of the iteration, or finished processing a table, so skip to the next
                     if (*offset + 1) == *current_len {
                         // go to next table
@@ -695,7 +696,8 @@ impl QueryPlan {
     }
 
     /// Add a term to the query plan.
-    pub(crate) fn add_source(&mut self, access: FilteredAccess, fetch_state: NonNull<u8>, filter_state: NonNull<u8>, matches_archetype_fn: MatchesArchetypeFn, filter_fetch_fn: FilterFetchFn) -> usize {
+    pub(crate) fn add_source(&mut self, access: FilteredAccess, fetch_state: Box<dyn Any>, filter_state: Box<dyn Any>, matches_archetype_fn: MatchesArchetypeFn, filter_fetch_fn: FilterFetchFn) ->
+                                                                                                                                                                                               usize {
         let op_index = self.operations.len();
         self.operations.push(QueryOperation::Source(QuerySource {
             access,
@@ -784,11 +786,13 @@ mod tests {
         let child = world.spawn((A, ChildOf(parent))).id();
         world.flush();
 
+        let ptr_a = world.register_component::<A>();
+
         // Build a simple plan using the builder API
         let mut builder = QueryPlanBuilder::new(&mut world);
-        builder.add_source::<&A, ()>();
+        builder.add_source::<(), With<A>>();
         builder.add_relationship::<ChildOf>(0, 1);
-        builder.add_source::<Entity, ()>();
+        builder.add_source::<(), ()>();
         let plan = builder.compile();
 
         let iter = plan.query_iter(world.as_unsafe_world_cell());
@@ -825,19 +829,19 @@ mod tests {
 
         // Both sources must have the Marker
         let mut builder = QueryPlanBuilder::new(&mut world);
-        builder.add_source::<Entity, With<A>>();
+        builder.add_source::<(), With<A>>();
         builder.add_relationship::<ChildOf>(0, 1);
-        builder.add_source::<Entity, With<A>>();
+        builder.add_source::<(), With<A>>();
         let plan = builder.compile();
 
         let iter = plan.query_iter(world.as_unsafe_world_cell());
         let results: Vec<DynamicItem> = iter.collect();
 
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].entities[0].entity(), parent4);
-        assert_eq!(results[0].entities[1].entity(), grandparent4);
-        assert_eq!(results[1].entities[0].entity(), child4);
-        assert_eq!(results[1].entities[1].entity(), parent4);
+        assert_eq!(results[1].entities[0].entity(), parent4);
+        assert_eq!(results[1].entities[1].entity(), grandparent4);
+        assert_eq!(results[0].entities[0].entity(), child4);
+        assert_eq!(results[0].entities[1].entity(), parent4);
     }
 
     /// Checks that filters in the source or target of the relationship are respected
@@ -875,10 +879,10 @@ mod tests {
         let results: Vec<DynamicItem> = iter.collect();
 
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].entities[0].entity(), parent4);
-        assert_eq!(results[0].entities[1].entity(), grandparent4);
-        assert_eq!(results[1].entities[0].entity(), child4);
-        assert_eq!(results[1].entities[1].entity(), parent4);
+        assert_eq!(results[1].entities[0].entity(), parent4);
+        assert_eq!(results[1].entities[1].entity(), grandparent4);
+        assert_eq!(results[0].entities[0].entity(), child4);
+        assert_eq!(results[0].entities[1].entity(), parent4);
     }
 
     /// The first variable $1 is the target of the relationship
@@ -916,10 +920,10 @@ mod tests {
         let results: Vec<DynamicItem> = iter.collect();
 
         assert_eq!(results.len(), 2);
-        assert_eq!(results[0].entities[0].entity(), parent4);
-        assert_eq!(results[0].entities[1].entity(), child4);
-        assert_eq!(results[1].entities[0].entity(), grandparent4);
-        assert_eq!(results[1].entities[1].entity(), parent4);
+        assert_eq!(results[1].entities[0].entity(), parent4);
+        assert_eq!(results[1].entities[1].entity(), child4);
+        assert_eq!(results[0].entities[0].entity(), grandparent4);
+        assert_eq!(results[0].entities[1].entity(), parent4);
     }
 
     /// Q1 -> R12 -> Q2 -> R23 -> Q3
