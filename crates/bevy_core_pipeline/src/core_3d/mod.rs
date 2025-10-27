@@ -32,6 +32,7 @@ pub mod graph {
         LateDownsampleDepth,
         MotionBlur,
         Taa,
+        Fsr3,
         DlssSuperResolution,
         DlssRayReconstruction,
         Bloom,
