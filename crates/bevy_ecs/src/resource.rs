@@ -1,6 +1,7 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
 use core::ops::{Deref, DerefMut};
+use log::warn;
 
 use crate::{
     component::{Component, ComponentId, Mutable},
@@ -90,19 +91,38 @@ pub trait Resource: Component<Mutability = Mutable> {
     fn on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
         let world = deferred_world.deref();
 
-        if let Some(&offending_entity) = world.resource_entities.get(context.component_id)
-            && offending_entity != context.entity
-        {
-            // the resource already exists and we need to overwrite it
-            deferred_world.commands().entity(offending_entity).despawn();
+        if let Some(&original_entity) = world.resource_entities.get(context.component_id) {
+            if original_entity != context.entity {
+                // the resource already exists and the new one should be removed
+                deferred_world
+                    .commands()
+                    .entity(context.entity)
+                    .remove_by_id(context.component_id);
+                let name = deferred_world
+                    .components()
+                    .get_name(context.component_id)
+                    .expect("resource is registered");
+                warn!("Tried inserting {} on the wrong entity.", name);
+            }
+        } else {
+            // SAFETY: We have exclusive world access (as long as we don't make structural changes).
+            let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+            // SAFETY: There are no shared references to the map.
+            // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
+            // and that would conflict with the `DeferredWorld` passed to the resource hook.
+            unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
         }
+    }
 
+    /// The `on_despawn` component hook that maintains the uniqueness property of a resource.
+    fn on_despawn_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+        warn!("Resource entities are not supposed to be despawned.");
         // SAFETY: We have exclusive world access (as long as we don't make structural changes).
         let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
         // SAFETY: There are no shared references to the map.
         // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
         // and that would conflict with the `DeferredWorld` passed to the resource hook.
-        unsafe { &mut *cache.0.get() }.insert(context.component_id, context.entity);
+        unsafe { &mut *cache.0.get() }.remove(context.component_id);
     }
 }
 
