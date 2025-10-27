@@ -4695,6 +4695,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "auto_directional_navigation"
+path = "examples/ui/auto_directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_directional_navigation]
+name = "Automatic Directional Navigation"
+description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "clustered_decals"
 path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
