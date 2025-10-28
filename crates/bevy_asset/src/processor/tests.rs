@@ -5,9 +5,11 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
 use core::marker::PhantomData;
 use futures_lite::AsyncWriteExt;
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -30,35 +32,62 @@ use crate::{
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
 
-struct AppWithProcessor {
-    app: App,
-    source_dir: Dir,
-    processed_dir: Dir,
+#[derive(Clone)]
+struct ProcessingDirs {
+    source: Dir,
+    processed: Dir,
 }
 
-fn create_app_with_asset_processor() -> AppWithProcessor {
+struct AppWithProcessor {
+    app: App,
+    default_source_dirs: ProcessingDirs,
+    extra_sources_dirs: HashMap<String, ProcessingDirs>,
+}
+
+fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
     let mut app = App::new();
-    let source_dir = Dir::default();
-    let processed_dir = Dir::default();
 
-    let source_memory_reader = MemoryAssetReader {
-        root: source_dir.clone(),
-    };
-    let processed_memory_reader = MemoryAssetReader {
-        root: processed_dir.clone(),
-    };
-    let processed_memory_writer = MemoryAssetWriter {
-        root: processed_dir.clone(),
-    };
+    fn create_source(app: &mut App, source_id: AssetSourceId<'static>) -> ProcessingDirs {
+        let source_dir = Dir::default();
+        let processed_dir = Dir::default();
 
-    app.register_asset_source(
-        AssetSourceId::Default,
-        AssetSource::build()
-            .with_reader(move || Box::new(source_memory_reader.clone()))
-            .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-            .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-    )
-    .add_plugins((
+        let source_memory_reader = MemoryAssetReader {
+            root: source_dir.clone(),
+        };
+        let processed_memory_reader = MemoryAssetReader {
+            root: processed_dir.clone(),
+        };
+        let processed_memory_writer = MemoryAssetWriter {
+            root: processed_dir.clone(),
+        };
+
+        app.register_asset_source(
+            source_id,
+            AssetSource::build()
+                .with_reader(move || Box::new(source_memory_reader.clone()))
+                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        );
+
+        ProcessingDirs {
+            source: source_dir,
+            processed: processed_dir,
+        }
+    }
+
+    let default_source_dirs = create_source(&mut app, AssetSourceId::Default);
+
+    let extra_sources_dirs = extra_sources
+        .iter()
+        .map(|source_name| {
+            (
+                source_name.clone(),
+                create_source(&mut app, AssetSourceId::Name(source_name.clone().into())),
+            )
+        })
+        .collect();
+
+    app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
             mode: AssetMode::Processed,
@@ -115,8 +144,8 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
 
     AppWithProcessor {
         app,
-        source_dir,
-        processed_dir,
+        default_source_dirs,
+        extra_sources_dirs,
     }
 }
 
@@ -162,7 +191,7 @@ impl AssetSaver for CoolTextSaver {
             // another file to do so.
             embedded_dependencies: vec![],
         };
-        let ron = ron::ser::to_string(&ron).unwrap();
+        let ron = ron::ser::to_string_pretty(&ron, PrettyConfig::new().new_line("\n")).unwrap();
         writer.write_all(ron.as_bytes()).await?;
         Ok(())
     }
@@ -199,6 +228,19 @@ impl<M: MutateAsset<A>, A: Asset> AssetTransformer for RootAssetTransformer<M, A
     }
 }
 
+struct AddText(String);
+
+impl MutateAsset<CoolText> for AddText {
+    fn mutate(&self, text: &mut CoolText) {
+        text.text.push_str(&self.0);
+    }
+}
+
+fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
+    let bytes = dir.get_asset(path).unwrap();
+    str::from_utf8(bytes.value()).unwrap().to_string()
+}
+
 #[test]
 fn no_meta_or_default_processor_copies_asset() {
     // Assets without a meta file or a default processor should still be accessible in the
@@ -209,9 +251,13 @@ fn no_meta_or_default_processor_copies_asset() {
 
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     let path = Path::new("abc.cool.ron");
     let source_asset = r#"(
@@ -234,17 +280,13 @@ fn no_meta_or_default_processor_copies_asset() {
 fn asset_processor_transforms_asset_default_processor() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
-
-    struct AddText;
-
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -253,7 +295,7 @@ fn asset_processor_transforms_asset_default_processor() {
     >;
     app.register_asset_loader(CoolTextLoader)
         .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(AddText),
+            RootAssetTransformer::new(AddText("_def".into())),
             CoolTextSaver,
         ))
         .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
@@ -275,7 +317,12 @@ fn asset_processor_transforms_asset_default_processor() {
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
     assert_eq!(
         processed_asset,
-        r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
     );
 }
 
@@ -283,17 +330,13 @@ fn asset_processor_transforms_asset_default_processor() {
 fn asset_processor_transforms_asset_with_meta() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
-
-    struct AddText;
-
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -302,7 +345,7 @@ fn asset_processor_transforms_asset_with_meta() {
     >;
     app.register_asset_loader(CoolTextLoader)
         .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(AddText),
+            RootAssetTransformer::new(AddText("_def".into())),
             CoolTextSaver,
         ));
 
@@ -319,7 +362,7 @@ fn asset_processor_transforms_asset_with_meta() {
     source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -334,7 +377,12 @@ fn asset_processor_transforms_asset_with_meta() {
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
     assert_eq!(
         processed_asset,
-        r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
     );
 }
 
@@ -462,8 +510,6 @@ impl AssetSaver for FakeBsnSaver {
     ) -> Result<(), Self::Error> {
         use std::io::{Error, ErrorKind};
 
-        use ron::ser::PrettyConfig;
-
         let ron_string =
             ron::ser::to_string_pretty(asset.get(), PrettyConfig::new().new_line("\n"))
                 .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
@@ -477,9 +523,13 @@ fn asset_processor_loading_can_read_processed_assets() {
 
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     // This processor loads a gltf file, converts it to BSN and then saves out the BSN.
     type GltfProcessor = LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>;
@@ -543,9 +593,13 @@ fn asset_processor_loading_can_read_processed_assets() {
 fn asset_processor_loading_can_read_source_assets() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     #[derive(Serialize, Deserialize)]
     struct FakeGltfxData {
@@ -725,4 +779,70 @@ fn asset_processor_loading_can_read_source_assets() {
 
     // This assertion exists to "prove" that this problem exists.
     assert!(processed_dir.get_asset(gltfx_path).is_none());
+}
+
+#[test]
+fn asset_processor_processes_all_sources() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+            },
+        extra_sources_dirs,
+    } = create_app_with_asset_processor(&["custom_1".into(), "custom_2".into()]);
+    let ProcessingDirs {
+        source: custom_1_source_dir,
+        processed: custom_1_processed_dir,
+    } = extra_sources_dirs["custom_1"].clone();
+    let ProcessingDirs {
+        source: custom_2_source_dir,
+        processed: custom_2_processed_dir,
+    } = extra_sources_dirs["custom_2"].clone();
+
+    type AddTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor(AddTextProcessor::new(
+            RootAssetTransformer::new(AddText(" processed".into())),
+            CoolTextSaver,
+        ))
+        .set_default_asset_processor::<AddTextProcessor>("cool.ron");
+
+    // All the assets will have the same path, but they will still be separately processed since
+    // they are in different sources.
+    let path = Path::new("asset.cool.ron");
+    let serialize_as_cool_text = |text: &str| {
+        let cool_text_ron = CoolTextRon {
+            text: text.into(),
+            dependencies: vec![],
+            embedded_dependencies: vec![],
+            sub_texts: vec![],
+        };
+        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+    };
+    default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset"));
+    custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset"));
+    custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset"));
+
+    run_app_until_finished_processing(&mut app);
+
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset processed")
+    );
 }
