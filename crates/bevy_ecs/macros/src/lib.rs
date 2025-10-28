@@ -247,15 +247,12 @@ fn derive_system_param_impl(
     token_stream: TokenStream,
     ast: DeriveInput,
 ) -> syn::Result<TokenStream> {
-    let fields = match get_struct_fields(&ast.data, "derive(Bundle)") {
-        Ok(fields) => fields,
-        Err(e) => return Err(e),
-    };
+    let fields = get_struct_fields(&ast.data, "derive(Bundle)")?;
     let path = bevy_ecs_path();
 
     let field_locals = fields
         .members()
-        .map(|m| format_ident!("field_{}", m))
+        .map(|m| format_ident!("field{}", m))
         .collect::<Vec<_>>();
     let field_members = fields.members().collect::<Vec<_>>();
     let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
