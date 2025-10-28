@@ -2,10 +2,10 @@
 
 //! Macros for deriving asset traits.
 
-use bevy_macro_utils::{BevyManifest, as_member};
+use bevy_macro_utils::{as_member, BevyManifest};
 use proc_macro::{Span, TokenStream};
 use quote::{format_ident, quote};
-use syn::{Data, DataStruct, DeriveInput, Path, parse_macro_input};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Path};
 
 pub(crate) fn bevy_asset_path() -> Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_asset"))

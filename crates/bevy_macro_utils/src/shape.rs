@@ -1,4 +1,7 @@
-use syn::{Data, DataEnum, DataUnion, Error, Field, Fields, punctuated::Punctuated, spanned::Spanned, token::Comma};
+use syn::{
+    punctuated::Punctuated, spanned::Spanned, token::Comma, Data, DataEnum, DataUnion, Error,
+    Field, Fields,
+};
 
 /// Get the fields of a data structure if that structure is a struct;
 /// otherwise, return a compile error that points to the site of the macro invocation.
@@ -23,6 +26,9 @@ pub fn require_named<'a>(fields: &'a Fields) -> Result<&'a Punctuated<Field, Com
     if let Fields::Named(fields) = fields {
         Ok(&fields.named)
     } else {
-        Err(Error::new(fields.span(), "Unnamed fields are not supported here"))
+        Err(Error::new(
+            fields.span(),
+            "Unnamed fields are not supported here",
+        ))
     }
 }

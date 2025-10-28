@@ -225,7 +225,7 @@ pub fn impl_specializer(input: TokenStream) -> TokenStream {
     let ecs_path = crate::bevy_ecs_path();
 
     let ast = parse_macro_input!(input as DeriveInput);
-        let targets = guard!(get_specialize_targets(&ast, "Specializer"));
+    let targets = guard!(get_specialize_targets(&ast, "Specializer"));
     let fields = guard!(get_struct_fields(&ast.data, "Specializer"));
     let fields = guard!(require_named(fields));
     let field_info = guard!(get_field_info(fields, &targets));
