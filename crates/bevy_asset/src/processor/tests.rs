@@ -2,10 +2,14 @@ use alloc::{
     boxed::Box,
     collections::BTreeMap,
     string::{String, ToString},
+    sync::Arc,
     vec,
     vec::Vec,
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::{
+    collections::HashMap,
+    sync::{Mutex, PoisonError},
+};
 use bevy_reflect::TypePath;
 use core::marker::PhantomData;
 use futures_lite::AsyncWriteExt;
@@ -946,4 +950,216 @@ fn asset_processor_processes_all_sources() {
         read_asset_as_string(&custom_2_processed_dir, path),
         serialize_as_cool_text("custom 2 asset changed processed")
     );
+}
+
+#[test]
+fn nested_loads_of_processed_asset_reprocesses_on_reload() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+                source_event_sender: default_source_events,
+            },
+        extra_sources_dirs,
+    } = create_app_with_asset_processor(&["custom".into()]);
+    let ProcessingDirs {
+        source: custom_source_dir,
+        processed: custom_processed_dir,
+        source_event_sender: custom_source_events,
+    } = extra_sources_dirs["custom"].clone();
+
+    #[derive(Serialize, Deserialize)]
+    enum NesterSerialized {
+        Leaf(String),
+        Path(String),
+    }
+
+    #[derive(Asset, TypePath)]
+    struct Nester {
+        value: String,
+    }
+
+    struct NesterLoader;
+
+    impl AssetLoader for NesterLoader {
+        type Asset = Nester;
+        type Settings = ();
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = vec![];
+            reader.read_to_end(&mut bytes).await?;
+
+            let serialized: NesterSerialized = ron::de::from_bytes(&bytes).unwrap();
+            Ok(match serialized {
+                NesterSerialized::Leaf(value) => Nester { value },
+                NesterSerialized::Path(path) => {
+                    let loaded_asset = load_context.loader().immediate().load(path).await.unwrap();
+                    loaded_asset.take()
+                }
+            })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["nest"]
+        }
+    }
+
+    struct AddTextToNested(String, Arc<Mutex<u32>>);
+
+    impl MutateAsset<Nester> for AddTextToNested {
+        fn mutate(&self, asset: &mut Nester) {
+            asset.value.push_str(&self.0);
+
+            *self.1.lock().unwrap_or_else(PoisonError::into_inner) += 1;
+        }
+    }
+
+    fn serialize_as_leaf(value: String) -> String {
+        let serialized = NesterSerialized::Leaf(value);
+        ron::ser::to_string(&serialized).unwrap()
+    }
+
+    struct NesterSaver;
+
+    impl AssetSaver for NesterSaver {
+        type Asset = Nester;
+        type Error = std::io::Error;
+        type Settings = ();
+        type OutputLoader = NesterLoader;
+
+        async fn save(
+            &self,
+            writer: &mut crate::io::Writer,
+            asset: crate::saver::SavedAsset<'_, Self::Asset>,
+            _settings: &Self::Settings,
+        ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
+            let serialized = serialize_as_leaf(asset.get().value.clone());
+            writer.write_all(serialized.as_bytes()).await
+        }
+    }
+
+    let process_counter = Arc::new(Mutex::new(0));
+
+    type NesterProcessor = LoadTransformAndSave<
+        NesterLoader,
+        RootAssetTransformer<AddTextToNested, Nester>,
+        NesterSaver,
+    >;
+    app.init_asset::<Nester>()
+        .register_asset_loader(NesterLoader)
+        .register_asset_processor(NesterProcessor::new(
+            RootAssetTransformer::new(AddTextToNested("-ref".into(), process_counter.clone())),
+            NesterSaver,
+        ))
+        .set_default_asset_processor::<NesterProcessor>("nest");
+
+    // This test also checks that processing of nested assets can occur across asset sources.
+    custom_source_dir.insert_asset_text(
+        Path::new("top.nest"),
+        &ron::ser::to_string(&NesterSerialized::Path("middle.nest".into())).unwrap(),
+    );
+    default_source_dir.insert_asset_text(
+        Path::new("middle.nest"),
+        &ron::ser::to_string(&NesterSerialized::Path("custom://bottom.nest".into())).unwrap(),
+    );
+    custom_source_dir
+        .insert_asset_text(Path::new("bottom.nest"), &serialize_as_leaf("leaf".into()));
+    default_source_dir.insert_asset_text(
+        Path::new("unrelated.nest"),
+        &serialize_as_leaf("unrelated".into()),
+    );
+
+    run_app_until_finished_processing(&mut app);
+
+    // The initial processing step should have processed all assets.
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    let get_process_count = || {
+        *process_counter
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    };
+    assert_eq!(get_process_count(), 4);
+
+    // Now we will only send a single source event, but that should still result in all related
+    // assets being reprocessed.
+
+    custom_source_dir.insert_asset_text(
+        Path::new("bottom.nest"),
+        &serialize_as_leaf("leaf changed".into()),
+    );
+    custom_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset("bottom.nest".into()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app);
+
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf changed-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf changed-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf changed-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    assert_eq!(get_process_count(), 7);
+
+    // Send a modify event to the middle asset without changing the asset bytes. This should do
+    // **nothing** since neither its dependencies nor its bytes have changed.
+    default_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset("middle.nest".into()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app);
+
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf changed-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf changed-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf changed-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    assert_eq!(get_process_count(), 7);
 }
