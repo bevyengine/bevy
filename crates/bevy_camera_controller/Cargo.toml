@@ -29,7 +29,8 @@ bevy_reflect = ["dep:bevy_reflect"]
 libm = ["bevy_math/libm"]
 
 # Camera controllers
-free_cam = []
+free_camera = []
+pan_camera = []
 
 [lints]
 workspace = true

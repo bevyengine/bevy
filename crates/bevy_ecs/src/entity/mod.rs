@@ -75,8 +75,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, Tick},
+    change_detection::{CheckChangeTicks, MaybeLocation, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -497,7 +496,7 @@ impl Entity {
     /// ```
     pub const PLACEHOLDER: Self = Self::from_row(EntityRow::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `row` and a generation of 1.
+    /// Creates a new entity ID with the specified `row` and an unspecified generation.
     ///
     /// # Note
     ///

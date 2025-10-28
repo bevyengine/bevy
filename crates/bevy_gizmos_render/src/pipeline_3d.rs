@@ -1,5 +1,4 @@
 use crate::{
-    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
     init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
     line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
     GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
@@ -12,6 +11,7 @@ use bevy_core_pipeline::{
     oit::OrderIndependentTransparencySettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
+use bevy_gizmos::config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig};
 
 use bevy_ecs::{
     prelude::Entity,
@@ -70,7 +70,7 @@ impl Plugin for LineGizmo3dPlugin {
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
     mesh_pipeline: MeshPipeline,
-    uniform_layout: BindGroupLayout,
+    uniform_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
 }
 
@@ -129,6 +129,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             GizmoLineStyle::Solid => "fragment_solid",
             GizmoLineStyle::Dotted => "fragment_dotted",
             GizmoLineStyle::Dashed { .. } => "fragment_dashed",
+            _ => unimplemented!(),
         };
 
         RenderPipelineDescriptor {
@@ -170,7 +171,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 #[derive(Clone, Resource)]
 struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
-    uniform_layout: BindGroupLayout,
+    uniform_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
 }
 

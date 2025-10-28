@@ -13,14 +13,14 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
+use bevy_image::BevyDefault;
 use bevy_math::{Affine3, Vec4};
 use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
@@ -42,9 +42,9 @@ use bevy_render::{
         TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    texture::{DefaultImageSampler, FallbackImage, GpuImage},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
@@ -156,14 +156,16 @@ pub fn check_views_need_specialization(
 }
 
 pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<RenderDevice>) {
-    commands.insert_resource(BatchedInstanceBuffer::<Mesh2dUniform>::new(&render_device));
+    commands.insert_resource(BatchedInstanceBuffer::<Mesh2dUniform>::new(
+        &render_device.limits(),
+    ));
 }
 
 fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
     let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
 
     if let Some(per_object_buffer_batch_size) =
-        GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device)
+        GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device.limits())
     {
         mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
             "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -281,23 +283,19 @@ pub fn extract_mesh2d(
 
 #[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
-    pub view_layout: BindGroupLayout,
-    pub mesh_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
+    pub mesh_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
-    // This dummy white texture is to be used in place of optional textures
-    pub dummy_white_gpu_image: GpuImage,
     pub per_object_buffer_batch_size: Option<u32>,
 }
 
 pub fn init_mesh_2d_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    default_sampler: Res<DefaultImageSampler>,
     asset_server: Res<AssetServer>,
 ) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "mesh2d_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -310,72 +308,22 @@ pub fn init_mesh_2d_pipeline(
         ),
     );
 
-    let mesh_layout = render_device.create_bind_group_layout(
+    let mesh_layout = BindGroupLayoutDescriptor::new(
         "mesh2d_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
-            GpuArrayBuffer::<Mesh2dUniform>::binding_layout(&render_device),
+            GpuArrayBuffer::<Mesh2dUniform>::binding_layout(&render_device.limits()),
         ),
     );
-    // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
-    let dummy_white_gpu_image = {
-        let image = Image::default();
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = match image.sampler {
-            ImageSampler::Default => (**default_sampler).clone(),
-            ImageSampler::Descriptor(ref descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
 
-        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-        }
-
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size: image.texture_descriptor.size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        }
-    };
     commands.insert_resource(Mesh2dPipeline {
         view_layout,
         mesh_layout,
-        dummy_white_gpu_image,
-        per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device),
+        per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
+            &render_device.limits(),
+        ),
         shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wgsl"),
     });
-}
-
-impl Mesh2dPipeline {
-    pub fn get_image_texture<'a>(
-        &'a self,
-        gpu_images: &'a RenderAssets<GpuImage>,
-        handle_option: &Option<Handle<Image>>,
-    ) -> Option<(&'a TextureView, &'a Sampler)> {
-        if let Some(handle) = handle_option {
-            let gpu_image = gpu_images.get(handle)?;
-            Some((&gpu_image.texture_view, &gpu_image.sampler))
-        } else {
-            Some((
-                &self.dummy_white_gpu_image.texture_view,
-                &self.dummy_white_gpu_image.sampler,
-            ))
-        }
-    }
 }
 
 impl GetBatchData for Mesh2dPipeline {
@@ -710,13 +658,14 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
-                &mesh2d_pipeline.mesh_layout,
+                &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
                 &BindGroupEntries::single(binding),
             ),
         });
@@ -731,6 +680,7 @@ pub struct Mesh2dViewBindGroup {
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
@@ -751,7 +701,7 @@ pub fn prepare_mesh2d_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &mesh2d_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.view_layout),
             &BindGroupEntries::sequential((
                 view_binding.clone(),
                 globals.clone(),

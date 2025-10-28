@@ -216,6 +216,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let relationship_accessor = if (relationship.is_some() || relationship_target.is_some())
+        && let Data::Struct(DataStruct {
+            fields,
+            struct_token,
+            ..
+        }) = &ast.data
+        && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+    {
+        let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+        if relationship.is_some() {
+            quote! {
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
+            }
+        } else {
+            quote! {
+                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+            }
+        }
+    } else {
+        quote! {None}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -241,6 +270,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                #relationship_accessor
+            }
         }
 
         #relationship

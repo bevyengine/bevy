@@ -716,7 +716,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             #binding_index,
                             #render_path::render_resource::OwnedBindingResource::Sampler(
                                 // TODO: Support other types.
-                                #render_path::render_resource::WgpuSamplerBindingType::Filtering,
+                                #render_path::render_resource::SamplerBindingType::Filtering,
                                 {
                                 let handle: Option<&#asset_path::Handle<#image_path::Image>> = (&self.#field_name).into();
                                 if let Some(handle) = handle {
@@ -1054,8 +1054,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
             #bindless_slot_count
 
-            fn label() -> Option<&'static str> {
-                Some(#struct_name_literal)
+            fn label() -> &'static str {
+                #struct_name_literal
             }
 
             fn unprepared_bind_group(
