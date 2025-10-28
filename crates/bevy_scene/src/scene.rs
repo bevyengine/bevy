@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};

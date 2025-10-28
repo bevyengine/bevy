@@ -1,4 +1,4 @@
-use std::ops::Deref;
+use core::ops::Deref;
 
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
@@ -399,7 +399,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .data::<ReflectComponent>()
                         .or(type_registration
                             .data::<ReflectResource>()
-                            .map(|rr| rr.deref()))?
+                            .map(Deref::deref))?
                         .reflect(original_entity)?;
 
                     let component =
