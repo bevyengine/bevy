@@ -49,7 +49,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let field_members: Vec<_> = fields.members().collect();
     let field_aliases = fields
         .members()
-        .map(|m| format_ident!("field_{}", m))
+        .map(|m| format_ident!("field{}", m))
         .collect();
     let field_types = fields.iter().map(|f| f.ty.clone()).collect();
 

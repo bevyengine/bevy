@@ -122,7 +122,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let field_members = fields.members().collect();
     let field_aliases = fields
         .members()
-        .map(|m| format_ident!("field_{}", m))
+        .map(|m| format_ident!("field{}", m))
         .collect();
     let field_types: Vec<syn::Type> = fields.iter().map(|f| f.ty.clone()).collect();
     let read_only_field_types = field_types
