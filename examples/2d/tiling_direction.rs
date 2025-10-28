@@ -9,23 +9,25 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            update_tileset_image,
-        )
+        .add_systems(Update, update_tileset_image)
         .run();
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-
     let chunk_size = UVec2::splat(32);
     let tile_display_size = UVec2::splat(8);
     let tile_data: Vec<Option<TileData>> = (0..chunk_size.element_product())
-        .map(|value| Some(TileData {
-            tileset_index: 0,
-            color: Color::linear_rgb(value as f32 / 32.0 / 32.0 , (value % 32) as f32 / 32.0, 0.0) ,
-            .. Default::default()
-        }))
+        .map(|value| {
+            Some(TileData {
+                tileset_index: 0,
+                color: Color::linear_rgb(
+                    value as f32 / 32.0 / 32.0,
+                    (value % 32) as f32 / 32.0,
+                    0.0,
+                ),
+                ..Default::default()
+            })
+        })
         .collect();
 
     commands.spawn((

@@ -28,14 +28,13 @@ impl Plugin for TilemapChunkMaterialPlugin {
 pub struct TilemapChunkMaterial {
     pub alpha_mode: AlphaMode2d,
 
-
     #[texture(0, dimension = "2d_array")]
     #[sampler(1)]
     pub tileset: Handle<Image>,
 
     #[texture(2, sample_type = "u_int")]
     pub tile_data: Handle<Image>,
-    
+
     #[uniform(3)]
     pub tiling_direction: u32,
 }

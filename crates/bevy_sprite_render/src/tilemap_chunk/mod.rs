@@ -16,7 +16,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{UVec2, Vec2, primitives::Rectangle};
+use bevy_math::{primitives::Rectangle, UVec2, Vec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
@@ -80,36 +80,65 @@ pub enum TilingDirection {
 
 impl TilemapChunk {
     pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
-        let (tile_display_size, tile_center_correction, tile_origin_correction) = match self.tiling_direction {
-            TilingDirection::PosXNegY => {
-                (
-                    Vec2::new(self.tile_display_size.x as f32, (self.tile_display_size.y as f32).neg()),
-                    Vec2::new((self.tile_display_size.x as f32 / 2.).neg(), self.tile_display_size.y as f32 / 2.),
-                    Vec2::new((self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(), self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.)
-                )
-            },
-            TilingDirection::PosXPosY => {
-                (
-                    Vec2::new(self.tile_display_size.x as f32, self.tile_display_size.y as f32),
-                    Vec2::new((self.tile_display_size.x as f32 / 2.).neg(), (self.tile_display_size.y as f32 / 2.).neg()),
-                    Vec2::new((self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(), (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg())
-                )
-            },
-            TilingDirection::NegXNegY => {
-                (
-                    Vec2::new((self.tile_display_size.x as f32).neg(), (self.tile_display_size.y as f32).neg()),
-                    Vec2::new(self.tile_display_size.x as f32 / 2., self.tile_display_size.y as f32 / 2.),
-                    Vec2::new(self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2., self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.)
-                )
-            },
-            TilingDirection::NegXPosY => {
-                (
-                    Vec2::new((self.tile_display_size.x as f32).neg(), self.tile_display_size.y as f32),
-                    Vec2::new(self.tile_display_size.x as f32 / 2., (self.tile_display_size.y as f32 / 2.).neg()),
-                    Vec2::new(self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2., (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg())
-                )
-            },
-        };
+        let (tile_display_size, tile_center_correction, tile_origin_correction) =
+            match self.tiling_direction {
+                TilingDirection::PosXNegY => (
+                    Vec2::new(
+                        self.tile_display_size.x as f32,
+                        (self.tile_display_size.y as f32).neg(),
+                    ),
+                    Vec2::new(
+                        (self.tile_display_size.x as f32 / 2.).neg(),
+                        self.tile_display_size.y as f32 / 2.,
+                    ),
+                    Vec2::new(
+                        (self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(),
+                        self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+                    ),
+                ),
+                TilingDirection::PosXPosY => (
+                    Vec2::new(
+                        self.tile_display_size.x as f32,
+                        self.tile_display_size.y as f32,
+                    ),
+                    Vec2::new(
+                        (self.tile_display_size.x as f32 / 2.).neg(),
+                        (self.tile_display_size.y as f32 / 2.).neg(),
+                    ),
+                    Vec2::new(
+                        (self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(),
+                        (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg(),
+                    ),
+                ),
+                TilingDirection::NegXNegY => (
+                    Vec2::new(
+                        (self.tile_display_size.x as f32).neg(),
+                        (self.tile_display_size.y as f32).neg(),
+                    ),
+                    Vec2::new(
+                        self.tile_display_size.x as f32 / 2.,
+                        self.tile_display_size.y as f32 / 2.,
+                    ),
+                    Vec2::new(
+                        self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+                        self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+                    ),
+                ),
+                TilingDirection::NegXPosY => (
+                    Vec2::new(
+                        (self.tile_display_size.x as f32).neg(),
+                        self.tile_display_size.y as f32,
+                    ),
+                    Vec2::new(
+                        self.tile_display_size.x as f32 / 2.,
+                        (self.tile_display_size.y as f32 / 2.).neg(),
+                    ),
+                    Vec2::new(
+                        self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+                        (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg(),
+                    ),
+                ),
+            };
 
         Transform::from_xyz(
             // tile position
@@ -225,7 +254,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         tileset,
         tile_data,
         alpha_mode,
-        tiling_direction: tiling_direction as u32
+        tiling_direction: tiling_direction as u32,
     });
 
     world
@@ -304,9 +333,9 @@ impl TilemapChunkTileData {
 
 #[cfg(test)]
 mod tests {
-    use test_case::test_case;
     use crate::{TilemapChunk, TilingDirection};
     use bevy_math::{UVec2, Vec3};
+    use test_case::test_case;
 
     #[test_case(TilingDirection::PosXNegY, Vec3::new(30.0, -30.0, 0.0); "neg y pos x")]
     #[test_case(TilingDirection::PosXPosY, Vec3::new(30.0, 30.0, 0.0); "pos y pos x")]
@@ -319,6 +348,9 @@ mod tests {
             tile_display_size: UVec2::splat(4),
             ..Default::default()
         };
-        assert_eq!(expected_translation, chunk.calculate_tile_transform(UVec2::splat(16)).translation);
+        assert_eq!(
+            expected_translation,
+            chunk.calculate_tile_transform(UVec2::splat(16)).translation
+        );
     }
 }
