@@ -1,5 +1,3 @@
-use core::ops::Neg;
-
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{Assets, Handle};
