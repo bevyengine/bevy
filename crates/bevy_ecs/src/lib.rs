@@ -1239,14 +1239,12 @@ mod tests {
     #[test]
     fn resource() {
         use crate::resource::Resource;
-        use std::println;
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
 
         #[derive(Resource, PartialEq, Debug)]
         struct BigNum(u64);
-        println!("WHat");
         let mut world = World::default();
         assert!(world.get_resource::<Num>().is_none());
         assert!(!world.contains_resource::<Num>());
@@ -1304,7 +1302,6 @@ mod tests {
             Some(&BigNum(1)),
             "re-inserting resources works"
         );
-        println!("WHat");
 
         assert_eq!(
             world.get_resource::<Num>(),
