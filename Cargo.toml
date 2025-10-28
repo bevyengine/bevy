@@ -2036,7 +2036,7 @@ doc-scrape-examples = true
 name = "Async Channel Pattern"
 description = "An example showing how to offload work to background async tasks using channels for communication."
 category = "Async Tasks"
-wasm = false
+wasm = true
 
 [[example]]
 name = "external_source_external_thread"
