@@ -1,12 +1,11 @@
 use crate::{
     derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
-    from_reflect,
-    impls,
+    from_reflect, impls,
     impls::impl_assertions,
     ReflectDerive, REFLECT_ATTRIBUTE_NAME,
 };
-use bevy_macro_utils::fq_std::FQOption;
 use bevy_macro_utils::as_member;
+use bevy_macro_utils::fq_std::FQOption;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, quote_spanned};
@@ -365,8 +364,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
             let mut output = proc_macro2::TokenStream::new();
 
             for field in data.fields() {
-                let field_member =
-                    as_member(field.data.ident.as_ref(), field.declaration_index);
+                let field_member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let field_ty = &field.data.ty;
                 let span = create_assertion_span(field_ty.span());
 

@@ -2,7 +2,7 @@ use bevy_macro_utils::{ensure_no_collision, get_struct_fields};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Index};
+use syn::{parse_macro_input, parse_quote, DeriveInput};
 
 use crate::{bevy_ecs_path, world_query::world_query_impl};
 
@@ -41,14 +41,16 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
     let state_struct_name = ensure_no_collision(state_struct_name, tokens);
 
-    let fields = match get_struct_fields(&ast.data, "derive(QueryFilter)") {
+    let fields = match get_struct_fields(&ast.data, "derive(WorldQuery)") {
         Ok(fields) => fields,
         Err(e) => return e.into_compile_error().into(),
     };
 
-
     let field_members: Vec<_> = fields.members().collect();
-    let field_aliases = fields.members().map(|m| format_ident!("field_{}", m)).collect();
+    let field_aliases = fields
+        .members()
+        .map(|m| format_ident!("field_{}", m))
+        .collect();
     let field_types = fields.iter().map(|f| f.ty.clone()).collect();
 
     let world_query_impl = world_query_impl(

@@ -3,8 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
-    DataStruct, DeriveInput, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, DeriveInput, Meta,
 };
 
 use crate::{
@@ -121,9 +120,15 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let field_attrs = fields.iter().map(|f| f.attrs.clone()).collect();
     let field_visibilities = fields.iter().map(|f| f.vis.clone()).collect();
     let field_members = fields.members().collect();
-    let field_aliases = fields.members().map(|m| format_ident!("field_{}", m)).collect();
+    let field_aliases = fields
+        .members()
+        .map(|m| format_ident!("field_{}", m))
+        .collect();
     let field_types: Vec<syn::Type> = fields.iter().map(|f| f.ty.clone()).collect();
-    let read_only_field_types = field_types.iter().map(|ty| parse_quote!(quote!(<#ty as #path::query::QueryData>::ReadOnly))).collect();
+    let read_only_field_types = field_types
+        .iter()
+        .map(|ty| parse_quote!(<#ty as #path::query::QueryData>::ReadOnly))
+        .collect();
 
     let derive_args = &attributes.derive_args;
     // `#[derive()]` is valid syntax
@@ -210,7 +215,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     #[doc = "Automatically generated read-only field for accessing `"]
                     #[doc = stringify!(#field_types)]
                     #[doc = "`."]
-                    #field_visibilities #field_aliases: #read_only_field_types,
+                    #field_visibilities #field_members: #read_only_field_types,
                 )*
             }
 

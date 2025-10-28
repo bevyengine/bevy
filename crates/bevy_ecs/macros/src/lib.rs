@@ -18,9 +18,10 @@ use crate::{
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
-use quote::{ToTokens, format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    ConstParam, Data, DeriveInput, GenericParam, TypeParam, parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, ConstParam, Data,
+    DeriveInput, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -51,7 +52,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
 
-
     let mut attributes = BundleAttributes::default();
 
     for attr in &ast.attrs {
@@ -66,7 +66,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             });
 
             if let Err(e) = parsing {
-                return e.into_compile_error().into()
+                return e.into_compile_error().into();
             }
         }
     }
@@ -103,18 +103,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         field_kinds.push(kind);
     }
 
-    let field_types = fields
-        .iter()
-        .map(|field| &field.ty)
-        .collect::<Vec<_>>();
+    let field_types = fields.iter().map(|field| &field.ty).collect::<Vec<_>>();
 
     let mut active_field_types = Vec::new();
-    let mut active_field_members    = Vec::new();
+    let mut active_field_members = Vec::new();
     let mut active_field_locals = Vec::new();
     let mut inactive_field_members = Vec::new();
-    for ((field_member, field_type), field_kind) in fields.members()
-        .zip(field_types)
-        .zip(field_kinds)
+    for ((field_member, field_type), field_kind) in
+        fields.members().zip(field_types).zip(field_kinds)
     {
         let field_local = format_ident!("field_{}", field_member);
 
@@ -123,8 +119,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 active_field_types.push(field_type);
                 active_field_locals.push(field_local);
                 active_field_members.push(field_member);
-            },
-            BundleFieldKind::Ignore => inactive_field_members.push(field_member)
+            }
+            BundleFieldKind::Ignore => inactive_field_members.push(field_member),
         }
     }
     let generics = ast.generics;
@@ -281,7 +277,8 @@ fn derive_system_param_impl(
                 }
             })?;
         }
-        field_validation_messages.push(field_validation_message.unwrap_or_else(|| quote! { err.message }));
+        field_validation_messages
+            .push(field_validation_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
@@ -297,7 +294,7 @@ fn derive_system_param_impl(
                 r#"invalid lifetime name: expected `'w` or `'s`
  'w -- refers to data stored in the World.
  's -- refers to data stored in the SystemParam's state.'"#,
-            ))
+            ));
         }
     }
 
@@ -341,7 +338,6 @@ fn derive_system_param_impl(
             g => g,
         })
         .collect();
-
 
     let mut tuple_types: Vec<_> = field_types.iter().map(ToTokens::to_token_stream).collect();
     let mut tuple_patterns: Vec<_> = field_locals.iter().map(ToTokens::to_token_stream).collect();

@@ -6,8 +6,8 @@ use crate::{
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use bevy_macro_utils::as_member;
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
