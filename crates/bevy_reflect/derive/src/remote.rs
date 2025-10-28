@@ -1,12 +1,12 @@
 use crate::{
     derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl},
     from_reflect,
-    ident::ident_or_index,
     impls,
     impls::impl_assertions,
     ReflectDerive, REFLECT_ATTRIBUTE_NAME,
 };
 use bevy_macro_utils::fq_std::FQOption;
+use bevy_macro_utils::as_member;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, quote_spanned};
@@ -262,7 +262,7 @@ pub(crate) fn generate_remote_assertions(
                 .remote
                 .as_ref()
                 .map(|remote_ty| RemoteAssertionData {
-                    ident: ident_or_index(field.data.ident.as_ref(), field.declaration_index),
+                    ident: as_member(field.data.ident.as_ref(), field.declaration_index),
                     variant: None,
                     ty: &field.data.ty,
                     generics: data.meta().type_path().generics(),
@@ -276,7 +276,7 @@ pub(crate) fn generate_remote_assertions(
                     .remote
                     .as_ref()
                     .map(|remote_ty| RemoteAssertionData {
-                        ident: ident_or_index(field.data.ident.as_ref(), field.declaration_index),
+                        ident: as_member(field.data.ident.as_ref(), field.declaration_index),
                         variant: Some(&variant.data.ident),
                         ty: &field.data.ty,
                         generics: data.meta().type_path().generics(),
@@ -366,7 +366,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
 
             for field in data.fields() {
                 let field_member =
-                    ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                    as_member(field.data.ident.as_ref(), field.declaration_index);
                 let field_ty = &field.data.ty;
                 let span = create_assertion_span(field_ty.span());
 
@@ -389,7 +389,7 @@ fn generate_remote_definition_assertions(derive_data: &ReflectDerive) -> proc_ma
 
                 for field in variant.fields() {
                     let field_member =
-                        ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                        as_member(field.data.ident.as_ref(), field.declaration_index);
                     let field_ident = format_ident!("field_{}", field_member);
                     let field_ty = &field.data.ty;
                     let span = create_assertion_span(field_ty.span());
