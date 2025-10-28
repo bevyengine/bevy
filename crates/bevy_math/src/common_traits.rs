@@ -572,7 +572,7 @@ pub enum InterpolationError {
 /// Note that [`Color`] has its own, non-fallible mixing methods, but those entail
 /// automatically converting between different color spaces, and is both expensive and complex.
 /// [`TryStableInterpolate`] is more conservative, and doesn't automatically convert between
-/// color spaces. This produces a color interpolation that is has more predictable performance.
+/// color spaces. This produces a color interpolation that has more predictable performance.
 ///
 /// [`Val::Px`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
 /// [`Val::Percent`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
