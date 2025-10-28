@@ -33,23 +33,13 @@ impl From<taffy::NodeId> for LayoutNode {
 
 pub(crate) struct BevyTaffyTree<T>(TaffyTree<T>);
 
-/// # Safety
-/// Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
-///
-#[expect(
-    unsafe_code,
-    reason = "This wrapper is safe while the calc feature is disabled."
-)]
-unsafe impl<T> Send for BevyTaffyTree<T> {}
+#[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
+/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+unsafe impl Send for BevyTaffyTree<NodeMeasure> {}
 
-/// # Safety
-/// Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
-///
-#[expect(
-    unsafe_code,
-    reason = "This wrapper is safe while the calc feature is disabled."
-)]
-unsafe impl<T> Sync for BevyTaffyTree<T> {}
+#[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
+/// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
+unsafe impl Sync for BevyTaffyTree<NodeMeasure> {}
 
 impl<T> Deref for BevyTaffyTree<T> {
     type Target = TaffyTree<T>;
