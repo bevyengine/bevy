@@ -385,11 +385,17 @@ impl MaxTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
             MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::Px(val).into_length_percentage(context),
+                Val::Px(val)
+                    .into_length_percentage(context)
+                    .into_raw()
+                    .value(),
             ),
-            MaxTrackSizingFunction::Percent(val) => {
-                taffy::style::MaxTrackSizingFunction::percent(val)
-            }
+            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::percent(
+                Val::Percent(val)
+                    .into_length_percentage(context)
+                    .into_raw()
+                    .value(),
+            ),
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
             MaxTrackSizingFunction::MinContent => {
                 taffy::style::MaxTrackSizingFunction::min_content()
