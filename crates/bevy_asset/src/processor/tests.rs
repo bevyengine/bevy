@@ -20,7 +20,7 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetSource, AssetSourceId, Reader,
+        AssetSource, AssetSourceEvent, AssetSourceId, AssetWatcher, Reader,
     },
     processor::{
         AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
@@ -36,6 +36,7 @@ use crate::{
 struct ProcessingDirs {
     source: Dir,
     processed: Dir,
+    source_event_sender: async_channel::Sender<AssetSourceEvent>,
 }
 
 struct AppWithProcessor {
@@ -47,7 +48,27 @@ struct AppWithProcessor {
 fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
     let mut app = App::new();
 
-    fn create_source(app: &mut App, source_id: AssetSourceId<'static>) -> ProcessingDirs {
+    struct UnfinishedProcessingDirs {
+        source: Dir,
+        processed: Dir,
+        // The receiver channel for the source event sender for the unprocessed source.
+        source_event_sender_receiver:
+            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
+    }
+
+    impl UnfinishedProcessingDirs {
+        fn finish(self) -> ProcessingDirs {
+            ProcessingDirs {
+                source: self.source,
+                processed: self.processed,
+                // The processor listens for events on the source unconditionally, and we enable
+                // watching for the processed source, so both of these channels will be filled.
+                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
+            }
+        }
+    }
+
+    fn create_source(app: &mut App, source_id: AssetSourceId<'static>) -> UnfinishedProcessingDirs {
         let source_dir = Dir::default();
         let processed_dir = Dir::default();
 
@@ -61,17 +82,28 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
             root: processed_dir.clone(),
         };
 
+        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
+
+        struct FakeWatcher;
+
+        impl AssetWatcher for FakeWatcher {}
+
         app.register_asset_source(
             source_id,
             AssetSource::build()
                 .with_reader(move || Box::new(source_memory_reader.clone()))
+                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
+                    source_event_sender_sender.send_blocking(sender).unwrap();
+                    Some(Box::new(FakeWatcher))
+                })
                 .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
                 .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
         );
 
-        ProcessingDirs {
+        UnfinishedProcessingDirs {
             source: source_dir,
             processed: processed_dir,
+            source_event_sender_receiver,
         }
     }
 
@@ -85,13 +117,14 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
                 create_source(&mut app, AssetSourceId::Name(source_name.clone().into())),
             )
         })
-        .collect();
+        .collect::<Vec<_>>();
 
     app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
             ..Default::default()
         },
     ));
@@ -142,14 +175,25 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
         .set_log_factory(Box::new(FakeTransactionLogFactory))
         .unwrap();
 
+    // Now that we've built the app, finish all the processing dirs.
+
     AppWithProcessor {
         app,
-        default_source_dirs,
-        extra_sources_dirs,
+        default_source_dirs: default_source_dirs.finish(),
+        extra_sources_dirs: extra_sources_dirs
+            .into_iter()
+            .map(|(name, dirs)| (name, dirs.finish()))
+            .collect(),
     }
 }
 
 fn run_app_until_finished_processing(app: &mut App) {
+    // If the original source changes through an AssetSourceEvent, we'll be racing (on
+    // multithreaded) between this and processor thread switching the state to `Processing`. So do a
+    // fixed number of iterations so the processor thread is likely to win.
+    for _ in 0..5 {
+        app.update();
+    }
     run_app_until(app, |world| {
         if bevy_tasks::block_on(world.resource::<AssetProcessor>().get_state())
             == ProcessorState::Finished
@@ -255,6 +299,7 @@ fn no_meta_or_default_processor_copies_asset() {
             ProcessingDirs {
                 source: source_dir,
                 processed: processed_dir,
+                ..
             },
         ..
     } = create_app_with_asset_processor(&[]);
@@ -284,6 +329,7 @@ fn asset_processor_transforms_asset_default_processor() {
             ProcessingDirs {
                 source: source_dir,
                 processed: processed_dir,
+                ..
             },
         ..
     } = create_app_with_asset_processor(&[]);
@@ -334,6 +380,7 @@ fn asset_processor_transforms_asset_with_meta() {
             ProcessingDirs {
                 source: source_dir,
                 processed: processed_dir,
+                ..
             },
         ..
     } = create_app_with_asset_processor(&[]);
@@ -527,6 +574,7 @@ fn asset_processor_loading_can_read_processed_assets() {
             ProcessingDirs {
                 source: source_dir,
                 processed: processed_dir,
+                ..
             },
         ..
     } = create_app_with_asset_processor(&[]);
@@ -597,6 +645,7 @@ fn asset_processor_loading_can_read_source_assets() {
             ProcessingDirs {
                 source: source_dir,
                 processed: processed_dir,
+                ..
             },
         ..
     } = create_app_with_asset_processor(&[]);
@@ -789,16 +838,19 @@ fn asset_processor_processes_all_sources() {
             ProcessingDirs {
                 source: default_source_dir,
                 processed: default_processed_dir,
+                source_event_sender: default_source_events,
             },
         extra_sources_dirs,
     } = create_app_with_asset_processor(&["custom_1".into(), "custom_2".into()]);
     let ProcessingDirs {
         source: custom_1_source_dir,
         processed: custom_1_processed_dir,
+        source_event_sender: custom_1_source_events,
     } = extra_sources_dirs["custom_1"].clone();
     let ProcessingDirs {
         source: custom_2_source_dir,
         processed: custom_2_processed_dir,
+        source_event_sender: custom_2_source_events,
     } = extra_sources_dirs["custom_2"].clone();
 
     type AddTextProcessor = LoadTransformAndSave<
@@ -833,6 +885,7 @@ fn asset_processor_processes_all_sources() {
 
     run_app_until_finished_processing(&mut app);
 
+    // Check that all the assets are processed.
     assert_eq!(
         read_asset_as_string(&default_processed_dir, path),
         serialize_as_cool_text("default asset processed")
@@ -844,5 +897,53 @@ fn asset_processor_processes_all_sources() {
     assert_eq!(
         read_asset_as_string(&custom_2_processed_dir, path),
         serialize_as_cool_text("custom 2 asset processed")
+    );
+
+    // Update the default source asset and notify the watcher.
+    default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset changed"));
+    default_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app);
+
+    // Check that all the assets are processed again.
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset processed")
+    );
+
+    // Update the custom source assets and notify the watchers.
+    custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset changed"));
+    custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset changed"));
+    custom_1_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+    custom_2_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app);
+
+    // Check that all the assets are processed again.
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset changed processed")
     );
 }
