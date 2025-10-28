@@ -1210,7 +1210,7 @@ pub fn process_remote_remove_resources_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let entity = get_resource_entity(&type_registry, &resource_path, &world)
+    let entity = get_resource_entity(&type_registry, &resource_path, world)
         .map_err(BrpError::resource_error)?;
     world.despawn(entity);
 
@@ -1621,7 +1621,7 @@ fn get_resource_type_registration<'r>(
         .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
 }
 
-fn get_resource_entity<'r>(
+fn get_resource_entity(
     type_registry: &TypeRegistry,
     resource_path: &str,
     world: &World,

@@ -271,7 +271,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # See also
     ///
     /// * [`Components::resource_id()`]
-    /// * [`ComponentsRegistrator::register_resource_with_descriptor()`]
     #[inline]
     pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
         self.register_component::<T>()
@@ -652,7 +651,7 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         })
     }
 
-    /// This is a queued version of [`ComponentsRegistrator::register_resource_with_descriptor`].
+    /// This is a queued version of [`ComponentsRegistrator::register_non_send_with_descriptor`].
     /// This will reserve an id and queue the registration.
     /// These registrations will be carried out at the next opportunity.
     ///
