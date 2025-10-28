@@ -287,10 +287,10 @@ fn derive_system_param_impl(
     let generics = ast.generics;
 
     // Emit an error if there's any unrecognized lifetime names.
+    let w = format_ident!("w");
+    let s = format_ident!("s");
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
-        let w = format_ident!("w");
-        let s = format_ident!("s");
         if ident != &w && ident != &s {
             return Err(syn::Error::new_spanned(
                 lt,
