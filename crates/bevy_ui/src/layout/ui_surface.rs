@@ -1,5 +1,5 @@
 use core::fmt;
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
@@ -34,7 +34,7 @@ impl From<taffy::NodeId> for LayoutNode {
 pub(crate) struct BevyTaffyTree<T>(TaffyTree<T>);
 
 /// # Safety
-/// Taffy Tree becomes thread unsafe when you use calc(), which we do not implement
+/// Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 ///
 #[expect(
     unsafe_code,
@@ -43,7 +43,7 @@ pub(crate) struct BevyTaffyTree<T>(TaffyTree<T>);
 unsafe impl<T> Send for BevyTaffyTree<T> {}
 
 /// # Safety
-/// Taffy Tree becomes thread unsafe when you use calc(), which we do not implement
+/// Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
 ///
 #[expect(
     unsafe_code,
