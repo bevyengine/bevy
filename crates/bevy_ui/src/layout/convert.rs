@@ -340,7 +340,7 @@ impl MinTrackSizingFunction {
                     .into_raw()
                     .value(),
             ),
-            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::length(
+            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::percent(
                 Val::Percent(val)
                     .into_length_percentage(context)
                     .into_raw()
