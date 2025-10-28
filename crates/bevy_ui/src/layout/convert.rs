@@ -404,10 +404,20 @@ impl MaxTrackSizingFunction {
                 taffy::style::MaxTrackSizingFunction::max_content()
             }
             MaxTrackSizingFunction::FitContentPx(val) => {
-                taffy::style::MaxTrackSizingFunction::fit_content_px(val)
+                taffy::style::MaxTrackSizingFunction::fit_content_px(
+                    Val::Px(val)
+                        .into_length_percentage(context)
+                        .into_raw()
+                        .value(),
+                )
             }
             MaxTrackSizingFunction::FitContentPercent(val) => {
-                taffy::style::MaxTrackSizingFunction::fit_content_percent(val)
+                taffy::style::MaxTrackSizingFunction::fit_content_percent(
+                    Val::Percent(val)
+                        .into_length_percentage(context)
+                        .into_raw()
+                        .value(),
+                )
             }
             MaxTrackSizingFunction::Fraction(fraction) => {
                 taffy::style::MaxTrackSizingFunction::fr(fraction)
