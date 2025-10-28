@@ -47,16 +47,17 @@ pub enum PopoverAlign {
     /// parent.
     #[default]
     Start,
-    /// The ending edge of the popover element should be aligned to the ending edge of the parent.
-    End,
     /// The center of the popover element should be aligned to the center of the parent.
     Center,
+    /// The ending edge of the popover element should be aligned to the ending edge of the parent.
+    End,
 }
 
 /// Indicates a possible position of a popover element relative to it's parent. You can
 /// specify multiple possible positions; the positioning code will check to see if there is
-/// sufficient space to display the popup without clipping. If any position has sufficient room,
-/// it will pick the first one; if there are none, then it will pick the least bad one.
+/// sufficient space to display the popup without being clipped by the window edge. If any position
+/// has sufficient room, it will pick the first one; if there are none, then it will pick the least
+/// bad one.
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub struct PopoverPlacement {
     /// The side of the parent entity where the popover element should be placed.

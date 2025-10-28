@@ -973,6 +973,7 @@ fn toggle_disabled(
         (Entity, Has<InteractionDisabled>),
         Or<(
             With<Button>,
+            With<MenuButton>,
             With<Slider>,
             With<Checkbox>,
             With<RadioButton>,

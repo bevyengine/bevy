@@ -370,7 +370,7 @@ impl Rect {
         self.width() * self.height()
     }
 
-    /// Scale this rect by a multiplicative factor
+    /// Scale the coordinates of this rect by a multiplicative factor.
     ///
     /// # Examples
     ///
