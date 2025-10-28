@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             chunk_size,
             tile_display_size,
             tileset: assets.load("textures/array_texture.png"),
-            tiling_direction: TilingDirection::PosYPosX,
+            tiling_direction: TilingDirection::PosXPosY,
             ..default()
         },
         Transform::from_translation(Vec3::new(8.0 * 24.0, 8.0 * 24.0, 0.0)),
@@ -56,7 +56,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             chunk_size,
             tile_display_size,
             tileset: assets.load("textures/array_texture.png"),
-            tiling_direction: TilingDirection::NegYNegX,
+            tiling_direction: TilingDirection::NegXNegY,
             ..default()
         },
         Transform::from_translation(Vec3::new(-8.0 * 24.0, -8.0 * 24.0, 0.0)),
@@ -68,7 +68,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             chunk_size,
             tile_display_size,
             tileset: assets.load("textures/array_texture.png"),
-            tiling_direction: TilingDirection::PosYNegX,
+            tiling_direction: TilingDirection::NegXPosY,
             ..default()
         },
         Transform::from_translation(Vec3::new(-8.0 * 24.0, 8.0 * 24.0, 0.0)),

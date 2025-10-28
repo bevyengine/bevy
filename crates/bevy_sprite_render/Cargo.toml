@@ -44,6 +44,9 @@ bitflags = "2.3"
 nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[dev-dependencies]
+test-case = "3.3.1"
+
 [lints]
 workspace = true
 

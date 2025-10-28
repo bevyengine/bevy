@@ -16,7 +16,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_math::{UVec2, Vec2, primitives::Rectangle};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
@@ -69,36 +69,67 @@ pub struct TilemapChunk {
 pub enum TilingDirection {
     /// Current default behavior.  Lays out tiles from the top left to the bottom right.
     #[default]
-    NegYPosX = 0,
+    PosXNegY = 0,
     /// Lays out tiles from bottom left to top right.
-    PosYPosX,
+    PosXPosY,
     /// Lays out tiles from top right to bottom left.
-    NegYNegX,
+    NegXNegY,
     /// Lays out tiles from bottom right to top left.
-    PosYNegX,
+    NegXPosY,
 }
 
 impl TilemapChunk {
     pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
+        let (tile_display_size, tile_center_correction, tile_origin_correction) = match self.tiling_direction {
+            TilingDirection::PosXNegY => {
+                (
+                    Vec2::new(self.tile_display_size.x as f32, (self.tile_display_size.y as f32).neg()),
+                    Vec2::new((self.tile_display_size.x as f32 / 2.).neg(), self.tile_display_size.y as f32 / 2.),
+                    Vec2::new((self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(), self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.)
+                )
+            },
+            TilingDirection::PosXPosY => {
+                (
+                    Vec2::new(self.tile_display_size.x as f32, self.tile_display_size.y as f32),
+                    Vec2::new((self.tile_display_size.x as f32 / 2.).neg(), (self.tile_display_size.y as f32 / 2.).neg()),
+                    Vec2::new((self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(), (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg())
+                )
+            },
+            TilingDirection::NegXNegY => {
+                (
+                    Vec2::new((self.tile_display_size.x as f32).neg(), (self.tile_display_size.y as f32).neg()),
+                    Vec2::new(self.tile_display_size.x as f32 / 2., self.tile_display_size.y as f32 / 2.),
+                    Vec2::new(self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2., self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.)
+                )
+            },
+            TilingDirection::NegXPosY => {
+                (
+                    Vec2::new((self.tile_display_size.x as f32).neg(), self.tile_display_size.y as f32),
+                    Vec2::new(self.tile_display_size.x as f32 / 2., (self.tile_display_size.y as f32 / 2.).neg()),
+                    Vec2::new(self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2., (self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.).neg())
+                )
+            },
+        };
+
         Transform::from_xyz(
             // tile position
             position.x as f32
             // times display size for a tile
-            * self.tile_display_size.x as f32
+            * tile_display_size.x as f32
             // plus 1/2 the tile_display_size to correct the center
-            + self.tile_display_size.x as f32 / 2.
-            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
-            // to place the 0 at left of tilemapchunk
-            - self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+            + tile_center_correction.x
+            // plus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at proper side
+            +  tile_origin_correction.x,
             // tile position
             position.y as f32
             // times display size for a tile
-            * (self.tile_display_size.y as f32).neg()
-            // minus 1/2 the tile_display_size to correct the center
-            - self.tile_display_size.y as f32 / 2.
+            * tile_display_size.y
+            // plus 1/2 the tile_display_size to correct the center
+            + tile_center_correction.y
             // plus 1/2 the tilechunk size, in terms of the tile_display_size,
-            // to place the 0 at top of tilemapchunk
-            + self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            // to place the 0 at proper side
+            + tile_origin_correction.y,
             0.,
         )
     }
@@ -268,5 +299,26 @@ impl TilemapChunkTileData {
         self.0
             .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
             .and_then(|opt| opt.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use test_case::test_case;
+    use crate::{TilemapChunk, TilingDirection};
+    use bevy_math::{UVec2, Vec3};
+
+    #[test_case(TilingDirection::PosXNegY, Vec3::new(30.0, -30.0, 0.0); "neg y pos x")]
+    #[test_case(TilingDirection::PosXPosY, Vec3::new(30.0, 30.0, 0.0); "pos y pos x")]
+    #[test_case(TilingDirection::NegXNegY, Vec3::new(-30.0, -30.0, 0.0); "neg y neg x")]
+    #[test_case(TilingDirection::NegXPosY, Vec3::new(-30.0, 30.0, 0.0); "pos y neg x")]
+    fn test_layout_transform_calc(tiling_direction: TilingDirection, expected_translation: Vec3) {
+        let chunk = TilemapChunk {
+            tiling_direction,
+            chunk_size: UVec2::splat(16),
+            tile_display_size: UVec2::splat(4),
+            ..Default::default()
+        };
+        assert_eq!(expected_translation, chunk.calculate_tile_transform(UVec2::splat(16)).translation);
     }
 }

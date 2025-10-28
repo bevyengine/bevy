@@ -8,10 +8,10 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var tileset_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var tile_data: texture_2d<u32>;
 
-// NegYPosX = default
-// PosYPosX = 1
-// NegYNegX = 2
-// PosYNegX = 3
+// PosXNegY = default
+// PosXPosY = 1
+// NegXNegY = 2
+// NegXPosY = 3
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> tiling_direction: u32;
 
 struct TileData {
