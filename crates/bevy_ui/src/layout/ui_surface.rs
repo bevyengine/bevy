@@ -1,4 +1,5 @@
 use core::fmt;
+use std::ops::{Deref, DerefMut};
 
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
@@ -30,18 +31,51 @@ impl From<taffy::NodeId> for LayoutNode {
     }
 }
 
+pub(crate) struct BevyTaffyTree<T>(TaffyTree<T>);
+
+/// # Safety
+/// Taffy Tree becomes thread unsafe when you use calc(), which we do not implement
+///
+#[expect(
+    unsafe_code,
+    reason = "This wrapper is safe while the calc feature is disabled."
+)]
+unsafe impl<T> Send for BevyTaffyTree<T> {}
+
+/// # Safety
+/// Taffy Tree becomes thread unsafe when you use calc(), which we do not implement
+///
+#[expect(
+    unsafe_code,
+    reason = "This wrapper is safe while the calc feature is disabled."
+)]
+unsafe impl<T> Sync for BevyTaffyTree<T> {}
+
+impl<T> Deref for BevyTaffyTree<T> {
+    type Target = TaffyTree<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T> DerefMut for BevyTaffyTree<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Resource)]
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
-    pub(super) taffy: TaffyTree<NodeMeasure>,
+    pub(super) taffy: BevyTaffyTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
-    _assert_send_sync::<TaffyTree<NodeMeasure>>();
+    _assert_send_sync::<BevyTaffyTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
 
@@ -56,7 +90,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
+        let taffy: BevyTaffyTree<NodeMeasure> = BevyTaffyTree(TaffyTree::new());
         Self {
             root_entity_to_viewport_node: Default::default(),
             entity_to_taffy: Default::default(),
@@ -166,8 +200,8 @@ impl UiSurface {
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
                         // So this is setting width:100% and height:100%
                         size: taffy::geometry::Size {
-                            width: taffy::style::Dimension::Percent(1.0),
-                            height: taffy::style::Dimension::Percent(1.0),
+                            width: taffy::style_helpers::percent(1.0),
+                            height: taffy::style_helpers::percent(1.0),
                         },
                         align_items: Some(taffy::style::AlignItems::Start),
                         justify_items: Some(taffy::style::JustifyItems::Start),
