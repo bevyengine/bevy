@@ -80,7 +80,7 @@ fn derive_dependency_visitor_internal(
                 let field_visitors = field_locals.clone().map(|i| visit_dep(quote!(#i)));
                 quote!(Self::#ident {#(#field_members: #field_locals,)* ..} => {
                     #(#field_visitors)*
-                },)
+                })
             });
 
             any_case_required.then(|| quote!(match self { #(#cases)*, _ => {} }))
