@@ -996,6 +996,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "tiling_direction"
+path = "examples/2d/tiling_direction.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tiling_direction]
+name = "Tiling Direction"
+description = "Renders tilemap chunks with different TilingDirection's"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
 doc-scrape-examples = true

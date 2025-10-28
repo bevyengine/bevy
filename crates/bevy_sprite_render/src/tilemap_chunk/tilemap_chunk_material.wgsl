@@ -8,6 +8,12 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(1) var tileset_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var tile_data: texture_2d<u32>;
 
+// NegYPosX = default
+// PosYPosX = 1
+// NegYNegX = 2
+// PosYNegX = 3
+@group(#{MATERIAL_BIND_GROUP}) @binding(3) var<uniform> tiling_direction: u32;
+
 struct TileData {
     tileset_index: u32,
     color: vec4<f32>,
@@ -31,11 +37,32 @@ fn get_tile_data(coord: vec2<u32>) -> TileData {
     return TileData(tileset_index, color, visible);
 }
 
+fn get_tile_coord(input_coord: vec2<f32>, chunk_size: vec2<u32>, tiling_direction: u32) -> vec2<u32> {
+    var coord = clamp(vec2<u32>(floor(input_coord)), vec2<u32>(0), chunk_size - 1);
+    if (tiling_direction == 0) {
+        return coord;
+    }
+    if (tiling_direction == 1) {
+        coord.y = chunk_size.y - 1 - coord.y;
+        return coord;
+    }
+    if (tiling_direction == 2) {
+        coord.x = chunk_size.x - 1 - coord.x;
+        return coord;
+    }
+    if (tiling_direction == 3) {
+        coord.y = chunk_size.y - 1 - coord.y;
+        coord.x = chunk_size.x - 1 - coord.x;
+        return coord;
+    }
+    return coord;
+}
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let chunk_size = textureDimensions(tile_data, 0);
     let tile_uv = in.uv * vec2<f32>(chunk_size);
-    let tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
+    let tile_coord = get_tile_coord(tile_uv, chunk_size, tiling_direction);
 
     let tile = get_tile_data(tile_coord);
 

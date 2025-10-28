@@ -59,6 +59,23 @@ pub struct TilemapChunk {
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
+    /// Determines which way the chunks tiling axies are oriented.
+    pub tiling_direction: TilingDirection,
+}
+
+/// Determines which way the chunks tiling axies are oriented.
+#[derive(Copy, Clone, Debug, Default, Reflect)]
+#[reflect(Clone, Debug, Default)]
+pub enum TilingDirection {
+    /// Current default behavior.  Lays out tiles from the top left to the bottom right.
+    #[default]
+    NegYPosX = 0,
+    /// Lays out tiles from bottom left to top right.
+    PosYPosX,
+    /// Lays out tiles from top right to bottom left.
+    NegYNegX,
+    /// Lays out tiles from bottom right to top left.
+    PosYNegX,
 }
 
 impl TilemapChunk {
@@ -134,6 +151,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
     let chunk_size = tilemap_chunk.chunk_size;
     let alpha_mode = tilemap_chunk.alpha_mode;
     let tileset = tilemap_chunk.tileset.clone();
+    let tiling_direction = tilemap_chunk.tiling_direction;
 
     let Some(tile_data) = world.get::<TilemapChunkTileData>(entity) else {
         warn!("TilemapChunkIndices not found for tilemap chunk {}", entity);
@@ -176,6 +194,7 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
         tileset,
         tile_data,
         alpha_mode,
+        tiling_direction: tiling_direction as u32
     });
 
     world
