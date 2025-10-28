@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::reflect_utils::clone_reflect_value;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
@@ -5,7 +7,7 @@ use bevy_ecs::{
     component::ComponentCloneBehavior,
     entity::{Entity, EntityHashMap, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
-    reflect::{AppTypeRegistry, ReflectComponent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     relationship::RelationshipHookMode,
     world::World,
 };
@@ -104,12 +106,17 @@ impl Scene {
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
                             std_type_name: component_info.name(),
                         })?;
-                    let reflect_component =
-                        registration.data::<ReflectComponent>().ok_or_else(|| {
-                            SceneSpawnError::UnregisteredComponent {
-                                type_path: registration.type_info().type_path().to_string(),
-                            }
-                        })?;
+                    let reflect_component = if let Some(reflect_component) =
+                        registration.data::<ReflectComponent>()
+                    {
+                        Ok(reflect_component)
+                    } else if let Some(reflect_resource) = registration.data::<ReflectResource>() {
+                        Ok(reflect_resource.deref())
+                    } else {
+                        Err(SceneSpawnError::UnregisteredComponent {
+                            type_path: registration.type_info().type_path().to_string(),
+                        })
+                    }?;
 
                     let Some(component) = reflect_component
                         .reflect(self.world.entity(scene_entity.id()))

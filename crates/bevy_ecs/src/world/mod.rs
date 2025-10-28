@@ -3274,12 +3274,14 @@ impl World {
     /// ```
     #[inline]
     pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
-        let component_ids = self.resource_entities.indices();
-        component_ids.into_iter().filter_map(|component_id| {
-            let component_info = self.components().get_info(*component_id)?;
-            let resource = self.get_resource_by_id(*component_id)?;
-            Some((component_info, resource))
-        })
+        self.resource_entities
+            .indices()
+            .iter()
+            .filter_map(|component_id| {
+                let component_info = self.components().get_info(*component_id)?;
+                let resource = self.get_resource_by_id(*component_id)?;
+                Some((component_info, resource))
+            })
     }
 
     /// Mutably iterates over all resources in the world.
