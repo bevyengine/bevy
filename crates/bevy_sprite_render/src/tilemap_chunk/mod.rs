@@ -88,8 +88,8 @@ impl TilemapChunk {
                         (self.tile_display_size.y as f32).neg(),
                     ),
                     Vec2::new(
-                        (self.tile_display_size.x as f32 / 2.).neg(),
-                        self.tile_display_size.y as f32 / 2.,
+                        self.tile_display_size.x as f32 / 2.,
+                        (self.tile_display_size.y as f32 / 2.).neg(),
                     ),
                     Vec2::new(
                         (self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(),
@@ -102,8 +102,8 @@ impl TilemapChunk {
                         self.tile_display_size.y as f32,
                     ),
                     Vec2::new(
-                        (self.tile_display_size.x as f32 / 2.).neg(),
-                        (self.tile_display_size.y as f32 / 2.).neg(),
+                        self.tile_display_size.x as f32 / 2.,
+                        self.tile_display_size.y as f32 / 2.,
                     ),
                     Vec2::new(
                         (self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.).neg(),
@@ -116,8 +116,8 @@ impl TilemapChunk {
                         (self.tile_display_size.y as f32).neg(),
                     ),
                     Vec2::new(
-                        self.tile_display_size.x as f32 / 2.,
-                        self.tile_display_size.y as f32 / 2.,
+                        (self.tile_display_size.x as f32 / 2.).neg(),
+                        (self.tile_display_size.y as f32 / 2.).neg(),
                     ),
                     Vec2::new(
                         self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
@@ -130,8 +130,8 @@ impl TilemapChunk {
                         self.tile_display_size.y as f32,
                     ),
                     Vec2::new(
-                        self.tile_display_size.x as f32 / 2.,
-                        (self.tile_display_size.y as f32 / 2.).neg(),
+                        (self.tile_display_size.x as f32 / 2.).neg(),
+                        self.tile_display_size.y as f32 / 2.,
                     ),
                     Vec2::new(
                         self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
@@ -337,11 +337,15 @@ mod tests {
     use bevy_math::{UVec2, Vec3};
     use test_case::test_case;
 
-    #[test_case(TilingDirection::PosXNegY, Vec3::new(30.0, -30.0, 0.0); "neg y pos x")]
-    #[test_case(TilingDirection::PosXPosY, Vec3::new(30.0, 30.0, 0.0); "pos y pos x")]
-    #[test_case(TilingDirection::NegXNegY, Vec3::new(-30.0, -30.0, 0.0); "neg y neg x")]
-    #[test_case(TilingDirection::NegXPosY, Vec3::new(-30.0, 30.0, 0.0); "pos y neg x")]
-    fn test_layout_transform_calc(tiling_direction: TilingDirection, expected_translation: Vec3) {
+    #[test_case(TilingDirection::PosXNegY, UVec2::splat(15), Vec3::new(30.0, -30.0, 0.0); "pos x neg y, max")]
+    #[test_case(TilingDirection::PosXPosY, UVec2::splat(15), Vec3::new(30.0, 30.0, 0.0); "pos x pos y, max")]
+    #[test_case(TilingDirection::NegXNegY, UVec2::splat(15), Vec3::new(-30.0, -30.0, 0.0); "neg x neg y, max")]
+    #[test_case(TilingDirection::NegXPosY, UVec2::splat(15), Vec3::new(-30.0, 30.0, 0.0); "neg x pos y, max")]
+    #[test_case(TilingDirection::PosXNegY, UVec2::splat(0), Vec3::new(-30.0, 30.0, 0.0); "pos x neg y, min")]
+    #[test_case(TilingDirection::PosXPosY, UVec2::splat(0), Vec3::new(-30.0, -30.0, 0.0); "pos x pos y, min")]
+    #[test_case(TilingDirection::NegXNegY, UVec2::splat(0), Vec3::new(30.0, 30.0, 0.0); "neg x neg y, min")]
+    #[test_case(TilingDirection::NegXPosY, UVec2::splat(0), Vec3::new(30.0, -30.0, 0.0); "neg x pos y, min")]
+    fn test_layout_transform_calc(tiling_direction: TilingDirection, target_tile: UVec2, expected_translation: Vec3) {
         let chunk = TilemapChunk {
             tiling_direction,
             chunk_size: UVec2::splat(16),
@@ -350,7 +354,7 @@ mod tests {
         };
         assert_eq!(
             expected_translation,
-            chunk.calculate_tile_transform(UVec2::splat(16)).translation
+            chunk.calculate_tile_transform(target_tile).translation
         );
     }
 }
