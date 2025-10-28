@@ -345,7 +345,11 @@ mod tests {
     #[test_case(TilingDirection::PosXPosY, UVec2::splat(0), Vec3::new(-30.0, -30.0, 0.0); "pos x pos y, min")]
     #[test_case(TilingDirection::NegXNegY, UVec2::splat(0), Vec3::new(30.0, 30.0, 0.0); "neg x neg y, min")]
     #[test_case(TilingDirection::NegXPosY, UVec2::splat(0), Vec3::new(30.0, -30.0, 0.0); "neg x pos y, min")]
-    fn test_layout_transform_calc(tiling_direction: TilingDirection, target_tile: UVec2, expected_translation: Vec3) {
+    fn test_layout_transform_calc(
+        tiling_direction: TilingDirection,
+        target_tile: UVec2,
+        expected_translation: Vec3,
+    ) {
         let chunk = TilemapChunk {
             tiling_direction,
             chunk_size: UVec2::splat(16),
