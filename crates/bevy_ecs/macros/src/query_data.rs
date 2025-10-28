@@ -3,8 +3,8 @@ use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, punctuated::Punctuated, token, token::Comma, Attribute, Data,
-    DataStruct, DeriveInput, Field, Index, Meta,
+    parse_macro_input, parse_quote, punctuated::Punctuated, token::Comma, Data,
+    DataStruct, DeriveInput, Index, Meta,
 };
 
 use crate::{
@@ -36,28 +36,18 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if attr
-            .path()
-            .get_ident()
-            .is_none_or(|ident| ident != QUERY_DATA_ATTRIBUTE_NAME)
-        {
+        if !attr.path().is_ident(QUERY_DATA_ATTRIBUTE_NAME) {
             continue;
         }
 
         let result = attr.parse_nested_meta(|meta| {
             if meta.path.is_ident(MUTABLE_ATTRIBUTE_NAME) {
                 attributes.is_mutable = true;
-                if meta.input.peek(token::Paren) {
-                    Err(meta.error(format_args!("`{MUTABLE_ATTRIBUTE_NAME}` does not take any arguments")))
-                } else {
-                    Ok(())
-                }
+                Ok(())
             } else if meta.path.is_ident(DERIVE_ATTRIBUTE_NAME) {
                 meta.parse_nested_meta(|meta| {
                     attributes.derive_args.push(Meta::Path(meta.path));
                     Ok(())
-                }).map_err(|_| {
-                    meta.error(format_args!("`{DERIVE_ATTRIBUTE_NAME}` requires at least one argument"))
                 })
             } else {
                 Err(meta.error(format_args!("invalid attribute, expected `{MUTABLE_ATTRIBUTE_NAME}` or `{DERIVE_ATTRIBUTE_NAME}`")))
@@ -139,11 +129,6 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let mut field_types = Vec::new();
     let mut read_only_field_types = Vec::new();
     for (i, field) in fields.iter().enumerate() {
-        let attrs = match read_world_query_field_info(field) {
-            Ok(QueryDataFieldInfo { attrs }) => attrs,
-            Err(e) => return e.into_compile_error().into(),
-        };
-
         let named_field_ident = field
             .ident
             .as_ref()
@@ -156,7 +141,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             .map_or(quote! { #i }, |i| quote! { #i });
         field_idents.push(field_ident);
         named_field_idents.push(named_field_ident);
-        field_attrs.push(attrs);
+        field_attrs.push(field.attrs.clone());
         field_visibilities.push(field.vis.clone());
         let field_ty = field.ty.clone();
         field_types.push(quote!(#field_ty));
@@ -468,28 +453,4 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             }
         };
     })
-}
-
-struct QueryDataFieldInfo {
-    /// All field attributes except for `query_data` ones.
-    attrs: Vec<Attribute>,
-}
-
-fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo> {
-    let mut attrs = Vec::new();
-    for attr in &field.attrs {
-        if attr
-            .path()
-            .get_ident()
-            .is_some_and(|ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
-        {
-            return Err(syn::Error::new_spanned(
-                attr,
-                "#[derive(QueryData)] does not support field attributes.",
-            ));
-        }
-        attrs.push(attr.clone());
-    }
-
-    Ok(QueryDataFieldInfo { attrs })
 }
