@@ -18,6 +18,7 @@ mod parser;
 mod result_sifter;
 mod shape;
 mod symbol;
+mod member;
 
 pub use attrs::*;
 pub use bevy_manifest::*;
@@ -26,3 +27,4 @@ pub use parser::*;
 pub use result_sifter::*;
 pub use shape::*;
 pub use symbol::*;
+pub use member::*;
