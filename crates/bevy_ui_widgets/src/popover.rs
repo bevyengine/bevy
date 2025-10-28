@@ -123,8 +123,10 @@ fn position_popover(
                 parent_node.border.left + parent_node.border.right,
                 parent_node.border.top + parent_node.border.bottom,
             );
-        let parent_rect = Rect::from_center_size(parent_transform.translation, parent_size)
-            .scale(parent_node.inverse_scale_factor);
+        let parent_rect = scale_rect(
+            Rect::from_center_size(parent_transform.translation, parent_size),
+            parent_node.inverse_scale_factor,
+        );
 
         let mut best_occluded = f32::MAX;
         let mut best_rect = Rect::default();
@@ -243,5 +245,13 @@ pub struct PopoverPlugin;
 impl Plugin for PopoverPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, position_popover.in_set(UiSystems::Prepare));
+    }
+}
+
+#[inline]
+fn scale_rect(rect: Rect, factor: f32) -> Rect {
+    Rect {
+        min: rect.min * factor,
+        max: rect.max * factor,
     }
 }
