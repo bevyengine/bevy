@@ -85,7 +85,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ambient light
     // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
     // environment map, use an appropriate color and brightness to match
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: Color::srgb_u8(210, 220, 240),
         brightness: 1.0,
         ..default()
