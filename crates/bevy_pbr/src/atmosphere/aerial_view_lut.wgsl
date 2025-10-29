@@ -4,16 +4,17 @@
         types::{Atmosphere, AtmosphereSettings},
         bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
         functions::{
-            sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
+            sample_transmittance_lut, sample_density_lut, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
             uv_to_ndc, max_atmosphere_distance, uv_to_ray_direction, 
-            MIDPOINT_RATIO, get_view_position
+            MIDPOINT_RATIO, get_view_position, MIN_EXTINCTION, ABSORPTION_DENSITY,
+            SCATTERING_DENSITY,
         },
     }
 }
 
 
-@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(16) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)
@@ -23,7 +24,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv);
     let world_pos = get_view_position();
-    
+
     let r = length(world_pos);
     let t_max = settings.aerial_view_lut_max_distance;
 
@@ -41,15 +42,18 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let local_r = length(sample_pos);
             let local_up = normalize(sample_pos);
 
-            let local_atmosphere = sample_atmosphere(local_r);
-            let sample_optical_depth = local_atmosphere.extinction * dt;
+            let absorption = sample_density_lut(local_r, ABSORPTION_DENSITY);
+            let scattering = sample_density_lut(local_r, SCATTERING_DENSITY);
+            let extinction = absorption + scattering;
+
+            let sample_optical_depth = extinction * dt;
             let sample_transmittance = exp(-sample_optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(local_atmosphere, ray_dir, sample_pos);
+            var inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
-            let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+            let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
             total_inscattering += throughput * s_int;
 
             throughput *= sample_transmittance;
