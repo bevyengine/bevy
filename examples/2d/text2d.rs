@@ -122,7 +122,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 50.0,
         ..default()
     };
-    let text_justification = TextAlign::Center;
+    let text_justification = Justify::Center;
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
@@ -168,7 +168,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(TextAlign::Left, LineBreak::WordBoundary),
+            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
             // Wrap text in the rectangle
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
@@ -190,7 +190,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(TextAlign::Left, LineBreak::AnyCharacter),
+            TextLayout::new(Justify::Left, LineBreak::AnyCharacter),
             // Wrap text in the rectangle
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
@@ -209,7 +209,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
-        TextLayout::new_with_justify(TextAlign::Center),
+        TextLayout::new_with_justify(Justify::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
         // Add a black shadow to the text
         Text2dShadow::default(),

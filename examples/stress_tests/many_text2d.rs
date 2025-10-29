@@ -134,9 +134,9 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 random_text_font(&mut rng, &args),
                 TextColor(color.into()),
                 TextLayout::new_with_justify(if args.center {
-                    TextAlign::Center
+                    Justify::Center
                 } else {
-                    TextAlign::Left
+                    Justify::Left
                 }),
                 Transform {
                     translation,

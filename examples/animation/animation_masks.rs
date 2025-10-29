@@ -268,7 +268,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                     } else {
                         selected_button_text_style.clone()
                     },
-                    TextLayout::new_with_justify(TextAlign::Center),
+                    TextLayout::new_with_justify(Justify::Center),
                     Node {
                         flex_grow: 1.0,
                         margin: UiRect::vertical(px(3)),

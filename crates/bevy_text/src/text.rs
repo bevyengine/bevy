@@ -1,3 +1,4 @@
+use crate::Font;
 use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent, TextTarget};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -33,19 +34,19 @@ pub struct TextEntity {
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
-    pub justify: TextAlign,
+    pub justify: Justify,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
 }
 
 impl TextLayout {
     /// Makes a new [`TextLayout`].
-    pub const fn new(justify: TextAlign, linebreak: LineBreak) -> Self {
+    pub const fn new(justify: Justify, linebreak: LineBreak) -> Self {
         Self { justify, linebreak }
     }
 
     /// Makes a new [`TextLayout`] with the specified [`Justify`].
-    pub fn new_with_justify(justify: TextAlign) -> Self {
+    pub fn new_with_justify(justify: Justify) -> Self {
         Self::default().with_justify(justify)
     }
 
@@ -61,7 +62,7 @@ impl TextLayout {
     }
 
     /// Returns this [`TextLayout`] with the specified [`Justify`].
-    pub const fn with_justify(mut self, justify: TextAlign) -> Self {
+    pub const fn with_justify(mut self, justify: Justify) -> Self {
         self.justify = justify;
         self
     }
@@ -132,7 +133,7 @@ impl From<String> for TextSpan {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
 #[doc(alias = "JustifyText")]
-pub enum TextAlign {
+pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.
     /// Bounds start from the render position and advance rightwards.
     #[default]
@@ -153,15 +154,15 @@ pub enum TextAlign {
     End,
 }
 
-impl From<TextAlign> for parley::Alignment {
-    fn from(justify: TextAlign) -> Self {
+impl From<Justify> for parley::Alignment {
+    fn from(justify: Justify) -> Self {
         match justify {
-            TextAlign::Start => parley::Alignment::Start,
-            TextAlign::End => parley::Alignment::End,
-            TextAlign::Left => parley::Alignment::Left,
-            TextAlign::Center => parley::Alignment::Center,
-            TextAlign::Right => parley::Alignment::Right,
-            TextAlign::Justified => parley::Alignment::Justify,
+            Justify::Start => parley::Alignment::Start,
+            Justify::End => parley::Alignment::End,
+            Justify::Left => parley::Alignment::Left,
+            Justify::Center => parley::Alignment::Center,
+            Justify::Right => parley::Alignment::Right,
+            Justify::Justified => parley::Alignment::Justify,
         }
     }
 }
@@ -178,7 +179,7 @@ pub struct TextFont {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
-    pub font: String,
+    pub font: Handle<Font>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity

@@ -73,7 +73,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Text2d::default(),
             TextLayout {
-                justify: TextAlign::Center,
+                justify: Justify::Center,
                 linebreak: LineBreak::AnyCharacter,
             },
             TextBounds::default(),
