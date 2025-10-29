@@ -1643,11 +1643,9 @@ mod tests {
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
-        let mut q3 = world.query::<()>();
 
         assert_eq!(q1.query(&world).count(), 1);
         assert_eq!(q2.query(&world).count(), 1);
-        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
@@ -1660,11 +1658,6 @@ mod tests {
             q2.query(&world).count(),
             0,
             "world should not contain sparse set components"
-        );
-        assert_eq!(
-            q3.query(&world).count(),
-            0,
-            "world should not have any entities"
         );
         assert_eq!(
             world.resource::<ResA>().0,

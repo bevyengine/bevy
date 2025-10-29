@@ -14,7 +14,7 @@
 }
 
 
-@group(0) @binding(16) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
+@group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
 @workgroup_size(16, 16, 1)
