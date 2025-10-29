@@ -569,6 +569,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     }
 
     /// Returns another `Query` from this does not return any data, which can be faster.
+    ///
+    /// The resulting query will ignore any non-archetypal filters in `D`,
+    /// so this is only equivalent if `D::IS_ARCHETYPAL` is `true`.
     fn as_nop(&self) -> Query<'_, '_, NopWorldQuery<D>, F> {
         let new_state = self.state.as_nop();
         // SAFETY:
@@ -1612,7 +1615,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     /// [`Spawned`]: crate::query::Spawned
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.as_nop().iter().next().is_none()
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if D::IS_ARCHETYPAL {
+            self.as_nop().iter().next().is_none()
+        } else {
+            self.iter().next().is_none()
+        }
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
@@ -1641,14 +1650,20 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        self.as_nop().get(entity).is_ok()
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if D::IS_ARCHETYPAL {
+            self.as_nop().get(entity).is_ok()
+        } else {
+            self.get(entity).is_ok()
+        }
     }
 
     /// Counts the number of entities that match the query.
     ///
     /// This is equivalent to `self.iter().count()` but may be more efficient in some cases.
     ///
-    /// If [`F::IS_ARCHETYPAL`](QueryFilter::IS_ARCHETYPAL) is `true`,
+    /// If [`D::IS_ARCHETYPAL`](QueryData::IS_ARCHETYPAL) && [`F::IS_ARCHETYPAL`](QueryFilter::IS_ARCHETYPAL) is `true`,
     /// this will do work proportional to the number of matched archetypes or tables, but will not iterate each entity.
     /// If it is `false`, it will have to do work for each entity.
     ///
@@ -1667,14 +1682,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: Deref<Target = QueryState<D, F>>>
     /// # bevy_ecs::system::assert_is_system(targeting_system);
     /// ```
     pub fn count(&self) -> usize {
-        let iter = self.as_nop().into_iter();
-        if F::IS_ARCHETYPAL {
+        // If the query data matches every entity, then `as_nop()` can safely
+        // skip the cost of initializing the fetch for data that won't be used.
+        if !D::IS_ARCHETYPAL {
+            self.into_iter().count()
+        } else if !F::IS_ARCHETYPAL {
+            // If we have non-archetypal filters, we have to check each entity.
+            self.as_nop().into_iter().count()
+        } else {
             // For archetypal queries, the `size_hint()` is exact,
             // and we can get the count from the archetype and table counts.
-            iter.size_hint().0
-        } else {
-            // If we have non-archetypal filters, we have to check each entity.
-            iter.count()
+            self.as_nop().into_iter().size_hint().0
         }
     }
 

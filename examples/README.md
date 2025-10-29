@@ -261,6 +261,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Async Channel Pattern](../examples/async_tasks/async_channel_pattern.rs) | An example showing how to offload work to background async tasks using channels for communication.
 [Async Compute](../examples/async_tasks/async_compute.rs) | How to use `AsyncComputeTaskPool` to complete longer running tasks
 [External Source of Data on an External Thread](../examples/async_tasks/external_source_external_thread.rs) | How to use an external thread to run an infinite task and communicate with a channel
 
@@ -569,6 +570,7 @@ Example | Description
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Standard Widgets](../examples/ui/standard_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
 [Standard Widgets (w/Observers)](../examples/ui/standard_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
+[Strikethrough](../examples/ui/strikethrough.rs) | Demonstrates how to display text with strikethrough.
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
