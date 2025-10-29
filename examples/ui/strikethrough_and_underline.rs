@@ -1,7 +1,7 @@
-//! This example illustrates UI text with strikethrough
+//! This example illustrates UI text with strikethrough and underline decorations
 
 use bevy::{
-    color::palettes::css::{GREEN, NAVY, RED},
+    color::palettes::css::{GREEN, NAVY, RED, YELLOW},
     prelude::*,
 };
 
@@ -23,7 +23,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ]));
     commands.spawn((
         Text::new("struck\nstruck"),
-        // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and it's text will be struck through.
+        // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and its text will be struck through
         Strikethrough,
         TextFont {
             font: "fira sans".to_string(),
@@ -53,8 +53,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 Text::new("struck\nstruckstruck\nstruckstuckstruck"),
                 Strikethrough,
+                StrikethroughColor(RED.into()),
                 TextBackgroundColor(GREEN.into()),
             ),
+            // Text entities with the `Underline` component will drawn with underline
             (Text::new("underline"), Underline),
             (
                 Text::new("struck"),
@@ -99,6 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (
                         TextSpan::new("\nunderline"),
                         Underline,
+                        UnderlineColor(YELLOW.into()),
                         TextFont {
                             font_size: 30.,
                             ..default()
@@ -125,7 +128,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Strikethrough,
                         Underline,
                         TextColor(RED.into()),
-                        TextBackgroundColor(NAVY.into())
+                        TextBackgroundColor(NAVY.into()),
+                        StrikethroughColor(Color::WHITE),
+                        UnderlineColor(Color::WHITE),
                     )
                 ]
             ),

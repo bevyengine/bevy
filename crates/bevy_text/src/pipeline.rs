@@ -4,6 +4,7 @@ use crate::FontAtlasKey;
 use crate::FontAtlasSet;
 use crate::FontSmoothing;
 use crate::GlyphCacheKey;
+use crate::RunGeometry;
 use crate::TextLayoutInfo;
 use bevy_asset::Assets;
 use bevy_image::Image;
@@ -185,19 +186,20 @@ pub fn update_text_layout_info(
                         });
                     }
 
-                    info.section_geometry.push((
-                        span_index as usize,
-                        Rect {
+                    info.run_geometry.push(RunGeometry {
+                        span_index: span_index as usize,
+                        bounds: Rect {
                             min: Vec2::new(glyph_run.offset(), line.metrics().min_coord),
                             max: Vec2::new(
                                 glyph_run.offset() + glyph_run.advance(),
                                 line.metrics().max_coord,
                             ),
                         },
-                        glyph_run.baseline() - run.metrics().strikethrough_offset,
-                        run.metrics().strikethrough_size,
-                        glyph_run.baseline() - run.metrics().underline_offset,
-                    ));
+                        strikethrough_y: glyph_run.baseline() - run.metrics().strikethrough_offset,
+                        strikethrough_thickness: run.metrics().strikethrough_size,
+                        underline_y: glyph_run.baseline() - run.metrics().underline_offset,
+                        underline_thickness: run.metrics().underline_size,
+                    });
                 }
                 _ => {}
             }

@@ -23,8 +23,9 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextEntity, TextFont, TextHead,
-    TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
+    FontAtlasSet, FontCx, LayoutCx, LineHeight, ScaleCx, TextBounds, TextColor, TextEntity,
+    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess,
+    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -85,6 +86,7 @@ use core::any::TypeId;
     TextLayout,
     TextFont,
     TextColor,
+    LineHeight,
     TextBounds,
     Anchor,
     Visibility,
@@ -234,6 +236,7 @@ pub fn update_text2d_layout(
         };
 
         if !(computed.is_changed()
+            || computed.needs_rerender()
             || block.is_changed()
             || bounds.is_changed()
             || scale_factor != text_layout_info.scale_factor)
@@ -243,9 +246,13 @@ pub fn update_text2d_layout(
             continue;
         }
 
+        computed.needs_rerender = false;
+        computed.entities.clear();
+
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (section_entity, depth, text, text_font, _)) in text_reader.iter(entity).enumerate()
+        for (i, (section_entity, depth, text, text_font, _, line_height)) in
+            text_reader.iter(entity).enumerate()
         {
             computed.entities.push(TextEntity {
                 entity: section_entity,
@@ -257,7 +264,7 @@ pub fn update_text2d_layout(
                     .get(text_font.font.id())
                     .map(|font| font.family_name.as_str()),
                 text_font.font_size,
-                text_font.line_height,
+                line_height,
                 i as u32,
             ));
         }

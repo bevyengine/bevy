@@ -47,7 +47,7 @@ pub struct ComputedTextBlock {
     // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
     // solution would probably require splitting TextLayout and TextFont into structural/non-structural
     // components for more granular change detection. A cost/benefit analysis is needed.
-    pub(crate) needs_rerender: bool,
+    pub needs_rerender: bool,
 }
 
 impl ComputedTextBlock {
@@ -146,7 +146,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(TextFont, TextColor, LineHeight)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -244,11 +244,6 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -276,12 +271,6 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
 }
 
 impl From<Handle<Font>> for TextFont {
@@ -290,21 +279,11 @@ impl From<Handle<Font>> for TextFont {
     }
 }
 
-impl From<LineHeight> for TextFont {
-    fn from(line_height: LineHeight) -> Self {
-        Self {
-            line_height,
-            ..default()
-        }
-    }
-}
-
 impl Default for TextFont {
     fn default() -> Self {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            line_height: LineHeight::default(),
             font_smoothing: Default::default(),
         }
     }
@@ -313,8 +292,8 @@ impl Default for TextFont {
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, Clone, PartialEq)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
+#[reflect(Component, Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
@@ -411,6 +390,23 @@ pub enum LineBreak {
 #[reflect(Serialize, Deserialize, Clone, Default)]
 pub struct Strikethrough;
 
+/// Color for the text's strikethrough. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct StrikethroughColor(pub Color);
+
+impl Default for StrikethroughColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for StrikethroughColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
+}
+
 /// Add to a text entity to draw its text with underline.
 #[derive(Component, Copy, Clone, Debug, Reflect, Default, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, Default)]
@@ -427,11 +423,78 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
-    /// A text section spanning more than one line will have multiple segments.
-    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
+    /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
+    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
+    ///
+    /// The coordinates are unscaled and relative to the top left corner of the text layout.
+    pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+}
+
+/// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
+/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+/// font size, and line height.
+#[derive(Default, Debug, Clone, Reflect)]
+pub struct RunGeometry {
+    /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
+    pub span_index: usize,
+    /// Bounding box around the text run
+    pub bounds: Rect,
+    /// Y position of the strikethrough in the text layout.
+    pub strikethrough_y: f32,
+    /// Strikethrough stroke thickness.
+    pub strikethrough_thickness: f32,
+    /// Y position of the underline  in the text layout.
+    pub underline_y: f32,
+    /// Underline stroke thickness.
+    pub underline_thickness: f32,
+}
+
+impl RunGeometry {
+    /// Returns the center of the strikethrough in the text layout.
+    pub fn strikethrough_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.strikethrough_y + 0.5 * self.strikethrough_thickness,
+        )
+    }
+
+    /// Returns the size of the strikethrough.
+    pub fn strikethrough_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
+    }
+
+    /// Get the center of the underline in the text layout.
+    pub fn underline_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.underline_y + 0.5 * self.underline_thickness,
+        )
+    }
+
+    /// Returns the size of the underline.
+    pub fn underline_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.underline_thickness)
+    }
+}
+
+/// Color for the text's underline. If this component is not present, its `TextColor` will be used.
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq, Clone)]
+pub struct UnderlineColor(pub Color);
+
+impl Default for UnderlineColor {
+    fn default() -> Self {
+        Self(Color::WHITE)
+    }
+}
+
+impl<T: Into<Color>> From<T> for UnderlineColor {
+    fn from(color: T) -> Self {
+        Self(color.into())
+    }
 }
 
 /// Determines which antialiasing method to use when rendering text. By default, text is

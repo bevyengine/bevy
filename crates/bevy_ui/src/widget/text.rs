@@ -19,9 +19,9 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextEntity,
-    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess,
-    TextWriter,
+    FontAtlasSet, FontCx, LayoutCx, LineBreak, LineHeight, ScaleCx, TextBounds, TextColor,
+    TextEntity, TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle,
+    TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -104,7 +104,8 @@ impl Default for TextNodeFlags {
     TextNodeFlags,
     ContentSize,
     ComputedTextBlock,
-    ComputedTextLayout
+    ComputedTextLayout,
+    LineHeight
 )]
 pub struct Text(pub String);
 
@@ -287,6 +288,7 @@ pub fn shape_text_system(
 
         if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            || computed_block.is_changed()
             || computed_block.needs_rerender()
             || text_flags.needs_shaping
             || content_size.is_added())
@@ -295,11 +297,12 @@ pub fn shape_text_system(
         {
             continue;
         }
-
+        computed_block.needs_rerender = false;
         computed_block.entities.clear();
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (section_entity, depth, text, text_font, _)) in text_reader.iter(entity).enumerate()
+        for (i, (section_entity, depth, text, text_font, _, line_height)) in
+            text_reader.iter(entity).enumerate()
         {
             computed_block.entities.push(TextEntity {
                 entity: section_entity,
@@ -311,7 +314,7 @@ pub fn shape_text_system(
                     .get(text_font.font.id())
                     .map(|font| font.family_name.as_str()),
                 text_font.font_size,
-                text_font.line_height,
+                line_height,
                 i as u32,
             ));
         }
