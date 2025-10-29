@@ -2382,13 +2382,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
                 &mut filter,
                 entity,
                 location.table_row,
+            ) && let Some(item) = D::fetch(
+                &self.state.fetch_state,
+                &mut fetch,
+                entity,
+                location.table_row,
             ) {
-                Ok(D::fetch(
-                    &self.state.fetch_state,
-                    &mut fetch,
-                    entity,
-                    location.table_row,
-                ))
+                Ok(item)
             } else {
                 Err(QueryEntityError::QueryDoesNotMatch(
                     entity,
