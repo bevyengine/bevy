@@ -38,7 +38,6 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_picking::events::{Pointer, Press};
 use bevy_window::{PrimaryWindow, Window};
 use log::warn;
 use thiserror::Error;
@@ -346,6 +345,7 @@ impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
         app.add_observer(acquire_focus);
+        #[cfg(feature = "bevy_picking")]
         app.add_observer(click_to_focus);
     }
 }
@@ -356,8 +356,9 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
     }
 }
 
+#[cfg(feature = "bevy_picking")]
 fn click_to_focus(
-    press: On<Pointer<Press>>,
+    press: On<bevy_picking::events::Pointer<bevy_picking::events::Press>>,
     mut focus_visible: ResMut<InputFocusVisible>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
