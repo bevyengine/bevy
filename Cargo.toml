@@ -4787,6 +4787,17 @@ category = "Usage"
 wasm = true
 
 [[example]]
+name = "healthbar"
+path = "examples/usage/healthbar.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.healthbar]
+name = "Healthbar"
+description = "A scene showcasing world-to-viewport UI"
+category = "Usage"
+wasm = true
+
+[[example]]
 name = "hotpatching_systems"
 path = "examples/ecs/hotpatching_systems.rs"
 doc-scrape-examples = true
