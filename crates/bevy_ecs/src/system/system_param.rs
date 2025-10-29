@@ -4,7 +4,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
     component::{ComponentId, Components},
-    entity::{Entities, EntitiesAllocator},
+    entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
@@ -1579,12 +1579,12 @@ unsafe impl<'a> SystemParam for &'a Entities {
 }
 
 // SAFETY: Only reads World entities
-unsafe impl<'a> ReadOnlySystemParam for &'a EntitiesAllocator {}
+unsafe impl<'a> ReadOnlySystemParam for &'a EntityAllocator {}
 
 // SAFETY: no component value access
-unsafe impl<'a> SystemParam for &'a EntitiesAllocator {
+unsafe impl<'a> SystemParam for &'a EntityAllocator {
     type State = ();
-    type Item<'w, 's> = &'w EntitiesAllocator;
+    type Item<'w, 's> = &'w EntityAllocator;
 
     fn init_state(_world: &mut World) -> Self::State {}
 

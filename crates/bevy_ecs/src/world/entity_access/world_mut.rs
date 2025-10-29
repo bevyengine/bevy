@@ -5,9 +5,7 @@ use crate::{
     },
     change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
-    entity::{
-        Entity, EntityCloner, EntityClonerBuilder, EntityLocation, EntityRowLocation, OptIn, OptOut,
-    },
+    entity::{Entity, EntityCloner, EntityClonerBuilder, EntityLocation, OptIn, OptOut},
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
@@ -41,7 +39,7 @@ use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
 pub struct EntityWorldMut<'w> {
     world: &'w mut World,
     entity: Entity,
-    location: EntityRowLocation,
+    location: Option<EntityLocation>,
 }
 
 impl<'w> EntityWorldMut<'w> {
@@ -116,7 +114,7 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) unsafe fn new(
         world: &'w mut World,
         entity: Entity,
-        location: EntityRowLocation,
+        location: Option<EntityLocation>,
     ) -> Self {
         debug_assert!(world.entities().contains(entity));
         debug_assert_eq!(world.entities().get(entity).unwrap(), location);
@@ -161,7 +159,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
-    pub fn try_location(&self) -> EntityRowLocation {
+    pub fn try_location(&self) -> Option<EntityLocation> {
         self.location
     }
 
@@ -1706,7 +1704,8 @@ impl<'w> EntityWorldMut<'w> {
     /// This is *only* required when using the unsafe function [`EntityWorldMut::world_mut`],
     /// which enables the location to change.
     pub fn update_location(&mut self) {
-        self.location = self.world.entities().get(self.entity).expect("Commands should not be queued which despawn an entity while an active `EntityWorldMut` is available to do so.");
+        self.location = self.world.entities().get(self.entity)
+            .expect("Attempted to update the location of a despawned entity, which is impossible. This was the result of performing an operation on this EntityWorldMut that queued a despawn command");
     }
 
     /// Returns if the entity has been despawned.

@@ -10,7 +10,7 @@ use crate::{
     },
     component::{ComponentId, Components, Mutable, StorageType},
     entity::{
-        ContainsEntity, Entities, EntitiesAllocator, Entity, EntityLocation, EntityNotSpawnedError,
+        ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
     },
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentMessages,
@@ -266,7 +266,7 @@ impl<'w> UnsafeWorldCell<'w> {
 
     /// Retrieves this world's [`Entities`] collection.
     #[inline]
-    pub fn entities_allocator(self) -> &'w EntitiesAllocator {
+    pub fn entities_allocator(self) -> &'w EntityAllocator {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.allocator

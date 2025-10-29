@@ -1,7 +1,7 @@
 use bevy_utils::Parallel;
 
 use crate::{
-    entity::{Entities, EntitiesAllocator},
+    entity::{Entities, EntityAllocator},
     prelude::World,
     system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
 };
@@ -51,7 +51,7 @@ struct ParallelCommandQueue {
 #[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
     state: Deferred<'s, ParallelCommandQueue>,
-    allocator: &'w EntitiesAllocator,
+    allocator: &'w EntityAllocator,
     entities: &'w Entities,
 }
 

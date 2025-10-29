@@ -44,7 +44,7 @@ use crate::{
         RequiredComponentsError,
     },
     entity::{
-        Entities, EntitiesAllocator, Entity, EntityNotSpawnedError, InvalidEntityError, SpawnError,
+        Entities, Entity, EntityAllocator, EntityNotSpawnedError, InvalidEntityError, SpawnError,
     },
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
@@ -94,7 +94,7 @@ use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 pub struct World {
     id: WorldId,
     pub(crate) entities: Entities,
-    pub(crate) allocator: EntitiesAllocator,
+    pub(crate) allocator: EntityAllocator,
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
@@ -114,7 +114,7 @@ impl Default for World {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Entities::new(),
-            allocator: EntitiesAllocator::default(),
+            allocator: EntityAllocator::default(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -208,15 +208,15 @@ impl World {
         &self.entities
     }
 
-    /// Retrieves this world's [`EntitiesAllocator`] collection.
+    /// Retrieves this world's [`EntityAllocator`] collection.
     #[inline]
-    pub fn entities_allocator(&self) -> &EntitiesAllocator {
+    pub fn entities_allocator(&self) -> &EntityAllocator {
         &self.allocator
     }
 
-    /// Retrieves this world's [`EntitiesAllocator`] collection mutably.
+    /// Retrieves this world's [`EntityAllocator`] collection mutably.
     #[inline]
-    pub fn entities_allocator_mut(&mut self) -> &mut EntitiesAllocator {
+    pub fn entities_allocator_mut(&mut self) -> &mut EntityAllocator {
         &mut self.allocator
     }
 
@@ -1085,7 +1085,7 @@ impl World {
     ///
     /// In general, you should prefer [`spawn`](Self::spawn).
     /// Spawn internally calls this method, but it takes care of finding a suitable [`Entity`] for you.
-    /// This is made available for advanced use, which you can see at [`EntitiesAllocator::alloc`].
+    /// This is made available for advanced use, which you can see at [`EntityAllocator::alloc`].
     ///
     /// # Risk
     ///
@@ -1097,7 +1097,7 @@ impl World {
     ///
     /// # Example
     ///
-    /// Currently, this is primarily used to spawn entities that come from [`EntitiesAllocator::alloc`].
+    /// Currently, this is primarily used to spawn entities that come from [`EntityAllocator::alloc`].
     /// See that for an example.
     #[track_caller]
     pub fn spawn_at<B: Bundle>(
@@ -1165,17 +1165,17 @@ impl World {
 
     /// A faster version of [`spawn_at`](Self::spawn_at) for the empty bundle.
     #[track_caller]
-    pub fn spawn_at_empty(&mut self, entity: Entity) -> Result<EntityWorldMut<'_>, SpawnError> {
-        self.spawn_at_empty_with_caller(entity, MaybeLocation::caller())
+    pub fn spawn_empty_at(&mut self, entity: Entity) -> Result<EntityWorldMut<'_>, SpawnError> {
+        self.spawn_empty_at_with_caller(entity, MaybeLocation::caller())
     }
 
-    pub(crate) fn spawn_at_empty_with_caller(
+    pub(crate) fn spawn_empty_at_with_caller(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
     ) -> Result<EntityWorldMut<'_>, SpawnError> {
         self.entities.check_can_spawn_at(entity)?;
-        Ok(self.spawn_at_empty_unchecked(entity, caller))
+        Ok(self.spawn_empty_at_unchecked(entity, caller))
     }
 
     /// A faster version of [`spawn_at_unchecked`](Self::spawn_at_unchecked) for the empty bundle.
@@ -1183,7 +1183,7 @@ impl World {
     /// # Panics
     ///
     /// Panics if the entity row is already spawned
-    pub(crate) fn spawn_at_empty_unchecked(
+    pub(crate) fn spawn_empty_at_unchecked(
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
@@ -1318,7 +1318,7 @@ impl World {
     pub(crate) fn spawn_empty_with_caller(&mut self, caller: MaybeLocation) -> EntityWorldMut<'_> {
         let entity = self.allocator.alloc();
         // This was just spawned from null, so it shouldn't panic.
-        self.spawn_at_empty_unchecked(entity, caller)
+        self.spawn_empty_at_unchecked(entity, caller)
     }
 
     /// Spawns a batch of entities with the same component [`Bundle`] type. Takes a given
@@ -1552,8 +1552,14 @@ impl World {
             Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::Invalid(err))) => {
                 Err(err)
             }
-            // The caller wants the entity to be left despawned and in the allocator. In this case, we can just skip the despawning part.
+            // The caller wants the entity to be left despawned and in the allocator.
+            // In this case, we can just skip the despawning part.
             Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::RowNotSpawned(_))) => {
+                // We can assume the allocator doesn't have this entity,
+                // since if entity was already despawned, its generation would have changed already,
+                // and `Invalid` error variant would have resulted.
+                // This can only happen if the entity was previously `despawn_no_free`d.
+                // And in that case we just need to finish freeing it.
                 self.allocator.free(entity);
                 Ok(())
             }
@@ -1595,7 +1601,7 @@ impl World {
     /// Despawning internally calls this and frees the entity id to Bevy's default entity allocator.
     /// The same principal can be used to create custom allocators with additional properties.
     /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityRow`](crate::entity::EntityRow)s, etc.
-    /// See [`EntitiesAllocator::alloc`] for more on this.
+    /// See [`EntityAllocator::alloc`] for more on this.
     #[track_caller]
     #[inline]
     pub fn try_despawn_no_free(&mut self, entity: Entity) -> Result<Entity, EntityDespawnError> {
@@ -4532,7 +4538,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         world.despawn(entity);
@@ -4541,7 +4547,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
@@ -4551,7 +4557,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
         world.despawn(new);
@@ -4560,7 +4566,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
     }

@@ -1387,7 +1387,7 @@ mod tests {
                     .map(|l| l.unwrap());
                 let at = world
                     .entities
-                    .entity_get_spawned_or_despawned_at(entity)
+                    .entity_get_spawn_or_despawn_tick(entity)
                     .unwrap();
                 (by, at)
             });
@@ -1427,7 +1427,7 @@ mod tests {
             despawn_tick,
             world
                 .entities()
-                .entity_get_spawned_or_despawned_at(entity)
+                .entity_get_spawn_or_despawn_tick(entity)
                 .unwrap()
         );
     }

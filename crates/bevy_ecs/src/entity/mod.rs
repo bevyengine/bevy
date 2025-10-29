@@ -11,7 +11,7 @@
 //!
 //! This module contains four main things:
 //!
-//!  - Core ECS types like [`Entity`], [`Entities`], and [`EntitiesAllocator`].
+//!  - Core ECS types like [`Entity`], [`Entities`], and [`EntityAllocator`].
 //!  - Utilities for [`Entity`] ids like [`MapEntities`], [`EntityHash`], and [`UniqueEntityVec`].
 //!  - Helpers for entity tasks like [`EntityCloner`].
 //!  - Entity-related error types like [`EntityNotSpawnedError`].
@@ -30,7 +30,7 @@
 //! It is also possible to use [`World::spawn_empty`](crate::world::World::spawn_empty) or [`Commands::spawn_empty`](crate::system::Commands::spawn_empty), which are similar but do not add any components to the entity.
 //! In either case, the returned [`Entity`] id is used to further interact with the entity.
 //!
-//! **Update:** Once an entity is created, you will need its [`Entity`] id to progress its life cycle.
+//! **Update:** Once an entity is created, you will need its [`Entity`] id to perform further actions on it.
 //! This can be done through [`World::entity_mut`](crate::world::World::entity_mut) and [`Commands::entity`](crate::system::Commands::entity).
 //! Even if you don't store the id, you can still find the entity you spawned by searching for it in a [`Query`].
 //! Queries are also the primary way of interacting with an entity's components.
@@ -84,8 +84,7 @@
 //!     It has some component values and is being used.
 //!
 //! [`EntityRow`] behaves much the same way as the spreadsheet row.
-//! Each row has a [`EntityRowLocation`] which defines that row/entity's state.
-//! The [`EntityRowLocation`] is an `Option` of [`EntityLocation`].
+//! Each row has a [`Option<EntityLocation>`](EntityLocation) which defines that row/entity's state.
 //! If this is `Some`, the row is considered spawned (think *used* in the spreadsheet), otherwise it is considered despawned (think *grayed out* in the spreadsheet).
 //! Only spawned entities, entities with `Some` [`EntityLocation`], participate in the [`World`].
 //! The [`EntityLocation`] further describes which components an entity has and where to find them; it determines which spreadsheet cells are blank and which ones have values.
@@ -115,13 +114,13 @@
 //! This produces the [`InvalidEntityError`].
 //!
 //! As mentioned, once an [`EntityRow`] is despawned, it is not discoverable until it is spawned again.
-//! To prevent these rows from being forgotten, bevy tracks them in an [`EntitiesAllocator`].
+//! To prevent these rows from being forgotten, bevy tracks them in an [`EntityAllocator`].
 //! When a new entity is spawned, all bevy does is allocate a new [`Entity`] id from the allocator and [`World::spawn_at`](crate::world::World::spawn_at) it.
 //! When it is despawned, all bevy does is [`World::despawn_no_free`](crate::world::World::despawn_no_free) it and return the [`Entity`] id (with the next [`EntityGeneration`] for that [`EntityRow`]) to the allocator.
 //! It's that simple.
 //!
 //! Bevy exposes this functionality as well.
-//! Spawning an entity requires full access to the [`World`], but using [`EntitiesAllocator::alloc`] can be done fully concurrently.
+//! Spawning an entity requires full access to the [`World`], but using [`EntityAllocator::alloc`] can be done fully concurrently.
 //! Of course, to make that entity usable, it will need to be passed to [`World::spawn_at`](crate::world::World::spawn_at).
 //! Managing entity ids manually is advanced but can be very useful for concurrency, custom entity allocators, etc.
 //! But there are risks when used improperly:
@@ -137,7 +136,7 @@
 //! The big three to be aware of are:
 //!
 //! - [`InvalidEntityError`]: when the [`EntityGeneration`] of an [`Entity`] unexpectedly does not match the most recent generation of its [`EntityRow`],
-//! - [`EntityRowNotSpawnedError`]: when an [`EntityRow`] unexpectedly is not spawned,
+//! - [`EntityValidButNotSpawnedError`]: when an [`EntityRow`] unexpectedly is not spawned,
 //! - [`EntityNotSpawnedError`]: the union of the other two; when [`Entity`]'s [`EntityGeneration`] doesn't match the most recent generation of its [`EntityRow`] or when that row is not spawned,
 //!
 //!
@@ -145,11 +144,11 @@
 //!
 //! - An [`Entity`] id is just a [`EntityRow`] and a [`EntityGeneration`] of that row.
 //! - [`EntityRow`]s can be spawned and despawned repeatedly, where each spawning gets its own [`EntityGeneration`].
-//! - Bevy exposes this functionality through [`EntitiesAllocator::alloc`], [`World::spawn_at`](crate::world::World::spawn_at), and [`World::despawn_no_free`](crate::world::World::despawn_no_free).
+//! - Bevy exposes this functionality through [`EntityAllocator::alloc`], [`World::spawn_at`](crate::world::World::spawn_at), and [`World::despawn_no_free`](crate::world::World::despawn_no_free).
 //! - While understanding these details help build an intuition for how bevy handles entities, using these apis directly is risky but powerful,
 //!   and you can usually use the easier [`World::spawn`](crate::world::World::spawn`), and [`World::despawn`](crate::world::World::despawn).
 //! - Lots of id information can be obtained from [`Entities`].
-//! - Watch out for the errors [`InvalidEntityError`], [`EntityRowNotSpawnedError`], and [`EntityNotSpawnedError`], explained above.
+//! - Watch out for the errors [`InvalidEntityError`], [`EntityValidButNotSpawnedError`], and [`EntityNotSpawnedError`], explained above.
 //!
 //! # Storage
 //!
@@ -161,7 +160,7 @@
 //! Regardless, the spreadsheet also needs a special column that tracks metadata about an entity.
 //! This column does not represents a component and is specific to the [`EntityRow`], not the [`Entity`].
 //! For example, one thing Bevy stores in this metadata is the current [`EntityGeneration`] of the row.
-//! It also stores more information like the [`Tick`] a row was last spawned or despawned, and the [`EntityRowLocation`] itself.
+//! It also stores more information like the [`Tick`] a row was last spawned or despawned, and the optional [`EntityLocation`] itself.
 //! For more information about what's stored here, see [`Entities`], Bevy's implementation of this special column.
 //!
 //! Entity spawning is done in two stages:
@@ -792,7 +791,7 @@ impl SparseSetIndex for Entity {
 /// Conceptually, this is a collection of [`Entity`] ids who's [`EntityRow`] is despawned and who's [`EntityGeneration`] is the most recent.
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
-pub struct EntitiesAllocator {
+pub struct EntityAllocator {
     /// All the entities to reuse.
     /// This is a buffer, which contains an array of [`Entity`] ids to hand out.
     /// The next id to hand out is tracked by `free_len`.
@@ -806,7 +805,7 @@ pub struct EntitiesAllocator {
     next_row: AtomicU32,
 }
 
-impl EntitiesAllocator {
+impl EntityAllocator {
     /// Restarts the allocator.
     pub(crate) fn restart(&mut self) {
         self.free.clear();
@@ -976,19 +975,22 @@ impl Entities {
             }));
         };
         meta.location.ok_or(EntityNotSpawnedError::RowNotSpawned(
-            EntityRowNotSpawnedError {
+            EntityValidButNotSpawnedError {
                 entity,
                 location: meta.spawned_or_despawned.by,
             },
         ))
     }
 
-    /// Returns the [`EntityRowLocation`] of an [`Entity`] if it exists.
+    /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid.
+    /// The location may be `None` if the entity is not spawned.
+    /// If you expect the entity to be spawned, use [`get_spawned`](Self::get_spawned).
+    ///
     /// This can fail if the id's [`EntityGeneration`] has passed.
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<EntityRowLocation, InvalidEntityError> {
+    pub fn get(&self, entity: Entity) -> Result<Option<EntityLocation>, InvalidEntityError> {
         match self.get_spawned(entity) {
             Ok(location) => Ok(Some(location)),
             Err(EntityNotSpawnedError::RowNotSpawned { .. }) => Ok(None),
@@ -1058,8 +1060,8 @@ impl Entities {
     pub(crate) unsafe fn update_existing_location(
         &mut self,
         row: EntityRow,
-        location: EntityRowLocation,
-    ) -> EntityRowLocation {
+        location: Option<EntityLocation>,
+    ) -> Option<EntityLocation> {
         // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
         let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
         mem::replace(&mut meta.location, location)
@@ -1076,8 +1078,8 @@ impl Entities {
     pub(crate) unsafe fn set_location(
         &mut self,
         row: EntityRow,
-        location: EntityRowLocation,
-    ) -> EntityRowLocation {
+        location: Option<EntityLocation>,
+    ) -> Option<EntityLocation> {
         self.ensure_row_index_is_valid(row);
         // SAFETY: We just did `ensure_row`
         self.update_existing_location(row, location)
@@ -1152,7 +1154,7 @@ impl Entities {
     /// Try to get the [`Tick`] at which this entity has last been spawned or despawned.
     ///
     /// Returns `None` if the entity does not exist or has never been construced/despawned.
-    pub fn entity_get_spawned_or_despawned_at(&self, entity: Entity) -> Option<Tick> {
+    pub fn entity_get_spawn_or_despawn_tick(&self, entity: Entity) -> Option<Tick> {
         self.entity_get_spawned_or_despawned(entity)
             .map(|spawned_or_despawned| spawned_or_despawned.tick)
     }
@@ -1249,17 +1251,17 @@ pub struct InvalidEntityError {
     pub current_generation: EntityGeneration,
 }
 
-/// An error that occurs when a specified [`EntityRow`] is expected to be spawned but is not.
-/// This includes when an [`Entity`] that is known to be valid happens to not be spawned.
+/// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is spawned.
+/// This includes when an [`EntityRow`] is requested but is not spawned, since each row always corresponds to exactly one valid entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct EntityRowNotSpawnedError {
+pub struct EntityValidButNotSpawnedError {
     /// The entity's ID.
     pub entity: Entity,
     /// The location of what last despawned the entity.
     pub location: MaybeLocation<&'static Location<'static>>,
 }
 
-impl fmt::Display for EntityRowNotSpawnedError {
+impl fmt::Display for EntityValidButNotSpawnedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let entity = self.entity;
         match self.location.into_option() {
@@ -1273,7 +1275,7 @@ impl fmt::Display for EntityRowNotSpawnedError {
 }
 
 /// An error that occurs when a specified [`Entity`] is expected to be valid and spawned but is not.
-/// Represents an error of either [`InvalidEntityError`] (when the entity is invalid) or [`EntityRowNotSpawnedError`] (when the [`EntityGeneration`] is correct but the [`EntityRow`] is not spawned).
+/// Represents an error of either [`InvalidEntityError`] (when the entity is invalid) or [`EntityValidButNotSpawnedError`] (when the [`EntityGeneration`] is correct but the [`EntityRow`] is not spawned).
 #[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EntityNotSpawnedError {
     /// The entity was invalid.
@@ -1281,7 +1283,7 @@ pub enum EntityNotSpawnedError {
     Invalid(#[from] InvalidEntityError),
     /// The entity was valid but was not spawned.
     #[error("{0}")]
-    RowNotSpawned(#[from] EntityRowNotSpawnedError),
+    RowNotSpawned(#[from] EntityValidButNotSpawnedError),
 }
 
 impl EntityNotSpawnedError {
@@ -1299,7 +1301,7 @@ struct EntityMeta {
     /// The current [`EntityGeneration`] of the [`EntityRow`].
     generation: EntityGeneration,
     /// The current location of the [`EntityRow`].
-    location: EntityRowLocation,
+    location: Option<EntityLocation>,
     /// Location and tick of the last spawn/despawn
     spawned_or_despawned: SpawnedOrDespawned,
 }
@@ -1345,17 +1347,6 @@ pub struct EntityLocation {
     /// [`Table`]: crate::storage::Table
     pub table_row: TableRow,
 }
-
-/// An [`EntityRow`] id may or may not currently be spawned.
-/// If it is not spawned, the [`EntityLocation`] will be `None`.
-/// An location of `None` means the entity effectively does not exist; it has an id, but is not participating in the ECS.
-/// This is different from a location in the empty archetype, which is participating (queryable, etc) but just happens to have no components.
-/// For more information about what a `None` location means, see the module [docs](crate::entity).
-///
-/// Setting a location to `None` is often helpful when you want to destruct an entity or yank it from the ECS without allowing another system to reuse the id for something else.
-/// It is also useful for reserving an id; commands will often allocate an `Entity` but not provide it a location until the command is applied.
-/// For more information about these more complex entity life cycles, see the module [docs](crate::entity).
-pub type EntityRowLocation = Option<EntityLocation>;
 
 #[cfg(test)]
 mod tests {
@@ -1618,7 +1609,7 @@ mod tests {
 
     #[test]
     fn allocator() {
-        let mut allocator = EntitiesAllocator::default();
+        let mut allocator = EntityAllocator::default();
         let mut entities = allocator.alloc_many(2048).collect::<Vec<_>>();
         for _ in 0..2048 {
             entities.push(allocator.alloc());

@@ -20,7 +20,7 @@ use crate::{
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{
-        Entities, EntitiesAllocator, Entity, EntityClonerBuilder, EntityNotSpawnedError,
+        Entities, Entity, EntityAllocator, EntityClonerBuilder, EntityNotSpawnedError,
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
@@ -105,7 +105,7 @@ use crate::{
 pub struct Commands<'w, 's> {
     queue: InternalQueue<'s>,
     entities: &'w Entities,
-    allocator: &'w EntitiesAllocator,
+    allocator: &'w EntityAllocator,
 }
 
 // SAFETY: All commands [`Command`] implement [`Send`]
@@ -117,7 +117,7 @@ unsafe impl Sync for Commands<'_, '_> {}
 const _: () = {
     type __StructFieldsAlias<'w, 's> = (
         Deferred<'s, CommandQueue>,
-        &'w EntitiesAllocator,
+        &'w EntityAllocator,
         &'w Entities,
     );
     #[doc(hidden)]
@@ -232,7 +232,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
     pub fn new_from_entities(
         queue: &'s mut CommandQueue,
-        allocator: &'w EntitiesAllocator,
+        allocator: &'w EntityAllocator,
         entities: &'w Entities,
     ) -> Self {
         Self {
@@ -251,7 +251,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// * Caller ensures that `queue` must outlive `'w`
     pub(crate) unsafe fn new_raw_from_entities(
         queue: RawCommandQueue,
-        allocator: &'w EntitiesAllocator,
+        allocator: &'w EntityAllocator,
         entities: &'w Entities,
     ) -> Self {
         Self {
@@ -341,7 +341,7 @@ impl<'w, 's> Commands<'w, 's> {
         let entity = self.allocator.alloc();
         let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
-            world.spawn_at_empty_with_caller(entity, caller).map(|_| ())
+            world.spawn_empty_at_with_caller(entity, caller).map(|_| ())
         });
         self.entity(entity)
     }
@@ -2902,7 +2902,7 @@ mod tests {
         world.flush();
         assert_eq!(
             Some(expected),
-            world.entities().entity_get_spawned_or_despawned_at(id)
+            world.entities().entity_get_spawn_or_despawn_tick(id)
         );
     }
 }

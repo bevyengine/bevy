@@ -6,7 +6,7 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::{MaybeLocation, Tick},
-    entity::{EntitiesAllocator, Entity, EntityLocation},
+    entity::{Entity, EntityAllocator, EntityLocation},
     event::EntityComponentsTrigger,
     lifecycle::{Add, Insert, ADD, INSERT},
     relationship::RelationshipHookMode,
@@ -192,7 +192,7 @@ impl<'w> BundleSpawner<'w> {
     }
 
     #[inline]
-    pub(crate) fn allocator(&mut self) -> &'w mut EntitiesAllocator {
+    pub(crate) fn allocator(&mut self) -> &'w mut EntityAllocator {
         // SAFETY: No outstanding references to self.world, changes to entities cannot invalidate our internal pointers
         unsafe { &mut self.world.world_mut().allocator }
     }
