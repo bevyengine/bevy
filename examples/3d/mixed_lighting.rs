@@ -1,6 +1,7 @@
 //! Demonstrates how to combine baked and dynamic lighting.
 
 use bevy::{
+    gltf::GltfMeshName,
     pbr::Lightmap,
     picking::{backend::HitData, pointer::PointerInteraction},
     prelude::*,
@@ -68,10 +69,10 @@ enum LightingMode {
     RealTime,
 }
 
-/// An event that's fired whenever the user changes the lighting mode.
+/// A message that's written whenever the user changes the lighting mode.
 ///
-/// This is also fired when the scene loads for the first time.
-#[derive(Clone, Copy, Default, Event)]
+/// This is also written when the scene loads for the first time.
+#[derive(Clone, Copy, Default, Message)]
 struct LightingModeChanged;
 
 #[derive(Clone, Copy, Component, Debug)]
@@ -123,14 +124,14 @@ fn main() {
             ..default()
         }))
         .add_plugins(MeshPickingPlugin)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: ClearColor::default().0,
             brightness: 10000.0,
             affects_lightmapped_meshes: true,
         })
         .init_resource::<AppStatus>()
-        .add_event::<WidgetClickEvent<LightingMode>>()
-        .add_event::<LightingModeChanged>()
+        .add_message::<WidgetClickEvent<LightingMode>>()
+        .add_message::<LightingModeChanged>()
         .add_systems(Startup, setup)
         .add_systems(Update, update_lightmaps)
         .add_systems(Update, update_directional_light)
@@ -171,31 +172,29 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
             ),
         ))
         .observe(
-            |_: Trigger<SceneInstanceReady>,
-             mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
+            |_: On<SceneInstanceReady>,
+             mut lighting_mode_changed_writer: MessageWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.
-                lighting_mode_change_event_writer.write(LightingModeChanged);
+                lighting_mode_changed_writer.write(LightingModeChanged);
             },
         );
 }
 
 /// Spawns the buttons that allow the user to change the lighting mode.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
-                "Lighting",
-                &[
-                    (LightingMode::Baked, "Baked"),
-                    (LightingMode::MixedDirect, "Mixed (Direct)"),
-                    (LightingMode::MixedIndirect, "Mixed (Indirect)"),
-                    (LightingMode::RealTime, "Real-Time"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Lighting",
+            &[
+                (LightingMode::Baked, "Baked"),
+                (LightingMode::MixedDirect, "Mixed (Direct)"),
+                (LightingMode::MixedIndirect, "Mixed (Indirect)"),
+                (LightingMode::RealTime, "Real-Time"),
+            ],
+        )],
+    ));
 }
 
 /// Spawns the help text at the top of the window.
@@ -204,8 +203,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         create_help_text(app_status),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,
@@ -221,13 +220,13 @@ fn update_lightmaps(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    meshes: Query<(Entity, &Name, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
-    mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
+    meshes: Query<(Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
+    mut lighting_mode_changed_reader: MessageReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
 ) {
     // Only run if the lighting mode changed. (Note that a change event is fired
     // when the scene first loads.)
-    if lighting_mode_change_event_reader.read().next().is_none() {
+    if lighting_mode_changed_reader.read().next().is_none() {
         return;
     }
 
@@ -334,12 +333,12 @@ fn make_sphere_nonpickable(
 /// changes.
 fn update_directional_light(
     mut lights: Query<&mut DirectionalLight>,
-    mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
+    mut lighting_mode_changed_reader: MessageReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
 ) {
     // Only run if the lighting mode changed. (Note that a change event is fired
     // when the scene first loads.)
-    if lighting_mode_change_event_reader.read().next().is_none() {
+    if lighting_mode_changed_reader.read().next().is_none() {
         return;
     }
 
@@ -387,13 +386,13 @@ fn update_radio_buttons(
 /// Handles clicks on the widgets at the bottom of the screen and fires
 /// [`LightingModeChanged`] events.
 fn handle_lighting_mode_change(
-    mut widget_click_event_reader: EventReader<WidgetClickEvent<LightingMode>>,
-    mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>,
+    mut widget_click_event_reader: MessageReader<WidgetClickEvent<LightingMode>>,
+    mut lighting_mode_changed_writer: MessageWriter<LightingModeChanged>,
     mut app_status: ResMut<AppStatus>,
 ) {
     for event in widget_click_event_reader.read() {
         app_status.lighting_mode = **event;
-        lighting_mode_change_event_writer.write(LightingModeChanged);
+        lighting_mode_changed_writer.write(LightingModeChanged);
     }
 }
 
@@ -405,13 +404,13 @@ fn handle_lighting_mode_change(
 /// to be correct.
 fn reset_sphere_position(
     mut objects: Query<(&Name, &mut Transform)>,
-    mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
+    mut lighting_mode_changed_reader: MessageReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
 ) {
     // Only run if the lighting mode changed and if the lighting mode is
     // `LightingMode::Baked`. (Note that a change event is fired when the scene
     // first loads.)
-    if lighting_mode_change_event_reader.read().next().is_none()
+    if lighting_mode_changed_reader.read().next().is_none()
         || app_status.lighting_mode != LightingMode::Baked
     {
         return;
@@ -432,7 +431,7 @@ fn reset_sphere_position(
 fn move_sphere(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     pointers: Query<&PointerInteraction>,
-    mut meshes: Query<(&Name, &ChildOf), With<Mesh3d>>,
+    mut meshes: Query<(&GltfMeshName, &ChildOf), With<Mesh3d>>,
     mut transforms: Query<&mut Transform>,
     app_status: Res<AppStatus>,
 ) {
@@ -486,9 +485,9 @@ fn adjust_help_text(
     mut commands: Commands,
     help_texts: Query<Entity, With<HelpText>>,
     app_status: Res<AppStatus>,
-    mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
+    mut lighting_mode_changed_reader: MessageReader<LightingModeChanged>,
 ) {
-    if lighting_mode_change_event_reader.read().next().is_none() {
+    if lighting_mode_changed_reader.read().next().is_none() {
         return;
     }
 

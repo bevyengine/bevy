@@ -9,7 +9,8 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::Tick,
+    change_detection::Tick,
+    query::FilteredAccessSet,
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
@@ -17,7 +18,7 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
@@ -199,21 +200,24 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::init_state(world),
         }
     }
 
-    unsafe fn new_archetype(
-        state: &mut Self::State,
-        archetype: &bevy_ecs::archetype::Archetype,
+    fn init_access(
+        state: &Self::State,
         system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
     ) {
-        // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-        unsafe {
-            GizmosState::<Config, Clear>::new_archetype(&mut state.state, archetype, system_meta);
-        };
+        GizmosState::<Config, Clear>::init_access(
+            &state.state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -222,12 +226,14 @@ where
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { GizmosState::<Config, Clear>::validate_param(&state.state, system_meta, world) }
+        unsafe {
+            GizmosState::<Config, Clear>::validate_param(&mut state.state, system_meta, world)
+        }
     }
 
     #[inline]
@@ -284,10 +290,14 @@ where
     Clear: 'static + Send + Sync,
 {
     pub(crate) enabled: bool,
-    pub(crate) list_positions: Vec<Vec3>,
-    pub(crate) list_colors: Vec<LinearRgba>,
-    pub(crate) strip_positions: Vec<Vec3>,
-    pub(crate) strip_colors: Vec<LinearRgba>,
+    /// The positions of line segment endpoints.
+    pub list_positions: Vec<Vec3>,
+    /// The colors of line segment endpoints.
+    pub list_colors: Vec<LinearRgba>,
+    /// The positions of line strip vertices.
+    pub strip_positions: Vec<Vec3>,
+    /// The colors of line strip vertices.
+    pub strip_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
@@ -349,7 +359,7 @@ where
     }
 
     /// Read-only view into the buffers data.
-    pub fn buffer(&self) -> GizmoBufferView {
+    pub fn buffer(&self) -> GizmoBufferView<'_> {
         let GizmoBuffer {
             list_positions,
             list_colors,
@@ -582,12 +592,12 @@ where
     /// # use bevy_transform::prelude::*;
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.cuboid(Transform::IDENTITY, GREEN);
+    ///     gizmos.cube(Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn cuboid(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
+    pub fn cube(&mut self, transform: impl TransformPoint, color: impl Into<Color>) {
         let polymorphic_color: Color = color.into();
         if !self.enabled {
             return;
@@ -597,6 +607,59 @@ where
         let [tlf, trf, brf, blf] = rect.map(|vec2| transform.transform_point(vec2.extend(0.5)));
         // Back
         let [tlb, trb, brb, blb] = rect.map(|vec2| transform.transform_point(vec2.extend(-0.5)));
+
+        let strip_positions = [
+            tlf, trf, brf, blf, tlf, // Front
+            tlb, trb, brb, blb, tlb, // Back
+        ];
+        self.linestrip(strip_positions, polymorphic_color);
+
+        let list_positions = [
+            trf, trb, brf, brb, blf, blb, // Front to back
+        ];
+        self.extend_list_positions(list_positions);
+
+        self.add_list_color(polymorphic_color, 6);
+    }
+
+    /// Draw a wireframe aabb in 3D.
+    ///
+    /// This should be called for each frame the aabb needs to be rendered.
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_transform::prelude::*;
+    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn aabb_3d(
+        &mut self,
+        aabb: impl Into<Aabb3d>,
+        transform: impl TransformPoint,
+        color: impl Into<Color>,
+    ) {
+        let polymorphic_color: Color = color.into();
+        if !self.enabled {
+            return;
+        }
+        let aabb = aabb.into();
+        let [tlf, trf, brf, blf, tlb, trb, brb, blb] = [
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.max.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.max.z),
+            Vec3::new(aabb.min.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.max.y, aabb.min.z),
+            Vec3::new(aabb.max.x, aabb.min.y, aabb.min.z),
+            Vec3::new(aabb.min.x, aabb.min.y, aabb.min.z),
+        ]
+        .map(|v| transform.transform_point(v));
 
         let strip_positions = [
             tlf, trf, brf, blf, tlf, // Front

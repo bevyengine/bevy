@@ -1,9 +1,9 @@
 use crate::{
-    render_asset::RenderAssetUsages,
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{DefaultImageSampler, GpuImage},
 };
+use bevy_asset::RenderAssetUsages;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
@@ -89,7 +89,7 @@ fn fallback_image_new(
 
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
-        let data = vec![value; format.pixel_size()];
+        let data = vec![value; format.pixel_size().unwrap_or(0)];
         Image::new_fill(
             extents,
             image_dimension,

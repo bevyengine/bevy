@@ -3,7 +3,7 @@ index f578658cd..ffac22062 100644
 --- a/crates/bevy_window/src/window.rs
 +++ b/crates/bevy_window/src/window.rs
 @@ -318,7 +318,7 @@ impl Default for Window {
-             cursor_options: Default::default(),
+             name: None,
              present_mode: Default::default(),
              mode: Default::default(),
 -            position: Default::default(),

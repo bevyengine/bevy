@@ -334,6 +334,13 @@ impl DynamicBindGroupLayoutEntries {
         }
     }
 
+    pub fn new(default_visibility: ShaderStages) -> Self {
+        Self {
+            default_visibility,
+            entries: Vec::new(),
+        }
+    }
+
     pub fn extend_with_indices<const N: usize>(
         mut self,
         entries: impl IntoIndexedBindGroupLayoutEntryBuilderArray<N>,
@@ -565,6 +572,20 @@ pub mod binding_types {
             access,
             format,
             view_dimension: TextureViewDimension::D3,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn acceleration_structure() -> BindGroupLayoutEntryBuilder {
+        BindingType::AccelerationStructure {
+            vertex_return: false,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn acceleration_structure_vertex_return() -> BindGroupLayoutEntryBuilder {
+        BindingType::AccelerationStructure {
+            vertex_return: true,
         }
         .into_bind_group_layout_entry_builder()
     }

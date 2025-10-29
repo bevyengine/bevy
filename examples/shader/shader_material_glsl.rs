@@ -1,15 +1,7 @@
 //! A shader that uses the GLSL shading language.
 
 use bevy::{
-    pbr::{MaterialPipeline, MaterialPipelineKey},
-    prelude::*,
-    reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
-    },
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses shader source files from the assets subdirectory
@@ -73,19 +65,5 @@ impl Material for CustomMaterial {
 
     fn alpha_mode(&self) -> AlphaMode {
         self.alpha_mode
-    }
-
-    // Bevy assumes by default that vertex shaders use the "vertex" entry point
-    // and fragment shaders use the "fragment" entry point (for WGSL shaders).
-    // GLSL uses "main" as the entry point, so we must override the defaults here
-    fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
-        descriptor: &mut RenderPipelineDescriptor,
-        _layout: &MeshVertexBufferLayoutRef,
-        _key: MaterialPipelineKey<Self>,
-    ) -> Result<(), SpecializedMeshPipelineError> {
-        descriptor.vertex.entry_point = "main".into();
-        descriptor.fragment.as_mut().unwrap().entry_point = "main".into();
-        Ok(())
     }
 }

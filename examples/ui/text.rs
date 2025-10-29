@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::Underline,
 };
 
 fn main() {
@@ -32,6 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
+        Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -40,12 +42,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         TextShadow::default(),
         // Set the justification of the Text
-        TextLayout::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
+            bottom: px(5),
+            right: px(5),
             ..default()
         },
         AnimatedText,
@@ -95,8 +97,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("From an &str into a Text with the default font!"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));
@@ -110,8 +112,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));
@@ -135,11 +137,11 @@ fn text_update_system(
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
     for mut span in &mut query {
-        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                // Update the value of the second section
-                **span = format!("{value:.2}");
-            }
+        if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(value) = fps.smoothed()
+        {
+            // Update the value of the second section
+            **span = format!("{value:.2}");
         }
     }
 }

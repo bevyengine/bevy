@@ -12,7 +12,7 @@ use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashMap;
 use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
-use tracing::{error, warn};
+use tracing::warn;
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
@@ -72,26 +72,12 @@ impl<'a> AssetSourceId<'a> {
     }
 }
 
-impl AssetSourceId<'static> {
-    /// Indicates this [`AssetSourceId`] should have a static lifetime.
-    #[inline]
-    pub fn as_static(self) -> Self {
-        match self {
-            Self::Default => Self::Default,
-            Self::Name(value) => Self::Name(value.as_static()),
-        }
-    }
-
-    /// Constructs an [`AssetSourceId`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
-    }
-}
-
-impl<'a> From<&'a str> for AssetSourceId<'a> {
-    fn from(value: &'a str) -> Self {
-        AssetSourceId::Name(CowArc::Borrowed(value))
+// This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
+// by ensuring that this is stored as a `CowArc::Static`.
+// Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
+impl From<&'static str> for AssetSourceId<'static> {
+    fn from(value: &'static str) -> Self {
+        AssetSourceId::Name(value.into())
     }
 }
 
@@ -101,10 +87,10 @@ impl<'a, 'b> From<&'a AssetSourceId<'b>> for AssetSourceId<'b> {
     }
 }
 
-impl<'a> From<Option<&'a str>> for AssetSourceId<'a> {
-    fn from(value: Option<&'a str>) -> Self {
+impl From<Option<&'static str>> for AssetSourceId<'static> {
+    fn from(value: Option<&'static str>) -> Self {
         match value {
-            Some(value) => AssetSourceId::Name(CowArc::Borrowed(value)),
+            Some(value) => AssetSourceId::Name(value.into()),
             None => AssetSourceId::Default,
         }
     }
@@ -139,7 +125,7 @@ pub struct AssetSourceBuilder {
     /// The [`AssetWatcher`] to use for unprocessed assets, if any.
     pub watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
@@ -152,7 +138,7 @@ pub struct AssetSourceBuilder {
     /// The [`AssetWatcher`] to use for processed assets, if any.
     pub processed_watcher: Option<
         Box<
-            dyn FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            dyn FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
                 + Send
                 + Sync,
         >,
@@ -188,7 +174,7 @@ impl AssetSourceBuilder {
         };
 
         if watch {
-            let (sender, receiver) = crossbeam_channel::unbounded();
+            let (sender, receiver) = async_channel::unbounded();
             match self.watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.watcher = Some(w);
@@ -203,7 +189,7 @@ impl AssetSourceBuilder {
         }
 
         if watch_processed {
-            let (sender, receiver) = crossbeam_channel::unbounded();
+            let (sender, receiver) = async_channel::unbounded();
             match self.processed_watcher.as_mut().and_then(|w| w(sender)) {
                 Some(w) => {
                     source.processed_watcher = Some(w);
@@ -240,7 +226,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -270,7 +256,7 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+        watcher: impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
             + Send
             + Sync
             + 'static,
@@ -329,7 +315,7 @@ pub struct AssetSourceBuilders {
 impl AssetSourceBuilders {
     /// Inserts a new builder with the given `id`
     pub fn insert(&mut self, id: impl Into<AssetSourceId<'static>>, source: AssetSourceBuilder) {
-        match AssetSourceId::from_static(id) {
+        match id.into() {
             AssetSourceId::Default => {
                 self.default = Some(source);
             }
@@ -391,8 +377,8 @@ pub struct AssetSource {
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
-    event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
-    processed_event_receiver: Option<crossbeam_channel::Receiver<AssetSourceEvent>>,
+    event_receiver: Option<async_channel::Receiver<AssetSourceEvent>>,
+    processed_event_receiver: Option<async_channel::Receiver<AssetSourceEvent>>,
 }
 
 impl AssetSource {
@@ -443,15 +429,13 @@ impl AssetSource {
 
     /// Return's this source's unprocessed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn event_receiver(&self) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
         self.event_receiver.as_ref()
     }
 
     /// Return's this source's processed event receiver, if the source is currently watching for changes.
     #[inline]
-    pub fn processed_event_receiver(
-        &self,
-    ) -> Option<&crossbeam_channel::Receiver<AssetSourceEvent>> {
+    pub fn processed_event_receiver(&self) -> Option<&async_channel::Receiver<AssetSourceEvent>> {
         self.processed_event_receiver.as_ref()
     }
 
@@ -531,10 +515,9 @@ impl AssetSource {
     pub fn get_default_watcher(
         path: String,
         file_debounce_wait_time: Duration,
-    ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
-           + Send
-           + Sync {
-        move |sender: crossbeam_channel::Sender<AssetSourceEvent>| {
+    ) -> impl FnMut(async_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>> + Send + Sync
+    {
+        move |sender: async_channel::Sender<AssetSourceEvent>| {
             #[cfg(all(
                 feature = "file_watcher",
                 not(target_arch = "wasm32"),

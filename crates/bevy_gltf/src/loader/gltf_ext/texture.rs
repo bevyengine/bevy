@@ -30,8 +30,10 @@ pub(crate) fn texture_handle(
             if let Ok(_data_uri) = DataUri::parse(uri) {
                 load_context.get_label_handle(texture_label(texture).to_string())
             } else {
-                let parent = load_context.path().parent().unwrap();
-                let image_path = parent.join(uri);
+                let image_path = load_context
+                    .asset_path()
+                    .resolve_embed(uri)
+                    .expect("all URIs were already validated when we initially loaded textures");
                 load_context.load(image_path)
             }
         }
@@ -51,7 +53,7 @@ pub(crate) fn texture_sampler(
 
     // Shouldn't parse filters when anisotropic filtering is on, because trilinear is then required by wgpu.
     // We also trust user to have provided a valid sampler.
-    if sampler.anisotropy_clamp != 1 {
+    if sampler.anisotropy_clamp == 1 {
         if let Some(mag_filter) = gltf_sampler.mag_filter().map(|mf| match mf {
             MagFilter::Nearest => ImageFilterMode::Nearest,
             MagFilter::Linear => ImageFilterMode::Linear,

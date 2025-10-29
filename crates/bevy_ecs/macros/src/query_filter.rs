@@ -97,16 +97,17 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
-            const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
+            const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryFilter>::IS_ARCHETYPAL)*;
 
             #[allow(unused_variables)]
             #[inline(always)]
             unsafe fn filter_fetch<'__w>(
+                _state: &Self::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entity: #path::entity::Entity,
                 _table_row: #path::storage::TableRow,
             ) -> bool {
-                true #(&& <#field_types>::filter_fetch(&mut _fetch.#named_field_idents, _entity, _table_row))*
+                true #(&& <#field_types>::filter_fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row))*
             }
         }
     };

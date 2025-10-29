@@ -80,10 +80,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
         Node {
             display: Display::Flex,
             justify_content: JustifyContent::SpaceBetween,
-            width: Val::Percent(100.),
+            width: percent(100),
             position_type: PositionType::Absolute,
-            top: Val::Px(0.),
-            padding: UiRect::all(Val::Px(20.0)),
+            top: px(0),
+            padding: UiRect::all(px(20)),
             ..default()
         },
         children![
@@ -102,7 +102,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     ..default()
                 },
                 TextColor(Color::srgb(0.85, 0.85, 0.85)),
-                TextLayout::new_with_justify(JustifyText::Center),
+                TextLayout::new_with_justify(Justify::Center),
             ),
             (
                 Text::default(),
@@ -111,7 +111,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut time: ResMu
                     ..default()
                 },
                 TextColor(virtual_color),
-                TextLayout::new_with_justify(JustifyText::Right),
+                TextLayout::new_with_justify(Justify::Right),
                 VirtualTime,
             ),
         ],

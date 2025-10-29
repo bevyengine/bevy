@@ -2,14 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-        view::RenderLayers,
-    },
-};
+use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()
@@ -33,23 +26,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
 ) {
-    let size = Extent3d {
-        width: 512,
-        height: 512,
-        ..default()
-    };
-
     // This is the texture that will be rendered to.
-    let mut image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0, 0, 0, 0],
-        TextureFormat::Bgra8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    // You need to set these texture usage flags in order to use the image as a render target
-    image.texture_descriptor.usage =
-        TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST | TextureUsages::RENDER_ATTACHMENT;
+    let image = Image::new_target_texture(512, 512, TextureFormat::bevy_default());
 
     let image_handle = images.add(image);
 
@@ -86,6 +64,8 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
+            // render before the "main pass" camera
+            order: -1,
             target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()

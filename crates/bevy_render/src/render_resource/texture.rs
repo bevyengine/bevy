@@ -160,7 +160,7 @@ impl Deref for Sampler {
 /// A rendering resource for the default image sampler which is set during renderer
 /// initialization.
 ///
-/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change the default
+/// The [`ImagePlugin`](bevy_image::ImagePlugin) can be set during app initialization to change the default
 /// image sampler.
 #[derive(Resource, Debug, Clone, Deref, DerefMut)]
 pub struct DefaultImageSampler(pub(crate) Sampler);

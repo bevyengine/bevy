@@ -93,7 +93,7 @@ impl Scene {
                 type_registry
                     .get(type_id)
                     .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                        std_type_name: component_info.name().to_string(),
+                        std_type_name: component_info.name(),
                     })?;
             let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
                 SceneSpawnError::UnregisteredResource {
@@ -119,21 +119,24 @@ impl Scene {
                     .get(&scene_entity.id())
                     .expect("should have previously spawned an entity");
 
-                for component_id in archetype.components() {
+                for component_id in archetype.iter_components() {
                     let component_info = self
                         .world
                         .components()
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
-                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                    if matches!(
+                        *component_info.clone_behavior(),
+                        ComponentCloneBehavior::Ignore
+                    ) {
                         continue;
                     }
 
                     let registration = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
-                            std_type_name: component_info.name().to_string(),
+                            std_type_name: component_info.name(),
                         })?;
                     let reflect_component =
                         registration.data::<ReflectComponent>().ok_or_else(|| {

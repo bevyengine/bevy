@@ -1,5 +1,6 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+//! Macros for deriving asset traits.
 
 use bevy_macro_utils::BevyManifest;
 use proc_macro::{Span, TokenStream};
@@ -7,11 +8,12 @@ use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Path};
 
 pub(crate) fn bevy_asset_path() -> Path {
-    BevyManifest::shared().get_path("bevy_asset")
+    BevyManifest::shared(|manifest| manifest.get_path("bevy_asset"))
 }
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";
 
+/// Implement the `Asset` trait.
 #[proc_macro_derive(Asset, attributes(dependency))]
 pub fn derive_asset(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -30,6 +32,7 @@ pub fn derive_asset(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Implement the `VisitAssetDependencies` trait.
 #[proc_macro_derive(VisitAssetDependencies, attributes(dependency))]
 pub fn derive_asset_dependency_visitor(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);

@@ -3,10 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
+    camera::Exposure,
+    core_pipeline::tonemapping::Tonemapping,
+    light::{light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder},
+    pbr::{AtmosphereSettings, EarthlikeAtmosphere},
+    post_process::bloom::Bloom,
     prelude::*,
-    render::camera::Exposure,
 };
 
 fn main() {
@@ -17,17 +19,12 @@ fn main() {
         .run();
 }
 
-fn setup_camera_fog(mut commands: Commands) {
+fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmosphere>) {
     commands.spawn((
         Camera3d::default(),
-        // HDR is required for atmospheric scattering to be properly applied to the scene
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH,
+        // get the default `Atmosphere` component
+        earth_atmosphere.get(),
         // The scene is in units of 10km, so we need to scale up the
         // aerial view lut distance and set the scene scale accordingly.
         // Most usages of this feature will not need to adjust this.
@@ -36,7 +33,7 @@ fn setup_camera_fog(mut commands: Commands) {
             scene_units_to_m: 1e+4,
             ..Default::default()
         },
-        // The directional light illuminance  used in this scene
+        // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
@@ -46,6 +43,8 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
+        // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
+        AtmosphereEnvironmentMapLight::default(),
     ));
 }
 

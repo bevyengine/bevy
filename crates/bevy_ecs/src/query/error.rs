@@ -1,3 +1,4 @@
+use bevy_utils::prelude::DebugName;
 use thiserror::Error;
 
 use crate::{
@@ -54,10 +55,10 @@ impl core::fmt::Display for QueryEntityError {
 pub enum QuerySingleError {
     /// No entity fits the query.
     #[error("No entities fit the query {0}")]
-    NoEntities(&'static str),
+    NoEntities(DebugName),
     /// Multiple entities fit the query.
     #[error("Multiple entities fit the query {0}")]
-    MultipleEntities(&'static str),
+    MultipleEntities(DebugName),
 }
 
 #[cfg(test)]

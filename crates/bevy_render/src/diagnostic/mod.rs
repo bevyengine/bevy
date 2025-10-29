@@ -2,7 +2,10 @@
 //!
 //! For more info, see [`RenderDiagnosticsPlugin`].
 
+mod erased_render_asset_diagnostic_plugin;
 pub(crate) mod internal;
+mod mesh_allocator_diagnostic_plugin;
+mod render_asset_diagnostic_plugin;
 #[cfg(feature = "tracing-tracy")]
 mod tracy_gpu;
 
@@ -16,8 +19,13 @@ use crate::{renderer::RenderAdapterInfo, RenderApp};
 use self::internal::{
     sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
 };
+pub use self::{
+    erased_render_asset_diagnostic_plugin::ErasedRenderAssetDiagnosticPlugin,
+    mesh_allocator_diagnostic_plugin::MeshAllocatorDiagnosticPlugin,
+    render_asset_diagnostic_plugin::RenderAssetDiagnosticPlugin,
+};
 
-use super::{RenderDevice, RenderQueue};
+use crate::renderer::{RenderDevice, RenderQueue};
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).
@@ -148,7 +156,7 @@ pub struct PassSpanGuard<'a, R: ?Sized, P> {
 }
 
 impl<R: RecordDiagnostics + ?Sized, P: Pass> PassSpanGuard<'_, R, P> {
-    /// End the span. You have to provide the same encoder which was used to begin the span.
+    /// End the span. You have to provide the same pass which was used to begin the span.
     pub fn end(self, pass: &mut P) {
         self.recorder.end_pass_span(pass);
         core::mem::forget(self);

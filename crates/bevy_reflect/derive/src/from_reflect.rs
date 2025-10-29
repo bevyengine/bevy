@@ -27,14 +27,29 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
+
+    let downcast = match meta.remote_ty() {
+        Some(remote) => {
+            let remote_ty = remote.type_path();
+            quote! {
+                <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
+                    #FQClone::clone(
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
+                    )
+                )
+            }
+        }
+        None => quote! {
+            #FQClone::clone(
+                <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
+            )
+        },
+    };
+
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect)?
-                    )
-                )
+                #FQOption::Some(#downcast)
             }
         }
     }
@@ -146,7 +161,8 @@ fn impl_struct_internal(
         quote! {
             let mut #__this = <#reflect_ty as #FQDefault>::default();
             #(
-                if let #fqoption::Some(__field) = #active_values() {
+                // The closure catches any failing `?` within `active_values`.
+                if let #fqoption::Some(__field) = (|| #active_values)() {
                     // Iff field exists -> use its value
                     #__this.#active_members = __field;
                 }
@@ -158,7 +174,7 @@ fn impl_struct_internal(
 
         quote! {
             let #__this = #constructor {
-                #(#active_members: #active_values()?,)*
+                #(#active_members: #active_values?,)*
                 #(#ignored_members: #ignored_values,)*
             };
             #FQOption::Some(#retval)
@@ -194,7 +210,7 @@ fn impl_struct_internal(
 /// Get the collection of ignored field definitions
 ///
 /// Each value of the `MemberValuePair` is a token stream that generates a
-/// a default value for the ignored field.
+/// default value for the ignored field.
 fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
     MemberValuePair::new(
         reflect_struct
@@ -274,13 +290,11 @@ fn get_active_fields(
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
                         quote! {
-                            (||
-                                if let #FQOption::Some(field) = #get_field {
-                                    #value
-                                } else {
-                                    #FQOption::Some(#path())
-                                }
-                            )
+                            if let #FQOption::Some(field) = #get_field {
+                                #value
+                            } else {
+                                #FQOption::Some(#path())
+                            }
                         }
                     }
                     DefaultBehavior::Default => {
@@ -288,13 +302,11 @@ fn get_active_fields(
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                         });
                         quote! {
-                            (||
-                                if let #FQOption::Some(field) = #get_field {
-                                    #value
-                                } else {
-                                    #FQOption::Some(#FQDefault::default())
-                                }
-                            )
+                            if let #FQOption::Some(field) = #get_field {
+                                #value
+                            } else {
+                                #FQOption::Some(#FQDefault::default())
+                            }
                         }
                     }
                     DefaultBehavior::Required => {
@@ -302,7 +314,7 @@ fn get_active_fields(
                             <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?)
                         });
                         quote! {
-                            (|| #value)
+                            #value
                         }
                     }
                 };

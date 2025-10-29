@@ -2,9 +2,8 @@
 
 use bevy::{
     ecs::{
-        component::{
-            ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType,
-        },
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
+        lifecycle::HookContext,
         world::DeferredWorld,
     },
     platform::collections::HashMap,
@@ -77,7 +76,7 @@ impl NameIndex {
 /// inserted in the index, and its value will not change without triggering a hook.
 fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnInsert hook guarantees `Name` is available on entity")
+        unreachable!("Insert hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -92,7 +91,7 @@ fn on_insert_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: Hook
 /// inserted in the index.
 fn on_replace_name(mut world: DeferredWorld<'_>, HookContext { entity, .. }: HookContext) {
     let Some(&name) = world.entity(entity).get::<Name>() else {
-        unreachable!("OnReplace hook guarantees `Name` is available on entity")
+        unreachable!("Replace hook guarantees `Name` is available on entity")
     };
     let Some(mut index) = world.get_resource_mut::<NameIndex>() else {
         return;
@@ -155,6 +154,7 @@ fn demo_3(world: &mut World) {
                     None,
                     false,
                     ComponentCloneBehavior::Default,
+                    None,
                 )
             };
 

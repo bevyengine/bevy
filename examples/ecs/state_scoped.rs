@@ -10,7 +10,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_camera)
         .add_systems(OnEnter(GameState::A), on_a_enter)
         .add_systems(OnEnter(GameState::B), on_b_enter)
@@ -34,7 +33,7 @@ struct TickTock(Timer);
 fn on_a_enter(mut commands: Commands) {
     info!("on_a_enter");
     commands.spawn((
-        DespawnOnExitState(GameState::A),
+        DespawnOnExit(GameState::A),
         Text::new("Game is in state 'A'"),
         TextFont {
             font_size: 33.0,
@@ -43,8 +42,8 @@ fn on_a_enter(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(0.0),
-            left: Val::Px(0.0),
+            top: px(0),
+            left: px(0),
             ..default()
         },
     ));
@@ -53,7 +52,7 @@ fn on_a_enter(mut commands: Commands) {
 fn on_a_exit(mut commands: Commands) {
     info!("on_a_exit");
     commands.spawn((
-        DespawnOnEnterState(GameState::A),
+        DespawnOnEnter(GameState::A),
         Text::new("Game state 'A' will be back in 1 second"),
         TextFont {
             font_size: 33.0,
@@ -62,8 +61,8 @@ fn on_a_exit(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(0.0),
-            left: Val::Px(500.0),
+            top: px(0),
+            left: px(500),
             ..default()
         },
     ));
@@ -72,7 +71,7 @@ fn on_a_exit(mut commands: Commands) {
 fn on_b_enter(mut commands: Commands) {
     info!("on_b_enter");
     commands.spawn((
-        DespawnOnExitState(GameState::B),
+        DespawnOnExit(GameState::B),
         Text::new("Game is in state 'B'"),
         TextFont {
             font_size: 33.0,
@@ -81,8 +80,8 @@ fn on_b_enter(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(50.0),
-            left: Val::Px(0.0),
+            top: px(50),
+            left: px(0),
             ..default()
         },
     ));
@@ -91,7 +90,7 @@ fn on_b_enter(mut commands: Commands) {
 fn on_b_exit(mut commands: Commands) {
     info!("on_b_exit");
     commands.spawn((
-        DespawnOnEnterState(GameState::B),
+        DespawnOnEnter(GameState::B),
         Text::new("Game state 'B' will be back in 1 second"),
         TextFont {
             font_size: 33.0,
@@ -100,8 +99,8 @@ fn on_b_exit(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(50.0),
-            left: Val::Px(500.0),
+            top: px(50),
+            left: px(500),
             ..default()
         },
     ));
@@ -117,7 +116,7 @@ fn toggle(
     state: Res<State<GameState>>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
     *next_state = match state.get() {

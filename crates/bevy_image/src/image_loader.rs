@@ -81,19 +81,42 @@ impl ImageLoader {
     }
 }
 
+/// How to determine an image's format when loading.
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub enum ImageFormatSetting {
+    /// Determine the image format from its file extension.
+    ///
+    /// This is the default.
     #[default]
     FromExtension,
+    /// Declare the image format explicitly.
     Format(ImageFormat),
+    /// Guess the image format by looking for magic bytes at the
+    /// beginning of its data.
     Guess,
 }
 
+/// Settings for loading an [`Image`] using an [`ImageLoader`].
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
+    /// How to determine the image's container format.
     pub format: ImageFormatSetting,
+    /// Forcibly use a specific [`wgpu_types::TextureFormat`].
+    /// Useful to control how data is handled when used
+    /// in a shader.
+    /// Ex: data that would be `R16Uint` that needs to
+    /// be sampled as a float using `R16Snorm`.
+    #[serde(skip)]
+    pub texture_format: Option<wgpu_types::TextureFormat>,
+    /// Specifies whether image data is linear
+    /// or in sRGB space when this is not determined by
+    /// the image format.
     pub is_srgb: bool,
+    /// [`ImageSampler`] to use when rendering - this does
+    /// not affect the loading of the image data.
     pub sampler: ImageSampler,
+    /// Where the asset will be used - see the docs on
+    /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -101,6 +124,7 @@ impl Default for ImageLoaderSettings {
     fn default() -> Self {
         Self {
             format: ImageFormatSetting::default(),
+            texture_format: None,
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
@@ -108,11 +132,14 @@ impl Default for ImageLoaderSettings {
     }
 }
 
+/// An error when loading an image using [`ImageLoader`].
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum ImageLoaderError {
-    #[error("Could load shader: {0}")]
+    /// An error occurred while trying to load the image bytes.
+    #[error("Failed to load image bytes: {0}")]
     Io(#[from] std::io::Error),
+    /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
 }
@@ -157,6 +184,12 @@ impl AssetLoader for ImageLoader {
             settings.sampler.clone(),
             settings.asset_usage,
         )
+        .map(|mut image| {
+            if let Some(format) = settings.texture_format {
+                image.texture_descriptor.format = format;
+            }
+            image
+        })
         .map_err(|err| FileTextureError {
             error: err,
             path: format!("{}", load_context.path().display()),
@@ -170,7 +203,7 @@ impl AssetLoader for ImageLoader {
 
 /// An error that occurs when loading a texture from a file.
 #[derive(Error, Debug)]
-#[error("Error reading image file {path}: {error}, this is an error in `bevy_render`.")]
+#[error("Error reading image file {path}: {error}.")]
 pub struct FileTextureError {
     error: TextureError,
     path: String,

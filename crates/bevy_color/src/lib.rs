@@ -1,8 +1,8 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
@@ -262,6 +262,7 @@ macro_rules! impl_componentwise_vector_space {
         }
 
         impl bevy_math::VectorSpace for $ty {
+            type Scalar = f32;
             const ZERO: Self = Self {
                 $($element: 0.0,)+
             };
