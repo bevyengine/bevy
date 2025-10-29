@@ -26,7 +26,9 @@ use parley::fontique::FontInfoOverride;
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
+    /// raw font data
     pub blob: Blob<u8>,
+    /// font family name
     pub family_name: String,
 }
 
@@ -40,6 +42,7 @@ impl Font {
     }
 }
 
+/// Register new font assets with Parley's FontContext.
 pub fn register_font_assets_system(
     mut cx: ResMut<FontCx>,
     mut fonts: ResMut<Assets<Font>>,
