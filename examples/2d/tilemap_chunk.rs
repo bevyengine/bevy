@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 |settings: &mut ImageLoaderSettings| {
                     // The tileset texture is expected to be an array of tile textures, so we tell the
                     // `ImageLoader` that our texture is composed of 4 stacked tile images.
-                    settings.array_layout = Some(ImageArrayLayout::RowCount(4));
+                    settings.array_layout = Some(ImageArrayLayout::RowCount { rows: 4 });
                 },
             ),
             ..default()

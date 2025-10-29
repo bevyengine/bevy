@@ -32,7 +32,7 @@ fn setup(
     let array_texture = asset_server.load_with_settings(
         "textures/array_texture.png",
         |settings: &mut ImageLoaderSettings| {
-            settings.array_layout = Some(ImageArrayLayout::RowCount(4));
+            settings.array_layout = Some(ImageArrayLayout::RowCount { rows: 4 });
         },
     );
 

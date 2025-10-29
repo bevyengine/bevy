@@ -103,9 +103,9 @@ pub enum ImageFormatSetting {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum ImageArrayLayout {
     /// Interpret the image as a vertical stack of *n* images.
-    RowCount(u32),
+    RowCount { rows: u32 },
     /// Interpret the image as a vertical stack of images, each *n* pixels tall.
-    RowHeight(u32),
+    RowHeight { pixels: u32 },
 }
 
 /// Settings for loading an [`Image`] using an [`ImageLoader`].
@@ -217,8 +217,8 @@ impl AssetLoader for ImageLoader {
 
         if let Some(array_layout) = settings.array_layout {
             let layers = match array_layout {
-                ImageArrayLayout::RowCount(n) => n,
-                ImageArrayLayout::RowHeight(h) => image.height() / h,
+                ImageArrayLayout::RowCount { rows } => rows,
+                ImageArrayLayout::RowHeight { pixels } => image.height() / pixels,
             };
 
             image.reinterpret_stacked_2d_as_array(layers)?;
