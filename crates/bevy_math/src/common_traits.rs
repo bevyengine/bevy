@@ -542,7 +542,8 @@ all_tuples_enumerated!(
 );
 
 /// Error produced when the values to be interpolated are not in the same units.
-#[derive(Clone, Debug, Error, Display)]
+#[derive(Clone, Debug, Error)]
+#[error("cannot interpolate between two values of different units")]
 pub struct MismatchedUnitsError;
 
 /// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
