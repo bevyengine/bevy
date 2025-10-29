@@ -335,7 +335,7 @@ impl Default for TextFont {
 ///   FontFeatures::TABULAR_FIGURES
 /// ].into();
 /// ```
-#[derive(Clone, Debug, Default, Reflect)]
+#[derive(Clone, Debug, Default, Reflect, PartialEq)]
 pub struct FontFeatures {
     features: Vec<([u8; 4], u32)>,
 }
