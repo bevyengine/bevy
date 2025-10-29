@@ -6,6 +6,8 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use derive_more::Display;
+use thiserror::Error;
 use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
@@ -540,7 +542,7 @@ all_tuples_enumerated!(
 );
 
 /// Error produced when the values to be interpolated are not in the same units.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Error, Display)]
 pub struct MismatchedUnitsError;
 
 /// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
@@ -553,7 +555,7 @@ pub struct MismatchedUnitsError;
 /// concept can be extended to other types as well.
 ///
 /// Fallible interpolation can be used for animated transitions, which can be set up to fail
-/// gracefully if there's a mismatch of units. For example, the a transition could smoothly
+/// gracefully if the the values cannot be interpolated. For example, the a transition could smoothly
 /// go from `Val::Px(10)` to `Val::Px(20)`, but if the user attempts to go from `Val::Px(10)` to
 /// `Val::Percent(10)`, the animation player can detect the failure and simply snap to the new
 /// value without interpolating.
