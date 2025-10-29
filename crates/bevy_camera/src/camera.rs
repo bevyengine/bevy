@@ -617,10 +617,7 @@ impl Camera {
         let target_rect = self
             .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
-        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-        let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
-        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
-        ndc_xy.y = -ndc_xy.y;
+        let ndc_xy = self.viewport_to_ndc(viewport_position)?;
 
         let ndc_point_near = ndc_xy.extend(1.0).into();
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
@@ -682,15 +679,7 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Vec2, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-
-        // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
-
-        let ndc = rect_relative * 2. - Vec2::ONE;
+        let ndc = self.viewport_to_ndc(viewport_position)?;
 
         let world_near_plane = self
             .ndc_to_world(camera_transform, ndc.extend(1.))
@@ -772,6 +761,20 @@ impl Camera {
     pub fn depth_ndc_to_view_z_2d(&self, ndc_depth: f32) -> f32 {
         -(self.clip_from_view().w_axis.z - ndc_depth) / self.clip_from_view().z_axis.z
         //                       [3][2]                                         [2][2]
+    }
+
+    /// Converts a position in viewport coordinates to NDC.
+    pub fn viewport_to_ndc(
+        &self,
+        viewport_position: Vec2,
+    ) -> Result<Vec2, ViewportConversionError> {
+        let target_rect = self
+            .logical_viewport_rect()
+            .ok_or(ViewportConversionError::NoViewportSize)?;
+        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        // Flip the Y co-ordinate origin from the top to the bottom.
+        rect_relative.y = 1.0 - rect_relative.y;
+        Ok(rect_relative * 2. - Vec2::ONE)
     }
 }
 
