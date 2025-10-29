@@ -15,8 +15,8 @@ use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, TextBackgroundColor, TextBounds, TextColor,
-    TextLayoutInfo, Underline,
+    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
+    TextBounds, TextColor, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::prelude::GlobalTransform;
 
@@ -41,7 +41,15 @@ pub fn extract_text2d_sprite(
     >,
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
-    decoration_query: Extract<Query<(&TextColor, Has<Strikethrough>, Has<Underline>)>>,
+    decoration_query: Extract<
+        Query<(
+            &TextColor,
+            Has<Strikethrough>,
+            Has<Underline>,
+            Option<&StrikethroughColor>,
+            Option<&UnderlineColor>,
+        )>,
+    >,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -153,7 +161,7 @@ pub fn extract_text2d_sprite(
                 text_layout_info.section_geometry.iter()
             {
                 let section_entity = computed_block.entities()[section_index].entity;
-                let Ok((_, has_strikethrough, has_underline)) =
+                let Ok((_, has_strikethrough, has_underline, _, _)) =
                     decoration_query.get(section_entity)
                 else {
                     continue;
@@ -270,12 +278,21 @@ pub fn extract_text2d_sprite(
             text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok((text_color, has_strike_through, has_underline)) =
-                decoration_query.get(section_entity)
+            let Ok((
+                text_color,
+                has_strike_through,
+                has_underline,
+                maybe_strikethrough_color,
+                maybe_underline_color,
+            )) = decoration_query.get(section_entity)
             else {
                 continue;
             };
             if has_strike_through {
+                let color = maybe_strikethrough_color
+                    .map(|c| c.0)
+                    .unwrap_or(text_color.0)
+                    .to_linear();
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 let offset = Vec2::new(rect.center().x, -strikethrough_y - 0.5 * stroke);
                 let transform = *global_transform
@@ -286,7 +303,7 @@ pub fn extract_text2d_sprite(
                     main_entity,
                     render_entity,
                     transform,
-                    color: text_color.0.into(),
+                    color,
                     image_handle_id: AssetId::default(),
                     flip_x: false,
                     flip_y: false,
@@ -300,6 +317,10 @@ pub fn extract_text2d_sprite(
             }
 
             if has_underline {
+                let color = maybe_underline_color
+                    .map(|c| c.0)
+                    .unwrap_or(text_color.0)
+                    .to_linear();
                 let render_entity = commands.spawn(TemporaryRenderEntity).id();
                 let offset = Vec2::new(rect.center().x, -underline_y - 0.5 * stroke);
                 let transform = *global_transform
@@ -310,7 +331,7 @@ pub fn extract_text2d_sprite(
                     main_entity,
                     render_entity,
                     transform,
-                    color: text_color.0.into(),
+                    color,
                     image_handle_id: AssetId::default(),
                     flip_x: false,
                     flip_y: false,

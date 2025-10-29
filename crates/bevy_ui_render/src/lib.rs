@@ -60,8 +60,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Strikethrough, TextBackgroundColor, TextColor,
-    TextLayoutInfo, Underline,
+    ComputedTextBlock, PositionedGlyph, Strikethrough, StrikethroughColor, TextBackgroundColor,
+    TextColor, TextLayoutInfo, Underline, UnderlineColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1183,6 +1183,8 @@ pub fn extract_text_decorations(
         Query<(
             AnyOf<(&TextBackgroundColor, &Strikethrough, &Underline)>,
             &TextColor,
+            Option<&StrikethroughColor>,
+            Option<&UnderlineColor>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -1215,8 +1217,12 @@ pub fn extract_text_decorations(
             text_layout_info.section_geometry.iter()
         {
             let section_entity = computed_block.entities()[section_index].entity;
-            let Ok(((text_background_color, maybe_strikethrough, maybe_underline), text_color)) =
-                text_background_colors_query.get(section_entity)
+            let Ok((
+                (text_background_color, maybe_strikethrough, maybe_underline),
+                text_color,
+                maybe_strikethrough_color,
+                maybe_underline_color,
+            )) = text_background_colors_query.get(section_entity)
             else {
                 continue;
             };
@@ -1247,6 +1253,11 @@ pub fn extract_text_decorations(
             }
 
             if maybe_strikethrough.is_some() {
+                let color = maybe_strikethrough_color
+                    .map(|sc| sc.0)
+                    .unwrap_or(text_color.0)
+                    .to_linear();
+
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1259,7 +1270,7 @@ pub fn extract_text_decorations(
                             strikethrough_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
-                        color: text_color.0.to_linear(),
+                        color,
                         rect: Rect {
                             min: Vec2::ZERO,
                             max: Vec2::new(rect.size().x, stroke),
@@ -1276,6 +1287,11 @@ pub fn extract_text_decorations(
             }
 
             if maybe_underline.is_some() {
+                let color = maybe_underline_color
+                    .map(|uc| uc.0)
+                    .unwrap_or(text_color.0)
+                    .to_linear();
+
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT_STRIKETHROUGH,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1288,7 +1304,7 @@ pub fn extract_text_decorations(
                             underline_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
-                        color: text_color.0.to_linear(),
+                        color,
                         rect: Rect {
                             min: Vec2::ZERO,
                             max: Vec2::new(rect.size().x, stroke),
