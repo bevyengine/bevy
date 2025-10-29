@@ -190,12 +190,13 @@ fn position_popover(
 
                 PopoverAlign::Center => match position.side {
                     PopoverSide::Top | PopoverSide::Bottom => {
-                        rect.min.x = (parent_rect.width() - target_width) * 0.5;
+                        rect.min.x = parent_rect.min.x + (parent_rect.width() - target_width) * 0.5;
                         rect.max.x = rect.min.x + target_width;
                     }
 
                     PopoverSide::Left | PopoverSide::Right => {
-                        rect.min.y = (parent_rect.width() - target_height) * 0.5;
+                        rect.min.y =
+                            parent_rect.min.y + (parent_rect.height() - target_height) * 0.5;
                         rect.max.y = rect.min.y + target_height;
                     }
                 },
