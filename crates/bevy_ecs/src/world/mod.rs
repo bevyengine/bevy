@@ -167,9 +167,6 @@ impl World {
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();
-
-        // add a dummy entity
-        self.spawn_empty();
     }
     /// Creates a new empty [`World`].
     ///
