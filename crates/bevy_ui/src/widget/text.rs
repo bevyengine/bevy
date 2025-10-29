@@ -19,8 +19,9 @@ use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
-    TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
+    FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextEntity,
+    TextFont, TextHead, TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess,
+    TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -257,7 +258,7 @@ pub fn shape_text_system(
             Ref<TextLayout>,
             &mut ContentSize,
             &mut TextNodeFlags,
-            Ref<ComputedTextBlock>,
+            &mut ComputedTextBlock,
             &mut ComputedTextLayout,
             Ref<ComputedUiRenderTargetInfo>,
             &ComputedNode,
@@ -273,7 +274,7 @@ pub fn shape_text_system(
         block,
         mut content_size,
         mut text_flags,
-        computed_block,
+        mut computed_block,
         mut computed_layout,
         computed_target,
         computed_node,
@@ -286,7 +287,7 @@ pub fn shape_text_system(
 
         if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            || computed_block.is_changed()
+            || computed_block.needs_rerender()
             || text_flags.needs_shaping
             || content_size.is_added())
             || text.is_changed()
@@ -295,9 +296,15 @@ pub fn shape_text_system(
             continue;
         }
 
+        computed_block.entities.clear();
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (_, _, text, text_font, _)) in text_reader.iter(entity).enumerate() {
+        for (i, (section_entity, depth, text, text_font, _)) in text_reader.iter(entity).enumerate()
+        {
+            computed_block.entities.push(TextEntity {
+                entity: section_entity,
+                depth,
+            });
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 fonts

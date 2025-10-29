@@ -23,8 +23,8 @@ use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
-    FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
-    TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
+    FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextEntity, TextFont, TextHead,
+    TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -208,7 +208,7 @@ pub fn update_text2d_layout(
         block,
         bounds,
         text_layout_info,
-        computed,
+        mut computed,
         mut clayout,
         text2d,
         text_font,
@@ -245,7 +245,12 @@ pub fn update_text2d_layout(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (_, _, text, text_font, _)) in text_reader.iter(entity).enumerate() {
+        for (i, (section_entity, depth, text, text_font, _)) in text_reader.iter(entity).enumerate()
+        {
+            computed.entities.push(TextEntity {
+                entity: section_entity,
+                depth,
+            });
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
                 fonts

@@ -36,7 +36,7 @@ pub struct ComputedTextBlock {
     /// Entities for all text spans in the block, including the root-level text.
     ///
     /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
-    pub(crate) entities: SmallVec<[TextEntity; 1]>,
+    pub entities: SmallVec<[TextEntity; 1]>,
     /// Flag set when any change has been made to this block that should cause it to be rerendered.
     ///
     /// Includes:
