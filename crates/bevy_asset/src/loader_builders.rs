@@ -4,12 +4,12 @@
 use crate::{
     io::Reader,
     meta::{meta_transform_settings, AssetMetaDyn, MetaTransform, Settings},
-    Asset, AssetDependentOnSelf, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset,
-    Handle, LoadContext, LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
+    Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
+    LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
-use tracing::warn;
+use tracing::debug;
 
 // Utility type for handling the sources of reader references
 enum ReaderRef<'a> {
@@ -325,8 +325,8 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
             let index = (&handle).try_into().unwrap();
             self.load_context.dependencies.insert(index);
         } else {
-            warn!(
-                "Asset from path `{}` loaded the same path as a dependent, ignoring.",
+            debug!(
+                "Asset from path `{:?}` loaded its self path",
                 self.load_context.asset_path()
             );
         }
@@ -394,7 +394,10 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
         if !is_self_path {
             self.load_context.dependencies.insert(index);
         } else {
-            warn!("Asset from path `{}` of unknown type loaded the same path as a dependent, ignoring.", self.load_context.asset_path());
+            debug!(
+                "Asset from path `{:?}` of unknown type loaded its self path",
+                self.load_context.asset_path()
+            );
         }
         handle
     }
@@ -419,10 +422,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
         if self.load_context.asset_path() == path {
-            return Err(AssetDependentOnSelf {
-                asset_path: path.clone(),
-            }
-            .into());
+            return Err(LoadDirectError::LoadSelfPath(path.clone()));
         }
         self.load_context
             .asset_server

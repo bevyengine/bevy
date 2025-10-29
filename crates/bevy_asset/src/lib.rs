@@ -2020,8 +2020,8 @@ mod tests {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
                 assert!(
-                    format!("{:?}", &err).contains("AssetDependentOnSelf"),
-                    "Error did not contain AssetDependentOnSelf: {:?}",
+                    format!("{:?}", &err).contains("LoadSelfPath"),
+                    "Error did not contain LoadSelfPath: {:?}",
                     &err
                 );
                 Some(())
@@ -2078,8 +2078,8 @@ mod tests {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
                 assert!(
-                    format!("{:?}", &err).contains("AssetDependentOnSelf"),
-                    "Error did not contain AssetDependentOnSelf: {:?}",
+                    format!("{:?}", &err).contains("LoadSelfPath"),
+                    "Error did not contain LoadSelfPath: {:?}",
                     &err
                 );
                 Some(())
