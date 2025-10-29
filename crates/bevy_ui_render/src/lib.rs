@@ -960,7 +960,8 @@ pub fn extract_text_sections(
         ) in text_layout_info.glyphs.iter().enumerate()
         {
             if current_span_index != *span_index
-                && let Some(span_entity) = computed_block.0.get(*span_index).copied()
+                && let Some(span_entity) =
+                    computed_block.entities().get(*span_index).map(|t| t.entity)
             {
                 color = text_styles
                     .get(span_entity)
@@ -1093,8 +1094,10 @@ pub fn extract_text_shadows(
             end += 1;
         }
 
-        for section in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block[section.span_index];
+        for &(section_index, rect, strikethrough_y, stroke, underline_y) in
+            text_layout_info.section_geometry.iter()
+        {
+            let section_entity = computed_block.entities()[section_index].entity;
             let Ok((has_strikethrough, has_underline)) = text_decoration_query.get(section_entity)
             else {
                 continue;
@@ -1109,17 +1112,14 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     transform: node_transform
                         * Affine2::from_translation(Vec2::new(
-                            section.bounds.center().x,
-                            section.strikethrough_y + 0.5 * section.strikethrough_thickness,
+                            rect.center().x,
+                            strikethrough_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: shadow.color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(
-                                section.bounds.size().x,
-                                section.strikethrough_thickness,
-                            ),
+                            max: Vec2::new(rect.size().x, stroke),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1141,14 +1141,14 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     transform: node_transform
                         * Affine2::from_translation(Vec2::new(
-                            section.bounds.center().x,
-                            section.underline_y + 0.5 * section.underline_thickness,
+                            rect.center().x,
+                            underline_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: shadow.color.into(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.bounds.size().x, section.underline_thickness),
+                            max: Vec2::new(rect.size().x, stroke),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1211,8 +1211,10 @@ pub fn extract_text_decorations(
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
 
-        for section in text_layout_info.run_geometry.iter() {
-            let section_entity = computed_block[section.span_index];
+        for &(section_index, rect, strikethrough_y, stroke, underline_y) in
+            text_layout_info.section_geometry.iter()
+        {
+            let section_entity = computed_block.entities()[section_index].entity;
             let Ok(((text_background_color, maybe_strikethrough, maybe_underline), text_color)) =
                 text_background_colors_query.get(section_entity)
             else {
@@ -1226,12 +1228,12 @@ pub fn extract_text_decorations(
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
                     extracted_camera_entity,
-                    transform: transform * Affine2::from_translation(section.bounds.center()),
+                    transform: transform * Affine2::from_translation(rect.center()),
                     item: ExtractedUiItem::Node {
                         color: text_background_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: section.bounds.size(),
+                            max: rect.size(),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1253,17 +1255,14 @@ pub fn extract_text_decorations(
                     extracted_camera_entity,
                     transform: transform
                         * Affine2::from_translation(Vec2::new(
-                            section.bounds.center().x,
-                            section.strikethrough_y + 0.5 * section.strikethrough_thickness,
+                            rect.center().x,
+                            strikethrough_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(
-                                section.bounds.size().x,
-                                section.strikethrough_thickness,
-                            ),
+                            max: Vec2::new(rect.size().x, stroke),
                         },
                         atlas_scaling: None,
                         flip_x: false,
@@ -1285,14 +1284,14 @@ pub fn extract_text_decorations(
                     extracted_camera_entity,
                     transform: transform
                         * Affine2::from_translation(Vec2::new(
-                            section.bounds.center().x,
-                            section.underline_y + 0.5 * section.underline_thickness,
+                            rect.center().x,
+                            underline_y + 0.5 * stroke,
                         )),
                     item: ExtractedUiItem::Node {
                         color: text_color.0.to_linear(),
                         rect: Rect {
                             min: Vec2::ZERO,
-                            max: Vec2::new(section.bounds.size().x, section.underline_thickness),
+                            max: Vec2::new(rect.size().x, stroke),
                         },
                         atlas_scaling: None,
                         flip_x: false,

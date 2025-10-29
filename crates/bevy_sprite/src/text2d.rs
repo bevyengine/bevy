@@ -24,7 +24,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
     shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
-    TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
+    TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -90,7 +90,6 @@ use core::any::TypeId;
     Visibility,
     VisibilityClass,
     ComputedTextBlock,
-    TextRoot,
     TextLayoutInfo,
     Transform,
     ComputedTextLayout

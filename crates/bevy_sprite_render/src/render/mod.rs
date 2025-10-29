@@ -273,13 +273,13 @@ pub struct ExtractedSlice {
     pub offset: Vec2,
     pub rect: Rect,
     pub size: Vec2,
-    pub color: LinearRgba,
 }
 
 pub struct ExtractedSprite {
     pub main_entity: Entity,
     pub render_entity: Entity,
     pub transform: GlobalTransform,
+    pub color: LinearRgba,
     /// Change the on-screen size of the sprite
     /// Asset ID of the [`Image`] of this sprite
     /// PERF: storing an `AssetId` instead of `Handle<Image>` enables some optimizations (`ExtractedSprite` becomes `Copy` and doesn't need to be dropped)
@@ -296,7 +296,6 @@ pub enum ExtractedSpriteKind {
         rect: Option<Rect>,
         scaling_mode: Option<SpriteScalingMode>,
         custom_size: Option<Vec2>,
-        color: LinearRgba,
     },
     /// Indexes into the list of [`ExtractedSlice`]s stored in the [`ExtractedSlices`] resource
     /// Used for elements composed from multiple sprites such as text or nine-patched borders
@@ -357,15 +356,14 @@ pub fn extract_sprites(
 
         if let Some(slices) = slices {
             let start = extracted_slices.slices.len();
-            extracted_slices.slices.extend(slices.extract_slices(
-                sprite,
-                anchor.as_vec(),
-                sprite.color.into(),
-            ));
+            extracted_slices
+                .slices
+                .extend(slices.extract_slices(sprite, anchor.as_vec()));
             let end = extracted_slices.slices.len();
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
                 render_entity,
+                color: sprite.color.into(),
                 transform: *transform,
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
@@ -394,6 +392,7 @@ pub fn extract_sprites(
             extracted_sprites.sprites.push(ExtractedSprite {
                 main_entity,
                 render_entity,
+                color: sprite.color.into(),
                 transform: *transform,
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
@@ -404,7 +403,6 @@ pub fn extract_sprites(
                     scaling_mode: sprite.image_mode.scale(),
                     // Pass the custom size
                     custom_size: sprite.custom_size,
-                    color: sprite.color.into(),
                 },
             });
         }
@@ -687,7 +685,6 @@ pub fn prepare_sprite_image_bind_groups(
                     rect,
                     scaling_mode,
                     custom_size,
-                    color,
                 } => {
                     // By default, the size of the quad is the size of the texture
                     let mut quad_size = batch_image_size;
@@ -748,7 +745,11 @@ pub fn prepare_sprite_image_bind_groups(
                     // Store the vertex data and add the item to the render phase
                     sprite_meta
                         .sprite_instance_buffer
-                        .push(SpriteInstance::from(&transform, &color, &uv_offset_scale));
+                        .push(SpriteInstance::from(
+                            &transform,
+                            &extracted_sprite.color,
+                            &uv_offset_scale,
+                        ));
 
                     current_batch.as_mut().unwrap().get_mut().range.end += 1;
                     index += 1;
@@ -791,7 +792,7 @@ pub fn prepare_sprite_image_bind_groups(
                             .sprite_instance_buffer
                             .push(SpriteInstance::from(
                                 &transform,
-                                &slice.color,
+                                &extracted_sprite.color,
                                 &uv_offset_scale,
                             ));
 

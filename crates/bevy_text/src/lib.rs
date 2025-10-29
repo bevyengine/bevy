@@ -39,10 +39,9 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
-mod layout;
+mod pipeline;
 mod text;
 mod text_access;
-mod text_hierarchy;
 
 pub use bounds::*;
 pub use context::*;
@@ -52,10 +51,9 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
-pub use layout::*;
+pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
-pub use text_hierarchy::*;
 
 /// The text prelude.
 ///
@@ -94,8 +92,6 @@ pub type Update2dText = Text2dUpdateSystems;
 /// Text Systems set
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TextSystems {
-    /// Update text hierarchy and check for changes
-    Hierarchy,
     /// Register new font assets with Parley's `FontContext` after loading
     RegisterFontAssets,
 }
@@ -109,15 +105,6 @@ impl Plugin for TextPlugin {
             .init_resource::<FontCx>()
             .init_resource::<LayoutCx>()
             .init_resource::<ScaleCx>()
-            .add_systems(
-                PostUpdate,
-                (
-                    update_text_entities_system,
-                    detect_text_spans_needs_rerender,
-                )
-                    .chain()
-                    .in_set(TextSystems::Hierarchy),
-            )
             .add_systems(
                 PostUpdate,
                 register_font_assets_system

@@ -224,12 +224,16 @@ impl Plugin for UiPlugin {
 }
 
 fn build_text_interop(app: &mut App) {
+    use widget::Text;
+
     app.add_systems(
         PostUpdate,
         (
-            (widget::shape_text_system,)
+            (
+                bevy_text::detect_text_needs_rerender::<Text>,
+                widget::shape_text_system,
+            )
                 .chain()
-                .after(TextSystems::Hierarchy)
                 .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
@@ -241,7 +245,6 @@ fn build_text_interop(app: &mut App) {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
             widget::layout_text_system
-                .after(TextSystems::Hierarchy)
                 .after(TextSystems::RegisterFontAssets)
                 .in_set(UiSystems::PostLayout)
                 //.after(bevy_text::free_unused_font_atlases_system)

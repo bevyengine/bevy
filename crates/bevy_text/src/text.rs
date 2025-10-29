@@ -1,14 +1,17 @@
 use crate::Font;
-use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent, TextTarget};
+use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_log::once;
+use bevy_log::warn;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
 use bevy_utils::default;
 use parley::Layout;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 /// A sub-entity of a [`ComputedTextBlock`].
 ///
@@ -20,6 +23,58 @@ pub struct TextEntity {
     pub entity: Entity,
     /// Records the hierarchy depth of the entity within a `TextLayout`.
     pub depth: usize,
+}
+
+/// Computed information for a text block.
+///
+/// See [`TextLayout`].
+///
+/// Automatically updated by 2d and UI text systems.
+#[derive(Component, Debug, Clone, Reflect)]
+#[reflect(Component, Debug, Default, Clone)]
+pub struct ComputedTextBlock {
+    /// Entities for all text spans in the block, including the root-level text.
+    ///
+    /// The [`TextEntity::depth`] field can be used to reconstruct the hierarchy.
+    pub(crate) entities: SmallVec<[TextEntity; 1]>,
+    /// Flag set when any change has been made to this block that should cause it to be rerendered.
+    ///
+    /// Includes:
+    /// - [`TextLayout`] changes.
+    /// - [`TextFont`] or `Text2d`/`Text`/`TextSpan` changes anywhere in the block's entity hierarchy.
+    // TODO: This encompasses both structural changes like font size or justification and non-structural
+    // changes like text color and font smoothing. This field currently causes UI to 'remeasure' text, even if
+    // the actual changes are non-structural and can be handled by only rerendering and not remeasuring. A full
+    // solution would probably require splitting TextLayout and TextFont into structural/non-structural
+    // components for more granular change detection. A cost/benefit analysis is needed.
+    pub(crate) needs_rerender: bool,
+}
+
+impl ComputedTextBlock {
+    /// Accesses entities in this block.
+    ///
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// stored there.
+    pub fn entities(&self) -> &[TextEntity] {
+        &self.entities
+    }
+
+    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
+    ///
+    /// Updated automatically by [`detect_text_needs_rerender`] and cleared
+    /// by [`TextPipeline`](crate::TextPipeline) methods.
+    pub fn needs_rerender(&self) -> bool {
+        self.needs_rerender
+    }
+}
+
+impl Default for ComputedTextBlock {
+    fn default() -> Self {
+        Self {
+            entities: SmallVec::default(),
+            needs_rerender: true,
+        }
+    }
 }
 
 /// Component with text format settings for a block of text.
@@ -91,7 +146,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor, TextTarget)]
+#[require(TextFont, TextColor)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -372,59 +427,11 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
-    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
-    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
-    pub run_geometry: Vec<RunGeometry>,
+    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
+    /// A text section spanning more than one line will have multiple segments.
+    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
     /// The glyphs resulting size
     pub size: Vec2,
-}
-
-/// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
-/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
-/// font size, and line height.
-#[derive(Default, Debug, Clone, Reflect)]
-pub struct RunGeometry {
-    /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
-    pub span_index: usize,
-    /// Bounding box around the text run
-    pub bounds: Rect,
-    /// Y position of the strikethrough in the text layout.
-    pub strikethrough_y: f32,
-    /// Strikethrough stroke thickness.
-    pub strikethrough_thickness: f32,
-    /// Y position of the underline  in the text layout.
-    pub underline_y: f32,
-    /// Underline stroke thickness.
-    pub underline_thickness: f32,
-}
-
-impl RunGeometry {
-    /// Returns the center of the strikethrough in the text layout.
-    pub fn strikethrough_position(&self) -> Vec2 {
-        Vec2::new(
-            self.bounds.center().x,
-            self.strikethrough_y + 0.5 * self.strikethrough_thickness,
-        )
-    }
-
-    /// Returns the size of the strikethrough.
-    pub fn strikethrough_size(&self) -> Vec2 {
-        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
-    }
-
-    /// Get the center of the underline in the text layout.
-    pub fn underline_position(&self) -> Vec2 {
-        Vec2::new(
-            self.bounds.center().x,
-            self.underline_y + 0.5 * self.underline_thickness,
-        )
-    }
-
-    /// Returns the size of the underline.
-    pub fn underline_size(&self) -> Vec2 {
-        Vec2::new(self.bounds.size().x, self.underline_thickness)
-    }
 }
 
 /// Determines which antialiasing method to use when rendering text. By default, text is
@@ -454,3 +461,112 @@ pub enum FontSmoothing {
 /// Computed text layout
 #[derive(Component, Default, Deref, DerefMut)]
 pub struct ComputedTextLayout(pub Layout<u32>);
+
+// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
+///
+/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
+/// 2d or `Text`/[`TextSpan`] for UI.
+pub fn detect_text_needs_rerender<Root: Component>(
+    changed_roots: Query<
+        Entity,
+        (
+            Or<(
+                Changed<Root>,
+                Changed<TextFont>,
+                Changed<TextLayout>,
+                Changed<Children>,
+            )>,
+            With<Root>,
+            With<TextFont>,
+            With<TextLayout>,
+        ),
+    >,
+    changed_spans: Query<
+        (Entity, Option<&ChildOf>, Has<TextLayout>),
+        (
+            Or<(
+                Changed<TextSpan>,
+                Changed<TextFont>,
+                Changed<Children>,
+                Changed<ChildOf>, // Included to detect broken text block hierarchies.
+                Added<TextLayout>,
+            )>,
+            With<TextSpan>,
+            With<TextFont>,
+        ),
+    >,
+    mut computed: Query<(
+        Option<&ChildOf>,
+        Option<&mut ComputedTextBlock>,
+        Has<TextSpan>,
+    )>,
+) {
+    // Root entity:
+    // - Root component changed.
+    // - TextFont on root changed.
+    // - TextLayout changed.
+    // - Root children changed (can include additions and removals).
+    for root in changed_roots.iter() {
+        let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
+            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once", root, core::any::type_name::<Root>()));
+            continue;
+        };
+        computed.needs_rerender = true;
+    }
+
+    // Span entity:
+    // - Span component changed.
+    // - Span TextFont changed.
+    // - Span children changed (can include additions and removals).
+    for (entity, maybe_span_child_of, has_text_block) in changed_spans.iter() {
+        if has_text_block {
+            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+                text entities (that have {}); this warning only prints once",
+                entity, core::any::type_name::<Root>()));
+        }
+
+        let Some(span_child_of) = maybe_span_child_of else {
+            once!(warn!(
+                "found entity {} with a TextSpan that has no parent; it should have an ancestor \
+                with a root text component ({}); this warning only prints once",
+                entity,
+                core::any::type_name::<Root>()
+            ));
+            continue;
+        };
+        let mut parent: Entity = span_child_of.parent();
+
+        // Search for the nearest ancestor with ComputedTextBlock.
+        // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
+        // is outweighed by the expense of tracking visited spans.
+        loop {
+            let Ok((maybe_child_of, maybe_computed, has_span)) = computed.get_mut(parent) else {
+                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
+                    component that points at non-existent entity {}; this warning only prints once",
+                    entity, parent));
+                break;
+            };
+            if let Some(mut computed) = maybe_computed {
+                computed.needs_rerender = true;
+                break;
+            }
+            if !has_span {
+                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                span component or a ComputedTextBlock component; this warning only prints once",
+                    entity, parent));
+                break;
+            }
+            let Some(next_child_of) = maybe_child_of else {
+                once!(warn!(
+                    "found entity {} with a TextSpan that has no ancestor with the root text \
+                    component ({}); this warning only prints once",
+                    entity,
+                    core::any::type_name::<Root>()
+                ));
+                break;
+            };
+            parent = next_child_of.parent();
+        }
+    }
+}
