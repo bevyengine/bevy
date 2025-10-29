@@ -96,7 +96,6 @@ wav = ["bevy_audio/wav"]
 aac = ["bevy_audio/aac"]
 audio-all = ["bevy_audio/audio-all"]
 fallback-flac = ["bevy_audio/fallback-flac"]
-fallback-mp3 = ["bevy_audio/fallback-mp3"]
 fallback-vorbis = ["bevy_audio/fallback-vorbis"]
 fallback-wav = ["bevy_audio/fallback-wav"]
 

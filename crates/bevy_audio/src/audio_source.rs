@@ -31,7 +31,7 @@ impl AsRef<[u8]> for AudioSource {
 /// This asset loader supports different audio formats based on the enable Bevy features.
 /// The feature `bevy/vorbis` enables loading from `.ogg` files and is enabled by default.
 /// Other file extensions can be loaded from with additional features:
-/// `.mp3` with `bevy/mp3` or `bevy/fallback-mp3`
+/// `.mp3` with `bevy/mp3`
 /// `.flac` with `bevy/flac` or `bevy/fallback-flac`
 /// `.wav` with `bevy/wav` or `bevy/fallback-wav`
 /// The `bevy/audio-all` feature will enable all file extensions.
@@ -58,7 +58,7 @@ impl AssetLoader for AudioLoader {
 
     fn extensions(&self) -> &[&str] {
         &[
-            #[cfg(any(feature = "mp3", feature = "fallback-mp3", feature = "audio-all"))]
+            #[cfg(any(feature = "mp3", feature = "audio-all"))]
             "mp3",
             #[cfg(any(feature = "flac", feature = "fallback-flac", feature = "audio-all"))]
             "flac",

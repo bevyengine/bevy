@@ -123,7 +123,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |fallback-flac|FLAC audio format support (through `claxon`)|
-|fallback-mp3|MP3 audio format support (through `minimp3`)|
 |fallback-vorbis|OGG/VORBIS audio format support (through `lewton`)|
 |fallback-wav|WAV audio format support (through `hound`)|
 |ff|Farbfeld image format support|
