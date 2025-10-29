@@ -1,4 +1,4 @@
-//! This example illustrates UI text with strikethrough
+//! This example illustrates UI text with strikethrough and underline decorations
 
 use bevy::{
     color::palettes::css::{GREEN, NAVY, RED, YELLOW},
@@ -16,7 +16,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn((
         Text::new("struck\nstruck"),
-        // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and it's text will be struck through.
+        // Just add the `Strikethrough` component to any `Text`, `Text2d` or `TextSpan` and its text will be struck through
         Strikethrough,
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -49,6 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 StrikethroughColor(RED.into()),
                 TextBackgroundColor(GREEN.into()),
             ),
+            // Text entities with the `Underline` component will drawn with underline
             (Text::new("underline"), Underline),
             (
                 Text::new("struck"),
