@@ -769,9 +769,10 @@ impl Camera {
             .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
         let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-        // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
-        Ok(rect_relative * 2. - Vec2::ONE)
+        let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
+        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
+        ndc_xy.y = -ndc_xy.y;
+        Ok(ndc_xy)
     }
 }
 
