@@ -6,9 +6,10 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
+    system::SystemMeta,
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, EntityMut, EntityMutExcept, EntityRef,
+        EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -2265,6 +2266,16 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> bool {
         true
     }
+
+    const HAS_DEFERRED: bool = T::HAS_DEFERRED;
+
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        <T as WorldQuery>::apply(state, system_meta, world);
+    }
+
+    fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
+        <T as WorldQuery>::queue(state, system_meta, world);
+    }
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -2473,6 +2484,268 @@ impl<T: Component> ReleaseStateQueryData for Has<T> {
     }
 }
 
+// gate `DeferredMut` behind support for Parallel<T>
+bevy_utils::cfg::parallel! {
+    use core::ops::{Deref, DerefMut};
+    use crate::entity::EntityHashMap;
+    use bevy_utils::Parallel;
+
+    /// Provides "fake" mutable access to the component `T`
+    ///
+    /// `DeferredMut` only accesses `&T` from the world, but when mutably
+    /// dereferenced will clone it and return a reference to that cloned value.
+    /// Once the `DeferredMut` is dropped, the query keeps track of the new value
+    /// and inserts it into the world at the next sync point.
+    ///
+    /// This can be used to "mutably" access immutable components!
+    /// However, this will still be slower than direct mutation, so this should
+    /// mainly be used for its ergonomics.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::component::Component;
+    /// # use bevy_ecs::query::DeferredMut;
+    /// # use bevy_ecs::query::With;
+    /// # use bevy_ecs::system::IntoSystem;
+    /// # use bevy_ecs::system::Query;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct Poisoned;
+    /// #
+    /// #[derive(Component, Clone)]
+    /// #[component(immutable)]
+    /// struct Health(u32);
+    ///
+    /// fn tick_poison(mut health_query: Query<DeferredMut<Health>, With<Poisoned>>) {
+    ///     for mut health in &health_query {
+    ///         health.0 -= 1;
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(tick_poison);
+    /// ```
+    ///
+    /// # Footguns
+    ///
+    /// 1. The mutations tracked by `DeferredMut` will *not* be applied if used
+    /// through the manual [`QueryState`](super::QueryState) API. Instead, it
+    /// should be used through a query in a system param or [`SystemState`](crate::system::SystemState).
+    ///
+    /// 2. It's possible to query multiple `DeferredMut` values from the same entity.
+    /// However, since mutations are deferred, each new value won't see the changes
+    /// applied to previous iterations.
+    ///
+    /// Normally, the final iteration will be the one that "wins" and gets inserted
+    /// onto the entity, but parallelism can mess with that, too. Since `DeferredMut`
+    /// internally uses a thread-local [`EntityHashMap`] to keep track of mutations,
+    /// if two `DeferredMut` values for the same entity are created in the same system
+    /// on different threads, then they'll each be inserted into the entity in an
+    /// undetermined order.
+    pub struct DeferredMut<'w, 's, T: Component> {
+        entity: Entity,
+        old: &'w T,
+        new: Option<T>,
+        record: &'s DeferredMutations<T>,
+    }
+
+    impl<'w, 's, T: Component> DeferredMut<'w, 's, T> {
+        /// Returns a reference to the `T` value still present in the ECS
+        #[inline]
+        pub fn stale(&self) -> &'w T {
+            self.old
+        }
+
+        /// Returns a reference to the `T` value currently being updated.
+        /// If none is present yet, this method will clone from `Self::stale`
+        #[inline]
+        pub fn fresh(&mut self) -> &mut T where T: Clone {
+            self.get_fresh_or_insert(self.old.clone())
+        }
+
+        /// Returns a (possibly absent) reference to the `T` value currently being updated.
+        #[inline]
+        pub fn get_fresh(&mut self) -> Option<&mut T> {
+            self.new.as_mut()
+        }
+
+        /// Returns a reference to the `T` value currently being updated.
+        /// If absent, it will insert the provided value.
+        #[inline]
+        pub fn get_fresh_or_insert(&mut self, value: T) -> &mut T {
+            self.new.get_or_insert(value)
+        }
+
+        /// Replaces the `T` value currently being updated
+        #[inline]
+        pub fn insert(&mut self, value: T) {
+            self.new = Some(value);
+        }
+    }
+
+    impl<'w, 's, T: Component> Drop for DeferredMut<'w, 's, T> {
+        #[inline]
+        fn drop(&mut self) {
+            if let Some(new) = self.new.take() {
+                self.record.insert(self.entity, new);
+            }
+        }
+    }
+
+    impl<'w, 's, T: Component> Deref for DeferredMut<'w, 's, T> {
+        type Target = T;
+
+        #[inline]
+        fn deref(&self) -> &Self::Target {
+            self.new.as_ref().unwrap_or(self.old)
+        }
+    }
+
+    impl<'w, 's, T: Component + Clone> DerefMut for DeferredMut<'w, 's, T> {
+        #[inline]
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            self.fresh()
+        }
+    }
+
+    /// The [`WorldQuery::State`] type for [`DeferredMut`]
+    pub struct DeferredMutState<T: Component> {
+        internal: <&'static T as WorldQuery>::State,
+        record: DeferredMutations<T>,
+    }
+
+    struct DeferredMutations<T: Component>(Parallel<EntityHashMap<T>>);
+
+    impl<T: Component> Default for DeferredMutations<T> {
+        fn default() -> Self {
+            Self(Default::default())
+        }
+    }
+
+    impl<T: Component> DeferredMutations<T> {
+        #[inline]
+        fn insert(&self, entity: Entity, component: T) {
+            self.0.scope(|map| map.insert(entity, component));
+        }
+
+        #[inline]
+        fn drain(&mut self) -> impl Iterator<Item = (Entity, T)> {
+            self.0.drain()
+        }
+    }
+
+    // SAFETY: impl defers to `<&T as WorldQuery>` for all methods
+    unsafe impl<'__w, '__s, T: Component> WorldQuery for DeferredMut<'__w, '__s, T> {
+        type Fetch<'w> = ReadFetch<'w, T>;
+
+        type State = DeferredMutState<T>;
+
+        fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+            fetch
+        }
+
+        unsafe fn init_fetch<'w, 's>(
+            world: UnsafeWorldCell<'w>,
+            state: &'s Self::State,
+            last_run: Tick,
+            this_run: Tick,
+        ) -> Self::Fetch<'w> {
+            // SAFETY: invariants are upheld by the caller
+            unsafe { <&T as WorldQuery>::init_fetch(world, &state.internal, last_run, this_run) }
+        }
+
+        const IS_DENSE: bool = <&T as WorldQuery>::IS_DENSE;
+
+        unsafe fn set_archetype<'w>(
+            fetch: &mut Self::Fetch<'w>,
+            state: &Self::State,
+            archetype: &'w Archetype,
+            table: &'w Table,
+        ) {
+            <&T as WorldQuery>::set_archetype(fetch, &state.internal, archetype, table);
+        }
+
+        unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+            <&T as WorldQuery>::set_table(fetch, &state.internal, table);
+        }
+
+        fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+            <&T as WorldQuery>::update_component_access(&state.internal, access);
+        }
+
+        fn init_state(world: &mut World) -> Self::State {
+            DeferredMutState {
+                internal: <&T as WorldQuery>::init_state(world),
+                record: Default::default(),
+            }
+        }
+
+        fn get_state(components: &Components) -> Option<Self::State> {
+            Some(DeferredMutState {
+                internal: <&T as WorldQuery>::get_state(components)?,
+                record: Default::default(),
+            })
+        }
+
+        fn matches_component_set(
+            state: &Self::State,
+            set_contains_id: &impl Fn(ComponentId) -> bool,
+        ) -> bool {
+            <&T as WorldQuery>::matches_component_set(&state.internal, set_contains_id)
+        }
+
+        const HAS_DEFERRED: bool = true;
+
+        fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+            world.insert_batch(state.record.drain());
+        }
+
+        fn queue(state: &mut Self::State, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+            world
+                .commands()
+                .insert_batch(state.record.drain().collect::<alloc::vec::Vec<_>>());
+        }
+    }
+
+    // SAFETY: DeferredMut<T> defers to &T internally, so it must be readonly and Self::ReadOnly = Self.
+    unsafe impl<'__w, '__s, T: Component> QueryData for DeferredMut<'__w, '__s, T> {
+        const IS_READ_ONLY: bool = true;
+
+        type ReadOnly = Self;
+
+        type Item<'w, 's> = DeferredMut<'w, 's, T>;
+
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+            item
+        }
+
+        unsafe fn fetch<'w, 's>(
+            state: &'s Self::State,
+            fetch: &mut Self::Fetch<'w>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> Self::Item<'w, 's> {
+            // SAFETY: invariants are upheld by the caller
+            let old =
+                unsafe { <&T as QueryData>::fetch(&state.internal, fetch, entity, table_row) };
+            DeferredMut {
+                entity,
+                old,
+                // NOTE: we could try to get an existing updated component from the record,
+                // but we can't reliably do that across all threads. Better to say that all
+                // newly-created DeferredMut values will match what's in the ECS.
+                new: None,
+                record: &state.record,
+            }
+        }
+    }
+
+    // SAFETY: Tracked<T> only accesses &T from the world. Though it provides mutable access, it only
+    // applies those changes through commands.
+    unsafe impl<'__w, '__s, T: Component> ReadOnlyQueryData for DeferredMut<'__w, '__s, T> {}
+}
+
 /// The `AnyOf` query parameter fetches entities with any of the component types included in T.
 ///
 /// `Query<AnyOf<(&A, &B, &mut C)>>` is equivalent to `Query<(Option<&A>, Option<&B>, Option<&mut C>), Or<(With<A>, With<B>, With<C>)>>`.
@@ -2573,6 +2846,10 @@ macro_rules! impl_anytuple_fetch {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         #[allow(
+            unused_mut,
+            reason = "Zero-length tuples won't access any of the parameters mutably."
+        )]
+        #[allow(
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
@@ -2668,6 +2945,16 @@ macro_rules! impl_anytuple_fetch {
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
                 false $(|| $name::matches_component_set($name, _set_contains_id))*
+            }
+
+            const HAS_DEFERRED: bool = false $(|| $name::HAS_DEFERRED)*;
+
+            fn apply(($($state,)*): &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+                $(<$name as WorldQuery>::apply($state, system_meta, world);)*
+            }
+
+            fn queue(($($state,)*): &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
+                $(<$name as WorldQuery>::queue($state, system_meta, world.reborrow());)*
             }
         }
 
