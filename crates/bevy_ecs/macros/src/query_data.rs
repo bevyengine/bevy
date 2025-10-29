@@ -264,7 +264,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _table_row: #path::storage::TableRow,
                     ) -> Option<Self::Item<'__w, '__s>> {
                         Some(Self::Item {
-                            #(#field_idents: <#read_only_field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row)?,)*
+                            #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
                 }
@@ -329,7 +329,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _table_row: #path::storage::TableRow,
                 ) -> Option<Self::Item<'__w, '__s>> {
                     Some(Self::Item {
-                        #(#field_idents: <#field_types>::fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row)?,)*
+                        #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
                 }
             }
