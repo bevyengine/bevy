@@ -74,7 +74,7 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
-            const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
+            const IS_ARCHETYPAL: bool = true #(&& <#field_types as #path::query::QueryFilter>::IS_ARCHETYPAL)*;
 
             #[allow(unused_variables)]
             #[inline(always)]
