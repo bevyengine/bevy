@@ -7,8 +7,8 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::Underline,
     text::FontFeatures,
+    text::Underline,
 };
 
 fn main() {
