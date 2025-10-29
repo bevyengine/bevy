@@ -56,8 +56,6 @@ jobs:
 
           SAVEIFS=$IFS
 
-          cd ${{ inputs.artifact }}
-
           # Read the hashes of the screenshot for fast comparison when they are equal
           IFS=$'\n'
           # Build a json array of screenshots and their hashes
