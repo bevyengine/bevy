@@ -44,9 +44,9 @@ fn concat_text_for_layout<'a>(
 }
 
 /// Resolved text style
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct TextSectionStyle<'a, B> {
-    font_family: &'a str,
+    family_name: Option<&'a str>,
     font_size: f32,
     line_height: crate::text::LineHeight,
     brush: B,
@@ -54,10 +54,15 @@ pub struct TextSectionStyle<'a, B> {
 
 impl<'a, B: Brush> TextSectionStyle<'a, B> {
     /// new text section style
-    pub fn new(family: &'a str, size: f32, line_height: crate::LineHeight, brush: B) -> Self {
+    pub fn new(
+        family_id: Option<&'a str>,
+        font_size: f32,
+        line_height: crate::LineHeight,
+        brush: B,
+    ) -> Self {
         Self {
-            font_family: family,
-            font_size: size,
+            family_name: family_id,
+            font_size,
             line_height,
             brush,
         }
@@ -70,7 +75,7 @@ pub fn shape_text_from_sections<'a, B: Brush>(
     font_cx: &'a mut FontContext,
     layout_cx: &'a mut LayoutContext<B>,
     text_sections: impl Iterator<Item = &'a str>,
-    text_section_styles: impl Iterator<Item = TextSectionStyle<'a, B>>,
+    text_section_styles: impl Iterator<Item = &'a TextSectionStyle<'a, B>>,
     scale_factor: f32,
     line_break: crate::text::LineBreak,
 ) {
@@ -85,8 +90,10 @@ pub fn shape_text_from_sections<'a, B: Brush>(
         builder.push_default(StyleProperty::WordBreak(word_break_strength));
     };
     for (style, range) in text_section_styles.zip(section_ranges) {
-        builder.push(StyleProperty::Brush(style.brush), range.clone());
-        builder.push(FontStack::from(style.font_family), range.clone());
+        if let Some(family) = style.family_name {
+            builder.push(FontStack::from(family), range.clone());
+        };
+        builder.push(StyleProperty::Brush(style.brush.clone()), range.clone());
         builder.push(StyleProperty::FontSize(style.font_size), range.clone());
         builder.push(style.line_height.eval(), range);
     }

@@ -1,5 +1,6 @@
 use crate::Font;
 use crate::{PositionedGlyph, TextSpanAccess, TextSpanComponent, TextTarget};
+use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
@@ -204,8 +205,8 @@ impl TextFont {
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.
-    pub fn with_font(mut self, font: &str) -> Self {
-        self.font = font.to_string();
+    pub fn with_font(mut self, font: Handle<Font>) -> Self {
+        self.font = font;
         self
     }
 
@@ -228,12 +229,9 @@ impl TextFont {
     }
 }
 
-impl From<&str> for TextFont {
-    fn from(font: &str) -> Self {
-        Self {
-            font: font.to_string(),
-            ..default()
-        }
+impl From<Handle<Font>> for TextFont {
+    fn from(font: Handle<Font>) -> Self {
+        Self { font, ..default() }
     }
 }
 

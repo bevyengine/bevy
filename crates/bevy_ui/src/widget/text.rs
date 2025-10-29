@@ -11,14 +11,14 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
-    system::{Query, ResMut},
+    system::{Query, Res, ResMut},
     world::Ref,
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout,
+    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, LineBreak, ScaleCx, TextBounds, TextColor, TextFont, TextHead,
     TextLayout, TextLayoutInfo, TextReader, TextSectionStyle, TextSpanAccess, TextWriter,
 };
@@ -250,6 +250,7 @@ impl Measure for TextMeasure {
 pub fn shape_text_system(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
+    fonts: Res<Assets<Font>>,
     mut text_query: Query<
         (
             Entity,
@@ -296,12 +297,14 @@ pub fn shape_text_system(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (_, _, text, font, _)) in text_reader.iter(entity).enumerate() {
+        for (i, (_, _, text, text_font, _)) in text_reader.iter(entity).enumerate() {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
-                font.font.as_str(),
-                font.font_size,
-                font.line_height,
+                fonts
+                    .get(text_font.font.id())
+                    .map(|font| font.family_name.as_str()),
+                text_font.font_size,
+                text_font.line_height,
                 i as u32,
             ));
         }
@@ -311,7 +314,7 @@ pub fn shape_text_system(
             &mut font_cx.0,
             &mut layout_cx.0,
             text_sections.iter().copied(),
-            text_section_styles.iter().copied(),
+            text_section_styles.iter(),
             computed_target.scale_factor,
             block.linebreak,
         );

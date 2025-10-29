@@ -8,9 +8,9 @@ use bevy_ecs::message::MessageReader;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::ResMut;
 use bevy_reflect::TypePath;
+use bevy_utils::default;
 use parley::fontique::Blob;
-use parley::fontique::FamilyId;
-use parley::fontique::FontInfo;
+use parley::fontique::FontInfoOverride;
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -27,15 +27,15 @@ use parley::fontique::FontInfo;
 #[derive(Debug, TypePath, Clone, Asset)]
 pub struct Font {
     pub blob: Blob<u8>,
-    pub collection: Vec<(FamilyId, Vec<FontInfo>)>,
+    pub family_name: String,
 }
 
 impl Font {
     /// Creates a [`Font`] from bytes
-    pub fn try_from_bytes(font_data: Vec<u8>) -> Font {
+    pub fn try_from_bytes(font_data: Vec<u8>, family_name: String) -> Font {
         Font {
             blob: Blob::from(font_data),
-            collection: vec![],
+            family_name,
         }
     }
 }
@@ -46,23 +46,25 @@ pub fn register_font_assets_system(
     mut events: MessageReader<AssetEvent<Font>>,
     mut text_font_query: Query<&mut TextFont>,
 ) {
-    let mut change = false;
     for event in events.read() {
         match event {
             AssetEvent::Added { id } => {
                 if let Some(font) = fonts.get_mut(*id) {
-                    let collection = cx.collection.register_fonts(font.blob.clone(), None);
-                    font.collection = collection;
-                    change = true;
+                    cx.collection.register_fonts(
+                        font.blob.clone(),
+                        Some(FontInfoOverride {
+                            family_name: Some(font.family_name.as_str()),
+                            ..default()
+                        }),
+                    );
+                    for mut font in text_font_query.iter_mut() {
+                        if font.font.id() == *id {
+                            font.set_changed();
+                        }
+                    }
                 }
             }
             _ => {}
-        }
-    }
-
-    if change {
-        for mut font in text_font_query.iter_mut() {
-            font.set_changed();
         }
     }
 }

@@ -9,6 +9,7 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 
 use bevy_ecs::change_detection::DetectChanges;
+use bevy_ecs::system::Res;
 use bevy_ecs::{
     change_detection::Ref,
     component::Component,
@@ -21,7 +22,7 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout,
+    shape_text_from_sections, update_text_layout_info, ComputedTextBlock, ComputedTextLayout, Font,
     FontAtlasSet, FontCx, LayoutCx, ScaleCx, TextBounds, TextColor, TextFont, TextHead, TextLayout,
     TextLayoutInfo, TextReader, TextRoot, TextSectionStyle, TextSpanAccess, TextWriter,
 };
@@ -165,6 +166,7 @@ impl Default for Text2dShadow {
 pub fn update_text2d_layout(
     mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     mut textures: ResMut<Assets<Image>>,
+    fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set: ResMut<FontAtlasSet>,
@@ -244,12 +246,14 @@ pub fn update_text2d_layout(
 
         let mut text_sections: Vec<&str> = Vec::new();
         let mut text_section_styles: Vec<TextSectionStyle<u32>> = Vec::new();
-        for (i, (_, _, text, font, _)) in text_reader.iter(entity).enumerate() {
+        for (i, (_, _, text, text_font, _)) in text_reader.iter(entity).enumerate() {
             text_sections.push(text);
             text_section_styles.push(TextSectionStyle::new(
-                font.font.as_str(),
-                font.font_size,
-                font.line_height,
+                fonts
+                    .get(text_font.font.id())
+                    .map(|font| font.family_name.as_str()),
+                text_font.font_size,
+                text_font.line_height,
                 i as u32,
             ));
         }
@@ -261,7 +265,7 @@ pub fn update_text2d_layout(
             &mut font_cx.0,
             &mut layout_cx.0,
             text_sections.iter().copied(),
-            text_section_styles.iter().copied(),
+            text_section_styles.iter(),
             scale_factor,
             block.linebreak,
         );
