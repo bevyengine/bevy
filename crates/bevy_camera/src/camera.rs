@@ -614,9 +614,6 @@ impl Camera {
         camera_transform: &GlobalTransform,
         viewport_position: Vec2,
     ) -> Result<Ray3d, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
         let ndc_xy = self.viewport_to_ndc(viewport_position)?;
 
         let ndc_point_near = ndc_xy.extend(1.0).into();
