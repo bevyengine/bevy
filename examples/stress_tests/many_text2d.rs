@@ -131,7 +131,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
             text2ds.push((
                 Text2d(random_text(&mut rng, &args)),
-                random_text_font(&mut rng, &args),
+                random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
                 TextLayout::new_with_justify(if args.center {
                     Justify::Center
@@ -178,7 +178,6 @@ fn print_counts(
         return;
     }
 
-    let font_id = font.0.id();
     let num_atlases = font_atlas_set
         .iter()
         .map(|(_, atlases)| atlases.len())
@@ -194,7 +193,7 @@ fn print_counts(
     );
 }
 
-fn random_text_font(rng: &mut ChaCha8Rng, args: &Args) -> TextFont {
+fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> TextFont {
     let font_size = if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
@@ -203,7 +202,7 @@ fn random_text_font(rng: &mut ChaCha8Rng, args: &Args) -> TextFont {
 
     TextFont {
         font_size,
-        font: "fira sans".to_string(),
+        font,
         ..default()
     }
 }
