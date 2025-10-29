@@ -305,14 +305,8 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
-    #[error(transparent)]
-    AssetDependentOnSelf(#[from] AssetDependentOnSelf),
-}
-
-#[derive(Error, Debug, Clone)]
-#[error("The asset at path `{}` loads itself as a dependent.", asset_path)]
-pub struct AssetDependentOnSelf {
-    pub asset_path: AssetPath<'static>,
+    #[error("The asset at path `{0:?}` loads itself")]
+    LoadSelfPath(AssetPath<'static>),
 }
 
 /// An error that occurs while deserializing [`AssetMeta`].
@@ -540,10 +534,7 @@ impl<'a> LoadContext<'a> {
         reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         if self.asset_path == path {
-            return Err(AssetDependentOnSelf {
-                asset_path: self.asset_path.clone_owned(),
-            }
-            .into());
+            return Err(LoadDirectError::LoadSelfPath(self.asset_path.clone_owned()));
         }
         let loaded_asset = self
             .asset_server
