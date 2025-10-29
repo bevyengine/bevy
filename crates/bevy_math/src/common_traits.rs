@@ -6,7 +6,6 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
-use derive_more::Display;
 use thiserror::Error;
 use variadics_please::all_tuples_enumerated;
 
