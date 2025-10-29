@@ -858,7 +858,7 @@ impl EntityAllocator {
     /// let mut world = World::new();
     /// let entity = world.entities_allocator().alloc();
     /// // wait as long as you like
-    /// let entity_access = world.spawn_at_empty(entity).unwrap(); // or spawn_at(entity, my_bundle)
+    /// let entity_access = world.spawn_empty_at(entity).unwrap(); // or spawn_at(entity, my_bundle)
     /// // treat it as a normal entity
     /// entity_access.despawn();
     /// ```
