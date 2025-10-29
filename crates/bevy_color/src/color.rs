@@ -2,7 +2,7 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
     Luminance, Mix, Oklaba, Oklcha, Saturation, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{InterpolationError, TryStableInterpolate};
+use bevy_math::{MismatchedUnitsError, TryStableInterpolate};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use derive_more::derive::From;
@@ -892,7 +892,9 @@ impl EuclideanDistance for Color {
 }
 
 impl TryStableInterpolate for Color {
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+    type Error = MismatchedUnitsError;
+
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
         match (self, other) {
             (Color::Srgba(a), Color::Srgba(b)) => Ok(Color::Srgba(a.mix(b, t))),
             (Color::LinearRgba(a), Color::LinearRgba(b)) => Ok(Color::LinearRgba(a.mix(b, t))),
@@ -904,7 +906,7 @@ impl TryStableInterpolate for Color {
             (Color::Oklaba(a), Color::Oklaba(b)) => Ok(Color::Oklaba(a.mix(b, t))),
             (Color::Oklcha(a), Color::Oklcha(b)) => Ok(Color::Oklcha(a.mix(b, t))),
             (Color::Xyza(a), Color::Xyza(b)) => Ok(Color::Xyza(a.mix(b, t))),
-            _ => Err(InterpolationError::MismatchedUnits),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }

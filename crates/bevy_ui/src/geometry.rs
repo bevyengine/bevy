@@ -1,4 +1,4 @@
-use bevy_math::{InterpolationError, StableInterpolate as _, TryStableInterpolate, Vec2};
+use bevy_math::{MismatchedUnitsError, StableInterpolate as _, TryStableInterpolate, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::default;
 use core::ops::{Div, DivAssign, Mul, MulAssign, Neg};
@@ -419,6 +419,8 @@ impl Val {
 }
 
 impl TryStableInterpolate for Val {
+    type Error = MismatchedUnitsError;
+
     /// # Example
     ///
     /// ```
@@ -426,7 +428,7 @@ impl TryStableInterpolate for Val {
     /// # use bevy_math::TryStableInterpolate;
     /// assert!(matches!(Val::Px(0.0).try_interpolate_stable(&Val::Px(10.0), 0.5), Ok(Val::Px(5.0))));
     /// ```
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
         match (self, other) {
             (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
             (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
@@ -435,7 +437,7 @@ impl TryStableInterpolate for Val {
             (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
             (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
             (Val::Auto, Val::Auto) => Ok(Val::Auto),
-            _ => Err(InterpolationError::MismatchedUnits),
+            _ => Err(MismatchedUnitsError),
         }
     }
 }

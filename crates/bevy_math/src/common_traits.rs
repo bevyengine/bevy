@@ -2,6 +2,7 @@
 
 use crate::{ops, DVec2, DVec3, DVec4, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
+    convert::Infallible,
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
@@ -538,12 +539,9 @@ all_tuples_enumerated!(
     T
 );
 
-/// Why the interpolation failed.
+/// Error produced when the values to be interpolated are not in the same units.
 #[derive(Clone, Debug)]
-pub enum InterpolationError {
-    /// The values to be interpolated are not in the same units.
-    MismatchedUnits,
-}
+pub struct MismatchedUnitsError;
 
 /// A trait that indicates that a value _may_ be interpolable via [`StableInterpolate`]. An
 /// interpolation may fail if the values have different units - for example, attempting to
@@ -579,13 +577,17 @@ pub enum InterpolationError {
 /// [`Val`]: https://docs.rs/bevy/latest/bevy/ui/struct.enum.html
 /// [`Color`]: https://docs.rs/bevy/latest/bevy/color/enum.Color.html
 pub trait TryStableInterpolate: Clone {
+    /// Error produced when the value cannot be interpolated.
+    type Error;
+
     /// Attempt to interpolate the value. This may fail if the two interpolation values have
     /// different units, or if the type is not interpolable.
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, InterpolationError>;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error>;
 }
 
 impl<T: StableInterpolate> TryStableInterpolate for T {
-    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+    type Error = Infallible;
+    fn try_interpolate_stable(&self, other: &Self, t: f32) -> Result<Self, Self::Error> {
         Ok(self.interpolate_stable(other, t))
     }
 }
