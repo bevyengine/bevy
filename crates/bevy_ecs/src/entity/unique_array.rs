@@ -157,7 +157,7 @@ impl<T: EntityEquivalent, const N: usize> DerefMut for UniqueEntityEquivalentArr
 
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentArray<T, 0> {
     fn default() -> Self {
-        Self(Default::default())
+        Self([])
     }
 }
 
