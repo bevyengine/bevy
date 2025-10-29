@@ -1821,6 +1821,9 @@ mod tests {
     #[derive(Component, PartialEq, Debug)]
     struct C(usize);
 
+    #[derive(Component)]
+    struct D;
+
     #[test]
     fn can_transmute_to_more_general() {
         let mut world = World::new();
@@ -1854,7 +1857,7 @@ mod tests {
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
-        let q = world.query::<()>();
+        let q = world.query_filtered::<(), With<A>>();
         let mut q = q.transmute::<Entity>(&world);
         assert_eq!(q.single(&world).unwrap(), entity);
     }
@@ -2169,30 +2172,30 @@ mod tests {
     #[test]
     fn query_respects_default_filters() {
         let mut world = World::new();
-        world.spawn((A(0), B(0)));
-        world.spawn((B(0), C(0)));
-        world.spawn(C(0));
+        world.spawn((A(0), B(0), D));
+        world.spawn((B(0), C(0), D));
+        world.spawn((C(0), D));
 
         world.register_disabling_component::<C>();
 
         // Without<C> only matches the first entity
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&D>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
 
         // With<C> matches the last two entities
-        let mut query = QueryState::<(), With<C>>::new(&mut world);
+        let mut query = QueryState::<&D, With<C>>::new(&mut world);
         assert_eq!(2, query.iter(&world).count());
 
         // Has should bypass the filter entirely
-        let mut query = QueryState::<Has<C>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>)>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Allow should bypass the filter entirely
-        let mut query = QueryState::<(), Allow<C>>::new(&mut world);
+        let mut query = QueryState::<&D, Allow<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected
-        let mut query = QueryState::<Has<C>, Without<B>>::new(&mut world);
+        let mut query = QueryState::<(&D, Has<C>), Without<B>>::new(&mut world);
         assert_eq!(1, query.iter(&world).count());
     }
 
@@ -2203,23 +2206,26 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse;
 
+    #[derive(Component)]
+    struct Dummy;
+
     #[test]
     fn query_default_filters_updates_is_dense() {
         let mut world = World::new();
-        world.spawn((Table, Sparse));
-        world.spawn(Table);
-        world.spawn(Sparse);
+        world.spawn((Dummy, Table, Sparse));
+        world.spawn((Dummy, Table));
+        world.spawn((Dummy, Sparse));
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // There are no sparse components involved thus the query is dense
         assert!(query.is_dense);
         assert_eq!(3, query.query(&world).count());
 
         world.register_disabling_component::<Sparse>();
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
-        // a sparse components thus it is NOT dense
+        // a sparse component thus it is NOT dense
         assert!(!query.is_dense);
         assert_eq!(1, query.query(&world).count());
 
@@ -2227,7 +2233,7 @@ mod tests {
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 
-        let mut query = QueryState::<()>::new(&mut world);
+        let mut query = QueryState::<&Dummy>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
         assert!(query.is_dense);
         assert_eq!(1, query.query(&world).count());

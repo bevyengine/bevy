@@ -69,7 +69,7 @@ use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
-use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
+use unsafe_world_cell::UnsafeWorldCell;
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -965,55 +965,6 @@ impl World {
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
         unsafe { entities.fetch_mut(cell) }
-    }
-
-    /// Returns an [`Entity`] iterator of current entities.
-    ///
-    /// This is useful in contexts where you only have read-only access to the [`World`].
-    #[deprecated(since = "0.17.0", note = "use world.query::<EntityRef>()` instead")]
-    #[inline]
-    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
-        self.archetypes.iter().flat_map(|archetype| {
-            archetype
-                .entities_with_location()
-                .map(|(entity, location)| {
-                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(
-                        self.as_unsafe_world_cell_readonly(),
-                        entity,
-                        location,
-                        self.last_change_tick,
-                        self.read_change_tick(),
-                    );
-                    // SAFETY: `&self` gives read access to the entire world.
-                    unsafe { EntityRef::new(cell) }
-                })
-        })
-    }
-
-    /// Returns a mutable iterator over all entities in the `World`.
-    #[deprecated(since = "0.17.0", note = "use world.query::<EntityMut>()` instead")]
-    pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
-        let last_change_tick = self.last_change_tick;
-        let change_tick = self.change_tick();
-        let world_cell = self.as_unsafe_world_cell();
-        world_cell.archetypes().iter().flat_map(move |archetype| {
-            archetype
-                .entities_with_location()
-                .map(move |(entity, location)| {
-                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(
-                        world_cell,
-                        entity,
-                        location,
-                        last_change_tick,
-                        change_tick,
-                    );
-                    // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
-                    // so none will conflict with one another.
-                    unsafe { EntityMut::new(cell) }
-                })
-        })
     }
 
     /// Simultaneously provides access to entity data and a command queue, which
@@ -3719,7 +3670,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_platform::collections::HashSet;
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
@@ -4131,127 +4082,6 @@ mod tests {
             to_type_ids(world.inspect_entity(ent6).unwrap().collect()),
             [Some(baz_id)].into_iter().collect::<HashSet<_>>()
         );
-    }
-
-    #[test]
-    fn iterate_entities() {
-        let mut world = World::new();
-        let mut entity_counters = <HashMap<_, _>>::default();
-
-        let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
-            entity_counters.clear();
-            #[expect(deprecated, reason = "remove this test in 0.17.0")]
-            for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity.id()).or_insert(0);
-                *counter += 1;
-            }
-        };
-
-        // Adding one entity and validating iteration
-        let ent0 = world.spawn((Foo, Bar, Baz)).id();
-
-        iterate_and_count_entities(&world, &mut entity_counters);
-        assert_eq!(entity_counters[&ent0], 1);
-        assert_eq!(entity_counters.len(), 1);
-
-        // Spawning three more entities and then validating iteration
-        let ent1 = world.spawn((Foo, Bar)).id();
-        let ent2 = world.spawn((Bar, Baz)).id();
-        let ent3 = world.spawn((Foo, Baz)).id();
-
-        iterate_and_count_entities(&world, &mut entity_counters);
-
-        assert_eq!(entity_counters[&ent0], 1);
-        assert_eq!(entity_counters[&ent1], 1);
-        assert_eq!(entity_counters[&ent2], 1);
-        assert_eq!(entity_counters[&ent3], 1);
-        assert_eq!(entity_counters.len(), 4);
-
-        // Despawning first entity and then validating the iteration
-        assert!(world.despawn(ent0));
-
-        iterate_and_count_entities(&world, &mut entity_counters);
-
-        assert_eq!(entity_counters[&ent1], 1);
-        assert_eq!(entity_counters[&ent2], 1);
-        assert_eq!(entity_counters[&ent3], 1);
-        assert_eq!(entity_counters.len(), 3);
-
-        // Spawning three more entities, despawning three and then validating the iteration
-        let ent4 = world.spawn(Foo).id();
-        let ent5 = world.spawn(Bar).id();
-        let ent6 = world.spawn(Baz).id();
-
-        assert!(world.despawn(ent2));
-        assert!(world.despawn(ent3));
-        assert!(world.despawn(ent4));
-
-        iterate_and_count_entities(&world, &mut entity_counters);
-
-        assert_eq!(entity_counters[&ent1], 1);
-        assert_eq!(entity_counters[&ent5], 1);
-        assert_eq!(entity_counters[&ent6], 1);
-        assert_eq!(entity_counters.len(), 3);
-
-        // Despawning remaining entities and then validating the iteration
-        assert!(world.despawn(ent1));
-        assert!(world.despawn(ent5));
-        assert!(world.despawn(ent6));
-
-        iterate_and_count_entities(&world, &mut entity_counters);
-
-        assert_eq!(entity_counters.len(), 0);
-    }
-
-    #[test]
-    fn iterate_entities_mut() {
-        #[derive(Component, PartialEq, Debug)]
-        struct A(i32);
-
-        #[derive(Component, PartialEq, Debug)]
-        struct B(i32);
-
-        let mut world = World::new();
-
-        let a1 = world.spawn(A(1)).id();
-        let a2 = world.spawn(A(2)).id();
-        let b1 = world.spawn(B(1)).id();
-        let b2 = world.spawn(B(2)).id();
-
-        #[expect(deprecated, reason = "remove this test in 0.17.0")]
-        for mut entity in world.iter_entities_mut() {
-            if let Some(mut a) = entity.get_mut::<A>() {
-                a.0 -= 1;
-            }
-        }
-        assert_eq!(world.entity(a1).get(), Some(&A(0)));
-        assert_eq!(world.entity(a2).get(), Some(&A(1)));
-        assert_eq!(world.entity(b1).get(), Some(&B(1)));
-        assert_eq!(world.entity(b2).get(), Some(&B(2)));
-
-        #[expect(deprecated, reason = "remove this test in 0.17.0")]
-        for mut entity in world.iter_entities_mut() {
-            if let Some(mut b) = entity.get_mut::<B>() {
-                b.0 *= 2;
-            }
-        }
-        assert_eq!(world.entity(a1).get(), Some(&A(0)));
-        assert_eq!(world.entity(a2).get(), Some(&A(1)));
-        assert_eq!(world.entity(b1).get(), Some(&B(2)));
-        assert_eq!(world.entity(b2).get(), Some(&B(4)));
-
-        #[expect(deprecated, reason = "remove this test in 0.17.0")]
-        let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
-        entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
-        let (a, b) = entities.split_at_mut(2);
-        core::mem::swap(
-            &mut a[1].get_mut::<A>().unwrap().0,
-            &mut b[0].get_mut::<B>().unwrap().0,
-        );
-        assert_eq!(world.entity(a1).get(), Some(&A(0)));
-        assert_eq!(world.entity(a2).get(), Some(&A(2)));
-        assert_eq!(world.entity(b1).get(), Some(&B(1)));
-        assert_eq!(world.entity(b2).get(), Some(&B(4)));
     }
 
     #[test]

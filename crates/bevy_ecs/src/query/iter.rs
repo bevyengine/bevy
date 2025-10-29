@@ -2658,7 +2658,7 @@ mod tests {
 
     use crate::component::Component;
     use crate::entity::Entity;
-    use crate::prelude::World;
+    use crate::prelude::{With, World};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);
@@ -2666,16 +2666,19 @@ mod tests {
     #[component(storage = "SparseSet")]
     struct Sparse(usize);
 
+    #[derive(Component)]
+    struct Marker;
+
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
         for i in 0..100 {
-            world.spawn(A(i as f32));
-            world.spawn((A(i as f32), Sparse(i)));
-            world.spawn(Sparse(i));
+            world.spawn((A(i as f32), Marker));
+            world.spawn((A(i as f32), Sparse(i), Marker));
+            world.spawn((Sparse(i), Marker));
         }
 
-        let mut query = world.query::<Entity>();
+        let mut query = world.query_filtered::<Entity, With<Marker>>();
 
         let sort = query.iter(&world).sort::<Entity>().collect::<Vec<_>>();
         assert_eq!(sort.len(), 300);
