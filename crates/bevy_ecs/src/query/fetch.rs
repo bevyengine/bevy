@@ -2509,6 +2509,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
 // `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for NestedQuery<D, F> {
     const IS_READ_ONLY: bool = D::IS_READ_ONLY;
+    const IS_ARCHETYPAL: bool = true;
     type ReadOnly = NestedQuery<D::ReadOnly, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
@@ -2524,7 +2525,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
         fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
         _table_row: TableRow,
-    ) -> Self::Item<'w, 's> {
+    ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: The state was either created from `D`, or it was created from
         // another `NestedQuery` and converted to `NestedQuery<D::ReadOnly, F>`,
         // in which case `D::ReadOnly == D`.
@@ -2535,7 +2536,11 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
         //   then `Self: IterQueryData`, so `D: ReadOnlyQueryData`,
         //   so it's safe to alias the queries.
         unsafe {
-            state.query_unchecked_manual_with_ticks(fetch.world, fetch.last_run, fetch.this_run)
+            Some(state.query_unchecked_manual_with_ticks(
+                fetch.world,
+                fetch.last_run,
+                fetch.this_run,
+            ))
         }
     }
 }
@@ -2547,6 +2552,8 @@ unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> ReadOnlyQueryData for NestedQu
 // Note that we must not impl IterQueryData for queries with mutable access,
 // since the nested query must only be live for one entity at a time.
 unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<D, F> {}
+
+impl<D: QueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
