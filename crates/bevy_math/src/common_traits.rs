@@ -574,9 +574,9 @@ pub struct MismatchedUnitsError;
 /// [`TryStableInterpolate`] is more conservative, and doesn't automatically convert between
 /// color spaces. This produces a color interpolation that has more predictable performance.
 ///
-/// [`Val::Px`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
-/// [`Val::Percent`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
-/// [`Val`]: https://docs.rs/bevy/latest/bevy/ui/struct.enum.html
+/// [`Val::Px`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Px
+/// [`Val::Percent`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html#variant.Percent
+/// [`Val`]: https://docs.rs/bevy/latest/bevy/ui/enum.Val.html
 /// [`Color`]: https://docs.rs/bevy/latest/bevy/color/enum.Color.html
 pub trait TryStableInterpolate: Clone {
     /// Error produced when the value cannot be interpolated.
