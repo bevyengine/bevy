@@ -16,90 +16,12 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        //.add_systems(Startup, glyph_setup3)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
             (animate_translation, animate_rotation, animate_scale),
         )
         .run();
-}
-
-fn glyph_setup1(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.insert_resource(FontHolder(font));
-    let text_font = TextFont {
-        font: "Fira Sans".to_string(),
-        font_size: 50.0,
-        ..default()
-    };
-    commands.spawn((
-        Text2d::new("a"),
-        text_font.clone(),
-        TextBackgroundColor(MAGENTA.into()),
-    ));
-}
-
-fn glyph_setup2(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.insert_resource(FontHolder(font));
-    let text_font = TextFont {
-        font: "Fira Sans".to_string(),
-        font_size: 50.0,
-        ..default()
-    };
-    commands
-        .spawn((
-            Text2d::new("a"),
-            text_font.clone(),
-            TextColor(MAGENTA.into()),
-        ))
-        .with_child((
-            TextSpan::new("b"),
-            text_font.clone(),
-            TextColor(BLUE.into()),
-        ));
-}
-
-fn glyph_setup3(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.insert_resource(FontHolder(font));
-    let text_font = TextFont {
-        font: "Fira Sans".to_string(),
-        font_size: 50.0,
-        ..default()
-    };
-    commands
-        .spawn((
-            Text2d::new("aa"),
-            text_font.clone(),
-            TextColor(MAGENTA.into()),
-        ))
-        .with_child((
-            TextSpan::new("bbb"),
-            text_font.clone(),
-            TextColor(BLUE.into()),
-        ))
-        .with_child((TextSpan::new("c"), text_font.clone(), TextColor(RED.into())));
-}
-
-fn hello_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.insert_resource(FontHolder(font));
-    let text_font = TextFont {
-        font: "Fira Sans".to_string(),
-        font_size: 50.0,
-        ..default()
-    };
-    commands.spawn((
-        Text2d::new("hello\nworld"),
-        text_font.clone(),
-        TextBackgroundColor(MAGENTA.into()),
-    ));
 }
 
 #[derive(Component)]
@@ -111,14 +33,10 @@ struct AnimateRotation;
 #[derive(Component)]
 struct AnimateScale;
 
-#[derive(Resource)]
-struct FontHolder(Handle<Font>);
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font: Handle<Font> = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.insert_resource(FontHolder(font));
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_font = TextFont {
-        font: "Fira Sans".to_string(),
+        font: font.clone(),
         font_size: 50.0,
         ..default()
     };
@@ -154,7 +72,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_font = TextFont {
-        font: "Fira Sans".to_string(),
+        font,
         font_size: 35.0,
         ..default()
     };
