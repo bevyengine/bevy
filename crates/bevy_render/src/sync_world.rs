@@ -282,9 +282,8 @@ mod render_entities_world_query_impls {
         component::{ComponentId, Components},
         entity::Entity,
         query::{
-            ArchetypeQueryData, FilteredAccess, FilteredAccess, IterQueryData, QueryData,
-            QueryData, ReadOnlyQueryData, ReadOnlyQueryData, ReleaseStateQueryData,
-            ReleaseStateQueryData, SingleEntityQueryData, WorldQuery, WorldQuery,
+            ArchetypeQueryData, FilteredAccess, IterQueryData, QueryData, ReadOnlyQueryData,
+            ReleaseStateQueryData, SingleEntityQueryData, WorldQuery,
         },
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},

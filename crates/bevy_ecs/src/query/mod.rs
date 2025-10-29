@@ -111,9 +111,8 @@ mod tests {
         component::{Component, ComponentId, Components},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Resource, With, Without},
         query::{
-            ArchetypeFilter, ArchetypeFilter, ArchetypeQueryData, FilteredAccess, FilteredAccess,
-            Has, Has, IterQueryData, QueryCombinationIter, QueryCombinationIter, QueryData,
-            QueryData, QueryFilter, ReadOnlyQueryData, ReadOnlyQueryData, WorldQuery, WorldQuery,
+            ArchetypeFilter, ArchetypeQueryData, FilteredAccess, Has, IterQueryData,
+            QueryCombinationIter, QueryData, QueryFilter, ReadOnlyQueryData, WorldQuery,
         },
         schedule::{IntoScheduleConfigs, Schedule},
         storage::{Table, TableRow},
