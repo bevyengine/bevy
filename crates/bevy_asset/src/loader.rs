@@ -305,7 +305,7 @@ pub enum LoadDirectError {
         dependency: AssetPath<'static>,
         error: AssetLoadError,
     },
-    #[error("The asset at path `{0:?}` loads itself recursively, which is not suppported")]
+    #[error("The asset at path `{0:?}` loads itself recursively, which is not supported")]
     LoadSelfPath(AssetPath<'static>),
 }
 
