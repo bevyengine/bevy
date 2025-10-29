@@ -13,7 +13,6 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
-        //.add_systems(Startup, setup_hello)
         .add_systems(Startup, setup)
         .add_systems(Update, (text_update_system, text_color_system))
         .run();
@@ -27,39 +26,7 @@ struct FpsText;
 #[derive(Component)]
 struct AnimatedText;
 
-#[derive(Resource)]
-struct Fonts(Vec<Handle<Font>>);
-
-fn setup_hello(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
-    commands.insert_resource(Fonts(vec![
-        asset_server.load("fonts/FiraSans-Bold.ttf"),
-        asset_server.load("fonts/FiraMono-Medium.ttf"),
-    ]));
-    commands.spawn((
-        Text::new("Hello\n"),
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: "fira sans".to_string(),
-            font_size: 200.0,
-            ..default()
-        },
-        Outline {
-            width: Val::Px(2.),
-            offset: Val::Px(1.),
-            color: Color::WHITE,
-        },
-        Strikethrough,
-        Underline,
-        children![(TextSpan::new("world!"), Underline, Strikethrough)],
-    ));
-}
-
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(Fonts(vec![
-        asset_server.load("fonts/FiraSans-Bold.ttf"),
-        asset_server.load("fonts/FiraMono-Medium.ttf"),
-    ]));
     // UI camera
     commands.spawn(Camera2d);
     // Text with one section
@@ -69,13 +36,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Underline,
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: "fira sans".to_string(),
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
             font_size: 67.0,
             ..default()
         },
         TextShadow::default(),
         // Set the justification of the Text
-        TextLayout::new_with_justify(TextAlign::Center),
+        TextLayout::new_with_justify(Justify::Center),
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
@@ -93,18 +60,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Text::new("FPS: "),
             TextFont {
                 // This font is loaded and will be used instead of the default font.
-                font: "fira sans".to_string(),
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 42.0,
                 ..default()
             },
         ))
         .with_child((
             TextSpan::default(),
-            Outline {
-                width: Val::Px(2.),
-                color: Color::WHITE,
-                ..Default::default()
-            },
             if cfg!(feature = "default_font") {
                 (
                     TextFont {
@@ -118,7 +80,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 (
                     // "default_font" feature is unavailable, load a font to use instead.
                     TextFont {
-                        font: "fira mono".to_string(),
+                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                         font_size: 33.0,
                         ..Default::default()
                     },
@@ -145,7 +107,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text::new("Default font disabled"),
         TextFont {
-            font: "fira mono".to_string(),
+            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
             ..default()
         },
         Node {
