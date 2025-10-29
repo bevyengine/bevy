@@ -577,7 +577,7 @@ impl EntityCloner {
             let world = world.as_unsafe_world_cell();
             let source_entity = world
                 .get_entity(source)
-                .expect("Source entity must exist constructed");
+                .expect("Source entity must be valid and spawned.");
             let source_archetype = source_entity.archetype();
 
             #[cfg(feature = "bevy_reflect")]
@@ -596,7 +596,7 @@ impl EntityCloner {
             let target_archetype = LazyCell::new(|| {
                 world
                     .get_entity(target)
-                    .expect("Target entity must exist constructed")
+                    .expect("Target entity must be valid and spawned.")
                     .archetype()
             });
 
