@@ -20,7 +20,7 @@
 
 const PHI_2: vec2<f32> = vec2(1.3247179572447460259609088, 1.7548776662466927600495087);
 
-@group(0) @binding(16) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(13) var multiscattering_lut_out: texture_storage_2d<rgba16float, write>;
 
 fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);

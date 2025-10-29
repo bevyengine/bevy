@@ -288,6 +288,9 @@ mod tests {
     #[derive(Component, PartialEq, Debug)]
     struct C(usize);
 
+    #[derive(Component)]
+    struct D;
+
     #[test]
     fn builder_with_without_static() {
         let mut world = World::new();
@@ -332,11 +335,11 @@ mod tests {
     #[test]
     fn builder_or() {
         let mut world = World::new();
-        world.spawn((A(0), B(0)));
-        world.spawn(B(0));
-        world.spawn(C(0));
+        world.spawn((A(0), B(0), D));
+        world.spawn((B(0), D));
+        world.spawn((C(0), D));
 
-        let mut query_a = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_a = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.with::<B>();
@@ -344,7 +347,7 @@ mod tests {
             .build();
         assert_eq!(2, query_a.iter(&world).count());
 
-        let mut query_b = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_b = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.without::<B>();
@@ -353,7 +356,7 @@ mod tests {
         dbg!(&query_b.component_access);
         assert_eq!(2, query_b.iter(&world).count());
 
-        let mut query_c = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_c = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.with::<B>();
@@ -426,13 +429,15 @@ mod tests {
     #[test]
     fn builder_provide_access() {
         let mut world = World::new();
-        world.spawn((A(0), B(1)));
+        world.spawn((A(0), B(1), D));
 
         let mut query =
-            QueryBuilder::<(Entity, FilteredEntityRef, FilteredEntityMut)>::new(&mut world)
-                .data::<&mut A>()
-                .data::<&B>()
-                .build();
+            QueryBuilder::<(Entity, FilteredEntityRef, FilteredEntityMut), With<D>>::new(
+                &mut world,
+            )
+            .data::<&mut A>()
+            .data::<&B>()
+            .build();
 
         // The `FilteredEntityRef` only has read access, so the `FilteredEntityMut` can have read access without conflicts
         let (_entity, entity_ref_1, mut entity_ref_2) = query.single_mut(&mut world).unwrap();
@@ -444,10 +449,12 @@ mod tests {
         assert!(entity_ref_2.get_mut::<B>().is_none());
 
         let mut query =
-            QueryBuilder::<(Entity, FilteredEntityMut, FilteredEntityMut)>::new(&mut world)
-                .data::<&mut A>()
-                .data::<&B>()
-                .build();
+            QueryBuilder::<(Entity, FilteredEntityMut, FilteredEntityMut), With<D>>::new(
+                &mut world,
+            )
+            .data::<&mut A>()
+            .data::<&B>()
+            .build();
 
         // The first `FilteredEntityMut` has write access to A, so the second one cannot have write access
         let (_entity, mut entity_ref_1, mut entity_ref_2) = query.single_mut(&mut world).unwrap();
@@ -460,7 +467,7 @@ mod tests {
         assert!(entity_ref_2.get::<B>().is_some());
         assert!(entity_ref_2.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B)>::new(&mut world)
+        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B), With<D>>::new(&mut world)
             .data::<&mut A>()
             .data::<&mut B>()
             .build();
@@ -472,7 +479,7 @@ mod tests {
         assert!(entity_ref.get::<B>().is_some());
         assert!(entity_ref.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B)>::new(&mut world)
+        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B), With<D>>::new(&mut world)
             .data::<EntityMut>()
             .build();
 
@@ -483,9 +490,10 @@ mod tests {
         assert!(entity_ref.get::<B>().is_some());
         assert!(entity_ref.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>)>::new(&mut world)
-            .data::<EntityMut>()
-            .build();
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>), With<D>>::new(&mut world)
+                .data::<EntityMut>()
+                .build();
 
         // Removing `EntityMutExcept<A>` just leaves A
         let (mut entity_ref_1, _entity_ref_2) = query.single_mut(&mut world).unwrap();
@@ -494,9 +502,10 @@ mod tests {
         assert!(entity_ref_1.get::<B>().is_none());
         assert!(entity_ref_1.get_mut::<B>().is_none());
 
-        let mut query = QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>)>::new(&mut world)
-            .data::<EntityMut>()
-            .build();
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>), With<D>>::new(&mut world)
+                .data::<EntityMut>()
+                .build();
 
         // Removing `EntityRefExcept<A>` just leaves A, plus read access
         let (mut entity_ref_1, _entity_ref_2) = query.single_mut(&mut world).unwrap();

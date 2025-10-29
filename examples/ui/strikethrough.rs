@@ -1,7 +1,7 @@
 //! This example illustrates UI text with strikethrough
 
 use bevy::{
-    color::palettes::css::{GREEN, NAVY, RED},
+    color::palettes::css::{GREEN, NAVY, RED, YELLOW},
     prelude::*,
 };
 
@@ -46,6 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             (
                 Text::new("struck\nstruckstruck\nstruckstuckstruck"),
                 Strikethrough,
+                StrikethroughColor(RED.into()),
                 TextBackgroundColor(GREEN.into()),
             ),
             (Text::new("underline"), Underline),
@@ -92,6 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (
                         TextSpan::new("\nunderline"),
                         Underline,
+                        UnderlineColor(YELLOW.into()),
                         TextFont {
                             font_size: 30.,
                             ..default()
@@ -118,7 +120,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Strikethrough,
                         Underline,
                         TextColor(RED.into()),
-                        TextBackgroundColor(NAVY.into())
+                        TextBackgroundColor(NAVY.into()),
+                        StrikethroughColor(Color::WHITE),
+                        UnderlineColor(Color::WHITE),
                     )
                 ]
             ),
