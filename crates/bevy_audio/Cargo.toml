@@ -38,7 +38,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ] }
 
 [features]
-fallback-mp3 = ["rodio/minimp3"]
 fallback-flac = ["rodio/claxon"]
 fallback-wav = ["rodio/hound"]
 # TODO: Swap fallback-vorbis and vorbis features
