@@ -550,10 +550,6 @@ pub struct MismatchedUnitsError;
 /// interpolate between [`Val::Px`] and [`Val::Percent`] will fail,
 /// even though they are the same Rust type.
 ///
-/// The motivating case for this trait is animating UI entities with [`Val`]
-/// properties, which, because they are enums, cannot be interpolated in the normal way. This same
-/// concept can be extended to other types as well.
-///
 /// Fallible interpolation can be used for animated transitions, which can be set up to fail
 /// gracefully if the the values cannot be interpolated. For example, the a transition could smoothly
 /// go from `Val::Px(10)` to `Val::Px(20)`, but if the user attempts to go from `Val::Px(10)` to
