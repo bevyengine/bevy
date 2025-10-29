@@ -3,7 +3,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{Access, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{Access, FilteredAccess, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
@@ -159,6 +159,50 @@ impl<'w> EntityMut<'w> {
     /// Returns components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
     ///
+    /// The checks for aliasing mutable references may be expensive.
+    /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
+    /// If that is not possible, consider using [`Self::get_components_mut_unchecked`] to skip the checks.
+    ///
+    /// # Panics
+    ///
+    /// If the `QueryData` provides aliasing mutable references to the same component.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct X(usize);
+    /// #
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0))).into_mutable();
+    /// // This panics, as the `&mut X`s would alias:
+    /// entity.get_components_mut::<(&mut X, &mut X)>();
+    /// ```
+    pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
+        self.reborrow().into_components_mut::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
     /// # Example
     ///
     /// ```
@@ -184,11 +228,62 @@ impl<'w> EntityMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
     pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
         &mut self,
     ) -> Option<Q::Item<'_, 'static>> {
         // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
         unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// The checks for aliasing mutable references may be expensive.
+    /// If performance is a concern, consider making multiple calls to [`Self::get_mut`].
+    /// If that is not possible, consider using [`Self::into_components_mut_unchecked`] to skip the checks.
+    ///
+    /// # Panics
+    ///
+    /// If the `QueryData` provides aliasing mutable references to the same component.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// let (mut x, mut y) = entity.into_components_mut::<(&mut X, &mut Y)>().unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// ```should_panic
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct X(usize);
+    /// #
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0))).into_mutable();
+    /// // This panics, as the `&mut X`s would alias:
+    /// entity.into_components_mut::<(&mut X, &mut X)>();
+    /// ```
+    pub fn into_components_mut<Q: ReleaseStateQueryData>(self) -> Option<Q::Item<'w, 'static>> {
+        let state = Q::get_state(self.cell.world().components())?;
+        Q::update_component_access(&state, &mut FilteredAccess::default());
+        // SAFETY: `update_component_access` did not panic, so there are no conflicts
+        unsafe { self.into_components_mut_unchecked::<Q>() }
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
@@ -219,6 +314,10 @@ impl<'w> EntityMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`Self::into_components_mut`] for the safe version that performs aliasing checks
     pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
         self,
     ) -> Option<Q::Item<'w, 'static>> {
