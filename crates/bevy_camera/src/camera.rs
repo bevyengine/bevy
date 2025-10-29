@@ -768,11 +768,11 @@ impl Camera {
         let target_rect = self
             .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
-        let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
+        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        let mut ndc = rect_relative * 2. - Vec2::ONE;
         // Flip the Y co-ordinate from the top to the bottom to enter NDC.
-        ndc_xy.y = -ndc_xy.y;
-        Ok(ndc_xy)
+        ndc.y = -ndc.y;
+        Ok(ndc)
     }
 }
 
