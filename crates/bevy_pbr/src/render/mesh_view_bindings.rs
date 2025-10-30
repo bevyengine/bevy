@@ -602,8 +602,8 @@ pub fn prepare_mesh_view_bind_groups(
     (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
-        Res<AtmosphereBuffer>,
-        Res<AtmosphereSampler>,
+        Option<Res<AtmosphereBuffer>>,
+        Option<Res<AtmosphereSampler>>,
     ),
 ) {
     if let (
@@ -740,12 +740,14 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             if has_atmosphere
-                && let (Some(atmosphere_textures), Some(atmosphere_buffer_binding)) =
-                    (atmosphere_textures, atmosphere_buffer.buffer.binding())
+                && let Some(atmosphere_textures) = atmosphere_textures
+                && let Some(atmosphere_buffer) = atmosphere_buffer.as_ref()
+                && let Some(atmosphere_sampler) = atmosphere_sampler.as_ref()
+                && let Some(atmosphere_buffer_binding) = atmosphere_buffer.buffer.binding()
             {
                 entries = entries.extend_with_indices((
                     (29, &atmosphere_textures.transmittance_lut.default_view),
-                    (30, &**atmosphere_sampler),
+                    (30, &***atmosphere_sampler),
                     (31, atmosphere_buffer_binding),
                 ));
             }
