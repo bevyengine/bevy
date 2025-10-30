@@ -275,6 +275,35 @@ impl Mesh {
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
+    /// Sets the data for a vertex attribute (position, normal, etc.) if not empty.
+    /// The name will often be one of the associated constants such
+    /// as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[inline]
+    pub fn insert_attribute_if_not_empty(
+        &mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) {
+        let values = values.into();
+        if !values.is_empty() {
+            let values_format = VertexFormat::from(&values);
+            if values_format != attribute.format {
+                panic!(
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
+                attribute.name, attribute.format
+            );
+            }
+
+            self.attributes
+                .insert(attribute.id, MeshAttributeData { attribute, values });
+        }
+    }
+
     /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
     /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
     ///
@@ -292,6 +321,27 @@ impl Mesh {
         values: impl Into<VertexAttributeValues>,
     ) -> Self {
         self.insert_attribute(attribute, values);
+        self
+    }
+
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.)
+    /// if it is not empty.
+    /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[must_use]
+    #[inline]
+    pub fn with_inserted_attribute_if_not_empty(
+        mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Self {
+        self.insert_attribute_if_not_empty(attribute, values);
         self
     }
 
