@@ -422,7 +422,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
         if self.load_context.asset_path() == path {
-            return Err(LoadDirectError::LoadSelfPath(path.clone()));
+            return Err(LoadDirectError::RequestedSelfPath(path.clone()));
         }
         self.load_context
             .asset_server
