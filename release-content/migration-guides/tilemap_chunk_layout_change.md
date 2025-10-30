@@ -10,4 +10,4 @@ The previous layout origin didn't align with Bevy's world coordinate system, so 
 With the origin of the chunk being in the bottom left, you can simply mod world coordinates to get chunk coordinates.
 
 Some other tiling tools have the convention of the origin being at the top left, but it's more important for Bevy's features
-to be internally consistant as it allows for better ease of use.
+to be internally consistent as it allows for better ease of use.
