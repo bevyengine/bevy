@@ -231,7 +231,7 @@ impl<'w> BundleRemover<'w> {
             let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
             world.entities.update_existing_location(
-                swapped_entity.row(),
+                swapped_entity.index(),
                 Some(EntityLocation {
                     archetype_id: swapped_location.archetype_id,
                     archetype_row: location.archetype_row,
@@ -272,7 +272,7 @@ impl<'w> BundleRemover<'w> {
                 let swapped_location = world.entities.get_spawned(swapped_entity).unwrap();
 
                 world.entities.update_existing_location(
-                    swapped_entity.row(),
+                    swapped_entity.index(),
                     Some(EntityLocation {
                         archetype_id: swapped_location.archetype_id,
                         archetype_row: swapped_location.archetype_row,
@@ -296,7 +296,7 @@ impl<'w> BundleRemover<'w> {
         unsafe {
             world
                 .entities
-                .update_existing_location(entity.row(), Some(new_location));
+                .update_existing_location(entity.index(), Some(new_location));
         }
 
         (new_location, pre_remove_result)

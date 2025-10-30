@@ -1528,11 +1528,11 @@ impl<'w> EntityWorldMut<'w> {
             let was_at = self
                 .world
                 .entities
-                .update_existing_location(self.entity.row(), None);
+                .update_existing_location(self.entity.index(), None);
             debug_assert_eq!(was_at, Some(location));
             self.world
                 .entities
-                .mark_spawned_or_despawned(self.entity.row(), caller, change_tick);
+                .mark_spawned_or_despawned(self.entity.index(), caller, change_tick);
         }
 
         let table_row;
@@ -1546,7 +1546,7 @@ impl<'w> EntityWorldMut<'w> {
                 // moved to the new location immediately after.
                 unsafe {
                     self.world.entities.update_existing_location(
-                        swapped_entity.row(),
+                        swapped_entity.index(),
                         Some(EntityLocation {
                             archetype_id: swapped_location.archetype_id,
                             archetype_row: location.archetype_row,
@@ -1581,7 +1581,7 @@ impl<'w> EntityWorldMut<'w> {
             //         the current location of the entity and its component data.
             unsafe {
                 self.world.entities.update_existing_location(
-                    moved_entity.row(),
+                    moved_entity.index(),
                     Some(EntityLocation {
                         archetype_id: moved_location.archetype_id,
                         archetype_row: moved_location.archetype_row,
@@ -1596,7 +1596,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // finish
         // SAFETY: We just despawned it.
-        self.entity = unsafe { self.world.entities.mark_free(self.entity.row(), 1) };
+        self.entity = unsafe { self.world.entities.mark_free(self.entity.index(), 1) };
         self.world.flush();
     }
 

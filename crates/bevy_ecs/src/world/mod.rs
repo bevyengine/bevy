@@ -1088,7 +1088,7 @@ impl World {
     /// # Risk
     ///
     /// It is possible to spawn an `entity` that has not been allocated yet;
-    /// however, doing so is currently a bad idea as the allocator may hand out this entity row in the future, assuming it to be not spawned.
+    /// however, doing so is currently a bad idea as the allocator may hand out this entity index in the future, assuming it to be not spawned.
     /// This would cause a panic.
     ///
     /// Manual spawning is a powerful tool, but must be used carefully.
@@ -1121,7 +1121,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the entity row is already constructed
+    /// Panics if the entity index is already constructed
     pub(crate) fn spawn_at_unchecked<B: Bundle>(
         &mut self,
         entity: Entity,
@@ -1180,7 +1180,7 @@ impl World {
     ///
     /// # Panics
     ///
-    /// Panics if the entity row is already spawned
+    /// Panics if the entity index is already spawned
     pub(crate) fn spawn_empty_at_unchecked(
         &mut self,
         entity: Entity,
@@ -1195,13 +1195,13 @@ impl World {
             // empty
             let location = archetype.allocate(entity, table_row);
             let change_tick = self.change_tick();
-            let was_at = self.entities.set_location(entity.row(), Some(location));
+            let was_at = self.entities.set_location(entity.index(), Some(location));
             assert!(
                 was_at.is_none(),
                 "Attempting to construct an empty entity, but it was already constructed."
             );
             self.entities
-                .mark_spawned_or_despawned(entity.row(), caller, change_tick);
+                .mark_spawned_or_despawned(entity.index(), caller, change_tick);
 
             EntityWorldMut::new(self, entity, Some(location))
         }
@@ -1569,10 +1569,10 @@ impl World {
     /// This will also remove all of the entity's [`Component`]s.
     ///
     /// The *only* difference between this and [despawning](Self::despawn) an entity is that this does not release the `entity` to be reused.
-    /// It is up to the caller to either re-spawn or free the `entity`; otherwise, the [`EntityRow`](crate::entity::EntityRow) will not be able to be reused.
+    /// It is up to the caller to either re-spawn or free the `entity`; otherwise, the [`EntityIndex`](crate::entity::EntityIndex) will not be able to be reused.
     /// In general, [`despawn`](Self::despawn) should be used instead, which automatically allows the row to be reused.
     ///
-    /// Returns the new [`Entity`] if of the despawned [`EntityRow`](crate::entity::EntityRow), which should eventually either be re-spawned or freed to the allocator.
+    /// Returns the new [`Entity`] if of the despawned [`EntityIndex`](crate::entity::EntityIndex), which should eventually either be re-spawned or freed to the allocator.
     /// Returns an [`EntityDespawnError`] if the entity is not spawned.
     ///
     /// # Note
@@ -1585,7 +1585,7 @@ impl World {
     /// There is no simple example in which this would be practical, but one use for this is a custom entity allocator.
     /// Despawning internally calls this and frees the entity id to Bevy's default entity allocator.
     /// The same principal can be used to create custom allocators with additional properties.
-    /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityRow`](crate::entity::EntityRow)s, etc.
+    /// For example, this could be used to make an allocator that yields groups of consecutive [`EntityIndex`](crate::entity::EntityIndex)s, etc.
     /// See [`EntityAllocator::alloc`] for more on this.
     #[track_caller]
     #[inline]

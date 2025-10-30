@@ -276,8 +276,8 @@ impl EntityMapper for SceneEntityMapper<'_> {
         }
 
         // this new entity reference is specifically designed to never represent any living entity
-        let new = Entity::from_row_and_generation(
-            self.dead_start.row(),
+        let new = Entity::from_index_and_generation(
+            self.dead_start.index(),
             self.dead_start.generation.after_versions(self.generations),
         );
         self.generations = self.generations.wrapping_add(1);
@@ -352,7 +352,7 @@ impl<'m> SceneEntityMapper<'m> {
         let reuse_row = unsafe {
             world
                 .entities
-                .mark_free(self.dead_start.row(), self.generations)
+                .mark_free(self.dead_start.index(), self.generations)
         };
         world.allocator.free(reuse_row);
     }

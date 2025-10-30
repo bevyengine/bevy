@@ -27,15 +27,23 @@ and the new `count_spawned` and `any_spawned` are similar to the old `len` and `
 
 In terms of getting information from `Entities`, `get` and `contains` has been reworked to include non-spawned entities.
 If you only want spawned entities, `get_spawned` and `contains_spawned` are available.
-Additionally, `get` now returns `Result<EntityRowLocation, InvalidEntityError>` instead of `Option<EntityLocation>` for clarity.
-`EntityRowLocation` is an alias for `Option<EntityLocation>`, as entities now may or may not have a location, depending on if it is spawned or not.
+Additionally, `get` now returns `Result<Option<EntityLocation>, InvalidEntityError>` instead of `Option<EntityLocation>` for clarity.
+Entities now may or may not have a location, depending on if it is spawned or not.
 
 `EntityDoesNotExistError` has been removed and reworked.
 See the new entity module docs for more, but:
 When an entity's generation is not up to date with its row, `InvalidEntityError` is produced.
-When an entity row's `EntityRowLocation` is `None`, `EntityRowNotSpawnedError` is produced.
+When an entity index's `Option<EntityLocation>` is `None`, `EntityValidButNotSpawnedError` is produced.
 When an `Entity` is expected to be spawned but is not (either because its generation is outdated or because its row is not spawned), `EntityNotSpawnedError` is produced.
 A few other wrapper error types have slightly changed as well, generally moving from "entity does not exist" to "entity is not spawned".
+
+### Entity Ids
+
+Entity ids previously used "row" terminology, but now use "index" terminology as that more closely specifies its current implementation.
+As such, all functions and types dealing with the previous `EntityRow` have had their names 1 to 1 mapped to index.
+Ex: `EntityRow` -> `EntityIndex`, `Entity::row` -> `Entity::index`, `Entity::from_row` -> `Entity::from_index`, etc.
+Note that `Entity::index` did exist before. It served to give the numeric representation of the `EntityRow`.
+The same functionality exists, now under `Entity::index_u32`.
 
 ### Entity Pointers
 

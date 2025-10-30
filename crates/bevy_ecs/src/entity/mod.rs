@@ -60,24 +60,24 @@
 //! # Storage
 //!
 //! As mentioned above, an ecs [`World`] can be imagined as a spreadsheet.
-//! One way that spreadsheet could be implemented is a list of [`Entity`]s and a hashmap for each component that maps an [`EntityRow`] to a component value if that row has the entity.
+//! One way that spreadsheet could be implemented is a list of [`Entity`]s and a hashmap for each component that maps an [`EntityIndex`] to a component value if that index has the entity.
 //! Bevy's ECS is quite different from that implementation (and much, much faster).
 //! For details on how component storage actually works, see [`storage`](crate::storage).
 //!
 //! Regardless, the spreadsheet also needs a special column that tracks metadata about an entity.
-//! This column does not represents a component and is specific to the [`EntityRow`], not the [`Entity`].
-//! For example, one thing Bevy stores in this metadata is the current [`EntityGeneration`] of the row.
-//! It also stores more information like the [`Tick`] a row was last spawned or despawned, and the optional [`EntityLocation`] itself.
+//! This column does not represents a component and is specific to the [`EntityIndex`], not the [`Entity`].
+//! For example, one thing Bevy stores in this metadata is the current [`EntityGeneration`] of the index.
+//! It also stores more information like the [`Tick`] a index was last spawned or despawned, and the optional [`EntityLocation`] itself.
 //! For more information about what's stored here, see [`Entities`], Bevy's implementation of this special column.
 //!
 //! Entity spawning is done in two stages:
 //! First we create an entity id (alloc step), and then we spawn it (add components and other metadata).
 //! The reason for this split is that we need to be able to assign entity ids concurrently,
 //! while for spawning we need exclusive (non-concurrent) access to the world.
-//! That leaves three states for any given [`EntityRow`], where those two spawning stages serve to transition between states.
-//! First, a row could be unallocated; only the allocator has any knowledge of this [`Entity`].
-//! Second, the row is allocated, making it a "null" entity; it exists, and other code can have knowledge of its existence, but it is not spawned.
-//! Third, the row is spawned, adding any (or no) components to the entity; it is now discoverable through queries, etc.
+//! That leaves three states for any given [`EntityIndex`], where those two spawning stages serve to transition between states.
+//! First, a index could be unallocated; only the allocator has any knowledge of this [`Entity`].
+//! Second, the index is allocated, making it a "null" entity; it exists, and other code can have knowledge of its existence, but it is not spawned.
+//! Third, the index is spawned, adding any (or no) components to the entity; it is now discoverable through queries, etc.
 //!
 //! [`World`]: crate::world::World
 //! [`Query`]: crate::system::Query
@@ -135,7 +135,7 @@ use log::warn;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-/// This represents the row or "index" of an [`Entity`] within the [`Entities`] table.
+/// This represents the index of an [`Entity`] within the [`Entities`] array.
 /// This is a lighter weight version of [`Entity`].
 ///
 /// This is a unique identifier for an entity in the world.
@@ -150,12 +150,12 @@ use serde::{Deserialize, Serialize};
 #[cfg_attr(feature = "bevy_reflect", reflect(opaque))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Hash, PartialEq, Debug, Clone))]
 #[repr(transparent)]
-pub struct EntityRow(NonMaxU32);
+pub struct EntityIndex(NonMaxU32);
 
-impl EntityRow {
+impl EntityIndex {
     const PLACEHOLDER: Self = Self(NonMaxU32::MAX);
 
-    /// Constructs a new [`EntityRow`] from its index.
+    /// Constructs a new [`EntityIndex`] from its index.
     pub const fn new(index: NonMaxU32) -> Self {
         Self(index)
     }
@@ -184,23 +184,23 @@ impl EntityRow {
         unsafe { mem::transmute::<NonMaxU32, u32>(self.0) }
     }
 
-    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    /// Reconstruct an [`EntityIndex`] previously destructured with [`EntityIndex::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
     ///
     /// # Panics
     ///
-    /// This method will likely panic if given `u32` values that did not come from [`EntityRow::to_bits`].
+    /// This method will likely panic if given `u32` values that did not come from [`EntityIndex::to_bits`].
     #[inline]
     const fn from_bits(bits: u32) -> Self {
-        Self::try_from_bits(bits).expect("Attempted to initialize invalid bits as an entity row")
+        Self::try_from_bits(bits).expect("Attempted to initialize invalid bits as an entity index")
     }
 
-    /// Reconstruct an [`EntityRow`] previously destructured with [`EntityRow::to_bits`].
+    /// Reconstruct an [`EntityIndex`] previously destructured with [`EntityIndex::to_bits`].
     ///
     /// Only useful when applied to results from `to_bits` in the same instance of an application.
     ///
-    /// This method is the fallible counterpart to [`EntityRow::from_bits`].
+    /// This method is the fallible counterpart to [`EntityIndex::from_bits`].
     #[inline(always)]
     const fn try_from_bits(bits: u32) -> Option<Self> {
         match NonZero::<u32>::new(bits) {
@@ -213,7 +213,7 @@ impl EntityRow {
     }
 }
 
-impl SparseSetIndex for EntityRow {
+impl SparseSetIndex for EntityIndex {
     #[inline]
     fn sparse_set_index(&self) -> usize {
         self.index() as usize
@@ -225,8 +225,8 @@ impl SparseSetIndex for EntityRow {
     }
 }
 
-/// This tracks different versions or generations of an [`EntityRow`].
-/// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityRow`].
+/// This tracks different versions or generations of an [`EntityIndex`].
+/// Importantly, this can wrap, meaning each generation is not necessarily unique per [`EntityIndex`].
 ///
 /// This should be treated as a opaque identifier, and its internal representation may be subject to change.
 ///
@@ -254,7 +254,7 @@ impl SparseSetIndex for EntityRow {
 pub struct EntityGeneration(u32);
 
 impl EntityGeneration {
-    /// Represents the first generation of an [`EntityRow`].
+    /// Represents the first generation of an [`EntityIndex`].
     pub const FIRST: Self = Self(0);
 
     /// Non-wrapping difference between two generations after which a signed interpretation becomes negative.
@@ -275,7 +275,7 @@ impl EntityGeneration {
         Self(bits)
     }
 
-    /// Returns the [`EntityGeneration`] that would result from this many more `versions` of the corresponding [`EntityRow`] from passing.
+    /// Returns the [`EntityGeneration`] that would result from this many more `versions` of the corresponding [`EntityIndex`] from passing.
     #[inline]
     pub const fn after_versions(self, versions: u32) -> Self {
         Self(self.0.wrapping_add(versions))
@@ -284,7 +284,7 @@ impl EntityGeneration {
     /// Identical to [`after_versions`](Self::after_versions) but also returns a `bool` indicating if,
     /// after these `versions`, one such version could conflict with a previous one.
     ///
-    /// If this happens, this will no longer uniquely identify a version of an [`EntityRow`].
+    /// If this happens, this will no longer uniquely identify a version of an [`EntityIndex`].
     /// This is called entity aliasing.
     #[inline]
     pub const fn after_versions_and_could_alias(self, versions: u32) -> (Self, bool) {
@@ -427,10 +427,10 @@ pub struct Entity {
     // Do not reorder the fields here. The ordering is explicitly used by repr(C)
     // to make this struct equivalent to a u64.
     #[cfg(target_endian = "little")]
-    row: EntityRow,
+    index: EntityIndex,
     generation: EntityGeneration,
     #[cfg(target_endian = "big")]
-    row: EntityRow,
+    index: EntityIndex,
 }
 
 // By not short-circuiting in comparisons, we get better codegen.
@@ -487,8 +487,11 @@ impl Hash for Entity {
 impl Entity {
     /// Creates a new instance with the given index and generation.
     #[inline(always)]
-    pub const fn from_row_and_generation(row: EntityRow, generation: EntityGeneration) -> Entity {
-        Self { row, generation }
+    pub const fn from_index_and_generation(
+        index: EntityIndex,
+        generation: EntityGeneration,
+    ) -> Entity {
+        Self { index, generation }
     }
 
     /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
@@ -525,9 +528,9 @@ impl Entity {
     ///     }
     /// }
     /// ```
-    pub const PLACEHOLDER: Self = Self::from_row(EntityRow::PLACEHOLDER);
+    pub const PLACEHOLDER: Self = Self::from_index(EntityIndex::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `row` and a generation of 1.
+    /// Creates a new entity ID with the specified `index` and a generation of 1.
     ///
     /// # Note
     ///
@@ -540,17 +543,17 @@ impl Entity {
     /// `Entity` lines up between instances, but instead insert a secondary identifier as
     /// a component.
     #[inline(always)]
-    pub const fn from_row(row: EntityRow) -> Entity {
-        Self::from_row_and_generation(row, EntityGeneration::FIRST)
+    pub const fn from_index(index: EntityIndex) -> Entity {
+        Self::from_index_and_generation(index, EntityGeneration::FIRST)
     }
 
-    /// This is equivalent to [`from_row`](Self::from_row) except that it takes a `u32` instead of an [`EntityRow`].
+    /// This is equivalent to [`from_index`](Self::from_index) except that it takes a `u32` instead of an [`EntityIndex`].
     ///
-    /// Returns `None` if the row is `u32::MAX`.
+    /// Returns `None` if the index is `u32::MAX`.
     #[inline(always)]
-    pub const fn from_raw_u32(row: u32) -> Option<Entity> {
-        match NonMaxU32::new(row) {
-            Some(row) => Some(Self::from_row(EntityRow::new(row))),
+    pub const fn from_raw_u32(index: u32) -> Option<Entity> {
+        match NonMaxU32::new(index) {
+            Some(index) => Some(Self::from_index(EntityIndex::new(index))),
             None => None,
         }
     }
@@ -563,7 +566,7 @@ impl Entity {
     /// No particular structure is guaranteed for the returned bits.
     #[inline(always)]
     pub const fn to_bits(self) -> u64 {
-        self.row.to_bits() as u64 | ((self.generation.to_bits() as u64) << 32)
+        self.index.to_bits() as u64 | ((self.generation.to_bits() as u64) << 32)
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].
@@ -589,12 +592,12 @@ impl Entity {
     /// This method is the fallible counterpart to [`Entity::from_bits`].
     #[inline(always)]
     pub const fn try_from_bits(bits: u64) -> Option<Self> {
-        let raw_row = bits as u32;
+        let raw_index = bits as u32;
         let raw_gen = (bits >> 32) as u32;
 
-        if let Some(row) = EntityRow::try_from_bits(raw_row) {
+        if let Some(index) = EntityIndex::try_from_bits(raw_index) {
             Some(Self {
-                row,
+                index,
                 generation: EntityGeneration::from_bits(raw_gen),
             })
         } else {
@@ -603,25 +606,25 @@ impl Entity {
     }
 
     /// Return a transiently unique identifier.
-    /// See also [`EntityRow`].
+    /// See also [`EntityIndex`].
     ///
-    /// No two simultaneously-live entities share the same row, but dead entities' indices may collide
+    /// No two simultaneously-live entities share the same index, but dead entities' indices may collide
     /// with both live and dead entities. Useful for compactly representing entities within a
     /// specific snapshot of the world, such as when serializing.
     #[inline]
-    pub const fn row(self) -> EntityRow {
-        self.row
+    pub const fn index(self) -> EntityIndex {
+        self.index
     }
 
-    /// Equivalent to `self.row().index()`. See [`Self::row`] for details.
+    /// Equivalent to `self.index().index()`. See [`Self::index`] for details.
     #[inline]
-    pub const fn index(self) -> u32 {
-        self.row.index()
+    pub const fn index_u32(self) -> u32 {
+        self.index.index()
     }
 
-    /// Returns the generation of this Entity's row. The generation is incremented each time an
-    /// entity with a given row is despawned. This serves as a "count" of the number of times a
-    /// given row has been reused (row, generation) pairs uniquely identify a given Entity.
+    /// Returns the generation of this Entity's index. The generation is incremented each time an
+    /// entity with a given index is despawned. This serves as a "count" of the number of times a
+    /// given index has been reused (index, generation) pairs uniquely identify a given Entity.
     #[inline]
     pub const fn generation(self) -> EntityGeneration {
         self.generation
@@ -682,12 +685,12 @@ impl fmt::Display for Entity {
 impl SparseSetIndex for Entity {
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.row().sparse_set_index()
+        self.index().sparse_set_index()
     }
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Entity::from_row(EntityRow::get_sparse_set_index(value))
+        Entity::from_index(EntityIndex::get_sparse_set_index(value))
     }
 }
 
@@ -695,7 +698,7 @@ impl SparseSetIndex for Entity {
 /// This is used in [`World::spawn_at`](crate::world::World::spawn_at) and [`World::despawn_no_free`](crate::world::World::despawn_no_free) to track entity ids no longer in use.
 /// Allocating is fully concurrent and can be done from multiple threads.
 ///
-/// Conceptually, this is a collection of [`Entity`] ids who's [`EntityRow`] is despawned and who's [`EntityGeneration`] is the most recent.
+/// Conceptually, this is a collection of [`Entity`] ids who's [`EntityIndex`] is despawned and who's [`EntityGeneration`] is the most recent.
 /// See the module docs for how these ids and this allocator participate in the life cycle of an entity.
 #[derive(Default, Debug)]
 pub struct EntityAllocator {
@@ -705,11 +708,11 @@ pub struct EntityAllocator {
     free: Vec<Entity>,
     /// This is continually subtracted from.
     /// If it wraps to a very large number, it will be outside the bounds of `free`,
-    /// and a new row will be needed.
+    /// and a new index will be needed.
     free_len: AtomicUsize,
-    /// This is the next "fresh" row to hand out.
-    /// If there are no rows to reuse, this row, which has a generation of 0, is the next to return.
-    next_row: AtomicU32,
+    /// This is the next "fresh" index to hand out.
+    /// If there are no indexs to reuse, this index, which has a generation of 0, is the next to return.
+    next_index: AtomicU32,
 }
 
 impl EntityAllocator {
@@ -717,11 +720,11 @@ impl EntityAllocator {
     pub(crate) fn restart(&mut self) {
         self.free.clear();
         *self.free_len.get_mut() = 0;
-        *self.next_row.get_mut() = 0;
+        *self.next_index.get_mut() = 0;
     }
 
     /// This allows `freed` to be retrieved from [`alloc`](Self::alloc), etc.
-    /// Freeing an [`Entity`] such that one [`EntityRow`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
+    /// Freeing an [`Entity`] such that one [`EntityIndex`] is in the allocator in multiple places can cause panics when spawning the allocated entity.
     /// Additionally, to differentiate versions of an [`Entity`], updating the [`EntityGeneration`] before freeing is a good idea
     /// (but not strictly necessary if you don't mind [`Entity`] id aliasing.)
     pub fn free(&mut self, freed: Entity) {
@@ -736,7 +739,7 @@ impl EntityAllocator {
     }
 
     /// Allocates some [`Entity`].
-    /// The result could have come from a [`free`](Self::free) or be a brand new [`EntityRow`].
+    /// The result could have come from a [`free`](Self::free) or be a brand new [`EntityIndex`].
     ///
     /// The returned entity is valid and unique, but it is not yet spawned.
     /// Using the id as if it were spawned may produce errors.
@@ -771,16 +774,16 @@ impl EntityAllocator {
     /// ```
     ///
     /// More generally, manually spawning and [`despawn_no_free`](crate::world::World::despawn_no_free)ing entities allows you to skip Bevy's default entity allocator.
-    /// This is useful if you want to enforce properties about the [`EntityRow`]s of a group of entities, make a custom allocator, etc.
+    /// This is useful if you want to enforce properties about the [`EntityIndex`]s of a group of entities, make a custom allocator, etc.
     pub fn alloc(&self) -> Entity {
         let index = self
             .free_len
             .fetch_sub(1, Ordering::Relaxed)
             .wrapping_sub(1);
         self.free.get(index).copied().unwrap_or_else(|| {
-            let row = self.next_row.fetch_add(1, Ordering::Relaxed);
-            let row = NonMaxU32::new(row).expect("too many entities");
-            Entity::from_row(EntityRow::new(row))
+            let index = self.next_index.fetch_add(1, Ordering::Relaxed);
+            let index = NonMaxU32::new(index).expect("too many entities");
+            Entity::from_index(EntityIndex::new(index))
         })
     }
 
@@ -801,7 +804,7 @@ impl EntityAllocator {
         let reuse = start..current_len;
         let still_need = (count as usize - reuse.len()) as u32;
         let new = if still_need > 0 {
-            let start_new = self.next_row.fetch_add(still_need, Ordering::Relaxed);
+            let start_new = self.next_index.fetch_add(still_need, Ordering::Relaxed);
             let end_new = start_new
                 .checked_add(still_need)
                 .expect("too many entities");
@@ -831,8 +834,8 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
         self.reuse.next().copied().or_else(|| {
             self.new.next().map(|index| {
                 // SAFETY: This came from an exclusive range so the max can't be hit.
-                let row = unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) };
-                Entity::from_row(row)
+                let index = unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) };
+                Entity::from_index(index)
             })
         })
     }
@@ -850,7 +853,7 @@ impl<'a> core::iter::FusedIterator for AllocEntitiesIterator<'a> {}
 // SAFETY: Newly allocated entity values are unique.
 unsafe impl EntitySetIterator for AllocEntitiesIterator<'_> {}
 
-/// [`Entities`] tracks all known [`EntityRow`]s and their metadata.
+/// [`Entities`] tracks all known [`EntityIndex`]s and their metadata.
 /// This is like a base table of information all entities have.
 #[derive(Debug, Clone)]
 pub struct Entities {
@@ -868,12 +871,12 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned.
-    /// This can error if the [`EntityGeneration`] of this entity has passed or if the [`EntityRow`] is not spawned.
+    /// This can error if the [`EntityGeneration`] of this entity has passed or if the [`EntityIndex`] is not spawned.
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
     pub fn get_spawned(&self, entity: Entity) -> Result<EntityLocation, EntityNotSpawnedError> {
-        let meta = self.meta.get(entity.index() as usize);
+        let meta = self.meta.get(entity.index_u32() as usize);
         let meta = meta.unwrap_or(&EntityMeta::FRESH);
         if entity.generation() != meta.generation {
             return Err(EntityNotSpawnedError::Invalid(InvalidEntityError {
@@ -906,25 +909,25 @@ impl Entities {
         }
     }
 
-    /// Get the [`Entity`] for the given [`EntityRow`].
+    /// Get the [`Entity`] for the given [`EntityIndex`].
     /// Note that this entity may not be spawned yet.
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn resolve_from_row(&self, row: EntityRow) -> Entity {
+    pub fn resolve_from_index(&self, index: EntityIndex) -> Entity {
         self.meta
-            .get(row.index() as usize)
-            .map(|meta| Entity::from_row_and_generation(row, meta.generation))
-            .unwrap_or(Entity::from_row(row))
+            .get(index.index() as usize)
+            .map(|meta| Entity::from_index_and_generation(index, meta.generation))
+            .unwrap_or(Entity::from_index(index))
     }
 
-    /// Returns whether the entity at this `row` is spawned or not.
+    /// Returns whether the entity at this `index` is spawned or not.
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
-    pub fn is_row_spawned(&self, row: EntityRow) -> bool {
+    pub fn is_index_spawned(&self, index: EntityIndex) -> bool {
         self.meta
-            .get(row.index() as usize)
+            .get(index.index() as usize)
             .is_some_and(|meta| meta.location.is_some())
     }
 
@@ -933,7 +936,7 @@ impl Entities {
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     pub fn contains(&self, entity: Entity) -> bool {
-        self.resolve_from_row(entity.row()).generation() == entity.generation()
+        self.resolve_from_index(entity.index()).generation() == entity.generation()
     }
 
     /// Returns true if the entity is valid and is spawned.
@@ -956,46 +959,46 @@ impl Entities {
         }
     }
 
-    /// Updates the location of an [`EntityRow`].
+    /// Updates the location of an [`EntityIndex`].
     /// This must be called when moving the components of the existing entity around in storage.
-    /// Returns the previous location of the row.
+    /// Returns the previous location of the index.
     ///
     /// # Safety
-    ///  - The current location of the `row` must already be set. If not, use [`set_location`](Self::set_location).
-    ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
+    ///  - The current location of the `index` must already be set. If not, use [`set_location`](Self::set_location).
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
     pub(crate) unsafe fn update_existing_location(
         &mut self,
-        row: EntityRow,
+        index: EntityIndex,
         location: Option<EntityLocation>,
     ) -> Option<EntityLocation> {
-        // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
-        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        // SAFETY: Caller guarantees that `index` already had a location, so `declare` must have made the index valid already.
+        let meta = unsafe { self.meta.get_unchecked_mut(index.index() as usize) };
         mem::replace(&mut meta.location, location)
     }
 
-    /// Declares the location of an [`EntityRow`].
+    /// Declares the location of an [`EntityIndex`].
     /// This must be called when spawning entities, but when possible, prefer [`update_existing_location`](Self::update_existing_location).
-    /// Returns the previous location of the row.
+    /// Returns the previous location of the index.
     ///
     /// # Safety
-    ///  - `location` must be valid for the entity at `row` or immediately made valid afterwards
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     #[inline]
     pub(crate) unsafe fn set_location(
         &mut self,
-        row: EntityRow,
+        index: EntityIndex,
         location: Option<EntityLocation>,
     ) -> Option<EntityLocation> {
-        self.ensure_row_index_is_valid(row);
-        // SAFETY: We just did `ensure_row`
-        self.update_existing_location(row, location)
+        self.ensure_index_index_is_valid(index);
+        // SAFETY: We just did `ensure_index`
+        self.update_existing_location(index, location)
     }
 
-    /// Ensures the row is within the bounds of [`Self::meta`], expanding it if necessary.
+    /// Ensures the index is within the bounds of [`Self::meta`], expanding it if necessary.
     #[inline]
-    fn ensure_row_index_is_valid(&mut self, row: EntityRow) {
+    fn ensure_index_index_is_valid(&mut self, index: EntityIndex) {
         #[cold] // to help with branch prediction
         fn expand(meta: &mut Vec<EntityMeta>, len: usize) {
             meta.resize(len, EntityMeta::FRESH);
@@ -1003,46 +1006,46 @@ impl Entities {
             meta.resize(meta.capacity(), EntityMeta::FRESH);
         }
 
-        let index = row.index() as usize;
+        let index = index.index() as usize;
         if self.meta.len() <= index {
             // TODO: hint unlikely once stable.
             expand(&mut self.meta, index + 1);
         }
     }
 
-    /// Marks the `row` as free, returning the [`Entity`] to reuse that [`EntityRow`].
+    /// Marks the `index` as free, returning the [`Entity`] to reuse that [`EntityIndex`].
     ///
     /// # Safety
     ///
-    /// - `row` must be despawned (have no location) already.
-    pub(crate) unsafe fn mark_free(&mut self, row: EntityRow, generations: u32) -> Entity {
+    /// - `index` must be despawned (have no location) already.
+    pub(crate) unsafe fn mark_free(&mut self, index: EntityIndex, generations: u32) -> Entity {
         // We need to do this in case an entity is being freed that was never spawned.
-        self.ensure_row_index_is_valid(row);
-        // SAFETY: We just did `ensure_row`
-        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        self.ensure_index_index_is_valid(index);
+        // SAFETY: We just did `ensure_index`
+        let meta = unsafe { self.meta.get_unchecked_mut(index.index() as usize) };
 
         let (new_generation, aliased) = meta.generation.after_versions_and_could_alias(generations);
         meta.generation = new_generation;
         if aliased {
-            warn!("EntityRow({row}) generation wrapped on Entities::free, aliasing may occur",);
+            warn!("EntityIndex({index}) generation wrapped on Entities::free, aliasing may occur",);
         }
 
-        Entity::from_row_and_generation(row, meta.generation)
+        Entity::from_index_and_generation(index, meta.generation)
     }
 
-    /// Mark an [`EntityRow`] as spawned or despawned in the given tick.
+    /// Mark an [`EntityIndex`] as spawned or despawned in the given tick.
     ///
     /// # Safety
-    ///  - `row` must have been spawned at least once, ensuring its row is valid.
+    ///  - `index` must have been spawned at least once, ensuring its index is valid.
     #[inline]
     pub(crate) unsafe fn mark_spawned_or_despawned(
         &mut self,
-        row: EntityRow,
+        index: EntityIndex,
         by: MaybeLocation,
         tick: Tick,
     ) {
-        // SAFETY: Caller guarantees that `row` already had a location, so `declare` must have made the index valid already.
-        let meta = unsafe { self.meta.get_unchecked_mut(row.index() as usize) };
+        // SAFETY: Caller guarantees that `index` already had a location, so `declare` must have made the index valid already.
+        let meta = unsafe { self.meta.get_unchecked_mut(index.index() as usize) };
         meta.spawned_or_despawned = SpawnedOrDespawned { by, tick };
     }
 
@@ -1073,7 +1076,7 @@ impl Entities {
     #[inline]
     fn entity_get_spawned_or_despawned(&self, entity: Entity) -> Option<SpawnedOrDespawned> {
         self.meta
-            .get(entity.index() as usize)
+            .get(entity.index_u32() as usize)
             .filter(|meta|
             // Generation is incremented immediately upon despawn
             (meta.generation == entity.generation)
@@ -1094,7 +1097,7 @@ impl Entities {
         entity: Entity,
     ) -> (MaybeLocation, Tick) {
         // SAFETY: caller ensures entity is allocated
-        let meta = unsafe { self.meta.get_unchecked(entity.index() as usize) };
+        let meta = unsafe { self.meta.get_unchecked(entity.index_u32() as usize) };
         (meta.spawned_or_despawned.by, meta.spawned_or_despawned.tick)
     }
 
@@ -1105,7 +1108,7 @@ impl Entities {
         }
     }
 
-    /// The count of currently allocated entity rows.
+    /// The count of currently allocated entity indexs.
     /// For information on active entities, see [`Self::count_spawned`].
     #[inline]
     pub fn len(&self) -> u32 {
@@ -1119,7 +1122,7 @@ impl Entities {
         self.len() == 0
     }
 
-    /// Counts the number of entity rows currently spawned.
+    /// Counts the number of entity indexs currently spawned.
     /// See the module docs for a more precise explanation of what spawning means.
     /// Be aware that this is O(n) and is intended only to be used as a diagnostic for tests.
     pub fn count_spawned(&self) -> u32 {
@@ -1129,7 +1132,7 @@ impl Entities {
             .count() as u32
     }
 
-    /// Returns true if there are any entity rows currently spawned.
+    /// Returns true if there are any entity indexs currently spawned.
     /// See the module docs for a more precise explanation of what spawning means.
     pub fn any_spawned(&self) -> bool {
         self.meta.iter().any(|meta| meta.location.is_some())
@@ -1151,16 +1154,18 @@ pub enum SpawnError {
 /// An error that occurs when a specified [`Entity`] does not exist in the entity id space.
 /// See [module](crate::entity) docs for more about entity validity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
-#[error("The entity with ID {entity} is invalid; its row now has generation {current_generation}.")]
+#[error(
+    "The entity with ID {entity} is invalid; its index now has generation {current_generation}."
+)]
 pub struct InvalidEntityError {
     /// The entity's ID.
     pub entity: Entity,
-    /// The generation of the [`EntityRow`], which did not match the requested entity.
+    /// The generation of the [`EntityIndex`], which did not match the requested entity.
     pub current_generation: EntityGeneration,
 }
 
 /// An error that occurs when a specified [`Entity`] is certain to be valid and is expected to be spawned but is spawned.
-/// This includes when an [`EntityRow`] is requested but is not spawned, since each row always corresponds to exactly one valid entity.
+/// This includes when an [`EntityIndex`] is requested but is not spawned, since each index always corresponds to exactly one valid entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EntityValidButNotSpawnedError {
     /// The entity's ID.
@@ -1173,7 +1178,7 @@ impl fmt::Display for EntityValidButNotSpawnedError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let entity = self.entity;
         match self.location.into_option() {
-            Some(location) => write!(f, "The entity with ID {entity} is not spawned; its row was last despawned by {location}."),
+            Some(location) => write!(f, "The entity with ID {entity} is not spawned; its index was last despawned by {location}."),
             None => write!(
                 f,
                 "The entity with ID {entity} is not spawned; enable `track_location` feature for more details."
@@ -1183,7 +1188,7 @@ impl fmt::Display for EntityValidButNotSpawnedError {
 }
 
 /// An error that occurs when a specified [`Entity`] is expected to be valid and spawned but is not.
-/// Represents an error of either [`InvalidEntityError`] (when the entity is invalid) or [`EntityValidButNotSpawnedError`] (when the [`EntityGeneration`] is correct but the [`EntityRow`] is not spawned).
+/// Represents an error of either [`InvalidEntityError`] (when the entity is invalid) or [`EntityValidButNotSpawnedError`] (when the [`EntityGeneration`] is correct but the [`EntityIndex`] is not spawned).
 #[derive(thiserror::Error, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum EntityNotSpawnedError {
     /// The entity was invalid.
@@ -1206,9 +1211,9 @@ impl EntityNotSpawnedError {
 
 #[derive(Copy, Clone, Debug)]
 struct EntityMeta {
-    /// The current [`EntityGeneration`] of the [`EntityRow`].
+    /// The current [`EntityGeneration`] of the [`EntityIndex`].
     generation: EntityGeneration,
-    /// The current location of the [`EntityRow`].
+    /// The current location of the [`EntityIndex`].
     location: Option<EntityLocation>,
     /// Location and tick of the last spawn/despawn
     spawned_or_despawned: SpawnedOrDespawned,
@@ -1268,11 +1273,11 @@ mod tests {
 
     #[test]
     fn entity_bits_roundtrip() {
-        let r = EntityRow::from_raw_u32(0xDEADBEEF).unwrap();
-        assert_eq!(EntityRow::from_bits(r.to_bits()), r);
+        let r = EntityIndex::from_raw_u32(0xDEADBEEF).unwrap();
+        assert_eq!(EntityIndex::from_bits(r.to_bits()), r);
 
-        let e = Entity::from_row_and_generation(
-            EntityRow::from_raw_u32(0xDEADBEEF).unwrap(),
+        let e = Entity::from_index_and_generation(
+            EntityIndex::from_raw_u32(0xDEADBEEF).unwrap(),
             EntityGeneration::from_bits(0x5AADF00D),
         );
         assert_eq!(Entity::from_bits(e.to_bits()), e);
@@ -1280,15 +1285,15 @@ mod tests {
 
     #[test]
     fn entity_const() {
-        const C1: Entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
-        assert_eq!(42, C1.index());
+        const C1: Entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
+        assert_eq!(42, C1.index_u32());
         assert_eq!(0, C1.generation().to_bits());
 
         const C2: Entity = Entity::from_bits(0x0000_00ff_0000_00cc);
-        assert_eq!(!0x0000_00cc, C2.index());
+        assert_eq!(!0x0000_00cc, C2.index_u32());
         assert_eq!(0x0000_00ff, C2.generation().to_bits());
 
-        const C3: u32 = Entity::from_row(EntityRow::from_raw_u32(33).unwrap()).index();
+        const C3: u32 = Entity::from_index(EntityIndex::from_raw_u32(33).unwrap()).index_u32();
         assert_eq!(33, C3);
 
         const C4: u32 = Entity::from_bits(0x00dd_00ff_1111_1111)
@@ -1304,42 +1309,42 @@ mod tests {
     )]
     fn entity_comparison() {
         assert_eq!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             ),
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert_ne!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(789)
             )
         );
         assert_ne!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ),
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(456).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(456).unwrap(),
                 EntityGeneration::from_bits(123)
             )
         );
@@ -1347,94 +1352,94 @@ mod tests {
         // ordering is by generation then by index
 
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) >= Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
-                EntityGeneration::from_bits(456)
-            )
-        );
-        assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
-                EntityGeneration::from_bits(456)
-            ) <= Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            ) >= Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             )
         );
         assert!(
-            !(Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) < Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            ) <= Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
+                EntityGeneration::from_bits(456)
+            )
+        );
+        assert!(
+            !(Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
+                EntityGeneration::from_bits(456)
+            ) < Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
         assert!(
-            !(Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            !(Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
-            ) > Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(123).unwrap(),
+            ) > Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(123).unwrap(),
                 EntityGeneration::from_bits(456)
             ))
         );
 
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(9).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
-            ) < Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
+            ) < Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
             )
         );
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(9)
-            ) > Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(9).unwrap(),
+            ) > Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(9).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
 
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(1)
-            ) > Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(2).unwrap(),
-                EntityGeneration::from_bits(1)
-            )
-        );
-        assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
-                EntityGeneration::from_bits(1)
-            ) >= Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(2).unwrap(),
+            ) > Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(1)
             )
         );
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(2).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
+                EntityGeneration::from_bits(1)
+            ) >= Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(2).unwrap(),
+                EntityGeneration::from_bits(1)
+            )
+        );
+        assert!(
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
-            ) < Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
+            ) < Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
         assert!(
-            Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(2).unwrap(),
+            Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(2).unwrap(),
                 EntityGeneration::from_bits(2)
-            ) <= Entity::from_row_and_generation(
-                EntityRow::from_raw_u32(1).unwrap(),
+            ) <= Entity::from_index_and_generation(
+                EntityIndex::from_raw_u32(1).unwrap(),
                 EntityGeneration::from_bits(2)
             )
         );
@@ -1448,12 +1453,13 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE << 8;
-        let first_hash =
-            hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(first_id).unwrap()));
+        let first_hash = hash.hash_one(Entity::from_index(
+            EntityIndex::from_raw_u32(first_id).unwrap(),
+        ));
 
         for i in 1..=255 {
             let id = first_id + i;
-            let hash = hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(id).unwrap()));
+            let hash = hash.hash_one(Entity::from_index(EntityIndex::from_raw_u32(id).unwrap()));
             assert_eq!(first_hash.wrapping_sub(hash) as u32, i);
         }
     }
@@ -1465,12 +1471,14 @@ mod tests {
         let hash = EntityHash;
 
         let first_id = 0xC0FFEE;
-        let first_hash =
-            hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(first_id).unwrap())) >> 57;
+        let first_hash = hash.hash_one(Entity::from_index(
+            EntityIndex::from_raw_u32(first_id).unwrap(),
+        )) >> 57;
 
         for bit in 0..u32::BITS {
             let id = first_id ^ (1 << bit);
-            let hash = hash.hash_one(Entity::from_row(EntityRow::from_raw_u32(id).unwrap())) >> 57;
+            let hash =
+                hash.hash_one(Entity::from_index(EntityIndex::from_raw_u32(id).unwrap())) >> 57;
             assert_ne!(hash, first_hash);
         }
     }
@@ -1495,7 +1503,7 @@ mod tests {
 
     #[test]
     fn entity_debug() {
-        let entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let string = format!("{entity:?}");
         assert_eq!(string, "42v0");
 
@@ -1506,7 +1514,7 @@ mod tests {
 
     #[test]
     fn entity_display() {
-        let entity = Entity::from_row(EntityRow::from_raw_u32(42).unwrap());
+        let entity = Entity::from_index(EntityIndex::from_raw_u32(42).unwrap());
         let string = format!("{entity}");
         assert_eq!(string, "42v0");
 
