@@ -1473,7 +1473,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns an [`EntityNotSpawnedError`] if the entity is not spawned to be despawned.
+    /// Returns an [`EntityDespawnError`] if the entity is not spawned to be despawned.
     ///
     /// # Note
     ///
@@ -1481,7 +1481,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityNotSpawnedError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityDespawnError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1490,7 +1490,7 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), EntityNotSpawnedError> {
+    ) -> Result<(), EntityDespawnError> {
         match self.get_entity_mut(entity) {
             Ok(entity) => {
                 entity.despawn_with_caller(caller);
@@ -1498,7 +1498,7 @@ impl World {
             }
             // Only one entity.
             Err(EntityMutableFetchError::AliasedMutability(_)) => unreachable!(),
-            Err(EntityMutableFetchError::NotSpawned(err)) => Err(err),
+            Err(EntityMutableFetchError::NotSpawned(err)) => Err(EntityDespawnError(err)),
         }
     }
 

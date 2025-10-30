@@ -395,7 +395,8 @@ mod tests {
                 EntityNotSpawnedError::ValidButNotSpawned(_)
             ))
         ));
-        assert!(world.despawn(e2));
+        assert!(!world.despawn(e2));
+        world.entities_allocator_mut().free(e2);
 
         let e3 = world.entities_allocator_mut().alloc();
         let e3 = world
