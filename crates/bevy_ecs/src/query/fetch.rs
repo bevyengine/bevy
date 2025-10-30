@@ -541,7 +541,7 @@ unsafe impl QueryData for EntityLocation {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
-        unsafe { fetch.get_spawned(entity).debug_checked_unwrap() }
+        Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
     }
 }
 
