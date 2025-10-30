@@ -76,7 +76,7 @@
 //! while for spawning we need exclusive (non-concurrent) access to the world.
 //! That leaves three states for any given [`EntityIndex`], where those two spawning stages serve to transition between states.
 //! First, a index could be unallocated; only the allocator has any knowledge of this [`Entity`].
-//! Second, the index is allocated, making it a "null" entity; it exists, and other code can have knowledge of its existence, but it is not spawned.
+//! Second, the index is allocated; it exists, and other code can have knowledge of its existence, but it is not spawned.
 //! Third, the index is spawned, adding any (or no) components to the entity; it is now discoverable through queries, etc.
 //!
 //! [`World`]: crate::world::World
