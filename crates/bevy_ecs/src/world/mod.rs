@@ -43,9 +43,7 @@ use crate::{
         ComponentsQueuedRegistrator, ComponentsRegistrator, Mutable, RequiredComponents,
         RequiredComponentsError,
     },
-    entity::{
-        Entities, Entity, EntityAllocator, EntityNotSpawnedError, InvalidEntityError, SpawnError,
-    },
+    entity::{Entities, Entity, EntityAllocator, EntityNotSpawnedError, SpawnError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
@@ -1524,7 +1522,7 @@ impl World {
     /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
     /// [`Components`](Component).
     ///
-    /// Returns an [`EntityDespawnError`] if the entity does not exist.
+    /// Returns an [`EntityNotSpawnedError`] if the entity is not spawned to be despawned.
     ///
     /// # Note
     ///
@@ -1532,7 +1530,7 @@ impl World {
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), InvalidEntityError> {
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), EntityNotSpawnedError> {
         self.despawn_with_caller(entity, MaybeLocation::caller())
     }
 
@@ -1541,7 +1539,7 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> Result<(), InvalidEntityError> {
+    ) -> Result<(), EntityNotSpawnedError> {
         match self.get_entity_mut(entity) {
             Ok(entity) => {
                 entity.despawn_with_caller(caller);
@@ -1549,20 +1547,7 @@ impl World {
             }
             // Only one entity.
             Err(EntityMutableFetchError::AliasedMutability(_)) => unreachable!(),
-            Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::Invalid(err))) => {
-                Err(err)
-            }
-            // The caller wants the entity to be left despawned and in the allocator.
-            // In this case, we can just skip the despawning part.
-            Err(EntityMutableFetchError::NotSpawned(EntityNotSpawnedError::RowNotSpawned(_))) => {
-                // We can assume the allocator doesn't have this entity,
-                // since if entity was already despawned, its generation would have changed already,
-                // and `Invalid` error variant would have resulted.
-                // This can only happen if the entity was previously `despawn_no_free`d.
-                // And in that case we just need to finish freeing it.
-                self.allocator.free(entity);
-                Ok(())
-            }
+            Err(EntityMutableFetchError::NotSpawned(err)) => Err(err),
         }
     }
 

@@ -974,12 +974,13 @@ impl Entities {
                 current_generation: meta.generation,
             }));
         };
-        meta.location.ok_or(EntityNotSpawnedError::RowNotSpawned(
-            EntityValidButNotSpawnedError {
-                entity,
-                location: meta.spawned_or_despawned.by,
-            },
-        ))
+        meta.location
+            .ok_or(EntityNotSpawnedError::ValidButNotSpawned(
+                EntityValidButNotSpawnedError {
+                    entity,
+                    location: meta.spawned_or_despawned.by,
+                },
+            ))
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid.
@@ -993,7 +994,7 @@ impl Entities {
     pub fn get(&self, entity: Entity) -> Result<Option<EntityLocation>, InvalidEntityError> {
         match self.get_spawned(entity) {
             Ok(location) => Ok(Some(location)),
-            Err(EntityNotSpawnedError::RowNotSpawned { .. }) => Ok(None),
+            Err(EntityNotSpawnedError::ValidButNotSpawned { .. }) => Ok(None),
             Err(EntityNotSpawnedError::Invalid(err)) => Err(err),
         }
     }
@@ -1283,7 +1284,7 @@ pub enum EntityNotSpawnedError {
     Invalid(#[from] InvalidEntityError),
     /// The entity was valid but was not spawned.
     #[error("{0}")]
-    RowNotSpawned(#[from] EntityValidButNotSpawnedError),
+    ValidButNotSpawned(#[from] EntityValidButNotSpawnedError),
 }
 
 impl EntityNotSpawnedError {
@@ -1291,7 +1292,7 @@ impl EntityNotSpawnedError {
     pub fn entity(&self) -> Entity {
         match self {
             EntityNotSpawnedError::Invalid(err) => err.entity,
-            EntityNotSpawnedError::RowNotSpawned(err) => err.entity,
+            EntityNotSpawnedError::ValidButNotSpawned(err) => err.entity,
         }
     }
 }

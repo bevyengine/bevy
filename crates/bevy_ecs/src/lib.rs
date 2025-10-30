@@ -391,7 +391,9 @@ mod tests {
         let e2 = world.entities_allocator_mut().alloc();
         assert!(matches!(
             world.try_despawn_no_free(e2),
-            Err(EntityDespawnError(EntityNotSpawnedError::RowNotSpawned(_)))
+            Err(EntityDespawnError(
+                EntityNotSpawnedError::ValidButNotSpawned(_)
+            ))
         ));
         assert!(world.despawn(e2));
 
