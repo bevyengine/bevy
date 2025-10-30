@@ -747,9 +747,8 @@ all_tuples_enumerated!(impl_param_set, 1, 8, P, p);
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
-// SAFETY:
-// - We register both the necessary component access and the resource access.
-// - World accesses follow the registered accesses.
+// SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
@@ -823,9 +822,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
-// SAFETY:
-// - We register both the necessary component access and the resource access.
-// - World accesses follow the registered accesses.
+// SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
+// conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
