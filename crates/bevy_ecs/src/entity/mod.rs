@@ -530,7 +530,7 @@ impl Entity {
     /// ```
     pub const PLACEHOLDER: Self = Self::from_index(EntityIndex::PLACEHOLDER);
 
-    /// Creates a new entity ID with the specified `index` and a generation of 1.
+    /// Creates a new entity ID with the specified `index` and an unspecified generation.
     ///
     /// # Note
     ///
