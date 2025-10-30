@@ -23,6 +23,7 @@ bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.18.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.18.0-dev", optional = true }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.18.0-dev", optional = true }

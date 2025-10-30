@@ -16,6 +16,7 @@ mod sprite;
 #[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
+mod tilemap;
 
 /// The sprite prelude.
 ///
@@ -50,6 +51,7 @@ pub use sprite::*;
 #[cfg(feature = "bevy_text")]
 pub use text2d::*;
 pub use texture_slice::*;
+pub use tilemap::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::prelude::AssetChanged;
