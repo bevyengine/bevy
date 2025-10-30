@@ -3647,7 +3647,7 @@ mod tests {
         entity_disabling::{DefaultQueryFilters, Disabled},
         prelude::{Event, Mut, On, Res},
         ptr::OwningPtr,
-        resource::{IsResource, Resource},
+        resource::Resource,
         world::{error::EntityMutableFetchError, DeferredWorld},
     };
     use alloc::{
