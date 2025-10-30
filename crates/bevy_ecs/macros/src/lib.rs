@@ -247,7 +247,7 @@ fn derive_system_param_impl(
     token_stream: TokenStream,
     ast: DeriveInput,
 ) -> syn::Result<TokenStream> {
-    let fields = get_struct_fields(&ast.data, "derive(Bundle)")?;
+    let fields = get_struct_fields(&ast.data, "derive(SystemParam)")?;
     let path = bevy_ecs_path();
 
     let field_locals = fields
