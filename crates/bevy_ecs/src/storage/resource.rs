@@ -142,25 +142,6 @@ impl<const SEND: bool> ResourceData<SEND> {
         })
     }
 
-    /// Returns a mutable reference to the resource, if it exists.
-    ///
-    /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
-    /// original thread it was inserted in.
-    #[expect(
-        dead_code,
-        reason = "To be removed later as part of resource-as-component efforts"
-    )]
-    pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
-        let (ptr, ticks) = self.get_with_ticks()?;
-        Some(MutUntyped {
-            // SAFETY: We have exclusive access to the underlying storage.
-            value: unsafe { ptr.assert_unique() },
-            // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { ComponentTicksMut::from_tick_cells(ticks, last_run, this_run) },
-        })
-    }
-
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
     ///
@@ -199,53 +180,6 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         *self.changed_ticks.deref_mut() = change_tick;
 
-        self.changed_by
-            .as_ref()
-            .map(|changed_by| changed_by.deref_mut())
-            .assign(caller);
-    }
-
-    /// Inserts a value into the resource with a pre-existing change tick. If a
-    /// value is already present it will be replaced.
-    ///
-    /// # Panics
-    /// If `SEND` is false, this will panic if a value is present and is not replaced from
-    /// the original thread it was inserted in.
-    ///
-    /// # Safety
-    /// - `value` must be valid for the underlying type for the resource.
-    #[inline]
-    #[expect(
-        dead_code,
-        reason = "To be removed later as part of resource-as-component efforts"
-    )]
-    pub(crate) unsafe fn insert_with_ticks(
-        &mut self,
-        value: OwningPtr<'_>,
-        change_ticks: ComponentTicks,
-        caller: MaybeLocation,
-    ) {
-        if self.is_present() {
-            self.validate_access();
-            // SAFETY: The caller ensures that the provided value is valid for the underlying type and
-            // is properly initialized. We've ensured that a value is already present and previously
-            // initialized.
-            unsafe { self.data.replace_unchecked(Self::ROW, value) };
-        } else {
-            #[cfg(feature = "std")]
-            if !SEND {
-                self.origin_thread_id = Some(std::thread::current().id());
-            }
-            // SAFETY:
-            // - There is only one element, and it's always allocated.
-            // - The caller guarantees must be valid for the underlying type and thus its
-            //   layout must be identical.
-            // - The value was previously not present and thus must not have been initialized.
-            unsafe { self.data.initialize_unchecked(Self::ROW, value) };
-            self.is_present = true;
-        }
-        *self.added_ticks.deref_mut() = change_ticks.added;
-        *self.changed_ticks.deref_mut() = change_ticks.changed;
         self.changed_by
             .as_ref()
             .map(|changed_by| changed_by.deref_mut())
