@@ -1977,11 +1977,12 @@ mod tests {
     }
 
     #[test]
-    fn error_on_immediate_load_of_self_dependency() {
+    fn error_on_immediate_load_of_self_path() {
         let (mut app, dir, _source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+        // Extension "rsp" for Recursive Self Path (RSP).
+        dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         struct ImmediateSelfLoader;
 
@@ -2007,21 +2008,21 @@ mod tests {
             }
 
             fn extensions(&self) -> &[&str] {
-                &["ron"]
+                &["rsp"]
             }
         }
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(ImmediateSelfLoader);
 
-        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+        let handle: Handle<TestAsset> = asset_server.load("abc.rsp");
 
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
                 assert!(
-                    format!("{:?}", &err).contains("LoadSelfPath"),
-                    "Error did not contain LoadSelfPath: {:?}",
+                    format!("{:?}", &err).contains("RequestedSelfPath"),
+                    "Error did not contain RequestedSelfPath: {:?}",
                     &err
                 );
                 Some(())
@@ -2031,11 +2032,11 @@ mod tests {
     }
 
     #[test]
-    fn error_on_unknown_type_immediate_load_of_self_dependency() {
+    fn error_on_unknown_type_immediate_load_of_self_path() {
         let (mut app, dir, _source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+        dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         struct ImmediateSelfLoader;
 
@@ -2065,21 +2066,21 @@ mod tests {
             }
 
             fn extensions(&self) -> &[&str] {
-                &["ron"]
+                &["rsp"]
             }
         }
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(ImmediateSelfLoader);
 
-        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+        let handle: Handle<TestAsset> = asset_server.load("abc.rsp");
 
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Failed(err) => {
                 assert!(
-                    format!("{:?}", &err).contains("LoadSelfPath"),
-                    "Error did not contain LoadSelfPath: {:?}",
+                    format!("{:?}", &err).contains("RequestedSelfPath"),
+                    "Error did not contain RequestedSelfPath: {:?}",
                     &err
                 );
                 Some(())
@@ -2088,18 +2089,15 @@ mod tests {
         });
     }
 
-    /// This is not a statement of intent but one of behavior: One may load
-    /// their own path deferred without error. It has the correct handle to
-    /// itself. And it can reload.
-    ///
-    /// I would have wanted this to produce an error. Instead it produces a
-    /// warning.
+    /// This is not a statement of intent but of behavior: One may load their
+    /// own path deferred without error. It has the correct handle to itself.
+    /// And it can reload.
     #[test]
-    fn no_error_on_deferred_load_of_self_dependency() {
+    fn no_error_on_deferred_load_of_self_path() {
         let (mut app, dir, source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+        dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         #[derive(Asset, TypePath)]
         pub struct TestAsset(Handle<TestAsset>);
@@ -2122,14 +2120,14 @@ mod tests {
             }
 
             fn extensions(&self) -> &[&str] {
-                &["ron"]
+                &["rsp"]
             }
         }
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(DeferredSelfLoader);
 
-        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+        let handle: Handle<TestAsset> = asset_server.load("abc.rsp");
 
         run_app_until(&mut app, |world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
@@ -2160,9 +2158,7 @@ mod tests {
         // Sending an asset event should result in the asset being reloaded - resulting in a
         // "Modified" message.
         source_events
-            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
-                "abc.cool.ron",
-            )))
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from("abc.rsp")))
             .unwrap();
 
         run_app_until(&mut app, |world| {
@@ -2182,11 +2178,11 @@ mod tests {
     }
 
     #[test]
-    fn no_error_on_read_bytes_of_self_dependency() {
+    fn no_error_on_read_bytes_of_self_path() {
         let (mut app, dir, source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+        dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         struct ReadBytesSelfLoader;
 
@@ -2207,14 +2203,14 @@ mod tests {
             }
 
             fn extensions(&self) -> &[&str] {
-                &["ron"]
+                &["rsp"]
             }
         }
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(ReadBytesSelfLoader);
 
-        let handle: Handle<TestAsset> = asset_server.load("abc.cool.ron");
+        let handle: Handle<TestAsset> = asset_server.load("abc.rsp");
 
         run_app_until(&mut app, |_world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
@@ -2240,9 +2236,7 @@ mod tests {
         // Sending an asset event should result in the asset being reloaded - resulting in a
         // "Modified" message.
         source_events
-            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
-                "abc.cool.ron",
-            )))
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from("abc.rsp")))
             .unwrap();
 
         run_app_until(&mut app, |world| {
@@ -2261,18 +2255,16 @@ mod tests {
         });
     }
 
-    /// This is not a statement of intent but one of behavior: One may load
-    /// their own path deferred of unknown type without error. It has the
-    /// correct handle to itself. And it can reload.
-    ///
-    /// I would have wanted this to produce an error. Instead it produces a
-    /// warning.
+    /// This is not a statement of intent but of behavior: One may load
+    /// their self path deferred of unknown type without error. It has the same
+    /// asset index as the original handle, but not the same type. And it can
+    /// reload.
     #[test]
-    fn no_error_on_unknown_type_deferred_load_of_self_dependency() {
+    fn no_error_on_unknown_type_deferred_load_of_self_path() {
         let (mut app, dir, source_events) = create_app_with_source_event_sender();
         let asset_server = app.world().resource::<AssetServer>().clone();
 
-        dir.insert_asset_text(Path::new("abc.cool.ron"), "");
+        dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         #[derive(Asset, TypePath)]
         pub struct TestAssetUD(UntypedHandle);
@@ -2300,14 +2292,14 @@ mod tests {
             }
 
             fn extensions(&self) -> &[&str] {
-                &["ron"]
+                &["rsp"]
             }
         }
 
         app.init_asset::<TestAssetUD>()
             .register_asset_loader(ImmediateSelfLoader);
 
-        let handle: Handle<TestAssetUD> = asset_server.load("abc.cool.ron");
+        let handle: Handle<TestAssetUD> = asset_server.load("abc.rsp");
 
         run_app_until(&mut app, |world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
@@ -2317,6 +2309,9 @@ mod tests {
                 assert_eq!(handle.id(), asset.0.id().typed_unchecked::<TestAssetUD>());
                 // This one fails.
                 // assert_eq!(handle.id(), asset.0.id().typed::<TestAssetUD>());
+                // These two fail too.
+                // assert_eq!(handle.clone().untyped().id(), asset.0.id());
+                // assert_eq!(handle.clone().untyped(), asset.0);
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
@@ -2340,9 +2335,7 @@ mod tests {
         // Sending an asset event should result in the asset being reloaded - resulting in a
         // "Modified" message.
         source_events
-            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from(
-                "abc.cool.ron",
-            )))
+            .send_blocking(AssetSourceEvent::ModifiedAsset(PathBuf::from("abc.rsp")))
             .unwrap();
 
         run_app_until(&mut app, |world| {
