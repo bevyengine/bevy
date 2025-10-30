@@ -182,8 +182,6 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
         &mut ComputedTextLayout,
-        Ref<Text2d>,
-        Ref<TextFont>,
     )>,
     mut text_reader: Text2dReader,
 ) {
@@ -204,17 +202,8 @@ pub fn update_text2d_layout(
     let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
-    for (
-        entity,
-        maybe_entity_mask,
-        block,
-        bounds,
-        text_layout_info,
-        mut computed,
-        mut clayout,
-        text2d,
-        text_font,
-    ) in &mut text_query
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed, mut layout) in
+        &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
@@ -235,13 +224,10 @@ pub fn update_text2d_layout(
             *scale_factor
         };
 
-        if !(computed.is_changed()
-            || computed.needs_rerender()
+        if !(computed.needs_rerender()
             || block.is_changed()
             || bounds.is_changed()
             || scale_factor != text_layout_info.scale_factor)
-            || text2d.is_changed()
-            || text_font.is_changed()
         {
             continue;
         }
@@ -272,7 +258,7 @@ pub fn update_text2d_layout(
         let text_layout_info = text_layout_info.into_inner();
 
         shape_text_from_sections(
-            &mut clayout.0,
+            &mut layout.0,
             &mut font_cx.0,
             &mut layout_cx.0,
             text_sections.iter().copied(),
@@ -282,7 +268,7 @@ pub fn update_text2d_layout(
         );
 
         *text_layout_info = update_text_layout_info(
-            &mut clayout.0,
+            &mut layout.0,
             bounds.width.map(|w| w * scale_factor),
             block.justify.into(),
             &mut scale_cx,
