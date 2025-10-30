@@ -4,10 +4,11 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, MutUntyped},
-    component::{
-        ComponentId, ComponentTickCells, ComponentTicks, Components, Mutable, StorageType, Tick,
+    change_detection::{
+        ComponentTickCells, ComponentTicks, ComponentTicksMut, ComponentTicksRef, MaybeLocation,
+        MutUntyped, Tick,
     },
+    component::{ComponentId, Components, Mutable, StorageType},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentMessages,
@@ -1012,7 +1013,7 @@ impl<'w> UnsafeEntityCell<'w> {
             unsafe { Q::set_archetype(&mut fetch, &state, archetype, table) }
             // SAFETY: Called after set_archetype above. Entity and location are guaranteed to exist.
             let item = unsafe { Q::fetch(&state, &mut fetch, self.id(), location.table_row) };
-            Some(Q::release_state(item))
+            item.map(Q::release_state)
         } else {
             None
         }

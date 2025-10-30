@@ -186,7 +186,7 @@ const _: () = {
             state: &'s mut Self::State,
             system_meta: &bevy_ecs::system::SystemMeta,
             world: UnsafeWorldCell<'w>,
-            change_tick: bevy_ecs::component::Tick,
+            change_tick: bevy_ecs::change_detection::Tick,
         ) -> Self::Item<'w, 's> {
             let(f0, f1) =  <(Deferred<'s, CommandQueue>, &'w Entities) as bevy_ecs::system::SystemParam>::get_param(&mut state.state, system_meta, world, change_tick);
             Commands {

@@ -1,7 +1,7 @@
 use crate::{
     archetype::Archetype,
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Mutable, Tick},
+    change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
+    component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
     query::Access,
     world::{unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityRef, Mut, Ref},

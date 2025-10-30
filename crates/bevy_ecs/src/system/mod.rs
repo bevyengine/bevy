@@ -1342,14 +1342,14 @@ mod tests {
     #[test]
     fn system_state_spawned() {
         let mut world = World::default();
-        world.spawn_empty();
+        world.spawn(A);
         let spawn_tick = world.change_tick();
 
-        let mut system_state: SystemState<Option<Single<SpawnDetails, Spawned>>> =
+        let mut system_state: SystemState<Option<Single<(&A, SpawnDetails), Spawned>>> =
             SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(query.unwrap().spawn_tick(), spawn_tick);
+            assert_eq!(query.unwrap().1.spawn_tick(), spawn_tick);
         }
 
         {

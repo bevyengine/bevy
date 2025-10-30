@@ -100,7 +100,7 @@ impl Tick {
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::component::CheckChangeTicks;
+/// use bevy_ecs::change_detection::CheckChangeTicks;
 ///
 /// #[derive(Resource)]
 /// struct CustomSchedule(Schedule);
@@ -173,7 +173,7 @@ impl ComponentTicks {
     ///
     /// # Example
     /// ```no_run
-    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// # use bevy_ecs::{world::World, change_detection::ComponentTicks};
     /// let world: World = unimplemented!();
     /// let component_ticks: ComponentTicks = unimplemented!();
     ///

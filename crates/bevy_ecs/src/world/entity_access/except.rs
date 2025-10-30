@@ -1,7 +1,7 @@
 use crate::{
     bundle::Bundle,
-    change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, Tick},
+    change_detection::{ComponentTicks, MaybeLocation, MutUntyped, Tick},
+    component::{Component, ComponentId, Components, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent},
     query::Access,
     world::{

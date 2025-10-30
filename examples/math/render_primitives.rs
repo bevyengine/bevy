@@ -306,7 +306,7 @@ fn setup_cameras(mut commands: Commands) {
     ));
 }
 
-fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
+fn setup_ambient_light(mut ambient_light: ResMut<GlobalAmbientLight>) {
     ambient_light.brightness = 50.0;
 }
 
