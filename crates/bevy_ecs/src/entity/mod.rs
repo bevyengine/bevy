@@ -57,27 +57,23 @@
 //! - Entities are eventually despawned, destroying the entity and causing its [`Entity`] id to no longer refer to an entity.
 //! - Not all [`Entity`] ids point to actual entities, which makes many entity methods fallible.
 //!
-//! # Storage
+//! # [`Entity`] Allocation
 //!
-//! As mentioned above, an ecs [`World`] can be imagined as a spreadsheet.
-//! One way that spreadsheet could be implemented is a list of [`Entity`]s and a hashmap for each component that maps an [`EntityIndex`] to a component value if that index has the entity.
-//! Bevy's ECS is quite different from that implementation (and much, much faster).
-//! For details on how component storage actually works, see [`storage`](crate::storage).
+//! Entity spawning is actually done in two stages:
+//! 1. Allocate: We generate a new valid / unique [`Entity`].
+//! 2. Spawn: We make the entity "exist" in the [`World`]. It will show up in queries, it can have components, etc.
 //!
-//! Regardless, the spreadsheet also needs a special column that tracks metadata about an entity.
-//! This column does not represents a component and is specific to the [`EntityIndex`], not the [`Entity`].
-//! For example, one thing Bevy stores in this metadata is the current [`EntityGeneration`] of the index.
-//! It also stores more information like the [`Tick`] a index was last spawned or despawned, and the optional [`EntityLocation`] itself.
-//! For more information about what's stored here, see [`Entities`], Bevy's implementation of this special column.
+//! The reason for this split is that we need to be able to _allocate_ entity ids concurrently,
+//! whereas spawning requires unique (non-concurrent) access to the world.
 //!
-//! Entity spawning is done in two stages:
-//! First we create an entity id (alloc step), and then we spawn it (add components and other metadata).
-//! The reason for this split is that we need to be able to assign entity ids concurrently,
-//! while for spawning we need exclusive (non-concurrent) access to the world.
-//! That leaves three states for any given [`EntityIndex`], where those two spawning stages serve to transition between states.
-//! First, a index could be unallocated; only the allocator has any knowledge of this [`Entity`].
-//! Second, the index is allocated; it exists, and other code can have knowledge of its existence, but it is not spawned.
-//! Third, the index is spawned, adding any (or no) components to the entity; it is now discoverable through queries, etc.
+//! An [`Entity`] therefore goes through the following lifecycle:
+//! 1. Unallocated (and "valid"): Only the allocator has any knowledge of this [`Entity`], but it _could_ be spawned, theoretically.
+//! 2. Allocated (and "valid"): The allocator has handed out the [`Entity`], but it is not yet spawned.
+//! 3. Spawned: The entity now "exists" in the [`World`]. It will show up in queries, it can have components, etc.
+//! 4. Despawned: The entity no longer "exist" in the [`World`].
+//! 5. Freed (and "invalid"): The [`Entity`] is returned to the allocator. The [`Entity::generation`] is bumped, which makes all existing [`Entity`] references with the previous generation "invalid".
+//!
+//! Note that by default, most spawn and despawn APIs handle the [`Entity`] allocation and freeing process for developers.
 //!
 //! [`World`]: crate::world::World
 //! [`Query`]: crate::system::Query
