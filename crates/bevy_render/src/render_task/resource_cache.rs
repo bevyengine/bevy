@@ -1,40 +1,62 @@
 use crate::{
     render_resource::{
-        BindGroup, BindGroupEntries, CachedComputePipelineId, CachedRenderPipelineId,
-        ComputePipeline, ComputePipelineDescriptor, IntoBindingArray, RenderPipeline,
-        RenderPipelineDescriptor,
+        BindGroup, Buffer, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
+        ComputePipelineDescriptor, RenderPipeline, RenderPipelineDescriptor, TextureView,
     },
     renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::entity::Entity;
 use std::collections::HashMap;
-use wgpu::{Buffer, BufferDescriptor, TextureDescriptor, TextureView};
+use wgpu::{BindGroupDescriptor, BufferDescriptor, TextureDescriptor, TextureViewDescriptor};
 
 #[derive(Default)]
 pub struct ResourceCache {
     textures: HashMap<(Entity, TextureDescriptor<'static>), TextureView>,
     buffers: HashMap<(Entity, BufferDescriptor<'static>), Buffer>,
+    bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
     compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
 }
 
 impl ResourceCache {
-    pub fn get_or_create_texture(&mut self, render_device: &RenderDevice) -> TextureView {
-        todo!()
-    }
-
-    pub fn get_or_create_buffer(&mut self, render_device: &RenderDevice) -> Buffer {
-        todo!()
-    }
-
-    pub fn get_or_create_bind_group<'b, const N: usize>(
+    pub fn get_or_create_texture(
         &mut self,
-        resources: impl IntoBindingArray<'b, N>,
+        descriptor: TextureDescriptor<'static>,
+        entity: Entity,
+        render_device: &RenderDevice,
+    ) -> TextureView {
+        self.textures
+            .entry((entity, descriptor.clone()))
+            .or_insert_with(|| {
+                render_device
+                    .create_texture(&descriptor)
+                    .create_view(&TextureViewDescriptor::default())
+            })
+            .clone()
+    }
+
+    pub fn get_or_create_buffer(
+        &mut self,
+        descriptor: BufferDescriptor<'static>,
+        entity: Entity,
+        render_device: &RenderDevice,
+    ) -> Buffer {
+        self.buffers
+            .entry((entity, descriptor.clone()))
+            .or_insert_with(|| render_device.create_buffer(&descriptor))
+            .clone()
+    }
+
+    pub fn get_or_create_bind_group(
+        &mut self,
+        descriptor: BindGroupDescriptor<'static>,
         render_device: &RenderDevice,
     ) -> BindGroup {
-        // TODO: Cache
-        render_device.create_bind_group("TODO", todo!(), &BindGroupEntries::sequential(resources))
+        self.bind_groups
+            .entry(descriptor.clone())
+            .or_insert_with(|| render_device.wgpu_device().create_bind_group(&descriptor))
+            .clone()
     }
 
     pub fn get_or_compile_compute_pipeline(

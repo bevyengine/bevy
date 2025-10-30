@@ -1,7 +1,7 @@
 use super::resource_cache::ResourceCache;
 use crate::{
     render_resource::{
-        BindGroup, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Buffer,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, Buffer,
         ComputePipelineDescriptor, IntoBindGroupLayoutEntryBuilderArray, IntoBindingArray,
     },
     renderer::RenderDevice,
@@ -11,7 +11,7 @@ use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
 use std::borrow::Cow;
-use wgpu::{ComputePass, PushConstantRange, ShaderStages};
+use wgpu::{BindGroupDescriptor, ComputePass, PushConstantRange, ShaderStages};
 
 pub struct ComputeCommandBuilder<'a> {
     pass: &'a mut ComputePass<'static>,
@@ -81,14 +81,26 @@ impl<'a> ComputeCommandBuilder<'a> {
         mut self,
         resources: impl IntoBindingArray<'b, N> + IntoBindGroupLayoutEntryBuilderArray<N> + Clone,
     ) -> Self {
-        self.bind_groups.push(Some(
-            self.resource_cache
-                .get_or_create_bind_group(resources.clone(), self.render_device),
-        ));
-        self.bind_group_layouts.push(BindGroupLayoutDescriptor::new(
+        let layout_descriptor = BindGroupLayoutDescriptor::new(
             "TODO",
             &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, resources),
+        );
+
+        self.bind_groups.push(Some(
+            self.resource_cache.get_or_create_bind_group(
+                BindGroupDescriptor {
+                    label: None, // TODO
+                    layout: &self
+                        .pipeline_compiler
+                        .get_bind_group_layout(&layout_descriptor),
+                    entries: &BindGroupEntries::sequential(resources),
+                },
+                self.render_device,
+            ),
         ));
+
+        self.bind_group_layouts.push(layout_descriptor);
+
         self
     }
 
