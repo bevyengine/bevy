@@ -4,6 +4,7 @@ use bevy_camera::Camera;
 use bevy_ecs::system::{Commands, Query};
 
 // TODO: Use SyncComponentPlugin or ExtractComponentPlugin?
+// TODO: Handle Camera also being removed?
 // TODO: Allow extracting/removing additional types
 // TODO: Allow mutating T in main world
 pub fn extract_render_task<T: RenderTask>(

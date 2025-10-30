@@ -38,8 +38,8 @@ impl ResourceCache {
 
     pub fn get_or_create_buffer(
         &mut self,
-        entity: Entity,
         descriptor: BufferDescriptor<'static>,
+        entity: Entity,
         render_device: &RenderDevice,
     ) -> Buffer {
         self.buffers

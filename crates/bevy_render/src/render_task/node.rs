@@ -1,6 +1,7 @@
 use super::{compute_builder::ComputeCommandBuilder, resource_cache::ResourceCache, RenderTask};
 use crate::{
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
+    render_resource::{Buffer, TextureView},
     renderer::{RenderContext, RenderDevice},
     PipelineCache as PipelineCompiler,
 };
@@ -13,7 +14,10 @@ use std::{
     marker::PhantomData,
     sync::{Arc, Mutex},
 };
-use wgpu::{CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDescriptor};
+use wgpu::{
+    BufferDescriptor, CommandEncoder, CommandEncoderDescriptor, ComputePass, ComputePassDescriptor,
+    TextureDescriptor,
+};
 
 #[derive(FromWorld)]
 pub struct RenderTaskNode<T: RenderTask> {
@@ -67,6 +71,16 @@ pub struct RenderTaskEncoder<'a> {
 }
 
 impl<'a> RenderTaskEncoder<'a> {
+    pub fn texture(&mut self, descriptor: TextureDescriptor<'static>) -> TextureView {
+        self.resource_cache
+            .get_or_create_texture(descriptor, self.entity, self.render_device)
+    }
+
+    pub fn buffer(&mut self, descriptor: BufferDescriptor<'static>) -> Buffer {
+        self.resource_cache
+            .get_or_create_buffer(descriptor, self.entity, self.render_device)
+    }
+
     pub fn render_pass(&mut self) {
         todo!()
     }
