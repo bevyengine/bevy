@@ -9,7 +9,6 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::Entity,
-    query::With,
     reflect::ReflectComponent,
     system::{Query, Res, ResMut},
     world::Ref,
@@ -253,21 +252,16 @@ pub fn shape_text_system(
     mut font_cx: ResMut<FontCx>,
     mut layout_cx: ResMut<LayoutCx>,
     fonts: Res<Assets<Font>>,
-    mut text_query: Query<
-        (
-            Entity,
-            Ref<TextLayout>,
-            &mut ContentSize,
-            &mut TextNodeFlags,
-            &mut ComputedTextBlock,
-            &mut ComputedTextLayout,
-            Ref<ComputedUiRenderTargetInfo>,
-            &ComputedNode,
-            Ref<Text>,
-            Ref<TextFont>,
-        ),
-        With<Node>,
-    >,
+    mut text_query: Query<(
+        Entity,
+        Ref<TextLayout>,
+        &mut ContentSize,
+        &mut TextNodeFlags,
+        &mut ComputedTextBlock,
+        &mut ComputedTextLayout,
+        Ref<ComputedUiRenderTargetInfo>,
+        &ComputedNode,
+    )>,
     mut text_reader: TextUiReader,
 ) {
     for (
@@ -279,8 +273,6 @@ pub fn shape_text_system(
         mut computed_layout,
         computed_target,
         computed_node,
-        text,
-        text_font,
     ) in &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
@@ -288,12 +280,9 @@ pub fn shape_text_system(
 
         if !(1e-5
             < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            || computed_block.is_changed()
             || computed_block.needs_rerender()
             || text_flags.needs_shaping
             || content_size.is_added())
-            || text.is_changed()
-            || text_font.is_changed()
         {
             continue;
         }
