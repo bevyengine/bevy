@@ -871,7 +871,7 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid and spawned.
-    /// This can error if the [`EntityGeneration`] of this entity has passed or if the [`EntityIndex`] is not spawned.
+    /// This will return an error if the [`EntityGeneration`] of this entity has passed or if the [`EntityIndex`] is not spawned.
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
@@ -894,10 +894,10 @@ impl Entities {
     }
 
     /// Returns the [`EntityLocation`] of an [`Entity`] if it is valid.
-    /// The location may be `None` if the entity is not spawned.
+    /// The location will be `None` if the entity is not spawned.
     /// If you expect the entity to be spawned, use [`get_spawned`](Self::get_spawned).
     ///
-    /// This can fail if the id's [`EntityGeneration`] has passed.
+    /// This will fail if the [`Entity`] is not valid (ex: the generation is mismatched).
     ///
     /// See the module [docs](crate::entity) for a full explanation of these ids, entity life cycles, and the meaning of this result.
     #[inline]
