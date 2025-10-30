@@ -1,10 +1,9 @@
-use core::ops::Deref;
-
 use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    reflect::{AppTypeRegistry, ReflectComponent},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
@@ -25,7 +24,7 @@ use {crate::serde::SceneSerializer, bevy_reflect::TypeRegistry, serde::Serialize
 #[derive(Asset, TypePath, Default)]
 pub struct DynamicScene {
     /// Resources stored in the dynamic scene.
-    pub resources: Vec<DynamicEntity>,
+    pub resources: Vec<Box<dyn PartialReflect>>,
     /// Entities contained in the dynamic scene.
     pub entities: Vec<DynamicEntity>,
 }
@@ -81,7 +80,7 @@ impl DynamicScene {
 
         // First ensure that every entity in the scene has a corresponding world
         // entity in the entity map.
-        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
+        for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
             // or spawn a new entity with a transiently unique id if there is
             // no corresponding entry.
@@ -90,7 +89,7 @@ impl DynamicScene {
                 .or_insert_with(|| world.spawn_empty().id());
         }
 
-        for scene_entity in self.entities.iter().chain(self.resources.iter()) {
+        for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`.
             let entity = *entity_map
                 .get(&scene_entity.entity)
@@ -109,19 +108,14 @@ impl DynamicScene {
                     }
                 })?;
                 let reflect_component =
-                    if let Some(reflect_component) = registration.data::<ReflectComponent>() {
-                        Ok(reflect_component)
-                    } else if let Some(reflect_resource) = registration.data::<ReflectResource>() {
-                        Ok(reflect_resource.deref())
-                    } else {
-                        Err(SceneSpawnError::UnregisteredComponent {
+                    registration.data::<ReflectComponent>().ok_or_else(|| {
+                        SceneSpawnError::UnregisteredComponent {
                             type_path: type_info.type_path().to_string(),
-                        })
-                    }?;
+                        }
+                    })?;
 
                 {
                     let component_id = reflect_component.register_component(world);
-
                     // SAFETY: we registered the component above. the info exists
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
@@ -144,6 +138,45 @@ impl DynamicScene {
                     );
                 });
             }
+        }
+
+        // Insert resources after all entities have been added to the world.
+        // This ensures the entities are available for the resources to reference during mapping.
+        for resource in &self.resources {
+            let type_info = resource.get_represented_type_info().ok_or_else(|| {
+                SceneSpawnError::NoRepresentedType {
+                    type_path: resource.reflect_type_path().to_string(),
+                }
+            })?;
+            let registration = type_registry.get(type_info.type_id()).ok_or_else(|| {
+                SceneSpawnError::UnregisteredButReflectedType {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_path: type_info.type_path().to_string(),
+                }
+            })?;
+
+            let resource_id = reflect_resource.register_component(world);
+
+            // check if the resource already exists, if not spawn it, otherwise override the value
+            let entity = if let Some(entity) = world.resource_entities().get(resource_id) {
+                *entity
+            } else {
+                world.spawn_empty().id()
+            };
+
+            SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                reflect_resource.apply_or_insert_mapped(
+                    &mut world.entity_mut(entity),
+                    resource.as_partial_reflect(),
+                    &type_registry,
+                    mapper,
+                    RelationshipHookMode::Skip,
+                );
+            });
         }
 
         Ok(())
@@ -195,7 +228,7 @@ mod tests {
         component::Component,
         entity::{Entity, EntityHashMap, EntityMapper, MapEntities},
         hierarchy::ChildOf,
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         resource::Resource,
         world::World,
     };
@@ -206,7 +239,7 @@ mod tests {
     use crate::dynamic_scene_builder::DynamicSceneBuilder;
 
     #[derive(Resource, Reflect, MapEntities, Debug)]
-    #[reflect(Resource)]
+    #[reflect(Resource, MapEntities)]
     struct TestResource {
         #[entities]
         entity_a: Entity,
