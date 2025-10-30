@@ -1,8 +1,5 @@
 use crate::{
-    change_detection::{
-        CheckChangeTicks, ComponentTickCells, ComponentTicks, ComponentTicksMut, MaybeLocation,
-        MutUntyped, Tick,
-    },
+    change_detection::{CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick},
     component::{ComponentId, Components},
     storage::{blob_array::BlobArray, SparseSet},
 };
