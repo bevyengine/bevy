@@ -711,7 +711,7 @@ pub struct EntityAllocator {
     /// and a new index will be needed.
     free_len: AtomicUsize,
     /// This is the next "fresh" index to hand out.
-    /// If there are no indexs to reuse, this index, which has a generation of 0, is the next to return.
+    /// If there are no indices to reuse, this index, which has a generation of 0, is the next to return.
     next_index: AtomicU32,
 }
 
@@ -1108,7 +1108,7 @@ impl Entities {
         }
     }
 
-    /// The count of currently allocated entity indexs.
+    /// The count of currently allocated entity indices.
     /// For information on active entities, see [`Self::count_spawned`].
     #[inline]
     pub fn len(&self) -> u32 {
@@ -1122,7 +1122,7 @@ impl Entities {
         self.len() == 0
     }
 
-    /// Counts the number of entity indexs currently spawned.
+    /// Counts the number of entity indices currently spawned.
     /// See the module docs for a more precise explanation of what spawning means.
     /// Be aware that this is O(n) and is intended only to be used as a diagnostic for tests.
     pub fn count_spawned(&self) -> u32 {
@@ -1132,7 +1132,7 @@ impl Entities {
             .count() as u32
     }
 
-    /// Returns true if there are any entity indexs currently spawned.
+    /// Returns true if there are any entity indices currently spawned.
     /// See the module docs for a more precise explanation of what spawning means.
     pub fn any_spawned(&self) -> bool {
         self.meta.iter().any(|meta| meta.location.is_some())
