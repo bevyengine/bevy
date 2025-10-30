@@ -1,20 +1,20 @@
 use crate::{
     render_resource::{
-        BindGroup, BindGroupEntries, Buffer, CachedComputePipelineId, CachedRenderPipelineId,
-        ComputePipeline, ComputePipelineDescriptor, IntoBindingArray, RenderPipeline,
-        RenderPipelineDescriptor, TextureView,
+        BindGroup, Buffer, CachedComputePipelineId, CachedRenderPipelineId, ComputePipeline,
+        ComputePipelineDescriptor, RenderPipeline, RenderPipelineDescriptor, TextureView,
     },
     renderer::RenderDevice,
     PipelineCache as PipelineCompiler,
 };
 use bevy_ecs::entity::Entity;
 use std::collections::HashMap;
-use wgpu::{BufferDescriptor, TextureDescriptor, TextureViewDescriptor};
+use wgpu::{BindGroupDescriptor, BufferDescriptor, TextureDescriptor, TextureViewDescriptor};
 
 #[derive(Default)]
 pub struct ResourceCache {
     textures: HashMap<(Entity, TextureDescriptor<'static>), TextureView>,
     buffers: HashMap<(Entity, BufferDescriptor<'static>), Buffer>,
+    bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
     compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
 }
@@ -48,13 +48,15 @@ impl ResourceCache {
             .clone()
     }
 
-    pub fn get_or_create_bind_group<'b, const N: usize>(
+    pub fn get_or_create_bind_group(
         &mut self,
-        resources: impl IntoBindingArray<'b, N>,
+        descriptor: BindGroupDescriptor<'static>,
         render_device: &RenderDevice,
     ) -> BindGroup {
-        // TODO: Cache
-        render_device.create_bind_group("TODO", todo!(), &BindGroupEntries::sequential(resources))
+        self.bind_groups
+            .entry(descriptor.clone())
+            .or_insert_with(|| render_device.wgpu_device().create_bind_group(&descriptor))
+            .clone()
     }
 
     pub fn get_or_compile_compute_pipeline(
