@@ -33,23 +33,14 @@ use bevy_render::{
 use core::{array, num::NonZero};
 
 use crate::{
-    decal::{
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings, decal::{
         self,
         clustered::{
             DecalsBuffer, RenderClusteredDecals, RenderViewClusteredDecalBindGroupEntries,
         },
-    },
-    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
-    irradiance_volume::{
-        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
-    },
-    prepass,
-    resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSamplers, AtmosphereTextures},
-    EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta,
-    GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
-    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
-    ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    }, environment_map::{self, RenderViewEnvironmentMapBindGroupEntries}, irradiance_volume::{
+        self, IRRADIANCE_VOLUMES_ARE_USABLE, RenderViewIrradianceVolumeBindGroupEntries
+    }, prepass, resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures}
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
@@ -599,11 +590,11 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_samplers): (
+    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
         Res<AtmosphereBuffer>,
-        Res<AtmosphereSamplers>,
+        Res<AtmosphereSampler>,
     ),
 ) {
     if let (
@@ -745,7 +736,7 @@ pub fn prepare_mesh_view_bind_groups(
             {
                 entries = entries.extend_with_indices((
                     (29, &atmosphere_textures.transmittance_lut.default_view),
-                    (30, &atmosphere_samplers.transmittance_lut),
+                    (30, &**atmosphere_sampler),
                     (31, atmosphere_buffer_binding),
                 ));
             }

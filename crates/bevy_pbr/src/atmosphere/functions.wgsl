@@ -5,10 +5,9 @@
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
     bindings::{
-        atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
-        multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms, medium_density_lut,
-        medium_scattering_lut, medium_sampler,
+        atmosphere, settings, view, lights, transmittance_lut, atmosphere_lut_sampler,
+        multiscattering_lut, sky_view_lut, aerial_view_lut, atmosphere_transforms, 
+        medium_density_lut, medium_scattering_lut, medium_sampler,
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
@@ -117,7 +116,7 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
 
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = transmittance_lut_r_mu_to_uv(atmosphere, r, mu);
-    return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(transmittance_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 // NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
@@ -143,14 +142,14 @@ fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
 
 fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
     let uv = multiscattering_lut_r_mu_to_uv(r, mu);
-    return textureSampleLevel(multiscattering_lut, multiscattering_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(multiscattering_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
     let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
-    return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
+    return textureSampleLevel(sky_view_lut, atmosphere_lut_sampler, uv, 0.0).rgb;
 }
 
 fn ndc_to_camera_dist(ndc: vec3<f32>) -> f32 {
@@ -170,7 +169,7 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     // we'd need to sample at the center of the previous slice, and vice-versa for
     // sampling in the center of a slice.
     let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
-    let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    let sample = textureSampleLevel(aerial_view_lut, atmosphere_lut_sampler, uvw, 0.0);
     // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
     // we need to do a linear step over the first slice towards zero at the camera's
     // position to recover the correct integral value.

@@ -77,14 +77,16 @@ use resources::{
 };
 use tracing::warn;
 
-use crate::medium::ScatteringMedium;
+use crate::{
+    medium::ScatteringMedium,
+    resources::{init_atmosphere_buffer, write_atmosphere_buffer},
+};
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
-        init_atmosphere_buffer, prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
-        write_atmosphere_buffer, AtmosphereBindGroupLayouts, AtmosphereLutPipelines,
-        AtmosphereSamplers,
+        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
+        AtmosphereLutPipelines, AtmosphereSampler,
     },
 };
 
@@ -149,7 +151,7 @@ impl Plugin for AtmospherePlugin {
         render_app
             .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSamplers>()
+            .init_resource::<AtmosphereSampler>()
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
