@@ -2509,6 +2509,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> WorldQuery for Nes
 // `IS_READ_ONLY` iff `D::IS_READ_ONLY` iff `D: ReadOnlyQueryData` iff `Self: ReadOnlyQueryData`
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for NestedQuery<D, F> {
     const IS_READ_ONLY: bool = D::IS_READ_ONLY;
+    // Nested queries are always archetypal because `fetch` always returns `Some`.
+    // If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
+    // then the nested query may filter out some entities that *it* matches,
+    // but it will not filter the outer query.
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = NestedQuery<D::ReadOnly, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
@@ -2546,6 +2550,8 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> QueryData for Nest
 }
 
 // SAFETY: All access is through `D`, which is read-only
+// The nested query does not access the entity from the outer query,
+// but the nested access also needs to be read-only because we can copy it.
 unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> ReadOnlyQueryData for NestedQuery<D, F> {}
 
 // SAFETY: All access to other entities is through `D`, which is read-only and does not conflict.
@@ -2553,6 +2559,10 @@ unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> ReadOnlyQueryData for NestedQu
 // since the nested query must only be live for one entity at a time.
 unsafe impl<D: ReadOnlyQueryData, F: QueryFilter> IterQueryData for NestedQuery<D, F> {}
 
+// Nested queries are always archetypal because `fetch` always returns `Some`.
+// If `D::IS_ARCHETYPAL == false` or `F::IS_ARCHETYPAL == false`,
+// then the nested query may filter out some entities that *it* matches,
+// but it will never filter the outer query.
 impl<D: QueryData, F: QueryFilter> ArchetypeQueryData for NestedQuery<D, F> {}
 
 #[doc(hidden)]
