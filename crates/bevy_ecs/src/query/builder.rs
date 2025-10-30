@@ -81,15 +81,17 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        let Ok(component_accesses) = self.access.access().try_iter_component_access() else {
-            // Access is unbounded, pessimistically assume it's sparse.
-            return false;
-        };
-
-        component_accesses
-            .map(|access| *access.index())
-            .all(is_dense)
-            && !self.access.access().has_read_all_components()
+        // Use dense iteration if possible, but fall back to sparse if we need to.
+        // Both `D` and `F` must allow dense iteration, just as for queries without dynamic filters.
+        // All `with` and `without` filters must be dense to ensure that we match all archetypes in a table.
+        // We also need to ensure that any sparse set components in `access.required` cause sparse iteration,
+        // but anything that adds a `required` component also adds a `with` filter.
+        //
+        // Note that `EntityRef` and `EntityMut` types, including `FilteredEntityRef` and `FilteredEntityMut`, have `D::IS_DENSE = true`.
+        // Calling `builder.data::<&Sparse>()` will add a filter and force sparse iteration,
+        // but calling `builder.data::<Option<&Sparse>>()` will still allow them to use dense iteration!
+        D::IS_DENSE
+            && F::IS_DENSE
             && self.access.with_filters().all(is_dense)
             && self.access.without_filters().all(is_dense)
     }
@@ -536,5 +538,33 @@ mod tests {
 
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);
+    }
+
+    #[test]
+    fn builder_dynamic_can_be_dense() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        // FilteredEntityRef and FilteredEntityMut are dense by default
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        let query = QueryBuilder::<FilteredEntityMut>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        // Adding a required sparse term makes the query sparse
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<&Sparse>()
+            .build();
+        assert!(!query.is_dense);
+
+        // Adding an optional sparse term lets it remain dense
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<Option<&Sparse>>()
+            .build();
+        assert!(query.is_dense);
     }
 }
