@@ -1,6 +1,6 @@
 (
   resources: {
-   "scene::ResourceA": (
+    "scene::ResourceA": (
       score: 1,
     ),
   },
