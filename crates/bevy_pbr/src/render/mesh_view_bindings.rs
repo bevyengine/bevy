@@ -33,14 +33,23 @@ use bevy_render::{
 use core::{array, num::NonZero};
 
 use crate::{
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources, ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers, ViewClusterBindings, ViewShadowBindings, decal::{
+    decal::{
         self,
         clustered::{
             DecalsBuffer, RenderClusteredDecals, RenderViewClusteredDecalBindGroupEntries,
         },
-    }, environment_map::{self, RenderViewEnvironmentMapBindGroupEntries}, irradiance_volume::{
-        self, IRRADIANCE_VOLUMES_ARE_USABLE, RenderViewIrradianceVolumeBindGroupEntries
-    }, prepass, resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures}
+    },
+    environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
+    irradiance_volume::{
+        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
+    },
+    prepass,
+    resources::{AtmosphereBuffer, AtmosphereData, AtmosphereSampler, AtmosphereTextures},
+    EnvironmentMapUniformBuffer, ExtractedAtmosphere, FogMeta, GlobalClusterableObjectMeta,
+    GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
+    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
+    ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
+    ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
 
 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
