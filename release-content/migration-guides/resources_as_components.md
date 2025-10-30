@@ -21,7 +21,9 @@ The largest change is with regards to `ReflectResource`, which now shadows `Refl
 #[derive(Component, Resource)]
 struct Dual
 ```
+
 becomes
+
 ```rust
 // 0.18.0
 #[derive(Component)]
