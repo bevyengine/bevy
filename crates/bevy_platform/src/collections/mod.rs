@@ -10,4 +10,3 @@ pub use hashbrown::Equivalent;
 pub mod hash_map;
 pub mod hash_set;
 pub mod hash_table;
-pub mod lru_cache;

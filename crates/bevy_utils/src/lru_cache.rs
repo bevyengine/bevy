@@ -1,7 +1,6 @@
 //! Provides a least-recently-used cache container.
 use alloc::vec::Vec;
-
-use crate::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 /// Index type for node references in the array
 type NodeIndex = usize;
@@ -43,7 +42,7 @@ impl<K, V> Node<K, V> {
 ///
 /// # Example
 /// ```
-/// use bevy_platform::collections::lru_cache::LRUCache;
+/// use bevy_utils::LRUCache;
 /// let mut cache = LRUCache::new(100);
 /// cache.put("small_file", vec![1, 2, 3], 3);
 /// cache.put("medium_file", vec![1; 50], 50);
