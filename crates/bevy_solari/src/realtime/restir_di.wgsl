@@ -7,7 +7,7 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar}
+#import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar, permute_pixel}
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
 #import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility}
 #import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
@@ -138,7 +138,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
-    let temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float));
+    let temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.viewport.zw);
 
     // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
     // or if all temporal history should assumed to be invalid
@@ -167,15 +167,6 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
 
     return temporal_reservoir;
-}
-
-fn permute_pixel(pixel_id: vec2<u32>) -> vec2<u32> {
-    let r = constants.frame_index;
-    let offset = vec2(r & 3u, (r >> 2u) & 3u);
-    var shifted_pixel_id = pixel_id + offset;
-    shifted_pixel_id ^= vec2(3u);
-    shifted_pixel_id -= offset;
-    return min(shifted_pixel_id, vec2<u32>(view.main_pass_viewport.zw - 1.0));
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> Reservoir {
