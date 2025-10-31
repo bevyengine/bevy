@@ -24,10 +24,7 @@
 @group(1) @binding(11) var previous_depth_buffer: texture_depth_2d;
 @group(1) @binding(12) var<uniform> view: View;
 @group(1) @binding(13) var<uniform> previous_view: PreviousViewUniforms;
-struct PushConstants {
-    frame_index: u32,
-    reset: u32
-}
+struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
 const INITIAL_SAMPLES = 8u;

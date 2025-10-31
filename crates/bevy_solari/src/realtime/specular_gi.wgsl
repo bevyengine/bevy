@@ -79,7 +79,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
 
         // Surface is very rough, terminate path in the world cache
-        if ray_hit.material.roughness > 0.04 && i != 0u { break; }
+        if ray_hit.material.roughness > 0.1 && i != 0u { break; }
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
