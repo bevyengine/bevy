@@ -65,6 +65,7 @@ use bevy_platform::{
 use bevy_tasks::IoTaskPool;
 use futures_io::ErrorKind;
 use futures_lite::{AsyncReadExt, AsyncWriteExt, StreamExt};
+use futures_util::{select_biased, FutureExt};
 use std::{
     path::{Path, PathBuf},
     sync::Mutex,
@@ -221,8 +222,8 @@ impl AssetProcessor {
     }
 
     /// Starts the processor in a background thread.
-    pub fn start(_processor: Res<Self>) {
-        let processor = _processor.clone();
+    pub fn start(processor: Res<Self>) {
+        let processor = processor.clone();
         IoTaskPool::get()
             .spawn(async move {
                 let start_time = std::time::Instant::now();
@@ -230,21 +231,20 @@ impl AssetProcessor {
 
                 processor.initialize().await.unwrap();
 
-                let (task_event_sender, task_event_receiver) = async_channel::unbounded();
+                let (new_task_sender, new_task_receiver) = async_channel::unbounded();
                 processor
-                    .queue_initial_processing_tasks(&task_event_sender)
+                    .queue_initial_processing_tasks(&new_task_sender)
                     .await;
 
                 // Once all the tasks are queued for the initial processing, start actually
                 // executing the tasks.
                 {
                     let processor = processor.clone();
-                    let task_event_sender = task_event_sender.clone();
-                    let task_event_receiver = task_event_receiver.clone();
+                    let new_task_sender = new_task_sender.clone();
                     IoTaskPool::get()
                         .spawn(async move {
                             processor
-                                .execute_processing_tasks(&task_event_sender, &task_event_receiver)
+                                .execute_processing_tasks(new_task_sender, new_task_receiver)
                                 .await;
                         })
                         .detach();
@@ -256,7 +256,7 @@ impl AssetProcessor {
                 debug!("Processing finished in {:?}", end_time - start_time);
 
                 debug!("Listening for changes to source assets");
-                processor.spawn_source_change_event_listeners(&task_event_sender);
+                processor.spawn_source_change_event_listeners(&new_task_sender);
             })
             .detach();
     }
@@ -264,7 +264,7 @@ impl AssetProcessor {
     /// Sends start task events for all assets in all processed sources into `sender`.
     async fn queue_initial_processing_tasks(
         &self,
-        sender: &async_channel::Sender<ProcessorTaskEvent>,
+        sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         for source in self.sources().iter_processed() {
             self.queue_processing_tasks_for_folder(source, PathBuf::from(""), sender)
@@ -277,7 +277,7 @@ impl AssetProcessor {
     /// response.
     fn spawn_source_change_event_listeners(
         &self,
-        sender: &async_channel::Sender<ProcessorTaskEvent>,
+        sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         for source in self.data.sources.iter_processed() {
             let Some(receiver) = source.event_receiver().cloned() else {
@@ -303,38 +303,72 @@ impl AssetProcessor {
 
     /// Executes all tasks that come through `receiver`, and updates the processor's overall state
     /// based on task starts and ends.
+    ///
+    /// This future does not terminate until the channel is closed (not when the channel is empty).
+    /// This means that in [`AssetProcessor::start`], this execution will continue even after all
+    /// the initial tasks are processed.
     async fn execute_processing_tasks(
         &self,
-        sender: &async_channel::Sender<ProcessorTaskEvent>,
-        receiver: &async_channel::Receiver<ProcessorTaskEvent>,
+        new_task_sender: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
+        new_task_receiver: async_channel::Receiver<(AssetSourceId<'static>, PathBuf)>,
     ) {
+        // Convert the Sender into a WeakSender so that once all task producers terminate (and drop
+        // their sender), this task doesn't keep itself alive. We still however need a way to get
+        // the sender since processing tasks can start the tasks of dependent assets.
+        let new_task_sender = {
+            let weak_sender = new_task_sender.downgrade();
+            drop(new_task_sender);
+            weak_sender
+        };
+
         // If there aren't any tasks in the channel the first time around, we should immediately go
         // to the finished state (otherwise we'd be sitting around stuck in the `Initialized`
         // state).
-        if receiver.is_empty() {
+        if new_task_receiver.is_empty() {
             self.set_state(ProcessorState::Finished).await;
         }
-        // Note: only this method sends `ProcessorTaskEvent::Finished` (to itself). We could have
-        // two channels, one for finished messages, and one for starting tasks, but this requires
-        // selecting across them, which the macro is feature-gated behind `std`.
-        // TODO: This task currently holds both the sender and receiver, meaning the channel never
-        // "naturally" closes, so this task never terminates. It would be nice if this task
-        // naturally terminated when the asset source event receivers close.
+        enum ProcessorTaskEvent {
+            Start(AssetSourceId<'static>, PathBuf),
+            Finished,
+        }
+        let (task_finished_sender, task_finished_receiver) = async_channel::unbounded::<()>();
+
         let mut pending_tasks = 0;
-        while let Ok(event) = receiver.recv().await {
+        while let Ok(event) = {
+            // It's ok to use `select_biased` since we prefer to start task rather than finish tasks
+            // anyway - since otherwise we might mark the processor as finished before all queued
+            // tasks are done. `select_biased` also doesn't depend on `std` which is nice!
+            select_biased! {
+                result = new_task_receiver.recv().fuse() => {
+                    result.map(|(source_id, path)| ProcessorTaskEvent::Start(source_id, path))
+                },
+                result = task_finished_receiver.recv().fuse() => {
+                    result.map(|()| ProcessorTaskEvent::Finished)
+                }
+            }
+        } {
             match event {
                 ProcessorTaskEvent::Start(source_id, path) => {
+                    let Some(new_task_sender) = new_task_sender.upgrade() else {
+                        // If we can't upgrade the task sender, that means all sources of tasks
+                        // (like the source event listeners) have been dropped. That means that the
+                        // sources are no longer in the app, so reading/writing to them will
+                        // probably not work, so ignoring the task is fine. This also likely means
+                        // that the whole app is being dropped, so we can recover on the next
+                        // initialization.
+                        continue;
+                    };
                     let processor = self.clone();
-                    let sender = sender.clone();
+                    let task_finished_sender = task_finished_sender.clone();
                     pending_tasks += 1;
                     IoTaskPool::get()
                         .spawn(async move {
                             let Ok(source) = processor.get_source(source_id) else {
                                 return;
                             };
-                            processor.process_asset(source, path, sender.clone()).await;
+                            processor.process_asset(source, path, new_task_sender).await;
                             // If the channel gets closed, that's ok. Just ignore it.
-                            let _ = sender.send(ProcessorTaskEvent::Finished).await;
+                            let _ = task_finished_sender.send(()).await;
                         })
                         .detach();
                     self.set_state(ProcessorState::Processing).await;
@@ -407,7 +441,7 @@ impl AssetProcessor {
         &self,
         source: &AssetSource,
         event: AssetSourceEvent,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         trace!("{event:?}");
         match event {
@@ -415,19 +449,17 @@ impl AssetProcessor {
             | AssetSourceEvent::AddedMeta(path)
             | AssetSourceEvent::ModifiedAsset(path)
             | AssetSourceEvent::ModifiedMeta(path) => {
-                let _ = task_event_sender
-                    .send(ProcessorTaskEvent::Start(source.id(), path))
-                    .await;
+                let _ = new_task_sender.send((source.id(), path)).await;
             }
             AssetSourceEvent::RemovedAsset(path) => {
                 self.handle_removed_asset(source, path).await;
             }
             AssetSourceEvent::RemovedMeta(path) => {
-                self.handle_removed_meta(source, path, task_event_sender)
+                self.handle_removed_meta(source, path, new_task_sender)
                     .await;
             }
             AssetSourceEvent::AddedFolder(path) => {
-                self.handle_added_folder(source, path, task_event_sender)
+                self.handle_added_folder(source, path, new_task_sender)
                     .await;
             }
             // NOTE: As a heads up for future devs: this event shouldn't be run in parallel with other events that might
@@ -440,11 +472,9 @@ impl AssetProcessor {
                 // If there was a rename event, but the path hasn't changed, this asset might need reprocessing.
                 // Sometimes this event is returned when an asset is moved "back" into the asset folder
                 if old == new {
-                    let _ = task_event_sender
-                        .send(ProcessorTaskEvent::Start(source.id(), new))
-                        .await;
+                    let _ = new_task_sender.send((source.id(), new)).await;
                 } else {
-                    self.handle_renamed_asset(source, old, new, task_event_sender)
+                    self.handle_renamed_asset(source, old, new, new_task_sender)
                         .await;
                 }
             }
@@ -452,33 +482,25 @@ impl AssetProcessor {
                 // If there was a rename event, but the path hasn't changed, this asset meta might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    let _ = task_event_sender
-                        .send(ProcessorTaskEvent::Start(source.id(), new))
-                        .await;
+                    let _ = new_task_sender.send((source.id(), new)).await;
                 } else {
                     debug!("Meta renamed from {old:?} to {new:?}");
                     // Renaming meta should not assume that an asset has also been renamed. Check both old and new assets to see
                     // if they should be re-imported (and/or have new meta generated)
-                    let _ = task_event_sender
-                        .send(ProcessorTaskEvent::Start(source.id(), old))
-                        .await;
-                    let _ = task_event_sender
-                        .send(ProcessorTaskEvent::Start(source.id(), new))
-                        .await;
+                    let _ = new_task_sender.send((source.id(), old)).await;
+                    let _ = new_task_sender.send((source.id(), new)).await;
                 }
             }
             AssetSourceEvent::RenamedFolder { old, new } => {
                 // If there was a rename event, but the path hasn't changed, this asset folder might need reprocessing.
                 // Sometimes this event is returned when an asset meta is moved "back" into the asset folder
                 if old == new {
-                    self.handle_added_folder(source, new, task_event_sender)
-                        .await;
+                    self.handle_added_folder(source, new, new_task_sender).await;
                 } else {
                     // PERF: this reprocesses everything in the moved folder. this is not necessary in most cases, but
                     // requires some nuance when it comes to path handling.
                     self.handle_removed_folder(source, &old).await;
-                    self.handle_added_folder(source, new, task_event_sender)
-                        .await;
+                    self.handle_added_folder(source, new, new_task_sender).await;
                 }
             }
             AssetSourceEvent::RemovedUnknown { path, is_meta } => {
@@ -488,7 +510,7 @@ impl AssetProcessor {
                         if is_directory {
                             self.handle_removed_folder(source, &path).await;
                         } else if is_meta {
-                            self.handle_removed_meta(source, path, task_event_sender)
+                            self.handle_removed_meta(source, path, new_task_sender)
                                 .await;
                         } else {
                             self.handle_removed_asset(source, path).await;
@@ -524,13 +546,13 @@ impl AssetProcessor {
         &self,
         source: &AssetSource,
         path: PathBuf,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         debug!(
             "Folder {} was added. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
-        self.queue_processing_tasks_for_folder(source, path, task_event_sender)
+        self.queue_processing_tasks_for_folder(source, path, new_task_sender)
             .await
             .unwrap();
     }
@@ -540,7 +562,7 @@ impl AssetProcessor {
         &self,
         source: &AssetSource,
         path: PathBuf,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         // If meta was removed, we might need to regenerate it.
         // Likewise, the user might be manually re-adding the asset.
@@ -550,9 +572,7 @@ impl AssetProcessor {
             "Meta for asset {} was removed. Attempting to re-process",
             AssetPath::from_path(&path).with_source(source.id())
         );
-        let _ = task_event_sender
-            .send(ProcessorTaskEvent::Start(source.id(), path))
-            .await;
+        let _ = new_task_sender.send((source.id(), path)).await;
     }
 
     /// Removes all processed assets stored at the given path (respecting transactionality), then removes the folder itself.
@@ -626,7 +646,7 @@ impl AssetProcessor {
         source: &AssetSource,
         old: PathBuf,
         new: PathBuf,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         let mut infos = self.data.asset_infos.write().await;
         let old = AssetPath::from(old).with_source(source.id());
@@ -645,25 +665,23 @@ impl AssetProcessor {
                 .await
                 .unwrap();
         }
-        infos.rename(&old, &new, task_event_sender).await;
+        infos.rename(&old, &new, new_task_sender).await;
     }
 
     async fn queue_processing_tasks_for_folder(
         &self,
         source: &AssetSource,
         path: PathBuf,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) -> Result<(), AssetReaderError> {
         if source.reader().is_directory(&path).await? {
             let mut path_stream = source.reader().read_directory(&path).await?;
             while let Some(path) = path_stream.next().await {
-                Box::pin(self.queue_processing_tasks_for_folder(source, path, task_event_sender))
+                Box::pin(self.queue_processing_tasks_for_folder(source, path, new_task_sender))
                     .await?;
             }
         } else {
-            let _ = task_event_sender
-                .send(ProcessorTaskEvent::Start(source.id(), path))
-                .await;
+            let _ = new_task_sender.send((source.id(), path)).await;
         }
         Ok(())
     }
@@ -891,7 +909,7 @@ impl AssetProcessor {
         &self,
         source: &AssetSource,
         path: PathBuf,
-        processor_task_event: async_channel::Sender<ProcessorTaskEvent>,
+        processor_task_event: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         let result = self.process_asset_internal(source, &asset_path).await;
@@ -1428,7 +1446,7 @@ impl ProcessorAssetInfos {
         &mut self,
         asset_path: AssetPath<'static>,
         result: Result<ProcessResult, ProcessError>,
-        reprocess_sender: async_channel::Sender<ProcessorTaskEvent>,
+        reprocess_sender: async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         match result {
             Ok(ProcessResult::Processed(processed_info)) => {
@@ -1452,10 +1470,7 @@ impl ProcessorAssetInfos {
                 let dependents = info.dependents.iter().cloned().collect::<Vec<_>>();
                 for path in dependents {
                     let _ = reprocess_sender
-                        .send(ProcessorTaskEvent::Start(
-                            path.source().clone_owned(),
-                            path.path().to_owned(),
-                        ))
+                        .send((path.source().clone_owned(), path.path().to_owned()))
                         .await;
                 }
             }
@@ -1535,7 +1550,7 @@ impl ProcessorAssetInfos {
         &mut self,
         old: &AssetPath<'static>,
         new: &AssetPath<'static>,
-        task_event_sender: &async_channel::Sender<ProcessorTaskEvent>,
+        new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
         let info = self.infos.remove(old);
         if let Some(mut info) = info {
@@ -1583,16 +1598,13 @@ impl ProcessorAssetInfos {
                 new_info.dependents.iter().cloned().collect()
             };
             // Queue the asset for a reprocess check, in case it needs new meta.
-            let _ = task_event_sender
-                .send(ProcessorTaskEvent::Start(
-                    new.source().clone_owned(),
-                    new.path().to_owned(),
-                ))
+            let _ = new_task_sender
+                .send((new.source().clone_owned(), new.path().to_owned()))
                 .await;
             for dependent in dependents {
                 // Queue dependents for reprocessing because they might have been waiting for this asset.
-                let _ = task_event_sender
-                    .send(ProcessorTaskEvent::Start(
+                let _ = new_task_sender
+                    .send((
                         dependent.source().clone_owned(),
                         dependent.path().to_owned(),
                     ))
@@ -1643,18 +1655,6 @@ pub enum InitializeError {
 pub enum SetTransactionLogFactoryError {
     #[error("Transaction log is already in use so setting the factory does nothing")]
     AlreadyInUse,
-}
-
-/// An event for processing tasks (tasks that will process an asset).
-///
-/// This enum "multiplexes" events so that we can receive them on a single channel.
-enum ProcessorTaskEvent {
-    /// A task should be started to process the asset at the given source and path.
-    ///
-    /// Note: we use source id + path instead of [`AssetPath`] to avoid dealing labels.
-    Start(AssetSourceId<'static>, PathBuf),
-    /// A task that was previously started has now finished (whether successfully or not).
-    Finished,
 }
 
 #[cfg(test)]
