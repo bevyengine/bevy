@@ -187,7 +187,8 @@ pub enum RenderSystems {
     Render,
     /// Cleanup render resources here.
     Cleanup,
-    /// Final cleanup occurs: all entities will be despawned.
+    /// Final cleanup occurs: any entities with
+    /// [`TemporaryRenderEntity`](sync_world::TemporaryRenderEntity) will be despawned.
     ///
     /// Runs after [`Cleanup`](RenderSystems::Cleanup).
     PostCleanup,

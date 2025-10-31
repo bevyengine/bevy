@@ -97,6 +97,7 @@ fn main() {
                             None,
                             true,
                             ComponentCloneBehavior::Default,
+                            None,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {
