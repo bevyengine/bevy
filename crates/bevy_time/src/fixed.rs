@@ -10,7 +10,7 @@ use crate::{time::Time, virt::Virtual};
 ///
 /// A specialization of the [`Time`] structure. **For method documentation, see
 /// [`Time<Fixed>#impl-Time<Fixed>`].**
-///     
+///
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
@@ -22,7 +22,7 @@ use crate::{time::Time, virt::Virtual};
 /// consistent behavior, regardless of framerate.
 ///
 /// The default [`timestep()`](Time::timestep) is 64 hertz, or 15625
-/// microseconds. This value was chosen because using 60 hertz has the potential
+/// microseconds, see [`Time::DEFAULT_TIMESTEP`]. This value was chosen because using 60 hertz has the potential
 /// for a pathological interaction with the monitor refresh rate where the game
 /// alternates between running two fixed timesteps and zero fixed timesteps per
 /// frame (for example when running two fixed timesteps takes longer than a
@@ -73,7 +73,7 @@ pub struct Fixed {
 
 impl Time<Fixed> {
     /// Corresponds to 64 Hz.
-    const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
+    pub const DEFAULT_TIMESTEP: Duration = Duration::from_micros(15625);
 
     /// Return new fixed time clock with given timestep as [`Duration`]
     ///
