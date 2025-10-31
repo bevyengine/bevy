@@ -8,6 +8,9 @@ use bevy_app::{App, Plugin};
 use std::marker::PhantomData;
 use tracing::warn;
 
+/// Plugin to setup a [`RenderTask`].
+///
+/// Make sure you add this to your app.
 #[derive(Default)]
 pub struct RenderTaskPlugin<T: RenderTask>(PhantomData<T>);
 
