@@ -15,7 +15,7 @@ use wgpu::{BindGroupDescriptor, BufferDescriptor, TextureDescriptor, TextureView
 pub struct ResourceCache {
     textures: HashMap<(Entity, TextureDescriptor<'static>), TextureView>,
     buffers: HashMap<(Entity, BufferDescriptor<'static>), Buffer>,
-    bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
+    _bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
     compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
 }
@@ -51,8 +51,8 @@ impl ResourceCache {
 
     pub fn get_or_create_bind_group(
         &mut self,
-        descriptor: BindGroupDescriptor<'static>,
-        render_device: &RenderDevice,
+        _descriptor: BindGroupDescriptor<'static>,
+        _render_device: &RenderDevice,
     ) -> BindGroup {
         todo!()
         // self.bind_groups
