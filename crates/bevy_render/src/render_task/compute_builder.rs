@@ -82,21 +82,28 @@ impl<'a> ComputeCommandBuilder<'a> {
         resources: impl IntoBindingArray<'b, N> + IntoBindGroupLayoutEntryBuilderArray<N> + Clone,
     ) -> Self {
         let layout_descriptor = BindGroupLayoutDescriptor::new(
-            "TODO",
-            &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, resources),
+            self.pass_name.to_owned(),
+            &BindGroupLayoutEntries::sequential(ShaderStages::COMPUTE, resources.clone()),
         );
 
+        let descriptor = BindGroupDescriptor {
+            label: Some(self.pass_name),
+            layout: &self
+                .pipeline_compiler
+                .get_bind_group_layout(&layout_descriptor),
+            entries: &BindGroupEntries::sequential(resources),
+        };
+
+        // TODO
+        // self.bind_groups.push(Some(
+        //     self.resource_cache
+        //         .get_or_create_bind_group(descriptor, self.render_device),
+        // ));
         self.bind_groups.push(Some(
-            self.resource_cache.get_or_create_bind_group(
-                BindGroupDescriptor {
-                    label: None, // TODO
-                    layout: &self
-                        .pipeline_compiler
-                        .get_bind_group_layout(&layout_descriptor),
-                    entries: &BindGroupEntries::sequential(resources),
-                },
-                self.render_device,
-            ),
+            self.render_device
+                .wgpu_device()
+                .create_bind_group(&descriptor)
+                .into(),
         ));
 
         self.bind_group_layouts.push(layout_descriptor);

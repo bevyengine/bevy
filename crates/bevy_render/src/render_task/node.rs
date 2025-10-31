@@ -19,6 +19,8 @@ use wgpu::{
     TextureDescriptor,
 };
 
+// TODO: Profiling spans
+
 #[derive(FromWorld)]
 pub struct RenderTaskNode<T: RenderTask> {
     resource_cache: Arc<Mutex<ResourceCache>>,
@@ -40,7 +42,7 @@ impl<T: RenderTask> ViewNode for RenderTaskNode<T> {
         render_context.add_command_buffer_generation_task(move |render_device| {
             let mut command_encoder =
                 render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("todo"),
+                    label: Some(std::any::type_name::<T>()),
                 });
 
             let task_encoder = RenderTaskEncoder {
