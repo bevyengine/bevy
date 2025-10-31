@@ -180,7 +180,7 @@ pub fn time_system(
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
         TimeUpdateStrategy::FixedTimesteps(factor) => {
-            real_time.update_with_duration(fixed_time.timestep() * *factor)
+            real_time.update_with_duration(fixed_time.timestep() * *factor);
         }
     }
 
