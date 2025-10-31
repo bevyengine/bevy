@@ -269,7 +269,7 @@ impl TextPipeline {
         swash_cache: &mut SwashCache,
     ) -> Result<(), TextError> {
         layout_info.glyphs.clear();
-        layout_info.section_geometry.clear();
+        layout_info.run_geometry.clear();
         layout_info.size = Default::default();
 
         // Clear this here at the focal point of text rendering to ensure the field's lifecycle has strong boundaries.
@@ -336,18 +336,20 @@ impl TextPipeline {
                     match current_section {
                         Some(section) => {
                             if section != layout_glyph.metadata {
-                                layout_info.section_geometry.push((
-                                    section,
-                                    Rect::new(
+                                layout_info.run_geometry.push(RunGeometry {
+                                    span_index: section,
+                                    bounds: Rect::new(
                                         start,
                                         run.line_top,
                                         end,
                                         run.line_top + run.line_height,
                                     ),
-                                    (run.line_y - self.glyph_info[section].3).round(),
-                                    self.glyph_info[section].4,
-                                    (run.line_y - self.glyph_info[section].5).round(),
-                                ));
+                                    strikethrough_y: (run.line_y - self.glyph_info[section].3)
+                                        .round(),
+                                    strikethrough_thickness: self.glyph_info[section].4,
+                                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
+                                    underline_thickness: self.glyph_info[section].4,
+                                });
                                 start = end.max(layout_glyph.x);
                                 current_section = Some(layout_glyph.metadata);
                             }
@@ -432,13 +434,14 @@ impl TextPipeline {
                     Ok(())
                 });
             if let Some(section) = current_section {
-                layout_info.section_geometry.push((
-                    section,
-                    Rect::new(start, run.line_top, end, run.line_top + run.line_height),
-                    (run.line_y - self.glyph_info[section].3).round(),
-                    self.glyph_info[section].4,
-                    (run.line_y - self.glyph_info[section].5).round(),
-                ));
+                layout_info.run_geometry.push(RunGeometry {
+                    span_index: section,
+                    bounds: Rect::new(start, run.line_top, end, run.line_top + run.line_height),
+                    strikethrough_y: (run.line_y - self.glyph_info[section].3).round(),
+                    strikethrough_thickness: self.glyph_info[section].4,
+                    underline_y: (run.line_y - self.glyph_info[section].5).round(),
+                    underline_thickness: self.glyph_info[section].4,
+                });
             }
 
             result
@@ -518,11 +521,61 @@ pub struct TextLayoutInfo {
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
-    /// Geometry of each text segment: (section index, bounding rect, strikethrough offset, stroke thickness, underline offset)
-    /// A text section spanning more than one line will have multiple segments.
-    pub section_geometry: Vec<(usize, Rect, f32, f32, f32)>,
+    /// Geometry of each text run used to render text decorations like background colors, strikethrough, and underline.
+    /// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+    /// font size, and line height. A text entity that extends over multiple lines will have multiple corresponding runs.
+    ///
+    /// The coordinates are unscaled and relative to the top left corner of the text layout.
+    pub run_geometry: Vec<RunGeometry>,
     /// The glyphs resulting size
     pub size: Vec2,
+}
+
+/// Geometry of a text run used to render text decorations like background colors, strikethrough, and underline.
+/// A run in `bevy_text` is a contiguous sequence of glyphs on a line that share the same text attributes like font,
+/// font size, and line height.
+#[derive(Default, Debug, Clone, Reflect)]
+pub struct RunGeometry {
+    /// The index of the text entity in [`ComputedTextBlock`] that this run belongs to.
+    pub span_index: usize,
+    /// Bounding box around the text run
+    pub bounds: Rect,
+    /// Y position of the strikethrough in the text layout.
+    pub strikethrough_y: f32,
+    /// Strikethrough stroke thickness.
+    pub strikethrough_thickness: f32,
+    /// Y position of the underline  in the text layout.
+    pub underline_y: f32,
+    /// Underline stroke thickness.
+    pub underline_thickness: f32,
+}
+
+impl RunGeometry {
+    /// Returns the center of the strikethrough in the text layout.
+    pub fn strikethrough_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.strikethrough_y + 0.5 * self.strikethrough_thickness,
+        )
+    }
+
+    /// Returns the size of the strikethrough.
+    pub fn strikethrough_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.strikethrough_thickness)
+    }
+
+    /// Get the center of the underline in the text layout.
+    pub fn underline_position(&self) -> Vec2 {
+        Vec2::new(
+            self.bounds.center().x,
+            self.underline_y + 0.5 * self.underline_thickness,
+        )
+    }
+
+    /// Returns the size of the underline.
+    pub fn underline_size(&self) -> Vec2 {
+        Vec2::new(self.bounds.size().x, self.underline_thickness)
+    }
 }
 
 /// Size information for a corresponding [`ComputedTextBlock`] component.

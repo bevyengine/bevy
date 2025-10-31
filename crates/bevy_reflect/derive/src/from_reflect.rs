@@ -3,10 +3,10 @@ use crate::{
     derive_data::ReflectEnum,
     enum_utility::{EnumVariantOutputData, FromReflectVariantBuilder, VariantBuilder},
     field_attributes::DefaultBehavior,
-    ident::ident_or_index,
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
+use bevy_macro_utils::as_member;
 use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQOption};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
@@ -216,7 +216,7 @@ fn get_ignored_fields(reflect_struct: &ReflectStruct) -> MemberValuePair {
         reflect_struct
             .ignored_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {#path()},
@@ -245,7 +245,7 @@ fn get_active_fields(
         reflect_struct
             .active_fields()
             .map(|field| {
-                let member = ident_or_index(field.data.ident.as_ref(), field.declaration_index);
+                let member = as_member(field.data.ident.as_ref(), field.declaration_index);
                 let accessor = get_field_accessor(
                     field.data,
                     field.reflection_index.expect("field should be active"),
