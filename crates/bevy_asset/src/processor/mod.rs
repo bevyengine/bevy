@@ -596,7 +596,6 @@ impl AssetProcessor {
                 Box::pin(self.process_assets_internal(source, path, tasks)).await?;
             }
         } else {
-            // Files without extensions are skipped
             let processor = self.clone();
             tasks.push(Box::pin(async move {
                 processor.process_asset(source, path).await;
@@ -856,7 +855,6 @@ impl AssetProcessor {
         source: &AssetSource,
         asset_path: &AssetPath<'static>,
     ) -> Result<ProcessResult, ProcessError> {
-        // TODO: The extension check was removed now that AssetPath is the input. is that ok?
         // TODO: check if already processing to protect against duplicate hot-reload events
         debug!("Processing {}", asset_path);
         let server = &self.server;
