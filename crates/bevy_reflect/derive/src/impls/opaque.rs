@@ -11,12 +11,12 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_path = meta.type_path();
 
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     let with_docs = {
         let doc = quote::ToTokens::to_token_stream(meta.doc());
         Some(quote!(.with_docs(#doc)))
     };
-    #[cfg(not(feature = "documentation"))]
+    #[cfg(not(feature = "reflect_documentation"))]
     let with_docs: Option<proc_macro2::TokenStream> = None;
 
     let where_clause_options = WhereClauseOptions::new(meta);

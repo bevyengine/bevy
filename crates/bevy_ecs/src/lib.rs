@@ -178,8 +178,10 @@ mod tests {
     };
     use std::sync::Mutex;
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
+    #[derive(Resource, Debug, PartialEq, Eq)]
+    struct ResA(usize);
     #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
@@ -1421,10 +1423,10 @@ mod tests {
     #[test]
     fn non_send_resource_points_to_distinct_data() {
         let mut world = World::default();
-        world.insert_resource(A(123));
-        world.insert_non_send_resource(A(456));
-        assert_eq!(*world.resource::<A>(), A(123));
-        assert_eq!(*world.non_send_resource::<A>(), A(456));
+        world.insert_resource(ResA(123));
+        world.insert_non_send_resource(ResA(456));
+        assert_eq!(*world.resource::<ResA>(), ResA(123));
+        assert_eq!(*world.non_send_resource::<ResA>(), ResA(456));
     }
 
     #[test]
@@ -1570,13 +1572,13 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
-        assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
-        world.insert_resource(A(0));
-        world.resource_scope(|world: &mut World, mut value: Mut<A>| {
+        assert!(world.try_resource_scope::<ResA, _>(|_, _| {}).is_none());
+        world.insert_resource(ResA(0));
+        world.resource_scope(|world: &mut World, mut value: Mut<ResA>| {
             value.0 += 1;
-            assert!(!world.contains_resource::<A>());
+            assert!(!world.contains_resource::<ResA>());
         });
-        assert_eq!(world.resource::<A>().0, 1);
+        assert_eq!(world.resource::<ResA>().0, 1);
     }
 
     #[test]
@@ -1636,17 +1638,15 @@ mod tests {
     fn clear_entities() {
         let mut world = World::default();
 
-        world.insert_resource(A(0));
+        world.insert_resource(ResA(0));
         world.spawn(A(1));
         world.spawn(SparseStored(1));
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
-        let mut q3 = world.query::<()>();
 
         assert_eq!(q1.query(&world).count(), 1);
         assert_eq!(q2.query(&world).count(), 1);
-        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
@@ -1661,12 +1661,7 @@ mod tests {
             "world should not contain sparse set components"
         );
         assert_eq!(
-            q3.query(&world).count(),
-            0,
-            "world should not have any entities"
-        );
-        assert_eq!(
-            world.resource::<A>().0,
+            world.resource::<ResA>().0,
             0,
             "world should still contain resources"
         );
@@ -1794,7 +1789,7 @@ mod tests {
     fn try_insert_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
@@ -1818,7 +1813,7 @@ mod tests {
     fn try_insert_batch_if_new() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
-        let e1 = Entity::from_raw_u32(1).unwrap();
+        let e1 = Entity::from_raw_u32(10_000).unwrap();
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 

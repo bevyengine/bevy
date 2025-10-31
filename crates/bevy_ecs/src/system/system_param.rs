@@ -1,9 +1,9 @@
-pub use crate::change_detection::{NonSendMut, Res, ResMut};
+pub use crate::change_detection::{NonSend, NonSendMut, Res, ResMut};
 use crate::{
     archetype::Archetypes,
     bundle::Bundles,
-    change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
+    change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
+    component::{ComponentId, Components},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
@@ -17,11 +17,7 @@ use crate::{
         FromWorld, World,
     },
 };
-use alloc::{
-    borrow::{Cow, ToOwned},
-    boxed::Box,
-    vec::Vec,
-};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 pub use bevy_ecs_macros::SystemParam;
 use bevy_platform::cell::SyncCell;
 use bevy_ptr::UnsafeCellDeref;
@@ -31,7 +27,6 @@ use core::{
     fmt::{Debug, Display},
     marker::PhantomData,
     ops::{Deref, DerefMut},
-    panic::Location,
 };
 use thiserror::Error;
 
@@ -806,25 +801,24 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_resource_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         Res {
             value: ptr.deref(),
-            ticks: Ticks {
+            ticks: ComponentTicksRef {
                 added: ticks.added.deref(),
                 changed: ticks.changed.deref(),
+                changed_by: ticks.changed_by.map(|changed_by| changed_by.deref()),
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: caller.map(|caller| caller.deref()),
         }
     }
 }
@@ -896,13 +890,13 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value.deref_mut::<T>(),
-            ticks: TicksMut {
+            ticks: ComponentTicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
+                changed_by: value.ticks.changed_by,
                 last_run: system_meta.last_run,
                 this_run: change_tick,
             },
-            changed_by: value.changed_by,
         }
     }
 }
@@ -1349,76 +1343,8 @@ unsafe impl SystemParam for NonSendMarker {
 // SAFETY: Does not read any world state
 unsafe impl ReadOnlySystemParam for NonSendMarker {}
 
-/// Shared borrow of a non-[`Send`] resource.
-///
-/// Only `Send` resources may be accessed with the [`Res`] [`SystemParam`]. In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// This will cause a panic, but can be configured to do nothing or warn once.
-///
-/// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
-pub struct NonSend<'w, T: 'static> {
-    pub(crate) value: &'w T,
-    ticks: ComponentTicks,
-    last_run: Tick,
-    this_run: Tick,
-    changed_by: MaybeLocation<&'w &'static Location<'static>>,
-}
-
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
-
-impl<'w, T> Debug for NonSend<'w, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_tuple("NonSend").field(&self.value).finish()
-    }
-}
-
-impl<'w, T: 'static> NonSend<'w, T> {
-    /// Returns `true` if the resource was added after the system last ran.
-    pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_run, self.this_run)
-    }
-
-    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self) -> bool {
-        self.ticks.is_changed(self.last_run, self.this_run)
-    }
-
-    /// The location that last caused this to change.
-    pub fn changed_by(&self) -> MaybeLocation {
-        self.changed_by.copied()
-    }
-}
-
-impl<'w, T> Deref for NonSend<'w, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
-    fn from(nsm: NonSendMut<'a, T>) -> Self {
-        Self {
-            value: nsm.value,
-            ticks: ComponentTicks {
-                added: nsm.ticks.added.to_owned(),
-                changed: nsm.ticks.changed.to_owned(),
-            },
-            this_run: nsm.ticks.this_run,
-            last_run: nsm.ticks.last_run,
-            changed_by: nsm.changed_by.map(|changed_by| &*changed_by),
-        }
-    }
-}
 
 // SAFETY: NonSendComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
@@ -1475,23 +1401,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    )
-                });
-
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSend {
             value: ptr.deref(),
-            ticks: ticks.read(),
-            last_run: system_meta.last_run,
-            this_run: change_tick,
-            changed_by: caller.map(|caller| caller.deref()),
+            ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }
@@ -1554,20 +1475,18 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        let (ptr, ticks, caller) =
-            world
-                .get_non_send_with_ticks(component_id)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "Non-send resource requested by {} does not exist: {}",
-                        system_meta.name,
-                        DebugName::type_name::<T>()
-                    );
-                });
+        let (ptr, ticks) = world
+            .get_non_send_with_ticks(component_id)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Non-send resource requested by {} does not exist: {}",
+                    system_meta.name,
+                    DebugName::type_name::<T>()
+                );
+            });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
-            changed_by: caller.map(|caller| caller.deref_mut()),
+            ticks: ComponentTicksMut::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
     }
 }

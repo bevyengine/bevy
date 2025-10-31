@@ -10,11 +10,12 @@ use bevy_ecs::entity::Entity;
 use std::collections::HashMap;
 use wgpu::{BindGroupDescriptor, BufferDescriptor, TextureDescriptor, TextureViewDescriptor};
 
+// TODO: Garbage collect old resources
 #[derive(Default)]
 pub struct ResourceCache {
     textures: HashMap<(Entity, TextureDescriptor<'static>), TextureView>,
     buffers: HashMap<(Entity, BufferDescriptor<'static>), Buffer>,
-    bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
+    _bind_groups: HashMap<BindGroupDescriptor<'static>, BindGroup>,
     compute_pipelines: HashMap<ComputePipelineDescriptor, CachedComputePipelineId>,
     render_pipelines: HashMap<RenderPipelineDescriptor, CachedRenderPipelineId>,
 }
@@ -50,13 +51,14 @@ impl ResourceCache {
 
     pub fn get_or_create_bind_group(
         &mut self,
-        descriptor: BindGroupDescriptor<'static>,
-        render_device: &RenderDevice,
+        _descriptor: BindGroupDescriptor<'static>,
+        _render_device: &RenderDevice,
     ) -> BindGroup {
-        self.bind_groups
-            .entry(descriptor.clone())
-            .or_insert_with(|| render_device.wgpu_device().create_bind_group(&descriptor))
-            .clone()
+        todo!()
+        // self.bind_groups
+        //     .entry(descriptor.clone())
+        //     .or_insert_with(|| render_device.wgpu_device().create_bind_group(&descriptor))
+        //     .clone()
     }
 
     pub fn get_or_compile_compute_pipeline(

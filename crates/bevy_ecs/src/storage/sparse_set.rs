@@ -1,6 +1,6 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
+    change_detection::{CheckChangeTicks, ComponentTickCells, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo},
     entity::{Entity, EntityRow},
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, Column, TableRow, VecExtensions},
@@ -252,14 +252,7 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_with_ticks(
-        &self,
-        entity: Entity,
-    ) -> Option<(
-        Ptr<'_>,
-        TickCells<'_>,
-        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
-    )> {
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, ComponentTickCells<'_>)> {
         let dense_index = *self.sparse.get(entity.row())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.index()]);
@@ -267,11 +260,11 @@ impl ComponentSparseSet {
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
-                TickCells {
+                ComponentTickCells {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
+                    changed_by: self.dense.get_changed_by_unchecked(dense_index),
                 },
-                self.dense.get_changed_by_unchecked(dense_index),
             ))
         }
     }

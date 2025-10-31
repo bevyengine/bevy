@@ -24,9 +24,6 @@ mod scene_spawner;
 #[cfg(feature = "serialize")]
 pub mod serde;
 
-/// Rusty Object Notation, a crate used to serialize and deserialize bevy scenes.
-pub use bevy_asset::ron;
-
 pub use components::*;
 pub use dynamic_scene::*;
 pub use dynamic_scene_builder::*;
@@ -120,9 +117,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
-        query::Allow,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -309,11 +304,7 @@ mod tests {
             scene
                 .world
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
-            let entities: Vec<Entity> = scene
-                .world
-                .query_filtered::<Entity, Allow<Internal>>()
-                .iter(&scene.world)
-                .collect();
+            let entities: Vec<Entity> = scene.world.query::<Entity>().iter(&scene.world).collect();
             DynamicSceneBuilder::from_world(&scene.world)
                 .extract_entities(entities.into_iter())
                 .build()

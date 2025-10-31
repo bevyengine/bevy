@@ -60,17 +60,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             return;
         };
 
-        if !render_app
-            .world()
-            .resource::<RenderAdapter>()
-            .get_texture_format_features(TextureFormat::R16Float)
-            .allowed_usages
-            .contains(TextureUsages::STORAGE_BINDING)
-        {
-            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
-            return;
-        }
-
         if render_app
             .world()
             .resource::<RenderDevice>()
@@ -299,6 +288,7 @@ struct SsaoPipelines {
     linear_clamp_sampler: Sampler,
 
     shader: Handle<Shader>,
+    depth_format: TextureFormat,
 }
 
 impl FromWorld for SsaoPipelines {
@@ -306,6 +296,18 @@ impl FromWorld for SsaoPipelines {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
         let pipeline_cache = world.resource::<PipelineCache>();
+
+        // Detect the depth format support
+        let render_adapter = world.resource::<RenderAdapter>();
+        let depth_format = if render_adapter
+            .get_texture_format_features(TextureFormat::R16Float)
+            .allowed_usages
+            .contains(TextureUsages::STORAGE_BINDING)
+        {
+            TextureFormat::R16Float
+        } else {
+            TextureFormat::R32Float
+        };
 
         let hilbert_index_lut = render_device
             .create_texture_with_data(
@@ -364,11 +366,11 @@ impl FromWorld for SsaoPipelines {
                 ShaderStages::COMPUTE,
                 (
                     texture_depth_2d(),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                 ),
             ),
         );
@@ -381,7 +383,7 @@ impl FromWorld for SsaoPipelines {
                     texture_2d(TextureSampleType::Float { filterable: true }),
                     texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_2d(TextureSampleType::Uint),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                     texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
                     uniform_buffer::<GlobalsUniform>(false),
                     uniform_buffer::<f32>(false),
@@ -396,10 +398,15 @@ impl FromWorld for SsaoPipelines {
                 (
                     texture_2d(TextureSampleType::Float { filterable: false }),
                     texture_2d(TextureSampleType::Uint),
-                    texture_storage_2d(TextureFormat::R16Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(depth_format, StorageTextureAccess::WriteOnly),
                 ),
             ),
         );
+
+        let mut shader_defs = Vec::new();
+        if depth_format == TextureFormat::R16Float {
+            shader_defs.push("USE_R16FLOAT".into());
+        }
 
         let preprocess_depth_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -409,6 +416,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 shader: load_embedded_asset!(world, "preprocess_depth.wgsl"),
+                shader_defs: shader_defs.clone(),
                 ..default()
             });
 
@@ -420,6 +428,7 @@ impl FromWorld for SsaoPipelines {
                     common_bind_group_layout.clone(),
                 ],
                 shader: load_embedded_asset!(world, "spatial_denoise.wgsl"),
+                shader_defs,
                 ..default()
             });
 
@@ -437,6 +446,7 @@ impl FromWorld for SsaoPipelines {
             linear_clamp_sampler,
 
             shader: load_embedded_asset!(world, "ssao.wgsl"),
+            depth_format,
         }
     }
 }
@@ -463,6 +473,10 @@ impl SpecializedComputePipeline for SsaoPipelines {
 
         if key.temporal_jitter {
             shader_defs.push("TEMPORAL_JITTER".into());
+        }
+
+        if self.depth_format == TextureFormat::R16Float {
+            shader_defs.push("USE_R16FLOAT".into());
         }
 
         ComputePipelineDescriptor {
@@ -519,6 +533,7 @@ fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    pipelines: Res<SsaoPipelines>,
     views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
 ) {
     for (entity, camera, ssao_settings) in &views {
@@ -535,7 +550,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 5,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: pipelines.depth_format,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -549,7 +564,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: pipelines.depth_format,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -563,7 +578,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R16Float,
+                format: pipelines.depth_format,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
@@ -671,7 +686,7 @@ fn prepare_ssao_bind_groups(
                 .create_view(&TextureViewDescriptor {
                     label: Some("ssao_preprocessed_depth_texture_mip_view"),
                     base_mip_level: mip_level,
-                    format: Some(TextureFormat::R16Float),
+                    format: Some(pipelines.depth_format),
                     dimension: Some(TextureViewDimension::D2),
                     mip_level_count: Some(1),
                     ..default()

@@ -26,7 +26,6 @@ fn main() {
                         font: default(),
                         // We could also disable font smoothing,
                         font_smoothing: FontSmoothing::default(),
-                        ..default()
                     },
                     // We can also change color of the overlay
                     text_color: OverlayColor::GREEN,
