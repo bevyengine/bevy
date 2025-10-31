@@ -153,13 +153,21 @@ fn setup_camera_fog(mut commands: Commands, earth_atmosphere: Res<EarthlikeAtmos
             ..default()
         },
         // Add a volumetric cloud layer using 3D FBM noise
+        // Physically realistic parameters (units: m^-1 per unit density):
+        // - Density is normalized to [0, 1] in the shader
+        // - cloud_scattering: 0.0008 m^-1 per unit density (physically correct for water droplets)
+        //   At max density (1.0): scattering_coeff = 0.0008
+        //   After phase amplification (~6.5x at forward angles): 0.0008 * 6.5 ≈ 0.005
+        //   This matches atmospheric scattering magnitudes (~0.001-0.01 range)
+        // - cloud_absorption: 0.00005 m^-1 per unit density (realistic for water clouds)
+        //   Single-scattering albedo ≈ 0.94 (typical water clouds have albedo 0.95-0.99)
         CloudLayer {
             cloud_layer_start: 6_361_000.0, // 1km above Earth's surface
-            cloud_layer_end: 6_365_000.0,   // 5km above Earth's surface
-            cloud_density: 0.5,
-            cloud_absorption: 0.3,
-            cloud_scattering: 1.2,
-            noise_scale: 8000.0,
+            cloud_layer_end: 6_368_000.0,   // 7km above Earth's surface (7km thick layer)
+            cloud_density: 1.0, // Used for enabling/disabling, actual density comes from noise (normalized [0, 1])
+            cloud_absorption: 0.00005, // Physically correct: ~0.00005 m^-1 per unit density
+            cloud_scattering: 0.0008, // Physically correct: ~0.0008 m^-1 per unit density
+            noise_scale: 40_000.0, // Larger scale = larger cloud features
             noise_offset: Vec3::ZERO,
         },
         // The directional light illuminance used in this scene
@@ -296,12 +304,12 @@ fn setup_terrain_scene(
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));
 
-    spawn_water(
-        &mut commands,
-        &asset_server,
-        &mut meshes,
-        &mut water_materials,
-    );
+    // spawn_water(
+    //     &mut commands,
+    //     &asset_server,
+    //     &mut meshes,
+    //     &mut water_materials,
+    // );
 }
 
 // Spawns the water plane.

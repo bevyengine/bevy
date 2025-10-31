@@ -34,6 +34,16 @@ fn sample_cloud_noise(world_pos: vec3<f32>) -> f32 {
     return textureSampleLevel(noise_texture_3d, noise_sampler_3d, noise_coords, 0.0).r;
 }
 
+/// Get cloud scattering coefficient per unit density
+fn get_cloud_scattering_coeff() -> f32 {
+    return cloud_layer.cloud_scattering;
+}
+
+/// Get cloud absorption coefficient per unit density
+fn get_cloud_absorption_coeff() -> f32 {
+    return cloud_layer.cloud_absorption;
+}
+
 /// Get cloud density at a given position (in local atmosphere space)
 fn get_cloud_density(r: f32, world_pos: vec3<f32>) -> f32 {
     // Check if we're within the cloud layer
@@ -50,14 +60,21 @@ fn get_cloud_density(r: f32, world_pos: vec3<f32>) -> f32 {
     var noise_value = sample_cloud_noise(world_pos);
     noise_value = clamp(pow(noise_value, 3.0), 0.0, 1.0);
     
+    // Apply contrast remapping to create sharper cloud boundaries
+    // This creates more contrast between cloud/no-cloud areas by remapping mid-values
+    let contrast_threshold = 0.3; // Controls how much contrast (lower = sharper edges, range: 0.0-0.5)
+    noise_value = smoothstep(contrast_threshold, 1.0 - contrast_threshold, noise_value);
+    
     // Height-based density falloff (clouds denser in middle of layer)
     let height_gradient = 1.0 - abs(height_factor * 2.0 - 1.0);
     let height_multiplier = smoothstep(0.0, 0.3, height_gradient) * smoothstep(1.0, 0.6, height_gradient);
     
     // Combine noise with height gradient
-    let density = noise_value * height_multiplier * 0.01;
+    // Density is normalized to [0, 1] for physically correct scattering coefficients
+    // where coefficients represent values per unit density
+    let density = noise_value * height_multiplier;
     
-    return max(0.0, density);
+    return clamp(density, 0.0, 1.0);
 }
 
 struct CloudSample {
@@ -137,7 +154,9 @@ fn raymarch_clouds(
         
         let density = get_cloud_density(r, sample_pos);
         
-        if (density > 0.001) {
+        if (density > 0.01) {
+            // Physically correct coefficients (units: m^-1 per unit density)
+            // Density is normalized [0, 1], coefficients represent actual physical values
             let extinction = density * (cloud_layer.cloud_scattering + cloud_layer.cloud_absorption);
             let scattering = density * cloud_layer.cloud_scattering;
             
@@ -163,6 +182,7 @@ fn raymarch_clouds(
 
 /// Raymarch through clouds towards the sun to compute volumetric shadow
 /// Returns the light transmittance factor [0,1] where 0 = fully shadowed, 1 = no shadow
+/// Properly handles viewer inside clouds and grazing angles
 fn compute_cloud_shadow(
     world_pos: vec3<f32>,
     sun_dir: vec3<f32>,
@@ -175,65 +195,74 @@ fn compute_cloud_shadow(
     }
     
     let r = length(world_pos);
-    let mu = dot(sun_dir, normalize(world_pos));
+    let up = normalize(world_pos);
+    let mu = dot(sun_dir, up);
     
-    // Find intersection with cloud layer in sun direction
+    // Find intersection with cloud layer spheres in sun direction
     let cloud_bottom_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_start);
     let cloud_top_intersect = ray_sphere_intersect(r, mu, cloud_layer.cloud_layer_end);
     
-    // Determine march bounds through cloud layer towards sun
+    // Determine actual march bounds through cloud layer toward sun
     var march_start = 0.0;
     var march_end = 0.0;
+    var valid_intersection = false;
     
     if (r < cloud_layer.cloud_layer_start) {
         // Below clouds - march from cloud bottom to top
-        if (cloud_bottom_intersect.y < 0.0) {
-            return 1.0; // No intersection
+        if (cloud_bottom_intersect.y > 0.0 && cloud_top_intersect.y > cloud_bottom_intersect.y) {
+            march_start = cloud_bottom_intersect.y;
+            march_end = cloud_top_intersect.y;
+            valid_intersection = true;
         }
-        march_start = cloud_bottom_intersect.y;
-        march_end = cloud_top_intersect.y;
     } else if (r < cloud_layer.cloud_layer_end) {
-        // Inside cloud layer - march to exit point
-        march_start = 0.0;
-        march_end = select(cloud_top_intersect.y, cloud_bottom_intersect.x, mu < 0.0);
-    } else {
-        // Above clouds - march from cloud top to bottom
-        if (cloud_top_intersect.x < 0.0) {
-            return 1.0; // No intersection
+        // Inside cloud layer - march to exit boundary in sun direction
+        if (mu >= 0.0) {
+            // Ray going upward/outward - exit at top
+            if (cloud_top_intersect.y > 0.0) {
+                march_start = 0.0;
+                march_end = cloud_top_intersect.y;
+                valid_intersection = true;
+            }
+        } else {
+            // Ray going downward/inward - exit at bottom
+            if (cloud_bottom_intersect.x > 0.0) {
+                march_start = 0.0;
+                march_end = cloud_bottom_intersect.x;
+                valid_intersection = true;
+            }
         }
-        march_start = cloud_top_intersect.x;
-        march_end = cloud_bottom_intersect.x;
+    } else {
+        // Above clouds - march from cloud top to bottom (backward along ray)
+        if (cloud_top_intersect.x > 0.0 && cloud_bottom_intersect.x > cloud_top_intersect.x) {
+            march_start = cloud_top_intersect.x;
+            march_end = cloud_bottom_intersect.x;
+            valid_intersection = true;
+        }
     }
     
-    if (march_start >= march_end || march_end <= 0.0) {
+    if (!valid_intersection || march_start >= march_end || march_end <= 0.0) {
         return 1.0;
     }
     
     let march_distance = march_end - march_start;
     let step_size = march_distance / f32(steps);
+    let jitter = interleaved_gradient_noise(pixel_coords, 1u);
     
     var optical_depth = 0.0;
     
-    // Generate noise offset for jittering (use different frame offset for shadow rays)
-    let jitter = interleaved_gradient_noise(pixel_coords, 1u);
-    
     // Raymarch through clouds towards sun
     for (var i = 0u; i < steps; i++) {
-        // Add jitter to shadow ray samples
         let t = march_start + (f32(i) + jitter) * step_size;
         let sample_pos = world_pos + sun_dir * t;
         let sample_r = length(sample_pos);
         
+        // Sample density (get_cloud_density already handles bounds)
         let density = get_cloud_density(sample_r, sample_pos);
         
-        if (density > 0.001) {
+        if (density > 0.01) {
+            // Physically correct coefficients (units: m^-1 per unit density)
             let extinction = density * (cloud_layer.cloud_scattering + cloud_layer.cloud_absorption);
             optical_depth += extinction * step_size;
-            
-            // Early exit if fully shadowed
-            if (optical_depth > 5.0) {
-                return 0.0;
-            }
         }
     }
     
@@ -250,10 +279,11 @@ fn sample_cloud_contribution(
     let r = length(world_pos);
     let density = get_cloud_density(r, world_pos);
     
-    if (density < 0.001) {
+    if (density < 0.01) {
         return vec2(0.0, 1.0);
     }
     
+    // Physically correct coefficients (units: m^-1 per unit density)
     let extinction = density * (cloud_layer.cloud_scattering + cloud_layer.cloud_absorption);
     let scattering = density * cloud_layer.cloud_scattering;
     

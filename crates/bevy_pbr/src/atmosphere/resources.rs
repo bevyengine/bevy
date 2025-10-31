@@ -260,6 +260,27 @@ impl FromWorld for AtmosphereSampler {
     }
 }
 
+#[derive(Resource, Deref)]
+pub struct CloudNoiseSampler(Sampler);
+
+impl FromWorld for CloudNoiseSampler {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+
+        let sampler = render_device.create_sampler(&SamplerDescriptor {
+            address_mode_u: AddressMode::Repeat,
+            address_mode_v: AddressMode::Repeat,
+            address_mode_w: AddressMode::Repeat,
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        Self(sampler)
+    }
+}
+
 #[derive(Resource)]
 pub(crate) struct AtmosphereLutPipelines {
     pub transmittance_lut: CachedComputePipelineId,
@@ -621,7 +642,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereBindGroupLayouts>,
     render_sky_layouts: Res<RenderSkyBindGroupLayouts>,
-    atmosphere_sampler: Res<AtmosphereSampler>,
+    (atmosphere_sampler, cloud_noise_sampler): (Res<AtmosphereSampler>, Res<CloudNoiseSampler>),
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -775,7 +796,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (13, view_depth_texture.view()),
                 (14, cloud_layer_binding.clone()),
                 (15, &fbm_noise_texture.texture.default_view),
-                (16, &**atmosphere_sampler),
+                (16, &**cloud_noise_sampler),
             )),
         );
 

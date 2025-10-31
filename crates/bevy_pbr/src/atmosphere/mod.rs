@@ -91,7 +91,7 @@ use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
         prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSampler,
+        AtmosphereLutPipelines, AtmosphereSampler, CloudNoiseSampler,
     },
 };
 
@@ -174,6 +174,7 @@ impl Plugin for AtmospherePlugin {
             .insert_resource(AtmosphereBindGroupLayouts::new())
             .init_resource::<RenderSkyBindGroupLayouts>()
             .init_resource::<AtmosphereSampler>()
+            .init_resource::<CloudNoiseSampler>()
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()

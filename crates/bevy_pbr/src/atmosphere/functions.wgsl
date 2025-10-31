@@ -1,6 +1,7 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
 #import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect}
+#import bevy_pbr::utils::interleaved_gradient_noise
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
@@ -18,6 +19,7 @@
 #ifdef CLOUDS_ENABLED
 #import bevy_pbr::atmosphere::clouds::{
     get_cloud_density,
+    get_cloud_scattering_coeff,
     sample_cloud_contribution,
     compute_cloud_shadow,
 }
@@ -235,18 +237,28 @@ fn sample_local_inscattering(local_scattering: vec3<f32>, ray_dir: vec3<f32>, wo
         var scattering_coeff = sample_scattering_lut(local_r, neg_LdotV);
         
         #ifdef CLOUDS_ENABLED
-        // Add volumetric cloud shadows and cloud scattering
-        if (cloud_density > 0.001) {
-            // Use fewer samples (8) since we call this frequently
-            let cloud_shadow = compute_cloud_shadow(world_pos, (*light).direction_to_light, 8u, pixel_coords);
-            shadow_factor *= cloud_shadow;
-            
-            // Add cloud scattering with proper phase function
-            let cloud_scattering = cloud_density * 0.1; // TODO: get from cloud_layer
-            let g = 0.3; // Cloud asymmetry parameter (forward scattering)
-            let cloud_phase = FRAC_4_PI * (1.0 - g * g) / pow(1.0 + g * g - 2.0 * g * neg_LdotV, 1.5);
-            scattering_coeff += cloud_scattering * cloud_phase;
-        }
+        // NUBIS: Add volumetric cloud scattering with proper physical integration
+        // Clouds contribute to inscattering via Henyey-Greenstein phase function
+        // Compute volumetric shadow from clouds (light transmittance through clouds)
+        let cloud_shadow = compute_cloud_shadow(world_pos, (*light).direction_to_light, 8u, pixel_coords);
+        shadow_factor *= cloud_shadow;
+        
+        // Cloud scattering coefficient: σ_s_cloud = density * scattering_coeff
+        // Using physically correct coefficients (units: m^-1 per unit density)
+        // Density is normalized [0, 1], coefficients represent actual physical values
+        // Water droplet clouds have scattering ~0.0008-0.001 m^-1 per unit density
+        let cloud_scattering_coeff = cloud_density * get_cloud_scattering_coeff();
+        
+        // Henyey-Greenstein phase function for anisotropic cloud scattering
+        // g ≈ 0.7-0.9 for clouds (strong forward scattering)
+        let g = 0.85; // Typical asymmetry parameter for water droplets in clouds
+        let gg = g * g;
+        let mu = neg_LdotV; // cos(θ) where θ is angle between light and view
+        // Henyey-Greenstein: p(θ) = (1/4π) * (1 - g²) / (1 + g² - 2g*cos(θ))^(3/2)
+        let cloud_phase = FRAC_4_PI * (1.0 - gg) / pow(1.0 + gg - 2.0 * g * mu, 1.5);
+        
+        // Add cloud scattering contribution: σ_s_cloud * p(θ)
+        scattering_coeff += cloud_scattering_coeff * cloud_phase;
         #endif
 
         // Transmittance from scattering event to light source
@@ -487,8 +499,9 @@ fn raymarch_atmosphere(
     var prev_t = t_start;
     var optical_depth = vec3(0.0);
     for (var s = 0.0; s < sample_count; s += 1.0) {
-        // Linear distribution from atmosphere entry to exit/ground
-        let t_i = t_start + t_total * (s + MIDPOINT_RATIO) / sample_count;
+        // Linear distribution from atmosphere entry to exit/ground with jitter
+        let jitter = interleaved_gradient_noise(pixel_coords, u32(s)); // [0, 1]
+        let t_i = t_start + t_total * (s + jitter) / sample_count;
         let dt_i = (t_i - prev_t);
         prev_t = t_i;
 
@@ -503,19 +516,9 @@ fn raymarch_atmosphere(
         var sample_optical_depth = extinction * dt_i;
         optical_depth += sample_optical_depth;
 
-        #ifdef CLOUDS_ENABLED
-        // Add cloud extinction to optical depth
-        let cloud_density = get_cloud_density(local_r, sample_pos);
-        if (cloud_density > 0.001) {
-            let cloud_scattering = cloud_density * 0.1; // TODO: get from cloud_layer
-            let cloud_absorption = cloud_density * 0.05; // TODO: get from cloud_layer
-            let cloud_extinction = cloud_scattering + cloud_absorption;
-            
-            // Add cloud extinction to both optical depth and extinction coefficient
-            extinction += vec3(cloud_extinction);
-            sample_optical_depth += vec3(cloud_extinction * dt_i);
-        }
-        #endif
+        // Note: Cloud extinction is NOT added here - clouds are handled only in inscattering
+        // This follows NUBIS integration where clouds contribute to light scattering
+        // but are not part of the atmospheric extinction calculation
 
         let sample_transmittance = exp(-sample_optical_depth);
 
