@@ -1,4 +1,7 @@
-use crate::image::{Image, ImageFormat, ImageType, TextureError};
+use crate::{
+    image::{Image, ImageFormat, ImageType, TextureError},
+    TextureReinterpretationError,
+};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
@@ -96,6 +99,15 @@ pub enum ImageFormatSetting {
     Guess,
 }
 
+/// How to interpret the image as an array of textures.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum ImageArrayLayout {
+    /// Interpret the image as a vertical stack of *n* images.
+    RowCount { rows: u32 },
+    /// Interpret the image as a vertical stack of images, each *n* pixels tall.
+    RowHeight { pixels: u32 },
+}
+
 /// Settings for loading an [`Image`] using an [`ImageLoader`].
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
@@ -118,6 +130,11 @@ pub struct ImageLoaderSettings {
     /// Where the asset will be used - see the docs on
     /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
+    /// Interpret the image as an array of images. This is
+    /// primarily for use with the `texture2DArray` shader
+    /// uniform type.
+    #[serde(default)]
+    pub array_layout: Option<ImageArrayLayout>,
 }
 
 impl Default for ImageLoaderSettings {
@@ -128,6 +145,7 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
+            array_layout: None,
         }
     }
 }
@@ -142,6 +160,9 @@ pub enum ImageLoaderError {
     /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
+    /// An error occurred while trying to interpret the image bytes as an array texture.
+    #[error("Invalid array layout: {0}")]
+    ArrayLayout(#[from] TextureReinterpretationError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -176,7 +197,8 @@ impl AssetLoader for ImageLoader {
                 )?)
             }
         };
-        Ok(Image::from_buffer(
+
+        let mut image = Image::from_buffer(
             &bytes,
             image_type,
             self.supported_compressed_formats,
@@ -184,16 +206,25 @@ impl AssetLoader for ImageLoader {
             settings.sampler.clone(),
             settings.asset_usage,
         )
-        .map(|mut image| {
-            if let Some(format) = settings.texture_format {
-                image.texture_descriptor.format = format;
-            }
-            image
-        })
         .map_err(|err| FileTextureError {
             error: err,
             path: format!("{}", load_context.path().display()),
-        })?)
+        })?;
+
+        if let Some(format) = settings.texture_format {
+            image.texture_descriptor.format = format;
+        }
+
+        if let Some(array_layout) = settings.array_layout {
+            let layers = match array_layout {
+                ImageArrayLayout::RowCount { rows } => rows,
+                ImageArrayLayout::RowHeight { pixels } => image.height() / pixels,
+            };
+
+            image.reinterpret_stacked_2d_as_array(layers)?;
+        }
+
+        Ok(image)
     }
 
     fn extensions(&self) -> &[&str] {

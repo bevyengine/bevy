@@ -350,7 +350,7 @@ pub(crate) fn map_entities(
                 let ident = &variant.ident;
                 let field_idents = field_members
                     .iter()
-                    .map(|member| format_ident!("__self_{}", member))
+                    .map(|member| format_ident!("__self{}", member))
                     .collect::<Vec<_>>();
 
                 map.push(
