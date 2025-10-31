@@ -120,7 +120,7 @@ pub enum TimeUpdateStrategy {
     ManualDuration(Duration),
     /// [`Time`] will be incremented by the fixed timestep each frame, multiplied by the specified factor `n`.
     /// This means that a call to [`App::update`] will always run the fixed loop exactly n times.
-    FixedTimestep(u32),
+    FixedTimesteps(u32),
 }
 
 /// Channel resource used to receive time from the render world.
@@ -179,7 +179,7 @@ pub fn time_system(
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
-        TimeUpdateStrategy::FixedTimestep(factor) => {
+        TimeUpdateStrategy::FixedTimesteps(factor) => {
             real_time.update_with_duration(fixed_time.timestep() * *factor)
         }
     }
