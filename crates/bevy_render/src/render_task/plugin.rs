@@ -10,7 +10,7 @@ use tracing::warn;
 
 /// Plugin to setup a [`RenderTask`].
 ///
-/// Make sure you add this to your app.
+/// Make sure to add this to your app: `app.add_plugins(RenderTaskPlugin::<MyRenderingFeature>::default())`.
 #[derive(Default)]
 pub struct RenderTaskPlugin<T: RenderTask>(PhantomData<T>);
 

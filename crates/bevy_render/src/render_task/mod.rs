@@ -67,7 +67,7 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// ## 2) (Optional) Set required GPU features and limits
 /// Tasks can optionally require certain GPU features and limits in order to run.
 ///
-/// If the defaults (no required features, [`WgpuLimits::downlevel_webgl2_defaults()`]) are sufficent for your task, you may skip this step.
+/// If the defaults (no required features, [`WgpuLimits::downlevel_webgl2_defaults()`]) are sufficient for your task, you may skip this step.
 ///
 /// ```rust
 /// const REQUIRED_FEATURES: WgpuFeatures = WgpuFeatures::SHADER_F64;
@@ -106,9 +106,35 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// ```
 ///
 /// ## 5) Encode commands
+/// With the setup out of the way, you can now define the actual render work your task will do.
+///
+/// Create resources and encode render commands as follows:
+///
 /// ```rust
 /// fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World) {
-///     // TODO
+///     let Some((component_a, component_b)) = world
+///         .entity(entity)
+///         .get_components::<(&ComponentA, &ComponentB)>()
+///     else {
+///         return;
+///     };
+///
+///     let resource = world.resource::<ResourceC>();
+///
+///     if self.foo {
+///         // ...
+///     }
+///
+///     let texture = ctx.texture(TextureDescriptor { /* ... */ });
+///     let buffer = ctx.buffer(BufferDescriptor { /* ... */ });
+///
+///     ctx.compute_pass("my_pass")
+///         .shader(load_embedded_asset!(world, "my_shader.wgsl"))
+///         .bind_resources((
+///             SampledTexture(&texture),
+///             StorageTextureReadWrite(&buffer),
+///         ))
+///         .dispatch_2d(10, 20);
 /// }
 /// ```
 ///
@@ -124,18 +150,32 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// ));
 /// ```
 pub trait RenderTask: Component + Clone {
+    /// Render node label for the task.
     type RenderNodeLabel: RenderLabel + Default;
+    /// What render graph the task should run it.
     type RenderNodeSubGraph: RenderSubGraph + Default;
+    /// Ordering to run render nodes in.
     fn render_node_ordering() -> impl IntoRenderNodeArray;
 
+    /// Required GPU features for the task.
+    ///
+    /// Defaults to [`WgpuFeatures::empty()`].
     const REQUIRED_FEATURES: WgpuFeatures = WgpuFeatures::empty();
+    /// Required GPU limits for the task.
+    ///
+    /// Defaults to [`WgpuLimits::downlevel_webgl2_defaults()`].
     const REQUIRED_LIMITS: WgpuLimits = WgpuLimits::downlevel_webgl2_defaults();
 
+    /// Optional additional plugin setup for the main app.
     #[expect(unused_variables)]
     fn plugin_app_build(app: &mut App) {}
 
+    /// Optional additional plugin setup for the render app.
     #[expect(unused_variables)]
     fn plugin_render_app_build(render_app: &mut SubApp) {}
 
+    /// Function to encode render commands for the task.
+    ///
+    /// This is where you create textures, run shaders, etc.
     fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World);
 }
