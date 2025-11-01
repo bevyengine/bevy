@@ -425,18 +425,11 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
 
     /// Run the systems only if the [`SystemCondition`] is `true`.
     ///
-    /// A condition check occurs once per schedule run when the first system prepares to run.
-    /// Each system maintains its own tick state for change detection, which updates even when 
-    /// the system is skipped by the condition.
-    ///
-    /// Important: Multiple conditions added via chained `.run_if(a).run_if(b)` calls will all be evaluated
-    /// independently. In contrast, `run_if(a.and(b))` creates a single condition that short-circuits - 
-    /// `b` will not be evaluated if `a` returns false.
+    /// Multiple conditions can be added in two ways:
+    /// - Chained calls like `.run_if(a).run_if(b)` evaluate all conditions independently
+    /// - Single call like `run_if(a.and(b))` short-circuits (`b` won't run if `a` is false)
     ///
     /// For per-system condition evaluation, use [`distributive_run_if`].
-    ///
-    /// When systems are chained together, each maintains independent tick tracking to ensure
-    /// accurate change detection throughout the chain.
     ///
     /// If this set contains more than one system, calling `run_if` is equivalent to adding each
     /// system to a common set and configuring the run condition on that set, as shown below:
