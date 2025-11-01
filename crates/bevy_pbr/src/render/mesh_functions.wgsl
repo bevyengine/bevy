@@ -152,7 +152,7 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
     //
     //     `lod_range.`          x        y        z        w           camera distance
     //                   ←───────┼────────┼────────┼────────┼────────→
-    //        LOD level  -16    -16       0        0        16      16  LOD level
+    //     Dither Level  -16    -16       0        0        16      16  Dither Level
     let offset = select(-16, 0, camera_distance >= lod_range.z);
     let bounds = select(lod_range.xy, lod_range.zw, camera_distance >= lod_range.z);
     let level = i32(round((camera_distance - bounds.x) / (bounds.y - bounds.x) * 16.0));
