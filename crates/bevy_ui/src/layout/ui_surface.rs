@@ -31,24 +31,24 @@ impl From<taffy::NodeId> for LayoutNode {
     }
 }
 
-pub(crate) struct BevyTaffyTree<T>(TaffyTree<T>);
+pub(crate) struct UiTree<T>(TaffyTree<T>);
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
 /// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
-unsafe impl Send for BevyTaffyTree<NodeMeasure> {}
+unsafe impl Send for UiTree<NodeMeasure> {}
 
 #[expect(unsafe_code, reason = "TaffyTree is safe as long as calc is not used")]
 /// SAFETY: Taffy Tree becomes thread unsafe when you use the calc feature, which we do not implement
-unsafe impl Sync for BevyTaffyTree<NodeMeasure> {}
+unsafe impl Sync for UiTree<NodeMeasure> {}
 
-impl<T> Deref for BevyTaffyTree<T> {
+impl<T> Deref for UiTree<T> {
     type Target = TaffyTree<T>;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T> DerefMut for BevyTaffyTree<T> {
+impl<T> DerefMut for UiTree<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -58,14 +58,14 @@ impl<T> DerefMut for BevyTaffyTree<T> {
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
-    pub(super) taffy: BevyTaffyTree<NodeMeasure>,
+    pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
 }
 
 fn _assert_send_sync_ui_surface_impl_safe() {
     fn _assert_send_sync<T: Send + Sync>() {}
     _assert_send_sync::<EntityHashMap<taffy::NodeId>>();
-    _assert_send_sync::<BevyTaffyTree<NodeMeasure>>();
+    _assert_send_sync::<UiTree<NodeMeasure>>();
     _assert_send_sync::<UiSurface>();
 }
 
@@ -80,7 +80,7 @@ impl fmt::Debug for UiSurface {
 
 impl Default for UiSurface {
     fn default() -> Self {
-        let taffy: BevyTaffyTree<NodeMeasure> = BevyTaffyTree(TaffyTree::new());
+        let taffy: UiTree<NodeMeasure> = UiTree(TaffyTree::new());
         Self {
             root_entity_to_viewport_node: Default::default(),
             entity_to_taffy: Default::default(),
