@@ -386,6 +386,14 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
     ///
+    /// # Tick and Change Detection Behavior
+    ///
+    /// When using `distributive_run_if`:
+    /// - Each system evaluates the condition independently
+    /// - System ticks are updated individually based on when each system attempts to run
+    /// - Change detection remains accurate since each system maintains its own tick state
+    /// - In chained systems, later systems will still update their ticks even if earlier ones don't run
+    ///
     /// This is equivalent to calling [`run_if`](IntoScheduleConfigs::run_if) on each individual
     /// system, as shown below:
     ///
@@ -417,8 +425,32 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
 
     /// Run the systems only if the [`SystemCondition`] is `true`.
     ///
-    /// The `SystemCondition` will be evaluated at most once (per schedule run),
-    /// the first time a system in this set prepares to run.
+    /// The condition is evaluated at most once per schedule run, when the first system prepares to run.
+    /// Systems will update their tick state even when skipped by the condition.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// # fn my_system() {}
+    /// # fn condition() -> bool { true }
+    /// schedule.add_systems((my_system, my_system).run_if(condition));
+    /// ```
+    ///
+    /// When using chained systems, each maintains its own tick state:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn condition() -> bool { true }
+    /// // Each system's change detection works independently
+    /// schedule.add_systems((
+    ///     system_a.run_if(condition),
+    ///     system_b
+    /// ).chain());
+    /// ```
+    ///
+    /// For per-system condition evaluation, use [`distributive_run_if`].
     ///
     /// If this set contains more than one system, calling `run_if` is equivalent to adding each
     /// system to a common set and configuring the run condition on that set, as shown below:
@@ -549,6 +581,22 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
+    /// Chain systems to run in sequence, with independent change detection.
+    ///
+    /// Systems in a chain run in order but maintain separate tick states.
+    /// Change detection works independently for each system, even when skipped by conditions.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # let mut schedule = Schedule::default();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    /// # fn condition() -> bool { true }
+    /// schedule.add_systems((
+    ///     system_a.run_if(condition),
+    ///     system_b  // Will see system_a's changes, maintains own tick state
+    /// ).chain());
+    /// ```
     fn chain(self) -> Self {
         self.chain_inner()
     }
