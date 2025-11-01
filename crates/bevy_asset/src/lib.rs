@@ -390,7 +390,7 @@ impl Plugin for AssetPlugin {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let processor = AssetProcessor::new(&mut builders);
                         let mut sources = builders.build_sources(false, watch);
-                        sources.gate_on_processor(processor.data.clone());
+                        sources.gate_on_processor(processor.data.processing_state.clone());
                         // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
                             sources,

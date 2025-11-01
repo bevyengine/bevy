@@ -105,7 +105,7 @@ pub struct AssetProcessor {
 /// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
     /// The state of processing.
-    pub(crate) processing_state: ProcessingState,
+    pub(crate) processing_state: Arc<ProcessingState>,
     /// The factory that creates the transaction log.
     ///
     /// Note: we use a regular Mutex instead of an async mutex since we expect users to only set
@@ -139,7 +139,7 @@ impl AssetProcessor {
         let data = Arc::new(AssetProcessorData::new(source.build_sources(true, false)));
         // The asset processor uses its own asset server with its own id space
         let mut sources = source.build_sources(false, false);
-        sources.gate_on_processor(data.clone());
+        sources.gate_on_processor(data.processing_state.clone());
         let server = AssetServer::new_with_meta_check(
             sources,
             AssetServerMode::Processed,
@@ -1212,7 +1212,7 @@ impl AssetProcessorData {
     /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
     pub fn new(source: AssetSources) -> Self {
         AssetProcessorData {
-            processing_state: ProcessingState::new(),
+            processing_state: Arc::new(ProcessingState::new()),
             sources: source,
             log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),

@@ -1,6 +1,6 @@
 use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
-    processor::AssetProcessorData,
+    processor::ProcessingState,
 };
 use alloc::{
     boxed::Box,
@@ -560,12 +560,12 @@ impl AssetSource {
 
     /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         if let Some(reader) = self.processed_reader.take() {
             self.processed_reader = Some(Box::new(ProcessorGatedReader::new(
                 self.id(),
                 reader,
-                processor_data,
+                processing_state,
             )));
         }
     }
@@ -622,9 +622,9 @@ impl AssetSources {
 
     /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub fn gate_on_processor(&mut self, processor_data: Arc<AssetProcessorData>) {
+    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         for source in self.iter_processed_mut() {
-            source.gate_on_processor(processor_data.clone());
+            source.gate_on_processor(processing_state.clone());
         }
     }
 }

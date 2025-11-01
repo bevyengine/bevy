@@ -1,6 +1,6 @@
 use crate::{
     io::{AssetReader, AssetReaderError, AssetSourceId, PathStream, Reader},
-    processor::{AssetProcessorData, ProcessStatus},
+    processor::{ProcessStatus, ProcessingState},
     AssetPath,
 };
 use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
@@ -16,23 +16,23 @@ use super::{AsyncSeekForward, ErasedAssetReader};
 /// given path until that path has been processed by [`AssetProcessor`].
 ///
 /// [`AssetProcessor`]: crate::processor::AssetProcessor
-pub struct ProcessorGatedReader {
+pub(crate) struct ProcessorGatedReader {
     reader: Box<dyn ErasedAssetReader>,
     source: AssetSourceId<'static>,
-    processor_data: Arc<AssetProcessorData>,
+    processing_state: Arc<ProcessingState>,
 }
 
 impl ProcessorGatedReader {
     /// Creates a new [`ProcessorGatedReader`].
-    pub fn new(
+    pub(crate) fn new(
         source: AssetSourceId<'static>,
         reader: Box<dyn ErasedAssetReader>,
-        processor_data: Arc<AssetProcessorData>,
+        processing_state: Arc<ProcessingState>,
     ) -> Self {
         Self {
             source,
-            processor_data,
             reader,
+            processing_state,
         }
     }
 }
@@ -42,7 +42,6 @@ impl AssetReader for ProcessorGatedReader {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
-            .processor_data
             .processing_state
             .wait_until_processed(asset_path.clone())
             .await;
@@ -54,7 +53,6 @@ impl AssetReader for ProcessorGatedReader {
         }
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
         let lock = self
-            .processor_data
             .processing_state
             .get_transaction_lock(&asset_path)
             .await?;
@@ -67,7 +65,6 @@ impl AssetReader for ProcessorGatedReader {
         let asset_path = AssetPath::from(path.to_path_buf()).with_source(self.source.clone());
         trace!("Waiting for processing to finish before reading meta for {asset_path}",);
         let process_result = self
-            .processor_data
             .processing_state
             .wait_until_processed(asset_path.clone())
             .await;
@@ -79,7 +76,6 @@ impl AssetReader for ProcessorGatedReader {
         }
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);
         let lock = self
-            .processor_data
             .processing_state
             .get_transaction_lock(&asset_path)
             .await?;
@@ -96,10 +92,7 @@ impl AssetReader for ProcessorGatedReader {
             "Waiting for processing to finish before reading directory {:?}",
             path
         );
-        self.processor_data
-            .processing_state
-            .wait_until_finished()
-            .await;
+        self.processing_state.wait_until_finished().await;
         trace!("Processing finished, reading directory {:?}", path);
         let result = self.reader.read_directory(path).await?;
         Ok(result)
@@ -110,10 +103,7 @@ impl AssetReader for ProcessorGatedReader {
             "Waiting for processing to finish before reading directory {:?}",
             path
         );
-        self.processor_data
-            .processing_state
-            .wait_until_finished()
-            .await;
+        self.processing_state.wait_until_finished().await;
         trace!("Processing finished, getting directory status {:?}", path);
         let result = self.reader.is_directory(path).await?;
         Ok(result)
