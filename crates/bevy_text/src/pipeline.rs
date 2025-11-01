@@ -310,7 +310,12 @@ impl TextPipeline {
             let Some((id, _)) = self.map_handle_to_font_id.get(font) else {
                 continue;
             };
-            if let Some(font) = font_system.get_font(*id) {
+            let weight = font_system
+                .db()
+                .face(*id)
+                .map(|f| f.weight)
+                .unwrap_or(cosmic_text::Weight::NORMAL);
+            if let Some(font) = font_system.get_font(*id, weight) {
                 let swash = font.as_swash();
                 let metrics = swash.metrics(&[]);
                 let upem = metrics.units_per_em as f32;
