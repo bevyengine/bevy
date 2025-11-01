@@ -66,7 +66,7 @@ pub enum LayoutError {
     #[error("Invalid hierarchy")]
     InvalidHierarchy,
     #[error("Taffy error: {0}")]
-    TaffyError(taffy::TaffyError),
+    TaffyError(taffy::tree::TaffyError),
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
