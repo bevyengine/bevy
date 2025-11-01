@@ -60,6 +60,9 @@ impl SystemExecutor for SingleThreadedExecutor {
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
+        // We run our async ecs accesses first
+        crate::schedule::executor::r#async::ASYNC_ECS_WAKER_LIST.wait(world);
+
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
         #[cfg(feature = "bevy_debug_stepping")]

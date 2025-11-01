@@ -2505,6 +2505,12 @@ path = "examples/ecs/system_stepping.rs"
 doc-scrape-examples = true
 required-features = ["bevy_debug_stepping"]
 
+[[example]]
+name = "async_ecs"
+path = "examples/ecs/async_ecs.rs"
+doc-scrape-examples = true
+required-features = ["default"]
+
 [package.metadata.example.system_stepping]
 name = "System Stepping"
 description = "Demonstrate stepping through systems in order of execution."

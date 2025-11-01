@@ -94,7 +94,7 @@ pub mod prelude {
         resource::Resource,
         schedule::{
             common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
-            Schedules, SystemCondition, SystemSet,
+            Schedules, SystemCondition, SystemSet, executor::r#async::async_access
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
@@ -105,7 +105,7 @@ pub mod prelude {
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World,
+            FromWorld, World, identifier::WorldId
         },
     };
 

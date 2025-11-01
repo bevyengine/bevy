@@ -1,3 +1,4 @@
+pub mod r#async;
 #[cfg(feature = "std")]
 mod multi_threaded;
 mod single_threaded;
