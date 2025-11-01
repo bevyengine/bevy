@@ -40,7 +40,6 @@ taffy = { version = "0.9", default-features = false, features = [
   "flexbox",
   "grid",
   "content_size",
-  "alloc",
   "taffy_tree",
 ] }
 serde = { version = "1", features = ["derive"], optional = true }
