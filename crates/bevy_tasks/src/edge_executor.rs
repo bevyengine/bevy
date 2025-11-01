@@ -449,7 +449,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     )))]
-    queue: heapless::mpmc::MpMcQueue<Runnable, C>,
+    queue: heapless::mpmc::Queue<Runnable, C>,
     waker: AtomicWaker,
 }
 
@@ -471,7 +471,7 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             )))]
-            queue: heapless::mpmc::MpMcQueue::new(),
+            queue: heapless::mpmc::Queue::new(),
             waker: AtomicWaker::new(),
         }
     }
