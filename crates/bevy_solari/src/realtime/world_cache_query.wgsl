@@ -1,5 +1,8 @@
 #define_import_path bevy_solari::world_cache
 
+#import bevy_pbr::utils::rand_vec2f
+#import bevy_render::maths::orthonormalize
+
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
 const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// Maximum amount of frames a cell can live for without being queried
