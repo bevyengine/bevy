@@ -32,7 +32,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var radiance: vec3<f32>;
     var wi: vec3<f32>;
-    if surface.material.roughness > 0.04 {
+    if surface.material.roughness > 0.1 {
         // Surface is very rough, reuse the ReSTIR GI reservoir
         let gi_reservoir = gi_reservoirs_a[pixel_index];
         wi = normalize(gi_reservoir.sample_point_world_position - surface.world_position);
@@ -59,6 +59,10 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(radiance, 0.0);
     textureStore(view_output, global_id.xy, pixel_color);
+
+#ifdef VISUALIZE_WORLD_CACHE
+    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, &rng) * view.exposure, 1.0));
+#endif
 }
 
 fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
@@ -66,6 +70,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
     var wi = initial_wi;
 
     // Trace up to three bounces, getting the net throughput from them
+    var radiance = vec3(0.0);
     var throughput = vec3(1.0);
     for (var i = 0u; i < 3u; i += 1u) {
         // Trace ray
@@ -73,11 +78,12 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
+        // Add world cache contribution
+        let diffuse_brdf = ray_hit.material.base_color / PI;
+        radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
+
         // Surface is very rough, terminate path in the world cache
-        if ray_hit.material.roughness > 0.04 || i == 2u {
-            let diffuse_brdf = ray_hit.material.base_color / PI;
-            return throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
-        }
+        if ray_hit.material.roughness > 0.1 && i != 0u { break; }
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
@@ -93,11 +99,11 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         // Update throughput for next bounce
         let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
         let brdf = evaluate_brdf(N, wo, wi, ray_hit.material);
-        let cos_theta = dot(wi, N);
+        let cos_theta = saturate(dot(wi, N));
         throughput *= (brdf * cos_theta) / pdf;
     }
 
-    return vec3(0.0);
+    return radiance;
 }
 
 // Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
