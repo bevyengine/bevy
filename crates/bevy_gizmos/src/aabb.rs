@@ -114,5 +114,5 @@ fn is_visible(view_visibility: Option<&ViewVisibility>) -> bool {
 }
 
 fn color_from_entity(entity: Entity) -> Color {
-    Oklcha::sequential_dispersed(entity.index()).into()
+    Oklcha::sequential_dispersed(entity.index_u32()).into()
 }

@@ -1103,7 +1103,7 @@ mod tests {
         unsafe { a.world_mut().trigger(TestEvent(entity)) }
         a.observe(|_: On<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
-        assert_eq!(world.entities().get(entity), Some(location));
+        assert_eq!(world.entities().get(entity).unwrap(), Some(location));
     }
 
     #[test]
@@ -1136,11 +1136,15 @@ mod tests {
         world.add_observer(|_: On<Remove, TestComponent>, mut commands: Commands| {
             commands.queue(count_flush);
         });
+
+        // Spawning an empty should not flush.
         world.commands().queue(count_flush);
         let entity = world.spawn_empty().id();
-        assert_eq!(world.resource::<TestFlush>().0, 1);
+        assert_eq!(world.resource::<TestFlush>().0, 0);
+
         world.commands().queue(count_flush);
         world.flush_commands();
+
         let mut a = world.entity_mut(entity);
         assert_eq!(a.world().resource::<TestFlush>().0, 2);
         a.insert(TestComponent(0));

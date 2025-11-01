@@ -501,9 +501,9 @@ mod tests {
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.query::<&A>().query(&world).count(), 0);
+        assert_eq!(world.entities.count_spawned(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.query::<&A>().query(&world).count(), 1);
+        assert_eq!(world.entities.count_spawned(), 1);
     }
 
     #[test]

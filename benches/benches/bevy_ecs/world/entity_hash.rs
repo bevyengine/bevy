@@ -20,7 +20,7 @@ fn make_entity(rng: &mut impl Rng, size: usize) -> Entity {
     let id = id as u64 + 1;
     let bits = ((generation as u64) << 32) | id;
     let e = Entity::from_bits(bits);
-    assert_eq!(e.index(), !(id as u32));
+    assert_eq!(e.index_u32(), !(id as u32));
     assert_eq!(
         e.generation(),
         EntityGeneration::FIRST.after_versions(generation as u32)

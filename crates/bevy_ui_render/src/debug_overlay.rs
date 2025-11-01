@@ -101,7 +101,7 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             transform: transform.into(),
             item: ExtractedUiItem::Node {
-                color: Hsla::sequential_dispersed(entity.index()).into(),
+                color: Hsla::sequential_dispersed(entity.index_u32()).into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.size,
