@@ -1,4 +1,4 @@
-use taffy::{style_helpers, CheapCloneStr};
+use taffy::style_helpers;
 
 use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
@@ -310,7 +310,7 @@ impl From<GridAutoFlow> for taffy::style::GridAutoFlow {
     }
 }
 
-impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> {
+impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement<String>> {
     fn from(value: GridPlacement) -> Self {
         let span = value.get_span().unwrap_or(1);
         match (value.get_start(), value.get_end()) {
@@ -411,13 +411,10 @@ impl GridTrack {
 }
 
 impl RepeatedGridTrack {
-    fn clone_into_repeated_taffy_track<S>(
+    fn clone_into_repeated_taffy_track(
         &self,
         context: &LayoutContext,
-    ) -> taffy::style::GridTemplateComponent<S>
-    where
-        S: CheapCloneStr,
-    {
+    ) -> taffy::style::GridTemplateComponent<String> {
         if self.tracks.len() == 1 && self.repetition == GridTrackRepetition::Count(1) {
             let min = self.tracks[0].min_sizing_function.into_taffy(context);
             let max = self.tracks[0].max_sizing_function.into_taffy(context);
