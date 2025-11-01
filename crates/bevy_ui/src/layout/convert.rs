@@ -334,18 +334,10 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
 impl MinTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
         match self {
-            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::length(
-                Val::Px(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::percent(
-                Val::Percent(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
+            MinTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
+            MinTrackSizingFunction::Percent(val) => {
+                Val::Percent(val).into_length_percentage(context).into()
+            }
             MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::auto(),
             MinTrackSizingFunction::MinContent => {
                 taffy::style::MinTrackSizingFunction::min_content()
@@ -353,30 +345,14 @@ impl MinTrackSizingFunction {
             MinTrackSizingFunction::MaxContent => {
                 taffy::style::MinTrackSizingFunction::max_content()
             }
-            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::length(
-                Val::VMin(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::length(
-                Val::VMax(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MinTrackSizingFunction::Vh(val) => taffy::style::MinTrackSizingFunction::length(
-                Val::Vh(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MinTrackSizingFunction::Vw(val) => taffy::style::MinTrackSizingFunction::length(
-                Val::Vw(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
+            MinTrackSizingFunction::VMin(val) => {
+                Val::VMin(val).into_length_percentage(context).into()
+            }
+            MinTrackSizingFunction::VMax(val) => {
+                Val::VMax(val).into_length_percentage(context).into()
+            }
+            MinTrackSizingFunction::Vh(val) => Val::Vh(val).into_length_percentage(context).into(),
+            MinTrackSizingFunction::Vw(val) => Val::Vw(val).into_length_percentage(context).into(),
         }
     }
 }
@@ -384,18 +360,10 @@ impl MinTrackSizingFunction {
 impl MaxTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
-            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::Px(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::percent(
-                Val::Percent(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
+            MaxTrackSizingFunction::Px(val) => Val::Px(val).into_length_percentage(context).into(),
+            MaxTrackSizingFunction::Percent(val) => {
+                Val::Percent(val).into_length_percentage(context).into()
+            }
             MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
             MaxTrackSizingFunction::MinContent => {
                 taffy::style::MaxTrackSizingFunction::min_content()
@@ -422,30 +390,14 @@ impl MaxTrackSizingFunction {
             MaxTrackSizingFunction::Fraction(fraction) => {
                 taffy::style::MaxTrackSizingFunction::fr(fraction)
             }
-            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::VMin(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::VMax(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MaxTrackSizingFunction::Vh(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::Vh(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
-            MaxTrackSizingFunction::Vw(val) => taffy::style::MaxTrackSizingFunction::length(
-                Val::Vw(val)
-                    .into_length_percentage(context)
-                    .into_raw()
-                    .value(),
-            ),
+            MaxTrackSizingFunction::VMin(val) => {
+                Val::VMin(val).into_length_percentage(context).into()
+            }
+            MaxTrackSizingFunction::VMax(val) => {
+                Val::VMax(val).into_length_percentage(context).into()
+            }
+            MaxTrackSizingFunction::Vh(val) => Val::Vh(val).into_length_percentage(context).into(),
+            MaxTrackSizingFunction::Vw(val) => Val::Vw(val).into_length_percentage(context).into(),
         }
     }
 }
