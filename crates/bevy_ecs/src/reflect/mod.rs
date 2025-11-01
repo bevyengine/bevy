@@ -24,7 +24,7 @@ pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
 pub use from_world::{ReflectFromWorld, ReflectFromWorldFns};
 pub use map_entities::ReflectMapEntities;
-pub use resource::{ReflectResource, ReflectResourceFns};
+pub use resource::ReflectResource;
 
 /// A [`Resource`] storing [`TypeRegistry`] for
 /// type registrations relevant to a whole app.

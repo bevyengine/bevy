@@ -1245,7 +1245,6 @@ mod tests {
 
         #[derive(Resource, PartialEq, Debug)]
         struct BigNum(u64);
-
         let mut world = World::default();
         assert!(world.get_resource::<Num>().is_none());
         assert!(!world.contains_resource::<Num>());
@@ -1555,8 +1554,8 @@ mod tests {
         let mut world_a = World::new();
         let world_b = World::new();
         let mut query = world_a.query::<&A>();
-        let _ = query.get(&world_a, Entity::from_raw_u32(0).unwrap());
-        let _ = query.get(&world_b, Entity::from_raw_u32(0).unwrap());
+        let _ = query.get(&world_a, Entity::from_raw_u32(10_000).unwrap());
+        let _ = query.get(&world_b, Entity::from_raw_u32(10_000).unwrap());
     }
 
     #[test]

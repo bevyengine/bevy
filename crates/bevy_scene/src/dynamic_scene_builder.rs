@@ -354,15 +354,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, _) in self.original_world.storages().resources.iter() {
-            if Some(component_id) == original_world_dqf_id {
+        for (component_id, entity) in self.original_world.resource_entities().iter() {
+            if Some(*component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(component_id)?
+                    .get_info(*component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -376,13 +376,12 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectResource>()?
-                    .reflect(self.original_world)
-                    .ok()?;
+                    .reflect(self.original_world.entity(*entity))?;
 
                 let resource =
                     clone_reflect_value(resource.as_partial_reflect(), type_registration);
 
-                self.extracted_resources.insert(component_id, resource);
+                self.extracted_resources.insert(*component_id, resource);
                 Some(())
             };
             extract_and_push();
