@@ -116,7 +116,7 @@ pub struct AssetProcessorData {
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
     default_processors: RwLock<HashMap<Box<str>, &'static str>>,
-    sources: AssetSources,
+    sources: Arc<AssetSources>,
 }
 
 /// The current state of processing, including the overall state and the state of all assets.
@@ -135,19 +135,25 @@ pub(crate) struct ProcessingState {
 
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
-    pub fn new(source: &mut AssetSourceBuilders) -> Self {
-        let data = Arc::new(AssetProcessorData::new(source.build_sources(true, false)));
+    pub fn new(
+        sources: &mut AssetSourceBuilders,
+        watch_processed: bool,
+    ) -> (Self, Arc<AssetSources>) {
+        let state = Arc::new(ProcessingState::new());
+        let mut sources = sources.build_sources(true, watch_processed);
+        sources.gate_on_processor(state.clone());
+        let sources = Arc::new(sources);
+
+        let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
         // The asset processor uses its own asset server with its own id space
-        let mut sources = source.build_sources(false, false);
-        sources.gate_on_processor(data.processing_state.clone());
         let server = AssetServer::new_with_meta_check(
-            sources,
+            sources.clone(),
             AssetServerMode::Processed,
             AssetMetaCheck::Always,
             false,
             UnapprovedPathMode::default(),
         );
-        Self { server, data }
+        (Self { server, data }, sources)
     }
 
     /// Gets a reference to the [`Arc`] containing the [`AssetProcessorData`].
@@ -513,7 +519,7 @@ impl AssetProcessor {
                 }
             }
             AssetSourceEvent::RemovedUnknown { path, is_meta } => {
-                let processed_reader = source.processed_reader().unwrap();
+                let processed_reader = source.ungated_processed_reader().unwrap();
                 match processed_reader.is_directory(&path).await {
                     Ok(is_directory) => {
                         if is_directory {
@@ -590,7 +596,7 @@ impl AssetProcessor {
             "Removing folder {} because source was removed",
             path.display()
         );
-        let processed_reader = source.processed_reader().unwrap();
+        let processed_reader = source.ungated_processed_reader().unwrap();
         match processed_reader.read_directory(path).await {
             Ok(mut path_stream) => {
                 while let Some(child_path) = path_stream.next().await {
@@ -787,7 +793,7 @@ impl AssetProcessor {
         }
 
         for source in self.sources().iter_processed() {
-            let Ok(processed_reader) = source.processed_reader() else {
+            let Some(processed_reader) = source.ungated_processed_reader() else {
                 continue;
             };
             let Ok(processed_writer) = source.processed_writer() else {
@@ -1210,10 +1216,10 @@ impl AssetProcessor {
 
 impl AssetProcessorData {
     /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
-    pub fn new(source: AssetSources) -> Self {
+    pub(crate) fn new(sources: Arc<AssetSources>, processing_state: Arc<ProcessingState>) -> Self {
         AssetProcessorData {
-            processing_state: Arc::new(ProcessingState::new()),
-            sources: source,
+            processing_state,
+            sources,
             log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),

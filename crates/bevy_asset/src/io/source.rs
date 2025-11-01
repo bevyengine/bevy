@@ -431,6 +431,13 @@ impl AssetSource {
             .ok_or_else(|| MissingProcessedAssetReaderError(self.id.clone_owned()))
     }
 
+    /// Return's this source's ungated processed [`AssetReader`](crate::io::AssetReader), if it
+    /// exists.
+    #[inline]
+    pub(crate) fn ungated_processed_reader(&self) -> Option<&dyn ErasedAssetReader> {
+        self.ungated_processed_reader.as_deref()
+    }
+
     /// Return's this source's processed [`AssetWriter`](crate::io::AssetWriter), if it exists.
     #[inline]
     pub fn processed_writer(

@@ -375,7 +375,7 @@ impl Plugin for AssetPlugin {
                     let sources = builders.build_sources(watch, false);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
-                        sources,
+                        Arc::new(sources),
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
@@ -388,9 +388,7 @@ impl Plugin for AssetPlugin {
                         .unwrap_or(cfg!(feature = "asset_processor"));
                     if use_asset_processor {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let processor = AssetProcessor::new(&mut builders);
-                        let mut sources = builders.build_sources(false, watch);
-                        sources.gate_on_processor(processor.data.processing_state.clone());
+                        let (processor, sources) = AssetProcessor::new(&mut builders, watch);
                         // the main asset server shares loaders with the processor asset server
                         app.insert_resource(AssetServer::new_with_loaders(
                             sources,
@@ -406,7 +404,7 @@ impl Plugin for AssetPlugin {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch);
                         app.insert_resource(AssetServer::new_with_meta_check(
-                            sources,
+                            Arc::new(sources),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
