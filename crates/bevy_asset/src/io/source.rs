@@ -180,7 +180,12 @@ impl AssetSourceBuilder {
             id: id.clone(),
             reader,
             writer,
-            processed_reader: self.processed_reader.as_mut().map(|r| r()),
+            processed_reader: self
+                .processed_reader
+                .as_mut()
+                .map(|r| r())
+                .map(Into::<Arc<_>>::into),
+            ungated_processed_reader: None,
             processed_writer,
             event_receiver: None,
             watcher: None,
@@ -386,7 +391,8 @@ pub struct AssetSource {
     id: AssetSourceId<'static>,
     reader: Box<dyn ErasedAssetReader>,
     writer: Option<Box<dyn ErasedAssetWriter>>,
-    processed_reader: Option<Box<dyn ErasedAssetReader>>,
+    processed_reader: Option<Arc<dyn ErasedAssetReader>>,
+    ungated_processed_reader: Option<Arc<dyn ErasedAssetReader>>,
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
     processed_watcher: Option<Box<dyn AssetWatcher>>,
@@ -562,7 +568,8 @@ impl AssetSource {
     /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
     pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
         if let Some(reader) = self.processed_reader.take() {
-            self.processed_reader = Some(Box::new(ProcessorGatedReader::new(
+            self.ungated_processed_reader = Some(reader.clone());
+            self.processed_reader = Some(Arc::new(ProcessorGatedReader::new(
                 self.id(),
                 reader,
                 processing_state,

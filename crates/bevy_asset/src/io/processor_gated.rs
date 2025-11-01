@@ -17,7 +17,7 @@ use super::{AsyncSeekForward, ErasedAssetReader};
 ///
 /// [`AssetProcessor`]: crate::processor::AssetProcessor
 pub(crate) struct ProcessorGatedReader {
-    reader: Box<dyn ErasedAssetReader>,
+    reader: Arc<dyn ErasedAssetReader>,
     source: AssetSourceId<'static>,
     processing_state: Arc<ProcessingState>,
 }
@@ -26,7 +26,7 @@ impl ProcessorGatedReader {
     /// Creates a new [`ProcessorGatedReader`].
     pub(crate) fn new(
         source: AssetSourceId<'static>,
-        reader: Box<dyn ErasedAssetReader>,
+        reader: Arc<dyn ErasedAssetReader>,
         processing_state: Arc<ProcessingState>,
     ) -> Self {
         Self {
