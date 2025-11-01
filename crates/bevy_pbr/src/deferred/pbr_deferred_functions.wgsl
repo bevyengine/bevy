@@ -4,6 +4,7 @@
     pbr_types::{PbrInput, pbr_input_new, STANDARD_MATERIAL_FLAGS_UNLIT_BIT},
     pbr_deferred_types as deferred_types,
     pbr_functions,
+    lighting,
     rgb9e5,
     mesh_view_bindings::view,
     utils::{octahedral_encode, octahedral_decode},
@@ -64,7 +65,7 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     let metallic = in.material.metallic;
     let specular_transmission = in.material.specular_transmission;
     let diffuse_transmission = in.material.diffuse_transmission;
-    let diffuse_color = pbr_functions::calculate_diffuse_color(
+    let diffuse_color = lighting::calculate_diffuse_color(
         base_color,
         metallic,
         specular_transmission,
