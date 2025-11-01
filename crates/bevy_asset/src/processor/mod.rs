@@ -40,6 +40,7 @@
 mod log;
 mod process;
 
+use async_lock::RwLockReadGuardArc;
 pub use log::*;
 pub use process::*;
 
@@ -103,7 +104,8 @@ pub struct AssetProcessor {
 
 /// Internal data stored inside an [`AssetProcessor`].
 pub struct AssetProcessorData {
-    pub(crate) asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
+    /// The state of processing.
+    pub(crate) processing_state: ProcessingState,
     /// The factory that creates the transaction log.
     ///
     /// Note: we use a regular Mutex instead of an async mutex since we expect users to only set
@@ -114,12 +116,21 @@ pub struct AssetProcessorData {
     processors: RwLock<HashMap<&'static str, Arc<dyn ErasedProcessor>>>,
     /// Default processors for file extensions
     default_processors: RwLock<HashMap<Box<str>, &'static str>>,
-    state: async_lock::RwLock<ProcessorState>,
     sources: AssetSources,
+}
+
+/// The current state of processing, including the overall state and the state of all assets.
+pub(crate) struct ProcessingState {
+    /// The overall state of processing.
+    state: async_lock::RwLock<ProcessorState>,
+    /// The channel to broadcast when the processor has completed initialization.
     initialized_sender: async_broadcast::Sender<()>,
     initialized_receiver: async_broadcast::Receiver<()>,
+    /// The channel to broadcast when the processor has completed processing.
     finished_sender: async_broadcast::Sender<()>,
     finished_receiver: async_broadcast::Receiver<()>,
+    /// The current state of the assets.
+    asset_infos: async_lock::RwLock<ProcessorAssetInfos>,
 }
 
 impl AssetProcessor {
@@ -150,20 +161,9 @@ impl AssetProcessor {
         &self.server
     }
 
-    async fn set_state(&self, state: ProcessorState) {
-        let mut state_guard = self.data.state.write().await;
-        let last_state = *state_guard;
-        *state_guard = state;
-        if last_state != ProcessorState::Finished && state == ProcessorState::Finished {
-            self.data.finished_sender.broadcast(()).await.unwrap();
-        } else if last_state != ProcessorState::Processing && state == ProcessorState::Processing {
-            self.data.initialized_sender.broadcast(()).await.unwrap();
-        }
-    }
-
     /// Retrieves the current [`ProcessorState`]
     pub async fn get_state(&self) -> ProcessorState {
-        *self.data.state.read().await
+        self.data.processing_state.get_state().await
     }
 
     /// Retrieves the [`AssetSource`] for this processor
@@ -325,7 +325,10 @@ impl AssetProcessor {
         // to the finished state (otherwise we'd be sitting around stuck in the `Initialized`
         // state).
         if new_task_receiver.is_empty() {
-            self.set_state(ProcessorState::Finished).await;
+            self.data
+                .processing_state
+                .set_state(ProcessorState::Finished)
+                .await;
         }
         enum ProcessorTaskEvent {
             Start(AssetSourceId<'static>, PathBuf),
@@ -371,14 +374,20 @@ impl AssetProcessor {
                             let _ = task_finished_sender.send(()).await;
                         })
                         .detach();
-                    self.set_state(ProcessorState::Processing).await;
+                    self.data
+                        .processing_state
+                        .set_state(ProcessorState::Processing)
+                        .await;
                 }
                 ProcessorTaskEvent::Finished => {
                     pending_tasks -= 1;
                     if pending_tasks == 0 {
                         // clean up metadata in asset server
                         self.server.write_infos().consume_handle_drop_events();
-                        self.set_state(ProcessorState::Finished).await;
+                        self.data
+                            .processing_state
+                            .set_state(ProcessorState::Finished)
+                            .await;
                     }
                 }
             }
@@ -628,7 +637,7 @@ impl AssetProcessor {
     async fn handle_removed_asset(&self, source: &AssetSource, path: PathBuf) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         debug!("Removing processed {asset_path} because source was removed");
-        let mut infos = self.data.asset_infos.write().await;
+        let mut infos = self.data.processing_state.asset_infos.write().await;
         if let Some(info) = infos.get(&asset_path) {
             // we must wait for uncontested write access to the asset source to ensure existing readers / writers
             // can finish their operations
@@ -648,7 +657,7 @@ impl AssetProcessor {
         new: PathBuf,
         new_task_sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        let mut infos = self.data.asset_infos.write().await;
+        let mut infos = self.data.processing_state.asset_infos.write().await;
         let old = AssetPath::from(old).with_source(source.id());
         let new = AssetPath::from(new).with_source(source.id());
         let processed_writer = source.processed_writer().unwrap();
@@ -740,7 +749,7 @@ impl AssetProcessor {
     /// This will validate transactions and recover failed transactions when necessary.
     async fn initialize(&self) -> Result<(), InitializeError> {
         self.validate_transaction_log_and_recover().await;
-        let mut asset_infos = self.data.asset_infos.write().await;
+        let mut asset_infos = self.data.processing_state.asset_infos.write().await;
 
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
         /// folders when they are discovered.
@@ -855,7 +864,10 @@ impl AssetProcessor {
             }
         }
 
-        self.set_state(ProcessorState::Processing).await;
+        self.data
+            .processing_state
+            .set_state(ProcessorState::Processing)
+            .await;
 
         Ok(())
     }
@@ -913,7 +925,7 @@ impl AssetProcessor {
     ) {
         let asset_path = AssetPath::from(path).with_source(source.id());
         let result = self.process_asset_internal(source, &asset_path).await;
-        let mut infos = self.data.asset_infos.write().await;
+        let mut infos = self.data.processing_state.asset_infos.write().await;
         infos
             .finish_processing(asset_path, result, processor_task_event)
             .await;
@@ -1016,7 +1028,7 @@ impl AssetProcessor {
         };
 
         {
-            let infos = self.data.asset_infos.read().await;
+            let infos = self.data.processing_state.asset_infos.read().await;
             if let Some(current_processed_info) = infos
                 .get(asset_path)
                 .and_then(|i| i.processed_info.as_ref())
@@ -1042,7 +1054,7 @@ impl AssetProcessor {
         // Note: this lock must remain alive until all processed asset and meta writes have finished (or failed)
         // See ProcessedAssetInfo::file_transaction_lock docs for more info
         let _transaction_lock = {
-            let mut infos = self.data.asset_infos.write().await;
+            let mut infos = self.data.processing_state.asset_infos.write().await;
             let info = infos.get_or_insert(asset_path.clone());
             info.file_transaction_lock.write_arc().await
         };
@@ -1199,24 +1211,12 @@ impl AssetProcessor {
 impl AssetProcessorData {
     /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
     pub fn new(source: AssetSources) -> Self {
-        let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
-        let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
-        // allow overflow on these "one slot" channels to allow receivers to retrieve the "latest" state, and to allow senders to
-        // not block if there was older state present.
-        finished_sender.set_overflow(true);
-        initialized_sender.set_overflow(true);
-
         AssetProcessorData {
+            processing_state: ProcessingState::new(),
             sources: source,
-            finished_sender,
-            finished_receiver,
-            initialized_sender,
-            initialized_receiver,
-            state: async_lock::RwLock::new(ProcessorState::Initializing),
             log_factory: Mutex::new(Some(Box::new(FileTransactionLogFactory::default()))),
             log: Default::default(),
             processors: Default::default(),
-            asset_infos: Default::default(),
             default_processors: Default::default(),
         }
     }
@@ -1245,6 +1245,72 @@ impl AssetProcessorData {
 
     /// Returns a future that will not finish until the path has been processed.
     pub async fn wait_until_processed(&self, path: AssetPath<'static>) -> ProcessStatus {
+        self.processing_state.wait_until_processed(path).await
+    }
+
+    /// Returns a future that will not finish until the processor has been initialized.
+    pub async fn wait_until_initialized(&self) {
+        self.processing_state.wait_until_initialized().await;
+    }
+
+    /// Returns a future that will not finish until processing has finished.
+    pub async fn wait_until_finished(&self) {
+        self.processing_state.wait_until_finished().await;
+    }
+}
+
+impl ProcessingState {
+    /// Creates a new empty processing state.
+    fn new() -> Self {
+        let (mut initialized_sender, initialized_receiver) = async_broadcast::broadcast(1);
+        let (mut finished_sender, finished_receiver) = async_broadcast::broadcast(1);
+        // allow overflow on these "one slot" channels to allow receivers to retrieve the "latest" state, and to allow senders to
+        // not block if there was older state present.
+        initialized_sender.set_overflow(true);
+        finished_sender.set_overflow(true);
+
+        Self {
+            state: async_lock::RwLock::new(ProcessorState::Initializing),
+            initialized_sender,
+            initialized_receiver,
+            finished_sender,
+            finished_receiver,
+            asset_infos: Default::default(),
+        }
+    }
+
+    /// Sets the overall state of processing and broadcasts appropriate events.
+    async fn set_state(&self, state: ProcessorState) {
+        let mut state_guard = self.state.write().await;
+        let last_state = *state_guard;
+        *state_guard = state;
+        if last_state != ProcessorState::Finished && state == ProcessorState::Finished {
+            self.finished_sender.broadcast(()).await.unwrap();
+        } else if last_state != ProcessorState::Processing && state == ProcessorState::Processing {
+            self.initialized_sender.broadcast(()).await.unwrap();
+        }
+    }
+
+    /// Retrieves the current [`ProcessorState`]
+    pub(crate) async fn get_state(&self) -> ProcessorState {
+        *self.state.read().await
+    }
+
+    /// Gets a "transaction lock" that can be used to ensure no writes to asset or asset meta occur
+    /// while it is held.
+    pub(crate) async fn get_transaction_lock(
+        &self,
+        path: &AssetPath<'static>,
+    ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
+        let infos = self.asset_infos.read().await;
+        let info = infos
+            .get(path)
+            .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
+        Ok(info.file_transaction_lock.read_arc().await)
+    }
+
+    /// Returns a future that will not finish until the path has been processed.
+    pub(crate) async fn wait_until_processed(&self, path: AssetPath<'static>) -> ProcessStatus {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
@@ -1262,7 +1328,7 @@ impl AssetProcessorData {
     }
 
     /// Returns a future that will not finish until the processor has been initialized.
-    pub async fn wait_until_initialized(&self) {
+    pub(crate) async fn wait_until_initialized(&self) {
         let receiver = {
             let state = self.state.read().await;
             match *state {
@@ -1280,7 +1346,7 @@ impl AssetProcessorData {
     }
 
     /// Returns a future that will not finish until processing has finished.
-    pub async fn wait_until_finished(&self) {
+    pub(crate) async fn wait_until_finished(&self) {
         let receiver = {
             let state = self.state.read().await;
             match *state {

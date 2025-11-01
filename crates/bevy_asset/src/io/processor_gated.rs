@@ -35,19 +35,6 @@ impl ProcessorGatedReader {
             reader,
         }
     }
-
-    /// Gets a "transaction lock" that can be used to ensure no writes to asset or asset meta occur
-    /// while it is held.
-    async fn get_transaction_lock(
-        &self,
-        path: &AssetPath<'static>,
-    ) -> Result<RwLockReadGuardArc<()>, AssetReaderError> {
-        let infos = self.processor_data.asset_infos.read().await;
-        let info = infos
-            .get(path)
-            .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
-        Ok(info.file_transaction_lock.read_arc().await)
-    }
 }
 
 impl AssetReader for ProcessorGatedReader {
@@ -56,6 +43,7 @@ impl AssetReader for ProcessorGatedReader {
         trace!("Waiting for processing to finish before reading {asset_path}");
         let process_result = self
             .processor_data
+            .processing_state
             .wait_until_processed(asset_path.clone())
             .await;
         match process_result {
@@ -65,7 +53,11 @@ impl AssetReader for ProcessorGatedReader {
             }
         }
         trace!("Processing finished with {asset_path}, reading {process_result:?}",);
-        let lock = self.get_transaction_lock(&asset_path).await?;
+        let lock = self
+            .processor_data
+            .processing_state
+            .get_transaction_lock(&asset_path)
+            .await?;
         let asset_reader = self.reader.read(path).await?;
         let reader = TransactionLockedReader::new(asset_reader, lock);
         Ok(reader)
@@ -76,6 +68,7 @@ impl AssetReader for ProcessorGatedReader {
         trace!("Waiting for processing to finish before reading meta for {asset_path}",);
         let process_result = self
             .processor_data
+            .processing_state
             .wait_until_processed(asset_path.clone())
             .await;
         match process_result {
@@ -85,7 +78,11 @@ impl AssetReader for ProcessorGatedReader {
             }
         }
         trace!("Processing finished with {process_result:?}, reading meta for {asset_path}",);
-        let lock = self.get_transaction_lock(&asset_path).await?;
+        let lock = self
+            .processor_data
+            .processing_state
+            .get_transaction_lock(&asset_path)
+            .await?;
         let meta_reader = self.reader.read_meta(path).await?;
         let reader = TransactionLockedReader::new(meta_reader, lock);
         Ok(reader)
@@ -99,7 +96,10 @@ impl AssetReader for ProcessorGatedReader {
             "Waiting for processing to finish before reading directory {:?}",
             path
         );
-        self.processor_data.wait_until_finished().await;
+        self.processor_data
+            .processing_state
+            .wait_until_finished()
+            .await;
         trace!("Processing finished, reading directory {:?}", path);
         let result = self.reader.read_directory(path).await?;
         Ok(result)
@@ -110,7 +110,10 @@ impl AssetReader for ProcessorGatedReader {
             "Waiting for processing to finish before reading directory {:?}",
             path
         );
-        self.processor_data.wait_until_finished().await;
+        self.processor_data
+            .processing_state
+            .wait_until_finished()
+            .await;
         trace!("Processing finished, getting directory status {:?}", path);
         let result = self.reader.is_directory(path).await?;
         Ok(result)
