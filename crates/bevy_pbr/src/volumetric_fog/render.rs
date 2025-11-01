@@ -50,7 +50,7 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    ExtractedAtmosphere, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
     ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
@@ -550,6 +550,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         }
 
         if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ATMOSPHERE)
+        {
+            shader_defs.push("ATMOSPHERE".into());
+        }
+
+        if key
             .flags
             .contains(VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE)
         {
@@ -626,6 +633,7 @@ pub fn prepare_volumetric_fog_pipelines(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<ExtractedAtmosphere>,
         ),
         With<VolumetricFog>,
     >,
@@ -644,6 +652,7 @@ pub fn prepare_volumetric_fog_pipelines(
         depth_prepass,
         motion_vector_prepass,
         deferred_prepass,
+        atmosphere,
     ) in view_targets.iter()
     {
         // Create a mesh pipeline view layout key corresponding to the view.
@@ -658,6 +667,7 @@ pub fn prepare_volumetric_fog_pipelines(
             MeshPipelineViewLayoutKey::DEFERRED_PREPASS,
             deferred_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, atmosphere);
 
         let mut textureless_flags = VolumetricFogPipelineKeyFlags::empty();
         textureless_flags.set(VolumetricFogPipelineKeyFlags::HDR, view.hdr);
