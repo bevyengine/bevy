@@ -3,6 +3,8 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
+    atmosphere::functions::calculate_visible_sun_ratio,
+    atmosphere::bruneton_functions::transmittance_lut_r_mu_to_uv,
 }
 #import bevy_render::maths::PI
 
@@ -852,5 +854,34 @@ fn directional_light(
     }
 #endif
 
-    return color * (*light).color.rgb * texture_sample;
+color *= (*light).color.rgb * texture_sample;
+
+#ifdef ATMOSPHERE
+    let P = (*input).P;
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    let O = vec3(0.0, atmosphere.bottom_radius, 0.0);
+    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
+    let P_as = P_scaled + O;
+    let r = length(P_as);
+    let local_up = normalize(P_as);
+    let mu_light = dot(L, local_up);
+
+    // Sample atmosphere
+    let transmittance = sample_transmittance_lut(r, mu_light);
+    let sun_visibility = calculate_visible_sun_ratio(atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+    
+    // Apply atmospheric effects
+    color *= transmittance * sun_visibility;
+#endif
+
+    return color;
 }
+
+#ifdef ATMOSPHERE
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(view_bindings::atmosphere_data.atmosphere, r, mu);
+    return textureSampleLevel(
+        view_bindings::atmosphere_transmittance_texture, 
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+#endif  // ATMOSPHERE
