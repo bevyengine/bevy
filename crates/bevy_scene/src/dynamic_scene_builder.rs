@@ -271,9 +271,19 @@ impl<'w> DynamicSceneBuilder<'w> {
     #[must_use]
     pub fn extract_entities(mut self, entities: impl Iterator<Item = Entity>) -> Self {
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
+        let resource_entities: Vec<Entity> = self
+            .original_world
+            .resource_entities()
+            .values()
+            .copied()
+            .collect();
 
         for entity in entities {
             if self.extracted_scene.contains_key(&entity) {
+                continue;
+            }
+
+            if resource_entities.contains(&entity) {
                 continue;
             }
 

@@ -6,8 +6,8 @@ use crate::{
     component::{ComponentId, Components},
     entity::Entities,
     query::{
-        Access, AccessConflicts, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter,
-        QuerySingleError, QueryState, ReadOnlyQueryData,
+        Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
+        QueryState, ReadOnlyQueryData,
     },
     resource::{IsResource, Resource},
     storage::ResourceData,
