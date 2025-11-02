@@ -494,7 +494,7 @@ impl Camera {
     /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
     /// to avoid code duplication.
     ///
-    /// Returns a tuple `(viewport_position, ndc_depth)`.
+    /// Returns a tuple `(viewport_position, ndc_space_coords.z)`.
     fn world_to_viewport_core(
         &self,
         camera_transform: &GlobalTransform,
