@@ -2028,6 +2028,17 @@ category = "Async Tasks"
 wasm = false
 
 [[example]]
+name = "async_channel_pattern"
+path = "examples/async_tasks/async_channel_pattern.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.async_channel_pattern]
+name = "Async Channel Pattern"
+description = "An example showing how to offload work to background async tasks using channels for communication."
+category = "Async Tasks"
+wasm = true
+
+[[example]]
 name = "external_source_external_thread"
 path = "examples/async_tasks/external_source_external_thread.rs"
 doc-scrape-examples = true
@@ -3550,13 +3561,13 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "strikethrough"
-path = "examples/ui/strikethrough.rs"
+name = "strikethrough_and_underline"
+path = "examples/ui/strikethrough_and_underline.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.strikethrough]
-name = "Strikethrough"
-description = "Demonstrates how to display text with strikethrough."
+[package.metadata.example.strikethrough_and_underline]
+name = "Strikethrough and Underline"
+description = "Demonstrates how to display text with strikethrough and underline."
 category = "UI (User Interface)"
 wasm = true
 
