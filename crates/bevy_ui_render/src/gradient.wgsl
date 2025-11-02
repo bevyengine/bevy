@@ -16,7 +16,6 @@
     hsv_to_linear_rgb,
     hsl_to_linear_rgb,
     oklab_to_linear_rgb,
-    
 }
 
 #import bevy_render::maths::PI
