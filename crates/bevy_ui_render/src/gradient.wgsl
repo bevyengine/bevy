@@ -5,8 +5,18 @@
 }
 
 #import bevy_ui_render::color_space::{
-    mix_colors,
     convert_to_linear_rgba,
+    mix_oklch,
+    mix_oklch_long,
+    mix_hsv,
+    mix_hsv_long,
+    mix_hsl,
+    mix_hsl_long,
+    oklch_to_linear_rgb,
+    hsv_to_linear_rgb,
+    hsl_to_linear_rgb,
+    oklab_to_linear_rgb,
+    
 }
 
 #import bevy_render::maths::PI
@@ -151,6 +161,57 @@ fn conic_distance(
     let d = point - center;
     let angle = atan2(-d.x, d.y) + PI;
     return (((angle - start) % TAU) + TAU) % TAU;
+}
+
+// Mix the colors, choosing the appropriate interpolation method for the given color space
+fn mix_colors(
+    start_color: vec3<f32>,
+    end_color: vec3<f32>,
+    t: f32,
+) -> vec3<f32> {
+#ifdef IN_OKLCH
+    return mix_oklch(start_color, end_color, t);
+#else ifdef IN_OKLCH_LONG
+    return mix_oklch_long(start_color, end_color, t);
+#else ifdef IN_HSV
+    return mix_hsv(start_color, end_color, t);
+#else ifdef IN_HSV_LONG
+    return mix_hsv_long(start_color, end_color, t);
+#else ifdef IN_HSL
+    return mix_hsl(start_color, end_color, t);
+#else ifdef IN_HSL_LONG
+    return mix_hsl_long(start_color, end_color, t);
+#else
+    // Just lerp in linear RGBA, OkLab and SRGBA spaces
+    return mix(start_color, end_color, t);
+#endif
+}
+
+// Convert a color from the interpolation color space to linear rgba
+fn convert_to_linear_rgba(
+    color: vec4<f32>,
+) -> vec4<f32> {
+#ifdef IN_OKLCH
+    let rgb = oklch_to_linear_rgb(color.xyz);
+#else ifdef IN_OKLCH_LONG
+    let rgb = oklch_to_linear_rgb(color.xyz);
+#else ifdef IN_HSV
+    let rgb = hsv_to_linear_rgb(color.xyz);
+#else ifdef IN_HSV_LONG
+    let rgb = hsv_to_linear_rgb(color.xyz);
+#else ifdef IN_HSL
+    let rgb = hsl_to_linear_rgb(color.xyz);
+#else ifdef IN_HSL_LONG
+    let rgb = hsl_to_linear_rgb(color.xyz);
+#else ifdef IN_OKLAB
+    let rgb = oklab_to_linear_rgb(color.xyz);
+#else ifdef IN_SRGB
+    let rgb = pow(color.xyz, vec3(2.2));
+#else
+    // Color is already in linear rgba space
+    let rgb = color.rgb;
+#endif
+    return vec4(rgb, color.a);
 }
 
 fn interpolate_gradient(
