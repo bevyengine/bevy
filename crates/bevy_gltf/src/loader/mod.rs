@@ -1908,7 +1908,7 @@ mod test {
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
-            AssetSource, AssetSourceId,
+            AssetSourceBuilder, AssetSourceId,
         },
         AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
@@ -1925,7 +1925,7 @@ mod test {
         let reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
@@ -2344,7 +2344,7 @@ mod test {
         // Create a default asset source so we definitely don't try to read from disk.
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || {
+            AssetSourceBuilder::new(move || {
                 Box::new(MemoryAssetReader {
                     root: Dir::default(),
                 })
@@ -2352,7 +2352,7 @@ mod test {
         )
         .register_asset_source(
             "custom",
-            AssetSource::build().with_reader(move || Box::new(custom_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
         )
         .add_plugins((
             LogPlugin::default(),
