@@ -489,21 +489,17 @@ impl Camera {
         self.computed.clip_from_view
     }
 
-    /// Given a position in world space, use the camera to compute the viewport-space coordinates.
+    /// Core conversion logic to compute viewport coordinates and NDC depth from a world position.
     ///
-    /// To get the coordinates in Normalized Device Coordinates, you should use
-    /// [`world_to_ndc`](Self::world_to_ndc).
+    /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
+    /// to avoid code duplication.
     ///
-    /// # Panics
-    ///
-    /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
-    /// (see [`world_to_ndc`][Self::world_to_ndc]).
-    #[doc(alias = "world_to_screen")]
-    pub fn world_to_viewport(
+    /// Returns a tuple `(viewport_position, ndc_depth)`.
+    fn world_to_viewport_core(
         &self,
         camera_transform: &GlobalTransform,
         world_position: Vec3,
-    ) -> Result<Vec2, ViewportConversionError> {
+    ) -> Result<(Vec2, f32), ViewportConversionError> {
         let target_rect = self
             .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
@@ -524,7 +520,27 @@ impl Camera {
         // Once in NDC space, we can discard the z element and map x/y to the viewport rect
         let viewport_position =
             (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position)
+        Ok((viewport_position, ndc_space_coords.z))
+    }
+
+    /// Given a position in world space, use the camera to compute the viewport-space coordinates.
+    ///
+    /// To get the coordinates in Normalized Device Coordinates, you should use
+    /// [`world_to_ndc`](Self::world_to_ndc).
+    ///
+    /// # Panics
+    ///
+    /// Will panic if `glam_assert` is enabled and the `camera_transform` contains `NAN`
+    /// (see [`world_to_ndc`][Self::world_to_ndc]).
+    #[doc(alias = "world_to_screen")]
+    pub fn world_to_viewport(
+        &self,
+        camera_transform: &GlobalTransform,
+        world_position: Vec3,
+    ) -> Result<Vec2, ViewportConversionError> {
+        Ok(self
+            .world_to_viewport_core(camera_transform, world_position)?
+            .0)
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates and depth.
@@ -542,30 +558,9 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
-        let target_rect = self
-            .logical_viewport_rect()
-            .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut ndc_space_coords = self
-            .world_to_ndc(camera_transform, world_position)
-            .ok_or(ViewportConversionError::InvalidData)?;
-        // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
-        if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastFarPlane);
-        }
-        if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastNearPlane);
-        }
-
-        // Stretching ndc depth to value via near plane and negating result to be in positive room again.
-        let depth = -self.depth_ndc_to_view_z(ndc_space_coords.z);
-
-        // Flip the Y co-ordinate origin from the bottom to the top.
-        ndc_space_coords.y = -ndc_space_coords.y;
-
-        // Once in NDC space, we can discard the z element and map x/y to the viewport rect
-        let viewport_position =
-            (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok(viewport_position.extend(depth))
+        let result = self.world_to_viewport_core(camera_transform, world_position)?;
+        let depth = -self.depth_ndc_to_view_z(result.1);
+        Ok(result.0.extend(depth))
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
