@@ -10,5 +10,6 @@ set by `StandardMaterial`.
 
 The following methods have been modified to take the textures as arguments
 so that they are no longer tied to `StandardMaterial`:
+
 * `bevy_pbr::parallax_mapping::parallaxed_uv`
 * `bevy_pbr::parallax_mapping::sample_depth_map`
