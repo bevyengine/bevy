@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 #[cfg(feature = "embedded_watcher")]
 use alloc::borrow::ToOwned;
 
-/// The name of the `embedded` [`AssetSource`],
+/// The name of the `embedded` [`AssetSource`](crate::io::AssetSource),
 /// as stored in the [`AssetSourceBuilders`] resource.
 pub const EMBEDDED: &str = "embedded";
 
@@ -38,8 +38,8 @@ pub struct EmbeddedAssetRegistry {
 impl EmbeddedAssetRegistry {
     /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
-    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`](alloc::vec::Vec).
+    /// [`AssetSource`](crate::io::AssetSource). `value` is the bytes that will be returned for the asset. This can be
+    /// _either_ a `&'static [u8]` or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -58,8 +58,8 @@ impl EmbeddedAssetRegistry {
 
     /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
-    /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`](alloc::vec::Vec).
+    /// [`AssetSource`](crate::io::AssetSource). `value` is the bytes that will be returned for the asset. This can be _either_
+    /// a `&'static [u8]` or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -83,7 +83,7 @@ impl EmbeddedAssetRegistry {
         self.dir.remove_asset(full_path)
     }
 
-    /// Registers the [`EMBEDDED`] [`AssetSource`] with the given [`AssetSourceBuilders`].
+    /// Registers the [`EMBEDDED`] [`AssetSource`](crate::io::AssetSource) with the given [`AssetSourceBuilders`].
     pub fn register_source(&self, sources: &mut AssetSourceBuilders) {
         let dir = self.dir.clone();
         let processed_dir = self.dir.clone();
@@ -262,7 +262,7 @@ pub fn _embedded_asset_path(
 }
 
 /// Creates a new `embedded` asset by embedding the bytes of the given path into the current binary
-/// and registering those bytes with the `embedded` [`AssetSource`].
+/// and registering those bytes with the `embedded` [`AssetSource`](crate::io::AssetSource).
 ///
 /// This accepts the current [`App`] as the first parameter and a path `&str` (relative to the current file) as the second.
 ///
@@ -306,7 +306,7 @@ pub fn _embedded_asset_path(
 /// ```
 ///
 /// Some things to note in the path:
-/// 1. The non-default `embedded://` [`AssetSource`]
+/// 1. The non-default `embedded://` [`AssetSource`](crate::io::AssetSource)
 /// 2. `src` is trimmed from the path
 ///
 /// The default behavior also works for cargo workspaces. Pretend the `bevy_rock` crate now exists in a larger workspace in
