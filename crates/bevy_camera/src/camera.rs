@@ -489,7 +489,7 @@ impl Camera {
         self.computed.clip_from_view
     }
 
-    /// Core conversion logic to compute viewport coordinates and NDC depth from a world position.
+    /// Core conversion logic to compute viewport coordinates
     ///
     /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
     /// to avoid code duplication.
