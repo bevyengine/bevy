@@ -198,11 +198,6 @@ impl AppExtStates for SubApp {
         self
     }
 
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        self
-    }
-
     #[cfg(feature = "bevy_reflect")]
     fn register_type_state<S>(&mut self) -> &mut Self
     where
@@ -271,11 +266,6 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
-        self
-    }
-
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
         self
     }
 
