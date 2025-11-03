@@ -624,7 +624,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     ///    for the same field, without first calling [`forget`] on it first.
     ///
     /// A result of the above invariants means that any operation that could cause `self` to be dropped while
-    /// the pointers to the fields are held will result in undefined behavior. This requires exctra caution
+    /// the pointers to the fields are held will result in undefined behavior. This requires extra caution
     /// around code that may panic. See the example below for an example of how to safely use this function.
     ///
     /// # Example
