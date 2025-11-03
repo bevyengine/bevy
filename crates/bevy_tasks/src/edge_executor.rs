@@ -188,7 +188,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     ///
     /// Returns
     /// - `None` - if no task was scheduled for execution
-    /// - `Some(Runnnable)` - the first task scheduled for execution. Calling `Runnable::run` will
+    /// - `Some(Runnable)` - the first task scheduled for execution. Calling `Runnable::run` will
     ///   execute the task. In other words, it will poll its future.
     fn try_runnable(&self) -> Option<Runnable> {
         let runnable;

@@ -83,7 +83,7 @@
 //! app starts.
 //!
 //! Because filters are applied to all queries they can have performance implication for
-//! the enire [`World`], especially when they cause queries to mix sparse and table components.
+//! the entire [`World`], especially when they cause queries to mix sparse and table components.
 //! See [`Query` performance] for more info.
 //!
 //! Custom disabling components can cause significant interoperability issues within the ecosystem,
