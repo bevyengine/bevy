@@ -50,7 +50,7 @@ pub struct OnTransition<S: States> {
 /// }
 /// ```
 ///
-/// This schedule is split up into four phases, as described in [`StateTransitionSteps`].
+/// This schedule is split up into four phases, as described in [`StateTransitionSystems`].
 ///
 /// [`PreStartup`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreStartup.html
 /// [`PreUpdate`]: https://docs.rs/bevy/latest/bevy/prelude/struct.PreUpdate.html

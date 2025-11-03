@@ -701,7 +701,7 @@ pub struct AssetTrackingSystems;
 
 /// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Messages`] resource.
 ///
-/// [`Messages`]: bevy_ecs::event::Events
+/// [`Messages`]: bevy_ecs::message::Messages
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct AssetEventSystems;
 
