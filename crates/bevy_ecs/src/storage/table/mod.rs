@@ -242,7 +242,7 @@ impl Table {
         if is_last {
             None
         } else {
-            // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+            // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
         }
     }
@@ -286,7 +286,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -328,7 +328,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -365,7 +365,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }

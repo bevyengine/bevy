@@ -1164,7 +1164,7 @@ pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
 /// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
 pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+/// Combines and inverts the outputs of two systems using the `||` and `!` operators.
 pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
 
 /// Combines the outputs of two systems using the `||` operator.

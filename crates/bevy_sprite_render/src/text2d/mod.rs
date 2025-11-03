@@ -189,7 +189,7 @@ pub fn extract_text2d_sprite(
 
                 if has_underline {
                     let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                    let offset = run.strikethrough_position() * Vec2::new(1., -1.);
+                    let offset = run.underline_position() * Vec2::new(1., -1.);
                     let transform =
                         shadow_transform * GlobalTransform::from_translation(offset.extend(0.));
                     extracted_sprites.sprites.push(ExtractedSprite {
@@ -204,7 +204,7 @@ pub fn extract_text2d_sprite(
                             anchor: Vec2::ZERO,
                             rect: None,
                             scaling_mode: None,
-                            custom_size: Some(run.strikethrough_size()),
+                            custom_size: Some(run.underline_size()),
                         },
                     });
                 }

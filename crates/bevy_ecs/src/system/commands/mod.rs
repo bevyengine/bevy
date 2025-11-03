@@ -2324,7 +2324,7 @@ impl<'a> EntityCommands<'a> {
     ///
     ///
     /// fn trigger_via_constructor(mut commands: Commands) {
-    ///     // The fact that `Epxlode` is a single-field tuple struct
+    ///     // The fact that `Explode` is a single-field tuple struct
     ///     // ensures that `Explode(entity)` is a function that generates
     ///     // an EntityEvent, meeting the trait bounds for `event_fn`.
     ///     commands.spawn_empty().trigger(Explode);
