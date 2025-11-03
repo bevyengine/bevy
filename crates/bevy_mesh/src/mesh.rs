@@ -236,8 +236,8 @@ impl Mesh {
     pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
         Mesh {
             primitive_topology,
-            attributes: Default::default(),
-            indices: None,
+            attributes: Some(Default::default()),
+            indices: Some(None),
             #[cfg(feature = "morph")]
             morph_targets: None,
             #[cfg(feature = "morph")]
