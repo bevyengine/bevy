@@ -258,13 +258,13 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         // arrays, and we need to eliminate the duplicates or `wgpu` will
         // complain.
         let base_entries = B::bind_group_layout_entries(render_device, force_non_bindless);
-        let extended_entries = E::bind_group_layout_entries(render_device, force_non_bindless);
+        let extension_entries = E::bind_group_layout_entries(render_device, force_non_bindless);
 
         let mut seen_bindings = HashSet::<u32>::with_hasher(FixedHasher);
 
         base_entries
             .into_iter()
-            .chain(extended_entries)
+            .chain(extension_entries)
             .filter(|entry| seen_bindings.insert(entry.binding))
             .collect()
     }
