@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes::tailwind::RED_400,
+    image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
@@ -12,10 +13,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, spawn_fake_player).chain())
-        .add_systems(
-            Update,
-            (update_tileset_image, update_tilemap, move_player, log_tile),
-        )
+        .add_systems(Update, (update_tilemap, move_player, log_tile))
         .run();
 }
 
@@ -47,7 +45,14 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         TilemapChunk {
             chunk_size,
             tile_display_size,
-            tileset: assets.load("textures/array_texture.png"),
+            tileset: assets.load_with_settings(
+                "textures/array_texture.png",
+                |settings: &mut ImageLoaderSettings| {
+                    // The tileset texture is expected to be an array of tile textures, so we tell the
+                    // `ImageLoader` that our texture is composed of 4 stacked tile images.
+                    settings.array_layout = Some(ImageArrayLayout::RowCount { rows: 4 });
+                },
+            ),
             ..default()
         },
         TilemapChunkTileData(tile_data),
@@ -106,22 +111,6 @@ fn move_player(
         .x;
 
     player.translation.x = origin.lerp(destination, t);
-}
-
-fn update_tileset_image(
-    chunk_query: Single<&TilemapChunk>,
-    mut events: MessageReader<AssetEvent<Image>>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    let chunk = *chunk_query;
-    for event in events.read() {
-        if event.is_loaded_with_dependencies(chunk.tileset.id()) {
-            let image = images.get_mut(&chunk.tileset).unwrap();
-            image
-                .reinterpret_stacked_2d_as_array(4)
-                .expect("asset should be 2d texture with height evenly divisible by 4");
-        }
-    }
 }
 
 fn update_tilemap(
