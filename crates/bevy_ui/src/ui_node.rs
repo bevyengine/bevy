@@ -347,15 +347,16 @@ impl From<Vec2> for ScrollPosition {
     }
 }
 
-/// Determines which axes of a node are *sticky* during scrolling.
+/// Controls whether a UI element ignores its parent's [`ScrollPosition`] along specific axes.
 ///
-/// A **sticky** node maintains its position along the specified axes
-/// instead of moving with its scrolled parent content when [`ScrollPosition`] is applied.
+/// When an axis is set to `true`, the node will not have the parent’s scroll position applied
+/// on that axis. This can be used to keep an element visually fixed along one or both axes
+/// even when its parent UI element is scrolled.
 #[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Clone)]
-pub struct ScrollSticky(pub BVec2);
+pub struct IgnoreScroll(pub BVec2);
 
-impl From<BVec2> for ScrollSticky {
+impl From<BVec2> for IgnoreScroll {
     fn from(value: BVec2) -> Self {
         Self(value)
     }

@@ -344,11 +344,10 @@ fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl B
                         .flat_map(|y| (0..30).map(move |x| (y, x)))
                         .map(move |(y, x)| {
                             let value = font_handle.clone();
-                            // Sticky elements are not affected by scrolling
-                            // Some cells can be made sticky and drawn on top
-                            // of other cells with background to
-                            // create effects like sticky headers.
-                            let sticky = BVec2 {
+                            // Simple sticky nodes at top and left sides of UI node
+                            // can be achieved by combining such effects as
+                            // IgnoreScroll, ZIndex, BackgroundColor for child UI nodes.
+                            let ignore_scroll = BVec2 {
                                 x: x == 0,
                                 y: y == 0,
                             };
@@ -370,7 +369,7 @@ fn bidirectional_scrolling_list_with_sticky(font_handle: Handle<Font>) -> impl B
                                 },
                                 Label,
                                 AccessibilityNode(Accessible::new(role)),
-                                ScrollSticky(sticky),
+                                IgnoreScroll(ignore_scroll),
                                 ZIndex(z_index),
                                 BackgroundColor(Color::Srgba(background_color)),
                             )
