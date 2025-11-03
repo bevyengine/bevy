@@ -247,4 +247,3 @@ pub fn write_message<M: Message>(message: M) -> impl Command {
         messages.write_with_caller(message, caller);
     }
 }
-

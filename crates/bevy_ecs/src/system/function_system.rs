@@ -138,7 +138,6 @@ impl SystemMeta {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_ecs::system::SystemState;
-/// # use bevy_ecs::event::Events;
 /// #
 /// # #[derive(Message)]
 /// # struct MyMessage;

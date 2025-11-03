@@ -93,7 +93,7 @@ impl Timer {
     pub fn is_finished(&self) -> bool {
         self.finished
     }
-    
+
     /// Returns `true` only on the tick the timer reached its duration.
     ///
     /// # Examples
