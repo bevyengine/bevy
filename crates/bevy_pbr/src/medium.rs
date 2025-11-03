@@ -158,7 +158,7 @@ impl ScatteringMedium {
 /// which are denser but lie closer to the ground.
 #[derive(Default, Clone)]
 pub struct ScatteringTerm {
-    /// This term's optical obsorption density, or how much light of each wavelength
+    /// This term's optical absorption density, or how much light of each wavelength
     /// it absorbs per meter.
     ///
     /// units: m^-1
