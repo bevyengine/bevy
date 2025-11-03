@@ -336,7 +336,7 @@ impl Mesh {
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
         self.attributes
-                    .as_ref()
+            .as_ref()
             .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
 .get(&id.into()).map(|data| &data.values)
     }
@@ -347,7 +347,7 @@ impl Mesh {
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&MeshAttributeData> {
-        self.attributes            .as_ref()
+        self.attributes.as_ref()
             .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
 .get(&id.into())
     }
@@ -472,7 +472,7 @@ impl Mesh {
         &self,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
     ) -> MeshVertexBufferLayoutRef {
-        let mesh_attributes = self.attributes            .as_ref()
+        let mesh_attributes = self.attributes.as_ref()
             .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
 
         let mut attributes = Vec::with_capacity(mesh_attributes.len());
@@ -504,7 +504,7 @@ impl Mesh {
     /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        let mesh_attributes = self.attributes            .as_ref()
+        let mesh_attributes = self.attributes.as_ref()
             .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
 
         for (attribute_id, attribute_data) in mesh_attributes {
@@ -550,7 +550,7 @@ impl Mesh {
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
     pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
-        let mesh_attributes = self.attributes            .as_ref()
+        let mesh_attributes = self.attributes.as_ref()
             .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
 
         let vertex_size = self.get_vertex_size() as usize;
