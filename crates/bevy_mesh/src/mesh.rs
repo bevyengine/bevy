@@ -128,8 +128,8 @@ pub struct Mesh {
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
     #[reflect(ignore, clone)]
-    attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
-    indices: Option<Indices>,
+    attributes: Option<BTreeMap<MeshVertexAttributeId, MeshAttributeData>>,
+    indices: Option<Option<Indices>>,
     #[cfg(feature = "morph")]
     morph_targets: Option<Handle<Image>>,
     #[cfg(feature = "morph")]
@@ -150,6 +150,9 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
+    /// Precomputed min and max extents of the mesh position data. Used mainly for constructing `Aabb`s for frustum culling.
+    /// This data will be set if/when a mesh is extracted to the GPU
+    pub final_aabb_extents: Option<(Vec3, Vec3)>,
 }
 
 impl Mesh {
@@ -241,6 +244,7 @@ impl Mesh {
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
+            final_aabb_extents: None,
         }
     }
 
@@ -272,6 +276,8 @@ impl Mesh {
         }
 
         self.attributes
+            .as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .insert(attribute.id, MeshAttributeData { attribute, values });
     }
 
@@ -301,6 +307,8 @@ impl Mesh {
         attribute: impl Into<MeshVertexAttributeId>,
     ) -> Option<VertexAttributeValues> {
         self.attributes
+            .as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .remove(&attribute.into())
             .map(|data| data.values)
     }
@@ -316,7 +324,9 @@ impl Mesh {
 
     #[inline]
     pub fn contains_attribute(&self, id: impl Into<MeshVertexAttributeId>) -> bool {
-        self.attributes.contains_key(&id.into())
+        self.attributes.            as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+.contains_key(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
@@ -325,7 +335,10 @@ impl Mesh {
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
-        self.attributes.get(&id.into()).map(|data| &data.values)
+        self.attributes
+                    .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+.get(&id.into()).map(|data| &data.values)
     }
 
     /// Retrieves the full data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
@@ -334,7 +347,9 @@ impl Mesh {
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&MeshAttributeData> {
-        self.attributes.get(&id.into())
+        self.attributes            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+.get(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
@@ -344,6 +359,8 @@ impl Mesh {
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&mut VertexAttributeValues> {
         self.attributes
+            .as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .get_mut(&id.into())
             .map(|data| &mut data.values)
     }
@@ -353,6 +370,8 @@ impl Mesh {
         &self,
     ) -> impl Iterator<Item = (&MeshVertexAttribute, &VertexAttributeValues)> {
         self.attributes
+            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .values()
             .map(|data| (&data.attribute, &data.values))
     }
@@ -362,6 +381,8 @@ impl Mesh {
         &mut self,
     ) -> impl Iterator<Item = (&MeshVertexAttribute, &mut VertexAttributeValues)> {
         self.attributes
+            .as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .values_mut()
             .map(|data| (&data.attribute, &mut data.values))
     }
@@ -371,7 +392,9 @@ impl Mesh {
     /// that use triangles.
     #[inline]
     pub fn insert_indices(&mut self, indices: Indices) {
-        self.indices = Some(indices);
+        let mesh_indices = self.indices.as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        *mesh_indices = Some(indices);
     }
 
     /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
@@ -389,19 +412,21 @@ impl Mesh {
     /// Retrieves the vertex `indices` of the mesh.
     #[inline]
     pub fn indices(&self) -> Option<&Indices> {
-        self.indices.as_ref()
+        self.indices.as_ref().expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD").as_ref()
     }
 
     /// Retrieves the vertex `indices` of the mesh mutably.
     #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
-        self.indices.as_mut()
+        self.indices.as_mut().expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD").as_mut()
     }
 
     /// Removes the vertex `indices` from the mesh and returns them.
     #[inline]
     pub fn remove_indices(&mut self) -> Option<Indices> {
-        core::mem::take(&mut self.indices)
+        let mesh_indices = self.indices.as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        core::mem::take(mesh_indices)
     }
 
     /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
@@ -416,6 +441,8 @@ impl Mesh {
     /// Returns the size of a vertex in bytes.
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
+            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
             .values()
             .map(|data| data.attribute.format.size())
             .sum()
@@ -431,7 +458,10 @@ impl Mesh {
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
-        self.indices.as_ref().map(|indices| match &indices {
+        let mesh_indices = self.indices.as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        mesh_indices.as_ref().map(|indices| match &indices {
             Indices::U16(indices) => cast_slice(&indices[..]),
             Indices::U32(indices) => cast_slice(&indices[..]),
         })
@@ -442,10 +472,13 @@ impl Mesh {
         &self,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
     ) -> MeshVertexBufferLayoutRef {
-        let mut attributes = Vec::with_capacity(self.attributes.len());
-        let mut attribute_ids = Vec::with_capacity(self.attributes.len());
+        let mesh_attributes = self.attributes            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        let mut attributes = Vec::with_capacity(mesh_attributes.len());
+        let mut attribute_ids = Vec::with_capacity(mesh_attributes.len());
         let mut accumulated_offset = 0;
-        for (index, data) in self.attributes.values().enumerate() {
+        for (index, data) in mesh_attributes.values().enumerate() {
             attribute_ids.push(data.attribute.id);
             attributes.push(VertexAttribute {
                 offset: accumulated_offset,
@@ -471,12 +504,14 @@ impl Mesh {
     /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        for (attribute_id, attribute_data) in &self.attributes {
+        let mesh_attributes = self.attributes            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        for (attribute_id, attribute_data) in mesh_attributes {
             let attribute_len = attribute_data.values.len();
             if let Some(previous_vertex_count) = vertex_count {
                 if previous_vertex_count != attribute_len {
-                    let name = self
-                        .attributes
+                    let name = mesh_attributes
                         .get(attribute_id)
                         .map(|data| data.attribute.name.to_string())
                         .unwrap_or_else(|| format!("{attribute_id:?}"));
@@ -515,11 +550,14 @@ impl Mesh {
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
     pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
+        let mesh_attributes = self.attributes            .as_ref()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
-        for attribute_data in self.attributes.values() {
+        for attribute_data in mesh_attributes.values() {
             let attribute_size = attribute_data.attribute.format.size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in attributes_bytes
@@ -544,11 +582,17 @@ impl Mesh {
             indices.map(|i| values[i]).collect()
         }
 
-        let Some(indices) = self.indices.take() else {
+        let mesh_indices = self.indices.as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        let Some(indices) = mesh_indices.take() else {
             return;
         };
 
-        for attributes in self.attributes.values_mut() {
+        let mesh_attributes = self.attributes.as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        for attributes in mesh_attributes.values_mut() {
             let indices = indices.iter();
             #[expect(
                 clippy::match_same_arms,
@@ -640,7 +684,11 @@ impl Mesh {
                 _ => Err(MeshWindingInvertError::WrongTopology),
             }
         }
-        match &mut self.indices {
+
+        let mesh_indices = self.indices.as_mut()
+            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+
+        match mesh_indices {
             Some(Indices::U16(vec)) => invert(vec, self.primitive_topology),
             Some(Indices::U32(vec)) => invert(vec, self.primitive_topology),
             None => Ok(()),
@@ -1361,6 +1409,29 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+
+    pub fn take_gpu_data(&mut self) -> Option<Self> {
+        let attributes = self.attributes.take()?;
+        let indices = self.indices.take()?;
+
+        // store the aabb extents as they cannot be computed after extraction
+        if let Some(MeshAttributeData{values: VertexAttributeValues::Float32x3(position_values), ..}) = attributes.get(&Self::ATTRIBUTE_POSITION.id) {
+            let mut iter = position_values.into_iter().map(|p| Vec3::from_slice(p));
+            let mut min = iter.next().unwrap();
+            let mut max = min;
+            for v in iter {
+                min = Vec3::min(min, v);
+                max = Vec3::max(max, v);
+            }
+            self.final_aabb_extents = Some((min, max));
+        }
+
+        Some(Self {
+            attributes: Some(attributes),
+            indices: Some(indices),
+            ..self.clone()
+        })
     }
 }
 
