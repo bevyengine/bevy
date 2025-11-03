@@ -197,10 +197,6 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// Deprecated alias for [`RenderUiSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RenderUiSystems`.")]
-pub type RenderUiSystem = RenderUiSystems;
-
 #[derive(Default)]
 pub struct UiRenderPlugin;
 

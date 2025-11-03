@@ -2602,30 +2602,12 @@ impl World {
         self.write_message_batch(core::iter::once(message))?.next()
     }
 
-    /// Writes a [`Message`].
-    /// This method returns the [`MessageId`] of the written `event`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_message` instead.")]
-    pub fn send_event<E: Message>(&mut self, event: E) -> Option<MessageId<E>> {
-        self.write_message(event)
-    }
-
     /// Writes the default value of the [`Message`] of type `M`.
     /// This method returns the [`MessageId`] of the written message,
     /// or [`None`] if the `event` could not be written.
     #[inline]
     pub fn write_message_default<M: Message + Default>(&mut self) -> Option<MessageId<M>> {
         self.write_message(M::default())
-    }
-
-    /// Writes the default value of the [`Message`] of type `E`.
-    /// This method returns the [`MessageId`] of the written `event`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_message_default` instead.")]
-    pub fn send_event_default<E: Message + Default>(&mut self) -> Option<MessageId<E>> {
-        self.write_message_default::<E>()
     }
 
     /// Writes a batch of [`Message`]s from an iterator.
@@ -2644,18 +2626,6 @@ impl World {
             return None;
         };
         Some(events_resource.write_batch(messages))
-    }
-
-    /// Writes a batch of [`Message`]s from an iterator.
-    /// This method returns the [IDs](`MessageId`) of the written `events`,
-    /// or [`None`] if the `event` could not be written.
-    #[inline]
-    #[deprecated(since = "0.17.0", note = "Use `World::write_message_batch` instead.")]
-    pub fn send_event_batch<E: Message>(
-        &mut self,
-        events: impl IntoIterator<Item = E>,
-    ) -> Option<WriteBatchIds<E>> {
-        self.write_message_batch(events)
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.

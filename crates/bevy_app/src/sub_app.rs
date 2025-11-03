@@ -351,15 +351,6 @@ impl SubApp {
     }
 
     /// See [`App::add_message`].
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
-    }
-
-    /// See [`App::add_message`].
     pub fn add_message<T>(&mut self) -> &mut Self
     where
         T: Message,

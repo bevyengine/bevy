@@ -61,10 +61,6 @@ pub struct TimePlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct TimeSystems;
 
-/// Deprecated alias for [`TimeSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `TimeSystems`.")]
-pub type TimeSystem = TimeSystems;
-
 impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
