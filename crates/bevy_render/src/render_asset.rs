@@ -83,7 +83,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     ) {
     }
 
-    /// Make a copy of the asset to be moved to the RenderWorld / gpu. Heavy internal data (pixels, vertex attributes)
+    /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
     /// should be moved into the copy, leaving this asset with only metadata.
     /// A null return value can be used to indicate that the asset has already been extracted, and should not
     /// have been modified on the CPU side (as it cannot be transferred to GPU again).
@@ -296,7 +296,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                             if let Some(asset) = assets.get_mut_untracked(id) {
                                 let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
                                 let Some(gpu_data_asset) = A::take_gpu_data(asset, previous_asset) else {
-                                    panic!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", std::any::type_name::<A>())
+                                    panic!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", core::any::type_name::<A>())
                                 };
                                 extracted_assets.push((id, gpu_data_asset));
                                 added.insert(id);

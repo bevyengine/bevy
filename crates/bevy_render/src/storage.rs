@@ -139,11 +139,17 @@ impl RenderAsset for GpuShaderStorageBuffer {
                     contents: &data,
                     usage: source_asset.buffer_description.usage,
                 });
-                Ok(GpuShaderStorageBuffer { buffer, had_data: true })
+                Ok(GpuShaderStorageBuffer {
+                    buffer,
+                    had_data: true,
+                })
             }
             None => {
                 let buffer = render_device.create_buffer(&source_asset.buffer_description);
-                Ok(GpuShaderStorageBuffer { buffer, had_data: false })
+                Ok(GpuShaderStorageBuffer {
+                    buffer,
+                    had_data: false,
+                })
             }
         }
     }
