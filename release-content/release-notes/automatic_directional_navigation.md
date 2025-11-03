@@ -21,12 +21,14 @@ Now, you can simply add the `AutoDirectionalNavigation` component to your UI ent
 Simply add the `AutoDirectionalNavigation` component to your UI entities:
 
 ```rust
+
 commands.spawn((
     Button,
     Node { /* ... */ },
     AutoDirectionalNavigation::default(),
     // ... other components
 ));
+
 ```
 
 That's it! The `DirectionalNavigationPlugin` includes a system that automatically maintains the navigation graph as your UI changes.
@@ -36,6 +38,7 @@ That's it! The `DirectionalNavigationPlugin` includes a system that automaticall
 You can tune the behavior using the `AutoNavigationConfig` resource:
 
 ```rust
+
 app.insert_resource(AutoNavigationConfig {
     // Minimum overlap required (0.0 = any overlap, 1.0 = perfect alignment)
     min_alignment_factor: 0.0,
@@ -44,6 +47,7 @@ app.insert_resource(AutoNavigationConfig {
     // Whether to strongly prefer well-aligned nodes
     prefer_aligned: true,
 });
+
 ```
 
 ### Manual Override
