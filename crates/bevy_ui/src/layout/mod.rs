@@ -1,8 +1,9 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, LayoutConfig,
-    Node, Outline, OverflowAxis, ScrollPosition,
+    BlockContainer, BlockItem, BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize,
+    Display, FlexBoxContainer, FlexBoxItem, GridContainer, GridItem, LayoutConfig, Node, Outline,
+    OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -77,6 +78,15 @@ pub fn ui_layout_system(
     mut node_query: Query<(
         Entity,
         Ref<Node>,
+        (
+            // theroritically could only be one container and on item
+            Option<&BlockItem>,
+            Option<&BlockContainer>,
+            Option<&GridItem>,
+            Option<&GridContainer>,
+            Option<&FlexBoxItem>,
+            Option<&FlexBoxContainer>,
+        ),
         Option<&mut ContentSize>,
         Ref<ComputedUiRenderTargetInfo>,
     )>,
@@ -105,7 +115,7 @@ pub fn ui_layout_system(
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
-        .for_each(|(entity, node, content_size, computed_target)| {
+        .for_each(|(entity, node, displays, content_size, computed_target)| {
             if computed_target.is_changed()
                 || node.is_changed()
                 || content_size
@@ -117,7 +127,7 @@ pub fn ui_layout_system(
                     computed_target.physical_size.as_vec2(),
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
-                ui_surface.upsert_node(&layout_context, entity, &node, measure);
+                ui_surface.upsert_node(&layout_context, entity, &node, displays, measure);
             }
         });
 
@@ -162,7 +172,7 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
+        let (_, _, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
             ui_root_entity,
