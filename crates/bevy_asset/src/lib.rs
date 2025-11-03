@@ -713,7 +713,7 @@ mod tests {
         io::{
             gated::{GateOpener, GatedReader},
             memory::{Dir, MemoryAssetReader},
-            AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId,
+            AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
             AssetWatcher, Reader,
         },
         loader::{AssetLoader, LoadContext},
@@ -906,7 +906,7 @@ mod tests {
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
         )
         .add_plugins((
             TaskPoolPlugin::default(),
@@ -1845,7 +1845,7 @@ mod tests {
         let mut app = App::new();
         app.register_asset_source(
             "unstable",
-            AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
         .init_asset::<CoolText>()
@@ -1915,8 +1915,7 @@ mod tests {
 
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() })),
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() })),
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
@@ -2039,7 +2038,7 @@ mod tests {
         let memory_reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(memory_reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
         )
         .add_plugins((
             TaskPoolPlugin::default(),
@@ -2177,7 +2176,7 @@ mod tests {
         let reader = MemoryAssetReader { root: dir.clone() };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
@@ -2233,7 +2232,7 @@ mod tests {
         let reader = MemoryAssetReader { root: dir.clone() };
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build().with_reader(move || Box::new(reader.clone())),
+            AssetSourceBuilder::new(move || Box::new(reader.clone())),
         )
         .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
 
@@ -2299,12 +2298,12 @@ mod tests {
 
         app.register_asset_source(
             AssetSourceId::Default,
-            AssetSource::build()
-                .with_reader(move || Box::new(memory_reader.clone()))
-                .with_watcher(move |sender| {
+            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
+                move |sender| {
                     sender_sender.send(sender).unwrap();
                     Some(Box::new(FakeWatcher))
-                }),
+                },
+            ),
         )
         .add_plugins((
             TaskPoolPlugin::default(),
@@ -2487,8 +2486,8 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset(Path::new("test.u8"), &[]);
 
-        let asset_source = AssetSource::build()
-            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+        let asset_source =
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
         // Set up the app.
 
@@ -2551,8 +2550,8 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset(Path::new("test.txt"), &[]);
 
-        let asset_source = AssetSource::build()
-            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+        let asset_source =
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
         app.register_asset_source(AssetSourceId::Default, asset_source)
             .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
@@ -2603,8 +2602,8 @@ mod tests {
         let dir = Dir::default();
         dir.insert_asset(Path::new("test.txt"), &[]);
 
-        let asset_source = AssetSource::build()
-            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+        let asset_source =
+            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
         app.register_asset_source(AssetSourceId::Default, asset_source)
             .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
