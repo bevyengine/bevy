@@ -1416,8 +1416,12 @@ impl Mesh {
         let indices = self.indices.take()?;
 
         // store the aabb extents as they cannot be computed after extraction
-        if let Some(MeshAttributeData{values: VertexAttributeValues::Float32x3(position_values), ..}) = attributes.get(&Self::ATTRIBUTE_POSITION.id) {
-            let mut iter = position_values.into_iter().map(|p| Vec3::from_slice(p));
+        if let Some(MeshAttributeData {
+            values: VertexAttributeValues::Float32x3(position_values),
+            ..
+        }) = attributes.get(&Self::ATTRIBUTE_POSITION.id)
+        {
+            let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
             let mut min = iter.next().unwrap();
             let mut max = min;
             for v in iter {
