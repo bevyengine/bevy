@@ -1,4 +1,4 @@
-#[cfg(feature = "http")]
+#[cfg(any(feature = "http", feature = "https"))]
 use crate::io::AssetSourceBuilder;
 use crate::io::PathStream;
 use crate::io::{AssetReader, AssetReaderError, Reader};
