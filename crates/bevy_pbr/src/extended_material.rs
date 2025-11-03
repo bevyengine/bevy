@@ -263,6 +263,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         let mut seen_bindings = HashSet::<u32>::with_hasher(FixedHasher);
 
         base_entries
+            .into_iter()
             .chain(extended_entries)
             .filter(|entry| seen_bindings.insert(entry.binding))
             .collect()
