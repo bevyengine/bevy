@@ -363,6 +363,25 @@ pub enum DirectionalNavigationError {
     },
 }
 
+/// A navigation node with position and size information.
+///
+/// This struct represents a UI element in the automatic directional navigation system,
+/// containing its entity ID, center position, and size for spatial navigation calculations.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+pub struct NavigationNode {
+    /// The entity identifier for this navigation node.
+    pub entity: Entity,
+    /// The center position of the node in global coordinates.
+    pub position: Vec2,
+    /// The size (width, height) of the node.
+    pub size: Vec2,
+}
+
 /// Trait for extracting position and size from UI node components.
 ///
 /// This allows the auto-navigation system to work with different UI implementations
@@ -511,14 +530,14 @@ fn score_candidate(
 
 /// Automatically generates directional navigation edges for a collection of nodes.
 ///
-/// This function takes a slice of entities with their positions and sizes, and populates
+/// This function takes a slice of navigation nodes with their positions and sizes, and populates
 /// the navigation map with edges to the nearest neighbor in each compass direction.
 /// Manual edges in the map are preserved and not overwritten.
 ///
 /// # Arguments
 ///
 /// * `nav_map` - The navigation map to populate
-/// * `nodes` - A slice of tuples containing (`Entity`, `center_position`, `size`)
+/// * `nodes` - A slice of [`NavigationNode`] structs containing entity, position, and size data
 /// * `config` - Configuration for the auto-generation algorithm
 ///
 /// # Example
@@ -531,19 +550,19 @@ fn score_candidate(
 /// let config = AutoNavigationConfig::default();
 ///
 /// let nodes = vec![
-///     (Entity::PLACEHOLDER, Vec2::new(100.0, 100.0), Vec2::new(50.0, 50.0)),
-///     (Entity::PLACEHOLDER, Vec2::new(200.0, 100.0), Vec2::new(50.0, 50.0)),
+///     NavigationNode { entity: Entity::PLACEHOLDER, position: Vec2::new(100.0, 100.0), size: Vec2::new(50.0, 50.0) },
+///     NavigationNode { entity: Entity::PLACEHOLDER, position: Vec2::new(200.0, 100.0), size: Vec2::new(50.0, 50.0) },
 /// ];
 ///
 /// auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
 /// ```
 pub fn auto_generate_navigation_edges(
     nav_map: &mut DirectionalNavigationMap,
-    nodes: &[(Entity, Vec2, Vec2)],
+    nodes: &[NavigationNode],
     config: &AutoNavigationConfig,
 ) {
     // For each node, find best neighbor in each direction
-    for &(origin_entity, origin_pos, origin_size) in nodes {
+    for origin in nodes {
         for octant in [
             CompassOctant::North,
             CompassOctant::NorthEast,
@@ -556,7 +575,7 @@ pub fn auto_generate_navigation_edges(
         ] {
             // Skip if manual edge already exists (check inline to avoid borrow issues)
             if nav_map
-                .get_neighbors(origin_entity)
+                .get_neighbors(origin.entity)
                 .and_then(|neighbors| neighbors.get(octant))
                 .is_some()
             {
@@ -567,31 +586,31 @@ pub fn auto_generate_navigation_edges(
             let mut best_candidate = None;
             let mut best_score = f32::INFINITY;
 
-            for &(candidate_entity, candidate_pos, candidate_size) in nodes {
+            for candidate in nodes {
                 // Skip self
-                if candidate_entity == origin_entity {
+                if candidate.entity == origin.entity {
                     continue;
                 }
 
                 // Score the candidate
                 let score = score_candidate(
-                    origin_pos,
-                    origin_size,
-                    candidate_pos,
-                    candidate_size,
+                    origin.position,
+                    origin.size,
+                    candidate.position,
+                    candidate.size,
                     octant,
                     config,
                 );
 
                 if score < best_score {
                     best_score = score;
-                    best_candidate = Some(candidate_entity);
+                    best_candidate = Some(candidate.entity);
                 }
             }
 
             // Add edge if we found a valid candidate
             if let Some(neighbor) = best_candidate {
-                nav_map.add_edge(origin_entity, neighbor, octant);
+                nav_map.add_edge(origin.entity, neighbor, octant);
             }
         }
     }
@@ -639,14 +658,18 @@ fn auto_rebuild_ui_navigation_graph(
     }
 
     // Collect all nodes with their positions and sizes
-    let nodes: Vec<(Entity, Vec2, Vec2)> = all_auto_nav_nodes
+    let nodes: Vec<NavigationNode> = all_auto_nav_nodes
         .iter()
         .filter(|(_, computed, _)| !computed.is_empty())
         .map(|(entity, computed, transform)| {
             // Extract center position from transform
             let (_scale, _rotation, translation) = transform.to_scale_angle_translation();
             let size = computed.size();
-            (entity, translation, size)
+            NavigationNode {
+                entity,
+                position: translation,
+                size,
+            }
         })
         .collect();
 
@@ -971,10 +994,26 @@ mod tests {
         let node_d = Entity::from_bits(4); // Bottom-right
 
         let nodes = vec![
-            (node_a, Vec2::new(0.0, 0.0), Vec2::new(50.0, 50.0)), // Top-left
-            (node_b, Vec2::new(100.0, 0.0), Vec2::new(50.0, 50.0)), // Top-right
-            (node_c, Vec2::new(0.0, 100.0), Vec2::new(50.0, 50.0)), // Bottom-left
-            (node_d, Vec2::new(100.0, 100.0), Vec2::new(50.0, 50.0)), // Bottom-right
+            NavigationNode {
+                entity: node_a,
+                position: Vec2::new(0.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            }, // Top-left
+            NavigationNode {
+                entity: node_b,
+                position: Vec2::new(100.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            }, // Top-right
+            NavigationNode {
+                entity: node_c,
+                position: Vec2::new(0.0, 100.0),
+                size: Vec2::new(50.0, 50.0),
+            }, // Bottom-left
+            NavigationNode {
+                entity: node_d,
+                position: Vec2::new(100.0, 100.0),
+                size: Vec2::new(50.0, 50.0),
+            }, // Bottom-right
         ];
 
         auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
@@ -1019,9 +1058,21 @@ mod tests {
         nav_map.add_edge(node_a, node_c, CompassOctant::East);
 
         let nodes = vec![
-            (node_a, Vec2::new(0.0, 0.0), Vec2::new(50.0, 50.0)),
-            (node_b, Vec2::new(50.0, 0.0), Vec2::new(50.0, 50.0)), // Closer
-            (node_c, Vec2::new(100.0, 0.0), Vec2::new(50.0, 50.0)),
+            NavigationNode {
+                entity: node_a,
+                position: Vec2::new(0.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            },
+            NavigationNode {
+                entity: node_b,
+                position: Vec2::new(50.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            }, // Closer
+            NavigationNode {
+                entity: node_c,
+                position: Vec2::new(100.0, 0.0),
+                size: Vec2::new(50.0, 50.0),
+            },
         ];
 
         auto_generate_navigation_edges(&mut nav_map, &nodes, &config);
