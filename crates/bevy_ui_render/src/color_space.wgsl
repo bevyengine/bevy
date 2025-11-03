@@ -16,7 +16,7 @@ fn gamma(value: f32) -> f32 {
     }
 }
 
-// https://en.wikipedia.org/wiki/TSRGB
+// https://en.wikipedia.org/wiki/SRGB
 fn inverse_gamma(value: f32) -> f32 {
     if value <= 0.0 {
         return value;
