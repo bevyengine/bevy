@@ -189,7 +189,7 @@ impl ComponentSparseSet {
             let capacity = self.entities.capacity();
 
             #[cfg(not(debug_assertions))]
-            self.entities.push(entity.row());
+            self.entities.push(entity.index());
             #[cfg(debug_assertions)]
             self.entities.push(entity);
 
@@ -232,7 +232,7 @@ impl ComponentSparseSet {
             }
         }
         #[cfg(not(debug_assertions))]
-        self.sparse.contains(entity.row())
+        self.sparse.contains(entity.index())
     }
 
     /// Returns a reference to the entity's component value.
