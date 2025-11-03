@@ -42,4 +42,3 @@ pub mod prelude {
 /// Label for `camera_system<T>`, shared across all `T`.
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystems;
-
