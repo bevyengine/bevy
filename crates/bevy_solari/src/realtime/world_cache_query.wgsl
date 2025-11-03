@@ -1,9 +1,12 @@
 #define_import_path bevy_solari::world_cache
 
+#import bevy_pbr::utils::rand_vec2f
+#import bevy_render::maths::orthonormalize
+
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 20.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
+const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
@@ -37,9 +40,15 @@ struct WorldCacheGeometryData {
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
+fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
     let cell_size = get_cell_size(world_position, view_position);
-    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
+
+    // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+    let TBN = orthonormalize(world_normal);
+    let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
+    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+
+    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(jittered_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
     var key = compute_key(world_position_quantized, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
@@ -53,12 +62,12 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - reset cell lifetime so that it starts getting updated next frame
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
-            world_cache_geometry_data[key].world_position = world_position;
+            world_cache_geometry_data[key].world_position = jittered_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
         } else {
-            // Collision - jump to another entry
-            key = wrap_key(pcg_hash(key));
+            // Collision - linear probe to next entry
+            key += 1u;
         }
     }
 
