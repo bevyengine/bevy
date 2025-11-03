@@ -82,6 +82,18 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         _param: &mut SystemParamItem<Self::Param>,
     ) {
     }
+
+    /// Make a copy of the asset to be moved to the RenderWorld / gpu. Heavy internal data (pixels, vertex attributes)
+    /// should be moved into the copy, leaving this asset with only metadata.
+    /// A null return value can be used to indicate that the asset has already been extracted, and should not
+    /// have been modified on the CPU side (as it cannot be transferred to GPU again).
+    /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Option<Self::SourceAsset> {
+        Some(source.clone())
+    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -220,6 +232,7 @@ struct CachedExtractRenderAssetSystemState<A: RenderAsset> {
     state: SystemState<(
         MessageReader<'static, 'static, AssetEvent<A::SourceAsset>>,
         ResMut<'static, Assets<A::SourceAsset>>,
+        Option<Res<'static, RenderAssets<A>>>,
     )>,
 }
 
@@ -239,7 +252,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
 ) {
     main_world.resource_scope(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
-            let (mut events, mut assets) = cached_state.state.get_mut(world);
+            let (mut events, mut assets, maybe_render_assets) = cached_state.state.get_mut(world);
 
             let mut needs_extracting = <HashSet<_>>::default();
             let mut removed = <HashSet<_>>::default();
@@ -280,8 +293,12 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
-                            if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
+                            if let Some(asset) = assets.get_mut_untracked(id) {
+                                let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
+                                let Some(gpu_data_asset) = A::take_gpu_data(asset, previous_asset) else {
+                                    panic!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", std::any::type_name::<A>())
+                                };
+                                extracted_assets.push((id, gpu_data_asset));
                                 added.insert(id);
                             }
                         } else {

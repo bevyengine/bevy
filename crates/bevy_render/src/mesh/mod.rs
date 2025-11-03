@@ -131,6 +131,13 @@ impl RenderAsset for RenderMesh {
         mesh.asset_usage
     }
 
+    fn take_gpu_data(
+        source: &mut Self::SourceAsset,
+        _previous_gpu_asset: Option<&Self>,
+    ) -> Option<Self::SourceAsset> {
+        source.take_gpu_data()
+    }
+
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
