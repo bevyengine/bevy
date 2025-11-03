@@ -1102,17 +1102,4 @@ mod tests {
             .component_observers()
             .contains_key(&a));
     }
-
-    #[test]
-    #[expect(deprecated, reason = "We still need to test `On::target`")]
-    fn observer_target() {
-        let mut world = World::new();
-        let entity = world
-            .spawn_empty()
-            .observe(|event: On<EntityEventA>| {
-                assert_eq!(event.target(), event.event_target());
-            })
-            .id();
-        world.trigger(EntityEventA(entity));
-    }
 }
