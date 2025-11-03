@@ -2,7 +2,6 @@
 
 use core::ops::{Deref, DerefMut};
 use log::warn;
-use std::string::ToString;
 
 use crate::{
     component::{Component, ComponentId, Mutable},
@@ -101,7 +100,7 @@ pub fn resource_on_add_hook(mut deferred_world: DeferredWorld, context: HookCont
         assert!(
             world.entities().contains(original_entity),
             "Resource entity {} of {} has been despawned, when it's not supposed to be.",
-            original_entity.to_string(),
+            original_entity,
             name
         );
 
