@@ -247,6 +247,12 @@ impl<'w> ComponentsRegistrator<'w> {
     /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
     /// will be created for each one.
     ///
+    /// # Warning
+    ///
+    /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
+    /// and [`crate::resource::resource_on_add_hook`] and [`crate::resource::resource_on_despawn_hook`] as component lifecycle hooks.
+    /// Otherwise it will not function as a resource.
+    ///
     /// # See also
     ///
     /// * [`Components::component_id()`]
@@ -568,6 +574,12 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     ///
     /// Technically speaking, the returned [`ComponentId`] is not valid, but it will become valid later.
     /// See type level docs for details.
+    ///
+    /// # Warning
+    ///
+    /// When registering a custom resource be sure to add [`crate::resource::IsResource`] as a required component,
+    /// and [`crate::resource::resource_on_add_hook`] and [`crate::resource::resource_on_despawn_hook`] as component lifecycle hooks.
+    /// Otherwise it will not function as a resource.
     #[inline]
     pub fn queue_register_component_with_descriptor(
         &self,

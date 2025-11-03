@@ -1664,20 +1664,22 @@ impl World {
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
         let resource_id = self.register_resource::<R>();
         let caller = MaybeLocation::caller();
-        let resource = R::from_world(self);
-        move_as_ptr!(resource);
 
-        if let Some(entity) = self.resource_entities.get(resource_id) {
-            let mut entity_mut = self
-                .get_entity_mut(*entity)
-                .expect("ResourceCache is in sync");
-            entity_mut.insert_with_caller(
-                resource,
-                InsertMode::Keep, // don't change it if it already exists
-                caller,
-                RelationshipHookMode::Run,
-            );
+        if let Some(&entity) = self.resource_entities.get(resource_id) {
+            let entity_ref = self.get_entity(entity).expect("ResourceCache is in sync");
+            if !entity_ref.contains_id(resource_id) {
+                let resource = R::from_world(self);
+                move_as_ptr!(resource);
+                self.entity_mut(entity).insert_with_caller(
+                    resource,
+                    InsertMode::Replace,
+                    caller,
+                    RelationshipHookMode::Run,
+                );
+            }
         } else {
+            let resource = R::from_world(self);
+            move_as_ptr!(resource);
             self.spawn_with_caller(resource, caller); // ResourceCache is updated automatically
         }
         resource_id
@@ -1702,23 +1704,13 @@ impl World {
         value: R,
         caller: MaybeLocation,
     ) {
-        move_as_ptr!(value);
-        // if the resource already exists, we replace it on the same entity
-        if let Some(component_id) = self.resource_id::<R>()
-            && let Some(entity) = self.resource_entities.get(component_id)
-        {
-            let mut entity_mut = self
-                .get_entity_mut(*entity)
-                .expect("ResourceCache is in sync");
-            entity_mut.insert_with_caller(
-                value,
-                InsertMode::Replace,
-                caller,
-                RelationshipHookMode::Run,
-            );
-        } else {
-            self.spawn_with_caller(value, caller);
-        }
+        let component_id = self.components_registrator().register_resource::<R>();
+        OwningPtr::make(value, |ptr| {
+            // SAFETY: component_id was just initialized and corresponds to resource of type R.
+            unsafe {
+                self.insert_resource_by_id(component_id, ptr, caller);
+            }
+        });
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -2679,7 +2671,14 @@ impl World {
         value: OwningPtr<'_>,
         caller: MaybeLocation,
     ) {
-        self.spawn_empty().insert_by_id_with_caller(
+        // if the resource already exists, we replace it on the same entity
+        let mut entity_mut = if let Some(entity) = self.resource_entities.get(component_id) {
+            self.get_entity_mut(*entity)
+                .expect("ResourceCache is in sync")
+        } else {
+            self.spawn_empty()
+        };
+        entity_mut.insert_by_id_with_caller(
             component_id,
             value,
             InsertMode::Replace,
@@ -3027,11 +3026,14 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let resource_entities: Vec<Entity> = self.resource_entities.values().copied().collect();
-        for entity in resource_entities {
-            self.despawn(entity);
+        let pairs: Vec<(ComponentId, Entity)> = self
+            .resource_entities()
+            .iter()
+            .map(|(id, entity)| (*id, *entity))
+            .collect();
+        for (component_id, entity) in pairs {
+            self.entity_mut(entity).remove_by_id(component_id);
         }
-        self.resource_entities.clear();
         self.storages.non_send_resources.clear();
     }
 

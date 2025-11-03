@@ -798,8 +798,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if let Some(entity) = world.resource_entities().get(*component_id)
+        // SAFETY: Read-only access to the resource
+        if let Some(entity) = unsafe { world.resource_entities() }.get(*component_id)
             && let Ok(entity_ref) = world.get_entity(*entity)
             && entity_ref.contains_id(*component_id)
         {
@@ -894,8 +894,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // SAFETY: Read-only access to resource metadata.
-        if let Some(entity) = world.resource_entities().get(*component_id)
+        // SAFETY: Read-only access to the resource.
+        if let Some(entity) = unsafe { world.resource_entities() }.get(*component_id)
             && let Ok(entity_ref) = world.get_entity(*entity)
             && entity_ref.contains_id(*component_id)
         {

@@ -1011,4 +1011,18 @@ mod tests {
             .build_state(&mut world)
             .build_system(|_r: Res<R>, _fr: FilteredResourcesMut| {});
     }
+
+    #[test]
+    #[should_panic]
+    fn filtered_resource_mut_conflicts_write_with_resmut() {
+        let mut world = World::new();
+        (
+            ParamBuilder::resource_mut(),
+            FilteredResourcesMutParamBuilder::new(|builder| {
+                builder.add_write::<R>();
+            }),
+        )
+            .build_state(&mut world)
+            .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+    }
 }
