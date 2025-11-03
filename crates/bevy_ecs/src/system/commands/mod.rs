@@ -1094,16 +1094,6 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
-    /// A deprecated alias for [`trigger`](Self::trigger) to ease migration.
-    ///
-    /// Instead of specifying the trigger target separately,
-    /// information about the target of the event is embedded in the data held by
-    /// the event type itself.
-    #[deprecated(since = "0.17.0", note = "Use `Commands::trigger` instead.")]
-    pub fn trigger_targets<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
-        self.trigger(event);
-    }
-
     /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
     ///
     /// [`Trigger`]: crate::event::Trigger
@@ -1154,24 +1144,6 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn write_message<M: Message>(&mut self, message: M) -> &mut Self {
         self.queue(command::write_message(message));
         self
-    }
-
-    /// Writes an arbitrary [`Message`].
-    ///
-    /// This is a convenience method for writing events
-    /// without requiring a [`MessageWriter`](crate::message::MessageWriter).
-    ///
-    /// # Performance
-    ///
-    /// Since this is a command, exclusive world access is used, which means that it will not profit from
-    /// system-level parallelism on supported platforms.
-    ///
-    /// If these events are performance-critical or very frequently sent,
-    /// consider using a typed [`MessageWriter`](crate::message::MessageWriter) instead.
-    #[track_caller]
-    #[deprecated(since = "0.17.0", note = "Use `Commands::write_message` instead.")]
-    pub fn send_event<E: Message>(&mut self, event: E) -> &mut Self {
-        self.write_message(event)
     }
 
     /// Runs the schedule corresponding to the given [`ScheduleLabel`].
