@@ -229,7 +229,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
             force_non_bindless,
         )?;
         let UnpreparedBindGroup {
-            bindings: extended_bindings,
+            bindings: extension_bindings,
         } = E::unprepared_bind_group(
             &self.extension,
             layout,
@@ -238,7 +238,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
             force_non_bindless,
         )?;
 
-        bindings.extend(extended_bindings.0);
+        bindings.extend(extension_bindings.0);
 
         Ok(UnpreparedBindGroup { bindings })
     }
