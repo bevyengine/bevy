@@ -972,9 +972,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     }
 }
 
-/// A system local [`SystemParam`].
-///
-/// A system with a `Local<T>` parameter is given a private value of `T` that persists across system calls.
+/// A [`SystemParam`] that provides a system-private value of `T` that persists across system calls.
 ///
 /// The initial value is created by calling `T`'s [`FromWorld::from_world`] (or [`Default::default`] if `T: Default`).
 ///
@@ -1022,7 +1020,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// assert_eq!(counter_system.run((), world).unwrap(), 12);
 /// ```
 ///
-/// A system having multiple locals with the same type are distinct values.
+/// A system can have multiple `Local` values with the same type, each with distinct values.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -1036,11 +1034,10 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// counter_system.initialize(world);
 ///
 /// assert_eq!(counter_system.run((), world).unwrap(), (1, 2));
-/// // Counter is only increased by 1 on subsequent runs.
 /// assert_eq!(counter_system.run((), world).unwrap(), (2, 4));
 /// ```
 ///
-/// This example shows that two systems using the same type for their own local get different locals.
+/// This example shows that two systems using the same type for their own `Local` get distinct locals.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -1060,6 +1057,19 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// write_system.run((), world);
 /// // The read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world).unwrap(), 0);
+/// ```
+///
+/// You can use a `Local` to avoid reallocating memory every system call.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// fn some_system(mut vec: Local<Vec<u32>>) {
+///     // Do your regular system logic, using the vec, as normal.
+///
+///     // At end of function, clear the vec's contents so its empty for next system call.
+///     // If it's possible the capacity could get too large, you may want to check and resize that as well.
+///     vec.clear();
+/// }
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -1125,7 +1135,6 @@ where
 }
 
 // SAFETY: only local state is accessed
-/// System private persistent value
 unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
