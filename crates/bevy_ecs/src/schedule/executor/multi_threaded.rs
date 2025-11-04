@@ -242,9 +242,6 @@ impl SystemExecutor for MultiThreadedExecutor {
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
-        // First thing we do is run async ecs accesses
-        crate::schedule::executor::r#async::ASYNC_ECS_WAKER_LIST.wait(world);
-
         let state = self.state.get_mut().unwrap();
         // reset counts
         if schedule.systems.is_empty() {

@@ -15,7 +15,7 @@ use futures_timer::Delay;
 use rand::Rng;
 use std::time::Duration;
 
-const NUM_CUBES: i32 = 6;
+const NUM_CUBES: i32 = 16;
 const LIGHT_RADIUS: f32 = 8.0;
 
 fn main() {
@@ -23,11 +23,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(
             Startup,
-            (
-                setup_env,
-                setup_assets,
-                spawn_tasks.after(setup_assets),
-            ),
+            (setup_env, setup_assets, spawn_tasks.after(setup_assets)),
         )
         .add_systems(Update, rotate_light)
         .run();
@@ -49,16 +45,27 @@ fn spawn_tasks(world_id: WorldId) {
             pool.spawn(async move {
                 let delay = Duration::from_secs_f32(rand::rng().random_range(2.0..8.0));
                 // Simulate a delay before task completion
+                println!("delaying for {:?}", delay);
                 Delay::new(delay).await;
-                async_access(world_id, |(mut commands, box_mesh, box_material): ( Commands, Res<BoxMeshHandle>, Res<BoxMaterialHandle>)| {
-                    commands.spawn((
-                        Mesh3d(box_mesh.clone()),
-                        MeshMaterial3d(box_material.clone()),
-                        Transform::from_xyz(x as f32, 0.5, z as f32),
-                    ));
-                }).await;
+                if let Err(e) =
+                    async_access::<(Commands, Res<BoxMeshHandle>, Res<BoxMaterialHandle>), _, _>(
+                        world_id,
+                        Update,
+                        |(mut commands, box_mesh, box_material)| {
+                            println!("spawning");
+                            commands.spawn((
+                                Mesh3d(box_mesh.clone()),
+                                MeshMaterial3d(box_material.clone()),
+                                Transform::from_xyz(x as f32, 0.5, z as f32),
+                            ));
+                        },
+                    )
+                    .await
+                {
+                    println!("got error: {}", e);
+                }
             })
-                .detach();
+            .detach();
         }
     }
 }

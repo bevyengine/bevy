@@ -93,8 +93,8 @@ pub mod prelude {
         relationship::RelationshipTarget,
         resource::Resource,
         schedule::{
-            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
-            Schedules, SystemCondition, SystemSet, executor::r#async::async_access
+            common_conditions::*, executor::r#async::async_access, ApplyDeferred,
+            IntoScheduleConfigs, IntoSystemSet, Schedule, Schedules, SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
@@ -104,8 +104,8 @@ pub mod prelude {
             SystemParamFunction,
         },
         world::{
-            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
-            FromWorld, World, identifier::WorldId
+            identifier::WorldId, EntityMut, EntityRef, EntityWorldMut, FilteredResources,
+            FilteredResourcesMut, FromWorld, World,
         },
     };
 
