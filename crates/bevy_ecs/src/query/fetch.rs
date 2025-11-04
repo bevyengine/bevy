@@ -352,6 +352,15 @@ pub unsafe trait QueryData: WorldQuery {
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
 }
 
+/// A [`QueryData`] that's able to be reborrowed, converting a reference into
+/// an owned struct with a shorter lifetime.
+pub trait ReborrowQueryData: QueryData {
+    /// Returns a `QueryData` item with a smaller lifetime.
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short>;
+}
+
 /// A [`QueryData`] that is read only.
 ///
 /// # Safety
@@ -464,6 +473,14 @@ unsafe impl QueryData for Entity {
     }
 }
 
+impl ReborrowQueryData for Entity {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for Entity {}
 
@@ -558,6 +575,14 @@ unsafe impl QueryData for EntityLocation {
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::empty()
+    }
+}
+
+impl ReborrowQueryData for EntityLocation {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -741,6 +766,14 @@ unsafe impl QueryData for SpawnDetails {
     }
 }
 
+impl ReborrowQueryData for SpawnDetails {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for SpawnDetails {}
 
@@ -864,6 +897,14 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
     }
 }
 
+impl<'a> ReborrowQueryData for EntityRef<'a> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl ReadOnlyQueryData for EntityRef<'_> {}
 
@@ -971,6 +1012,14 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::once(EcsAccessType::Component(EcsAccessLevel::WriteAll))
+    }
+}
+
+impl<'a> ReborrowQueryData for EntityMut<'a> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -1102,6 +1151,14 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     }
 }
 
+impl<'w, 's> ReborrowQueryData for FilteredEntityRef<'w, 's> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 /// SAFETY: Access is read-only.
 unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
 
@@ -1225,6 +1282,14 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     }
 }
 
+impl<'a, 'b> ReborrowQueryData for FilteredEntityMut<'a, 'b> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
 
 /// SAFETY: `EntityRefExcept` guards access to all components in the bundle `B`
@@ -1336,6 +1401,14 @@ where
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::once(EcsAccessType::Access(state))
+    }
+}
+
+impl<'a, 'b, B: Bundle> ReborrowQueryData for EntityRefExcept<'a, 'b, B> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -1458,6 +1531,14 @@ where
     }
 }
 
+impl<'a, 'b, B: Bundle> ReborrowQueryData for EntityMutExcept<'a, 'b, B> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 impl<B: Bundle> ArchetypeQueryData for EntityMutExcept<'_, '_, B> {}
 
 /// SAFETY:
@@ -1546,6 +1627,14 @@ unsafe impl QueryData for &Archetype {
 
     fn iter_access(_state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::empty()
+    }
+}
+
+impl ReborrowQueryData for &Archetype {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -1719,6 +1808,14 @@ unsafe impl<T: Component> QueryData for &T {
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::once(EcsAccessType::Component(EcsAccessLevel::Read(*state)))
+    }
+}
+
+impl<T: Component> ReborrowQueryData for &T {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -1939,6 +2036,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
     }
 }
 
+impl<'__w, T: Component> ReborrowQueryData for Ref<'__w, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 /// SAFETY: access is read only
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
@@ -2156,6 +2261,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     }
 }
 
+impl<'__w, T: Component<Mutability = Mutable>> ReborrowQueryData for &'__w mut T {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
@@ -2272,6 +2385,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         iter::once(EcsAccessType::Component(EcsAccessLevel::Write(*state)))
+    }
+}
+
+impl<'__w, T: Component<Mutability = Mutable>> ReborrowQueryData for Mut<'__w, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -2424,6 +2545,14 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
 
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
         T::iter_access(state)
+    }
+}
+
+impl<T: ReborrowQueryData> ReborrowQueryData for Option<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.as_mut().map(<T as ReborrowQueryData>::reborrow)
     }
 }
 
@@ -2607,6 +2736,14 @@ unsafe impl<T: Component> QueryData for Has<T> {
     }
 }
 
+impl<T: Component> ReborrowQueryData for Has<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 /// SAFETY: [`Has`] is read only
 unsafe impl<T: Component> ReadOnlyQueryData for Has<T> {}
 
@@ -2684,6 +2821,31 @@ macro_rules! impl_tuple_query_data {
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
                 let ($($name,)*) = state;
                 iter::empty()$(.chain($name::iter_access($name)))*
+            }
+        }
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ReborrowQueryData),*> ReborrowQueryData for ($($name,)*) {
+            fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                ($($item,)*): &'short mut Self::Item<'wlong, 'slong>,
+            ) -> Self::Item<'short, 'short> {
+                ($(<$name as ReborrowQueryData>::reborrow($item),)*)
             }
         }
 
@@ -2856,6 +3018,7 @@ macro_rules! impl_anytuple_fetch {
                 )*)
             }
 
+
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
                 _state: &'s Self::State,
@@ -2886,6 +3049,30 @@ macro_rules! impl_anytuple_fetch {
             fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>> {
                 let ($($name,)*) = state;
                 iter::empty()$(.chain($name::iter_access($name)))*
+            }
+        }
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
+        $(#[$meta])*
+        impl<$($name: ReborrowQueryData),*> ReborrowQueryData for AnyOf<($($name,)*)> {
+            fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                ($($item,)*): &'short mut Self::Item<'wlong, 'slong>,
+            ) -> Self::Item<'short, 'short> {
+                ($(<Option<$name> as ReborrowQueryData>::reborrow($item),)*)
             }
         }
 
@@ -3014,6 +3201,12 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     }
 }
 
+impl<D: QueryData> ReborrowQueryData for NopWorldQuery<D> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        _item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+    }
+}
 /// SAFETY: `NopFetch` never accesses any data
 unsafe impl<D: QueryData> ReadOnlyQueryData for NopWorldQuery<D> {}
 
@@ -3103,6 +3296,12 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
     }
 }
 
+impl<T: ?Sized> ReborrowQueryData for PhantomData<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        _item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+    }
+}
 /// SAFETY: `PhantomData` never accesses any world data.
 unsafe impl<T: ?Sized> ReadOnlyQueryData for PhantomData<T> {}
 
@@ -3431,5 +3630,22 @@ mod tests {
 
         // we want EntityRef to use the change ticks of the system
         schedule.run(&mut world);
+    }
+
+    #[test]
+    fn test_derive_reborrow_query_data() {
+        struct A;
+        #[derive(Component)]
+        struct B;
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        pub struct ReborrowData {
+            a: PhantomData<A>,
+            b: &'static mut B,
+        }
+
+        fn assert_is_reborrow_query_data<Q: ReborrowQueryData>() {}
+        assert_is_reborrow_query_data::<ReborrowData>();
     }
 }
