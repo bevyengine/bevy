@@ -587,7 +587,7 @@ impl<A: Asset> Assets<A> {
 
     /// A system that applies accumulated asset change events to the [`Messages`] resource.
     ///
-    /// [`Messages`]: bevy_ecs::event::Events
+    /// [`Messages`]: bevy_ecs::message::Messages
     pub(crate) fn asset_events(
         mut assets: ResMut<Self>,
         mut messages: MessageWriter<AssetEvent<A>>,
