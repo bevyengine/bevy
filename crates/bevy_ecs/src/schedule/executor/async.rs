@@ -74,11 +74,7 @@ pub(crate) static ASYNC_ECS_WORLD_ACCESS: LockWrapper = LockWrapper(OnceLock::ne
 pub(crate) static ASYNC_ECS_WAKER_LIST: EcsWakerList = EcsWakerList(OnceLock::new());
 
 #[derive(bevy_ecs_macros::Resource, Clone)]
-pub(crate) struct AsyncBarrier(
-    thread::Thread,
-    Arc<AtomicI64>,
-    std::sync::mpsc::Sender<Box<dyn FnOnce(&mut World) + Send + Sync + 'static>>,
-);
+pub(crate) struct AsyncBarrier(thread::Thread, Arc<AtomicI64>);
 
 #[derive(bevy_ecs_macros::Resource)]
 pub(crate) struct SystemParamQueue<T: SystemParam + 'static>(
@@ -129,7 +125,7 @@ impl<T: SystemParam + 'static> FromWorld for SystemParamQueue<T> {
 }
 
 #[derive(Clone, Copy, Hash, PartialOrd, PartialEq, Eq)]
-pub struct TaskId(usize);
+struct TaskId(usize);
 
 /// The next [`TaskId`].
 static MAX_TASK_ID: AtomicUsize = AtomicUsize::new(0);
@@ -175,11 +171,9 @@ impl EcsWakerList {
         if waker_list_len == 0 {
             return None;
         }
-        let (tx, rx) = std::sync::mpsc::channel();
         world.insert_resource(AsyncBarrier(
             thread::current(),
             Arc::new(AtomicI64::new(waker_list_len as i64 - 1)),
-            tx,
         ));
         if let None = ASYNC_ECS_WORLD_ACCESS.set(world, || {
             for waker in waker_list {
@@ -430,31 +424,20 @@ where
                 }
                 Poll::Ready(Ok(out))
             }) {
-                Some(Poll::Pending) => {
-                    match ASYNC_ECS_WAKER_LIST.0
-                        .get_or_init(|| keyed_queues::KeyedQueues::new())
-                        .try_send(
-                            &self.3,
-                            (cx.waker().clone(), system_state_init::<P>, task_id),
-                        ) {
-                        Ok(_) => {}
-                        Err(_) => panic!(),
-                    }
-                    Poll::Pending
-                }
-                None => {
-                    match ASYNC_ECS_WAKER_LIST.0
-                        .get_or_init(|| keyed_queues::KeyedQueues::new())
-                        .try_send(
-                            &self.3,
-                            (cx.waker().clone(), system_state_init::<P>, task_id),
-                        ) {
-                        Ok(_) => {}
-                        Err(_) => panic!(),
-                    }
-                    Poll::Pending
-                }
                 Some(awa) => awa,
+                _ => {
+                    match ASYNC_ECS_WAKER_LIST
+                        .0
+                        .get_or_init(|| KeyedQueues::new())
+                        .try_send(
+                            &self.3,
+                            (cx.waker().clone(), system_state_init::<P>, task_id),
+                        ) {
+                        Ok(_) => {}
+                        Err(_) => panic!(),
+                    }
+                    Poll::Pending
+                }
             }
         }
     }
