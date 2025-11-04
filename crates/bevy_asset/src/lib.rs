@@ -2258,7 +2258,7 @@ mod tests {
         dir.insert_asset_text(Path::new("abc.rsp"), "");
 
         #[derive(Asset, TypePath)]
-        pub struct TestAssetUD(UntypedHandle);
+        pub struct TestAssetUD(Handle<crate::LoadedUntypedAsset>);
         struct ImmediateSelfLoader;
 
         impl AssetLoader for ImmediateSelfLoader {
@@ -2273,11 +2273,10 @@ mod tests {
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 let asset_path = load_context.asset_path().clone();
-                let untyped_handle: UntypedHandle = load_context
+                let untyped_handle: Handle<crate::LoadedUntypedAsset> = load_context
                     .loader()
                     .with_unknown_type()
-                    .load(asset_path)
-                    .into();
+                    .load(asset_path);
 
                 Ok(TestAssetUD(untyped_handle))
             }
@@ -2295,14 +2294,16 @@ mod tests {
         run_app_until(&mut app, |world| match asset_server.load_state(&handle) {
             LoadState::Loading => None,
             LoadState::Loaded => {
-                let test_assets = world.resource::<Assets<TestAssetUD>>();
-                let asset = test_assets.get(&handle).unwrap();
-                assert_eq!(handle.id(), asset.0.id().typed_unchecked::<TestAssetUD>());
-                // This one fails.
-                // assert_eq!(handle.id(), asset.0.id().typed::<TestAssetUD>());
-                // These two fail too.
-                // assert_eq!(handle.clone().untyped().id(), asset.0.id());
-                // assert_eq!(handle.clone().untyped(), asset.0);
+                let asset_id = {
+                    let test_assets = world.resource::<Assets<TestAssetUD>>();
+                    let asset = test_assets.get(&handle).unwrap();
+                    asset.0.id()
+                };
+                let untyped_handle = {
+                    let untyped = world.resource::<Assets<crate::LoadedUntypedAsset>>();
+                    untyped.get(asset_id).unwrap()
+                };
+                assert_eq!(handle.id(), untyped_handle.handle.id());
                 Some(())
             }
             state => panic!("Unexpected asset state: {state:?}"),
