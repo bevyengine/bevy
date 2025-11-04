@@ -2,17 +2,26 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    triangle_area_normal, triangle_normal, FourIterators, Indices, MeshAttributeData,
+    MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId, MeshVertexBufferLayout,
+    MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
+    VertexAttributeValues, VertexBufferLayout,
 };
+#[cfg(feature = "serialize")]
+use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
-use bevy_asset::{Asset, Handle, RenderAssetUsages};
+#[cfg(feature = "morph")]
+use bevy_asset::Handle;
+use bevy_asset::{Asset, RenderAssetUsages};
+#[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
+#[cfg(feature = "serialize")]
+use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
 use bytemuck::cast_slice;
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
@@ -27,8 +36,8 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// or by converting a [primitive](bevy_math::primitives) using [`into`](Into).
 /// It is also possible to create one manually. They can be edited after creation.
 ///
-/// Meshes can be rendered with a `Mesh2d` and `MeshMaterial2d`
-/// or `Mesh3d` and `MeshMaterial3d` for 2D and 3D respectively.
+/// Meshes can be rendered with a [`Mesh2d`](crate::Mesh2d) and `MeshMaterial2d`
+/// or [`Mesh3d`](crate::Mesh3d) and `MeshMaterial3d` for 2D and 3D respectively.
 ///
 /// A [`Mesh`] in Bevy is equivalent to a "primitive" in the glTF format, for a
 /// glTF Mesh representation, see `GltfMesh`.
@@ -72,7 +81,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// ```
 ///
 /// You can see how it looks like [here](https://github.com/bevyengine/bevy/blob/main/assets/docs/Mesh.png),
-/// used in a `Mesh3d` with a square bevy logo texture, with added axis, points,
+/// used in a [`Mesh3d`](crate::Mesh3d) with a square bevy logo texture, with added axis, points,
 /// lines and text for clarity.
 ///
 /// ## Other examples
@@ -104,7 +113,12 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
-#[derive(Asset, Debug, Clone, Reflect)]
+///
+/// ## Remote Inspection
+///
+/// To transmit a [`Mesh`] between two running Bevy apps, e.g. through BRP, use [`SerializedMesh`].
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
+#[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct Mesh {
     #[reflect(ignore, clone)]
@@ -116,9 +130,26 @@ pub struct Mesh {
     #[reflect(ignore, clone)]
     attributes: BTreeMap<MeshVertexAttributeId, MeshAttributeData>,
     indices: Option<Indices>,
+    #[cfg(feature = "morph")]
     morph_targets: Option<Handle<Image>>,
+    #[cfg(feature = "morph")]
     morph_target_names: Option<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
+    /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
+    ///
+    /// Note that this is _not_ whether the mesh is _compatible_ with `bevy_solari` raytracing.
+    /// This field just controls whether or not a BLAS gets built for this mesh, assuming that
+    /// the mesh is compatible.
+    ///
+    /// The use case for this field is using lower-resolution proxy meshes for raytracing (to save on BLAS memory usage),
+    /// while using higher-resolution meshes for raster. You can set this field to true for the lower-resolution proxy mesh,
+    /// and to false for the high-resolution raster mesh.
+    ///
+    /// Alternatively, you can use the same mesh for both raster and raytracing, with this field set to true.
+    ///
+    /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
+    /// with `bevy_solari` (see `bevy_solari`'s docs).
+    pub enable_raytracing: bool,
 }
 
 impl Mesh {
@@ -192,6 +223,10 @@ impl Mesh {
     pub const ATTRIBUTE_JOINT_INDEX: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_JointIndex", 7, VertexFormat::Uint16x4);
 
+    /// The first index that can be used for custom vertex attributes.
+    /// Only the attributes with an index below this are used by Bevy.
+    pub const FIRST_AVAILABLE_CUSTOM_ATTRIBUTE: u64 = 8;
+
     /// Construct a new mesh. You need to provide a [`PrimitiveTopology`] so that the
     /// renderer knows how to treat the vertex data. Most of the time this will be
     /// [`PrimitiveTopology::TriangleList`].
@@ -200,9 +235,12 @@ impl Mesh {
             primitive_topology,
             attributes: Default::default(),
             indices: None,
+            #[cfg(feature = "morph")]
             morph_targets: None,
+            #[cfg(feature = "morph")]
             morph_target_names: None,
             asset_usage,
+            enable_raytracing: true,
         }
     }
 
@@ -575,7 +613,7 @@ impl Mesh {
             match topology {
                 PrimitiveTopology::TriangleList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 3 != 0 {
+                    if !indices.len().is_multiple_of(3) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     for chunk in indices.chunks_mut(3) {
@@ -589,7 +627,7 @@ impl Mesh {
                 }
                 PrimitiveTopology::LineList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 2 != 0 {
+                    if !indices.len().is_multiple_of(2) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     indices.reverse();
@@ -623,11 +661,7 @@ impl Mesh {
     ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
-    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
-    ///
-    /// FIXME: This should handle more cases since this is called as a part of gltf
-    /// mesh loading where we can't really blame users for loading meshes that might
-    /// not conform to the limitations here!
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].=
     pub fn compute_normals(&mut self) {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
@@ -669,7 +703,7 @@ impl Mesh {
 
         let normals: Vec<_> = positions
             .chunks_exact(3)
-            .map(|p| face_normal(p[0], p[1], p[2]))
+            .map(|p| triangle_normal(p[0], p[1], p[2]))
             .flat_map(|normal| [normal; 3])
             .collect();
 
@@ -679,22 +713,141 @@ impl Mesh {
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
     /// vertices.
     ///
+    /// This method weights normals by the angles of the corners of connected triangles, thus
+    /// eliminating triangle area and count as factors in the final normal. This does make it
+    /// somewhat slower than [`Mesh::compute_area_weighted_normals`] which does not need to
+    /// greedily normalize each triangle's normal or calculate corner angles.
+    ///
+    /// If you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::compute_area_weighted_normals`] instead. If you need to weight them in some other
+    /// way, see [`Mesh::compute_custom_smooth_normals`].
+    ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    ///
-    /// FIXME: This should handle more cases since this is called as a part of gltf
-    /// mesh loading where we can't really blame users for loading meshes that might
-    /// not conform to the limitations here!
     pub fn compute_smooth_normals(&mut self) {
+        self.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+            let pa = Vec3::from(positions[a]);
+            let pb = Vec3::from(positions[b]);
+            let pc = Vec3::from(positions[c]);
+
+            let ab = pb - pa;
+            let ba = pa - pb;
+            let bc = pc - pb;
+            let cb = pb - pc;
+            let ca = pa - pc;
+            let ac = pc - pa;
+
+            const EPS: f32 = f32::EPSILON;
+            let weight_a = if ab.length_squared() * ac.length_squared() > EPS {
+                ab.angle_between(ac)
+            } else {
+                0.0
+            };
+            let weight_b = if ba.length_squared() * bc.length_squared() > EPS {
+                ba.angle_between(bc)
+            } else {
+                0.0
+            };
+            let weight_c = if ca.length_squared() * cb.length_squared() > EPS {
+                ca.angle_between(cb)
+            } else {
+                0.0
+            };
+
+            let normal = Vec3::from(triangle_normal(positions[a], positions[b], positions[c]));
+
+            normals[a] += normal * weight_a;
+            normals[b] += normal * weight_b;
+            normals[c] += normal * weight_c;
+        });
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will.
+    ///
+    /// This method is actually somewhat faster than [`Mesh::compute_smooth_normals`] because an
+    /// intermediate result of triangle normal calculation is already scaled by the triangle's area.
+    ///
+    /// If you would rather have the computed normals be influenced only by the angles of connected
+    /// edges, see [`Mesh::compute_smooth_normals`] instead. If you need to weight them in some
+    /// other way, see [`Mesh::compute_custom_smooth_normals`].
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    pub fn compute_area_weighted_normals(&mut self) {
+        self.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+            let normal = Vec3::from(triangle_area_normal(
+                positions[a],
+                positions[b],
+                positions[c],
+            ));
+            [a, b, c].into_iter().for_each(|pos| {
+                normals[pos] += normal;
+            });
+        });
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// This method allows you to customize how normals are weighted via the `per_triangle` parameter,
+    /// which must be a function or closure that accepts 3 parameters:
+    /// - The indices of the three vertices of the triangle as a `[usize; 3]`.
+    /// - A reference to the values of the [`Mesh::ATTRIBUTE_POSITION`] of the mesh (`&[[f32; 3]]`).
+    /// - A mutable reference to the sums of all normals so far.
+    ///
+    /// See also the standard methods included in Bevy for calculating smooth normals:
+    /// - [`Mesh::compute_smooth_normals`]
+    /// - [`Mesh::compute_area_weighted_normals`]
+    ///
+    /// An example that would weight each connected triangle's normal equally, thus skewing normals
+    /// towards the planes divided into the most triangles:
+    /// ```
+    /// # use bevy_asset::RenderAssetUsages;
+    /// # use bevy_mesh::{Mesh, PrimitiveTopology, Meshable, MeshBuilder};
+    /// # use bevy_math::{Vec3, primitives::Cuboid};
+    /// # let mut mesh = Cuboid::default().mesh().build();
+    /// mesh.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+    ///     let normal = Vec3::from(bevy_mesh::triangle_normal(positions[a], positions[b], positions[c]));
+    ///     for idx in [a, b, c] {
+    ///         normals[idx] += normal;
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    //
+    // FIXME: This should handle more cases since this is called as a part of gltf
+    // mesh loading where we can't really blame users for loading meshes that might
+    // not conform to the limitations here!
+    //
+    // When fixed, also update "Panics" sections of
+    // - [Mesh::compute_smooth_normals]
+    // - [Mesh::with_computed_smooth_normals]
+    // - [Mesh::compute_area_weighted_normals]
+    // - [Mesh::with_computed_area_weighted_normals]
+    pub fn compute_custom_smooth_normals(
+        &mut self,
+        mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
+    ) {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
-            "`compute_smooth_normals` can only work on `TriangleList`s"
+            "smooth normals can only be computed on `TriangleList`s"
         );
         assert!(
             self.indices().is_some(),
-            "`compute_smooth_normals` can only work on indexed meshes"
+            "smooth normals can only be computed on indexed meshes"
         );
 
         let positions = self
@@ -710,16 +863,8 @@ impl Mesh {
             .iter()
             .collect::<Vec<usize>>()
             .chunks_exact(3)
-            .for_each(|face| {
-                let [a, b, c] = [face[0], face[1], face[2]];
-                let normal = Vec3::from(face_area_normal(positions[a], positions[b], positions[c]));
-                [a, b, c].iter().for_each(|pos| {
-                    normals[*pos] += normal;
-                });
-            });
+            .for_each(|face| per_triangle([face[0], face[1], face[2]], positions, &mut normals));
 
-        // average (smooth) normals for shared vertices...
-        // TODO: support different methods of weighting the average
         for normal in &mut normals {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
         }
@@ -760,6 +905,10 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::compute_smooth_normals`] to mutate an existing mesh in-place)
     ///
+    /// This method weights normals by the angles of triangle corners connected to each vertex. If
+    /// you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::with_computed_area_weighted_normals`] instead.
+    ///
     /// # Panics
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
@@ -770,12 +919,32 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_area_weighted_normals`] to mutate an existing mesh in-place)
+    ///
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will. If you would rather have the computed normals be influenced
+    /// only by the angles of connected edges, see [`Mesh::with_computed_smooth_normals`] instead.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    #[must_use]
+    pub fn with_computed_area_weighted_normals(mut self) -> Self {
+        self.compute_area_weighted_normals();
+        self
+    }
+
     /// Generate tangents for the mesh using the `mikktspace` algorithm.
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        let tangents = generate_tangents_for_mesh(self)?;
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn generate_tangents(&mut self) -> Result<(), super::GenerateTangentsError> {
+        let tangents = super::generate_tangents_for_mesh(self)?;
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
@@ -787,7 +956,8 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
-    pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
+    #[cfg(feature = "bevy_mikktspace")]
+    pub fn with_generated_tangents(mut self) -> Result<Mesh, super::GenerateTangentsError> {
         self.generate_tangents()?;
         Ok(self)
     }
@@ -800,10 +970,25 @@ impl Mesh {
     ///
     /// # Errors
     ///
-    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
-    /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
+    /// If any of the following conditions are not met, this function errors:
+    /// * All of the vertex attributes that have the same attribute id, must also
+    ///   have the same attribute type.
+    ///   For example two attributes with the same id, but where one is a
+    ///   [`VertexAttributeValues::Float32`] and the other is a
+    ///   [`VertexAttributeValues::Float32x3`], would be invalid.
+    /// * Both meshes must have the same primitive topology.
+    pub fn merge(&mut self, other: &Mesh) -> Result<(), MeshMergeError> {
         use VertexAttributeValues::*;
+
+        // Check if the meshes `primitive_topology` field is the same,
+        // as if that is not the case, the resulting mesh could (and most likely would)
+        // be invalid.
+        if self.primitive_topology != other.primitive_topology {
+            return Err(MeshMergeError::IncompatiblePrimitiveTopology {
+                self_primitive_topology: self.primitive_topology,
+                other_primitive_topology: other.primitive_topology,
+            });
+        }
 
         // The indices of `other` should start after the last vertex of `self`.
         let index_offset = self.count_vertices();
@@ -845,7 +1030,7 @@ impl Mesh {
                     (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
                     _ => {
-                        return Err(MergeMeshError {
+                        return Err(MeshMergeError::IncompatibleVertexAttributes {
                             self_attribute: *attribute,
                             other_attribute: other
                                 .attribute_data(attribute.id)
@@ -1055,55 +1240,6 @@ impl Mesh {
         }
     }
 
-    /// Whether this mesh has morph targets.
-    pub fn has_morph_targets(&self) -> bool {
-        self.morph_targets.is_some()
-    }
-
-    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
-        self.morph_targets = Some(morph_targets);
-    }
-
-    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
-        self.morph_targets.as_ref()
-    }
-
-    /// Consumes the mesh and returns a mesh with the given [morph targets].
-    ///
-    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
-    ///
-    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-    #[must_use]
-    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
-        self.set_morph_targets(morph_targets);
-        self
-    }
-
-    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
-    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
-        self.morph_target_names = Some(names);
-    }
-
-    /// Consumes the mesh and returns a mesh with morph target names.
-    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
-    ///
-    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
-    #[must_use]
-    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
-        self.set_morph_target_names(names);
-        self
-    }
-
-    /// Gets a list of all morph target names, if they exist.
-    pub fn morph_target_names(&self) -> Option<&[String]> {
-        self.morph_target_names.as_deref()
-    }
-
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
@@ -1228,6 +1364,73 @@ impl Mesh {
     }
 }
 
+#[cfg(feature = "morph")]
+impl Mesh {
+    /// Whether this mesh has morph targets.
+    pub fn has_morph_targets(&self) -> bool {
+        self.morph_targets.is_some()
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
+        self.morph_targets = Some(morph_targets);
+    }
+
+    pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+        self.morph_targets.as_ref()
+    }
+
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn with_morph_targets(mut self, morph_targets: Handle<Image>) -> Self {
+        self.set_morph_targets(morph_targets);
+        self
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn set_morph_target_names(&mut self, names: Vec<String>) {
+        self.morph_target_names = Some(names);
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
+        self.set_morph_target_names(names);
+        self
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn morph_target_names(&self) -> Option<&[String]> {
+        self.morph_target_names.as_deref()
+    }
+}
+
+/// Correctly scales and renormalizes an already normalized `normal` by the scale determined by its reciprocal `scale_recip`
+pub(crate) fn scale_normal(normal: Vec3, scale_recip: Vec3) -> Vec3 {
+    // This is basically just `normal * scale_recip` but with the added rule that `0. * anything == 0.`
+    // This is necessary because components of `scale_recip` may be infinities, which do not multiply to zero
+    let n = Vec3::select(normal.cmpeq(Vec3::ZERO), Vec3::ZERO, normal * scale_recip);
+
+    // If n is finite, no component of `scale_recip` was infinite or the normal was perpendicular to the scale
+    // else the scale had at least one zero-component and the normal needs to point along the direction of that component
+    if n.is_finite() {
+        n.normalize_or_zero()
+    } else {
+        Vec3::select(n.abs().cmpeq(Vec3::INFINITY), n.signum(), Vec3::ZERO).normalize()
+    }
+}
+
 impl core::ops::Mul<Mesh> for Transform {
     type Output = Mesh;
 
@@ -1236,17 +1439,157 @@ impl core::ops::Mul<Mesh> for Transform {
     }
 }
 
+/// A version of [`Mesh`] suitable for serializing for short-term transfer.
+///
+/// [`Mesh`] does not implement [`Serialize`] / [`Deserialize`] because it is made with the renderer in mind.
+/// It is not a general-purpose mesh implementation, and its internals are subject to frequent change.
+/// As such, storing a [`Mesh`] on disk is highly discouraged.
+///
+/// But there are still some valid use cases for serializing a [`Mesh`], namely transferring meshes between processes.
+/// To support this, you can create a [`SerializedMesh`] from a [`Mesh`] with [`SerializedMesh::from_mesh`],
+/// and then deserialize it with [`SerializedMesh::deserialize`]. The caveats are:
+/// - The mesh representation is not valid across different versions of Bevy.
+/// - This conversion is lossy. Only the following information is preserved:
+///   - Primitive topology
+///   - Vertex attributes
+///   - Indices
+/// - Custom attributes that were not specified with [`MeshDeserializer::add_custom_vertex_attribute`] will be ignored while deserializing.
+#[cfg(feature = "serialize")]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerializedMesh {
+    primitive_topology: PrimitiveTopology,
+    attributes: Vec<(MeshVertexAttributeId, SerializedMeshAttributeData)>,
+    indices: Option<Indices>,
+}
+
+#[cfg(feature = "serialize")]
+impl SerializedMesh {
+    /// Create a [`SerializedMesh`] from a [`Mesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    pub fn from_mesh(mesh: Mesh) -> Self {
+        Self {
+            primitive_topology: mesh.primitive_topology,
+            attributes: mesh
+                .attributes
+                .into_iter()
+                .map(|(id, data)| {
+                    (
+                        id,
+                        SerializedMeshAttributeData::from_mesh_attribute_data(data),
+                    )
+                })
+                .collect(),
+            indices: mesh.indices,
+        }
+    }
+
+    /// Create a [`Mesh`] from a [`SerializedMesh`]. See the documentation for [`SerializedMesh`] for caveats.
+    ///
+    /// Use [`MeshDeserializer`] if you need to pass extra options to the deserialization process, such as specifying custom vertex attributes.
+    pub fn into_mesh(self) -> Mesh {
+        MeshDeserializer::default().deserialize(self)
+    }
+}
+
+/// Use to specify extra options when deserializing a [`SerializedMesh`] into a [`Mesh`].
+#[cfg(feature = "serialize")]
+pub struct MeshDeserializer {
+    custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+}
+
+#[cfg(feature = "serialize")]
+impl Default for MeshDeserializer {
+    fn default() -> Self {
+        // Written like this so that the compiler can validate that we use all the built-in attributes.
+        // If you just added a new attribute and got a compile error, please add it to this list :)
+        const BUILTINS: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+            Mesh::ATTRIBUTE_POSITION,
+            Mesh::ATTRIBUTE_NORMAL,
+            Mesh::ATTRIBUTE_UV_0,
+            Mesh::ATTRIBUTE_UV_1,
+            Mesh::ATTRIBUTE_TANGENT,
+            Mesh::ATTRIBUTE_COLOR,
+            Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            Mesh::ATTRIBUTE_JOINT_INDEX,
+        ];
+        Self {
+            custom_vertex_attributes: BUILTINS
+                .into_iter()
+                .map(|attribute| (attribute.name.into(), attribute))
+                .collect(),
+        }
+    }
+}
+
+#[cfg(feature = "serialize")]
+impl MeshDeserializer {
+    /// Create a new [`MeshDeserializer`].
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Register a custom vertex attribute to the deserializer. Custom vertex attributes that were not added with this method will be ignored while deserializing.
+    pub fn add_custom_vertex_attribute(
+        &mut self,
+        name: &str,
+        attribute: MeshVertexAttribute,
+    ) -> &mut Self {
+        self.custom_vertex_attributes.insert(name.into(), attribute);
+        self
+    }
+
+    /// Deserialize a [`SerializedMesh`] into a [`Mesh`].
+    ///
+    /// See the documentation for [`SerializedMesh`] for caveats.
+    pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
+        Mesh {
+            attributes:
+                serialized_mesh
+                .attributes
+                .into_iter()
+                .filter_map(|(id, data)| {
+                    let attribute = data.attribute.clone();
+                    let Some(data) =
+                        data.try_into_mesh_attribute_data(&self.custom_vertex_attributes)
+                    else {
+                        warn!(
+                            "Deserialized mesh contains custom vertex attribute {attribute:?} that \
+                            was not specified with `MeshDeserializer::add_custom_vertex_attribute`. Ignoring."
+                        );
+                        return None;
+                    };
+                    Some((id, data))
+                })
+                .collect(),
+            indices: serialized_mesh.indices,
+            ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
+        }
+    }
+}
+
 /// Error that can occur when calling [`Mesh::merge`].
 #[derive(Error, Debug, Clone)]
-#[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
-pub struct MergeMeshError {
-    pub self_attribute: MeshVertexAttribute,
-    pub other_attribute: Option<MeshVertexAttribute>,
+pub enum MeshMergeError {
+    #[error("Incompatible vertex attribute types: {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+    IncompatibleVertexAttributes {
+        self_attribute: MeshVertexAttribute,
+        other_attribute: Option<MeshVertexAttribute>,
+    },
+    #[error(
+        "Incompatible primitive topologies: {:?} and {:?}",
+        self_primitive_topology,
+        other_primitive_topology
+    )]
+    IncompatiblePrimitiveTopology {
+        self_primitive_topology: PrimitiveTopology,
+        other_primitive_topology: PrimitiveTopology,
+    },
 }
 
 #[cfg(test)]
 mod tests {
     use super::Mesh;
+    #[cfg(feature = "serialize")]
+    use super::SerializedMesh;
     use crate::mesh::{Indices, MeshWindingInvertError, VertexAttributeValues};
     use crate::PrimitiveTopology;
     use bevy_asset::RenderAssetUsages;
@@ -1406,7 +1749,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_smooth_normals() {
+    fn compute_area_weighted_normals() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1423,7 +1766,7 @@ mod tests {
             vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_smooth_normals();
+        mesh.compute_area_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()
@@ -1441,7 +1784,7 @@ mod tests {
     }
 
     #[test]
-    fn compute_smooth_normals_proportionate() {
+    fn compute_area_weighted_normals_proportionate() {
         let mut mesh = Mesh::new(
             PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
@@ -1458,7 +1801,7 @@ mod tests {
             vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
         );
         mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
-        mesh.compute_smooth_normals();
+        mesh.compute_area_weighted_normals();
         let normals = mesh
             .attribute(Mesh::ATTRIBUTE_NORMAL)
             .unwrap()
@@ -1473,6 +1816,59 @@ mod tests {
         assert_eq!(Vec3::new(1., 0., 2.).normalize().to_array(), normals[2]);
         // 3
         assert_eq!([1., 0., 0.], normals[3]);
+    }
+
+    #[test]
+    fn compute_angle_weighted_normals() {
+        // CuboidMeshBuilder duplicates vertices (even though it is indexed)
+
+        //   5---------4
+        //  /|        /|
+        // 1-+-------0 |
+        // | 6-------|-7
+        // |/        |/
+        // 2---------3
+        let verts = vec![
+            [1.0, 1.0, 1.0],
+            [-1.0, 1.0, 1.0],
+            [-1.0, -1.0, 1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [-1.0, 1.0, -1.0],
+            [-1.0, -1.0, -1.0],
+            [1.0, -1.0, -1.0],
+        ];
+
+        let indices = Indices::U16(vec![
+            0, 1, 2, 2, 3, 0, // front
+            5, 4, 7, 7, 6, 5, // back
+            1, 5, 6, 6, 2, 1, // left
+            4, 0, 3, 3, 7, 4, // right
+            4, 5, 1, 1, 0, 4, // top
+            3, 2, 6, 6, 7, 3, // bottom
+        ]);
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, verts);
+        mesh.insert_indices(indices);
+        mesh.compute_smooth_normals();
+
+        let normals = mesh
+            .attribute(Mesh::ATTRIBUTE_NORMAL)
+            .unwrap()
+            .as_float3()
+            .unwrap();
+
+        for new in normals.iter().copied().flatten() {
+            // std impl is unstable
+            const FRAC_1_SQRT_3: f32 = 0.57735026;
+            const MIN: f32 = FRAC_1_SQRT_3 - f32::EPSILON;
+            const MAX: f32 = FRAC_1_SQRT_3 + f32::EPSILON;
+            assert!(new.abs() >= MIN, "{new} < {MIN}");
+            assert!(new.abs() <= MAX, "{new} > {MAX}");
+        }
     }
 
     #[test]
@@ -1550,5 +1946,27 @@ mod tests {
             ],
             mesh.triangles().unwrap().collect::<Vec<Triangle3d>>()
         );
+    }
+
+    #[cfg(feature = "serialize")]
+    #[test]
+    fn serialize_deserialize_mesh() {
+        let mut mesh = Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            vec![[0., 0., 0.], [2., 0., 0.], [0., 1., 0.], [0., 0., 1.]],
+        );
+        mesh.insert_indices(Indices::U16(vec![0, 1, 2, 0, 2, 3]));
+
+        let serialized_mesh = SerializedMesh::from_mesh(mesh.clone());
+        let serialized_string = serde_json::to_string(&serialized_mesh).unwrap();
+        let serialized_mesh_from_string: SerializedMesh =
+            serde_json::from_str(&serialized_string).unwrap();
+        let deserialized_mesh = serialized_mesh_from_string.into_mesh();
+        assert_eq!(mesh, deserialized_mesh);
     }
 }

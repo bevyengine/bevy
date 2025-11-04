@@ -50,7 +50,7 @@ pub trait Tuple: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the tuple's fields.
-    fn iter_fields(&self) -> TupleFieldIter;
+    fn iter_fields(&self) -> TupleFieldIter<'_>;
 
     /// Drain the fields of this tuple to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
@@ -76,6 +76,7 @@ pub struct TupleFieldIter<'a> {
 }
 
 impl<'a> TupleFieldIter<'a> {
+    /// Creates a new [`TupleFieldIter`].
     pub fn new(value: &'a dyn Tuple) -> Self {
         TupleFieldIter {
             tuple: value,
@@ -156,7 +157,7 @@ pub struct TupleInfo {
     ty: Type,
     generics: Generics,
     fields: Box<[UnnamedField]>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -171,13 +172,13 @@ impl TupleInfo {
             ty: Type::of::<T>(),
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this tuple.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -200,7 +201,7 @@ impl TupleInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this tuple, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -263,7 +264,7 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
-    fn iter_fields(&self) -> TupleFieldIter {
+    fn iter_fields(&self) -> TupleFieldIter<'_> {
         TupleFieldIter {
             tuple: self,
             index: 0,
@@ -317,12 +318,12 @@ impl PartialReflect for DynamicTuple {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Tuple(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Tuple(self)
     }
 
@@ -492,7 +493,7 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
-            fn iter_fields(&self) -> TupleFieldIter {
+            fn iter_fields(&self) -> TupleFieldIter<'_> {
                 TupleFieldIter {
                     tuple: self,
                     index: 0,
@@ -541,11 +542,11 @@ macro_rules! impl_reflect_tuple {
                 ReflectKind::Tuple
             }
 
-            fn reflect_ref(&self) -> ReflectRef {
+            fn reflect_ref(&self) -> ReflectRef <'_> {
                 ReflectRef::Tuple(self)
             }
 
-            fn reflect_mut(&mut self) -> ReflectMut {
+            fn reflect_mut(&mut self) -> ReflectMut <'_> {
                 ReflectMut::Tuple(self)
             }
 
@@ -648,17 +649,29 @@ macro_rules! impl_reflect_tuple {
 }
 
 impl_reflect_tuple! {}
+
 impl_reflect_tuple! {0: A}
+
 impl_reflect_tuple! {0: A, 1: B}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K}
+
 impl_reflect_tuple! {0: A, 1: B, 2: C, 3: D, 4: E, 5: F, 6: G, 7: H, 8: I, 9: J, 10: K, 11: L}
 
 macro_rules! impl_type_path_tuple {

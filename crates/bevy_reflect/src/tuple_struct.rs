@@ -53,7 +53,7 @@ pub trait TupleStruct: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the tuple struct's fields.
-    fn iter_fields(&self) -> TupleStructFieldIter;
+    fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
     fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
@@ -76,7 +76,7 @@ pub struct TupleStructInfo {
     generics: Generics,
     fields: Box<[UnnamedField]>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -92,13 +92,13 @@ impl TupleStructInfo {
             generics: Generics::new(),
             fields: fields.to_vec().into_boxed_slice(),
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -129,7 +129,7 @@ impl TupleStructInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -146,6 +146,7 @@ pub struct TupleStructFieldIter<'a> {
 }
 
 impl<'a> TupleStructFieldIter<'a> {
+    /// Creates a new [`TupleStructFieldIter`].
     pub fn new(value: &'a dyn TupleStruct) -> Self {
         TupleStructFieldIter {
             tuple_struct: value,
@@ -277,7 +278,7 @@ impl TupleStruct for DynamicTupleStruct {
     }
 
     #[inline]
-    fn iter_fields(&self) -> TupleStructFieldIter {
+    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
         TupleStructFieldIter {
             tuple_struct: self,
             index: 0,
@@ -336,12 +337,12 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::TupleStruct(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::TupleStruct(self)
     }
 

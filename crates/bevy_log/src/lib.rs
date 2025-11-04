@@ -1,10 +1,10 @@
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
+//! This crate provides logging functions and configuration for [Bevy](https://bevy.org)
 //! apps, and automatically configures platform specific log handlers (i.e. Wasm or Android).
 //!
 //! The macros provided for logging are reexported from [`tracing`](https://docs.rs/tracing),
@@ -240,7 +240,7 @@ pub struct LogPlugin {
     /// Access to [`App`] is also provided to allow for communication between the
     /// [`Subscriber`](tracing::Subscriber) and the [`App`].
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
 
     /// Override the default [`tracing_subscriber::fmt::Layer`] with a custom one.
@@ -253,7 +253,7 @@ pub struct LogPlugin {
     /// For example, you can use [`tracing_subscriber::fmt::Layer::without_time`] to remove the
     /// timestamp from the log output.
     ///
-    /// Please see the `examples/log_layers.rs` for a complete example.
+    /// Please see the `examples/app/log_layers.rs` for a complete example.
     pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 }
 
@@ -275,7 +275,18 @@ type PreFmtSubscriber =
 pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
-pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+pub const DEFAULT_FILTER: &str = concat!(
+    "wgpu=error,",
+    "naga=warn,",
+    "symphonia_bundle_mp3::demuxer=warn,",
+    "symphonia_format_caf::demuxer=warn,",
+    "symphonia_format_isompf4::demuxer=warn,",
+    "symphonia_format_mkv::demuxer=warn,",
+    "symphonia_format_ogg::demuxer=warn,",
+    "symphonia_format_riff::demuxer=warn,",
+    "symphonia_format_wav::demuxer=warn,",
+    "calloop::loop_logic=error,",
+);
 
 impl Default for LogPlugin {
     fn default() -> Self {
@@ -314,7 +325,7 @@ impl Plugin for LogPlugin {
                     .and_then(|source| source.downcast_ref::<ParseError>())
                     .map(|parse_err| {
                         // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {}", parse_err);
+                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
                     });
 
                 Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))

@@ -7,7 +7,8 @@ use crate::{AsAssetId, Asset, AssetId};
 use bevy_ecs::component::Components;
 use bevy_ecs::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
+    change_detection::Tick,
+    component::ComponentId,
     prelude::{Entity, Resource, World},
     query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
     storage::{Table, TableRow},
@@ -158,9 +159,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         fetch
     }
 
-    unsafe fn init_fetch<'w>(
+    unsafe fn init_fetch<'w, 's>(
         world: UnsafeWorldCell<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
@@ -201,9 +202,9 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 
     const IS_DENSE: bool = <&A>::IS_DENSE;
 
-    unsafe fn set_archetype<'w>(
+    unsafe fn set_archetype<'w, 's>(
         fetch: &mut Self::Fetch<'w>,
-        state: &Self::State,
+        state: &'s Self::State,
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
@@ -215,7 +216,11 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+    unsafe fn set_table<'w, 's>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        table: &'w Table,
+    ) {
         if let Some(inner) = &mut fetch.inner {
             // SAFETY: We delegate to the inner `set_table` for `A`
             unsafe {
@@ -225,7 +230,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     #[inline]
-    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
         <&A>::update_component_access(&state.asset_id, access);
         access.add_resource_read(state.resource_id);
     }
@@ -265,6 +270,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 
     #[inline]
     unsafe fn filter_fetch(
+        state: &Self::State,
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
         table_row: TableRow,
@@ -272,8 +278,8 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
         fetch.inner.as_mut().is_some_and(|inner| {
             // SAFETY: We delegate to the inner `fetch` for `A`
             unsafe {
-                let handle = <&A>::fetch(inner, entity, table_row);
-                fetch.check.has_changed(handle)
+                let handle = <&A>::fetch(&state.asset_id, inner, entity, table_row);
+                handle.is_some_and(|handle| fetch.check.has_changed(handle))
             }
         })
     }
@@ -292,7 +298,7 @@ mod tests {
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::{
         component::Component,
-        event::EventWriter,
+        message::MessageWriter,
         resource::Resource,
         system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
@@ -328,7 +334,7 @@ mod tests {
     fn handle_filter_pos_ok() {
         fn compatible_filter(
             _query: Query<&mut MyComponent, AssetChanged<MyComponent>>,
-            mut exit: EventWriter<AppExit>,
+            mut exit: MessageWriter<AppExit>,
         ) {
             exit.write(AppExit::Error(NonZero::<u8>::MIN));
         }

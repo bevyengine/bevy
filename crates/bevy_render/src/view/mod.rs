@@ -1,27 +1,26 @@
 pub mod visibility;
 pub mod window;
 
+use bevy_camera::{
+    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+    MainPassResolutionOverride, NormalizedRenderTarget,
+};
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
-    },
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
-    primitives::Frustum,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     sync_world::MainEntity,
     texture::{
-        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
-        TextureCache,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
+        OutputColorAttachment, TextureCache,
     },
     Render, RenderApp, RenderSystems,
 };
@@ -30,18 +29,19 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
-use bevy_image::BevyDefault as _;
+use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
@@ -100,22 +100,13 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "view.wgsl");
 
-        app.register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<Msaa>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<ColorGrading>()
-            .register_type::<OcclusionCulling>()
+        app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
                 ExtractComponentPlugin::<OcclusionCulling>::default(),
-                VisibilityPlugin,
-                VisibilityRangePlugin,
+                RenderVisibilityRangePlugin,
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -151,7 +142,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](crate::camera::Camera).
+/// for a [`Camera`](bevy_camera::Camera).
 ///
 /// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
@@ -192,7 +183,7 @@ impl Msaa {
             2 => Msaa::Sample2,
             4 => Msaa::Sample4,
             8 => Msaa::Sample8,
-            _ => panic!("Unsupported MSAA sample count: {}", samples),
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
         }
     }
 }
@@ -316,14 +307,14 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.affine())
     }
 }
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
+/// [`Camera`](bevy_camera::Camera) entity, with the sole exception of the
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
@@ -576,6 +567,7 @@ pub struct ViewUniform {
     pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     pub viewport: Vec4,
+    pub main_pass_viewport: Vec4,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
@@ -729,14 +721,11 @@ impl From<ColorGrading> for ColorGradingUniform {
 #[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
-#[derive(Component, Default)]
-pub struct NoCpuCulling;
-
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
     /// Retrieve this target's main texture's color attachment.
-    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_attachment()
         } else {
@@ -745,7 +734,7 @@ impl ViewTarget {
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
-    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
@@ -837,7 +826,7 @@ impl ViewTarget {
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
+    ) -> RenderPassColorAttachment<'_> {
         self.out_texture.get_attachment(clear_color)
     }
 
@@ -854,7 +843,7 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite {
+    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
@@ -891,7 +880,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
     }
 
@@ -912,6 +901,7 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
+        Option<&MainPassResolutionOverride>,
     )>,
     frame_count: Res<FrameCount>,
 ) {
@@ -924,17 +914,32 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        resolution_override,
+    ) in &views
+    {
         let viewport = extracted_view.viewport.as_vec4();
+        let mut main_pass_viewport = viewport;
+        if let Some(resolution_override) = resolution_override {
+            main_pass_viewport.z = resolution_override.0.x as f32;
+            main_pass_viewport.w = resolution_override.0.y as f32;
+        }
+
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
+            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
         }
 
         let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
         let view_from_world = world_from_view.inverse();
 
         let clip_from_world = if temporal_jitter.is_some() {
@@ -964,6 +969,7 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
+                main_pass_viewport,
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
@@ -1046,12 +1052,6 @@ pub fn prepare_view_targets(
             continue;
         };
 
-        let size = Extent3d {
-            width: target_size.x,
-            height: target_size.y,
-            depth_or_array_layers: 1,
-        };
-
         let main_texture_format = if view.hdr {
             ViewTarget::TEXTURE_FORMAT_HDR
         } else {
@@ -1069,7 +1069,7 @@ pub fn prepare_view_targets(
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size,
+                    size: target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -1100,7 +1100,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size,
+                            size: target_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,

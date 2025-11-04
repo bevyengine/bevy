@@ -1,6 +1,7 @@
 //! Manages mesh vertex and index buffers.
 
 use alloc::vec::Vec;
+use bevy_mesh::Indices;
 use core::{
     fmt::{self, Display, Formatter},
     ops::Range,
@@ -26,7 +27,7 @@ use wgpu::{
 };
 
 use crate::{
-    mesh::{Indices, Mesh, MeshVertexBufferLayouts, RenderMesh},
+    mesh::{Mesh, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -43,7 +44,7 @@ pub struct MeshAllocatorPlugin;
 /// rebinding. This resource manages these buffers.
 ///
 /// Within each slab, or hardware buffer, the underlying allocation algorithm is
-/// [`offset-allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
+/// [`offset_allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
 /// `OffsetAllocator`. Slabs start small and then grow as their contents fill
 /// up, up to a maximum size limit. To reduce fragmentation, vertex and index
 /// buffers that are too large bypass this system and receive their own buffers.
@@ -78,6 +79,9 @@ pub struct MeshAllocator {
     /// WebGL 2. On this platform, we must give each vertex array its own
     /// buffer, because we can't adjust the first vertex when we perform a draw.
     general_vertex_slabs_supported: bool,
+
+    /// Additional buffer usages to add to any vertex or index buffers created.
+    pub extra_buffer_usages: BufferUsages,
 }
 
 /// Tunable parameters that customize the behavior of the allocator.
@@ -167,6 +171,15 @@ enum Slab {
     General(GeneralSlab),
     /// A slab that contains a single object.
     LargeObject(LargeObjectSlab),
+}
+
+impl Slab {
+    pub fn buffer_size(&self) -> u64 {
+        match self {
+            Self::General(gs) => gs.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
+            Self::LargeObject(lo) => lo.buffer.as_ref().map(|buffer| buffer.size()).unwrap_or(0),
+        }
+    }
 }
 
 /// A resizable slab that can contain multiple objects.
@@ -348,6 +361,7 @@ impl FromWorld for MeshAllocator {
             mesh_id_to_index_slab: HashMap::default(),
             next_slab_id: default(),
             general_vertex_slabs_supported,
+            extra_buffer_usages: BufferUsages::empty(),
         }
     }
 }
@@ -380,7 +394,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, returns None.
-    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_vertex_slab.get(mesh_id)?)
     }
 
@@ -388,7 +402,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh has no index data or wasn't allocated, returns None.
-    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
@@ -405,13 +419,27 @@ impl MeshAllocator {
         )
     }
 
+    /// Get the number of allocated slabs
+    pub fn slab_count(&self) -> usize {
+        self.slabs.len()
+    }
+
+    /// Get the total size of all allocated slabs
+    pub fn slabs_size(&self) -> u64 {
+        self.slabs.iter().map(|slab| slab.1.buffer_size()).sum()
+    }
+
+    pub fn allocations(&self) -> usize {
+        self.mesh_id_to_index_slab.len()
+    }
+
     /// Given a slab and a mesh with data located with it, returns the buffer
     /// and range of that mesh data within the slab.
     fn mesh_slice_in_slab(
         &self,
         mesh_id: &AssetId<Mesh>,
         slab_id: SlabId,
-    ) -> Option<MeshBufferSlice> {
+    ) -> Option<MeshBufferSlice<'_>> {
         match self.slabs.get(&slab_id)? {
             Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;
@@ -448,13 +476,17 @@ impl MeshAllocator {
 
         // Allocate.
         for (mesh_id, mesh) in &extracted_meshes.extracted {
+            let vertex_buffer_size = mesh.get_vertex_buffer_size() as u64;
+            if vertex_buffer_size == 0 {
+                continue;
+            }
             // Allocate vertex data. Note that we can only pack mesh vertex data
             // together if the platform supports it.
             let vertex_element_layout = ElementLayout::vertex(mesh_vertex_buffer_layouts, mesh);
             if self.general_vertex_slabs_supported {
                 self.allocate(
                     mesh_id,
-                    mesh.get_vertex_buffer_size() as u64,
+                    vertex_buffer_size,
                     vertex_element_layout,
                     &mut slabs_to_grow,
                     mesh_allocator_settings,
@@ -598,7 +630,7 @@ impl MeshAllocator {
                         buffer_usages_to_str(buffer_usages)
                     )),
                     size: len as u64,
-                    usage: buffer_usages | BufferUsages::COPY_DST,
+                    usage: buffer_usages | BufferUsages::COPY_DST | self.extra_buffer_usages,
                     mapped_at_creation: true,
                 });
                 {
@@ -835,7 +867,7 @@ impl MeshAllocator {
                 buffer_usages_to_str(buffer_usages)
             )),
             size: slab.current_slot_capacity as u64 * slab.element_layout.slot_size(),
-            usage: buffer_usages,
+            usage: buffer_usages | self.extra_buffer_usages,
             mapped_at_creation: false,
         });
 

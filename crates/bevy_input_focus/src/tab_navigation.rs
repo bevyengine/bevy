@@ -30,7 +30,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::{ChildOf, Children},
-    observer::Trigger,
+    observer::On,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
@@ -38,11 +38,11 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-use bevy_window::PrimaryWindow;
+use bevy_window::{PrimaryWindow, Window};
 use log::warn;
 use thiserror::Error;
 
-use crate::{FocusedInput, InputFocus, InputFocusVisible};
+use crate::{AcquireFocus, FocusedInput, InputFocus, InputFocusVisible};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -101,6 +101,7 @@ impl TabGroup {
 /// A navigation action that users might take to navigate your user interface in a cyclic fashion.
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
+#[derive(Clone, Copy)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///
@@ -165,12 +166,12 @@ pub struct TabNavigation<'w, 's> {
 }
 
 impl TabNavigation<'_, '_> {
-    /// Navigate to the desired focusable entity.
+    /// Navigate to the desired focusable entity, relative to the current focused entity.
     ///
     /// Change the [`NavAction`] to navigate in a different direction.
     /// Focusable entities are determined by the presence of the [`TabIndex`] component.
     ///
-    /// If no focusable entities are found, then this function will return either the first
+    /// If there is no currently focused entity, then this function will return either the first
     /// or last focusable entity, depending on the direction of navigation. For example, if
     /// `action` is `Next` and no focusable entities are found, then this function will return
     /// the first focusable entity.
@@ -197,13 +198,46 @@ impl TabNavigation<'_, '_> {
                 })
         });
 
+        self.navigate_internal(focus.0, action, tabgroup)
+    }
+
+    /// Initialize focus to a focusable child of a container, either the first or last
+    /// depending on [`NavAction`]. This assumes that the parent entity has a [`TabGroup`]
+    /// component.
+    ///
+    /// Focusable entities are determined by the presence of the [`TabIndex`] component.
+    pub fn initialize(
+        &self,
+        parent: Entity,
+        action: NavAction,
+    ) -> Result<Entity, TabNavigationError> {
+        // If there are no tab groups, then there are no focusable entities.
+        if self.tabgroup_query.is_empty() {
+            return Err(TabNavigationError::NoTabGroups);
+        }
+
+        // Look for the tab group on the parent entity.
+        match self.tabgroup_query.get(parent) {
+            Ok(tabgroup) => self.navigate_internal(None, action, Some((parent, tabgroup.1))),
+            Err(_) => Err(TabNavigationError::NoTabGroups),
+        }
+    }
+
+    pub fn navigate_internal(
+        &self,
+        focus: Option<Entity>,
+        action: NavAction,
+        tabgroup: Option<(Entity, &TabGroup)>,
+    ) -> Result<Entity, TabNavigationError> {
         let navigation_result = self.navigate_in_group(tabgroup, focus, action);
 
         match navigation_result {
             Ok(entity) => {
-                if focus.0.is_some() && tabgroup.is_none() {
+                if let Some(previous_focus) = focus
+                    && tabgroup.is_none()
+                {
                     Err(TabNavigationError::NoTabGroupForCurrentFocus {
-                        previous_focus: focus.0.unwrap(),
+                        previous_focus,
                         new_focus: entity,
                     })
                 } else {
@@ -217,7 +251,7 @@ impl TabNavigation<'_, '_> {
     fn navigate_in_group(
         &self,
         tabgroup: Option<(Entity, &TabGroup)>,
-        focus: &InputFocus,
+        focus: Option<Entity>,
         action: NavAction,
     ) -> Result<Entity, TabNavigationError> {
         // List of all focusable entities found.
@@ -267,7 +301,7 @@ impl TabNavigation<'_, '_> {
             }
         });
 
-        let index = focusable.iter().position(|e| Some(e.0) == focus.0);
+        let index = focusable.iter().position(|e| Some(e.0) == focus);
         let count = focusable.len();
         let next = match (index, action) {
             (Some(idx), NavAction::Next) => (idx + 1).rem_euclid(count),
@@ -312,21 +346,72 @@ impl TabNavigation<'_, '_> {
     }
 }
 
+/// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
+pub(crate) fn acquire_focus(
+    mut acquire_focus: On<AcquireFocus>,
+    focusable: Query<(), With<TabIndex>>,
+    windows: Query<(), With<Window>>,
+    mut focus: ResMut<InputFocus>,
+) {
+    // If the entity has a TabIndex
+    if focusable.contains(acquire_focus.focused_entity) {
+        // Stop and focus it
+        acquire_focus.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.0 != Some(acquire_focus.focused_entity) {
+            focus.0 = Some(acquire_focus.focused_entity);
+        }
+    } else if windows.contains(acquire_focus.focused_entity) {
+        // Stop and clear focus
+        acquire_focus.propagate(false);
+        // Don't mutate unless we need to, for change detection
+        if focus.0.is_some() {
+            focus.clear();
+        }
+    }
+}
+
 /// Plugin for navigating between focusable entities using keyboard input.
 pub struct TabNavigationPlugin;
 
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<TabIndex>().register_type::<TabGroup>();
+        app.add_observer(acquire_focus);
+        #[cfg(feature = "bevy_picking")]
+        app.add_observer(click_to_focus);
     }
 }
 
 fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<PrimaryWindow>>) {
     for window in window.iter() {
         commands.entity(window).observe(handle_tab_navigation);
+    }
+}
+
+#[cfg(feature = "bevy_picking")]
+fn click_to_focus(
+    press: On<bevy_picking::events::Pointer<bevy_picking::events::Press>>,
+    mut focus_visible: ResMut<InputFocusVisible>,
+    windows: Query<Entity, With<PrimaryWindow>>,
+    mut commands: Commands,
+) {
+    // Because `Pointer` is a bubbling event, we don't want to trigger an `AcquireFocus` event
+    // for every ancestor, but only for the original entity. Also, users may want to stop
+    // propagation on the pointer event at some point along the bubbling chain, so we need our
+    // own dedicated event whose propagation we can control.
+    if press.entity == press.original_event_target() {
+        // Clicking hides focus
+        if focus_visible.0 {
+            focus_visible.0 = false;
+        }
+        // Search for a focusable parent entity, defaulting to window if none.
+        if let Ok(window) = windows.single() {
+            commands.trigger(AcquireFocus {
+                focused_entity: press.entity,
+                window,
+            });
+        }
     }
 }
 
@@ -337,14 +422,14 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 ///
 /// Any [`TabNavigationError`]s that occur during tab navigation are logged as warnings.
 pub fn handle_tab_navigation(
-    mut trigger: Trigger<FocusedInput<KeyboardInput>>,
+    mut event: On<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     // Tab navigation.
-    let key_event = &trigger.event().input;
+    let key_event = &event.input;
     if key_event.key_code == KeyCode::Tab
         && key_event.state == ButtonState::Pressed
         && !key_event.repeat
@@ -360,15 +445,15 @@ pub fn handle_tab_navigation(
 
         match maybe_next {
             Ok(next) => {
-                trigger.propagate(false);
+                event.propagate(false);
                 focus.set(next);
                 visible.0 = true;
             }
             Err(e) => {
-                warn!("Tab navigation error: {}", e);
+                warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
-                    trigger.propagate(false);
+                    event.propagate(false);
                     focus.set(new_focus);
                     visible.0 = true;
                 }
@@ -395,7 +480,7 @@ mod tests {
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 1);
-        assert_eq!(tab_navigation.tabindex_query.iter().count(), 2);
+        assert!(tab_navigation.tabindex_query.iter().count() >= 2);
 
         let next_entity =
             tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);
@@ -428,7 +513,7 @@ mod tests {
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);
         assert_eq!(tab_navigation.tabgroup_query.iter().count(), 2);
-        assert_eq!(tab_navigation.tabindex_query.iter().count(), 4);
+        assert!(tab_navigation.tabindex_query.iter().count() >= 4);
 
         let next_entity =
             tab_navigation.navigate(&InputFocus::from_entity(tab_entity_1), NavAction::Next);

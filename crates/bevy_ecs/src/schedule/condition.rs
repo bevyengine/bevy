@@ -1,9 +1,10 @@
-use alloc::{borrow::Cow, boxed::Box, format};
+use alloc::{boxed::Box, format};
+use bevy_utils::prelude::DebugName;
 use core::ops::Not;
 
 use crate::system::{
-    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, System, SystemIn,
-    SystemInput,
+    Adapt, AdapterSystem, CombinatorSystem, Combine, IntoSystem, ReadOnlySystem, RunSystemError,
+    System, SystemIn, SystemInput,
 };
 
 /// A type-erased run condition stored in a [`Box`].
@@ -59,7 +60,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// fn identity() -> impl SystemCondition<(), In<bool>> {
-///     IntoSystem::into_system(|In(x)| x)
+///     IntoSystem::into_system(|In(x): In<bool>| x)
 /// }
 ///
 /// # fn always_true() -> bool { true }
@@ -122,7 +123,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(and);
         let name = format!("{} && {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `false`
@@ -174,7 +175,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nand);
         let name = format!("!({} && {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -226,7 +227,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(nor);
         let name = format!("!({} || {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that returns `true`
@@ -273,7 +274,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(or);
         let name = format!("{} || {}", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -325,7 +326,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xnor);
         let name = format!("!({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 
     /// Returns a new run condition that only returns `true`
@@ -367,7 +368,7 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
         let a = IntoSystem::into_system(self);
         let b = IntoSystem::into_system(xor);
         let name = format!("({} ^ {})", a.name(), b.name());
-        CombinatorSystem::new(a, b, Cow::Owned(name))
+        CombinatorSystem::new(a, b, DebugName::owned(name))
     }
 }
 
@@ -401,10 +402,10 @@ pub mod common_conditions {
     use super::{NotSystem, SystemCondition};
     use crate::{
         change_detection::DetectChanges,
-        event::{Event, EventReader},
+        lifecycle::RemovedComponents,
+        message::{Message, MessageReader},
         prelude::{Component, Query, With},
         query::QueryFilter,
-        removal_detection::RemovedComponents,
         resource::Resource,
         system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
@@ -610,12 +611,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
-    /// was last checked.
+    /// if the resource of the given type has been added or mutably dereferenced
+    /// since the condition was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// # Panics
     ///
@@ -664,14 +664,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// if the resource of the given type has been added or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition does not detect when the resource is removed.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///
@@ -724,15 +721,11 @@ pub mod common_conditions {
     }
 
     /// A [`SystemCondition`]-satisfying system that returns `true`
-    /// if the resource of the given type has had its value changed since the condition
+    /// if the resource of the given type has been added, removed or mutably dereferenced since the condition
     /// was last checked.
     ///
-    /// The value is considered changed when it is added. The first time this condition
-    /// is checked after the resource was added, it will return `true`.
-    /// Change detection behaves like this everywhere in Bevy.
-    ///
-    /// This run condition also detects removal. It will return `true` if the resource
-    /// has been removed since the run condition was last checked.
+    /// **Note** that simply *mutably dereferencing* a resource is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// Bevy does not compare resources to their previous values.
     ///
     /// The condition will return `false` if the resource does not exist.
     ///
@@ -864,35 +857,35 @@ pub mod common_conditions {
     /// # let mut app = Schedule::default();
     /// # let mut world = World::new();
     /// # world.init_resource::<Counter>();
-    /// # world.init_resource::<Events<MyEvent>>();
-    /// # app.add_systems(bevy_ecs::event::event_update_system.before(my_system));
+    /// # world.init_resource::<Messages<MyMessage>>();
+    /// # app.add_systems(bevy_ecs::message::message_update_system.before(my_system));
     ///
     /// app.add_systems(
-    ///     my_system.run_if(on_event::<MyEvent>),
+    ///     my_system.run_if(on_message::<MyMessage>),
     /// );
     ///
-    /// #[derive(Event)]
-    /// struct MyEvent;
+    /// #[derive(Message)]
+    /// struct MyMessage;
     ///
     /// fn my_system(mut counter: ResMut<Counter>) {
     ///     counter.0 += 1;
     /// }
     ///
-    /// // No new `MyEvent` events have been push so `my_system` won't run
+    /// // No new `MyMessage` events have been push so `my_system` won't run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 0);
     ///
-    /// world.resource_mut::<Events<MyEvent>>().send(MyEvent);
+    /// world.resource_mut::<Messages<MyMessage>>().write(MyMessage);
     ///
-    /// // A `MyEvent` event has been pushed so `my_system` will run
+    /// // A `MyMessage` event has been pushed so `my_system` will run
     /// app.run(&mut world);
     /// assert_eq!(world.resource::<Counter>().0, 1);
     /// ```
-    pub fn on_event<T: Event>(mut reader: EventReader<T>) -> bool {
-        // The events need to be consumed, so that there are no false positives on subsequent
+    pub fn on_message<M: Message>(mut reader: MessageReader<M>) -> bool {
+        // The messages need to be consumed, so that there are no false positives on subsequent
         // calls of the run condition. Simply checking `is_empty` would not be enough.
         // PERF: note that `count` is efficient (not actually looping/iterating),
-        // due to Bevy having a specialized implementation for events.
+        // due to Bevy having a specialized implementation for messages.
         reader.read().count() > 0
     }
 
@@ -1118,9 +1111,9 @@ impl<S: System<Out: Not>> Adapt<S> for NotMarker {
     fn adapt(
         &mut self,
         input: <Self::In as SystemInput>::Inner<'_>,
-        run_system: impl FnOnce(SystemIn<'_, S>) -> S::Out,
-    ) -> Self::Out {
-        !run_system(input)
+        run_system: impl FnOnce(SystemIn<'_, S>) -> Result<S::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        run_system(input).map(Not::not)
     }
 }
 
@@ -1130,7 +1123,7 @@ pub type And<A, B> = CombinatorSystem<AndMarker, A, B>;
 /// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
 pub type Nand<A, B> = CombinatorSystem<NandMarker, A, B>;
 
-/// Combines and inverts the outputs of two systems using the `&&` and `!` operators.
+/// Combines and inverts the outputs of two systems using the `||` and `!` operators.
 pub type Nor<A, B> = CombinatorSystem<NorMarker, A, B>;
 
 /// Combines the outputs of two systems using the `||` operator.
@@ -1154,12 +1147,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, A>) -> B::Out,
-    ) -> Self::Out {
-        a(input) && b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data)? && b(input, data)?)
     }
 }
 
@@ -1175,12 +1169,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) && b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data)? && b(input, data)?))
     }
 }
 
@@ -1196,12 +1191,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) || b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data)? || b(input, data)?))
     }
 }
 
@@ -1217,12 +1213,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) || b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data)? || b(input, data)?)
     }
 }
 
@@ -1238,12 +1235,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        !(a(input) ^ b(input))
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(!(a(input, data)? ^ b(input, data)?))
     }
 }
 
@@ -1259,27 +1257,30 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> A::Out,
-        b: impl FnOnce(SystemIn<'_, B>) -> B::Out,
-    ) -> Self::Out {
-        a(input) ^ b(input)
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
+    ) -> Result<Self::Out, RunSystemError> {
+        Ok(a(input, data)? ^ b(input, data)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
-    use crate::query::With;
+    use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
     use crate::{
         change_detection::ResMut,
         component::Component,
+        message::Message,
+        query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::Local,
+        system::{IntoSystem, Local, Res, System},
         world::World,
     };
-    use bevy_ecs_macros::{Event, Resource};
+    use bevy_ecs_macros::{Resource, SystemSet};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1390,8 +1391,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    #[derive(Event)]
-    struct TestEvent;
+    #[derive(Message)]
+    struct TestMessage;
 
     #[derive(Resource)]
     struct TestResource(());
@@ -1410,10 +1411,47 @@ mod tests {
                 .distributive_run_if(resource_exists_and_changed::<TestResource>)
                 .distributive_run_if(resource_changed_or_removed::<TestResource>)
                 .distributive_run_if(resource_removed::<TestResource>)
-                .distributive_run_if(on_event::<TestEvent>)
+                .distributive_run_if(on_message::<TestMessage>)
                 .distributive_run_if(any_with_component::<TestComponent>)
                 .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
+    }
+
+    #[test]
+    fn run_if_error_contains_system() {
+        let mut world = World::new();
+        world.insert_resource(DefaultErrorHandler(my_error_handler));
+
+        #[derive(Resource)]
+        struct MyResource;
+
+        fn condition(_res: Res<MyResource>) -> bool {
+            true
+        }
+
+        fn my_error_handler(_: BevyError, ctx: ErrorContext) {
+            let a = IntoSystem::into_system(system_a);
+            let b = IntoSystem::into_system(system_b);
+            assert!(
+                matches!(ctx, ErrorContext::RunCondition { system, on_set, .. } if (on_set && system == b.name()) || (!on_set && system == a.name()))
+            );
+        }
+
+        fn system_a() {}
+        fn system_b() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system_a.run_if(condition));
+        schedule.run(&mut world);
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        schedule
+            .add_systems((system_b,).in_set(Set))
+            .configure_sets(Set.run_if(condition));
+        schedule.run(&mut world);
     }
 }

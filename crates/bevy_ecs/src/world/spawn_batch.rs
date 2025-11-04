@@ -1,7 +1,9 @@
+use bevy_ptr::move_as_ptr;
+
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
-    entity::{Entity, EntitySetIterator},
+    entity::{AllocEntitiesIterator, Entity, EntitySetIterator},
     world::World,
 };
 use core::iter::FusedIterator;
@@ -13,12 +15,12 @@ use core::iter::FusedIterator;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
     spawner: BundleSpawner<'w>,
+    allocator: AllocEntitiesIterator<'w>,
     caller: MaybeLocation,
-    allocator: crate::entity::allocator::AllocEntitiesIterator<'static>,
 }
 
 impl<'w, I> SpawnBatchIter<'w, I>
@@ -34,19 +36,15 @@ where
         let (lower, upper) = iter.size_hint();
         let length = upper.unwrap_or(lower);
 
-        world.entities.prepare(length as u32);
-        // SAFETY: We take the lifetime of the world, so the instance is valid.
-        // `BundleSpawner::spawn_non_existent` never frees entities, and that is the only thing we call on it while the iterator is not empty.
-        let allocator = unsafe { world.entities.alloc_entities_unsafe(lower as u32) };
-
         let mut spawner = BundleSpawner::new::<I::Item>(world, change_tick);
         spawner.reserve_storage(length);
+        let allocator = spawner.allocator().alloc_many(length as u32);
 
         Self {
             inner: iter,
+            allocator,
             spawner,
             caller,
-            allocator,
         }
     }
 }
@@ -54,7 +52,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -68,25 +66,23 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        let entity = self.allocator.next();
-
-        let spawned = match entity {
-            // SAFETY: bundle matches spawner type. `entity` is fresh
-            Some(entity) => unsafe {
-                self.spawner.spawn_non_existent(entity, bundle, self.caller);
-                entity
-            },
+        move_as_ptr!(bundle);
+        Some(if let Some(bulk) = self.allocator.next() {
+            // SAFETY: bundle matches spawner type and we just allocated it
+            unsafe {
+                self.spawner.spawn_at(bulk, bundle, self.caller);
+            }
+            bulk
+        } else {
             // SAFETY: bundle matches spawner type
-            None => unsafe { self.spawner.spawn(bundle, self.caller).0 },
-        };
-
-        Some(spawned)
+            unsafe { self.spawner.spawn(bundle, self.caller) }
+        })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -97,7 +93,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -107,7 +103,7 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }
 
@@ -115,6 +111,6 @@ where
 unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }

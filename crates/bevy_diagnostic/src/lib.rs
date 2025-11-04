@@ -1,13 +1,12 @@
-#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
-//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
+//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevy.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
 //! their ability to monitor and optimize their game's.
 

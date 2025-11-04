@@ -1,3 +1,4 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
@@ -7,7 +8,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_platform::collections::HashSet;
 use bevy_utils::default;
-use bevy_utils::WgpuWrapper;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -100,7 +100,7 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
-    mut closing: Extract<EventReader<WindowClosing>>,
+    mut closing: Extract<MessageReader<WindowClosing>>,
     windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
@@ -205,10 +205,10 @@ impl WindowSurfaces {
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
-///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
-///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
-///   later.
+///   output during renderer initialization.
+///   Another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
+///   [`Backends::GL`](crate::settings::Backends::GL) with the `gles` feature enabled if your
+///   GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or later.
 pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,

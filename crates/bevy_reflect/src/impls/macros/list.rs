@@ -48,7 +48,7 @@ macro_rules! impl_reflect_for_veclike {
                 }
 
                 #[inline]
-                fn iter(&self) -> $crate::list::ListIter {
+                fn iter(&self) -> $crate::list::ListIter<'_>  {
                     $crate::list::ListIter::new(self)
                 }
 
@@ -98,11 +98,11 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::kind::ReflectKind::List
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_> {
                     $crate::kind::ReflectRef::List(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_> {
                     $crate::kind::ReflectMut::List(self)
                 }
 
@@ -113,14 +113,7 @@ macro_rules! impl_reflect_for_veclike {
                 fn reflect_clone(&self) -> Result<bevy_platform::prelude::Box<dyn $crate::reflect::Reflect>, $crate::error::ReflectCloneError> {
                     Ok(bevy_platform::prelude::Box::new(
                         self.iter()
-                            .map(|value| {
-                                value.reflect_clone()?.take().map_err(|_| {
-                                    $crate::error::ReflectCloneError::FailedDowncast {
-                                        expected: alloc::borrow::Cow::Borrowed(<T as $crate::type_path::TypePath>::type_path()),
-                                        received: alloc::borrow::Cow::Owned(alloc::string::ToString::to_string(value.reflect_type_path())),
-                                    }
-                                })
-                            })
+                            .map(|value| value.reflect_clone_and_take())
                             .collect::<Result<Self, $crate::error::ReflectCloneError>>()?,
                     ))
                 }

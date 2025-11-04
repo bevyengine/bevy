@@ -39,18 +39,18 @@ impl DiagnosticPath {
     pub fn new(path: impl Into<Cow<'static, str>>) -> DiagnosticPath {
         let path = path.into();
 
-        debug_assert!(!path.is_empty(), "diagnostic path can't be empty");
+        debug_assert!(!path.is_empty(), "diagnostic path should not be empty");
         debug_assert!(
             !path.starts_with('/'),
-            "diagnostic path can't be start with `/`"
+            "diagnostic path should not start with `/`"
         );
         debug_assert!(
             !path.ends_with('/'),
-            "diagnostic path can't be end with `/`"
+            "diagnostic path should not end with `/`"
         );
         debug_assert!(
             !path.contains("//"),
-            "diagnostic path can't contain empty components"
+            "diagnostic path should not contain empty components"
         );
 
         DiagnosticPath {
@@ -149,12 +149,11 @@ impl Diagnostic {
         }
 
         if self.max_history_length > 1 {
-            if self.history.len() >= self.max_history_length {
-                if let Some(removed_diagnostic) = self.history.pop_front() {
-                    if !removed_diagnostic.value.is_nan() {
-                        self.sum -= removed_diagnostic.value;
-                    }
-                }
+            if self.history.len() >= self.max_history_length
+                && let Some(removed_diagnostic) = self.history.pop_front()
+                && !removed_diagnostic.value.is_nan()
+            {
+                self.sum -= removed_diagnostic.value;
             }
 
             if measurement.value.is_finite() {
@@ -273,13 +272,9 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(newest) = self.history.back() {
-            if let Some(oldest) = self.history.front() {
-                return Some(newest.time.duration_since(oldest.time));
-            }
-        }
-
-        None
+        let newest = self.history.back()?;
+        let oldest = self.history.front()?;
+        Some(newest.time.duration_since(oldest.time))
     }
 
     /// Return the maximum number of elements for this diagnostic.
@@ -386,7 +381,17 @@ impl SystemBuffer for DiagnosticsBuffer {
         _system_meta: &bevy_ecs::system::SystemMeta,
         world: &mut bevy_ecs::world::World,
     ) {
-        let mut diagnostics = world.resource_mut::<DiagnosticsStore>();
+        let Some(mut diagnostics) = world.get_resource_mut::<DiagnosticsStore>() else {
+            // `SystemBuffer::apply` is called even if the system never runs. If a user uses
+            // `If<Diagnostics>`, this buffer will be applied even if we are missing
+            // `DiagnosticsStore`. So be permissive to allow these cases. See
+            // https://github.com/bevyengine/bevy/issues/21549 for more.
+
+            // Clear the buffer since we have nowhere to put those metrics and we don't want them to
+            // grow without bound.
+            self.0.clear();
+            return;
+        };
         for (path, measurement) in self.0.drain() {
             if let Some(diagnostic) = diagnostics.get_mut(&path) {
                 diagnostic.add_measurement(measurement);

@@ -3,14 +3,14 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::{animated_field, AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimatedBy, AnimationTargetId},
     prelude::*,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 150.0,
             ..default()
@@ -151,35 +151,23 @@ fn setup(
             player,
         ))
         .id();
-    commands
-        .entity(planet_entity)
-        .insert(AnimationTarget {
-            id: planet_animation_target_id,
-            player: planet_entity,
-        })
-        .with_children(|p| {
-            // This entity is just used for animation, but doesn't display anything
-            p.spawn((
-                Transform::default(),
-                Visibility::default(),
-                orbit_controller,
-                AnimationTarget {
-                    id: orbit_controller_animation_target_id,
-                    player: planet_entity,
-                },
-            ))
-            .with_children(|p| {
-                // The satellite, placed at a distance of the planet
-                p.spawn((
-                    Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-                    MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
-                    Transform::from_xyz(1.5, 0.0, 0.0),
-                    AnimationTarget {
-                        id: satellite_animation_target_id,
-                        player: planet_entity,
-                    },
-                    satellite,
-                ));
-            });
-        });
+    commands.entity(planet_entity).insert((
+        planet_animation_target_id,
+        AnimatedBy(planet_entity),
+        children![(
+            Transform::default(),
+            Visibility::default(),
+            orbit_controller,
+            orbit_controller_animation_target_id,
+            AnimatedBy(planet_entity),
+            children![(
+                Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+                MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                Transform::from_xyz(1.5, 0.0, 0.0),
+                satellite_animation_target_id,
+                AnimatedBy(planet_entity),
+                satellite,
+            )],
+        )],
+    ));
 }

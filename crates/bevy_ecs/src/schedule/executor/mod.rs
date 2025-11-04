@@ -1,13 +1,12 @@
 #[cfg(feature = "std")]
 mod multi_threaded;
-mod simple;
 mod single_threaded;
 
-use alloc::{borrow::Cow, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
+use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
-#[expect(deprecated, reason = "We still need to support this.")]
-pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+pub use self::single_threaded::SingleThreadedExecutor;
 
 #[cfg(feature = "std")]
 pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
@@ -15,12 +14,15 @@ pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    component::{ComponentId, Tick},
+    change_detection::{CheckChangeTicks, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
-    query::{Access, FilteredAccessSet},
-    schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
-    system::{ScheduleSystem, System, SystemIn, SystemParamValidationError},
+    query::FilteredAccessSet,
+    schedule::{
+        ConditionWithAccess, InternedSystemSet, SystemKey, SystemSetKey, SystemTypeSet,
+        SystemWithAccess,
+    },
+    system::{RunSystemError, System, SystemIn, SystemParamValidationError, SystemStateFlags},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -49,15 +51,15 @@ pub enum ExecutorKind {
     ///
     /// Useful if you're dealing with a single-threaded environment, saving your threads for
     /// other things, or just trying minimize overhead.
-    #[cfg_attr(any(target_arch = "wasm32", not(feature = "multi_threaded")), default)]
-    SingleThreaded,
-    /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_deferred`](crate::system::System::apply_deferred)
-    /// immediately after running each system.
-    #[deprecated(
-        since = "0.17.0",
-        note = "Use SingleThreaded instead. See https://github.com/bevyengine/bevy/issues/18453 for motivation."
+    #[cfg_attr(
+        any(
+            target_arch = "wasm32",
+            not(feature = "std"),
+            not(feature = "multi_threaded")
+        ),
+        default
     )]
-    Simple,
+    SingleThreaded,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
@@ -72,11 +74,11 @@ pub enum ExecutorKind {
 #[derive(Default)]
 pub struct SystemSchedule {
     /// List of system node ids.
-    pub(super) system_ids: Vec<NodeId>,
+    pub(super) system_ids: Vec<SystemKey>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<ScheduleSystem>,
+    pub(super) systems: Vec<SystemWithAccess>,
     /// Indexed by system node id.
-    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
+    pub(super) system_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system node id.
     /// Number of systems that the system immediately depends on.
     #[cfg_attr(
@@ -95,9 +97,9 @@ pub struct SystemSchedule {
     /// List of sets containing the system that have conditions
     pub(super) sets_with_conditions_of_systems: Vec<FixedBitSet>,
     /// List of system set node ids.
-    pub(super) set_ids: Vec<NodeId>,
+    pub(super) set_ids: Vec<SystemSetKey>,
     /// Indexed by system set node id.
-    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
+    pub(super) set_conditions: Vec<Vec<ConditionWithAccess>>,
     /// Indexed by system set node id.
     /// List of systems that are in sets that have conditions.
     ///
@@ -150,60 +152,42 @@ impl SystemSchedule {
 pub struct ApplyDeferred;
 
 /// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
-pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
+pub(super) fn is_apply_deferred(system: &dyn System<In = (), Out = ()>) -> bool {
     system.type_id() == TypeId::of::<ApplyDeferred>()
 }
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = Result<()>;
+    type Out = ();
 
-    fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed("bevy_ecs::apply_deferred")
+    fn name(&self) -> DebugName {
+        DebugName::borrowed("bevy_ecs::apply_deferred")
     }
 
-    fn component_access(&self) -> &Access<ComponentId> {
-        // This system accesses no components.
-        const { &Access::new() }
-    }
-
-    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
-        const { &FilteredAccessSet::new() }
-    }
-
-    fn is_send(&self) -> bool {
-        // Although this system itself does nothing on its own, the system
-        // executor uses it to apply deferred commands. Commands must be allowed
-        // to access non-send resources, so this system must be non-send for
-        // scheduling purposes.
-        false
-    }
-
-    fn is_exclusive(&self) -> bool {
-        // This system is labeled exclusive because it is used by the system
-        // executor to find places where deferred commands should be applied,
-        // and commands can only be applied with exclusive access to the world.
-        true
-    }
-
-    fn has_deferred(&self) -> bool {
-        // This system itself doesn't have any commands to apply, but when it
-        // is pulled from the schedule to be ran, the executor will apply
-        // deferred commands from other systems.
-        false
+    fn flags(&self) -> SystemStateFlags {
+        // non-send , exclusive , no deferred
+        SystemStateFlags::NON_SEND | SystemStateFlags::EXCLUSIVE
     }
 
     unsafe fn run_unsafe(
         &mut self,
         _input: SystemIn<'_, Self>,
         _world: UnsafeWorldCell,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
         Ok(())
     }
 
-    fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
+    #[cfg(feature = "hotpatching")]
+    #[inline]
+    fn refresh_hotpatch(&mut self) {}
+
+    fn run(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        _world: &mut World,
+    ) -> Result<Self::Out, RunSystemError> {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
         Ok(())
@@ -222,9 +206,11 @@ impl System for ApplyDeferred {
         Ok(())
     }
 
-    fn initialize(&mut self, _world: &mut World) {}
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet {
+        FilteredAccessSet::new()
+    }
 
-    fn check_change_tick(&mut self, _change_tick: Tick) {}
+    fn check_change_tick(&mut self, _check: CheckChangeTicks) {}
 
     fn default_system_sets(&self) -> Vec<InternedSystemSet> {
         vec![SystemTypeSet::<Self>::new().intern()]
@@ -261,7 +247,7 @@ mod __rust_begin_short_backtrace {
     use crate::world::unsafe_world_cell::UnsafeWorldCell;
     use crate::{
         error::Result,
-        system::{ReadOnlySystem, ScheduleSystem},
+        system::{ReadOnlySystem, RunSystemError, ScheduleSystem},
         world::World,
     };
 
@@ -270,7 +256,10 @@ mod __rust_begin_short_backtrace {
     // This is only used by `MultiThreadedExecutor`, and would be dead code without `std`.
     #[cfg(feature = "std")]
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
+    pub(super) unsafe fn run_unsafe(
+        system: &mut ScheduleSystem,
+        world: UnsafeWorldCell,
+    ) -> Result<(), RunSystemError> {
         let result = system.run_unsafe((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -285,13 +274,17 @@ mod __rust_begin_short_backtrace {
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: UnsafeWorldCell,
-    ) -> O {
+    ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run_unsafe((), world))
     }
 
+    #[cfg(feature = "std")]
     #[inline(never)]
-    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
+    pub(super) fn run(
+        system: &mut ScheduleSystem,
+        world: &mut World,
+    ) -> Result<(), RunSystemError> {
         let result = system.run((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -302,7 +295,7 @@ mod __rust_begin_short_backtrace {
     pub(super) fn run_without_applying_deferred(
         system: &mut ScheduleSystem,
         world: &mut World,
-    ) -> Result {
+    ) -> Result<(), RunSystemError> {
         let result = system.run_without_applying_deferred((), world);
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(());
@@ -313,7 +306,7 @@ mod __rust_begin_short_backtrace {
     pub(super) fn readonly_run<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
         world: &mut World,
-    ) -> O {
+    ) -> Result<O, RunSystemError> {
         // Call `black_box` to prevent this frame from being tail-call optimized away
         black_box(system.run((), world))
     }
@@ -331,12 +324,8 @@ mod tests {
     #[derive(Component)]
     struct TestComponent;
 
-    const EXECUTORS: [ExecutorKind; 3] = [
-        #[expect(deprecated, reason = "We still need to test this.")]
-        ExecutorKind::Simple,
-        ExecutorKind::SingleThreaded,
-        ExecutorKind::MultiThreaded,
-    ];
+    const EXECUTORS: [ExecutorKind; 2] =
+        [ExecutorKind::SingleThreaded, ExecutorKind::MultiThreaded];
 
     #[derive(Resource, Default)]
     struct TestState {
@@ -389,18 +378,6 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn missing_resource_panics_simple() {
-        let mut world = World::new();
-        let mut schedule = Schedule::default();
-
-        #[expect(deprecated, reason = "We still need to test this.")]
-        schedule.set_executor_kind(ExecutorKind::Simple);
-        schedule.add_systems(look_for_missing_resource);
-        schedule.run(&mut world);
-    }
-
-    #[test]
-    #[should_panic]
     fn missing_resource_panics_single_threaded() {
         let mut world = World::new();
         let mut schedule = Schedule::default();
@@ -445,13 +422,16 @@ mod tests {
 
     #[test]
     fn piped_system_second_system_skipped() {
+        // This system will be run before the second system is validated
         fn pipe_out(mut counter: ResMut<Counter>) -> u8 {
             counter.0 += 1;
             42
         }
 
         // This system should be skipped when run due to no matching entity
-        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>) {}
+        fn pipe_in(_input: In<u8>, _single: Single<&TestComponent>, mut counter: ResMut<Counter>) {
+            counter.0 += 1;
+        }
 
         let mut world = World::new();
         world.init_resource::<Counter>();
@@ -460,7 +440,7 @@ mod tests {
         schedule.add_systems(pipe_out.pipe(pipe_in));
         schedule.run(&mut world);
         let counter = world.resource::<Counter>();
-        assert_eq!(counter.0, 0);
+        assert_eq!(counter.0, 1);
     }
 
     #[test]

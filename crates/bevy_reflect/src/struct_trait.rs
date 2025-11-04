@@ -69,8 +69,9 @@ pub trait Struct: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the reflectable fields for this struct.
-    fn iter_fields(&self) -> FieldIter;
+    fn iter_fields(&self) -> FieldIter<'_>;
 
+    /// Creates a new [`DynamicStruct`] from this struct.
     fn to_dynamic_struct(&self) -> DynamicStruct {
         let mut dynamic_struct = DynamicStruct::default();
         dynamic_struct.set_represented_type(self.get_represented_type_info());
@@ -95,7 +96,7 @@ pub struct StructInfo {
     field_names: Box<[&'static str]>,
     field_indices: HashMap<&'static str, usize>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -121,13 +122,13 @@ impl StructInfo {
             field_names,
             field_indices,
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this struct.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -175,7 +176,7 @@ impl StructInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this struct, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }
@@ -192,6 +193,7 @@ pub struct FieldIter<'a> {
 }
 
 impl<'a> FieldIter<'a> {
+    /// Creates a new [`FieldIter`].
     pub fn new(value: &'a dyn Struct) -> Self {
         FieldIter {
             struct_val: value,
@@ -369,7 +371,7 @@ impl Struct for DynamicStruct {
     }
 
     #[inline]
-    fn iter_fields(&self) -> FieldIter {
+    fn iter_fields(&self) -> FieldIter<'_> {
         FieldIter {
             struct_val: self,
             index: 0,
@@ -427,12 +429,12 @@ impl PartialReflect for DynamicStruct {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Struct(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Struct(self)
     }
 

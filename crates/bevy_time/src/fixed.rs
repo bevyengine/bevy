@@ -10,7 +10,7 @@ use crate::{time::Time, virt::Virtual};
 ///
 /// A specialization of the [`Time`] structure. **For method documentation, see
 /// [`Time<Fixed>#impl-Time<Fixed>`].**
-///     
+///
 /// It is automatically inserted as a resource by
 /// [`TimePlugin`](crate::TimePlugin) and updated based on
 /// [`Time<Virtual>`](Virtual). The fixed clock is automatically set as the
@@ -236,7 +236,7 @@ impl Default for Fixed {
 /// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
 /// You can order your systems relative to this by using
 /// [`RunFixedMainLoopSystems`](bevy_app::prelude::RunFixedMainLoopSystems).
-pub(super) fn run_fixed_main_schedule(world: &mut World) {
+pub fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 

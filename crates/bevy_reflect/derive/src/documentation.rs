@@ -61,6 +61,11 @@ impl Documentation {
         )
     }
 
+    /// Is the collection empty?
+    pub fn is_empty(&self) -> bool {
+        self.docs.is_empty()
+    }
+
     /// Push a new docstring to the collection
     pub fn push(&mut self, doc: String) {
         self.docs.push(doc);

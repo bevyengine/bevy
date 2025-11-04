@@ -63,8 +63,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::BLACK))
-                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
+                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
+                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
 
                 commands
                     .spawn((
@@ -83,8 +83,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ))
                     .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 0.0)))
                     .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 0.0, 0.0)))
-                    .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(0.0, 0.0, 1.0)))
-                    .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 0.0)));
+                    .observe(recolor_on::<Pointer<Press>>(Color::srgb(0.0, 0.0, 1.0)))
+                    .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 0.0)));
             }
         });
 }
@@ -145,14 +145,16 @@ fn setup_atlas(
         ))
         .observe(recolor_on::<Pointer<Over>>(Color::srgb(0.0, 1.0, 1.0)))
         .observe(recolor_on::<Pointer<Out>>(Color::srgb(1.0, 1.0, 1.0)))
-        .observe(recolor_on::<Pointer<Pressed>>(Color::srgb(1.0, 1.0, 0.0)))
-        .observe(recolor_on::<Pointer<Released>>(Color::srgb(0.0, 1.0, 1.0)));
+        .observe(recolor_on::<Pointer<Press>>(Color::srgb(1.0, 1.0, 0.0)))
+        .observe(recolor_on::<Pointer<Release>>(Color::srgb(0.0, 1.0, 1.0)));
 }
 
-// An observer listener that changes the target entity's color.
-fn recolor_on<E: Debug + Clone + Reflect>(color: Color) -> impl Fn(Trigger<E>, Query<&mut Sprite>) {
+// An observer that changes the target entity's color.
+fn recolor_on<E: EntityEvent + Debug + Clone + Reflect>(
+    color: Color,
+) -> impl Fn(On<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
-        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
+        let Ok(mut sprite) = sprites.get_mut(ev.event_target()) else {
             return;
         };
         sprite.color = color;

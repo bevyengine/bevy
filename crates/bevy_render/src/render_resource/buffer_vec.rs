@@ -9,6 +9,7 @@ use encase::{
     internal::{WriteInto, Writer},
     ShaderType,
 };
+use thiserror::Error;
 use wgpu::{BindingResource, BufferAddress, BufferUsages};
 
 use super::GpuArrayBufferable;
@@ -68,7 +69,7 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -183,6 +184,36 @@ impl<T: NoUninit> RawBufferVec<T> {
         }
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) -> Result<(), WriteBufferRangeError> {
+        if self.values.is_empty() {
+            return Err(WriteBufferRangeError::NoValuesToUpload);
+        }
+        if range.end > self.item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
+        if let Some(buffer) = &self.buffer {
+            // Cast only the bytes we need to write
+            let bytes: &[u8] = must_cast_slice(&self.values[range.start..range.end]);
+            render_queue.write_buffer(buffer, (range.start * self.item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.values.truncate(len);
@@ -285,7 +316,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -389,6 +420,36 @@ where
         queue.write_buffer(buffer, 0, &self.data);
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
+    /// or create a new buffer and copy the old data to it.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) -> Result<(), WriteBufferRangeError> {
+        if self.data.is_empty() {
+            return Err(WriteBufferRangeError::NoValuesToUpload);
+        }
+        let item_size = u64::from(T::min_size()) as usize;
+        if range.end > item_size * self.capacity {
+            return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
+        }
+        if let Some(buffer) = &self.buffer {
+            let bytes = &self.data[range.start..range.end];
+            render_queue.write_buffer(buffer, (range.start * item_size) as u64, bytes);
+            Ok(())
+        } else {
+            Err(WriteBufferRangeError::BufferNotInitialized)
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.data.truncate(u64::from(T::min_size()) as usize * len);
@@ -448,7 +509,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -510,4 +571,17 @@ where
             self.reserve(self.len, device);
         }
     }
+}
+
+/// Error returned when `write_buffer_range` fails
+///
+/// See [`RawBufferVec::write_buffer_range`] [`BufferVec::write_buffer_range`]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Error)]
+pub enum WriteBufferRangeError {
+    #[error("the range is bigger than the capacity of the buffer")]
+    RangeBiggerThanBuffer,
+    #[error("the gpu buffer is not initialized")]
+    BufferNotInitialized,
+    #[error("there are no values to upload")]
+    NoValuesToUpload,
 }

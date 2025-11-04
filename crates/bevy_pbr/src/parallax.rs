@@ -33,6 +33,7 @@ pub enum ParallaxMappingMethod {
         max_steps: u32,
     },
 }
+
 impl ParallaxMappingMethod {
     /// [`ParallaxMappingMethod::Relief`] with a 5 steps, a reasonable default.
     pub const DEFAULT_RELIEF_MAPPING: Self = ParallaxMappingMethod::Relief { max_steps: 5 };

@@ -2,13 +2,13 @@
 
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -93,8 +93,8 @@ fn setup(
         )),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
