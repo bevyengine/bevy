@@ -95,6 +95,10 @@ pub struct ArchetypeId(u32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
+    /// # Safety:
+    ///
+    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
+    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     /// Create an `ArchetypeId` from a plain value.
     ///
