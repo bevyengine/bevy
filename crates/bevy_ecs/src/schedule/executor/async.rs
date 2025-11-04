@@ -5,16 +5,18 @@ use crate::{
     system::{SystemParam, SystemState},
     world::World,
 };
-use bevy_ecs::world::WorldId;
+use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::marker::PhantomData;
 use std::pin::Pin;
 use std::prelude::v1::{Box, Vec};
 use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
 use std::task::{Context, Poll};
 use std::thread;
+use concurrent_queue::{ConcurrentQueue, PopError, PushError};
+use crate::world::FromWorld;
 
 pub(crate) static ASYNC_ECS_WORLD_ACCESS: LockWrapper = LockWrapper(OnceLock::new());
 pub(crate) static ASYNC_ECS_WAKER_LIST: EcsWakerList = EcsWakerList(OnceLock::new());
@@ -24,6 +26,48 @@ pub(crate) struct AsyncBarrier(
     Arc<AtomicI64>,
     std::sync::mpsc::Sender<Box<dyn FnOnce(&mut World) + Send + Sync + 'static>>,
 );
+
+
+#[derive(bevy_ecs_macros::Resource)]
+pub(crate) struct SystemParamQueue<T: SystemParam + 'static>(RwLock<HashMap<TaskId, ConcurrentQueue<SystemState<T>>>>);
+
+#[derive(bevy_ecs_macros::Resource, Default)]
+pub(crate) struct SystemParamApplications(HashMap<TypeId, Box<dyn FnMut(&mut World) + Send + Sync + 'static>>);
+impl SystemParamApplications {
+    fn run(&mut self, world: &mut World) {
+        for closure in self.0.values_mut() {
+            closure(world);
+        }
+    }
+}
+impl<T: SystemParam + 'static> FromWorld for SystemParamQueue<T> {
+    fn from_world(world: &mut World) -> Self {
+        let this = Self(RwLock::new(HashMap::default()));
+        world.init_resource::<SystemParamApplications>();
+        let mut system_param_applications = world.get_resource_mut::<SystemParamApplications>().unwrap();
+        if !system_param_applications.0.contains_key(&TypeId::of::<T>()) {
+            system_param_applications.0.insert(TypeId::of::<T>(), Box::new(|world: &mut World| {
+                world.try_resource_scope(|world, system_param_queue: Mut<SystemParamQueue<T>>| {
+                    for concurrent_queue in system_param_queue.0.read().unwrap().values() {
+                        let mut system_state = match concurrent_queue.pop() {
+                            Ok(val) => val,
+                            Err(_) => panic!(),
+                        };
+                        system_state.apply(world);
+                        match concurrent_queue.push(system_state) {
+                            Ok(_) => {}
+                            Err(_) => panic!(),
+                        }
+                    }
+                });
+            }));
+        }
+        this
+    }
+}
+
+#[derive(bevy_ecs_macros::Resource, Clone)]
+pub(crate) struct AsyncSystemChannel(Arc<RwLock<(TypeMap)>>);
 
 enum MyThing {
     FnClosure(Box<dyn FnOnce(&mut World) -> Box<dyn Any + Send + Sync> + Send + Sync>),
@@ -66,20 +110,27 @@ impl TaskId {
 }
 
 pub(crate) struct EcsWakerList(
-    OnceLock<Mutex<(HashMap<(WorldId, InternedScheduleLabel), Vec<(std::task::Waker, TaskId)>>, HashMap<TaskId, MyThing>)>>,
+    OnceLock<
+        Mutex<(
+            HashMap<(WorldId, InternedScheduleLabel), Vec<(std::task::Waker, TaskId)>>,
+            HashMap<TaskId, MyThing>,
+        )>,
+    >,
 );
-
 
 impl EcsWakerList {
     pub fn wait(&self, schedule: InternedScheduleLabel, world: &mut World) -> Option<()> {
-        let this = self.0.get_or_init(|| Mutex::new((HashMap::new(), HashMap::new())));
+        if !world.contains_resource::<AsyncSystemChannel>() {
+            world.insert_resource(AsyncSystemChannel(Arc::new(RwLock::new(TypeMap(
+                HashMap::new(),
+            )))));
+        }
+        let this = self
+            .0
+            .get_or_init(|| Mutex::new((HashMap::new(), HashMap::new())));
         let world_id = world.id();
         // We intentionally do not hold this lock the whole time because we are emptying the vec, it's gonna be all new wakers next time.
-        let mut waker_list = this
-            .try_lock()
-            .ok()?
-            .0
-            .remove(&(world_id, schedule))?;
+        let mut waker_list = this.try_lock().ok()?.0.remove(&(world_id, schedule))?;
         let waker_list_len = waker_list.len();
         let (tx, rx) = std::sync::mpsc::channel();
         world.insert_resource(AsyncBarrier(
@@ -88,8 +139,7 @@ impl EcsWakerList {
             tx,
         ));
         for (_, task_id) in waker_list.iter() {
-            let mut uwu = this.lock()
-                .unwrap();
+            let mut uwu = this.lock().unwrap();
             let task = uwu.1.remove(task_id).unwrap();
             uwu.1.insert(*task_id, task.into_state(world));
             drop(uwu);
@@ -99,18 +149,27 @@ impl EcsWakerList {
                 waker.wake();
             }
             if waker_list_len != 0 {
-                std::println!("thread is parking");
+                //std::println!("thread is parking");
                 thread::park();
-                std::println!("thread is unparked");
+                //std::println!("thread is unparked");
             } else {
                 panic!("AWA");
             }
         }) {
-            return None
+            return None;
         }
-        for thing in rx.try_iter() {
+        world.try_resource_scope(|world, mut system_param_applications: Mut<SystemParamApplications>| {
+           system_param_applications.run(world);
+        });
+        /*let mut t = world
+            .get_resource::<AsyncSystemChannel>()
+            .unwrap()
+            .clone()
+            .0;
+        t.write().unwrap().run_all(world);*/
+        /*for thing in rx.try_iter() {
             thing(world);
-        }
+        }*/
         Some(())
     }
 }
@@ -118,7 +177,7 @@ impl EcsWakerList {
 pub(crate) struct LockWrapper(OnceLock<Arc<Mutex<Option<UnsafeWorldCell<'static>>>>>);
 
 impl LockWrapper {
-    pub(crate) fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()>{
+    pub(crate) fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
         // local RAII type
         struct ClearOnDrop<'a> {
             slot: &'a Mutex<Option<UnsafeWorldCell<'static>>>,
@@ -132,7 +191,8 @@ impl LockWrapper {
         }
 
         unsafe {
-            let mut awa = self.0
+            let mut awa = self
+                .0
                 .get_or_init(|| Arc::new(Mutex::new(None)))
                 .try_lock()
                 .ok()?;
@@ -140,8 +200,8 @@ impl LockWrapper {
             let _clear = ClearOnDrop {
                 slot: self.0.get().unwrap(),
             };
-                // SAFETY: This mem transmute is safe only because we drop it after, and our ASYNC_ECS_WORLD_ACCESS is private, and we don't clone it
-                // where we do use it, so the lifetime doesn't get propagated anywhere.
+            // SAFETY: This mem transmute is safe only because we drop it after, and our ASYNC_ECS_WORLD_ACCESS is private, and we don't clone it
+            // where we do use it, so the lifetime doesn't get propagated anywhere.
             awa.replace(std::mem::transmute(world.as_unsafe_world_cell()));
             drop(awa);
             func()
@@ -165,7 +225,52 @@ impl LockWrapper {
     }
 }
 
-pub async fn async_access<P, Func, Out>(
+struct TypeMap(
+    HashMap<
+        TypeId,
+        (
+            Box<dyn Any + 'static + Send + Sync>,
+            Mutex<Box<dyn FnMut(&mut World) + 'static + Send>>,
+        ),
+    >,
+);
+impl TypeMap {
+    pub fn set<T: SystemParam + Any + 'static>(&mut self, _t: &SystemState<T>) {
+        let (tx, rx) = std::sync::mpsc::channel::<SystemState<T>>();
+
+        self.0.insert(
+            TypeId::of::<T>(),
+            (
+                Box::new(tx),
+                Mutex::new(Box::new(move |world: &mut World| {
+                    for mut thing in rx.try_iter() {
+                        thing.apply(world);
+                    }
+                })),
+            ),
+        );
+    }
+    pub fn has<T: SystemParam + 'static + Any>(&self, _t: &SystemState<T>) -> bool {
+        self.0.contains_key(&TypeId::of::<T>())
+    }
+    pub fn send<T: SystemParam + Any + 'static>(&self, t: SystemState<T>) -> Option<()> {
+        self.0
+            .get(&TypeId::of::<T>())?
+            .0
+            .downcast_ref::<std::sync::mpsc::Sender<SystemState<T>>>()
+            .unwrap()
+            .send(t)
+            .ok()?;
+        Some(())
+    }
+    pub fn run_all(&mut self, world: &mut World) {
+        for (_, closure) in self.0.values_mut() {
+            closure.lock().unwrap()(world);
+        }
+    }
+}
+
+/*pub async fn async_access<P, Func, Out>(
     world_id: WorldId,
     schedule: impl ScheduleLabel,
     ecs_access: Func,
@@ -182,19 +287,74 @@ where
         TaskId::new().unwrap(),
     )
     .await
+}*/
+
+pub fn async_access<P, Func, Out>(
+    task_identifier: impl BecomeTaskIdentifier<P>,
+    schedule: impl ScheduleLabel,
+    ecs_access: Func,
+) -> impl Future<Output=Result<Out, RunSystemError>>
+where
+    P: SystemParam + 'static,
+    for<'w, 's> Func: Clone + FnMut(P::Item<'w, 's>) -> Out,
+{
+    let task_identifier = task_identifier.become_task_identifier();
+    SystemParamThing::<P, Func, Out>(
+        PhantomData::<P>,
+        PhantomData,
+        Some(ecs_access),
+        (task_identifier.1, schedule.intern()),
+        task_identifier.0,
+    )
 }
 
-struct SystemParamThing<'a, 'b, P: SystemParam + 'static, Func, Out>(
+pub trait BecomeTaskIdentifier<T> {
+    fn become_task_identifier(&self) -> TaskIdentifier<T>;
+}
+impl<T> BecomeTaskIdentifier<T> for WorldId {
+    fn become_task_identifier(&self) -> TaskIdentifier<T> {
+        TaskIdentifier::new(*self)
+    }
+}
+
+impl<T> BecomeTaskIdentifier<T> for &TaskIdentifier<T> {
+    fn become_task_identifier(&self) -> TaskIdentifier<T> {
+        TaskIdentifier(self.0, self.1, PhantomData)
+    }
+}
+
+impl<T> From<WorldId> for TaskIdentifier<T> {
+    fn from(value: WorldId) -> Self {
+        TaskIdentifier::new(value)
+    }
+}
+
+pub struct TaskIdentifier<T>(TaskId, WorldId, PhantomData<T>);
+
+impl<T> Clone for TaskIdentifier<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Copy for TaskIdentifier<T> {}
+impl<T> TaskIdentifier<T> {
+    pub fn new(world_id: WorldId) -> Self {
+        Self(TaskId::new().unwrap(), world_id, PhantomData)
+    }
+}
+
+struct SystemParamThing<P: SystemParam + 'static, Func, Out>(
     PhantomData<P>,
-    PhantomData<(Out, &'a (), &'b ())>,
+    PhantomData<Out>,
     Option<Func>,
     (WorldId, InternedScheduleLabel),
     TaskId,
 );
 
-impl<'a, 'b, P: SystemParam + 'static, Func, Out> Unpin for SystemParamThing<'a, 'b, P, Func, Out> {}
+impl<P: SystemParam + 'static, Func, Out> Unpin for SystemParamThing<P, Func, Out> {}
 
-impl<'a, 'b, P, Func, Out> Future for SystemParamThing<'a, 'b, P, Func, Out>
+impl<P, Func, Out> Future for SystemParamThing<P, Func, Out>
 where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
@@ -202,61 +362,82 @@ where
     type Output = Result<Out, RunSystemError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let task_id = self.4;
         unsafe {
             match ASYNC_ECS_WORLD_ACCESS.get(|world: UnsafeWorldCell| {
-                let async_barrier = { world.get_resource::<AsyncBarrier>().unwrap().clone() };
-                let our_thing = async_barrier.1.load(Ordering::SeqCst);
-                std::println!("A: {}", our_thing);
                 struct RaiiThing(AsyncBarrier);
                 impl Drop for RaiiThing {
                     fn drop(&mut self) {
-                        std::println!("ready to drop uwu");
-                        let val = self.0.1.fetch_add(-1, Ordering::SeqCst);
-                        std::println!("counter is: {val}");
+                        //std::println!("ready to drop uwu");
+                        let val = self.0 .1.fetch_add(-1, Ordering::SeqCst);
+                        //std::println!("counter is: {val}");
                         if val == 0 {
-                            self.0.0.unpark();
+                            self.0 .0.unpark();
                         }
                     }
                 }
+                let async_barrier = { world.get_resource::<AsyncBarrier>().unwrap().clone() };
                 RaiiThing(async_barrier.clone());
+
+
+                let system_param_queue = match world.get_resource::<SystemParamQueue<P>>() {
+                    None => {
+                        return Poll::Pending
+                    }
+                    Some(system_param_queue) => system_param_queue,
+                };
+
+                let mut system_state = match system_param_queue.0.read().unwrap().get(&task_id) {
+                    None => return Poll::Pending,
+                    Some(cq) => {
+                        cq.pop().unwrap()
+                    }
+                };
                 let out;
-                std::println!("B: {}", our_thing);
-                let mut hashmap = ASYNC_ECS_WAKER_LIST
+                //std::println!("B: {}", our_thing);
+                /*let mut hashmap = ASYNC_ECS_WAKER_LIST
                     .0
                     .get_or_init(|| Mutex::new((HashMap::new(), HashMap::new())))
                     .lock()
                     .unwrap();
-                let Some(awa) = hashmap.1.remove(&self.4)  else {
-                    return Poll::Pending
+                let Some(awa) = hashmap.1.remove(&task_id) else {
+                    return Poll::Pending;
                 };
                 drop(hashmap);
                 let mut uwu = match awa {
                     MyThing::FnClosure(_) => panic!(),
-                    MyThing::SystemState(state) => *state.downcast::<SystemState<P>>().unwrap()
+                    MyThing::SystemState(state) => *state.downcast::<SystemState<P>>().unwrap(),
                 };
-                let mut system_state = uwu;
+                let mut system_state = uwu;*/
                 //let mut system_state = SystemState::<P>::new(world.world_mut());
                 // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
                 unsafe {
                     // Obtain params and immediately consume them with the closure,
                     // ensuring the borrow ends before `apply`.
                     if let Err(err) = SystemState::validate_param(&mut system_state, world) {
-                        panic!();
                         return Poll::Ready(Err(err.into()));
                     }
-                    std::println!("C: {}", our_thing);
+                    //std::println!("C: {}", our_thing);
                     let state = system_state.get_unchecked(world);
-                    std::println!("D: {}", our_thing);
+                    //std::println!("D: {}", our_thing);
                     out = self.as_mut().2.take().unwrap()(state);
-                    std::println!("E: {}", our_thing);
+                    //std::println!("E: {}", our_thing);
                 }
                 //system_state.apply(world.world_mut());
-                std::println!("F: {}", our_thing);
-                if let Err(err) = async_barrier.2.send(Box::new(move |world: &mut World| {
+                //std::println!("F: {}", our_thing);
+                /*if !async_system_channel.0.read().unwrap().has(&system_state) {
+                    async_system_channel.0.write().unwrap().set(&system_state);
+                }
+                async_system_channel.0.read().unwrap().send(system_state);*/
+                match world.get_resource::<SystemParamQueue<P>>().unwrap().0.read().unwrap().get(&task_id).unwrap().push(system_state) {
+                    Ok(_) => {}
+                    Err(_) => panic!(),
+                }
+                /*if let Err(err) = async_barrier.2.send(Box::new(move |world: &mut World| {
                     system_state.apply(world);
                 })) {
                     return Poll::Ready(Err(err.into()));
-                }
+                }*/
                 Poll::Ready(Ok(out))
             }) {
                 Some(Poll::Pending) => {
@@ -268,20 +449,32 @@ where
                     if !hashmap.0.contains_key(&self.3) {
                         hashmap.0.insert(self.3.clone(), Vec::new());
                     }
-                    hashmap.0
+                    hashmap
+                        .0
                         .get_mut(&self.3)
                         .unwrap()
                         .push((cx.waker().clone(), self.4));
                     if !hashmap.1.contains_key(&self.4) {
-                        hashmap.1
-                            .insert(
-                                self.4,
-                                MyThing::FnClosure(Box::new(
-                                    |world: &mut World| -> Box<dyn Any + Send + Sync> {
-                                        Box::new(SystemState::<P>::new(world))
-                                    },
-                                )),
-                            );
+                        hashmap.1.insert(
+                            self.4,
+                            MyThing::FnClosure(Box::new(
+                                move |world: &mut World| -> Box<dyn Any + Send + Sync> {
+                                    world.init_resource::<SystemParamQueue<P>>();
+                                    if !world.get_resource::<SystemParamQueue<P>>().unwrap().0.read().unwrap().contains_key(&task_id) {
+                                        let system_state = SystemState::<P>::new(world);
+                                        let cq = ConcurrentQueue::bounded(1);
+                                        match cq.push(system_state) {
+                                            Ok(_) => {}
+                                            Err(_) => {
+                                                panic!()
+                                            }
+                                        }
+                                        world.get_resource::<SystemParamQueue<P>>().unwrap().0.write().unwrap().insert(task_id, cq);
+                                    }
+                                    Box::new(SystemState::<P>::new(world))
+                                },
+                            )),
+                        );
                     }
                     Poll::Pending
                 }
@@ -294,19 +487,31 @@ where
                     if !hashmap.0.contains_key(&self.3) {
                         hashmap.0.insert(self.3.clone(), Vec::new());
                     }
-                    hashmap.0
+                    hashmap
+                        .0
                         .get_mut(&self.3)
                         .unwrap()
                         .push((cx.waker().clone(), self.4));
-                    hashmap.1
-                        .insert(
-                            self.4,
-                            MyThing::FnClosure(Box::new(
-                                |world: &mut World| -> Box<dyn Any + Send + Sync> {
-                                    Box::new(SystemState::<P>::new(world))
-                                },
-                            )),
-                        );
+                    hashmap.1.insert(
+                        self.4,
+                        MyThing::FnClosure(Box::new(
+                            move |world: &mut World| -> Box<dyn Any + Send + Sync> {
+                                world.init_resource::<SystemParamQueue<P>>();
+                                if !world.get_resource::<SystemParamQueue<P>>().unwrap().0.read().unwrap().contains_key(&task_id) {
+                                    let system_state = SystemState::<P>::new(world);
+                                    let cq = ConcurrentQueue::bounded(1);
+                                    match cq.push(system_state) {
+                                        Ok(_) => {}
+                                        Err(_) => {
+                                            panic!()
+                                        }
+                                    };
+                                    world.get_resource::<SystemParamQueue<P>>().unwrap().0.write().unwrap().insert(task_id, cq);
+                                }
+                                Box::new(SystemState::<P>::new(world))
+                            },
+                        )),
+                    );
                     Poll::Pending
                 }
                 Some(awa) => awa,
