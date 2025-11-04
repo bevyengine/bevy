@@ -11,10 +11,10 @@ use bevy::{
     prelude::*,
     tasks::AsyncComputeTaskPool,
 };
+use bevy_ecs::schedule::r#async::TaskIdentifier;
 use futures_timer::Delay;
 use rand::Rng;
 use std::time::Duration;
-use bevy_ecs::schedule::r#async::TaskIdentifier;
 
 const NUM_CUBES: i32 = 16;
 const LIGHT_RADIUS: f32 = 8.0;
@@ -43,27 +43,34 @@ fn spawn_tasks(world_id: WorldId) {
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
             // Spawn a task on the async compute pool
-            let task_id = task_id.clone();
             pool.spawn(async move {
                 let delay = Duration::from_secs_f32(rand::rng().random_range(2.0..8.0));
                 // Simulate a delay before task completion
                 println!("delaying for {:?}", delay);
                 Delay::new(delay).await;
-                if let Err(e) =
-                    async_access::<(Local<u32>, Commands, Res<BoxMeshHandle>, Res<BoxMaterialHandle>), _, _>(
-                        &task_id,
-                        Update,
-                        |(mut local, mut commands, box_mesh, box_material)| {
-                            *local += 1;
-                            println!("spawning {}", *local);
-                            commands.spawn((
-                                Mesh3d(box_mesh.clone()),
-                                MeshMaterial3d(box_material.clone()),
-                                Transform::from_xyz(x as f32, 0.5, z as f32),
-                            ));
-                        },
-                    )
-                    .await
+                if let Err(e) = async_access::<
+                    (
+                        Local<u32>,
+                        Commands,
+                        Res<BoxMeshHandle>,
+                        Res<BoxMaterialHandle>,
+                    ),
+                    _,
+                    _,
+                >(
+                    task_id,
+                    Update,
+                    |(mut local, mut commands, box_mesh, box_material)| {
+                        *local += 1;
+                        println!("spawning {}", *local);
+                        commands.spawn((
+                            Mesh3d(box_mesh.clone()),
+                            MeshMaterial3d(box_material.clone()),
+                            Transform::from_xyz(x as f32, 0.5, z as f32),
+                        ));
+                    },
+                )
+                .await
                 {
                     println!("got error: {}", e);
                 }
