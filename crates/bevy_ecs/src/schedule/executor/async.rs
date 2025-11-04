@@ -87,13 +87,13 @@ impl EcsWakerList {
             Arc::new(AtomicI64::new(waker_list_len as i64 - 1)),
             tx,
         ));
-        /*for (_, task_id) in waker_list.iter() {
+        for (_, task_id) in waker_list.iter() {
             let mut uwu = this.lock()
                 .unwrap();
             let task = uwu.1.remove(task_id).unwrap();
             uwu.1.insert(*task_id, task.into_state(world));
             drop(uwu);
-        }*/
+        }
         if let None = ASYNC_ECS_WORLD_ACCESS.set(world, || {
             for (waker, _) in waker_list {
                 waker.wake();
@@ -221,7 +221,21 @@ where
                 RaiiThing(async_barrier.clone());
                 let out;
                 std::println!("B: {}", our_thing);
-                let mut system_state = SystemState::<P>::new(world.world_mut());
+                let mut hashmap = ASYNC_ECS_WAKER_LIST
+                    .0
+                    .get_or_init(|| Mutex::new((HashMap::new(), HashMap::new())))
+                    .lock()
+                    .unwrap();
+                let Some(awa) = hashmap.1.remove(&self.4)  else {
+                    return Poll::Pending
+                };
+                drop(hashmap);
+                let mut uwu = match awa {
+                    MyThing::FnClosure(_) => panic!(),
+                    MyThing::SystemState(state) => *state.downcast::<SystemState<P>>().unwrap()
+                };
+                let mut system_state = uwu;
+                //let mut system_state = SystemState::<P>::new(world.world_mut());
                 // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
                 unsafe {
                     // Obtain params and immediately consume them with the closure,
@@ -236,13 +250,13 @@ where
                     out = self.as_mut().2.take().unwrap()(state);
                     std::println!("E: {}", our_thing);
                 }
-                system_state.apply(world.world_mut());
+                //system_state.apply(world.world_mut());
                 std::println!("F: {}", our_thing);
-                /*if let Err(err) = async_barrier.2.send(Box::new(move |world: &mut World| {
+                if let Err(err) = async_barrier.2.send(Box::new(move |world: &mut World| {
                     system_state.apply(world);
                 })) {
                     return Poll::Ready(Err(err.into()));
-                }*/
+                }
                 Poll::Ready(Ok(out))
             }) {
                 Some(Poll::Pending) => {
@@ -258,7 +272,7 @@ where
                         .get_mut(&self.3)
                         .unwrap()
                         .push((cx.waker().clone(), self.4));
-                    /*if !hashmap.1.contains_key(&self.4) {
+                    if !hashmap.1.contains_key(&self.4) {
                         hashmap.1
                             .insert(
                                 self.4,
@@ -268,7 +282,7 @@ where
                                     },
                                 )),
                             );
-                    }*/
+                    }
                     Poll::Pending
                 }
                 None => {
@@ -284,7 +298,7 @@ where
                         .get_mut(&self.3)
                         .unwrap()
                         .push((cx.waker().clone(), self.4));
-                    /*hashmap.1
+                    hashmap.1
                         .insert(
                             self.4,
                             MyThing::FnClosure(Box::new(
@@ -292,7 +306,7 @@ where
                                     Box::new(SystemState::<P>::new(world))
                                 },
                             )),
-                        );*/
+                        );
                     Poll::Pending
                 }
                 Some(awa) => awa,
