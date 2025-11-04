@@ -143,6 +143,9 @@ pbr_input.material.uv_transform = uv_transform;
 
         // `let t: texture_2d<f32> = ...;` is disallowed by the WGSL spec but works in Bevy
         // `let s: sampler = ...;` is disallowed by the WGSL spec but works in Bevy
+        // The `texture_and_sampler_let` language feature will add this to the spec
+        // https://github.com/gpuweb/gpuweb/pull/5389
+        // https://github.com/gpuweb/cts/pull/4490
 #ifdef BINDLESS
         let parallax_depth_texture: texture_2d<f32> = bindless_textures_2d[material_indices[slot].depth_map_texture];
         let parallax_depth_sampler: sampler = bindless_samplers_filtering[material_indices[slot].depth_map_sampler];
