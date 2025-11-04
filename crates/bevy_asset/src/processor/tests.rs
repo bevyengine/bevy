@@ -7,10 +7,8 @@ use alloc::{
     vec::Vec,
 };
 use async_lock::{RwLock, RwLockWriteGuard};
-use bevy_platform::{
-    collections::HashMap,
-    sync::{Mutex, PoisonError},
-};
+use atomicow::CowArc;
+use bevy_platform::sync::{Mutex, PoisonError};
 use bevy_reflect::TypePath;
 use core::marker::PhantomData;
 use futures_lite::AsyncWriteExt;
@@ -25,8 +23,8 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceBuilders, AssetSourceEvent,
-        AssetSourceId, AssetWatcher, PathStream, Reader, ReaderRequiredFeatures,
+        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetWatcher,
+        PathStream, Reader, ReaderRequiredFeatures,
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
@@ -38,8 +36,8 @@ use crate::{
         CoolTextRon, SubText,
     },
     transformer::{AssetTransformer, TransformedAsset},
-    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
-    WriteDefaultMetaError,
+    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, DefaultAssetSource,
+    LoadContext, WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
@@ -63,16 +61,15 @@ impl<T: TypePath + 'static> Process for MyProcessor<T> {
 struct Marker;
 
 fn create_empty_asset_processor() -> AssetProcessor {
-    let mut sources = AssetSourceBuilders::default();
-    // Create an empty asset source so that AssetProcessor is happy.
-    let dir = Dir::default();
-    let memory_reader = MemoryAssetReader { root: dir.clone() };
-    sources.insert(
-        AssetSourceId::Default,
-        AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
-    );
-
-    AssetProcessor::new(&mut sources, false).0
+    AssetProcessor::new(
+        &mut AssetSourceBuilder::new(move || {
+            Box::new(MemoryAssetReader {
+                root: Dir::default(),
+            })
+        }),
+        false,
+    )
+    .0
 }
 
 #[test]
@@ -179,7 +176,6 @@ struct AppWithProcessor {
     app: App,
     source_gate: Arc<RwLock<()>>,
     default_source_dirs: ProcessingDirs,
-    extra_sources_dirs: HashMap<String, ProcessingDirs>,
 }
 
 /// Similar to [`crate::io::gated::GatedReader`], but uses a lock instead of a channel to avoid
@@ -290,98 +286,87 @@ fn set_fake_transaction_log(app: &mut App) {
         .unwrap();
 }
 
-fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
-    let mut app = App::new();
-    let source_gate = Arc::new(RwLock::new(()));
+/// The processing dirs that need to be "finished" before being used.
+struct UnfinishedProcessingDirs {
+    /// The directory of the source assets.
+    source: Dir,
+    /// The directory of the processed assets.
+    processed: Dir,
+    /// The receiver channel for the source event sender for the unprocessed source.
+    source_event_sender_receiver: async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
+}
 
-    struct UnfinishedProcessingDirs {
-        source: Dir,
-        processed: Dir,
-        // The receiver channel for the source event sender for the unprocessed source.
-        source_event_sender_receiver:
-            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
-    }
-
-    impl UnfinishedProcessingDirs {
-        fn finish(self) -> ProcessingDirs {
-            ProcessingDirs {
-                source: self.source,
-                processed: self.processed,
-                // The processor listens for events on the source unconditionally, and we enable
-                // watching for the processed source, so both of these channels will be filled.
-                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
-            }
+impl UnfinishedProcessingDirs {
+    /// Attempts to finish the source by fetching the source event sender.
+    ///
+    /// This will block if called before adding the source.
+    fn finish(self) -> ProcessingDirs {
+        ProcessingDirs {
+            source: self.source,
+            processed: self.processed,
+            // The processor listens for events on the source unconditionally, and we enable
+            // watching for the processed source, so both of these channels will be filled.
+            source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
         }
     }
+}
 
-    fn create_source(
-        app: &mut App,
-        source_id: AssetSourceId<'static>,
-        source_gate: Arc<RwLock<()>>,
-    ) -> UnfinishedProcessingDirs {
-        let source_dir = Dir::default();
-        let processed_dir = Dir::default();
+/// Creates a source, including its processed and unprocessed directories, gated on `source_gate`.
+fn create_source(source_gate: Arc<RwLock<()>>) -> (AssetSourceBuilder, UnfinishedProcessingDirs) {
+    let source_dir = Dir::default();
+    let processed_dir = Dir::default();
 
-        let source_memory_reader = LockGatedReader::new(
-            source_gate,
-            MemoryAssetReader {
-                root: source_dir.clone(),
-            },
-        );
-        let source_memory_writer = MemoryAssetWriter {
+    let source_memory_reader = LockGatedReader::new(
+        source_gate,
+        MemoryAssetReader {
             root: source_dir.clone(),
-        };
-        let processed_memory_reader = MemoryAssetReader {
-            root: processed_dir.clone(),
-        };
-        let processed_memory_writer = MemoryAssetWriter {
-            root: processed_dir.clone(),
-        };
+        },
+    );
+    let source_memory_writer = MemoryAssetWriter {
+        root: source_dir.clone(),
+    };
+    let processed_memory_reader = MemoryAssetReader {
+        root: processed_dir.clone(),
+    };
+    let processed_memory_writer = MemoryAssetWriter {
+        root: processed_dir.clone(),
+    };
 
-        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
+    let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
 
-        struct FakeWatcher;
+    struct FakeWatcher;
 
-        impl AssetWatcher for FakeWatcher {}
+    impl AssetWatcher for FakeWatcher {}
 
-        app.register_asset_source(
-            source_id,
-            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
-                .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
-                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
-                    source_event_sender_sender.send_blocking(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                })
-                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-        );
+    let source_builder = AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+        .with_writer(move |_| Some(Box::new(source_memory_writer.clone())))
+        .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
+            source_event_sender_sender.send_blocking(sender).unwrap();
+            Some(Box::new(FakeWatcher))
+        })
+        .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+        .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone())));
 
+    (
+        source_builder,
         UnfinishedProcessingDirs {
             source: source_dir,
             processed: processed_dir,
             source_event_sender_receiver,
-        }
-    }
+        },
+    )
+}
 
-    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
+fn create_app_with_asset_processor() -> AppWithProcessor {
+    let mut app = App::new();
+    let source_gate = Arc::new(RwLock::new(()));
 
-    let extra_sources_dirs = extra_sources
-        .iter()
-        .map(|source_name| {
-            (
-                source_name.clone(),
-                create_source(
-                    &mut app,
-                    AssetSourceId::Name(source_name.clone().into()),
-                    source_gate.clone(),
-                ),
-            )
-        })
-        .collect::<Vec<_>>();
+    let (default_source_builder, default_source_dirs) = create_source(source_gate.clone());
 
     app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
+            default_source: DefaultAssetSource::FromBuilder(Mutex::new(default_source_builder)),
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
             watch_for_changes_override: Some(true),
@@ -391,17 +376,23 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
 
     set_fake_transaction_log(&mut app);
 
-    // Now that we've built the app, finish all the processing dirs.
+    // Now that we've built the app, finish the default dir, and return it.
 
     AppWithProcessor {
         app,
         source_gate,
         default_source_dirs: default_source_dirs.finish(),
-        extra_sources_dirs: extra_sources_dirs
-            .into_iter()
-            .map(|(name, dirs)| (name, dirs.finish()))
-            .collect(),
     }
+}
+
+fn register_new_source(
+    app: &mut App,
+    name: impl Into<CowArc<'static, str>>,
+    source_gate: Arc<RwLock<()>>,
+) -> ProcessingDirs {
+    let (source, processing_dirs) = create_source(source_gate);
+    app.register_asset_source(name.into(), source);
+    processing_dirs.finish()
 }
 
 fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, ()>) {
@@ -530,8 +521,7 @@ fn no_meta_or_default_processor_copies_asset() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     let guard = source_gate.write_blocking();
 
@@ -563,8 +553,7 @@ fn asset_processor_transforms_asset_default_processor() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -617,8 +606,7 @@ fn asset_processor_transforms_asset_with_meta() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -681,8 +669,7 @@ fn asset_processor_transforms_asset_with_short_path_meta() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -880,8 +867,7 @@ fn asset_processor_loading_can_read_processed_assets() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     // This processor loads a gltf file, converts it to BSN and then saves out the BSN.
     type GltfProcessor = LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>;
@@ -954,8 +940,7 @@ fn asset_processor_loading_can_read_source_assets() {
                 processed: processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     #[derive(Serialize, Deserialize)]
     struct FakeGltfxData {
@@ -1150,18 +1135,18 @@ fn asset_processor_processes_all_sources() {
                 processed: default_processed_dir,
                 source_event_sender: default_source_events,
             },
-        extra_sources_dirs,
-    } = create_app_with_asset_processor(&["custom_1".into(), "custom_2".into()]);
+    } = create_app_with_asset_processor();
+
     let ProcessingDirs {
         source: custom_1_source_dir,
         processed: custom_1_processed_dir,
         source_event_sender: custom_1_source_events,
-    } = extra_sources_dirs["custom_1"].clone();
+    } = register_new_source(&mut app, "custom_1", source_gate.clone());
     let ProcessingDirs {
         source: custom_2_source_dir,
         processed: custom_2_processed_dir,
         source_event_sender: custom_2_source_events,
-    } = extra_sources_dirs["custom_2"].clone();
+    } = register_new_source(&mut app, "custom_2", source_gate.clone());
 
     type AddTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -1266,13 +1251,12 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
                 processed: default_processed_dir,
                 source_event_sender: default_source_events,
             },
-        extra_sources_dirs,
-    } = create_app_with_asset_processor(&["custom".into()]);
+    } = create_app_with_asset_processor();
     let ProcessingDirs {
         source: custom_source_dir,
         processed: custom_processed_dir,
         source_event_sender: custom_source_events,
-    } = extra_sources_dirs["custom"].clone();
+    } = register_new_source(&mut app, "custom", source_gate.clone());
 
     #[derive(Serialize, Deserialize)]
     enum NesterSerialized {
@@ -1487,8 +1471,7 @@ fn clears_invalid_data_from_processed_dir() {
                 processed: default_processed_dir,
                 ..
             },
-        ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -1593,8 +1576,7 @@ fn only_reprocesses_wrong_hash_on_startup() {
             mut app,
             source_gate,
             default_source_dirs,
-            ..
-        } = create_app_with_asset_processor(&[]);
+        } = create_app_with_asset_processor();
         default_source_dir = default_source_dirs.source;
         default_processed_dir = default_source_dirs.processed;
 
@@ -1676,16 +1658,16 @@ fn only_reprocesses_wrong_hash_on_startup() {
         root: default_processed_dir.clone(),
     };
 
-    app.register_asset_source(
-        AssetSourceId::Default,
-        AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
-            .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-            .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-    );
-
     app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
+            default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+                    .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                    .with_processed_writer(move |_| {
+                        Some(Box::new(processed_memory_writer.clone()))
+                    }),
+            )),
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
             watch_for_changes_override: Some(true),
@@ -1743,7 +1725,7 @@ fn writes_default_meta_for_processor() {
         mut app,
         default_source_dirs: ProcessingDirs { source, .. },
         ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -1785,7 +1767,7 @@ fn write_default_meta_does_not_overwrite() {
         mut app,
         default_source_dirs: ProcessingDirs { source, .. },
         ..
-    } = create_app_with_asset_processor(&[]);
+    } = create_app_with_asset_processor();
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
