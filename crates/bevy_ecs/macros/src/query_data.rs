@@ -247,6 +247,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
 
+
+
                     fn provide_extra_access(
                         state: &mut Self::State,
                         access: &mut #path::query::Access,
@@ -272,6 +274,22 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         _state: &Self::State,
                     ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
                         core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                    }
+                }
+
+                impl #user_impl_generics #path::query::ReborrowQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::ReborrowQueryData,)* {
+                    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                        item: &'short mut Self::Item<'wlong, 'slong>,
+                    ) -> Self::Item<'short, 'short> {
+                        #read_only_item_struct_name {
+                            #(
+                                #field_members: <#read_only_field_types>::reborrow(&mut item.#field_members),
+                            )*
+                        }
                     }
                 }
 
@@ -343,6 +361,22 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     _state: &Self::State,
                 ) -> impl core::iter::Iterator<Item = #path::query::EcsAccessType<'_>> {
                     core::iter::empty() #(.chain(<#field_types>::iter_access(&_state.#field_aliases)))*
+                }
+            }
+
+            impl #user_impl_generics #path::query::ReborrowQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::ReborrowQueryData,)* {
+                fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                    item: &'short mut Self::Item<'wlong, 'slong>,
+                ) -> Self::Item<'short, 'short> {
+                    #item_struct_name {
+                        #(
+                            #field_members: <#field_types>::reborrow(&mut item.#field_members),
+                        )*
+                    }
                 }
             }
 

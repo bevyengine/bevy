@@ -360,6 +360,21 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         self.ticks.last_run = last_run;
         self.ticks.this_run = this_run;
     }
+
+    /// Returns a `Mut<>` with a smaller lifetime.
+    /// This is useful if you have `&Ref<T>`, but you need a `Ref<T>`.
+    pub fn reborrow(&self) -> Ref<'_, T> {
+        Ref {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
+    }
 }
 
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>

@@ -373,6 +373,12 @@ mod render_entities_world_query_impls {
             item
         }
 
+        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+            item: &'short mut Self::Item<'wlong, 'slong>,
+        ) -> Self::Item<'short, 'short> {
+            *item
+        }
+
         #[inline(always)]
         unsafe fn fetch<'w, 's>(
             state: &'s Self::State,
@@ -486,6 +492,12 @@ mod render_entities_world_query_impls {
             item: Self::Item<'wlong, 's>,
         ) -> Self::Item<'wshort, 's> {
             item
+        }
+
+        fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+            item: &'short mut Self::Item<'wlong, 'slong>,
+        ) -> Self::Item<'short, 'short> {
+            *item
         }
 
         #[inline(always)]
