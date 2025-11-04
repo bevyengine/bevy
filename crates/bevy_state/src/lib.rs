@@ -84,13 +84,6 @@ pub mod prelude {
     pub use crate::reflect::{ReflectFreelyMutableState, ReflectState};
 
     #[doc(hidden)]
-    #[expect(
-        deprecated,
-        reason = "Temporarily re-exporting deprecated type for transition"
-    )]
-    pub use crate::state_scoped::StateScoped;
-
-    #[doc(hidden)]
     pub use crate::{
         commands::CommandsStatesExt,
         condition::*,
