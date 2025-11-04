@@ -11,7 +11,7 @@ use nonmax::NonMaxU32;
 
 use crate::query::DebugCheckedUnwrap;
 
-use super::{Entity, EntityRow, EntitySetIterator};
+use super::{Entity, EntityIndex, EntitySetIterator};
 
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
@@ -71,7 +71,7 @@ impl Slot {
         return Entity::from_raw_and_generation(
             // SAFETY: This is valid since it was from an entity's index to begin with.
             unsafe {
-                EntityRow::new(
+                EntityIndex::new(
                     NonMaxU32::new(self.entity_index.load(Ordering::Relaxed))
                         .debug_checked_unwrap(),
                 )
@@ -276,7 +276,7 @@ impl FreeBuffer {
     ///
     /// [`Self::set`] must have been called on these indices before to initialize memory.
     #[inline]
-    unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator {
+    unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator<'_> {
         FreeBufferIterator {
             buffer: self,
             future_buffer_indices: indices,
@@ -536,7 +536,7 @@ impl FreeList {
     ///
     /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
     #[inline]
-    unsafe fn alloc_many(&self, count: u32) -> FreeBufferIterator {
+    unsafe fn alloc_many(&self, count: u32) -> FreeBufferIterator<'_> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
         let len = self.len.pop_for_state(count, Ordering::AcqRel).length();
         let index = len.saturating_sub(count);
@@ -635,25 +635,25 @@ impl SharedAllocator {
         panic!("too many entities")
     }
 
-    /// Allocates a fresh [`EntityRow`]. This row has never been given out before.
+    /// Allocates a fresh [`EntityIndex`]. This row has never been given out before.
     #[inline]
-    pub(crate) fn alloc_unique_entity_row(&self) -> EntityRow {
+    pub(crate) fn alloc_unique_entity_row(&self) -> EntityIndex {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
         if index == u32::MAX {
             Self::on_overflow();
         }
         // SAFETY: We just checked that this was not max.
-        unsafe { EntityRow::new(NonMaxU32::new_unchecked(index)) }
+        unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) }
     }
 
-    /// Allocates `count` [`EntityRow`]s. These rows will be fresh. They have never been given out before.
-    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntityRowIterator {
+    /// Allocates `count` [`EntityIndex`]s. These rows will be fresh. They have never been given out before.
+    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntityIndexIterator {
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
         let new = match start_new.checked_add(count) {
             Some(new_next_entity_index) => start_new..new_next_entity_index,
             None => Self::on_overflow(),
         };
-        AllocUniqueEntityRowIterator(new)
+        AllocUniqueEntityIndexIterator(new)
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
@@ -665,7 +665,7 @@ impl SharedAllocator {
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
         unsafe { self.free.alloc() }
-            .unwrap_or_else(|| Entity::from_raw(self.alloc_unique_entity_row()))
+            .unwrap_or_else(|| Entity::from_index(self.alloc_unique_entity_row()))
     }
 
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
@@ -674,7 +674,7 @@ impl SharedAllocator {
     ///
     /// This must not conflict with [`FreeList::free`] calls for the duration of the iterator.
     #[inline]
-    unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
+    unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         let reused = self.free.alloc_many(count);
         let still_need = count - reused.len() as u32;
         let new = self.alloc_unique_entity_rows(still_need);
@@ -687,7 +687,7 @@ impl SharedAllocator {
     fn remote_alloc(&self) -> Entity {
         self.free
             .remote_alloc()
-            .unwrap_or_else(|| Entity::from_raw(self.alloc_unique_entity_row()))
+            .unwrap_or_else(|| Entity::from_index(self.alloc_unique_entity_row()))
     }
 
     /// Marks the allocator as closed, but it will still function normally.
@@ -702,13 +702,19 @@ impl SharedAllocator {
 }
 
 /// This keeps track of freed entities and allows the allocation of new ones.
-pub struct Allocator {
+pub(super) struct Allocator {
     shared: Arc<SharedAllocator>,
+}
+
+impl Default for Allocator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Allocator {
     /// Constructs a new [`Allocator`]
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             shared: Arc::new(SharedAllocator::new()),
         }
@@ -716,33 +722,27 @@ impl Allocator {
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
     #[inline]
-    pub fn alloc(&self) -> Entity {
+    pub(super) fn alloc(&self) -> Entity {
         // SAFETY: violating safety requires a `&mut self` to exist, but rust does not allow that.
         unsafe { self.shared.alloc() }
     }
 
     /// The total number of indices given out.
     #[inline]
-    pub fn total_entity_indices(&self) -> u32 {
+    fn total_entity_indices(&self) -> u32 {
         self.shared.total_entity_indices()
     }
 
     /// The number of free entities.
     #[inline]
-    pub fn num_free(&self) -> u32 {
+    fn num_free(&self) -> u32 {
         // SAFETY: `free` is not being called since it takes `&mut self`.
         unsafe { self.shared.free.num_free() }
     }
 
-    /// Returns whether or not the index is valid in this allocator.
-    #[inline]
-    pub fn is_valid_row(&self, row: EntityRow) -> bool {
-        row.index() < self.total_entity_indices()
-    }
-
     /// Frees the entity allowing it to be reused.
     #[inline]
-    pub fn free(&mut self, entity: Entity) {
+    pub(super) fn free(&mut self, entity: Entity) {
         // SAFETY: We have `&mut self`.
         unsafe {
             self.shared.free.free(entity);
@@ -751,23 +751,9 @@ impl Allocator {
 
     /// Allocates `count` entities in an iterator.
     #[inline]
-    pub fn alloc_many(&self, count: u32) -> AllocEntitiesIterator {
+    pub(super) fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         // SAFETY: `free` takes `&mut self`, and this lifetime is captured by the iterator.
         unsafe { self.shared.alloc_many(count) }
-    }
-
-    /// Allocates `count` entities in an iterator.
-    ///
-    /// # Safety
-    ///
-    /// Caller ensures [`Self::free`] is not called for the duration of the iterator.
-    /// Caller ensures this allocator is not dropped for the lifetime of the iterator.
-    #[inline]
-    pub unsafe fn alloc_many_unsafe(&self, count: u32) -> AllocEntitiesIterator<'static> {
-        // SAFETY: Caller ensures this instance is valid until the returned value is dropped.
-        let this: &'static Self = unsafe { &*core::ptr::from_ref(self) };
-        // SAFETY: Caller ensures free is not called.
-        unsafe { this.shared.alloc_many(count) }
     }
 }
 
@@ -786,21 +772,21 @@ impl core::fmt::Debug for Allocator {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`EntityRow`] values from an [`Allocator`] that are never aliased.
+/// An [`Iterator`] returning a sequence of [`EntityIndex`] values from an [`Allocator`] that are never aliased.
 /// These rows have never been given out before.
 ///
 /// **NOTE:** Dropping will leak the remaining entity rows!
-pub(crate) struct AllocUniqueEntityRowIterator(core::ops::Range<u32>);
+pub(super) struct AllocUniqueEntityIndexIterator(core::ops::Range<u32>);
 
-impl Iterator for AllocUniqueEntityRowIterator {
-    type Item = EntityRow;
+impl Iterator for AllocUniqueEntityIndexIterator {
+    type Item = EntityIndex;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.0
             .next()
             // SAFETY: This came from an *exclusive* range. It can never be max.
-            .map(|idx| unsafe { EntityRow::new(NonMaxU32::new_unchecked(idx)) })
+            .map(|idx| unsafe { EntityIndex::new(NonMaxU32::new_unchecked(idx)) })
     }
 
     #[inline]
@@ -809,14 +795,14 @@ impl Iterator for AllocUniqueEntityRowIterator {
     }
 }
 
-impl ExactSizeIterator for AllocUniqueEntityRowIterator {}
-impl core::iter::FusedIterator for AllocUniqueEntityRowIterator {}
+impl ExactSizeIterator for AllocUniqueEntityIndexIterator {}
+impl core::iter::FusedIterator for AllocUniqueEntityIndexIterator {}
 
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
-pub struct AllocEntitiesIterator<'a> {
-    new: AllocUniqueEntityRowIterator,
+pub(super) struct AllocEntitiesIterator<'a> {
+    new: AllocUniqueEntityIndexIterator,
     reused: FreeBufferIterator<'a>,
 }
 
@@ -826,7 +812,7 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         self.reused
             .next()
-            .or_else(|| self.new.next().map(Entity::from_raw))
+            .or_else(|| self.new.next().map(Entity::from_index))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -853,8 +839,10 @@ impl Drop for AllocEntitiesIterator<'_> {
     }
 }
 
-/// This is a stripped down version of [`Allocator`] that operates on fewer assumptions.
-/// As a result, using this will be slower than [`Allocator`] but this offers additional freedoms.
+/// This is a stripped down entity allocator that operates on fewer assumptions than [`EntityAllocator`](super::EntityAllocator).
+/// As a result, using this will be slower than than the main allocator but this offers additional freedoms.
+/// In particular, this type is fully owned, allowing you to allocate entities for a world without locking or holding reference to the world.
+/// This is especially useful in async contexts.
 #[derive(Clone)]
 pub struct RemoteAllocator {
     shared: Arc<SharedAllocator>,
@@ -864,20 +852,37 @@ impl RemoteAllocator {
     /// Creates a new [`RemoteAllocator`] with the provided [`Allocator`] source.
     /// If the source is ever destroyed, [`Self::alloc`] will yield garbage values.
     /// Be sure to use [`Self::is_closed`] to determine if it is safe to use these entities.
-    pub fn new(source: &Allocator) -> Self {
+    pub(super) fn new(source: &Allocator) -> Self {
         Self {
             shared: source.shared.clone(),
         }
     }
 
+    /// Returns whether or not this [`RemoteAllocator`] is connected to this source [`Allocator`].
+    pub(super) fn is_connected_to(&self, source: &Allocator) -> bool {
+        Arc::ptr_eq(&self.shared, &source.shared)
+    }
+
     /// Allocates an entity remotely.
+    ///
+    /// This comes with a major downside:
+    /// Because this does not hold reference to the world, the world may be cleared or destroyed before you get a chance to use the result.
+    /// If that happens, these entities will be garbage!
+    /// They will not be unique in the world anymore and you should not spawn them!
+    /// Before using the returned values in the world, first check that it is ok with [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
     #[inline]
     pub fn alloc(&self) -> Entity {
         self.shared.remote_alloc()
     }
 
-    /// Returns whether or not this [`RemoteAllocator`] is still connected to its source [`Allocator`].
+    /// Returns whether or not this [`RemoteAllocator`] is still connected to its source [`EntityAllocator`](super::EntityAllocator).
+    ///
     /// Note that this could close immediately after the function returns false, so be careful.
+    /// The best way to ensure that does not happen is to only trust the returned value while holding a reference to the world
+    /// and to ensure it is the right world through [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator).
+    ///
+    /// This is generally best used as a diagnostic.
+    /// [`EntityAllocator::has_remote_allocator`](super::EntityAllocator::has_remote_allocator) is a better check for correctness.
     pub fn is_closed(&self) -> bool {
         self.shared.is_closed()
     }
