@@ -1,3 +1,35 @@
+//! This module contains the guts of Bevy's entity allocator.
+//!
+//! Entity allocation needs to work concurrently and remotely.
+//! Remote allocations (where no reference to the world is held) is needed for async primarily for use.
+//! Non-remote, "normal" allocation needs to be as fast as possible while still supporting remote allocation.
+//!
+//! The allocator fundamentally is made of a cursor for the next fresh, never used [`EntityIndex`] and a free list.
+//! The free list is some collection that hold [`Entity`] values that were used and can be reused; they are "free"/available.
+//! If the free list is empty, it's really simple to just increment the fresh index cursor.
+//! The tricky part is implementing a remotely accessible free list.
+//!
+//! A naive free list could just a concurrent queue.
+//! That would probably be fine for remote allocation but for non-remote, we can go much faster.
+//! In particular, a concurrent queue must do additional work to handle cases where something is added concurrently with being removed.
+//! But for non-remote allocation, we can guarantee that no free will happen during an allocation since `free` needs mutably access to the world already.
+//! That means, we can skip a lot of those safety checks.
+//! Plus, we know the maximum size of the free list ahead of time, since we can assume there are no duplicates.
+//! That means, we can have a much more efficient allocation scheme, far better than a linked list.
+//!
+//! For the free list, the list needs to be pinned in memory and yet grow-able.
+//! That's quire the pickle, but by splitting the growth over multiple arrays, this isn't so bad.
+//! When the list needs to grow, we just *add* on another array to the buffer (instead of *replacing* the old one with a bigger one).
+//! These arrays are called [`Chunk`]s.
+//! This keeps everything pinned, and since we know the maximum size ahead of time, we can make this mapping very fast.
+//!
+//! Similar to how `Vec` is implemented, the free list is implemented as a [`FreeBuffer`] (handling allocations and implicit capacity)
+//! and the [`FreeCount`] manages the length of the free list.
+//! The free list's item is a [`Slot`], which manages accessing each item concurrently.
+//!
+//! These types are summed up in [`SharedAllocator`], which is highly unsafe.
+//! The interfaces [`Allocator`] and [`RemoteAllocator`] provide safe interfaces to them.
+
 use bevy_platform::{
     prelude::Vec,
     sync::{
