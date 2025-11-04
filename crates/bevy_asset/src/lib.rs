@@ -2273,10 +2273,8 @@ mod tests {
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
                 let asset_path = load_context.asset_path().clone();
-                let untyped_handle: Handle<crate::LoadedUntypedAsset> = load_context
-                    .loader()
-                    .with_unknown_type()
-                    .load(asset_path);
+                let untyped_handle: Handle<crate::LoadedUntypedAsset> =
+                    load_context.loader().with_unknown_type().load(asset_path);
 
                 Ok(TestAssetUD(untyped_handle))
             }
