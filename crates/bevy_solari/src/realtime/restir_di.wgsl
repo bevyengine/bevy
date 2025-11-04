@@ -138,7 +138,6 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
     let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
-    let temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.viewport.zw);
 
     // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
     // or if all temporal history should assumed to be invalid
@@ -146,14 +145,13 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return empty_reservoir();
     }
 
-    // Check if the pixel features have changed heavily between the current and previous frame
-    let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
-    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
-    if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
-        return empty_reservoir();
-    }
+    let permuted_temporal_pixel_id = permute_pixel(vec2<u32>(temporal_pixel_id_float), constants.frame_index, view.viewport.zw);
+    var temporal_reservoir = load_temporal_reservoir_inner(permuted_temporal_pixel_id, depth, world_position, world_normal);
 
-    var temporal_reservoir = load_reservoir_a(temporal_pixel_id);
+    // If permuted reprojection failed (tends to happen on object edges), try point reprojection
+    if !reservoir_valid(temporal_reservoir) {
+        temporal_reservoir = load_temporal_reservoir_inner(vec2<u32>(temporal_pixel_id_float), depth, world_position, world_normal);
+    }
 
     // Check if the light selected in the previous frame no longer exists in the current frame (e.g. entity despawned)
     let previous_light_id = temporal_reservoir.sample.light_id >> 16u;
@@ -167,6 +165,17 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
     temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
 
     return temporal_reservoir;
+}
+
+fn load_temporal_reservoir_inner(temporal_pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
+    // Check if the pixel features have changed heavily between the current and previous frame
+    let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
+    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
+    if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
+        return empty_reservoir();
+    }
+
+    return load_reservoir_a(temporal_pixel_id);
 }
 
 fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>, rng: ptr<function, u32>) -> Reservoir {
