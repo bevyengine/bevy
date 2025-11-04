@@ -62,6 +62,9 @@ If you only want spawned entities, use `Commands::get_spawned_entity`.
 
 ### Other entity interactions
 
+The `ArchetypeRow::INVALID` and `ArchetypeId::INVALID` constants have been removed, since they are no longer needed for flushing.
+If you depended on these, use options instead.
+
 `BundleSpawner::spawn_non_existent` is now `BundleSpawner::construct`.
 `World::inspect_entity` now errors with `EntityNotSpawnedError` instead of `EntityDoesNotExistError`.
 `QueryEntityError::EntityDoesNotExist` is now `QueryEntityError::NotSpawned`.
