@@ -105,6 +105,11 @@ impl SystemMeta {
     pub fn set_has_deferred(&mut self) {
         self.flags |= SystemStateFlags::DEFERRED;
     }
+
+    /// Mark the system to run exclusively. i.e. no other systems will run at the same time.
+    pub fn set_exclusive(&mut self) {
+        self.flags |= SystemStateFlags::EXCLUSIVE;
+    }
 }
 
 // TODO: Actually use this in FunctionSystem. We should probably only do this once Systems are constructed using a World reference
