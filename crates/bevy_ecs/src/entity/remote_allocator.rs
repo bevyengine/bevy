@@ -31,6 +31,7 @@
 //! The interfaces [`Allocator`] and [`RemoteAllocator`] provide safe interfaces to them.
 
 use bevy_platform::{
+    cell::SyncUnsafeCell,
     prelude::Vec,
     sync::{
         atomic::{AtomicBool, AtomicPtr, AtomicU32, AtomicU64, Ordering},
@@ -47,22 +48,9 @@ use super::{Entity, EntityIndex, EntitySetIterator};
 
 /// This is the item we store in the free list.
 /// Effectively, this is a `MaybeUninit<Entity>` where uninit is represented by `Entity::PLACEHOLDER`.
-///
-/// We don't use atomics to achieve any particular ordering: we just need *some* ordering.
-/// Conceptually, this could just be `SyncCell<Entity>`,
-/// but accessing that requires additional unsafe justification, and could cause unsound optimizations by the compiler.
-///
-/// No [`Slot`] access is ever contested between two threads due to the ordering constraints in the [`FreeCount`].
-/// That also guarantees a proper ordering between slot access.
-/// Hence these atomics don't need to account for any synchronization, and relaxed ordering is used everywhere.
-// TODO: consider fully justifying `SyncCell` here with no atomics.
+/// This is
 struct Slot {
-    #[cfg(not(target_has_atomic = "64"))]
-    entity_index: AtomicU32,
-    #[cfg(not(target_has_atomic = "64"))]
-    entity_generation: AtomicU32,
-    #[cfg(target_has_atomic = "64")]
-    inner_entity: AtomicU64,
+    inner: SyncUnsafeCell<Entity>,
 }
 
 impl Slot {
@@ -72,50 +60,37 @@ impl Slot {
     /// Importantly, [`FreeCount`] determines which part of the free buffer is the free list.
     /// An empty slot may be in the free buffer, but should not be in the free list.
     /// This can be thought of as the `MaybeUninit` uninit in `Vec`'s excess capacity.
-    fn empty() -> Self {
+    const fn empty() -> Self {
         let source = Entity::PLACEHOLDER;
-        #[cfg(not(target_has_atomic = "64"))]
-        return Self {
-            entity_index: AtomicU32::new(source.index()),
-            entity_generation: AtomicU32::new(source.generation().to_bits()),
-        };
-        #[cfg(target_has_atomic = "64")]
-        return Self {
-            inner_entity: AtomicU64::new(source.to_bits()),
-        };
+        Self {
+            inner: SyncUnsafeCell::new(source),
+        }
     }
 
+    /// Sets the entity at this slot.
+    ///
+    /// # Safety
+    ///
+    /// There must be a clear, strict order between this call and the previous uses of this [`Slot`].
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    fn set_entity(&self, entity: Entity) {
-        #[cfg(not(target_has_atomic = "64"))]
-        self.entity_generation
-            .store(entity.generation().to_bits(), Ordering::Relaxed);
-        #[cfg(not(target_has_atomic = "64"))]
-        self.entity_index.store(entity.index(), Ordering::Relaxed);
-        #[cfg(target_has_atomic = "64")]
-        self.inner_entity.store(entity.to_bits(), Ordering::Relaxed);
+    const unsafe fn set_entity(&self, entity: Entity) {
+        // SAFETY: Ensured by caller.
+        unsafe {
+            self.inner.get().write(entity);
+        }
     }
 
     /// Gets the stored entity. The result will be [`Entity::PLACEHOLDER`] unless [`set_entity`](Self::set_entity) has been called.
+    ///
+    /// # Safety
+    ///
+    /// There must be a clear, strict order between this call and the previous uses of this [`Slot`].
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
-    fn get_entity(&self) -> Entity {
-        #[cfg(not(target_has_atomic = "64"))]
-        return Entity::from_raw_and_generation(
-            // SAFETY: This is valid since it was from an entity's index to begin with.
-            unsafe {
-                EntityIndex::new(
-                    NonMaxU32::new(self.entity_index.load(Ordering::Relaxed))
-                        .debug_checked_unwrap(),
-                )
-            },
-            super::EntityGeneration::from_bits(self.entity_generation.load(Ordering::Relaxed)),
-        );
-
-        #[cfg(target_has_atomic = "64")]
-        // SAFETY: This is always sourced from a proper entity.
-        return unsafe {
-            Entity::try_from_bits(self.inner_entity.load(Ordering::Relaxed)).debug_checked_unwrap()
-        };
+    const unsafe fn get_entity(&self) -> Entity {
+        // SAFETY: Ensured by caller.
+        unsafe { self.inner.get().read() }
     }
 }
 
@@ -138,15 +113,16 @@ impl Chunk {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on this index before, ensuring it is in bounds and the chunk is initialized.
+    /// There must be a clear, strict order between this call and the previous uses of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn get(&self, index: u32) -> Entity {
-        // Relaxed is fine since caller ensures we are initialized already.
-        // In order for the caller to guarantee that, they must have an ordering that orders this `get` after the required `set`.
+        // Relaxed is fine since caller has already assured memory ordering is satisfied.
         let head = self.first.load(Ordering::Relaxed);
         // SAFETY: caller ensures we are in bounds and init (because `set` must be in bounds)
         let target = unsafe { &*head.add(index as usize) };
-
-        target.get_entity()
+        // SAFETY: Caller ensures ordering.
+        unsafe { target.get_entity() }
     }
 
     /// Gets a slice of indices.
@@ -171,12 +147,12 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently with itself.
     /// Index must be in bounds.
-    /// Access does not conflict with another [`Self::get`].
+    /// There must be a clear, strict order between this call and the previous uses of this `index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn set(&self, index: u32, entity: Entity, chunk_capacity: u32) {
-        // Relaxed is fine here since this is not called concurrently and does not conflict with a `get`.
+        // Relaxed is fine here since the caller ensures memory ordering.
         let ptr = self.first.load(Ordering::Relaxed);
         let head = if ptr.is_null() {
             self.init(chunk_capacity)
@@ -211,11 +187,9 @@ impl Chunk {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently with itself.
     /// `chunk_capacity` must be the same as it was initialized with.
-    unsafe fn dealloc(&self, chunk_capacity: u32) {
-        // Relaxed is fine here since this is not called concurrently.
-        let to_drop = self.first.load(Ordering::Relaxed);
+    unsafe fn dealloc(&mut self, chunk_capacity: u32) {
+        let to_drop = *self.first.get_mut();
         if !to_drop.is_null() {
             // SAFETY: This was created in [`Self::init`] from a standard Vec.
             unsafe {
@@ -243,10 +217,10 @@ impl FreeBuffer {
     /// Computes the capacity of the chunk at this index within [`Self::NUM_CHUNKS`].
     /// The first 2 have length 512 (2^9) and the last has length (2^31)
     #[inline]
-    fn capacity_of_chunk(chunk_index: u32) -> u32 {
+    const fn capacity_of_chunk(chunk_index: u32) -> u32 {
         // We do this because we're skipping the first `NUM_SKIPPED` powers, so we need to make up for them by doubling the first index.
         // This is why the first 2 indices both have a capacity of 512.
-        let corrected = chunk_index.max(1);
+        let corrected = if chunk_index == 0 { 1 } else { chunk_index };
         // We add NUM_SKIPPED because the total capacity should be as if [`Self::NUM_CHUNKS`] were 32.
         // This skips the first NUM_SKIPPED powers.
         let corrected = corrected + Self::NUM_SKIPPED;
@@ -256,7 +230,7 @@ impl FreeBuffer {
 
     /// For this index in the whole buffer, returns the index of the [`Chunk`], the index within that chunk, and the capacity of that chunk.
     #[inline]
-    fn index_info(full_index: u32) -> (u32, u32, u32) {
+    const fn index_info(full_index: u32) -> (u32, u32, u32) {
         // We do a `saturating_sub` because we skip the first `NUM_SKIPPED` powers to make space for the first chunk's entity count.
         // The -1 is because this is the number of chunks, but we want the index in the end.
         // We store chunks in smallest to biggest order, so we need to reverse it.
@@ -283,9 +257,11 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// [`set`](Self::set) must have been called on this index to initialize the its memory.
+    /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     unsafe fn get(&self, full_index: u32) -> Entity {
         let (chunk, index, _) = self.index_in_chunk(full_index);
-        // SAFETY: Caller ensures this index was set
+        // SAFETY: Ensured by caller.
         unsafe { chunk.get(index) }
     }
 
@@ -293,8 +269,8 @@ impl FreeBuffer {
     ///
     /// # Safety
     ///
-    /// This must not be called concurrently with itself.
-    /// Access must not conflict with another [`Self::get`].
+    /// There must be a clear, strict order between this call and the previous uses of this `full_index`.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn set(&self, full_index: u32, entity: Entity) {
         let (chunk, index, chunk_capacity) = self.index_in_chunk(full_index);
@@ -307,6 +283,10 @@ impl FreeBuffer {
     /// # Safety
     ///
     /// [`Self::set`] must have been called on these indices before to initialize memory.
+    /// There must be a clear, strict order between this call and the previous uses of these `indices`.
+    /// Note that until the returned value is dropped, these `indices` are still being accessed,
+    /// making safety for other operations afterward need careful justification.
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn iter(&self, indices: core::ops::Range<u32>) -> FreeBufferIterator<'_> {
         FreeBufferIterator {
@@ -346,14 +326,16 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(found) = self.current_chunk_slice.next() {
-            return Some(found.get_entity());
+            // SAFETY: We have `&mut self`, so that memory order is certain.
+            // The caller of `FreeBuffer::iter` ensures the memory order of this value's lifetime.
+            return Some(unsafe { found.get_entity() });
         }
 
         let still_need = self.future_buffer_indices.len() as u32;
         let next_index = self.future_buffer_indices.next()?;
         let (chunk, index, chunk_capacity) = self.buffer.index_in_chunk(next_index);
 
-        // SAFETY: Assured by constructor
+        // SAFETY: Assured by `FreeBuffer::iter`
         let slice = unsafe { chunk.get_slice(index, still_need, chunk_capacity) };
         self.future_buffer_indices.start += slice.len() as u32;
         self.current_chunk_slice = slice.iter();
@@ -361,7 +343,9 @@ impl<'a> Iterator for FreeBufferIterator<'a> {
         // SAFETY: Constructor ensures these indices are valid in the buffer; the buffer is not sparse, and we just got the next slice.
         // So the only way for the slice to be empty is if the constructor did not uphold safety.
         let next = unsafe { self.current_chunk_slice.next().debug_checked_unwrap() };
-        Some(next.get_entity())
+        // SAFETY: We have `&mut self`, so that memory order is certain.
+        // The caller of `FreeBuffer::iter` ensures the memory order of this value's lifetime.
+        Some(unsafe { next.get_entity() })
     }
 
     #[inline]
@@ -376,7 +360,7 @@ impl<'a> core::iter::FusedIterator for FreeBufferIterator<'a> {}
 
 /// This tracks the state of a [`FreeCount`], which has lots of information packed into it.
 ///
-/// - The first 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 32` as 0.
+/// - The least 33 bits store a signed 33 bit integer. This behaves like a u33, but we define `1 << 32` as 0.
 /// - The 34th bit stores a flag that indicates if the count has been disabled/suspended.
 /// - The remaining 30 bits are the generation. The generation just differentiates different versions of the state that happen to encode the same length.
 #[derive(Clone, Copy)]
@@ -460,6 +444,8 @@ impl FreeCount {
     }
 
     /// Marks the state as disabled, returning the previous state
+    /// When the length is disabled, [`try_set_state`](Self::try_set_state) will fail.
+    /// This is used to prevent remote allocation during a free.
     #[inline]
     fn disable_len_for_state(&self, order: Ordering) -> FreeCountState {
         // We don't care about the generation here since this changes the value anyway.
@@ -512,28 +498,33 @@ impl FreeList {
 
     /// Gets the number of free entities.
     ///
-    /// # Safety
+    /// # Risk
     ///
     /// For this to be accurate, this must not be called during a [`Self::free`].
     #[inline]
-    unsafe fn num_free(&self) -> u32 {
-        self.len.state(Ordering::Acquire).length()
+    fn num_free(&self) -> u32 {
+        // Relaxed ordering is fine since this doesn't act on the length value in memory.
+        self.len.state(Ordering::Relaxed).length()
     }
 
     /// Frees the `entity` allowing it to be reused.
     ///
     /// # Safety
     ///
-    /// This must not conflict with any other [`Self::free`] or [`Self::alloc`] calls.
+    /// There must be a clear, strict order between this call and calls to [`Self::free`], [`Self::alloc_many`], and [`Self::alloc`].
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn free(&self, entity: Entity) {
         // Disable remote allocation.
-        let state = self.len.disable_len_for_state(Ordering::Acquire);
+        // We don't need to acquire the most recent memory from remote threads because we never read it.
+        // We do not need to release to remote threads because we only changed the disabled bit,
+        // which the remote allocator would with relaxed ordering.
+        let state = self.len.disable_len_for_state(Ordering::Relaxed);
 
         // Push onto the buffer
         let len = state.length();
         // SAFETY: Caller ensures this does not conflict with `free` or `alloc` calls,
-        // and we just disabled remote allocation.
+        // and we just disabled remote allocation with a strict memory ordering.
         unsafe {
             self.buffer.set(len, entity);
         }
@@ -541,7 +532,7 @@ impl FreeList {
         // Update length
         let new_state = state.with_length(len + 1);
         // This is safe because `alloc` is not being called and `remote_alloc` checks that it is not disabled.
-        // We don't need to change the generation since this will change the length.
+        // We don't need to change the generation since this will change the length, which changes the value anyway.
         // If, from a `remote_alloc` perspective, this does not change the length (i.e. this changes it *back* to what it was),
         // then `alloc` must have been called, which changes the generation.
         self.len.set_state_risky(new_state, Ordering::Release);
@@ -551,14 +542,20 @@ impl FreeList {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`Self::free`] calls.
+    /// There must be a clear, strict order between this call and calls to [`Self::free`].
+    /// Otherwise, the compiler will make unsound optimizations.
     #[inline]
     unsafe fn alloc(&self) -> Option<Entity> {
-        // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.pop_for_state(1, Ordering::AcqRel).length();
+        // SAFETY: This will get a valid index because caller ensures there is no way for `free` to be done at the same time.
+        // Relaxed is ok here since `free` is the only time memory is changed, and relaxed still gets the most recent state.
+        // The memory ordering to ensure we read the most recent value at the index is ensured by the caller.
+        let len = self.len.pop_for_state(1, Ordering::Relaxed).length();
         let index = len.checked_sub(1)?;
 
         // SAFETY: This was less then `len`, so it must have been `set` via `free` before.
+        // There is a strict memory ordering of this use of the index because the length is only decreasing.
+        // That means there is only one use of this index since the last call to `free`.
+        // The only time it the length increases is during `free`, which the caller ensures has a "happened before" relationship with this call.
         Some(unsafe { self.buffer.get(index) })
     }
 
@@ -566,14 +563,23 @@ impl FreeList {
     ///
     /// # Safety
     ///
-    /// This must not conflict with [`Self::free`] calls for the duration of the returned iterator.
+    /// There must be a clear, strict order between this call and calls to [`Self::free`].
+    /// Otherwise, the compiler will make unsound optimizations.
+    ///
+    /// Note that this allocation call doesn't end until the returned value is dropped.
+    /// So, calling [`Self::free`] while the returned value is live is unsound.
     #[inline]
     unsafe fn alloc_many(&self, count: u32) -> FreeBufferIterator<'_> {
         // SAFETY: This will get a valid index because there is no way for `free` to be done at the same time.
-        let len = self.len.pop_for_state(count, Ordering::AcqRel).length();
+        // Relaxed is ok here since `free` is the only time memory is changed, and relaxed still gets the most recent state.
+        // The memory ordering to ensure we read the most recent value at the index is ensured by the caller.
+        let len = self.len.pop_for_state(count, Ordering::Relaxed).length();
         let index = len.saturating_sub(count);
 
-        // SAFETY: The iterator's items are all less than the length.
+        // SAFETY: The iterator's items are all less than the length, so they are in bounds and have been previously set.
+        // There is a strict memory ordering of this use of the indices because the length is only decreasing.
+        // That means there is only one use of these indices since the last call to `free`.
+        // The only time it the length increases is during `free`, which the caller ensures has a "happened before" relationship with this call.
         unsafe { self.buffer.iter(index..len) }
     }
 
@@ -588,43 +594,68 @@ impl FreeList {
         // But that means something else could be trying to allocate the same index!
         // So we need a `len.compare_exchange` loop to ensure the index is unique.
         // Because we keep a generation value in the `FreeCount`, if any of these things happen, we simply try again.
+        // We also need to prevent this from conflicting with a `free` call, so we check to ensure the state is not disabled.
 
-        let mut state = self.len.state(Ordering::Acquire);
+        // We keep track of the attempts so we can yield the thread on std after a few fails.
         #[cfg(feature = "std")]
         let mut attempts = 1u32;
+        // We need an acquire ordering to acquire the most recent memory of `free` calls.
+        let mut state = self.len.state(Ordering::Acquire);
         loop {
             // The state is only disabled when freeing.
             // If a free is happening, we need to wait for the new entity to be ready on the free buffer.
+            // That means we will also need to re-fetch the state and acquire the new memory.
             // Then, we can allocate it.
             if state.is_disabled() {
                 // Spin 64 times before yielding.
                 #[cfg(feature = "std")]
-                if attempts % 64 == 0 {
+                {
                     attempts += 1;
-                    // scheduler probably isn't running the thread doing the `free` call, so yield so it can finish.
-                    std::thread::yield_now();
-                } else {
-                    attempts += 1;
-                    core::hint::spin_loop();
+                    if attempts % 64 == 0 {
+                        // scheduler probably isn't running the thread doing the `free` call, so yield so it can finish.
+                        std::thread::yield_now();
+                    } else {
+                        core::hint::spin_loop();
+                    }
                 }
 
                 #[cfg(not(feature = "std"))]
                 core::hint::spin_loop();
 
+                // Retry with the fresh state and acquired memory order.
                 state = self.len.state(Ordering::Acquire);
                 continue;
             }
 
+            // At this point, we know a `free` was not happening when we started.
+
             let len = state.length();
             let index = len.checked_sub(1)?;
 
-            // SAFETY: This was less than `len`, so it must have been `set` via `free` before.
+            // SAFETY:
+            //
+            // If no `free` call has started, this safety follows the same logic as in non-remote `alloc`.
+            // That is, the len always counts down, so this is the only use of this index since the last `free`,
+            // and another `free` hasn't happened.
+            //
+            // But if a `free` did start at this point, it would be operating on indices greater than `index`.
+            // We haven't updated the `FreeCount` yet, so the `free` call would be adding to it, while we've been subtracting from it.
+            // That means this is still the only time this index is used since the last `free`!
+            // So, even though we can't guarantee when the concurrent `free` is happening in memory order, it doesn't matter since that `free` doesn't use this index.
+            // We can still establish a clear, strict ordering for this slot because 1) any concurrent `free` doesn't use this index and 2) we have an `Acquire` relationship with the `free` before it.
+            //
+            // So yeah, we could be reading from outdated memory (the free buffer), but the part that we are reading, hasn't changed, so that's ok.
+            // That satisfies safety but not correctness.
+            // We still need to double check that a free didn't happen, and retry if it did.
+            // Otherwise, this entity might be given out twice.
             let entity = unsafe { self.buffer.get(index) };
 
             let ideal_state = state.pop(1);
+            // If we fail, we need to acquire the new state.
+            // If we succeed, we are finished, and we haven't changed any memory, so we can used relaxed ordering.
             match self
                 .len
-                .try_set_state(state, ideal_state, Ordering::AcqRel, Ordering::Acquire)
+                .try_set_state(state, ideal_state, Ordering::Relaxed, Ordering::Acquire)
             {
                 Ok(_) => return Some(entity),
                 Err(new_state) => state = new_state,
@@ -633,25 +664,20 @@ impl FreeList {
     }
 }
 
-/// This stores allocation data shared by all entity allocators.
-struct SharedAllocator {
-    /// The entities pending reuse
-    free: FreeList,
+struct FreshAllocator {
     /// The next value of [`Entity::index`] to give out if needed.
     next_entity_index: AtomicU32,
-    /// Tracks whether or not the primary [`Allocator`] has been closed or not.
-    is_closed: AtomicBool,
 }
 
-impl SharedAllocator {
-    /// Constructs a [`SharedAllocator`]
-    fn new() -> Self {
-        Self {
-            free: FreeList::new(),
-            next_entity_index: AtomicU32::new(0),
-            is_closed: AtomicBool::new(false),
+impl FreshAllocator {
+    const MAX_ENTITIES: u32 = const {
+        if cfg!(target_pointer_width = "64") {
+            u32::MAX
+        } else {
+            let max_address = i32::MAX as u32;
+            max_address / size_of::<Entity>() as u32
         }
-    }
+    };
 
     /// The total number of indices given out.
     #[inline]
@@ -667,25 +693,80 @@ impl SharedAllocator {
         panic!("too many entities")
     }
 
-    /// Allocates a fresh [`EntityIndex`]. This row has never been given out before.
+    /// Allocates a fresh [`EntityIndex`].
+    /// This row has never been given out before.
     #[inline]
-    pub(crate) fn alloc_unique_entity_row(&self) -> EntityIndex {
+    fn alloc(&self) -> Entity {
         let index = self.next_entity_index.fetch_add(1, Ordering::Relaxed);
-        if index == u32::MAX {
+        if index == Self::MAX_ENTITIES {
             Self::on_overflow();
         }
-        // SAFETY: We just checked that this was not max.
-        unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) }
+        // SAFETY: We just checked that this was not max and we only added 1, so we can't have missed it.
+        Entity::from_index(unsafe { EntityIndex::new(NonMaxU32::new_unchecked(index)) })
     }
 
-    /// Allocates `count` [`EntityIndex`]s. These rows will be fresh. They have never been given out before.
-    pub(crate) fn alloc_unique_entity_rows(&self, count: u32) -> AllocUniqueEntityIndexIterator {
+    /// Allocates `count` [`EntityIndex`]s.
+    /// These rows will be fresh.
+    /// They have never been given out before.
+    fn alloc_many(&self, count: u32) -> AllocUniqueEntityIndexIterator {
         let start_new = self.next_entity_index.fetch_add(count, Ordering::Relaxed);
-        let new = match start_new.checked_add(count) {
+        let new = match start_new
+            .checked_add(count)
+            .filter(|new| *new < Self::MAX_ENTITIES)
+        {
             Some(new_next_entity_index) => start_new..new_next_entity_index,
             None => Self::on_overflow(),
         };
         AllocUniqueEntityIndexIterator(new)
+    }
+}
+
+/// An [`Iterator`] returning a sequence of [`EntityIndex`] values from an [`Allocator`] that are never aliased.
+/// These rows have never been given out before.
+///
+/// **NOTE:** Dropping will leak the remaining entity rows!
+pub(super) struct AllocUniqueEntityIndexIterator(core::ops::Range<u32>);
+
+impl Iterator for AllocUniqueEntityIndexIterator {
+    type Item = Entity;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0
+            .next()
+            // SAFETY: This came from an *exclusive* range. It can never be max.
+            .map(|idx| unsafe { EntityIndex::new(NonMaxU32::new_unchecked(idx)) })
+            .map(Entity::from_index)
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.0.size_hint()
+    }
+}
+
+impl ExactSizeIterator for AllocUniqueEntityIndexIterator {}
+impl core::iter::FusedIterator for AllocUniqueEntityIndexIterator {}
+
+/// This stores allocation data shared by all entity allocators.
+struct SharedAllocator {
+    /// The entities pending reuse
+    free: FreeList,
+    fresh: FreshAllocator,
+    /// Tracks whether or not the primary [`Allocator`] has been closed or not.
+    is_closed: AtomicBool,
+}
+
+impl SharedAllocator {
+    /// Constructs a [`SharedAllocator`]
+    fn new() -> Self {
+        Self {
+            free: FreeList::new(),
+            fresh: FreshAllocator {
+                next_entity_index: AtomicU32::new(0),
+            },
+            is_closed: AtomicBool::new(false),
+        }
     }
 
     /// Allocates a new [`Entity`], reusing a freed index if one exists.
@@ -696,8 +777,7 @@ impl SharedAllocator {
     #[inline]
     unsafe fn alloc(&self) -> Entity {
         // SAFETY: assured by caller
-        unsafe { self.free.alloc() }
-            .unwrap_or_else(|| Entity::from_index(self.alloc_unique_entity_row()))
+        unsafe { self.free.alloc() }.unwrap_or_else(|| self.fresh.alloc())
     }
 
     /// Allocates a `count` [`Entity`]s, reusing freed indices if they exist.
@@ -709,7 +789,7 @@ impl SharedAllocator {
     unsafe fn alloc_many(&self, count: u32) -> AllocEntitiesIterator<'_> {
         let reused = self.free.alloc_many(count);
         let still_need = count - reused.len() as u32;
-        let new = self.alloc_unique_entity_rows(still_need);
+        let new = self.fresh.alloc_many(still_need);
         AllocEntitiesIterator { new, reused }
     }
 
@@ -719,7 +799,7 @@ impl SharedAllocator {
     fn remote_alloc(&self) -> Entity {
         self.free
             .remote_alloc()
-            .unwrap_or_else(|| Entity::from_index(self.alloc_unique_entity_row()))
+            .unwrap_or_else(|| self.fresh.alloc())
     }
 
     /// Marks the allocator as closed, but it will still function normally.
@@ -762,14 +842,14 @@ impl Allocator {
     /// The total number of indices given out.
     #[inline]
     fn total_entity_indices(&self) -> u32 {
-        self.shared.total_entity_indices()
+        self.shared.fresh.total_entity_indices()
     }
 
     /// The number of free entities.
     #[inline]
     fn num_free(&self) -> u32 {
-        // SAFETY: `free` is not being called since it takes `&mut self`.
-        unsafe { self.shared.free.num_free() }
+        // RISK: `free` requires mutable access.
+        self.shared.free.num_free()
     }
 
     /// Frees the entity allowing it to be reused.
@@ -804,32 +884,6 @@ impl core::fmt::Debug for Allocator {
     }
 }
 
-/// An [`Iterator`] returning a sequence of [`EntityIndex`] values from an [`Allocator`] that are never aliased.
-/// These rows have never been given out before.
-///
-/// **NOTE:** Dropping will leak the remaining entity rows!
-pub(super) struct AllocUniqueEntityIndexIterator(core::ops::Range<u32>);
-
-impl Iterator for AllocUniqueEntityIndexIterator {
-    type Item = EntityIndex;
-
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0
-            .next()
-            // SAFETY: This came from an *exclusive* range. It can never be max.
-            .map(|idx| unsafe { EntityIndex::new(NonMaxU32::new_unchecked(idx)) })
-    }
-
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
-}
-
-impl ExactSizeIterator for AllocUniqueEntityIndexIterator {}
-impl core::iter::FusedIterator for AllocUniqueEntityIndexIterator {}
-
 /// An [`Iterator`] returning a sequence of [`Entity`] values from an [`Allocator`].
 ///
 /// **NOTE:** Dropping will leak the remaining entities!
@@ -842,9 +896,7 @@ impl<'a> Iterator for AllocEntitiesIterator<'a> {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.reused
-            .next()
-            .or_else(|| self.new.next().map(Entity::from_index))
+        self.reused.next().or_else(|| self.new.next())
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
