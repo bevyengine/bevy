@@ -162,6 +162,8 @@ impl Chunk {
 
         // SAFETY: caller ensures it is in bounds and we are not fighting with other `set` calls or `get` calls.
         // A race condition is therefore impossible.
+        // The address can't wrap or pass isize max since this addition is within an allocation.
+        // For that to happen, you would first run out of memory in practice.
         let target = unsafe { &*head.add(index as usize) };
 
         target.set_entity(entity);
@@ -247,7 +249,7 @@ impl FreeBuffer {
     #[inline]
     fn index_in_chunk(&self, full_index: u32) -> (&Chunk, u32, u32) {
         let (chunk_index, index_in_chunk, chunk_capacity) = Self::index_info(full_index);
-        // SAFETY: Caller ensures the chunk index is correct
+        // SAFETY: The `index_info` is correct.
         let chunk = unsafe { self.0.get_unchecked(chunk_index as usize) };
         (chunk, index_in_chunk, chunk_capacity)
     }
@@ -670,14 +672,9 @@ struct FreshAllocator {
 }
 
 impl FreshAllocator {
-    const MAX_ENTITIES: u32 = const {
-        if cfg!(target_pointer_width = "64") {
-            u32::MAX
-        } else {
-            let max_address = i32::MAX as u32;
-            max_address / size_of::<Entity>() as u32
-        }
-    };
+    /// This exists because it may possibly change depending on platform.
+    /// Ex: We may want this to be smaller on 32 bit platforms at some point.
+    const MAX_ENTITIES: u32 = u32::MAX;
 
     /// The total number of indices given out.
     #[inline]
