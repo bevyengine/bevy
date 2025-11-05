@@ -14,7 +14,7 @@ proc-macro = true
 [features]
 default = []
 # When enabled, allows documentation comments to be processed by the reflection macros
-documentation = []
+reflect_documentation = []
 # Enables macro logic related to function reflection
 functions = []
 # Enables automatic reflect registration. Does nothing by itself, 

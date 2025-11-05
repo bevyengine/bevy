@@ -19,7 +19,6 @@ env:
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
   RUSTFLAGS: "-D warnings"
-  BINSTALL_VERSION: "v1.15.6"
 
 concurrency:
   group: ${{github.workflow}}-${{github.ref}}
@@ -305,7 +304,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@v8.1.0
+        uses: super-linter/super-linter/slim@v8.2.1
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -317,10 +316,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
-      # Update in sync with BINSTALL_VERSION
-      - uses: cargo-bins/cargo-binstall@v1.15.6
       - name: Install taplo
-        run: cargo binstall taplo-cli@0.9.3 --locked
+        run: curl -fsSL https://github.com/tamasfe/taplo/releases/download/0.10.0/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Run Taplo
         id: taplo
         run: taplo fmt --check --diff
@@ -339,7 +336,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Check for typos
-        uses: crate-ci/typos@v1.36.3
+        uses: crate-ci/typos@v1.39.0
       - name: Typos info
         if: failure()
         run: |
@@ -415,7 +412,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-examples/missing-update
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-examples
@@ -450,7 +447,7 @@ jobs:
       - name: log failed task - missing update
         if: ${{ failure() && github.event_name == 'pull_request' && steps.missing-update.conclusion == 'failure' }}
         run: touch ./missing-features/missing-update
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: missing-features
@@ -495,7 +492,7 @@ jobs:
         run: |
           mkdir -p ./msrv
           echo ${{ github.event.number }} > ./msrv/NR
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' && steps.check.conclusion == 'failure' }}
         with:
           name: msrv

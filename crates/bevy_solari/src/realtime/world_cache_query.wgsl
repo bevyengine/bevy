@@ -1,16 +1,16 @@
 #define_import_path bevy_solari::world_cache
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::utils::rand_f
-#import bevy_render::maths::PI
-// #import bevy_solari::brdf::evaluate_brdf
+#import bevy_pbr::utils::{rand_f, rand_vec2f}
+#import bevy_render::maths::{PI, orthonormalize}
+#import bevy_solari::brdf::evaluate_brdf
 #import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 20.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
+const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 /// Maximum lights stored in each cache cell
@@ -18,7 +18,7 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 const WORLD_CACHE_CELL_LIGHT_COUNT: u32 = 8u;
 /// Lights searched that aren't in the cell
 const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN: u32 = 4u;
-const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX: u32 = 10u;
+const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX: u32 = 8u;
 const WORLD_CACHE_EXPLORATORY_SAMPLE_RATIO: f32 = 0.20;
 const WORLD_CACHE_CELL_CONFIDENCE_LUM_MIN: f32 = 0.0001;
 const WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX: f32 = 0.1;
@@ -72,9 +72,15 @@ struct WorldCacheLightDataWrite {
 @group(1) @binding(20) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache_radiance(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
+fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
     let cell_size = get_cell_size(world_position, view_position);
-    let world_position_quantized = quantize_position(world_position, cell_size);
+
+    // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+    let TBN = orthonormalize(world_normal);
+    let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
+    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+
+    let world_position_quantized = quantize_position(jittered_position, cell_size);
     let world_normal_quantized = quantize_normal(world_normal);
     var key = compute_key(world_position_quantized, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
@@ -88,13 +94,13 @@ fn query_world_cache_radiance(world_position: vec3<f32>, world_normal: vec3<f32>
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - reset cell lifetime so that it starts getting updated next frame
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
-            world_cache_geometry_data[key].world_position = world_position;
+            world_cache_geometry_data[key].world_position = jittered_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             world_cache_light_data[key].visible_light_count = 0u;
             return vec3(0.0);
         } else {
-            // Collision - jump to another entry
-            key = wrap_key(pcg_hash(key));
+            // Collision - linear probe to next entry
+            key += 1u;
         }
     }
 
@@ -103,7 +109,13 @@ fn query_world_cache_radiance(world_position: vec3<f32>, world_normal: vec3<f32>
 
 fn query_world_cache_lights(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> WorldCacheLightDataRead {
     let cell_size = get_cell_size(world_position, view_position);
-    var world_position_quantized = quantize_position(world_position, cell_size);
+
+    // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
+    let TBN = orthonormalize(world_normal);
+    let offset = (rand_vec2f(rng) * 2.0 - 1.0) * cell_size * 0.5;
+    let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
+
+    var world_position_quantized = quantize_position(jittered_position, cell_size);
     let center_offset = quantize_position_fract(world_position, cell_size) - vec3(0.5);
     let direction = vec3<i32>(sign(center_offset));
     let lerp = vec3(rand_f(rng), rand_f(rng), rand_f(rng));
@@ -304,10 +316,6 @@ fn select_light_randomly(
     }
     let base_pdf = f32(samples) / select_random_light_inverse_pdf(selected);
     return SelectedLight(selected, selected_weight, weight_sum, base_pdf);
-}
-
-fn evaluate_brdf(normal: vec3<f32>, wo: vec3<f32>, wi: vec3<f32>, material: ResolvedMaterial) -> vec3<f32> {
-    return material.base_color / PI;
 }
 
 fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {

@@ -13,6 +13,8 @@ pub mod animatable;
 pub mod animation_curves;
 pub mod gltf_curves;
 pub mod graph;
+#[cfg(feature = "bevy_mesh")]
+mod morph;
 pub mod transition;
 
 mod animation_event;
@@ -324,13 +326,8 @@ impl AnimationClip {
     pub fn add_event(&mut self, time: f32, event: impl AnimationEvent) {
         self.add_event_fn(
             time,
-            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.trigger_with(
-                    event.clone(),
-                    AnimationEventTrigger {
-                        animation_player: entity,
-                    },
-                );
+            move |commands: &mut Commands, target: Entity, _time: f32, _weight: f32| {
+                commands.trigger_with(event.clone(), AnimationEventTrigger { target });
             },
         );
     }
@@ -350,13 +347,8 @@ impl AnimationClip {
         self.add_event_fn_to_target(
             target_id,
             time,
-            move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.trigger_with(
-                    event.clone(),
-                    AnimationEventTrigger {
-                        animation_player: entity,
-                    },
-                );
+            move |commands: &mut Commands, target: Entity, _time: f32, _weight: f32| {
+                commands.trigger_with(event.clone(), AnimationEventTrigger { target });
             },
         );
     }
@@ -1249,9 +1241,12 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
+                    #[cfg(feature = "bevy_mesh")]
                     animate_targets
                         .before(bevy_mesh::InheritWeightSystems)
                         .ambiguous_with_all(),
+                    #[cfg(not(feature = "bevy_mesh"))]
+                    animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )

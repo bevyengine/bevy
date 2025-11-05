@@ -1,6 +1,7 @@
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Components, Tick},
+    change_detection::Tick,
+    component::{ComponentId, Components},
     query::FilteredAccess,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},

@@ -1,4 +1,7 @@
-use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
+use crate::{
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    resources::write_atmosphere_buffer,
+};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
@@ -76,7 +79,7 @@ use crate::{
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
@@ -194,7 +197,8 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
-                            .after(prepare_oit_buffers),
+                            .after(prepare_oit_buffers)
+                            .after(write_atmosphere_buffer),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),
@@ -254,8 +258,9 @@ impl Plugin for MeshRenderPlugin {
                     );
             } else {
                 let render_device = render_app.world().resource::<RenderDevice>();
-                let cpu_batched_instance_buffer =
-                    no_gpu_preprocessing::BatchedInstanceBuffer::<MeshUniform>::new(render_device);
+                let cpu_batched_instance_buffer = no_gpu_preprocessing::BatchedInstanceBuffer::<
+                    MeshUniform,
+                >::new(&render_device.limits());
                 render_app
                     .insert_resource(cpu_batched_instance_buffer)
                     .add_systems(
@@ -271,7 +276,7 @@ impl Plugin for MeshRenderPlugin {
 
             let render_device = render_app.world().resource::<RenderDevice>();
             if let Some(per_object_buffer_batch_size) =
-                GpuArrayBuffer::<MeshUniform>::batch_size(render_device)
+                GpuArrayBuffer::<MeshUniform>::batch_size(&render_device.limits())
             {
                 mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
                     "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
@@ -324,6 +329,7 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         Has<OrderIndependentTransparencySettings>,
+        Has<ExtractedAtmosphere>,
     )>,
     ticks: SystemChangeTick,
 ) {
@@ -341,6 +347,7 @@ pub fn check_views_need_specialization(
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
+        has_atmosphere,
     ) in views.iter_mut()
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -376,6 +383,10 @@ pub fn check_views_need_specialization(
 
         if has_oit {
             view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        if has_atmosphere {
+            view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
         if let Some(projection) = projection {
@@ -1297,10 +1308,6 @@ pub struct RenderMeshQueueData<'a> {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MeshExtractionSystems;
 
-/// Deprecated alias for [`MeshExtractionSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `MeshExtractionSystems`.")]
-pub type ExtractMeshesSet = MeshExtractionSystems;
-
 /// Extracts meshes from the main world into the render world, populating the
 /// [`RenderMeshInstances`].
 ///
@@ -1763,8 +1770,6 @@ pub fn collect_meshes_for_gpu_building(
 pub struct MeshPipeline {
     /// A reference to all the mesh pipeline view layouts.
     pub view_layouts: MeshPipelineViewLayouts,
-    // This dummy white texture is to be used in place of optional StandardMaterial textures
-    pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
     pub mesh_layouts: MeshLayouts,
     /// The shader asset handle.
@@ -1802,90 +1807,92 @@ impl FromWorld for MeshPipeline {
         let mut system_state: SystemState<(
             Res<RenderDevice>,
             Res<RenderAdapter>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
             Res<MeshPipelineViewLayouts>,
         )> = SystemState::new(world);
-        let (render_device, render_adapter, default_sampler, render_queue, view_layouts) =
-            system_state.get_mut(world);
+        let (render_device, render_adapter, view_layouts) = system_state.get_mut(world);
 
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
-        let dummy_white_gpu_image = {
-            let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
-                }
-            };
-
-            if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
-                render_queue.write_texture(
-                    texture.as_image_copy(),
-                    image.data.as_ref().expect("Image was created without data"),
-                    TexelCopyBufferLayout {
-                        offset: 0,
-                        bytes_per_row: Some(image.width() * format_size as u32),
-                        rows_per_image: None,
-                    },
-                    image.texture_descriptor.size,
-                );
-            }
-
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: image.texture_descriptor.size,
-                mip_level_count: image.texture_descriptor.mip_level_count,
-            }
-        };
-
         MeshPipeline {
             view_layouts: view_layouts.clone(),
             clustered_forward_buffer_binding_type,
-            dummy_white_gpu_image,
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             shader,
-            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
+            per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(
+                &render_device.limits(),
+            ),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
             clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
                 &render_device,
                 &render_adapter,
             ),
-            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device),
+            skins_use_uniform_buffers: skins_use_uniform_buffers(&render_device.limits()),
         }
     }
 }
 
 impl MeshPipeline {
-    pub fn get_image_texture<'a>(
-        &'a self,
-        gpu_images: &'a RenderAssets<GpuImage>,
-        handle_option: &Option<Handle<Image>>,
-    ) -> Option<(&'a TextureView, &'a Sampler)> {
-        if let Some(handle) = handle_option {
-            let gpu_image = gpu_images.get(handle)?;
-            Some((&gpu_image.texture_view, &gpu_image.sampler))
-        } else {
-            Some((
-                &self.dummy_white_gpu_image.texture_view,
-                &self.dummy_white_gpu_image.sampler,
-            ))
-        }
-    }
-
     pub fn get_view_layout(
         &self,
         layout_key: MeshPipelineViewLayoutKey,
     ) -> &MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
+    }
+}
+
+/// A 1x1x1 'all 1.0' texture to use as a dummy texture in place of optional [`crate::pbr_material::StandardMaterial`] textures
+pub fn build_dummy_white_gpu_image(
+    render_device: Res<RenderDevice>,
+    default_sampler: Res<DefaultImageSampler>,
+    render_queue: Res<RenderQueue>,
+) -> GpuImage {
+    let image = Image::default();
+    let texture = render_device.create_texture(&image.texture_descriptor);
+    let sampler = match image.sampler {
+        ImageSampler::Default => (**default_sampler).clone(),
+        ImageSampler::Descriptor(ref descriptor) => {
+            render_device.create_sampler(&descriptor.as_wgpu())
+        }
+    };
+
+    if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
+        render_queue.write_texture(
+            texture.as_image_copy(),
+            image.data.as_ref().expect("Image was created without data"),
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(image.width() * format_size as u32),
+                rows_per_image: None,
+            },
+            image.texture_descriptor.size,
+        );
+    }
+
+    let texture_view = texture.create_view(&TextureViewDescriptor::default());
+    GpuImage {
+        texture,
+        texture_view,
+        texture_format: image.texture_descriptor.format,
+        sampler,
+        size: image.texture_descriptor.size,
+        mip_level_count: image.texture_descriptor.mip_level_count,
+    }
+}
+
+pub fn get_image_texture<'a>(
+    dummy_white_gpu_image: &'a GpuImage,
+    gpu_images: &'a RenderAssets<GpuImage>,
+    handle_option: &Option<Handle<Image>>,
+) -> Option<(&'a TextureView, &'a Sampler)> {
+    if let Some(handle) = handle_option {
+        let gpu_image = gpu_images.get(handle)?;
+        Some((&gpu_image.texture_view, &gpu_image.sampler))
+    } else {
+        Some((
+            &dummy_white_gpu_image.texture_view,
+            &dummy_white_gpu_image.sampler,
+        ))
     }
 }
 
@@ -2093,7 +2100,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
         const DISTANCE_FOG                      = 1 << 21;
-        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
+        const ATMOSPHERE                        = 1 << 22;
+        const LAST_FLAG                         = Self::ATMOSPHERE.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2227,7 +2235,7 @@ pub fn setup_morph_and_skinning_defs(
     shader_defs: &mut Vec<ShaderDefVal>,
     vertex_attributes: &mut Vec<VertexAttributeDescriptor>,
     skins_use_uniform_buffers: bool,
-) -> BindGroupLayout {
+) -> BindGroupLayoutDescriptor {
     let is_morphed = key.intersects(MeshPipelineKey::MORPH_TARGETS);
     let is_lightmapped = key.intersects(MeshPipelineKey::LIGHTMAPPED);
     let motion_vector_prepass = key.intersects(MeshPipelineKey::MOTION_VECTOR_PREPASS);
@@ -2563,6 +2571,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("DISTANCE_FOG".into());
         }
 
+        if key.contains(MeshPipelineKey::ATMOSPHERE) {
+            shader_defs.push("ATMOSPHERE".into());
+        }
+
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
@@ -2722,6 +2734,7 @@ pub fn prepare_mesh_bind_groups(
     meshes: Res<RenderAssets<RenderMesh>>,
     mesh_pipeline: Res<MeshPipeline>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     cpu_batched_instance_buffer: Option<
         Res<no_gpu_preprocessing::BatchedInstanceBuffer<MeshUniform>>,
     >,
@@ -2744,6 +2757,7 @@ pub fn prepare_mesh_bind_groups(
             &meshes,
             &mesh_pipeline,
             &render_device,
+            &pipeline_cache,
             &skins_uniform,
             &weights_uniform,
             &mut render_lightmaps,
@@ -2774,6 +2788,7 @@ pub fn prepare_mesh_bind_groups(
                 &meshes,
                 &mesh_pipeline,
                 &render_device,
+                &pipeline_cache,
                 &skins_uniform,
                 &weights_uniform,
                 &mut render_lightmaps,
@@ -2794,6 +2809,7 @@ fn prepare_mesh_bind_groups_for_phase(
     meshes: &RenderAssets<RenderMesh>,
     mesh_pipeline: &MeshPipeline,
     render_device: &RenderDevice,
+    pipeline_cache: &PipelineCache,
     skins_uniform: &SkinUniforms,
     weights_uniform: &MorphUniforms,
     render_lightmaps: &mut RenderLightmaps,
@@ -2802,7 +2818,7 @@ fn prepare_mesh_bind_groups_for_phase(
 
     // TODO: Reuse allocations.
     let mut groups = MeshPhaseBindGroups {
-        model_only: Some(layouts.model_only(render_device, &model)),
+        model_only: Some(layouts.model_only(render_device, pipeline_cache, &model)),
         ..default()
     };
 
@@ -2810,8 +2826,14 @@ fn prepare_mesh_bind_groups_for_phase(
     // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     groups.skinned = Some(MeshBindGroupPair {
-        motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
-        no_motion_vectors: layouts.skinned(render_device, &model, skin),
+        motion_vectors: layouts.skinned_motion(
+            render_device,
+            pipeline_cache,
+            &model,
+            skin,
+            prev_skin,
+        ),
+        no_motion_vectors: layouts.skinned(render_device, pipeline_cache, &model, skin),
     });
 
     // Create the morphed bind groups just like we did for the skinned bind
@@ -2825,6 +2847,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_skinned_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2834,6 +2857,7 @@ fn prepare_mesh_bind_groups_for_phase(
                         ),
                         no_motion_vectors: layouts.morphed_skinned(
                             render_device,
+                            pipeline_cache,
                             &model,
                             skin,
                             weights,
@@ -2844,12 +2868,19 @@ fn prepare_mesh_bind_groups_for_phase(
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_motion(
                             render_device,
+                            pipeline_cache,
                             &model,
                             weights,
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
+                        no_motion_vectors: layouts.morphed(
+                            render_device,
+                            pipeline_cache,
+                            &model,
+                            weights,
+                            targets,
+                        ),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
@@ -2862,7 +2893,13 @@ fn prepare_mesh_bind_groups_for_phase(
     for (lightmap_slab_id, lightmap_slab) in render_lightmaps.slabs.iter_mut().enumerate() {
         groups.lightmaps.insert(
             LightmapSlabIndex(NonMaxU32::new(lightmap_slab_id as u32).unwrap()),
-            layouts.lightmapped(render_device, &model, lightmap_slab, bindless_supported),
+            layouts.lightmapped(
+                render_device,
+                pipeline_cache,
+                &model,
+                lightmap_slab,
+                bindless_supported,
+            ),
         );
     }
 
@@ -3043,7 +3080,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             offset_count += 1;
         }
         if let Some(current_skin_index) = current_skin_byte_offset
-            && skins_use_uniform_buffers(&render_device)
+            && skins_use_uniform_buffers(&render_device.limits())
         {
             dynamic_offsets[offset_count] = current_skin_index.byte_offset;
             offset_count += 1;
@@ -3056,7 +3093,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device)
+            if skins_use_uniform_buffers(&render_device.limits())
                 && let Some(current_skin_byte_offset) = current_skin_byte_offset
             {
                 dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
