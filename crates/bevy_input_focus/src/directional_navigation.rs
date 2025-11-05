@@ -192,8 +192,8 @@ pub struct AutoNavigationConfig {
     /// Minimum overlap ratio (0.0-1.0) required along the perpendicular axis for cardinal directions.
     ///
     /// This parameter controls how much two UI elements must overlap in the perpendicular direction
-    /// to be considered reachable neighbors. It only applies to cardinal directions (North, South, East, West);
-    /// diagonal directions (NorthEast, SouthEast, etc.) ignore this requirement entirely.
+    /// to be considered reachable neighbors. It only applies to cardinal directions (`North`, `South`, `East`, `West`);
+    /// diagonal directions (`NorthEast`, `SouthEast`, etc.) ignore this requirement entirely.
     ///
     /// # Calculation
     ///
