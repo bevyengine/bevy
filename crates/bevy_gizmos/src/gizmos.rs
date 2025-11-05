@@ -200,6 +200,16 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        Gizmos {
+            buffer: item.buffer.reborrow(),
+            config: item.config,
+            config_ext: item.config_ext,
+        }
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
             state: GizmosState::<Config, Clear>::init_state(world),
