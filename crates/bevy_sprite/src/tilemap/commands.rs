@@ -1,6 +1,7 @@
 use crate::tilemap::{TileData, TileStorage, Tilemap};
 use bevy_ecs::{entity::Entity, hierarchy::ChildOf, system::Commands, world::World};
-use bevy_math::{IVec2, UVec2};
+use bevy_math::{IVec2, UVec2, Vec2, Vec3};
+use bevy_transform::components::Transform;
 
 pub trait CommandsTilemapExt {
     fn set_tile<T: TileData>(
@@ -54,10 +55,14 @@ impl CommandsTilemapExt for Commands<'_, '_> {
                 });
             } else {
                 let chunk_size = tilemap.chunk_size;
+                let tile_size = tilemap.tile_display_size;
                 let tile_storage_id = tilemap_entity.world_scope(move |w| {
                     let mut tile_storage = TileStorage::<T>::new(chunk_size);
                     tile_storage.set(tile_position, maybe_tile);
-                    w.spawn((ChildOf(tilemap_id), tile_storage)).id()
+                    let translation = Vec2::new(chunk_size.x as f32, chunk_size.y as f32) * Vec2::new(tile_size.x as f32, tile_size.y as f32) * Vec2::new(chunk_position.x as f32, chunk_position.y as f32);
+                    let translation = Vec3::new(translation.x, translation.y, 0.0);
+                    let transform = Transform::from_translation(translation);
+                    w.spawn((ChildOf(tilemap_id), tile_storage, transform)).id()
                 });
                 let Some(mut tilemap) = tilemap_entity.get_mut::<Tilemap>() else {
                     tracing::warn!("Could not find Tilemap on Entity {:?}", tilemap_id);

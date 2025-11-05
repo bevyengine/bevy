@@ -1029,6 +1029,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "tilemap"
+path = "examples/2d/tilemap.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.tilemap]
+name = "Tilemap"
+description = "Renders a tilemap"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "transparency_2d"
 path = "examples/2d/transparency_2d.rs"
 # Causes an ICE on docs.rs

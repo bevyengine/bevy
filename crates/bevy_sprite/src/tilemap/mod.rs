@@ -23,7 +23,7 @@ impl Plugin for TilemapPlugin {
 
 #[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Clone, Debug)]
-#[require(Name::new("TilemapLayer"), Transform)]
+#[require(Name::new("Tilemap"), Transform)]
 pub struct Tilemap {
     pub chunks: HashMap<IVec2, Entity>,
     pub chunk_size: UVec2,
@@ -31,6 +31,14 @@ pub struct Tilemap {
 }
 
 impl Tilemap {
+    pub fn new(chunk_size: UVec2, tile_display_size: UVec2) -> Self {
+        Self {
+            chunks: HashMap::new(),
+            chunk_size,
+            tile_display_size,
+        }
+    }
+
     /// Get the coordinates of the chunk a given tile is in.
     // TODO: NAME THIS BETTER
     pub fn tile_chunk_position(&self, tile_position: IVec2) -> IVec2 {
