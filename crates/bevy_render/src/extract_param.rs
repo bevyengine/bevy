@@ -72,6 +72,14 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        Extract {
+            item: <P as SystemParam>::reborrow(&mut item.item),
+        }
+    }
+
     fn init_state(world: &mut World) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
@@ -138,6 +146,14 @@ where
         };
         let item = state.state.get(main_world.into_inner());
         Extract { item }
+    }
+}
+
+impl<'w, 's, P: ReadOnlySystemParam> Extract<'w, 's, P> {
+    pub fn reborrow(&mut self) -> Extract<'_, '_, P> {
+        Extract {
+            item: <P as SystemParam>::reborrow(&mut self.item),
+        }
     }
 }
 

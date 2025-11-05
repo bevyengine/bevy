@@ -123,6 +123,21 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn into_inner(self) -> &'w T {
         self.value
     }
+
+    /// Returns a `Res<>` with a smaller lifetime.
+    /// This is useful if you have `&Res`, but you need a `Res`.
+    pub fn reborrow(&self) -> Res<'_, T> {
+        Res {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
+        }
+    }
 }
 
 impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
@@ -239,6 +254,23 @@ impl<'w, T> From<NonSendMut<'w, T>> for NonSend<'w, T> {
         Self {
             value: other.value,
             ticks: other.ticks.into(),
+        }
+    }
+}
+
+impl<'w, T> NonSend<'w, T> {
+    /// Returns a `NonSend<>` with a smaller lifetime.
+    /// This is useful if you have `&NonSend<T>`, but you need a `NonSend<T>`.
+    pub fn reborrow(&mut self) -> NonSend<'_, T> {
+        NonSend {
+            value: self.value,
+            ticks: ComponentTicksRef {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                changed_by: self.ticks.changed_by,
+                last_run: self.ticks.last_run,
+                this_run: self.ticks.this_run,
+            },
         }
     }
 }

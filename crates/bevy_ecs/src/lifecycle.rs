@@ -60,7 +60,7 @@ use crate::{
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
     storage::SparseSet,
-    system::{Local, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{Local, ReadOnlySystemParam, ReborrowSystemParam, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
@@ -639,5 +639,13 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.removed_components()
+    }
+}
+
+impl<'a> ReborrowSystemParam for &'a RemovedComponentMessages {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
