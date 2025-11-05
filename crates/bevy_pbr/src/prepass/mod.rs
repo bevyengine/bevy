@@ -3,12 +3,13 @@ mod prepass_bindings;
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
-    setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
-    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey,
-    MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
-    PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
-    RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    setup_morph_and_skinning_defs, skin, DeferredAlphaMaskDrawFunction, DeferredFragmentShader,
+    DeferredOpaqueDrawFunction, DeferredVertexShader, DrawMesh, EntitySpecializationTicks,
+    ErasedMaterialPipelineKey, MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline,
+    MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, PrepassAlphaMaskDrawFunction,
+    PrepassFragmentShader, PrepassOpaqueDrawFunction, PrepassVertexShader, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
@@ -1087,12 +1088,15 @@ pub fn queue_prepass_material_meshes(
             match material.properties.render_phase_type {
                 RenderPhaseType::Opaque => {
                     if deferred {
+                        let Some(draw_function) = material
+                            .properties
+                            .get_draw_function(DeferredOpaqueDrawFunction)
+                        else {
+                            continue;
+                        };
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: material
-                                    .properties
-                                    .get_draw_function(DeferredDrawFunction)
-                                    .unwrap(),
+                                draw_function,
                                 pipeline: *pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1112,12 +1116,15 @@ pub fn queue_prepass_material_meshes(
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                        let Some(draw_function) = material
+                            .properties
+                            .get_draw_function(PrepassOpaqueDrawFunction)
+                        else {
+                            continue;
+                        };
                         opaque_phase.add(
                             OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: material
-                                    .properties
-                                    .get_draw_function(PrepassDrawFunction)
-                                    .unwrap(),
+                                draw_function,
                                 pipeline: *pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1140,11 +1147,14 @@ pub fn queue_prepass_material_meshes(
                     if deferred {
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                        let Some(draw_function) = material
+                            .properties
+                            .get_draw_function(DeferredAlphaMaskDrawFunction)
+                        else {
+                            continue;
+                        };
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: material
-                                .properties
-                                .get_draw_function(DeferredDrawFunction)
-                                .unwrap(),
+                            draw_function,
                             pipeline: *pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1167,11 +1177,14 @@ pub fn queue_prepass_material_meshes(
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+                        let Some(draw_function) = material
+                            .properties
+                            .get_draw_function(PrepassAlphaMaskDrawFunction)
+                        else {
+                            continue;
+                        };
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: material
-                                .properties
-                                .get_draw_function(PrepassDrawFunction)
-                                .unwrap(),
+                            draw_function,
                             pipeline: *pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),

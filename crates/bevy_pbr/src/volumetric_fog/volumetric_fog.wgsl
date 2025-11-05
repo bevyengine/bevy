@@ -14,8 +14,15 @@
 // [2]: http://www.alexandre-pestana.com/volumetric-lights/
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+#import bevy_pbr::atmosphere::{
+    functions::calculate_visible_sun_ratio,
+    bruneton_functions::transmittance_lut_r_mu_to_uv,
+}
 #import bevy_pbr::mesh_functions::{get_world_from_local, mesh_position_local_to_clip}
-#import bevy_pbr::mesh_view_bindings::{globals, lights, view, clusterable_objects}
+#import bevy_pbr::mesh_view_bindings::{
+    globals, lights, view, clusterable_objects, 
+    atmosphere_data, atmosphere_transmittance_texture, atmosphere_transmittance_sampler
+}
 #import bevy_pbr::mesh_view_types::{
     DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT,
     POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT,
@@ -220,12 +227,14 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             break;
         }
 
+        let L = (*light).direction_to_light.xyz;
+
         // Offset the depth value by the bias.
-        let depth_offset = (*light).shadow_depth_bias * (*light).direction_to_light.xyz;
+        let depth_offset = (*light).shadow_depth_bias * L;
 
         // Compute phase, which determines the fraction of light that's
         // scattered toward the camera instead of away from it.
-        let neg_LdotV = dot(normalize((*light).direction_to_light.xyz), Rd_world);
+        let neg_LdotV = dot(normalize(L), Rd_world);
         let phase = henyey_greenstein(neg_LdotV);
 
         // Reset `background_alpha` for a new raymarch.
@@ -291,8 +300,23 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 
             if (local_light_attenuation != 0.0) {
                 let light_attenuation = exp(-density * bounding_radius * (absorption + scattering));
-                let light_factors_per_step = fog_color * light_tint * light_attenuation *
+                var light_factors_per_step = fog_color * light_tint * light_attenuation *
                     scattering * density * step_size_world * light_intensity * exposure;
+
+#ifdef ATMOSPHERE
+                // attenuate by atmospheric scattering
+                let P = P_world + depth_offset;
+                let P_scaled = P * vec3(atmosphere_data.settings.scene_units_to_m);
+                let O = vec3(0.0, atmosphere_data.atmosphere.bottom_radius, 0.0);
+                let P_as = P_scaled + O;
+                let r = length(P_as);
+                let local_up = normalize(P_as);
+                let mu_light = dot(L, local_up);
+                
+                let transmittance = sample_transmittance_lut(r, mu_light);
+                let sun_visibility = calculate_visible_sun_ratio(atmosphere_data.atmosphere, r, mu_light, (*light).sun_disk_angular_size);
+                light_factors_per_step *= transmittance * sun_visibility;
+#endif
 
                 // Modulate the factor we calculated above by the phase, fog color,
                 // light color, light tint.
@@ -484,3 +508,12 @@ fn fetch_spot_shadow_without_normal(light_id: u32, frag_position: vec4<f32>) -> 
         SPOT_SHADOW_TEXEL_SIZE
     );
 }
+
+#ifdef ATMOSPHERE
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(atmosphere_data.atmosphere, r, mu);
+    return textureSampleLevel(
+        atmosphere_transmittance_texture, 
+        atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+#endif  // ATMOSPHERE

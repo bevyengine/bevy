@@ -31,7 +31,7 @@ pub(crate) fn texture_handle(
                 load_context.get_label_handle(texture_label(texture).to_string())
             } else {
                 let image_path = load_context
-                    .asset_path()
+                    .path()
                     .resolve_embed(uri)
                     .expect("all URIs were already validated when we initially loaded textures");
                 load_context.load(image_path)

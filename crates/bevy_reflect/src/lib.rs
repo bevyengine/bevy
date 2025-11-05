@@ -2305,7 +2305,7 @@ mod tests {
         let info = MyCowStr::type_info().as_opaque().unwrap();
 
         assert!(info.is::<MyCowStr>());
-        assert_eq!(core::any::type_name::<MyCowStr>(), info.type_path());
+        assert_eq!("alloc::borrow::Cow<str>", info.type_path());
 
         let value: &dyn Reflect = &Cow::<'static, str>::Owned("Hello!".to_string());
         let info = value.reflect_type_info();
@@ -2319,8 +2319,8 @@ mod tests {
         assert!(info.is::<MyCowSlice>());
         assert!(info.item_ty().is::<u8>());
         assert!(info.item_info().unwrap().is::<u8>());
-        assert_eq!(core::any::type_name::<MyCowSlice>(), info.type_path());
-        assert_eq!(core::any::type_name::<u8>(), info.item_ty().path());
+        assert_eq!("alloc::borrow::Cow<[u8]>", info.type_path());
+        assert_eq!("u8", info.item_ty().path());
 
         let value: &dyn Reflect = &Cow::<'static, [u8]>::Owned(vec![0, 1, 2, 3]);
         let info = value.reflect_type_info();
