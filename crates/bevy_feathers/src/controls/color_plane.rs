@@ -50,7 +50,7 @@ pub enum ColorPlane {
 
 /// Component that contains the two components of the selected color, as well as the "z" value.
 /// The x and y values determine the placement of the thumb element, while the z value controls
-/// the backgroung gradient.
+/// the background gradient.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
 pub struct ColorPlaneValue(pub Vec3);
@@ -119,7 +119,7 @@ impl UiMaterial for ColorPlaneMaterial {
 ///
 /// The control emits a [`ValueChange<Vec2>`] representing the current x and y values, ranging
 /// from 0 to 1. The control accepts a [`Vec3`] input value, where the third component ('z')
-/// is used to provide the fixed constant channel for the backgroung gradient.
+/// is used to provide the fixed constant channel for the background gradient.
 ///
 /// The control does not do any color space conversions internally, other than the shader code
 /// for displaying gradients. Avoiding excess conversions helps avoid gimble-lock problems when
