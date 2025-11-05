@@ -31,6 +31,8 @@ use bevy_ui_widgets::ValueChange;
 use crate::{cursor::EntityCursor, palette, theme::ThemeBackgroundColor, tokens};
 
 /// Marker identifying a color plane widget.
+///
+/// The variant selects which view of the color pane is shown.
 #[derive(Component, Default, Debug, Clone, Reflect, Copy, PartialEq, Eq, Hash)]
 #[reflect(Component, Clone, Default)]
 #[require(ColorPlaneDragState)]
