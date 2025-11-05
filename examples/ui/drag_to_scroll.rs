@@ -56,10 +56,9 @@ fn setup(mut commands: Commands) {
                 (&ComputedNode, &mut ScrollStart),
                 With<ScrollableNode>,
             >| {
-                let Ok((computed_node, mut start)) = scroll_position_query.single_mut() else {
-                    return;
+                if let Ok((computed_node, mut start)) = scroll_position_query.single_mut() {
+                    start.0 = computed_node.scroll_position * computed_node.inverse_scale_factor;
                 };
-                start.0 = computed_node.scroll_position * computed_node.inverse_scale_factor;
             },
         )
         .with_children(|commands| {
