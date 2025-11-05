@@ -744,7 +744,15 @@ fn auto_rebuild_ui_navigation_graph(
             )>,
         ),
     >,
-    all_nodes: Query<(Entity, &ComputedNode, &UiGlobalTransform, Option<&Visibility>), With<AutoDirectionalNavigation>>,
+    all_nodes: Query<
+        (
+            Entity,
+            &ComputedNode,
+            &UiGlobalTransform,
+            Option<&Visibility>,
+        ),
+        With<AutoDirectionalNavigation>,
+    >,
 ) {
     if changed_nodes.is_empty() {
         return;

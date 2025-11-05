@@ -1,10 +1,11 @@
-use core::ops::Neg;
-use glam::Vec2;
 use crate::Dir2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use core::ops::Neg;
+use glam::Vec2;
+use std::f32::consts::FRAC_1_SQRT_2;
 
 /// A compass enum with 4 directions.
 /// ```text
@@ -108,7 +109,7 @@ impl CompassQuadrant {
     /// assert!(CompassQuadrant::South.is_in_direction(origin, south_point));
     /// assert!(!CompassQuadrant::South.is_in_direction(origin, east_point));
     /// ```
-    pub fn is_in_direction(self, origin: crate::Vec2, candidate: crate::Vec2) -> bool {
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
         // Use UI coordinates: Y increases downward
         let dir = match self {
             Self::North => Vec2::new(0.0, -1.0),
@@ -244,10 +245,7 @@ impl CompassOctant {
     /// assert!(CompassOctant::South.is_in_direction(origin, south_point));
     /// assert!(!CompassOctant::South.is_in_direction(origin, east_point));
     /// ```
-    pub fn is_in_direction(self, origin: crate::Vec2, candidate: crate::Vec2) -> bool {
-        use crate::Vec2;
-        use core::f32::consts::FRAC_1_SQRT_2;
-
+    pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
         // Use UI coordinates: Y increases downward
         let dir = match self {
             Self::North => Vec2::new(0.0, -1.0),
