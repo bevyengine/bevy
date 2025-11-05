@@ -11,7 +11,6 @@ use bevy::{
     prelude::*,
     tasks::AsyncComputeTaskPool,
 };
-use bevy_ecs::schedule::r#async::TaskIdentifier;
 use futures_timer::Delay;
 use rand::Rng;
 use std::time::Duration;
@@ -39,7 +38,7 @@ fn main() {
 /// In this example, we don't implement task tracking or proper error handling.
 fn spawn_tasks(world_id: WorldId) {
     let pool = AsyncComputeTaskPool::get();
-    let task_id = TaskIdentifier::new(world_id);
+    let task_id = EcsTask::new(world_id);
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
             // Spawn a task on the async compute pool

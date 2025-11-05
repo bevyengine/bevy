@@ -11,7 +11,7 @@ use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
 use bevy_platform::sync::{Arc, Mutex, OnceLock, RwLock};
 use concurrent_queue::ConcurrentQueue;
-use core::any::{TypeId};
+use core::any::TypeId;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
@@ -68,92 +68,90 @@ mod keyed_queues {
     }
 }
 
-pub(crate) static ASYNC_ECS_WORLD_ACCESS: AsyncWorldHolder = AsyncWorldHolder(OnceLock::new());
+pub(crate) static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::new());
 
-pub(crate) static ASYNC_ECS_WAKER_LIST: EcsWakerList = EcsWakerList(OnceLock::new());
+pub(crate) static GLOBAL_WAKE_REGISTRY: WakeRegistry = WakeRegistry(OnceLock::new());
 
 #[derive(bevy_ecs_macros::Resource, Clone)]
-pub(crate) struct AsyncBarrier(thread::Thread, Arc<AtomicI64>);
+pub(crate) struct WakeParkBarrier(thread::Thread, Arc<AtomicI64>);
 
 #[derive(bevy_ecs_macros::Resource)]
-pub(crate) struct SystemParamQueue<T: SystemParam + 'static>(
-    RwLock<HashMap<TaskId, ConcurrentQueue<SystemState<T>>>>,
+pub(crate) struct SystemStatePool<T: SystemParam + 'static>(
+    RwLock<HashMap<AsyncTaskId, ConcurrentQueue<SystemState<T>>>>,
 );
 
 #[derive(bevy_ecs_macros::Resource, Default)]
-pub(crate) struct SystemParamApplications(HashMap<TypeId, fn(&mut World)>);
-impl SystemParamApplications {
+pub(crate) struct SystemParamAppliers(HashMap<TypeId, fn(&mut World)>);
+impl SystemParamAppliers {
     fn run(&mut self, world: &mut World) {
         for closure in self.0.values_mut() {
             closure(world);
         }
     }
 }
-impl<T: SystemParam + 'static> FromWorld for SystemParamQueue<T> {
+impl<T: SystemParam + 'static> FromWorld for SystemStatePool<T> {
     fn from_world(world: &mut World) -> Self {
         let this = Self(RwLock::new(HashMap::default()));
-        world.init_resource::<SystemParamApplications>();
-        let mut system_param_applications =
-            world.get_resource_mut::<SystemParamApplications>().unwrap();
-        if !system_param_applications.0.contains_key(&TypeId::of::<T>()) {
-            system_param_applications
-                .0
-                .insert(TypeId::of::<T>(), |world: &mut World| {
-                    world.try_resource_scope(
-                        |world, system_param_queue: Mut<SystemParamQueue<T>>| {
-                            for concurrent_queue in system_param_queue.0.read().unwrap().values() {
-                                let mut system_state = match concurrent_queue.pop() {
-                                    Ok(val) => val,
-                                    Err(_) => panic!(),
-                                };
-                                system_state.apply(world);
-                                match concurrent_queue.push(system_state) {
-                                    Ok(_) => {}
-                                    Err(_) => panic!(),
-                                }
-                            }
-                        },
-                    );
+        world.init_resource::<SystemParamAppliers>();
+        let mut appliers = world.get_resource_mut::<SystemParamAppliers>().unwrap();
+        if !appliers.0.contains_key(&TypeId::of::<T>()) {
+            appliers.0.insert(TypeId::of::<T>(), |world: &mut World| {
+                world.try_resource_scope(|world, param_pool: Mut<SystemStatePool<T>>| {
+                    for concurrent_queue in param_pool.0.read().unwrap().values() {
+                        let mut system_state = match concurrent_queue.pop() {
+                            Ok(val) => val,
+                            Err(_) => panic!(),
+                        };
+                        system_state.apply(world);
+                        match concurrent_queue.push(system_state) {
+                            Ok(_) => {}
+                            Err(_) => panic!(),
+                        }
+                    }
                 });
+            });
         }
         this
     }
 }
 
 #[derive(Clone, Copy, Hash, PartialOrd, PartialEq, Eq)]
-struct TaskId(usize);
+struct AsyncTaskId(usize);
 
-/// The next [`TaskId`].
+/// The next [`AsyncTaskId`].
 static MAX_TASK_ID: AtomicUsize = AtomicUsize::new(0);
 
-impl TaskId {
-    /// Create a new, unique [`TaskId`]. Returns [`None`] if the supply of unique
-    /// [`TaskId`]s has been exhausted
+impl AsyncTaskId {
+    /// Create a new, unique [`AsyncTaskId`]. Returns [`None`] if the supply of unique
+    /// IDs has been exhausted.
     ///
-    /// Please note that the [`TaskId`]s created from this method are unique across
-    /// time - if a given [`TaskId`] is [`Drop`]ped its value still cannot be reused
+    /// Please note that the IDs created from this method are unique across
+    /// time - if a given ID is [`Drop`]ped its value still cannot be reused
     pub fn new() -> Option<Self> {
         MAX_TASK_ID
             // We use `Relaxed` here since this atomic only needs to be consistent with itself
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
                 val.checked_add(1)
             })
-            .map(TaskId)
+            .map(AsyncTaskId)
             .ok()
     }
 }
 
-pub(crate) struct EcsWakerList(
+pub(crate) struct WakeRegistry(
     OnceLock<
-        KeyedQueues<(WorldId, InternedScheduleLabel), (Waker, fn(&mut World, TaskId), TaskId)>,
+        KeyedQueues<
+            (WorldId, InternedScheduleLabel),
+            (Waker, fn(&mut World, AsyncTaskId), AsyncTaskId),
+        >,
     >,
 );
 
-impl EcsWakerList {
+impl WakeRegistry {
     pub fn wait(&self, schedule: InternedScheduleLabel, world: &mut World) -> Option<()> {
         let world_id = world.id();
         let mut waker_list = std::vec![];
-        while let Ok((waker, system_init, task_id)) = ASYNC_ECS_WAKER_LIST
+        while let Ok((waker, system_init, task_id)) = GLOBAL_WAKE_REGISTRY
             .0
             .get_or_init(|| KeyedQueues::new())
             .get_or_create(&(world_id, schedule))
@@ -167,11 +165,11 @@ impl EcsWakerList {
         if waker_list_len == 0 {
             return None;
         }
-        world.insert_resource(AsyncBarrier(
+        world.insert_resource(WakeParkBarrier(
             thread::current(),
             Arc::new(AtomicI64::new(waker_list_len as i64 - 1)),
         ));
-        if let None = ASYNC_ECS_WORLD_ACCESS.set(world, || {
+        if let None = GLOBAL_WORLD_ACCESS.set(world, || {
             for waker in waker_list {
                 waker.wake();
             }
@@ -179,18 +177,15 @@ impl EcsWakerList {
         }) {
             return None;
         }
-        world.try_resource_scope(
-            |world, mut system_param_applications: Mut<SystemParamApplications>| {
-                system_param_applications.run(world);
-            },
-        );
+        world.try_resource_scope(|world, mut appliers: Mut<SystemParamAppliers>| {
+            appliers.run(world);
+        });
         Some(())
     }
 }
 
 /// The PhantomData here is just there cause it's a cute way of showing that we have a mutex around our unsafe worldcell and that's what the mutex is 'locking'
-///
-pub(crate) struct AsyncWorldHolder(
+pub(crate) struct WorldAccessRegistry(
     OnceLock<
         RwLock<
             HashMap<
@@ -206,7 +201,7 @@ pub(crate) struct AsyncWorldHolder(
     >,
 );
 
-impl AsyncWorldHolder {
+impl WorldAccessRegistry {
     pub(crate) fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
         let this = self.0.get_or_init(|| RwLock::new(HashMap::new()));
         let world_id = world.id();
@@ -215,7 +210,7 @@ impl AsyncWorldHolder {
             let _ = this.write().unwrap().insert(world_id, RwLock::new(None));
         }
 
-        struct ClearOnDrop<'a> {
+        struct ClearOnDropGuard<'a> {
             slot: &'a RwLock<
                 Option<(
                     UnsafeWorldCell<'static>,
@@ -223,7 +218,7 @@ impl AsyncWorldHolder {
                 )>,
             >,
         }
-        impl<'a> Drop for ClearOnDrop<'a> {
+        impl<'a> Drop for ClearOnDropGuard<'a> {
             fn drop(&mut self) {
                 // clear it on the way out, even on panic
                 self.slot.write().unwrap().take();
@@ -233,10 +228,10 @@ impl AsyncWorldHolder {
             let binding = this.read().unwrap();
             let world_container = binding.get(&world_id).unwrap();
             // SAFETY this is required in order to make sure that even in the event of a panic, this can't get accessed
-            let _clear = ClearOnDrop {
+            let _clear = ClearOnDropGuard {
                 slot: world_container,
             };
-            // SAFETY: This mem transmute is safe only because we drop it after, and our ASYNC_ECS_WORLD_ACCESS is private, and we don't clone it
+            // SAFETY: This mem transmute is safe only because we drop it after, and our GLOBAL_WORLD_ACCESS is private, and we don't clone it
             // where we do use it, so the lifetime doesn't get propagated anywhere.
             // Lifetimes are not used in any actual code optimization, so turning it into a static does not violate any of rust's rules
             // As *LONG* as we keep it within it's lifetime, which we do here, manually, with our `ClearOnDrop` struct.
@@ -260,8 +255,8 @@ impl AsyncWorldHolder {
         let Some(our_thing) = b.as_ref() else {
             return None;
         };
-        struct RaiiThing(AsyncBarrier);
-        impl Drop for RaiiThing {
+        struct UnparkOnDropGuard(WakeParkBarrier);
+        impl Drop for UnparkOnDropGuard {
             fn drop(&mut self) {
                 let val = self.0 .1.fetch_add(-1, Ordering::SeqCst);
                 if val == 0 {
@@ -269,8 +264,14 @@ impl AsyncWorldHolder {
                 }
             }
         }
-        let async_barrier = { our_thing.0.get_resource::<AsyncBarrier>().unwrap().clone() };
-        RaiiThing(async_barrier.clone());
+        let async_barrier = {
+            our_thing
+                .0
+                .get_resource::<WakeParkBarrier>()
+                .unwrap()
+                .clone()
+        };
+        UnparkOnDropGuard(async_barrier.clone());
         // this allows us to effectively yield as if pending if the world doesn't exist rn.
         let _world = our_thing.1.try_lock().ok()?;
         // SAFETY: this is safe because we ensure no one else has access to the world.
@@ -280,10 +281,10 @@ impl AsyncWorldHolder {
 
 /// Allows you to access the ECS from any arbitrary async runtime.
 /// Calls will never return immediately and will always start Pending at least once.
-/// Call this with the same `TaskIdentifier` to persist SystemParams like Local or Changed
+/// Call this with the same `PersistentTask` to persist SystemParams like Local or Changed
 /// Just use `world_id` if you do not mind a new SystemParam being initialized every time.
 pub fn async_access<P, Func, Out>(
-    task_identifier: impl Into<TaskIdentifier<P>>,
+    task_identifier: impl Into<EcsTask<P>>,
     schedule: impl ScheduleLabel,
     ecs_access: Func,
 ) -> impl Future<Output = Result<Out, RunSystemError>>
@@ -292,7 +293,7 @@ where
     for<'w, 's> Func: Clone + FnMut(P::Item<'w, 's>) -> Out,
 {
     let task_identifier = task_identifier.into();
-    SystemParamThing::<P, Func, Out>(
+    PendingEcsCall::<P, Func, Out>(
         PhantomData::<P>,
         PhantomData,
         Some(ecs_access),
@@ -301,42 +302,41 @@ where
     )
 }
 
-impl<T> From<WorldId> for TaskIdentifier<T> {
+impl<T> From<WorldId> for EcsTask<T> {
     fn from(value: WorldId) -> Self {
-        TaskIdentifier::new(value)
+        EcsTask::new(value)
     }
 }
 
-/// A TaskIdentifier can be re-used in order to persist SystemParams like Local, Changed, or Added
-pub struct TaskIdentifier<T>(TaskId, WorldId, PhantomData<T>);
+/// An EcsTask can be re-used in order to persist SystemParams like Local, Changed, or Added
+pub struct EcsTask<T>(AsyncTaskId, WorldId, PhantomData<T>);
 
-impl<T> Clone for TaskIdentifier<T> {
+impl<T> Clone for EcsTask<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T> Copy for TaskIdentifier<T> {}
-impl<T> TaskIdentifier<T> {
-
-    /// Generates a new unique TaskIdentifier that can be re-used in order to persist SystemParams
+impl<T> Copy for EcsTask<T> {}
+impl<T> EcsTask<T> {
+    /// Generates a new unique PersistentTask that can be re-used in order to persist SystemParams
     /// like Local, Changed, or Added
     pub fn new(world_id: WorldId) -> Self {
-        Self(TaskId::new().unwrap(), world_id, PhantomData)
+        Self(AsyncTaskId::new().unwrap(), world_id, PhantomData)
     }
 }
 
-struct SystemParamThing<P: SystemParam + 'static, Func, Out>(
+struct PendingEcsCall<P: SystemParam + 'static, Func, Out>(
     PhantomData<P>,
     PhantomData<Out>,
     Option<Func>,
     (WorldId, InternedScheduleLabel),
-    TaskId,
+    AsyncTaskId,
 );
 
-impl<P: SystemParam + 'static, Func, Out> Unpin for SystemParamThing<P, Func, Out> {}
+impl<P: SystemParam + 'static, Func, Out> Unpin for PendingEcsCall<P, Func, Out> {}
 
-impl<P, Func, Out> Future for SystemParamThing<P, Func, Out>
+impl<P, Func, Out> Future for PendingEcsCall<P, Func, Out>
 where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
@@ -344,10 +344,10 @@ where
     type Output = Result<Out, RunSystemError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        fn system_state_init<P: SystemParam + 'static>(world: &mut World, task_id: TaskId) {
-            world.init_resource::<SystemParamQueue<P>>();
+        fn system_state_init<P: SystemParam + 'static>(world: &mut World, task_id: AsyncTaskId) {
+            world.init_resource::<SystemStatePool<P>>();
             if !world
-                .get_resource::<SystemParamQueue<P>>()
+                .get_resource::<SystemStatePool<P>>()
                 .unwrap()
                 .0
                 .read()
@@ -363,7 +363,7 @@ where
                     }
                 }
                 world
-                    .get_resource::<SystemParamQueue<P>>()
+                    .get_resource::<SystemStatePool<P>>()
                     .unwrap()
                     .0
                     .write()
@@ -375,8 +375,8 @@ where
         let task_id = self.4;
         let world_id = self.3 .0;
         unsafe {
-            match ASYNC_ECS_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
-                let system_param_queue = match world.get_resource::<SystemParamQueue<P>>() {
+            match GLOBAL_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
+                let system_param_queue = match world.get_resource::<SystemStatePool<P>>() {
                     None => return Poll::Pending,
                     Some(system_param_queue) => system_param_queue,
                 };
@@ -387,7 +387,7 @@ where
                 };
                 let out;
                 // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
-                #[allow(unused_unsafe)]
+                #[expect(unused_unsafe)]
                 unsafe {
                     // Obtain params and immediately consume them with the closure,
                     // ensuring the borrow ends before `apply`.
@@ -398,7 +398,7 @@ where
                     out = self.as_mut().2.take().unwrap()(state);
                 }
                 match world
-                    .get_resource::<SystemParamQueue<P>>()
+                    .get_resource::<SystemStatePool<P>>()
                     .unwrap()
                     .0
                     .read()
@@ -414,7 +414,7 @@ where
             }) {
                 Some(awa) => awa,
                 _ => {
-                    match ASYNC_ECS_WAKER_LIST
+                    match GLOBAL_WAKE_REGISTRY
                         .0
                         .get_or_init(|| KeyedQueues::new())
                         .try_send(

@@ -93,8 +93,10 @@ pub mod prelude {
         relationship::RelationshipTarget,
         resource::Resource,
         schedule::{
-            common_conditions::*, executor::r#async::async_access, ApplyDeferred,
-            IntoScheduleConfigs, IntoSystemSet, Schedule, Schedules, SystemCondition, SystemSet,
+            common_conditions::*,
+            executor::r#async::{async_access, EcsTask},
+            ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule, Schedules,
+            SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
