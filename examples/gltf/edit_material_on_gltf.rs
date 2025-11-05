@@ -48,6 +48,10 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
+/// On [`SceneInstanceReady`], iterates over all descendants of the scene
+/// and modifies the tint of the material for the materials named `LeatherPartsMat`.
+///
+/// If the [`SceneRoot`] does not have a [`ColorOverride`], it is skipped.
 fn change_material(
     scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
