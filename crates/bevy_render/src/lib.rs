@@ -193,10 +193,6 @@ pub enum RenderSystems {
     PostCleanup,
 }
 
-/// Deprecated alias for [`RenderSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RenderSystems`.")]
-pub type RenderSet = RenderSystems;
-
 /// The startup schedule of the [`RenderApp`]
 #[derive(ScheduleLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct RenderStartup;
