@@ -1,5 +1,5 @@
 use core::ops::Neg;
-
+use glam::Vec2;
 use crate::Dir2;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -109,8 +109,6 @@ impl CompassQuadrant {
     /// assert!(!CompassQuadrant::South.is_in_direction(origin, east_point));
     /// ```
     pub fn is_in_direction(self, origin: crate::Vec2, candidate: crate::Vec2) -> bool {
-        use crate::Vec2;
-
         // Use UI coordinates: Y increases downward
         let dir = match self {
             Self::North => Vec2::new(0.0, -1.0),
