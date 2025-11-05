@@ -449,12 +449,16 @@ macro_rules! impl_methods {
                 self.value
             }
 
-            /// Returns a `Mut<>` with a smaller lifetime.
+            /// Returns a `
+            #[doc = stringify!($name)]
+            /// <>` with a smaller lifetime.
             /// This is useful if you have `&mut
             #[doc = stringify!($name)]
-            /// <T>`, but you need a `Mut<T>`.
-            pub fn reborrow(&mut self) -> Mut<'_, $target> {
-                Mut {
+            /// <T>`, but you need a `
+            #[doc = stringify!($name)]
+            /// <T>`.
+            pub fn reborrow(&mut self) -> $name<'_, $target> {
+                $name {
                     value: self.value,
                     ticks: ComponentTicksMut {
                         added: self.ticks.added,

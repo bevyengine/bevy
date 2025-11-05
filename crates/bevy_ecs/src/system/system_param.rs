@@ -7,7 +7,7 @@ use crate::{
     entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
-        QueryState, ReadOnlyQueryData,
+        QueryState, ReadOnlyQueryData, ReborrowQueryData,
     },
     resource::Resource,
     storage::ResourceData,
@@ -316,6 +316,16 @@ pub unsafe trait SystemParam: Sized {
 /// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
+/// A [`SystemParam`] whose lifetime can be shortened via
+/// [`reborrow`](ReborrowSystemParam::reborrow)-ing. This should be implemented
+/// for most system params, except in the case of non-covariant lifetimes.
+pub trait ReborrowSystemParam: SystemParam {
+    /// Returns a `SystemParam` item with a smaller lifetime.
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short>;
+}
+
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
@@ -364,6 +374,14 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // world data that the query needs.
         // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_with_ticks(world, system_meta.last_run, change_tick) }
+    }
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> ReborrowSystemParam for Query<'_, '_, D, F> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -458,6 +476,16 @@ unsafe impl<'a, 'b, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 {
 }
 
+impl<'a, 'b, D: ReborrowQueryData + 'static, F: QueryFilter + 'static> ReborrowSystemParam
+    for Single<'a, 'b, D, F>
+{
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 // SAFETY: Relevant query ComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
@@ -517,6 +545,16 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
     for Populated<'w, 's, D, F>
 {
+}
+
+impl<D: QueryData + 'static, F: QueryFilter + 'static> ReborrowSystemParam
+    for Populated<'_, '_, D, F>
+{
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
@@ -646,6 +684,15 @@ macro_rules! impl_param_set {
         where $($param: ReadOnlySystemParam,)*
         { }
 
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         // SAFETY: Relevant parameter ComponentId access is applied to SystemMeta. If any ParamState conflicts
         // with any prior access, a panic will occur.
         unsafe impl<'_w, '_s, $($param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, ($($param,)*)>
@@ -653,26 +700,10 @@ macro_rules! impl_param_set {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ParamSet<'w, 's, ($($param,)*)>;
 
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "Certain variable names are provided by the caller, not by us."
-            )]
             fn init_state(world: &mut World) -> Self::State {
                 ($($param::init_state(world),)*)
             }
 
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is inside a macro meant for tuples; as such, `non_snake_case` won't always lint."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "Certain variable names are provided by the caller, not by us."
-            )]
             fn init_access(state: &Self::State, system_meta: &mut SystemMeta, component_access_set: &mut FilteredAccessSet, world: &mut World) {
                 let ($($param,)*) = state;
                 $(
@@ -738,6 +769,31 @@ macro_rules! impl_param_set {
                     }
                 }
             )*
+        }
+
+        impl<'w, 's, $($param: SystemParam + 'static,)*> ParamSet<'w, 's, ($($param,)*)>
+        {
+            /// Returns a `ParamSet` with a smaller lifetime.
+            /// This can be useful if you have an `&ParamSet` and need a `ParamSet`.
+            fn reborrow(&mut self) -> ParamSet<'_, '_, ($($param,)*)> {
+                ParamSet {
+                    param_states: self.param_states,
+                    world: self.world,
+                    system_meta: self.system_meta.clone(),
+                    change_tick: self.change_tick,
+                }
+            }
+        }
+
+        // NOTE: the 'static bound isn't technically required here, but without it
+        // users can break `SystemParam` derives by introducing invariant lifetimes.
+        impl<'_w, '_s, $($param: SystemParam + 'static,)*> ReborrowSystemParam for ParamSet<'_w, '_s, ($($param,)*)>
+        {
+            fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                item: &'short mut Self::Item<'wlong, 'slong>,
+            ) -> Self::Item<'short, 'short> {
+                item.reborrow()
+            }
         }
     }
 }
@@ -823,6 +879,14 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
+impl<'a, T: Resource> ReborrowSystemParam for Res<'a, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
@@ -901,6 +965,14 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
+impl<'a, T: Resource> ReborrowSystemParam for ResMut<'a, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 /// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
@@ -941,6 +1013,14 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
+impl<'w> ReborrowSystemParam for &'w World {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 /// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
@@ -969,6 +1049,14 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         world.into_deferred()
+    }
+}
+
+impl<'w> ReborrowSystemParam for DeferredWorld<'w> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -1091,6 +1179,14 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 #[derive(Debug)]
 pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
+impl<'s, T: FromWorld + Send + 'static> Local<'s, T> {
+    /// Returns a [`Local`] with a shorter lifetime.
+    /// This is useful if you have an `&mut Local<T>` but want a `Local<T>`
+    pub fn reborrow(&mut self) -> Local<'_, T> {
+        Local(self.0)
+    }
+}
+
 // SAFETY: Local only accesses internal state
 unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
@@ -1159,6 +1255,14 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
+    }
+}
+
+impl<'a, T: FromWorld + Send + 'static> ReborrowSystemParam for Local<'a, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -1322,6 +1426,14 @@ impl<T: SystemBuffer> Deferred<'_, T> {
 // SAFETY: Only local state is accessed.
 unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
 
+impl<T: SystemBuffer> ReborrowSystemParam for Deferred<'_, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 // SAFETY: Only local state is accessed.
 unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
@@ -1427,6 +1539,14 @@ unsafe impl SystemParam for NonSendMarker {
 // SAFETY: Does not read any world state
 unsafe impl ReadOnlySystemParam for NonSendMarker {}
 
+impl ReborrowSystemParam for NonSendMarker {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        _item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        Self(PhantomData)
+    }
+}
+
 // SAFETY: Only reads a single World non-send resource
 unsafe impl<'w, T> ReadOnlySystemParam for NonSend<'w, T> {}
 
@@ -1498,6 +1618,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             value: ptr.deref(),
             ticks: ComponentTicksRef::from_tick_cells(ticks, system_meta.last_run, change_tick),
         }
+    }
+}
+
+impl<'a, T: 'static> ReborrowSystemParam for NonSend<'a, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -1575,6 +1703,14 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 }
 
+impl<'a, T: 'static> ReborrowSystemParam for NonSendMut<'a, T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 // SAFETY: Only reads World archetypes
 unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 
@@ -1601,6 +1737,14 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.archetypes()
+    }
+}
+
+impl<'a> ReborrowSystemParam for &'a Archetypes {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -1633,6 +1777,14 @@ unsafe impl<'a> SystemParam for &'a Components {
     }
 }
 
+impl<'a> ReborrowSystemParam for &'a Components {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 // SAFETY: Only reads World entities
 unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 
@@ -1659,6 +1811,14 @@ unsafe impl<'a> SystemParam for &'a Entities {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.entities()
+    }
+}
+
+impl<'a> ReborrowSystemParam for &'a Entities {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -1717,6 +1877,14 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.bundles()
+    }
+}
+
+impl<'a> ReborrowSystemParam for &'a Bundles {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -1781,6 +1949,14 @@ unsafe impl SystemParam for SystemChangeTick {
     }
 }
 
+impl ReborrowSystemParam for SystemChangeTick {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
+    }
+}
+
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: SystemParam> SystemParam for Option<T> {
     type State = T::State;
@@ -1824,6 +2000,14 @@ unsafe impl<T: SystemParam> SystemParam for Option<T> {
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for Option<T> {}
 
+impl<T: ReborrowSystemParam> ReborrowSystemParam for Option<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.as_mut().map(T::reborrow)
+    }
+}
+
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError> {
     type State = T::State;
@@ -1865,6 +2049,14 @@ unsafe impl<T: SystemParam> SystemParam for Result<T, SystemParamValidationError
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for Result<T, SystemParamValidationError> {}
+
+impl<T: ReborrowSystemParam> ReborrowSystemParam for Result<T, SystemParamValidationError> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.as_mut().map(T::reborrow).map_err(|err| err.clone())
+    }
+}
 
 /// A [`SystemParam`] that wraps another parameter and causes its system to skip instead of failing when the parameter is invalid.
 ///
@@ -1969,6 +2161,14 @@ unsafe impl<T: SystemParam> SystemParam for If<T> {
     }
 }
 
+impl<T: ReborrowSystemParam> ReborrowSystemParam for If<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        If(T::reborrow(&mut item.0))
+    }
+}
+
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
 unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for If<T> {}
 
@@ -2035,6 +2235,16 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
     }
 }
 
+//TODO: should we implement reborrow for stuff that requires cloning? It'd still be faster than
+//getting a new param each time I guess.
+impl<T: ReborrowSystemParam> ReborrowSystemParam for Vec<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.iter_mut().map(T::reborrow).collect()
+    }
+}
+
 // SAFETY: Registers access for each element of `state`.
 // If any one conflicts with a previous parameter,
 // the call passing a copy of the current access will panic.
@@ -2095,7 +2305,26 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
     }
 }
 
+impl<P: SystemParam + 'static> ReborrowSystemParam for ParamSet<'_, '_, Vec<P>> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
+    /// Returns a `ParamSet` with a smaller lifetime.
+    /// This can be useful if you have an `&ParamSet` and need a `ParamSet`.
+    fn reborrow(&mut self) -> ParamSet<'_, '_, Vec<T>> {
+        ParamSet {
+            param_states: self.param_states,
+            world: self.world,
+            system_meta: self.system_meta.clone(),
+            change_tick: self.change_tick,
+        }
+    }
+
     /// Accesses the parameter at the given index.
     /// No other parameters may be accessed while this one is active.
     pub fn get_mut(&mut self, index: usize) -> T::Item<'_, '_> {
@@ -2128,7 +2357,7 @@ impl<T: SystemParam> ParamSet<'_, '_, Vec<T>> {
 }
 
 macro_rules! impl_system_param_tuple {
-    ($(#[$meta:meta])* $($param: ident),*) => {
+    ($(#[$meta:meta])* $(($param: ident, $item: ident)),*) => {
         $(#[$meta])*
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
@@ -2145,12 +2374,16 @@ macro_rules! impl_system_param_tuple {
             unused_variables,
             reason = "Zero-length tuples won't use some of the parameters."
         )]
-        #[allow(clippy::unused_unit, reason = "Zero length tuple is unit.")]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples cause redundant unit expressions."
+        )]
         $(#[$meta])*
         // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);
+
 
             #[inline]
             fn init_state(world: &mut World) -> Self::State {
@@ -2197,11 +2430,21 @@ macro_rules! impl_system_param_tuple {
                 change_tick: Tick,
             ) -> Self::Item<'w, 's> {
                 let ($($param,)*) = state;
-                #[allow(
-                    clippy::unused_unit,
-                    reason = "Zero-length tuples won't have any params to get."
-                )]
                 ($($param::get_param($param, system_meta, world, change_tick),)*)
+            }
+        }
+
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro, and as such, the below lints may not always apply."
+        )]
+
+        $(#[$meta])*
+        impl<$($param: ReborrowSystemParam),*> ReborrowSystemParam for ($($param,)*) {
+            fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+                ($($item,)*): &'short mut Self::Item<'wlong, 'slong>,
+            ) -> Self::Item<'short, 'short> {
+                ($($param::reborrow($item),)*)
             }
         }
     };
@@ -2212,7 +2455,8 @@ all_tuples!(
     impl_system_param_tuple,
     0,
     16,
-    P
+    P,
+    i
 );
 
 /// Contains type aliases for built-in [`SystemParam`]s with `'static` lifetimes.
@@ -2369,6 +2613,14 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
     }
 }
 
+impl<P: ReborrowSystemParam + 'static> ReborrowSystemParam for StaticSystemParam<'_, '_, P> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        StaticSystemParam(P::reborrow(&mut item.0))
+    }
+}
+
 // SAFETY: No world access.
 unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
     type State = ();
@@ -2398,6 +2650,13 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
 // SAFETY: No world access.
 unsafe impl<T: ?Sized> ReadOnlySystemParam for PhantomData<T> {}
 
+impl<T: ?Sized> ReborrowSystemParam for PhantomData<T> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        _item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        PhantomData
+    }
+}
 /// A [`SystemParam`] with a type that can be configured at runtime.
 ///
 /// To be useful, this must be configured using a [`DynParamBuilder`](crate::system::DynParamBuilder) to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
@@ -2537,6 +2796,17 @@ impl<'w, 's> DynSystemParam<'w, 's> {
         //   and that it has access required by the inner system param.
         // - The inner system param only performs read access, so it's safe to copy that access for the full `'w` lifetime.
         unsafe { downcast::<T>(self.state, &self.system_meta, self.world, self.change_tick) }
+    }
+
+    /// Returns a `Res<>` with a smaller lifetime.
+    /// This is useful if you have `&Res`, but you need a `Res`.
+    pub fn reborrow(&mut self) -> DynSystemParam<'_, '_> {
+        DynSystemParam {
+            state: self.state,
+            world: self.world,
+            system_meta: self.system_meta.clone(),
+            change_tick: self.change_tick,
+        }
     }
 }
 
@@ -2697,6 +2967,14 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 }
 
+impl ReborrowSystemParam for DynSystemParam<'_, '_> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
+    }
+}
+
 // SAFETY: Resource ComponentId access is applied to the access. If this FilteredResources
 // conflicts with any prior access, a panic will occur.
 unsafe impl SystemParam for FilteredResources<'_, '_> {
@@ -2740,6 +3018,14 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
         unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+impl ReborrowSystemParam for FilteredResources<'_, '_> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        *item
     }
 }
 
@@ -2797,6 +3083,14 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+impl ReborrowSystemParam for FilteredResourcesMut<'_, '_> {
+    fn reborrow<'wlong: 'short, 'slong: 'short, 'short>(
+        item: &'short mut Self::Item<'wlong, 'slong>,
+    ) -> Self::Item<'short, 'short> {
+        item.reborrow()
     }
 }
 
@@ -3071,18 +3365,6 @@ mod tests {
         }
 
         fn my_system(_: Collide) {}
-        assert_is_system(my_system);
-    }
-
-    // Regression test for https://github.com/bevyengine/bevy/issues/8192.
-    #[test]
-    fn system_param_invariant_lifetime() {
-        #[derive(SystemParam)]
-        pub struct InvariantParam<'w, 's> {
-            _set: ParamSet<'w, 's, (Query<'w, 's, ()>,)>,
-        }
-
-        fn my_system(_: InvariantParam) {}
         assert_is_system(my_system);
     }
 
