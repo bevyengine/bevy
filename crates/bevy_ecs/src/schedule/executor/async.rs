@@ -69,7 +69,7 @@ mod keyed_queues {
     }
 }
 
-pub(crate) static ASYNC_ECS_WORLD_ACCESS: LockWrapper = LockWrapper(OnceLock::new());
+pub(crate) static ASYNC_ECS_WORLD_ACCESS: AsyncWorldHolder = AsyncWorldHolder(OnceLock::new());
 
 pub(crate) static ASYNC_ECS_WAKER_LIST: EcsWakerList = EcsWakerList(OnceLock::new());
 
@@ -192,99 +192,93 @@ impl EcsWakerList {
     }
 }
 
-pub(crate) struct LockWrapper(OnceLock<Arc<Mutex<Option<UnsafeWorldCell<'static>>>>>);
+/// The PhantomData here is just there cause it's a cute way of showing that we have a mutex around our unsafe worldcell and that's what the mutex is 'locking'
+///
+pub(crate) struct AsyncWorldHolder(
+    OnceLock<
+        RwLock<
+            HashMap<
+                WorldId,
+                RwLock<
+                    Option<(
+                        UnsafeWorldCell<'static>,
+                        Mutex<PhantomData<UnsafeWorldCell<'static>>>,
+                    )>,
+                >,
+            >,
+        >,
+    >,
+);
 
-impl LockWrapper {
+impl AsyncWorldHolder {
     pub(crate) fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
-        // local RAII type
-        struct ClearOnDrop<'a> {
-            slot: &'a Mutex<Option<UnsafeWorldCell<'static>>>,
+        let this = self.0.get_or_init(|| RwLock::new(HashMap::new()));
+        let world_id = world.id();
+        if !this.read().unwrap().contains_key(&world_id) {
+            // VERY rare only happens the first time we try to do anything async in a new World
+            let _ = this.write().unwrap().insert(world_id, RwLock::new(None));
         }
 
+        struct ClearOnDrop<'a> {
+            slot: &'a RwLock<
+                Option<(
+                    UnsafeWorldCell<'static>,
+                    Mutex<PhantomData<UnsafeWorldCell<'static>>>,
+                )>,
+            >,
+        }
         impl<'a> Drop for ClearOnDrop<'a> {
             fn drop(&mut self) {
                 // clear it on the way out, even on panic
-                self.slot.lock().unwrap().take();
+                self.slot.write().unwrap().take();
             }
         }
-
         unsafe {
-            let mut awa = self
-                .0
-                .get_or_init(|| Arc::new(Mutex::new(None)))
-                .try_lock()
-                .ok()?;
-            // this guard lives until the end of the function
+            let binding = this.read().unwrap();
+            let world_container = binding.get(&world_id).unwrap();
+            // SAFETY this is required in order to make sure that even in the event of a panic, this can't get accessed
             let _clear = ClearOnDrop {
-                slot: self.0.get().unwrap(),
+                slot: world_container,
             };
             // SAFETY: This mem transmute is safe only because we drop it after, and our ASYNC_ECS_WORLD_ACCESS is private, and we don't clone it
             // where we do use it, so the lifetime doesn't get propagated anywhere.
-            awa.replace(std::mem::transmute(world.as_unsafe_world_cell()));
-            drop(awa);
+            // Lifetimes are not used in any actual code optimization, so turning it into a static does not violate any of rust's rules
+            // As *LONG* as we keep it within it's lifetime, which we do here, manually, with our `ClearOnDrop` struct.
+            world_container.write().unwrap().replace((
+                std::mem::transmute(world.as_unsafe_world_cell()),
+                Mutex::new(PhantomData),
+            ));
             func()
         }
         Some(())
     }
     pub(crate) unsafe fn get<T>(
         &self,
+        world_id: WorldId,
         func: impl FnOnce(UnsafeWorldCell) -> Poll<T>,
     ) -> Option<Poll<T>> {
-        let mut uwu = self.0.get()?.lock().ok()?;
-        if let Some(inner) = uwu.clone() {
-            // SAFETY: this is safe because we ensure no one else has access to the world.
-            let out;
-            unsafe {
-                out = func(inner);
+        // it's okay to *not* do the RaiiThing on these early returns, because that means we aren't in a state
+        // where a thread is parked because of our world.
+        let a = self.0.get()?.read().unwrap();
+        let mut b = a.get(&world_id)?.read().unwrap();
+        let Some(our_thing) = b.as_ref() else {
+            return None;
+        };
+        struct RaiiThing(AsyncBarrier);
+        impl Drop for RaiiThing {
+            fn drop(&mut self) {
+                let val = self.0 .1.fetch_add(-1, Ordering::SeqCst);
+                if val == 0 {
+                    self.0 .0.unpark();
+                }
             }
-            return Some(out);
         }
-        None
-    }
-}
-
-struct TypeMap(
-    HashMap<
-        TypeId,
-        (
-            Box<dyn Any + 'static + Send + Sync>,
-            Mutex<Box<dyn FnMut(&mut World) + 'static + Send>>,
-        ),
-    >,
-);
-impl TypeMap {
-    pub fn set<T: SystemParam + Any + 'static>(&mut self, _t: &SystemState<T>) {
-        let (tx, rx) = std::sync::mpsc::channel::<SystemState<T>>();
-
-        self.0.insert(
-            TypeId::of::<T>(),
-            (
-                Box::new(tx),
-                Mutex::new(Box::new(move |world: &mut World| {
-                    for mut thing in rx.try_iter() {
-                        thing.apply(world);
-                    }
-                })),
-            ),
-        );
-    }
-    pub fn has<T: SystemParam + 'static + Any>(&self, _t: &SystemState<T>) -> bool {
-        self.0.contains_key(&TypeId::of::<T>())
-    }
-    pub fn send<T: SystemParam + Any + 'static>(&self, t: SystemState<T>) -> Option<()> {
-        self.0
-            .get(&TypeId::of::<T>())?
-            .0
-            .downcast_ref::<std::sync::mpsc::Sender<SystemState<T>>>()
-            .unwrap()
-            .send(t)
-            .ok()?;
-        Some(())
-    }
-    pub fn run_all(&mut self, world: &mut World) {
-        for (_, closure) in self.0.values_mut() {
-            closure.lock().unwrap()(world);
-        }
+        let async_barrier = { our_thing.0.get_resource::<AsyncBarrier>().unwrap().clone() };
+        RaiiThing(async_barrier.clone());
+        // this allows us to effectively yield as if pending if the world doesn't exist rn.
+        let _world = our_thing.1.try_lock().ok()?;
+        // SAFETY: this is safe because we ensure no one else has access to the world.
+        unsafe { Some(func(our_thing.0)) }
     }
 }
 
@@ -375,20 +369,9 @@ where
         }
 
         let task_id = self.4;
+        let world_id = self.3 .0;
         unsafe {
-            match ASYNC_ECS_WORLD_ACCESS.get(|world: UnsafeWorldCell| {
-                struct RaiiThing(AsyncBarrier);
-                impl Drop for RaiiThing {
-                    fn drop(&mut self) {
-                        let val = self.0 .1.fetch_add(-1, Ordering::SeqCst);
-                        if val == 0 {
-                            self.0 .0.unpark();
-                        }
-                    }
-                }
-                let async_barrier = { world.get_resource::<AsyncBarrier>().unwrap().clone() };
-                RaiiThing(async_barrier.clone());
-
+            match ASYNC_ECS_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
                 let system_param_queue = match world.get_resource::<SystemParamQueue<P>>() {
                     None => return Poll::Pending,
                     Some(system_param_queue) => system_param_queue,
