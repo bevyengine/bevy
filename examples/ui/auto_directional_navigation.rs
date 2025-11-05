@@ -12,7 +12,7 @@
 //! The automatic system finds the nearest neighbor in each compass direction for every node,
 //! completely eliminating the need to manually specify navigation relationships.
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{
     camera::NormalizedRenderTarget,

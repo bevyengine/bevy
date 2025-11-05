@@ -3,9 +3,9 @@ use crate::Dir2;
 use bevy_reflect::Reflect;
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use core::f32::consts::FRAC_1_SQRT_2;
 use core::ops::Neg;
 use glam::Vec2;
-use std::f32::consts::FRAC_1_SQRT_2;
 
 /// A compass enum with 4 directions.
 /// ```text
