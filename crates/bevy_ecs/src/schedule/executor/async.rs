@@ -11,7 +11,7 @@ use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
 use bevy_platform::sync::{Arc, Mutex, OnceLock, RwLock};
 use concurrent_queue::ConcurrentQueue;
-use core::any::{Any, TypeId};
+use core::any::{TypeId};
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
@@ -256,7 +256,7 @@ impl AsyncWorldHolder {
         // it's okay to *not* do the RaiiThing on these early returns, because that means we aren't in a state
         // where a thread is parked because of our world.
         let a = self.0.get()?.read().unwrap();
-        let mut b = a.get(&world_id)?.read().unwrap();
+        let b = a.get(&world_id)?.read().unwrap();
         let Some(our_thing) = b.as_ref() else {
             return None;
         };
@@ -278,6 +278,10 @@ impl AsyncWorldHolder {
     }
 }
 
+/// Allows you to access the ECS from any arbitrary async runtime.
+/// Calls will never return immediately and will always start Pending at least once.
+/// Call this with the same `TaskIdentifier` to persist SystemParams like Local or Changed
+/// Just use `world_id` if you do not mind a new SystemParam being initialized every time.
 pub fn async_access<P, Func, Out>(
     task_identifier: impl Into<TaskIdentifier<P>>,
     schedule: impl ScheduleLabel,
@@ -303,6 +307,7 @@ impl<T> From<WorldId> for TaskIdentifier<T> {
     }
 }
 
+/// A TaskIdentifier can be re-used in order to persist SystemParams like Local, Changed, or Added
 pub struct TaskIdentifier<T>(TaskId, WorldId, PhantomData<T>);
 
 impl<T> Clone for TaskIdentifier<T> {
@@ -313,6 +318,9 @@ impl<T> Clone for TaskIdentifier<T> {
 
 impl<T> Copy for TaskIdentifier<T> {}
 impl<T> TaskIdentifier<T> {
+
+    /// Generates a new unique TaskIdentifier that can be re-used in order to persist SystemParams
+    /// like Local, Changed, or Added
     pub fn new(world_id: WorldId) -> Self {
         Self(TaskId::new().unwrap(), world_id, PhantomData)
     }
@@ -379,6 +387,7 @@ where
                 };
                 let out;
                 // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
+                #[allow(unused_unsafe)]
                 unsafe {
                     // Obtain params and immediately consume them with the closure,
                     // ensuring the borrow ends before `apply`.

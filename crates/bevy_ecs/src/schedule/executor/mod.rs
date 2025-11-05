@@ -1,3 +1,4 @@
+/// Async ECS access, using the ECS from Async Tasks
 pub mod r#async;
 #[cfg(feature = "std")]
 mod multi_threaded;
