@@ -14,7 +14,7 @@ fn main() {
 }
 
 /// This is added to a [`SceneRoot`] and will cause the [`StandardMaterial::base_color`]
-/// of all materials to be overwritten
+/// of materials with [`GltfMaterialName`] equal to `LeatherPartsMat.
 #[derive(Component)]
 struct ColorOverride(Color);
 
