@@ -77,6 +77,51 @@ impl CompassQuadrant {
             Self::West => Self::East,
         }
     }
+
+    /// Checks if a point is in the direction represented by this [`CompassQuadrant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// **Note**: This function assumes **UI coordinates** where Y increases downward.
+    /// This is the opposite of mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this quadrant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassQuadrant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// // In UI coordinates, Y increases downward
+    /// let south_point = Vec2::new(0.0, 10.0);  // Below origin
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassQuadrant::South.is_in_direction(origin, south_point));
+    /// assert!(!CompassQuadrant::South.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: crate::Vec2, candidate: crate::Vec2) -> bool {
+        use crate::Vec2;
+
+        // Use UI coordinates: Y increases downward
+        let dir = match self {
+            Self::North => Vec2::new(0.0, -1.0),
+            Self::East => Vec2::new(1.0, 0.0),
+            Self::South => Vec2::new(0.0, 1.0),
+            Self::West => Vec2::new(-1.0, 0.0),
+        };
+
+        let to_candidate = candidate - origin;
+        to_candidate.dot(dir) > 0.0
+    }
 }
 
 /// A compass enum with 8 directions.
@@ -169,6 +214,56 @@ impl CompassOctant {
             Self::West => Self::East,
             Self::NorthWest => Self::SouthEast,
         }
+    }
+
+    /// Checks if a point is in the direction represented by this [`CompassOctant`] from an origin.
+    ///
+    /// This uses a cone-based check: the vector from origin to the candidate point
+    /// must have a positive dot product with the direction vector.
+    ///
+    /// **Note**: This function assumes **UI coordinates** where Y increases downward.
+    /// This is the opposite of mathematical coordinates where Y increases upward.
+    ///
+    /// # Arguments
+    ///
+    /// * `origin` - The starting position
+    /// * `candidate` - The target position to check
+    ///
+    /// # Returns
+    ///
+    /// `true` if the candidate is generally in the direction of this octant from the origin.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_math::{CompassOctant, Vec2};
+    ///
+    /// let origin = Vec2::new(0.0, 0.0);
+    /// // In UI coordinates, Y increases downward
+    /// let south_point = Vec2::new(0.0, 10.0);  // Below origin
+    /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
+    ///
+    /// assert!(CompassOctant::South.is_in_direction(origin, south_point));
+    /// assert!(!CompassOctant::South.is_in_direction(origin, east_point));
+    /// ```
+    pub fn is_in_direction(self, origin: crate::Vec2, candidate: crate::Vec2) -> bool {
+        use crate::Vec2;
+        use core::f32::consts::FRAC_1_SQRT_2;
+
+        // Use UI coordinates: Y increases downward
+        let dir = match self {
+            Self::North => Vec2::new(0.0, -1.0),
+            Self::NorthEast => Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
+            Self::East => Vec2::new(1.0, 0.0),
+            Self::SouthEast => Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2),
+            Self::South => Vec2::new(0.0, 1.0),
+            Self::SouthWest => Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2),
+            Self::West => Vec2::new(-1.0, 0.0),
+            Self::NorthWest => Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
+        };
+
+        let to_candidate = candidate - origin;
+        to_candidate.dot(dir) > 0.0
     }
 }
 

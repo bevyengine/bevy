@@ -61,6 +61,7 @@ libm = ["bevy_math/libm", "bevy_window/libm"]
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false }
+bevy_camera = { path = "../bevy_camera", version = "0.18.0-dev", default-features = false }
 bevy_ecs = { path = "../bevy_ecs", version = "0.18.0-dev", default-features = false }
 bevy_input = { path = "../bevy_input", version = "0.18.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.18.0-dev", default-features = false }
