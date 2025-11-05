@@ -57,6 +57,13 @@ fn change_material(
     mut asset_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     info!("processing Scene Entity: {}", scene_ready.entity);
+
+    // Get the `ColorOverride` of the entity, if it does not have a color override, return
+    let Ok(color_override) = color_override.get(scene_ready.entity) else {
+        info!("{} does not have a color override", scene_ready.entity);
+        return;
+    };
+
     // Iterate over all children recursively
     for descendant in children.iter_descendants(scene_ready.entity) {
         // Get the material id and name which were created from the glTF file information
@@ -72,10 +79,6 @@ fn change_material(
         match material_name.0.as_str() {
             "LeatherPartsMat" => {
                 info!("editing LeatherPartsMat to use ColorOverride tint");
-                // Get the `ColorOverride` of the entity, if it does not have a color override, skip
-                let Ok(color_override) = color_override.get(scene_ready.entity) else {
-                    continue;
-                };
                 // Create a copy of the material and override base color
                 // If you intend on creating multiple models with the same tint, it
                 // is best to cache the handle somewhere, as having multiple materials
