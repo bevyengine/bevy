@@ -15,7 +15,7 @@ use concurrent_queue::ConcurrentQueue;
 use core::any::TypeId;
 use core::marker::PhantomData;
 use core::pin::Pin;
-use core::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use core::task::{Context, Poll, Waker};
 use std::thread;
 
@@ -120,7 +120,7 @@ impl<T: SystemParam + 'static> FromWorld for SystemStatePool<T> {
 struct AsyncTaskId(usize);
 
 /// The next [`AsyncTaskId`].
-static MAX_TASK_ID: AtomicUsize = AtomicUsize::new(0);
+static MAX_TASK_ID: AtomicU64 = AtomicU64::new(0);
 
 impl AsyncTaskId {
     /// Create a new, unique [`AsyncTaskId`]. Returns [`None`] if the supply of unique
