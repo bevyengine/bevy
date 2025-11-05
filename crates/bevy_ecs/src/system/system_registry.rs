@@ -518,15 +518,17 @@ impl World {
         self.run_system_cached_with(system, ())
     }
 
-    /// Runs a cached system with an input, registering it if necessary.
-    /// Runs a cached system, registering it if necessary.
+    /// Runs a cached system with the provided input, registering it if necessary.
+    ///
+    /// This is a more general version of [`World::run_system_cached`], allowing
+    /// callers to supply an explicit system input.
     ///
     /// # Type Inference Note
-    /// If the system returns `()`, you may need to explicitly constrain the output
-    /// type for error handling:
+    /// If the system returns `()`, you may need to explicitly constrain the
+    /// output type for proper error inference:
     ///
     /// ```rust
-    /// () = world.run_system_cached(my_system)?;
+    /// () = world.run_system_cached_with(my_system, input)?;
     /// ```
     ///
     /// Without this, Rust may fail to infer the system’s output type and produce
