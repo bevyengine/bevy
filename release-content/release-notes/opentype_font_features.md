@@ -16,8 +16,8 @@ commands.spawn((
   TextFont {
     font: opentype_font_handle,
     font_features: FontFeatures::builder()
-      .enable(FontFeatures::STANDARD_LIGATURES)
-      .set(FontFeatures::WIDTH, 300)
+      .enable(FontFeatureTag::STANDARD_LIGATURES)
+      .set(FontFeatureTag::WIDTH, 300)
       .build(),
     ..default()
   },
@@ -30,12 +30,12 @@ FontFeatures can also be constructed from a list:
 TextFont {
   font: opentype_font_handle,
   font_features: [
-    FontFeatures::STANDARD_LIGATURES,
-    FontFeatures::STYLISTIC_ALTERNATES,
-    FontFeatures::SLASHED_ZERO
+    FontFeatureTag::STANDARD_LIGATURES,
+    FontFeatureTag::STYLISTIC_ALTERNATES,
+    FontFeatureTag::SLASHED_ZERO
   ].into(),
   ..default()
 }
 ```
 
-Note that OpenType font features are only available for `.otf` fonts that support them, and different fonts may support  different subsets of OpenType features.
+Note that OpenType font features are only available for `.otf` fonts that support them, and different fonts may support different subsets of OpenType features.

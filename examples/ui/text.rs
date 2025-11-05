@@ -7,8 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::FontFeatures,
-    text::Underline,
+    text::{FontFeatureTag, FontFeatures, Underline},
 };
 
 fn main() {
@@ -111,23 +110,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .with_children(|parent| {
             let text_rows = [
-                ("Smallcaps: ", FontFeatures::SMALL_CAPS, "Hello World"),
+                ("Smallcaps: ", FontFeatureTag::SMALL_CAPS, "Hello World"),
                 (
                     "Ligatures: ",
-                    FontFeatures::STANDARD_LIGATURES,
+                    FontFeatureTag::STANDARD_LIGATURES,
                     "fi fl ff ffi ffl",
                 ),
-                ("Fractions: ", FontFeatures::FRACTIONS, "12/134"),
-                ("Superscript: ", FontFeatures::SUPERSCRIPT, "Up here!"),
-                ("Subscript: ", FontFeatures::SUBSCRIPT, "Down here!"),
+                ("Fractions: ", FontFeatureTag::FRACTIONS, "12/134"),
+                ("Superscript: ", FontFeatureTag::SUPERSCRIPT, "Up here!"),
+                ("Subscript: ", FontFeatureTag::SUBSCRIPT, "Down here!"),
                 (
                     "Oldstyle figures: ",
-                    FontFeatures::OLDSTYLE_FIGURES,
+                    FontFeatureTag::OLDSTYLE_FIGURES,
                     "1234567890",
                 ),
                 (
                     "Lining figures: ",
-                    FontFeatures::LINING_FIGURES,
+                    FontFeatureTag::LINING_FIGURES,
                     "1234567890",
                 ),
             ];
