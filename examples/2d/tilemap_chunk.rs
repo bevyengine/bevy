@@ -4,7 +4,8 @@ use bevy::{
     color::palettes::tailwind::RED_400,
     image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
-    sprite_render::{TileRenderData, TilemapChunkRenderer, TilemapChunkTileData},
+    sprite_render::{TilemapChunkRenderData, TileRenderData},
+    sprite::TileStorage
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -41,8 +42,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         })
         .collect();
 
+    let mut storage = TileStorage::<TileRenderData>::new(chunk_size);
+    storage.tiles = tile_data;
     commands.spawn((
-        TilemapChunkRenderer {
+        TilemapChunkRenderData {
             chunk_size,
             tile_display_size,
             tileset: assets.load_with_settings(
@@ -55,7 +58,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             ),
             ..default()
         },
-        TilemapChunkTileData(tile_data),
+        storage,
         UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
 
@@ -71,7 +74,7 @@ fn spawn_fake_player(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    chunk: Single<&TilemapChunkRenderer>,
+    chunk: Single<&TilemapChunkRenderData>,
 ) {
     let mut transform = chunk.calculate_tile_transform(UVec2::new(0, 0));
     transform.translation.z = 1.;
@@ -97,7 +100,7 @@ fn spawn_fake_player(
 fn move_player(
     mut player: Single<&mut Transform, With<MovePlayer>>,
     time: Res<Time>,
-    chunk: Single<&TilemapChunkRenderer>,
+    chunk: Single<&TilemapChunkRenderData>,
 ) {
     let t = (ops::sin(time.elapsed_secs()) + 1.) / 2.;
 
@@ -115,7 +118,7 @@ fn move_player(
 
 fn update_tilemap(
     time: Res<Time>,
-    mut query: Query<(&mut TilemapChunkTileData, &mut UpdateTimer)>,
+    mut query: Query<(&mut TileStorage<TileRenderData>, &mut UpdateTimer)>,
     mut rng: ResMut<SeededRng>,
 ) {
     for (mut tile_data, mut timer) in query.iter_mut() {
@@ -123,20 +126,17 @@ fn update_tilemap(
 
         if timer.just_finished() {
             for _ in 0..50 {
-                let index = rng.random_range(0..tile_data.len());
-                tile_data[index] = Some(TileRenderData::from_tileset_index(rng.random_range(0..5)));
+                let index = rng.random_range(0..tile_data.tiles.len());
+                tile_data.tiles[index] = Some(TileRenderData::from_tileset_index(rng.random_range(0..5)));
             }
         }
     }
 }
 
 // find the data for an arbitrary tile in the chunk and log its data
-fn log_tile(
-    tilemap: Single<(&TilemapChunkRenderer, &TilemapChunkTileData)>,
-    mut local: Local<u16>,
-) {
-    let (chunk, data) = tilemap.into_inner();
-    let Some(tile_data) = data.tile_data_from_tile_pos(chunk.chunk_size, UVec2::new(3, 4)) else {
+fn log_tile(tilemap: Single<(&TilemapChunkRenderData, &TileStorage<TileRenderData>)>, mut local: Local<u16>) {
+    let (_, data) = tilemap.into_inner();
+    let Some(tile_data) = data.get(UVec2::new(3, 4)) else {
         return;
     };
     // log when the tile changes

@@ -1,3 +1,5 @@
+use std::any::type_name;
+
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{Assets, Handle};
@@ -6,13 +8,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::ChildOf,
     lifecycle::HookContext,
     query::Changed,
     reflect::{ReflectComponent, ReflectResource},
-    relationship::Relationship,
     resource::Resource,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -20,7 +20,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::{TileData, TileStorage, Tilemap};
+use bevy_sprite::TileStorage;
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;
@@ -45,19 +45,24 @@ impl Plugin for TilemapChunkPlugin {
 #[reflect(Resource, Default)]
 pub struct TilemapChunkMeshCache(HashMap<UVec2, Handle<Mesh>>);
 
-/// Information for rendering chunks in a tilemap
+/// A component representing a chunk of a tilemap.
+/// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component, Clone, Debug, Default)]
-#[component(immutable)]
-#[require(Transform)]
-pub struct TilemapChunkRenderer {
+#[component(immutable, on_insert = on_insert_tilemap_chunk)]
+pub struct TilemapChunkRenderData {
+    /// The size of the chunk in tiles.
+    pub chunk_size: UVec2,
+    /// The size to use for each tile, not to be confused with the size of a tile in the tileset image.
+    /// The size of the tile in the tileset image is determined by the tileset image's dimensions.
+    pub tile_display_size: UVec2,
     /// Handle to the tileset image containing all tile textures.
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
 }
 
-impl TilemapChunk {
+impl TilemapChunkRenderData {
     pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
         Transform::from_xyz(
             // tile position
@@ -105,8 +110,6 @@ impl TileRenderData {
     }
 }
 
-impl TileData for TileRenderData {}
-
 impl Default for TileRenderData {
     fn default() -> Self {
         Self {
@@ -117,15 +120,13 @@ impl Default for TileRenderData {
     }
 }
 
-/// Component storing the data of tiles within a chunk.
-/// Each index corresponds to a specific tile in the tileset. `None` indicates an empty tile.
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Clone, Debug)]
-pub struct TilemapChunkTileData(pub Vec<Option<TileData>>);
-
 fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
-    let Some(tilemap_chunk) = world.get::<TilemapChunk>(entity) else {
-        warn!("TilemapChunk not found for tilemap chunk {}", entity);
+    let Some(tilemap_chunk) = world.get::<TilemapChunkRenderData>(entity) else {
+        warn!(
+            "{} not found for tilemap chunk {}",
+            type_name::<TilemapChunkRenderData>(),
+            entity
+        );
         return;
     };
 
@@ -133,25 +134,29 @@ fn on_insert_tilemap_chunk(mut world: DeferredWorld, HookContext { entity, .. }:
     let alpha_mode = tilemap_chunk.alpha_mode;
     let tileset = tilemap_chunk.tileset.clone();
 
-    let Some(tile_data) = world.get::<TilemapChunkTileData>(entity) else {
-        warn!("TilemapChunkIndices not found for tilemap chunk {}", entity);
+    let Some(tile_data) = world.get::<TileStorage<TileRenderData>>(entity) else {
+        warn!(
+            "{} not found for tilemap chunk {}",
+            type_name::<TileStorage<TileRenderData>>(),
+            entity
+        );
         return;
     };
 
     let expected_tile_data_length = chunk_size.element_product() as usize;
-    if tile_data.len() != expected_tile_data_length {
+    if tile_data.tiles.len() != expected_tile_data_length {
         warn!(
             "Invalid tile data length for tilemap chunk {} of size {}. Expected {}, got {}",
             entity,
             chunk_size,
             expected_tile_data_length,
-            tile_data.len(),
+            tile_data.tiles.len(),
         );
         return;
     }
 
     let packed_tile_data: Vec<PackedTileData> =
-        tile_data.0.iter().map(|&tile| tile.into()).collect();
+        tile_data.tiles.iter().map(|&tile| tile.into()).collect();
 
     let tile_data_image = make_chunk_tile_data_image(&chunk_size, &packed_tile_data);
 
@@ -186,73 +191,54 @@ pub fn update_tilemap_chunk_indices(
     query: Query<
         (
             Entity,
-            &ChildOf,
+            &TilemapChunkRenderData,
             &TileStorage<TileRenderData>,
-            Option<&MeshMaterial2d<TilemapChunkMaterial>>,
+            &MeshMaterial2d<TilemapChunkMaterial>,
         ),
         Changed<TileStorage<TileRenderData>>,
     >,
-    map_query: Query<(&Tilemap, &TilemapChunkRenderer)>,
-    mut tilemap_chunk_mesh_cache: ResMut<TilemapChunkMeshCache>,
     mut materials: ResMut<Assets<TilemapChunkMaterial>>,
     mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut commands: Commands,
 ) {
-    for (chunk_id, in_map, storage, material) in query {
-        let Ok((map, map_renderer)) = map_query.get(in_map.get()) else {
+    for (chunk_entity, TilemapChunkRenderData { chunk_size, .. }, tile_data, material) in query {
+        let expected_tile_data_length = chunk_size.element_product() as usize;
+        if tile_data.tiles.len() != expected_tile_data_length {
             warn!(
-                "Could not find Tilemap {} for chunk {}",
-                in_map.get(),
-                chunk_id
+                "Invalid TilemapChunkTileData length for tilemap chunk {} of size {}. Expected {}, got {}",
+                chunk_entity,
+                chunk_size,
+                tile_data.tiles.len(),
+                expected_tile_data_length
+            );
+            continue;
+        }
+
+        let packed_tile_data: Vec<PackedTileData> =
+            tile_data.tiles.iter().map(|&tile| tile.into()).collect();
+
+        // Getting the material mutably to trigger change detection
+        let Some(material) = materials.get_mut(material.id()) else {
+            warn!(
+                "TilemapChunkMaterial not found for tilemap chunk {}",
+                chunk_entity
             );
             continue;
         };
-
-        let packed_tile_data: Vec<PackedTileData> =
-            storage.tiles.iter().map(|&tile| tile.into()).collect();
-
-        // Getting the material mutably to trigger change detection
-        if let Some(material) = material.and_then(|material| materials.get_mut(material.id())) {
-            let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
-                warn!(
-                    "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
-                    chunk_id
-                );
-                continue;
-            };
-            let Some(data) = tile_data_image.data.as_mut() else {
-                warn!(
-                    "TilemapChunkMaterial tile data image data not found for tilemap chunk {}",
-                    chunk_id
-                );
-                continue;
-            };
-            data.clear();
-            data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
-        } else {
-            let tile_data_image = make_chunk_tile_data_image(&storage.size, &packed_tile_data);
-
-            let mesh_size = storage.size * map.tile_display_size;
-
-            let mesh = if let Some(mesh) = tilemap_chunk_mesh_cache.get(&mesh_size) {
-                mesh.clone()
-            } else {
-                let mesh = meshes.add(Rectangle::from_size(mesh_size.as_vec2()));
-                tilemap_chunk_mesh_cache.insert(mesh_size, mesh.clone());
-                mesh
-            };
-            let tile_data = images.add(tile_data_image);
-
-            let material = materials.add(TilemapChunkMaterial {
-                tileset: map_renderer.tileset.clone(),
-                tile_data,
-                alpha_mode: map_renderer.alpha_mode,
-            });
-
-            commands
-                .entity(chunk_id)
-                .insert((Mesh2d(mesh), MeshMaterial2d(material)));
+        let Some(tile_data_image) = images.get_mut(&material.tile_data) else {
+            warn!(
+                "TilemapChunkMaterial tile data image not found for tilemap chunk {}",
+                chunk_entity
+            );
+            continue;
         };
+        let Some(data) = tile_data_image.data.as_mut() else {
+            warn!(
+                "TilemapChunkMaterial tile data image data not found for tilemap chunk {}",
+                chunk_entity
+            );
+            continue;
+        };
+        data.clear();
+        data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
     }
 }
