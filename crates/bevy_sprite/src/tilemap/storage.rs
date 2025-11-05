@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use bevy_ecs::{component::Component, entity::Entity, name::Name, reflect::ReflectComponent};
 use bevy_math::{URect, UVec2};
 use bevy_reflect::Reflect;
@@ -8,7 +10,7 @@ use bevy_transform::components::Transform;
 #[require(Name::new("TileStorage"), Transform)]
 pub struct TileStorage<T> {
     pub tiles: Vec<Option<T>>,
-    pub size: UVec2,
+    size: UVec2,
 }
 
 impl<T> TileStorage<T> {
@@ -18,7 +20,7 @@ impl<T> TileStorage<T> {
         Self { tiles, size }
     }
 
-    fn index(&self, tile_coord: UVec2) -> usize {
+    pub fn index(&self, tile_coord: UVec2) -> usize {
         (tile_coord.y * self.size.x + tile_coord.x) as usize
     }
 
