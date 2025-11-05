@@ -547,9 +547,9 @@ fn rotate_cubes(
     mut query: Query<&mut Transform, (With<Mesh3d>, Without<NotShadowCaster>)>,
     time: Res<Time>,
 ) {
-    for mut transform in query.iter_mut() {
+    query.par_iter_mut().for_each(|mut transform| {
         transform.rotate_y(10.0 * time.delta_secs());
-    }
+    });
 }
 
 #[inline]
