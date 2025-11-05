@@ -1,12 +1,13 @@
 use crate::schedule::r#async::keyed_queues::KeyedQueues;
 use crate::schedule::{InternedScheduleLabel, ScheduleLabel};
-use crate::system::RunSystemError;
+use crate::system::{RunSystemError, SystemParamValidationError};
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::FromWorld;
 use crate::{
     system::{SystemParam, SystemState},
     world::World,
 };
+use bevy_ecs::prelude::NonSend;
 use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
 use bevy_platform::sync::{Arc, Mutex, OnceLock, RwLock};
@@ -393,6 +394,14 @@ where
                     // ensuring the borrow ends before `apply`.
                     if let Err(err) = SystemState::validate_param(&mut system_state, world) {
                         return Poll::Ready(Err(err.into()));
+                    }
+                    if !system_state.meta().is_send() {
+                        return Poll::Ready(Err(
+                            SystemParamValidationError::invalid::<NonSend<()>>(
+                                "Cannot have your system be non-send / exclusive",
+                            )
+                            .into(),
+                        ));
                     }
                     let state = system_state.get_unchecked(world);
                     out = self.as_mut().2.take().unwrap()(state);
