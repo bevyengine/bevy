@@ -431,7 +431,7 @@ impl ViewNode for VolumetricFogNode {
 
             let volumetric_view_bind_group = render_context.render_device().create_bind_group(
                 None,
-                &pipeline_cache.get_bind_group_layout(volumetric_view_bind_group_layout),
+                pipeline_cache.get_bind_group_layout(volumetric_view_bind_group_layout),
                 &bind_group_entries,
             );
 

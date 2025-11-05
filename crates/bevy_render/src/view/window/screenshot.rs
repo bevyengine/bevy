@@ -382,7 +382,7 @@ fn prepare_screenshot_state(
     });
     let bind_group = render_device.create_bind_group(
         "screenshot-to-screen-bind-group",
-        &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
+        pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
         &BindGroupEntries::single(&texture_view),
     );
     let pipeline_id = pipelines.specialize(pipeline_cache, pipeline, format);

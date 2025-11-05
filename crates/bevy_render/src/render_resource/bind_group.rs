@@ -534,7 +534,7 @@ pub trait AsBindGroup {
         pipeline_cache: &PipelineCache,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup, AsBindGroupError> {
-        let layout = &pipeline_cache.get_bind_group_layout(layout_descriptor);
+        let layout = pipeline_cache.get_bind_group_layout(layout_descriptor);
 
         let UnpreparedBindGroup { bindings } =
             Self::unprepared_bind_group(self, layout, render_device, param, false)?;

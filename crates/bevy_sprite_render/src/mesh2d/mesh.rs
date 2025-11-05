@@ -665,7 +665,7 @@ pub fn prepare_mesh2d_bind_group(
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
-                &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
+                pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.mesh_layout),
                 &BindGroupEntries::single(binding),
             ),
         });
@@ -701,7 +701,7 @@ pub fn prepare_mesh2d_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&mesh2d_pipeline.view_layout),
             &BindGroupEntries::sequential((
                 view_binding.clone(),
                 globals.clone(),

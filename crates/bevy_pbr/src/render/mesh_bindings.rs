@@ -377,7 +377,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "model_only_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.model_only),
+            pipeline_cache.get_bind_group_layout(&self.model_only),
             &[entry::model(0, model.clone())],
         )
     }
@@ -394,7 +394,7 @@ impl MeshLayouts {
             let (texture_views, samplers) = lightmap_slab.build_binding_arrays();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
-                &pipeline_cache.get_bind_group_layout(&self.lightmapped),
+                pipeline_cache.get_bind_group_layout(&self.lightmapped),
                 &[
                     entry::model(0, model.clone()),
                     entry::lightmaps_texture_view_array(4, &texture_views),
@@ -405,7 +405,7 @@ impl MeshLayouts {
             let (texture_view, sampler) = lightmap_slab.bindings_for_first_lightmap();
             render_device.create_bind_group(
                 "lightmapped_mesh_bind_group",
-                &pipeline_cache.get_bind_group_layout(&self.lightmapped),
+                pipeline_cache.get_bind_group_layout(&self.lightmapped),
                 &[
                     entry::model(0, model.clone()),
                     entry::lightmaps_texture_view(4, texture_view),
@@ -425,7 +425,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "skinned_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.skinned),
+            pipeline_cache.get_bind_group_layout(&self.skinned),
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(render_device, 1, current_skin),
@@ -450,7 +450,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "skinned_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.skinned_motion),
+            pipeline_cache.get_bind_group_layout(&self.skinned_motion),
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(render_device, 1, current_skin),
@@ -470,7 +470,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed),
+            pipeline_cache.get_bind_group_layout(&self.morphed),
             &[
                 entry::model(0, model.clone()),
                 entry::weights(2, current_weights),
@@ -497,7 +497,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_motion),
+            pipeline_cache.get_bind_group_layout(&self.morphed_motion),
             &[
                 entry::model(0, model.clone()),
                 entry::weights(2, current_weights),
@@ -519,7 +519,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_skinned_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_skinned),
+            pipeline_cache.get_bind_group_layout(&self.morphed_skinned),
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(render_device, 1, current_skin),
@@ -549,7 +549,7 @@ impl MeshLayouts {
     ) -> BindGroup {
         render_device.create_bind_group(
             "morphed_skinned_motion_mesh_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.morphed_skinned_motion),
+            pipeline_cache.get_bind_group_layout(&self.morphed_skinned_motion),
             &[
                 entry::model(0, model.clone()),
                 entry::skinning(render_device, 1, current_skin),
