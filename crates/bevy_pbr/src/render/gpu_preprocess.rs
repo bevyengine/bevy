@@ -2440,7 +2440,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_gpu_indexed_frustum_culling_bind_group",
-                        &self.pipeline_cache.get_bind_group_layout(
+                        self.pipeline_cache.get_bind_group_layout(
                             &self
                                 .pipelines
                                 .gpu_frustum_culling_preprocess

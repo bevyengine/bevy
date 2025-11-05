@@ -910,7 +910,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_bvh_cull_pong = render_device.create_bind_group(
             "meshlet_first_bvh_cull_pong_bind_group",
-            &pipeline_cache
+            pipeline_cache
                 .get_bind_group_layout(&resource_manager.first_bvh_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
@@ -1011,7 +1011,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let first_meshlet_cull = render_device.create_bind_group(
             "meshlet_first_meshlet_cull_bind_group",
-            &pipeline_cache
+            pipeline_cache
                 .get_bind_group_layout(&resource_manager.first_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
@@ -1042,7 +1042,7 @@ pub fn prepare_meshlet_view_bind_groups(
 
         let second_meshlet_cull = render_device.create_bind_group(
             "meshlet_second_meshlet_cull_bind_group",
-            &pipeline_cache
+            pipeline_cache
                 .get_bind_group_layout(&resource_manager.second_meshlet_cull_bind_group_layout),
             &BindGroupEntries::sequential((
                 &view_resources.previous_depth_pyramid,
