@@ -73,6 +73,13 @@ fn spawn_tasks(world_id: WorldId) {
                 {
                     println!("got error: {}", e);
                 }
+                if let Err(e) = async_access::<(), _, _>(world_id, PreUpdate, |()| {
+                    println!("In PreUpdate");
+                })
+                .await
+                {
+                    println!("{}", e);
+                }
             })
             .detach();
         }
