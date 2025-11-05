@@ -371,7 +371,7 @@ pub fn prepare_shadows(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "box_shadow_view_bind_group",
-            &pipeline_cache.get_bind_group_layout(&box_shadow_pipeline.view_layout),
+            pipeline_cache.get_bind_group_layout(&box_shadow_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 

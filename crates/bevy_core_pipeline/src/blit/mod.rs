@@ -75,7 +75,7 @@ impl BlitPipeline {
     ) -> BindGroup {
         render_device.create_bind_group(
             None,
-            &pipeline_cache.get_bind_group_layout(&self.layout),
+            pipeline_cache.get_bind_group_layout(&self.layout),
             &BindGroupEntries::sequential((src_texture, &self.sampler)),
         )
     }

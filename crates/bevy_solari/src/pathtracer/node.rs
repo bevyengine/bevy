@@ -63,7 +63,7 @@ impl ViewNode for PathtracerNode {
 
         let bind_group = render_context.render_device().create_bind_group(
             "pathtracer_bind_group",
-            &pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
+            pipeline_cache.get_bind_group_layout(&self.bind_group_layout),
             &BindGroupEntries::sequential((
                 &accumulation_texture.0.default_view,
                 view_target.get_unsampled_color_attachment().view,
