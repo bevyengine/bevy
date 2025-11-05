@@ -3,27 +3,21 @@ use std::any::type_name;
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::Visibility;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    lifecycle::HookContext,
-    query::Changed,
-    reflect::{ReflectComponent, ReflectResource},
-    resource::Resource,
-    system::{Query, ResMut},
-    world::DeferredWorld,
+    component::Component, entity::Entity, hierarchy::ChildOf, lifecycle::{HookContext, Insert}, observer::On, query::Changed, reflect::{ReflectComponent, ReflectResource}, resource::Resource, system::{Commands, Query, ResMut}, world::DeferredWorld
 };
 use bevy_image::Image;
 use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::TileStorage;
+use bevy_sprite::{TileData, TileStorage, Tilemap};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
-use tracing::warn;
+use tracing::{trace, warn};
 
 mod tilemap_chunk_material;
 
@@ -37,6 +31,7 @@ impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
+        app.world_mut().register_component_hooks::<TileStorage<TileRenderData>>().on_insert(on_insert_chunk_tile_render_data);
     }
 }
 
@@ -56,6 +51,19 @@ pub struct TilemapChunkRenderData {
     /// The size to use for each tile, not to be confused with the size of a tile in the tileset image.
     /// The size of the tile in the tileset image is determined by the tileset image's dimensions.
     pub tile_display_size: UVec2,
+    /// Handle to the tileset image containing all tile textures.
+    pub tileset: Handle<Image>,
+    /// The alpha mode to use for the tilemap chunk.
+    pub alpha_mode: AlphaMode2d,
+}
+
+/// A component representing a chunk of a tilemap.
+/// Each chunk is a rectangular section of tiles that is rendered as a single mesh.
+#[derive(Component, Clone, Debug, Default, Reflect)]
+#[reflect(Component, Clone, Debug, Default)]
+#[require(Transform, Visibility)]
+#[component(immutable)]
+pub struct TilemapRenderData {
     /// Handle to the tileset image containing all tile textures.
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
@@ -88,6 +96,45 @@ impl TilemapChunkRenderData {
     }
 }
 
+fn on_insert_chunk_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+    let Ok(chunk) = world.get_entity(entity) else {
+        warn!("Chunk {} not found", entity);
+        return;
+    };
+    if chunk.contains::<TilemapChunkRenderData>() {
+        trace!("Chunk {} already contains TilemapChunkRenderData", entity);
+        return;
+    }
+    let Some(child_of) = chunk.get::<ChildOf>() else {
+        warn!("Chunk {} is not a child of an entity", entity);
+        return;
+    };
+    let Ok(tilemap) = world.get_entity(child_of.parent()) else {
+        warn!("Could not find chunk {}'s parent {}", entity, child_of.parent());
+        return;
+    };
+    let Some(tilemap_render_data) = tilemap.get::<TilemapRenderData>() else {
+        warn!("Could not find TilemapRenderData on chunk {}'s parent {}", entity, child_of.parent());
+        return;
+    };
+    let Some(tilemap) = tilemap.get::<Tilemap>() else {
+        warn!("Could not find Tilemap on chunk {}'s parent {}", entity, child_of.parent());
+        return;
+    };
+
+    let data = TilemapChunkRenderData {
+            chunk_size: tilemap.chunk_size,
+            tile_display_size: tilemap.tile_display_size,
+            tileset: tilemap_render_data.tileset.clone(),
+            alpha_mode: tilemap_render_data.alpha_mode,
+        };
+
+    world
+        .commands()
+        .entity(entity)
+        .insert(data);
+}
+
 /// Data for a single tile in the tilemap chunk.
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Debug, Default)]
@@ -99,6 +146,8 @@ pub struct TileRenderData {
     /// The visibility of the tile.
     pub visible: bool,
 }
+
+impl TileData for TileRenderData {}
 
 impl TileRenderData {
     /// Creates a new `TileData` with the given tileset index and default values.
