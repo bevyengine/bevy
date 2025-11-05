@@ -1,4 +1,4 @@
-// This shader draws a checkerboard pattern
+// This shader draws the color plane in various color spaces.
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 #import bevy_ui_render::color_space::{
     srgb_to_linear_rgb,
