@@ -535,7 +535,7 @@ impl Schedule {
         });
 
         let error_handler = world.default_error_handler();
-        let _ = r#async::ASYNC_ECS_WAKER_LIST.wait(self.label, world);
+        while let Some(()) = r#async::ASYNC_ECS_WAKER_LIST.wait(self.label, world) {}
         #[cfg(not(feature = "bevy_debug_stepping"))]
         self.executor
             .run(&mut self.executable, world, None, error_handler);
