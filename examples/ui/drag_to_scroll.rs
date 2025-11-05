@@ -58,7 +58,7 @@ fn setup(mut commands: Commands) {
             >| {
                 if let Ok((computed_node, mut start)) = scroll_position_query.single_mut() {
                     start.0 = computed_node.scroll_position * computed_node.inverse_scale_factor;
-                };
+                }
             },
         )
         .with_children(|commands| {
