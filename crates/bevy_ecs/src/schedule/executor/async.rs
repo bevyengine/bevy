@@ -1,6 +1,6 @@
 use crate::schedule::r#async::keyed_queues::KeyedQueues;
 use crate::schedule::{InternedScheduleLabel, ScheduleLabel};
-use crate::system::{RunSystemError, SystemMeta};
+use crate::system::RunSystemError;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::FromWorld;
 use crate::{
@@ -9,14 +9,13 @@ use crate::{
 };
 use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
+use bevy_platform::sync::{Arc, Mutex, OnceLock, RwLock};
 use concurrent_queue::ConcurrentQueue;
-use std::any::{Any, TypeId};
-use std::marker::PhantomData;
-use std::pin::Pin;
-use std::prelude::v1::{Box, Vec};
-use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, OnceLock, RwLock};
-use std::task::{Context, Poll, Waker};
+use core::any::{Any, TypeId};
+use core::marker::PhantomData;
+use core::pin::Pin;
+use core::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+use core::task::{Context, Poll, Waker};
 use std::thread;
 
 mod keyed_queues {
@@ -82,9 +81,7 @@ pub(crate) struct SystemParamQueue<T: SystemParam + 'static>(
 );
 
 #[derive(bevy_ecs_macros::Resource, Default)]
-pub(crate) struct SystemParamApplications(
-    HashMap<TypeId, Box<dyn FnMut(&mut World) + Send + Sync + 'static>>,
-);
+pub(crate) struct SystemParamApplications(HashMap<TypeId, fn(&mut World)>);
 impl SystemParamApplications {
     fn run(&mut self, world: &mut World) {
         for closure in self.0.values_mut() {
@@ -99,9 +96,9 @@ impl<T: SystemParam + 'static> FromWorld for SystemParamQueue<T> {
         let mut system_param_applications =
             world.get_resource_mut::<SystemParamApplications>().unwrap();
         if !system_param_applications.0.contains_key(&TypeId::of::<T>()) {
-            system_param_applications.0.insert(
-                TypeId::of::<T>(),
-                Box::new(|world: &mut World| {
+            system_param_applications
+                .0
+                .insert(TypeId::of::<T>(), |world: &mut World| {
                     world.try_resource_scope(
                         |world, system_param_queue: Mut<SystemParamQueue<T>>| {
                             for concurrent_queue in system_param_queue.0.read().unwrap().values() {
@@ -117,8 +114,7 @@ impl<T: SystemParam + 'static> FromWorld for SystemParamQueue<T> {
                             }
                         },
                     );
-                }),
-            );
+                });
         }
         this
     }
@@ -278,7 +274,7 @@ impl AsyncWorldHolder {
         // this allows us to effectively yield as if pending if the world doesn't exist rn.
         let _world = our_thing.1.try_lock().ok()?;
         // SAFETY: this is safe because we ensure no one else has access to the world.
-        unsafe { Some(func(our_thing.0)) }
+        Some(func(our_thing.0))
     }
 }
 
