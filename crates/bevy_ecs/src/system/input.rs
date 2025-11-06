@@ -111,6 +111,15 @@ impl<T> DerefMut for In<T> {
     }
 }
 
+impl<T> Clone for In<T>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        In(self.0.clone())
+    }
+}
+
 /// A [`SystemInput`] type which denotes that a [`System`] receives
 /// a read-only reference to a value of type `T` from its caller.
 ///
@@ -144,7 +153,7 @@ impl<T> DerefMut for In<T> {
 /// ```
 ///
 /// [`SystemParam`]: crate::system::SystemParam
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InRef<'i, T: ?Sized>(pub &'i T);
 
 impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
@@ -186,7 +195,7 @@ impl<'i, T: ?Sized> Deref for InRef<'i, T> {
 /// let mut world = World::new();
 /// let mut square_system = IntoSystem::into_system(square);
 /// square_system.initialize(&mut world);
-///     
+///
 /// let mut value = 12;
 /// square_system.run(&mut value, &mut world);
 /// assert_eq!(value, 144);

@@ -105,19 +105,19 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     /// ```rust
     /// # use bevy_ecs::prelude::*;
     ///
-    /// #[derive(EntityEvent)]  
+    /// #[derive(EntityEvent)]
     /// struct AssertEvent {
     ///     entity: Entity,
     /// }
     ///
-    /// fn assert_observer(event: On<AssertEvent>) {  
-    ///     assert_eq!(event.observer(), event.entity);  
-    /// }  
+    /// fn assert_observer(event: On<AssertEvent>) {
+    ///     assert_eq!(event.observer(), event.entity);
+    /// }
     ///
-    /// let mut world = World::new();  
-    /// let entity = world.spawn(Observer::new(assert_observer)).id();  
+    /// let mut world = World::new();
+    /// let entity = world.spawn(Observer::new(assert_observer)).id();
     ///
-    /// world.trigger(AssertEvent { entity });  
+    /// world.trigger(AssertEvent { entity });
     /// ```
     pub fn observer(&self) -> Entity {
         self.observer
