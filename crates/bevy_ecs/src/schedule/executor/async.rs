@@ -19,6 +19,12 @@ use core::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use core::task::{Context, Poll, Waker};
 use std::thread;
 
+/// Keyed queues is a combination of a hashmap and a concurrent queue which is useful because it
+/// allows for non-blocking keyed queues.
+/// We want every World's async machinery to be as independent as possible, and this allows us
+/// to key our Queues on `(WorldId, Schedule)` so that there is 0 contention on the fast path and
+/// arbitrary N number of worlds running in parallel on the same process do not interfere at all
+/// except the very first time a new world initializes it's key.
 mod keyed_queues {
     use concurrent_queue::ConcurrentQueue;
     use std::sync::Arc;
@@ -69,18 +75,29 @@ mod keyed_queues {
     }
 }
 
-pub(crate) static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::new());
+/// This is an abstraction that temporarily and soundly stores the UnsafeWorldCell in a static so we can access
+/// it from any async task, runtime, and thread.
+static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::new());
+
+/// The entrypoint, stores Wakers from async_access's that wish to be polled with world access
+/// also stores the generic function pointer to the concrete function that initializes the
+/// system state for any set of SystemParams
 
 pub(crate) static GLOBAL_WAKE_REGISTRY: WakeRegistry = WakeRegistry(OnceLock::new());
 
+/// Acts as a barrier that is waited on in the `wait` call, and once the AtomicI64 reaches 0 the
+/// thread that `wait` was called on gets woken up and resumes.
 #[derive(bevy_ecs_macros::Resource, Clone)]
 pub(crate) struct WakeParkBarrier(thread::Thread, Arc<AtomicI64>);
 
+/// Stores the previous system state per task id which allows `Local`, `Changed` and other filters
+/// that depend on persistent state to work.
 #[derive(bevy_ecs_macros::Resource)]
 pub(crate) struct SystemStatePool<T: SystemParam + 'static>(
     RwLock<HashMap<AsyncTaskId, ConcurrentQueue<SystemState<T>>>>,
 );
 
+/// Function pointer to a concrete version of a genericized system state being applied to the world.
 #[derive(bevy_ecs_macros::Resource, Default)]
 pub(crate) struct SystemParamAppliers(HashMap<TypeId, fn(&mut World)>);
 impl SystemParamAppliers {
@@ -116,8 +133,10 @@ impl<T: SystemParam + 'static> FromWorld for SystemStatePool<T> {
     }
 }
 
+/// A monotonically increasing global identifier for any particular async task.
+/// Is an internal implementation detail and thus not generally accessible
 #[derive(Clone, Copy, Hash, PartialOrd, PartialEq, Eq)]
-struct AsyncTaskId(usize);
+struct AsyncTaskId(u64);
 
 /// The next [`AsyncTaskId`].
 static MAX_TASK_ID: AtomicU64 = AtomicU64::new(0);
@@ -139,6 +158,7 @@ impl AsyncTaskId {
     }
 }
 
+/// Is the GLOBAL_WAKE_REGISTRY
 pub(crate) struct WakeRegistry(
     OnceLock<
         KeyedQueues<
@@ -149,9 +169,17 @@ pub(crate) struct WakeRegistry(
 );
 
 impl WakeRegistry {
+    /// This function finds all pending `async_access` calls for a particular `Schedule` and a particular
+    /// `WorldId`. It wakes all of them, temporarily and soundly stores a `UnsafeWorldCell` in the
+    /// `GLOBAL_WORLD_ACCESS` and parks until the tasks it has awoken either complete their `async_access`
+    /// or have returned `Poll::Pending` for a variety of reasons.
+    /// The performance implications of this call are entirely dependent on the async runtime
+    /// you are using it with, certain poor implementations *could* cause this to take longer
+    /// than expect to resolve.
+    /// Returns `Some` as long as the last call processed any number of waiting `async_access` calls.
     pub fn wait(&self, schedule: InternedScheduleLabel, world: &mut World) -> Option<()> {
         let world_id = world.id();
-        let mut waker_list = std::vec![];
+        let mut waker_list = bevy_platform::prelude::vec![];
         while let Ok((waker, system_init, task_id)) = GLOBAL_WAKE_REGISTRY
             .0
             .get_or_init(|| KeyedQueues::new())
@@ -178,6 +206,7 @@ impl WakeRegistry {
         }) {
             return None;
         }
+        // Applies all the commands stored up to the world
         world.try_resource_scope(|world, mut appliers: Mut<SystemParamAppliers>| {
             appliers.run(world);
         });
@@ -185,7 +214,10 @@ impl WakeRegistry {
     }
 }
 
-/// The PhantomData here is just there cause it's a cute way of showing that we have a mutex around our unsafe worldcell and that's what the mutex is 'locking'
+/// This is a very low contention, no contention in the normal execution path, way of storing and
+/// using a UnsafeWorldCell from any thread/async task/async runtime.
+/// The `Mutex<PhantomData<>>` is used to return `Poll::Pending` early from an `async_access` if
+/// another `async_access` is currently using it.
 pub(crate) struct WorldAccessRegistry(
     OnceLock<
         RwLock<
@@ -203,7 +235,8 @@ pub(crate) struct WorldAccessRegistry(
 );
 
 impl WorldAccessRegistry {
-    pub(crate) fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
+    /// During this `func: FnOnce()` call, calling `get` will access the stored UnsafeWorldCell
+    fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
         let this = self.0.get_or_init(|| RwLock::new(HashMap::new()));
         let world_id = world.id();
         if !this.read().unwrap().contains_key(&world_id) {
@@ -221,8 +254,17 @@ impl WorldAccessRegistry {
         }
         impl<'a> Drop for ClearOnDropGuard<'a> {
             fn drop(&mut self) {
-                // clear it on the way out, even on panic
-                self.slot.write().unwrap().take();
+                // clear it on the way out
+                // we can't actually panic here because panicking in a drop is bad
+                match self.slot.write() {
+                    Ok(mut slot) => {
+                        let _ = slot.take();
+                    }
+                    Err(_) => {
+                        // This is okay because the mutex is poisoned so nothing can access the
+                        // UnsafeWorldCell now.
+                    }
+                }
             }
         }
         unsafe {
@@ -244,7 +286,7 @@ impl WorldAccessRegistry {
         }
         Some(())
     }
-    pub(crate) unsafe fn get<T>(
+    fn get<T>(
         &self,
         world_id: WorldId,
         func: impl FnOnce(UnsafeWorldCell) -> Poll<T>,
@@ -265,7 +307,12 @@ impl WorldAccessRegistry {
                 }
             }
         }
-        let async_barrier = {
+        // SAFETY: WakeParkBarrier is only *read* during this section per world, so reading it
+        // without an associated mutex is okay.
+        // Furthermore the WakeParkBarrier cannot be queried by `async_access` because it's type
+        // is not public, `async_access` cannot access `&mut World` to do a dynamic resource
+        // modification.
+        let async_barrier = unsafe {
             our_thing
                 .0
                 .get_resource::<WakeParkBarrier>()
@@ -291,7 +338,7 @@ pub fn async_access<P, Func, Out>(
 ) -> impl Future<Output = Result<Out, RunSystemError>>
 where
     P: SystemParam + 'static,
-    for<'w, 's> Func: Clone + FnMut(P::Item<'w, 's>) -> Out,
+    for<'w, 's> Func: FnMut(P::Item<'w, 's>) -> Out,
 {
     let task_identifier = task_identifier.into();
     PendingEcsCall::<P, Func, Out>(
@@ -375,37 +422,39 @@ where
 
         let task_id = self.4;
         let world_id = self.3 .0;
-        unsafe {
-            match GLOBAL_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
-                let system_param_queue = match world.get_resource::<SystemStatePool<P>>() {
-                    None => return Poll::Pending,
-                    Some(system_param_queue) => system_param_queue,
-                };
 
-                let mut system_state = match system_param_queue.0.read().unwrap().get(&task_id) {
-                    None => return Poll::Pending,
-                    Some(cq) => cq.pop().unwrap(),
-                };
-                let out;
-                // SAFETY: This is safe because we have a mutex around our world cell, so only one thing can have access to it at a time.
-                #[expect(unused_unsafe)]
-                unsafe {
-                    // Obtain params and immediately consume them with the closure,
-                    // ensuring the borrow ends before `apply`.
-                    if let Err(err) = SystemState::validate_param(&mut system_state, world) {
-                        return Poll::Ready(Err(err.into()));
-                    }
-                    if !system_state.meta().is_send() {
-                        return Poll::Ready(Err(
-                            SystemParamValidationError::invalid::<NonSend<()>>(
-                                "Cannot have your system be non-send / exclusive",
-                            )
-                            .into(),
-                        ));
-                    }
-                    let state = system_state.get_unchecked(world);
-                    out = self.as_mut().2.take().unwrap()(state);
+        match GLOBAL_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
+            // SAFETY: We have a fake-mutex around our world, so no one else can do mutable access to it.
+            let system_param_queue = match unsafe { world.get_resource::<SystemStatePool<P>>() } {
+                None => return Poll::Pending,
+                Some(system_param_queue) => system_param_queue,
+            };
+
+            let mut system_state = match system_param_queue.0.read().unwrap().get(&task_id) {
+                None => return Poll::Pending,
+                Some(cq) => cq.pop().unwrap(),
+            };
+            let out;
+            // SAFETY: This is safe because we have a fake-mutex around our world cell, so only one thing can have access to it at a time.
+            unsafe {
+                // Obtain params and immediately consume them with the closure,
+                // ensuring the borrow ends before `apply`.
+                if let Err(err) = SystemState::validate_param(&mut system_state, world) {
+                    return Poll::Ready(Err(err.into()));
                 }
+                if !system_state.meta().is_send() {
+                    return Poll::Ready(Err(
+                        SystemParamValidationError::invalid::<NonSend<()>>(
+                            "Cannot have your system be non-send / exclusive",
+                        )
+                        .into(),
+                    ));
+                }
+                let state = system_state.get_unchecked(world);
+                out = self.as_mut().2.take().unwrap()(state);
+            }
+            // SAFETY: We have a fake-mutex around our world, so no one else can do mutable access to it.
+            unsafe {
                 match world
                     .get_resource::<SystemStatePool<P>>()
                     .unwrap()
@@ -417,24 +466,30 @@ where
                     .push(system_state)
                 {
                     Ok(_) => {}
-                    Err(_) => panic!(),
+                    Err(_) => unreachable!("SystemStatePool should not be able to be removed if it previously existed, otherwise an invariant was violated"),
                 }
-                Poll::Ready(Ok(out))
-            }) {
-                Some(awa) => awa,
-                _ => {
-                    match GLOBAL_WAKE_REGISTRY
-                        .0
-                        .get_or_init(|| KeyedQueues::new())
-                        .try_send(
-                            &self.3,
-                            (cx.waker().clone(), system_state_init::<P>, task_id),
-                        ) {
-                        Ok(_) => {}
-                        Err(_) => panic!(),
-                    }
-                    Poll::Pending
+            }
+            Poll::Ready(Ok(out))
+        }) {
+            Some(awa) => awa,
+            _ => {
+                // This must be a static, sadly, because we must always make sure that we can store
+                // our pending wakers no matter what. Everything else that we care about can be
+                // stored on the world itself, but this must always be accessible, even if another
+                // `async_access` is currently running.
+                match GLOBAL_WAKE_REGISTRY
+                    .0
+                    .get_or_init(|| KeyedQueues::new())
+                    .try_send(
+                        &self.3,
+                        (cx.waker().clone(), system_state_init::<P>, task_id),
+                    ) {
+                    Ok(_) => {}
+                    // This should never panic because we never `close` our concurrent queues and
+                    // the concurrent queue here is unbounded.
+                    Err(_) => unreachable!(),
                 }
+                Poll::Pending
             }
         }
     }
