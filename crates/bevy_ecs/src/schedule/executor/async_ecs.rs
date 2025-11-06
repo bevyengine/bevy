@@ -1,12 +1,13 @@
 use crate::schedule::async_ecs::keyed_queues::KeyedQueues;
 use crate::schedule::{InternedScheduleLabel, ScheduleLabel};
-use crate::system::{RunSystemError, SystemParamValidationError};
+use crate::system::SystemParamValidationError;
 use crate::world::unsafe_world_cell::UnsafeWorldCell;
 use crate::world::FromWorld;
 use crate::{
     system::{SystemParam, SystemState},
     world::World,
 };
+use bevy_ecs::error::ErrorContext;
 use bevy_ecs::prelude::NonSend;
 use bevy_ecs::world::{Mut, WorldId};
 use bevy_platform::collections::HashMap;
@@ -179,6 +180,14 @@ impl WakeRegistry {
     /// Returns `Some` as long as the last call processed any number of waiting `async_access` calls.
     pub fn wait(&self, schedule: InternedScheduleLabel, world: &mut World) -> Option<()> {
         let world_id = world.id();
+        // Cleanups the garbage first.
+        for (cleanup_function, task_to_cleanup) in TASKS_TO_CLEANUP
+            .get_or_init(KeyedQueues::new)
+            .get_or_create(&world_id)
+            .try_iter()
+        {
+            cleanup_function(world, task_to_cleanup);
+        }
         let mut waker_list = bevy_platform::prelude::vec![];
         while let Ok((waker, system_init, task_id)) = GLOBAL_WAKE_REGISTRY
             .0
@@ -331,33 +340,75 @@ impl WorldAccessRegistry {
 /// Calls will never return immediately and will always start Pending at least once.
 /// Call this with the same `PersistentTask` to persist SystemParams like Local or Changed
 /// Just use `world_id` if you do not mind a new SystemParam being initialized every time.
-pub fn async_access<P, Func, Out>(
+pub async fn async_access<P, Func, Out>(
     task_identifier: impl Into<EcsTask<P>>,
     schedule: impl ScheduleLabel,
     ecs_access: Func,
-) -> impl Future<Output = Result<Out, RunSystemError>>
+) -> Out
 where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnMut(P::Item<'w, 's>) -> Out,
 {
     let task_identifier = task_identifier.into();
-    PendingEcsCall::<P, Func, Out>(
+    let out = PendingEcsCall::<P, Func, Out>(
         PhantomData::<P>,
         PhantomData,
         Some(ecs_access),
         (task_identifier.1, schedule.intern()),
         task_identifier.0,
     )
+    .await;
+    if task_identifier.3 == Cleanup::Auto {
+        cleanup_ecs_task(task_identifier);
+    }
+    out
+}
+
+static TASKS_TO_CLEANUP: OnceLock<
+    KeyedQueues<WorldId, (fn(&mut World, AsyncTaskId), AsyncTaskId)>,
+> = OnceLock::new();
+
+/// Pass the `EcsTask` into here after you're done using it
+/// This function will mark the `SystemState` for that task for cleanup.
+pub fn cleanup_ecs_task<P: SystemParam + 'static>(task: EcsTask<P>) {
+    fn cleanup_task<P: SystemParam + 'static>(world: &mut World, task_id: AsyncTaskId) {
+        world.try_resource_scope(|_world, param_pool: Mut<SystemStatePool<P>>| {
+            let mut pool = param_pool.0.write().unwrap();
+            pool.remove(&task_id);
+            if pool.len() * 2 < pool.capacity() {
+                pool.shrink_to_fit();
+            }
+        });
+    }
+    // Should never panic cause this is an unbounded queue
+    match TASKS_TO_CLEANUP
+        .get_or_init(KeyedQueues::new)
+        .try_send(&task.1, (cleanup_task::<P>, task.0))
+    {
+        Ok(_) => {}
+        Err(_) => unreachable!(),
+    }
 }
 
 impl<T> From<WorldId> for EcsTask<T> {
     fn from(value: WorldId) -> Self {
-        EcsTask::new(value)
+        EcsTask(
+            AsyncTaskId::new().unwrap(),
+            value,
+            PhantomData,
+            Cleanup::Auto,
+        )
     }
 }
 
 /// An EcsTask can be re-used in order to persist SystemParams like Local, Changed, or Added
-pub struct EcsTask<T>(AsyncTaskId, WorldId, PhantomData<T>);
+pub struct EcsTask<T>(AsyncTaskId, WorldId, PhantomData<T>, Cleanup);
+
+#[derive(PartialEq, Copy, Clone)]
+enum Cleanup {
+    Auto,
+    Manual,
+}
 
 impl<T> Clone for EcsTask<T> {
     fn clone(&self) -> Self {
@@ -370,7 +421,12 @@ impl<T> EcsTask<T> {
     /// Generates a new unique PersistentTask that can be re-used in order to persist SystemParams
     /// like Local, Changed, or Added
     pub fn new(world_id: WorldId) -> Self {
-        Self(AsyncTaskId::new().unwrap(), world_id, PhantomData)
+        Self(
+            AsyncTaskId::new().unwrap(),
+            world_id,
+            PhantomData,
+            Cleanup::Manual,
+        )
     }
 }
 
@@ -389,7 +445,7 @@ where
     P: SystemParam + 'static,
     for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
 {
-    type Output = Result<Out, RunSystemError>;
+    type Output = Out;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         fn system_state_init<P: SystemParam + 'static>(world: &mut World, task_id: AsyncTaskId) {
@@ -437,18 +493,22 @@ where
             let out;
             // SAFETY: This is safe because we have a fake-mutex around our world cell, so only one thing can have access to it at a time.
             unsafe {
+                let default_error_handler = world.default_error_handler();
                 // Obtain params and immediately consume them with the closure,
                 // ensuring the borrow ends before `apply`.
                 if let Err(err) = SystemState::validate_param(&mut system_state, world) {
-                    return Poll::Ready(Err(err.into()));
+                    default_error_handler(err.into(), ErrorContext::System {
+                        name: system_state.meta.name.clone(),
+                        last_run: system_state.meta.last_run,
+                    });
                 }
                 if !system_state.meta().is_send() {
-                    return Poll::Ready(Err(
-                        SystemParamValidationError::invalid::<NonSend<()>>(
-                            "Cannot have your system be non-send / exclusive",
-                        )
-                        .into(),
-                    ));
+                    default_error_handler(SystemParamValidationError::invalid::<NonSend<()>>(
+                        "Cannot have your system be non-send / exclusive",
+                    ).into(), ErrorContext::System {
+                        name: system_state.meta.name.clone(),
+                        last_run: system_state.meta.last_run,
+                    });
                 }
                 let state = system_state.get_unchecked(world);
                 out = self.as_mut().2.take().unwrap()(state);
@@ -469,7 +529,7 @@ where
                     Err(_) => unreachable!("SystemStatePool should not be able to be removed if it previously existed, otherwise an invariant was violated"),
                 }
             }
-            Poll::Ready(Ok(out))
+            Poll::Ready(out)
         }) {
             Some(awa) => awa,
             _ => {

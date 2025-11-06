@@ -47,7 +47,7 @@ fn spawn_tasks(world_id: WorldId) {
                 // Simulate a delay before task completion
                 println!("delaying for {:?}", delay);
                 Delay::new(delay).await;
-                if let Err(e) = async_access::<
+                let value = async_access::<
                     (
                         Local<u32>,
                         Commands,
@@ -67,23 +67,22 @@ fn spawn_tasks(world_id: WorldId) {
                             MeshMaterial3d(box_material.clone()),
                             Transform::from_xyz(x as f32, 0.5, z as f32),
                         ));
+                        *local
                     },
                 )
-                .await
-                {
-                    println!("got error: {}", e);
+                .await;
+                if value as i32 == (NUM_CUBES * 2) * (NUM_CUBES * 2) {
+                    cleanup_ecs_task(task_id);
                 }
+                println!("spawned {}", value);
 
                 let mut my_thing = String::new();
 
-                if let Err(e) = async_access::<(), _, _>(world_id, PreUpdate, |()| {
+                async_access::<(), _, _>(world_id, PreUpdate, |()| {
                     my_thing.push('h');
-                    println!("In PreUpdate");
+                    //println!("In PreUpdate");
                 })
-                .await
-                {
-                    println!("{}", e);
-                }
+                .await;
                 my_thing.push('h');
             })
             .detach();

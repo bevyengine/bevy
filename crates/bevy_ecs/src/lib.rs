@@ -94,7 +94,7 @@ pub mod prelude {
         resource::Resource,
         schedule::{
             common_conditions::*,
-            executor::async_ecs::{async_access, EcsTask},
+            executor::async_ecs::{async_access, cleanup_ecs_task, EcsTask},
             ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule, Schedules,
             SystemCondition, SystemSet,
         },
