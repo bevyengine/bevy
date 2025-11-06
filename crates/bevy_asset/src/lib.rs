@@ -2304,14 +2304,17 @@ mod tests {
                 let untyped = world.resource::<Assets<crate::LoadedUntypedAsset>>();
                 if let Some(untyped_handle) = untyped.get(asset_id) {
                     assert_eq!(handle.id(), untyped_handle.handle.id());
+                    if cfg!(target_os = "windows") {
+                        panic!("Can unexpectedly get asset from self path on windows.");
+                    }
                 } else {
                     // Windows does not have this asset loaded. I don't know why
                     // it would behave any differently. This next line will
                     // effectively ignore the issue.
                     if !cfg!(target_os = "windows") {
                         panic!(
-                            "Cannot get asset from self path even though it \
-                                claims it was loaded."
+                            "Cannot get asset from self path on windows even \
+                             though it claims it was loaded."
                         );
                     }
                 }
