@@ -204,7 +204,8 @@ impl ViewNode for SolariLightingNode {
         let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
             render_context.render_device().create_bind_group(
                 "solari_lighting_bind_group_resolve_dlss_rr_textures",
-                &self.bind_group_layout_resolve_dlss_rr_textures,
+                &pipeline_cache
+                    .get_bind_group_layout(&self.bind_group_layout_resolve_dlss_rr_textures),
                 &BindGroupEntries::sequential((
                     &d.diffuse_albedo.default_view,
                     &d.specular_albedo.default_view,

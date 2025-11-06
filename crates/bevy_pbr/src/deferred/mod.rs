@@ -4,7 +4,10 @@ use crate::{
     ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
     TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
-use crate::{DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset};
+use crate::{
+    DistanceFog, ExtractedAtmosphere, MeshPipelineKey, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
+};
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
@@ -325,6 +328,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::DISTANCE_FOG) {
             shader_defs.push("DISTANCE_FOG".into());
         }
+        if key.contains(MeshPipelineKey::ATMOSPHERE) {
+            shader_defs.push("ATMOSPHERE".into());
+        }
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
@@ -452,6 +458,7 @@ pub fn prepare_deferred_lighting_pipelines(
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
         Has<SkipDeferredLighting>,
+        Has<ExtractedAtmosphere>,
     )>,
 ) {
     for (
@@ -465,6 +472,7 @@ pub fn prepare_deferred_lighting_pipelines(
         has_environment_maps,
         has_irradiance_volumes,
         skip_deferred_lighting,
+        has_atmosphere,
     ) in &views
     {
         // If there is no deferred prepass or we want to skip the deferred lighting pass,
@@ -487,6 +495,10 @@ pub fn prepare_deferred_lighting_pipelines(
 
         if motion_vector_prepass {
             view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if has_atmosphere {
+            view_key |= MeshPipelineKey::ATMOSPHERE;
         }
 
         // Always true, since we're in the deferred lighting pipeline
