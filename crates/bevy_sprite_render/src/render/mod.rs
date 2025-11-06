@@ -524,7 +524,7 @@ pub fn queue_sprites(
         view_entities.extend(
             visible_entities
                 .iter::<Sprite>()
-                .map(|(_, e)| e.index() as usize),
+                .map(|(_, e)| e.index_u32() as usize),
         );
 
         transparent_phase
@@ -532,7 +532,7 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
-            let view_index = extracted_sprite.main_entity.index();
+            let view_index = extracted_sprite.main_entity.index_u32();
 
             if !view_entities.contains(view_index as usize) {
                 continue;

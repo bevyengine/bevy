@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -343,6 +343,21 @@ impl ScrollPosition {
 
 impl From<Vec2> for ScrollPosition {
     fn from(value: Vec2) -> Self {
+        Self(value)
+    }
+}
+
+/// Controls whether a UI element ignores its parent's [`ScrollPosition`] along specific axes.
+///
+/// When an axis is set to `true`, the node will not have the parent’s scroll position applied
+/// on that axis. This can be used to keep an element visually fixed along one or both axes
+/// even when its parent UI element is scrolled.
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct IgnoreScroll(pub BVec2);
+
+impl From<BVec2> for IgnoreScroll {
+    fn from(value: BVec2) -> Self {
         Self(value)
     }
 }

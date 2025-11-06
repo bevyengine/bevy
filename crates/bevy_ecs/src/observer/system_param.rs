@@ -46,10 +46,6 @@ pub struct On<'w, 't, E: Event, B: Bundle = ()> {
     _marker: PhantomData<B>,
 }
 
-/// Deprecated in favor of [`On`].
-#[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
-pub type Trigger<'w, 't, E, B = ()> = On<'w, 't, E, B>;
-
 impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     /// Creates a new instance of [`On`] for the given triggered event.
     pub fn new(
@@ -126,21 +122,6 @@ impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
     /// Returns the source code location that triggered this observer, if the `track_location` cargo feature is enabled.
     pub fn caller(&self) -> MaybeLocation {
         self.trigger_context.caller
-    }
-}
-
-impl<'w, 't, E: EntityEvent, B: Bundle> On<'w, 't, E, B> {
-    /// A deprecated way to retrieve the entity that this [`EntityEvent`] targeted at.
-    ///
-    /// Access the event via [`On::event`], then read the entity that the event was targeting.
-    /// Prefer using the field name directly for clarity,
-    /// but if you are working in a generic context, you can use [`EntityEvent::event_target`].
-    #[deprecated(
-        since = "0.17.0",
-        note = "Call On::event() to access the event, then read the target entity from the event directly."
-    )]
-    pub fn target(&self) -> Entity {
-        self.event.event_target()
     }
 }
 
