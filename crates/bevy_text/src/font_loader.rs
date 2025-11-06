@@ -28,7 +28,7 @@ impl AssetLoader for FontLoader {
         _settings: &(),
         load_context: &mut LoadContext<'_>,
     ) -> Result<Font, Self::Error> {
-        let path = load_context.asset_path().to_string();
+        let path = load_context.path().to_string();
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let font = Font::try_from_bytes(bytes, path);
