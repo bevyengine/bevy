@@ -1,4 +1,4 @@
-use crate::schedule::r#async::keyed_queues::KeyedQueues;
+use crate::schedule::async_ecs::keyed_queues::KeyedQueues;
 use crate::schedule::{InternedScheduleLabel, ScheduleLabel};
 use crate::system::{RunSystemError, SystemParamValidationError};
 use crate::world::unsafe_world_cell::UnsafeWorldCell;

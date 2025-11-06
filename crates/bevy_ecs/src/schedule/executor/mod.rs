@@ -1,5 +1,5 @@
 /// Async ECS access, using the ECS from Async Tasks
-pub mod r#async;
+pub mod async_ecs;
 #[cfg(feature = "std")]
 mod multi_threaded;
 mod single_threaded;
