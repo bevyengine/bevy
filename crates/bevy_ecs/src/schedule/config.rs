@@ -560,14 +560,14 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
-    /// Chain systems to run in sequence, with independent change detection.
+    /// Chain systems to run in sequence, by implicitly adding ordering constraints between them.
     ///
     /// Systems in a chain:
     /// - Execute in sequential order
     /// - Each maintain their own tick state
     /// - Have independent change detection
     /// - Update ticks even when skipped by conditions
-    ///
+    /// - Equivalent to using `before` / `after` system orderings.
     /// Later systems in the chain will see changes made by earlier systems while maintaining
     /// their own change detection state.
     fn chain(self) -> Self {
