@@ -306,7 +306,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
 
-        let is_self_path = *self.load_context.asset_path() == path;
+        let is_self_path = *self.load_context.path() == path;
         let handle = if self.load_context.should_load_dependencies {
             self.load_context.asset_server.load_with_meta_transform(
                 path,
@@ -327,7 +327,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
         } else {
             debug!(
                 "Asset from path `{:?}` loaded its self path",
-                self.load_context.asset_path()
+                self.load_context.path()
             );
         }
         handle
@@ -377,7 +377,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
     /// This will infer the asset type from metadata.
     pub fn load<'p>(self, path: impl Into<AssetPath<'p>>) -> Handle<LoadedUntypedAsset> {
         let path = path.into().to_owned();
-        let is_self_path = *self.load_context.asset_path() == path;
+        let is_self_path = *self.load_context.path() == path;
         let handle = if self.load_context.should_load_dependencies {
             self.load_context
                 .asset_server
@@ -396,7 +396,7 @@ impl NestedLoader<'_, '_, UnknownTyped, Deferred> {
         } else {
             debug!(
                 "Asset from path `{:?}` of unknown type loaded its self path",
-                self.load_context.asset_path()
+                self.load_context.path()
             );
         }
         handle
@@ -421,7 +421,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
         if path.label().is_some() {
             return Err(LoadDirectError::RequestedSubasset(path.clone()));
         }
-        if self.load_context.asset_path() == path {
+        if self.load_context.path() == path {
             return Err(LoadDirectError::RequestedSelfPath(path.clone()));
         }
         self.load_context

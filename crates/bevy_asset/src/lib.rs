@@ -1988,7 +1988,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                let asset_path = load_context.asset_path().clone();
+                let asset_path = load_context.path().clone();
                 let loaded_asset = load_context
                     .loader()
                     .immediate()
@@ -2042,7 +2042,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                let asset_path = load_context.asset_path().clone();
+                let asset_path = load_context.path().clone();
                 let loaded_asset = load_context
                     .loader()
                     .immediate()
@@ -2105,7 +2105,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                let asset_path = load_context.asset_path().clone();
+                let asset_path = load_context.path().clone();
                 let loaded_asset = load_context.load::<TestAsset>(asset_path);
                 Ok(TestAsset(loaded_asset))
             }
@@ -2188,7 +2188,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                let asset_path = load_context.asset_path().clone();
+                let asset_path = load_context.path().clone();
                 let _bytes = load_context.read_asset_bytes(asset_path).await.unwrap();
                 Ok(TestAsset)
             }
@@ -2272,7 +2272,7 @@ mod tests {
                 _: &Self::Settings,
                 load_context: &mut LoadContext<'_>,
             ) -> Result<Self::Asset, Self::Error> {
-                let asset_path = load_context.asset_path().clone();
+                let asset_path = load_context.path().clone();
                 let untyped_handle: Handle<crate::LoadedUntypedAsset> =
                     load_context.loader().with_unknown_type().load(asset_path);
 
