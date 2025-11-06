@@ -8,7 +8,7 @@ use crate::{
     archetype::Archetypes,
     bundle::Bundles,
     change_detection::{ComponentTicksMut, ComponentTicksRef, Tick},
-    component::{ComponentId, Components},
+    component::{self, ComponentId, Components},
     entity::{Entities, EntityAllocator},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
@@ -16,7 +16,7 @@ use crate::{
     },
     resource::Resource,
     storage::ResourceData,
-    system::{Query, Single, SystemMeta},
+    system::{BoxedSystem, Query, RunSystemError, Single, System, SystemInput, SystemMeta},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -31,6 +31,7 @@ use core::{
     any::Any,
     fmt::{Debug, Display},
     marker::PhantomData,
+    mem,
     ops::{Deref, DerefMut},
 };
 use thiserror::Error;
@@ -2834,6 +2835,116 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_access`,
         // and we registered all resource access in `state``.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
+    }
+}
+
+pub struct SystemRunner<'w, 's, In: SystemInput = (), Out = ()> {
+    world: UnsafeWorldCell<'w>,
+    system: &'s mut dyn System<In = In, Out = Out>,
+}
+
+impl<'w, 's, In: SystemInput + 'static, Out: 'static> SystemRunner<'w, 's, In, Out> {
+    #[inline]
+    pub fn run_with(&mut self, input: In::Inner<'_>) -> Result<Out, RunSystemError> {
+        // SAFETY:
+        // - all accesses are properly declared in `init_access`
+        unsafe { self.system.run_unsafe(input, self.world) }
+    }
+}
+
+impl<'w, 's, Out: 'static> SystemRunner<'w, 's, (), Out> {
+    #[inline]
+    pub fn run(&mut self) -> Result<Out, RunSystemError> {
+        self.run_with(())
+    }
+}
+
+/// The [`SystemParam::State`] for a [`SystemRunner`].
+pub struct SystemRunnerState<In: SystemInput = (), Out = ()> {
+    pub(crate) system: Option<BoxedSystem<In, Out>>,
+    pub(crate) access: FilteredAccessSet,
+}
+
+// SAFETY: SystemRunner registers all accesses and panics if a conflict is detected.
+unsafe impl<'w, 's, In: SystemInput + 'static, Out: 'static> SystemParam
+    for SystemRunner<'w, 's, In, Out>
+{
+    type State = SystemRunnerState<In, Out>;
+
+    type Item<'world, 'state> = SystemRunner<'world, 'state, In, Out>;
+
+    #[inline]
+    fn init_state(_world: &mut World) -> Self::State {
+        SystemRunnerState {
+            system: None,
+            access: FilteredAccessSet::default(),
+        }
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        //TODO: does this handle exclusive systems properly?
+        let conflicts = component_access_set.get_conflicts(&state.access);
+        if !conflicts.is_empty() {
+            let system_name = system_meta.name();
+            let mut accesses = conflicts.format_conflict_list(world);
+            // Access list may be empty (if access to all components requested)
+            if !accesses.is_empty() {
+                accesses.push(' ');
+            }
+            panic!("error[B0001]: SystemRunner({}) in system {system_name} accesses component(s) {accesses}in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint system accesses or using a `ParamSet`. See: https://bevy.org/learn/errors/b0001", state.system.as_ref().map(|sys| sys.name()).unwrap_or(DebugName::borrowed("")));
+        }
+
+        component_access_set.extend(state.access.clone());
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        SystemRunner {
+            world,
+            system: state.system.as_deref_mut().expect("SystemRunner accessed with invalid state. This should have been caught by `validate_param`"),
+        }
+    }
+
+    #[inline]
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        if let Some(sys) = &mut state.system {
+            sys.apply_deferred(world);
+        }
+    }
+
+    #[inline]
+    fn queue(state: &mut Self::State, _system_meta: &SystemMeta, world: DeferredWorld) {
+        if let Some(sys) = &mut state.system {
+            sys.queue_deferred(world);
+        }
+    }
+
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        state.system.as_mut().ok_or(SystemParamValidationError {
+            skipped: false,
+            message: "SystemRunner must be manually initialized, for example with the system builder API.".into(),
+            param: DebugName::type_name::<Self>(),
+            field: "".into(),
+        }).and_then(|sys| {
+            // SAFETY: caller asserts that `world` has all accesses declared in `init_access`,
+            // which match the underlying system when `state.system` is `Ok`, and otherwise
+            // this branch will not be entered.
+            unsafe { sys.validate_param_unsafe(world) }
+        })
     }
 }
 

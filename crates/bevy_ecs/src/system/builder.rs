@@ -9,9 +9,10 @@ use crate::{
     query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If, IntoResult, IntoSystem,
-        Local, ParamSet, Query, ReadOnlySystem, System, SystemInput, SystemMeta, SystemParam,
-        SystemParamFunction, SystemParamValidationError,
+        BoxedSystem, DynSystemParam, DynSystemParamState, FromInput, FunctionSystem, If,
+        IntoResult, IntoSystem, Local, ParamSet, Query, ReadOnlySystem, System, SystemInput,
+        SystemMeta, SystemParam, SystemParamFunction, SystemParamValidationError, SystemRunner,
+        SystemRunnerState,
     },
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
@@ -216,6 +217,13 @@ impl ParamBuilder {
     pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
+    }
+
+    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::from_system`]
+    pub fn system<'w, 's, In: SystemInput + 'static, Out: 'static, Marker>(
+        system: impl IntoSystem<In, Out, Marker>,
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out>> {
+        SystemRunnerBuilder::from_system(system)
     }
 }
 
@@ -876,6 +884,32 @@ pub struct IfBuilder<T>(T);
 unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<If<P>> for IfBuilder<B> {
     fn build(self, world: &mut World) -> <If<P> as SystemParam>::State {
         self.0.build(world)
+    }
+}
+
+/// A [`SystemParamBuilder`] for a [`SystemRunner`]
+pub struct SystemRunnerBuilder<In: SystemInput + 'static = (), Out: 'static = ()>(
+    BoxedSystem<In, Out>,
+);
+
+impl<In: SystemInput + 'static, Out: 'static> SystemRunnerBuilder<In, Out> {
+    /// Returns a `SystemRunnerBuilder` created from a given system.
+    pub fn from_system<S: IntoSystem<In, Out, M>, M>(system: S) -> Self {
+        Self(Box::new(S::into_system(system)))
+    }
+}
+
+// SAFETY: the state returned is always valid. In particular the access always
+// matches the contained system.
+unsafe impl<'w, 's, In: SystemInput + 'static, Out: 'static>
+    SystemParamBuilder<SystemRunner<'w, 's, In, Out>> for SystemRunnerBuilder<In, Out>
+{
+    fn build(mut self, world: &mut World) -> SystemRunnerState<In, Out> {
+        let access = self.0.initialize(world);
+        SystemRunnerState {
+            system: Some(self.0),
+            access,
+        }
     }
 }
 
