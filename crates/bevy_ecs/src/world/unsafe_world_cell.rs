@@ -9,7 +9,9 @@ use crate::{
         MutUntyped, Tick,
     },
     component::{ComponentId, Components, Mutable, StorageType},
-    entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
+    entity::{
+        ContainsEntity, Entities, Entity, EntityAllocator, EntityLocation, EntityNotSpawnedError,
+    },
     error::{DefaultErrorHandler, ErrorHandler},
     lifecycle::RemovedComponentMessages,
     observer::Observers,
@@ -262,6 +264,14 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.entities
     }
 
+    /// Retrieves this world's [`Entities`] collection.
+    #[inline]
+    pub fn entities_allocator(self) -> &'w EntityAllocator {
+        // SAFETY:
+        // - we only access world metadata
+        &unsafe { self.world_metadata() }.allocator
+    }
+
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(self) -> &'w Archetypes {
@@ -361,14 +371,8 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
-    pub fn get_entity(
-        self,
-        entity: Entity,
-    ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+    pub fn get_entity(self, entity: Entity) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
+        let location = self.entities().get_spawned(entity)?;
         Ok(UnsafeEntityCell::new(
             self,
             entity,
@@ -386,11 +390,8 @@ impl<'w> UnsafeWorldCell<'w> {
         entity: Entity,
         last_run: Tick,
         this_run: Tick,
-    ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
-        let location = self
-            .entities()
-            .get(entity)
-            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+    ) -> Result<UnsafeEntityCell<'w>, EntityNotSpawnedError> {
+        let location = self.entities().get_spawned(entity)?;
         Ok(UnsafeEntityCell::new(
             self, entity, location, last_run, this_run,
         ))

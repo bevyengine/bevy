@@ -616,10 +616,6 @@ pub struct MaterialExtractionSystems;
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
 
-/// Deprecated alias for [`MaterialExtractionSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
-pub type ExtractMaterialsSet = MaterialExtractionSystems;
-
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -1218,15 +1214,17 @@ pub fn queue_material_meshes(
 
             // Fetch the slabs that this mesh resides in.
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-            let Some(draw_function) = material.properties.get_draw_function(MaterialDrawFunction)
-            else {
-                continue;
-            };
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Transmissive => {
                     let distance = rangefinder.distance_translation(&mesh_instance.translation)
                         + material.properties.depth_bias;
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassTransmissiveDrawFunction)
+                    else {
+                        continue;
+                    };
                     transmissive_phase.add(Transmissive3d {
                         entity: (*render_entity, *visible_entity),
                         draw_function,
@@ -1246,6 +1244,12 @@ pub fn queue_material_meshes(
                         opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassOpaqueDrawFunction)
+                    else {
+                        continue;
+                    };
                     let batch_set_key = Opaque3dBatchSetKey {
                         pipeline: pipeline_id,
                         draw_function,
@@ -1271,6 +1275,12 @@ pub fn queue_material_meshes(
                 }
                 // Alpha mask
                 RenderPhaseType::AlphaMask => {
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassAlphaMaskDrawFunction)
+                    else {
+                        continue;
+                    };
                     let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                         draw_function,
                         pipeline: pipeline_id,
@@ -1296,6 +1306,12 @@ pub fn queue_material_meshes(
                 RenderPhaseType::Transparent => {
                     let distance = rangefinder.distance_translation(&mesh_instance.translation)
                         + material.properties.depth_bias;
+                    let Some(draw_function) = material
+                        .properties
+                        .get_draw_function(MainPassTransparentDrawFunction)
+                    else {
+                        continue;
+                    };
                     transparent_phase.add(Transparent3d {
                         entity: (*render_entity, *visible_entity),
                         draw_function,
@@ -1389,13 +1405,23 @@ pub struct MeshletPrepassFragmentShader;
 pub struct MeshletDeferredFragmentShader;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MaterialDrawFunction;
+pub struct MainPassOpaqueDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MainPassAlphaMaskDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MainPassTransmissiveDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct MainPassTransparentDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PrepassDrawFunction;
+pub struct PrepassOpaqueDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct PrepassAlphaMaskDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct DeferredDrawFunction;
+pub struct DeferredOpaqueDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
+pub struct DeferredAlphaMaskDrawFunction;
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
@@ -1637,17 +1663,37 @@ where
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial>();
-        let draw_opaque_prepass = opaque_prepass_draw_functions.read().get_id::<DrawPrepass>();
-        let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions
-            .read()
-            .get_id::<DrawPrepass>();
-        let draw_opaque_deferred = opaque_deferred_draw_functions
-            .read()
-            .get_id::<DrawPrepass>();
+        let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass>();
+        let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions.read().id::<DrawPrepass>();
+        let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass>();
         let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
             .read()
-            .get_id::<DrawPrepass>();
-        let shadow_draw_function_id = shadow_draw_functions.read().get_id::<DrawPrepass>();
+            .id::<DrawPrepass>();
+        let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
+
+        let draw_functions = SmallVec::from_iter([
+            (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
+            (MainPassAlphaMaskDrawFunction.intern(), draw_alpha_mask_pbr),
+            (
+                MainPassTransmissiveDrawFunction.intern(),
+                draw_transmissive_pbr,
+            ),
+            (
+                MainPassTransparentDrawFunction.intern(),
+                draw_transparent_pbr,
+            ),
+            (PrepassOpaqueDrawFunction.intern(), draw_opaque_prepass),
+            (
+                PrepassAlphaMaskDrawFunction.intern(),
+                draw_alpha_mask_prepass,
+            ),
+            (DeferredOpaqueDrawFunction.intern(), draw_opaque_deferred),
+            (
+                DeferredAlphaMaskDrawFunction.intern(),
+                draw_alpha_mask_deferred,
+            ),
+            (ShadowsDrawFunction.intern(), draw_shadows),
+        ]);
 
         let render_method = match material.opaque_render_method() {
             OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -1672,35 +1718,6 @@ where
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
-
-        let draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => draw_opaque_pbr,
-            RenderPhaseType::AlphaMask => draw_alpha_mask_pbr,
-            RenderPhaseType::Transmissive => draw_transmissive_pbr,
-            RenderPhaseType::Transparent => draw_transparent_pbr,
-        };
-        let prepass_draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => draw_opaque_prepass,
-            RenderPhaseType::AlphaMask => draw_alpha_mask_prepass,
-            _ => None,
-        };
-        let deferred_draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => draw_opaque_deferred,
-            RenderPhaseType::AlphaMask => draw_alpha_mask_deferred,
-            _ => None,
-        };
-
-        let mut draw_functions = SmallVec::new();
-        draw_functions.push((MaterialDrawFunction.intern(), draw_function_id));
-        if let Some(prepass_draw_function_id) = prepass_draw_function_id {
-            draw_functions.push((PrepassDrawFunction.intern(), prepass_draw_function_id));
-        }
-        if let Some(deferred_draw_function_id) = deferred_draw_function_id {
-            draw_functions.push((DeferredDrawFunction.intern(), deferred_draw_function_id));
-        }
-        if let Some(shadow_draw_function_id) = shadow_draw_function_id {
-            draw_functions.push((ShadowsDrawFunction.intern(), shadow_draw_function_id));
-        }
 
         let mut shaders = SmallVec::new();
         let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {

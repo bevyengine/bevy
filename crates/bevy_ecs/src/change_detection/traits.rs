@@ -208,7 +208,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # Examples
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::{resource_changed, on_event}};
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::{resource_changed, on_message}};
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
@@ -230,13 +230,13 @@ pub trait DetectChangesMut: DetectChanges {
     ///     }
     /// }
     /// # let mut world = World::new();
-    /// # world.insert_resource(Events::<ScoreChanged>::default());
+    /// # world.insert_resource(Messages::<ScoreChanged>::default());
     /// # world.insert_resource(Score(1));
     /// # let mut score_changed = IntoSystem::into_system(resource_changed::<Score>);
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
-    /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>);
+    /// # let mut score_changed_event = IntoSystem::into_system(on_message::<ScoreChanged>);
     /// # score_changed_event.initialize(&mut world);
     /// # score_changed_event.run((), &mut world);
     /// #
