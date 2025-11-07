@@ -868,6 +868,14 @@ mod tests {
             components.resource_id::<R>()
         }
 
+        fn iter_ids(components: &Components) -> impl Iterator<Item = Option<super::AccessEnum>> {
+            core::iter::once(
+                components
+                    .resource_id::<R>()
+                    .map(super::AccessEnum::ResourceRead),
+            )
+        }
+
         fn matches_component_set(
             _state: &Self::State,
             _set_contains_id: &impl Fn(ComponentId) -> bool,

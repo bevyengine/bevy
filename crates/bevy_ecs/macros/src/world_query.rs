@@ -168,6 +168,10 @@ pub(crate) fn world_query_impl(
                 })
             }
 
+            fn iter_ids(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::AccessEnum>> {
+                core::iter::empty() #(.chain(<#field_types>::iter_ids(components)))*
+            }
+
             fn matches_component_set(state: &Self::State, _set_contains_id: &impl Fn(#path::component::ComponentId) -> bool) -> bool {
                 true #(&& <#field_types>::matches_component_set(&state.#field_aliases, _set_contains_id))*
             }

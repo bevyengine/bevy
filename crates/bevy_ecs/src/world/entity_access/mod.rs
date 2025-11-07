@@ -823,6 +823,46 @@ mod tests {
     }
 
     #[test]
+    fn get_components_mut() {
+        let mut world = World::default();
+        let e1 = world.spawn((X(7), Y(10))).id();
+        let e2 = world.spawn(X(8)).id();
+        let e3 = world.spawn_empty().id();
+
+        let mut entity_mut_1 = world.entity_mut(e1);
+        let Some((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
+            panic!("could not get components");
+        };
+        x.0 += 1;
+        y.0 += 1;
+
+        assert_eq!(
+            Some((&X(8), &Y(11))),
+            world.entity(e1).get_components::<(&X, &Y)>()
+        );
+        assert!(world
+            .entity_mut(e2)
+            .get_components_mut::<(&X, &Y)>()
+            .is_none());
+        assert!(world
+            .entity_mut(e3)
+            .get_components_mut::<(&X, &Y)>()
+            .is_none());
+        assert!(world
+            .entity_mut(e1)
+            .get_components_mut::<(&X, &mut X)>()
+            .is_none());
+        assert!(world
+            .entity_mut(e1)
+            .get_components_mut::<(EntityRef, &mut X)>()
+            .is_none());
+        assert!(world
+            .entity_mut(e1)
+            .get_components_mut::<(EntityMut, &X)>()
+            .is_none());
+    }
+
+    #[test]
     fn get_by_id_array() {
         let mut world = World::default();
         let e1 = world.spawn((X(7), Y(10))).id();

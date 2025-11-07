@@ -351,6 +351,12 @@ mod render_entities_world_query_impls {
             <&RenderEntity as WorldQuery>::get_state(components)
         }
 
+        fn iter_ids(
+            components: &Components,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
+            <&RenderEntity as WorldQuery>::iter_ids(components)
+        }
+
         fn matches_component_set(
             &state: &ComponentId,
             set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -458,6 +464,12 @@ mod render_entities_world_query_impls {
 
         fn get_state(components: &Components) -> Option<Self::State> {
             <&MainEntity as WorldQuery>::get_state(components)
+        }
+
+        fn iter_ids(
+            components: &Components,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
+            <&MainEntity as WorldQuery>::iter_ids(components)
         }
 
         fn matches_component_set(

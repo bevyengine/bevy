@@ -323,6 +323,25 @@ impl<'w> EntityWorldMut<'w> {
         unsafe { self.as_mutable().into_components_mut_unchecked::<Q>() }
     }
 
+    /// returns None if component wasn't registered, or if the access is not compatible bewteen terms
+    pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
+        for (i, access) in Q::iter_ids(self.world.components()).enumerate() {
+            for access_before in Q::iter_ids(self.world.components()).take(i) {
+                std::dbg!(i);
+                let (Some(access), Some(access_before)) = (access, access_before) else {
+                    // A component wasn't registered
+                    return None;
+                };
+                if !std::dbg!(access).is_compatible(std::dbg!(access_before)) {
+                    std::dbg!("not compatible");
+                    return None;
+                }
+            }
+        }
+        // SAFETY: we checked that there were not conflicting components above
+        unsafe { self.get_components_mut_unchecked::<Q>() }
+    }
+
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
     /// or `None` if the entity does not have the components required by the query `Q`.
     ///

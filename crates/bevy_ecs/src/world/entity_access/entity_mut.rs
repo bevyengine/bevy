@@ -187,8 +187,25 @@ impl<'w> EntityMut<'w> {
     pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
         &mut self,
     ) -> Option<Q::Item<'_, 'static>> {
-        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        // SAFETY: Caller ensures the `QueryData` does not provide aliasing mutable references to the same component
         unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// returns None if component wasn't registered, or if the access is not compatible bewteen terms
+    pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
+        for (i, access) in Q::iter_ids(self.cell.world().components()).enumerate() {
+            for access_before in Q::iter_ids(self.cell.world().components()).take(i) {
+                let (Some(access), Some(access_before)) = (access, access_before) else {
+                    // A component wasn't registered
+                    return None;
+                };
+                if !access.is_compatible(access_before) {
+                    return None;
+                }
+            }
+        }
+        // SAFETY: we checked that there were not conflicting components above
+        unsafe { self.get_components_mut_unchecked::<Q>() }
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,

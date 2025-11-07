@@ -4,7 +4,7 @@ use crate::{
     change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{Access, AccessEnum, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -13,7 +13,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -419,6 +419,10 @@ unsafe impl WorldQuery for Entity {
         Some(())
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
+    }
+
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -510,6 +514,10 @@ unsafe impl WorldQuery for EntityLocation {
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -676,6 +684,10 @@ unsafe impl WorldQuery for SpawnDetails {
         Some(())
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
+    }
+
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -800,6 +812,10 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         Some(())
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(Some(AccessEnum::ReadAllComponents))
+    }
+
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -906,6 +922,10 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         Some(())
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(Some(AccessEnum::WriteAllComponents))
+    }
+
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1009,6 +1029,12 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
 
     fn get_state(_components: &Components) -> Option<Self::State> {
         Some(Access::default())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -1130,6 +1156,12 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
 
     fn get_state(_components: &Components) -> Option<Self::State> {
         Some(Access::default())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -1264,6 +1296,12 @@ where
         Some(access)
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
+    }
+
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
@@ -1378,6 +1416,12 @@ where
         Some(access)
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
+    }
+
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
@@ -1463,6 +1507,10 @@ unsafe impl WorldQuery for &Archetype {
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -1618,6 +1666,14 @@ unsafe impl<T: Component> WorldQuery for &T {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         components.component_id::<T>()
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(AccessEnum::ComponentRead),
+        )
     }
 
     fn matches_component_set(
@@ -1804,6 +1860,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         components.component_id::<T>()
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(AccessEnum::ComponentRead),
+        )
     }
 
     fn matches_component_set(
@@ -2018,6 +2082,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         components.component_id::<T>()
     }
 
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(AccessEnum::ComponentWrite),
+        )
+    }
+
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -2172,6 +2244,14 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         <&mut T as WorldQuery>::get_state(components)
     }
 
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(AccessEnum::ComponentWrite),
+        )
+    }
+
     // Forwarded to `&mut T`
     fn matches_component_set(
         state: &ComponentId,
@@ -2315,6 +2395,10 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         T::get_state(components)
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        T::iter_ids(components)
     }
 
     fn matches_component_set(
@@ -2498,6 +2582,10 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         components.component_id::<T>()
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -2739,6 +2827,10 @@ macro_rules! impl_anytuple_fetch {
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
+            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<AccessEnum>> {
+                iter::empty()$(.chain($name::iter_ids(components)))*
+            }
+
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
@@ -2895,6 +2987,10 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
         D::get_state(components)
     }
 
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
+    }
+
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -2979,6 +3075,10 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
 
     fn get_state(_components: &Components) -> Option<Self::State> {
         Some(())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+        iter::empty()
     }
 
     fn matches_component_set(
@@ -3185,6 +3285,10 @@ mod tests {
 
             fn get_state(_components: &Components) -> Option<()> {
                 Some(())
+            }
+
+            fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
+                iter::empty()
             }
 
             fn matches_component_set(
