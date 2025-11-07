@@ -3,7 +3,7 @@ use crate::{
     change_detection::Tick,
     component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity},
-    query::{AccessEnum, DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
+    query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
@@ -193,10 +193,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         components.component_id::<T>()
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -296,10 +292,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         components.component_id::<T>()
-    }
-
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
     }
 
     fn matches_component_set(
@@ -493,10 +485,6 @@ macro_rules! impl_or_query_filter {
                 Some(($($filter::get_state(components)?,)*))
             }
 
-            fn iter_ids(_components: &Components) -> impl Iterator<Item=Option<AccessEnum>> {
-                iter::empty()
-            }
-
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($filter,)*) = state;
                 false $(|| $filter::matches_component_set($filter, set_contains_id))*
@@ -635,10 +623,6 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         components.component_id::<T>()
-    }
-
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
     }
 
     fn matches_component_set(_: &ComponentId, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -840,10 +824,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     fn get_state(components: &Components) -> Option<ComponentId> {
         components.component_id::<T>()
-    }
-
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
     }
 
     fn matches_component_set(
@@ -1073,10 +1053,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         components.component_id::<T>()
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         &id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1233,10 +1209,6 @@ unsafe impl WorldQuery for Spawned {
 
     fn get_state(_components: &Components) -> Option<()> {
         Some(())
-    }
-
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
     }
 
     fn matches_component_set(_state: &(), _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {

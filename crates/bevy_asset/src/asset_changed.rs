@@ -255,12 +255,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         })
     }
 
-    fn iter_ids(
-        _components: &Components,
-    ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
-        core::iter::empty()
-    }
-
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,

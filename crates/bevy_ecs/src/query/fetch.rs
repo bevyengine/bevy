@@ -4,7 +4,7 @@ use crate::{
     change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, AccessEnum, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -342,6 +342,58 @@ pub unsafe trait QueryData: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>>;
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>>;
+}
+
+#[derive(Clone, Copy)]
+pub enum EcsAccessType {
+    Component(EcsAccessLevel),
+    Resource(EcsAccessLevel),
+}
+
+#[derive(Clone, Copy)]
+pub enum EcsAccessLevel {
+    Read(ComponentId),
+    Write(ComponentId),
+    ReadAll,
+    WriteAll,
+}
+
+impl EcsAccessType {
+    pub fn is_compatible(&self, other: Self) -> bool {
+        use EcsAccessLevel::*;
+        use EcsAccessType::*;
+
+        match (self, other) {
+            (Component(ReadAll), Component(Write(_)))
+            | (Component(Write(_)), Component(ReadAll))
+            | (Component(_), Component(WriteAll))
+            | (Component(WriteAll), Component(_))
+            | (Resource(ReadAll), Resource(Write(_)))
+            | (Resource(Write(_)), Resource(ReadAll))
+            | (Resource(_), Resource(WriteAll))
+            | (Resource(WriteAll), Resource(_)) => false,
+
+            (Component(Read(id)), Component(Write(id_other)))
+            | (Component(Write(id)), Component(Read(id_other)))
+            | (Component(Write(id)), Component(Write(id_other)))
+            | (Resource(Read(id)), Resource(Write(id_other)))
+            | (Resource(Write(id)), Resource(Read(id_other)))
+            | (Resource(Write(id)), Resource(Write(id_other))) => *id != id_other,
+
+            (Component(_), Resource(_))
+            | (Resource(_), Component(_))
+            | (Component(Read(_)), Component(Read(_)))
+            | (Component(ReadAll), Component(Read(_)))
+            | (Component(Read(_)), Component(ReadAll))
+            | (Component(ReadAll), Component(ReadAll))
+            | (Resource(Read(_)), Resource(Read(_)))
+            | (Resource(ReadAll), Resource(Read(_)))
+            | (Resource(Read(_)), Resource(ReadAll))
+            | (Resource(ReadAll), Resource(ReadAll)) => true,
+        }
+    }
 }
 
 /// A [`QueryData`] that is read only.
@@ -419,10 +471,6 @@ unsafe impl WorldQuery for Entity {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -453,6 +501,10 @@ unsafe impl QueryData for Entity {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         Some(entity)
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -516,10 +568,6 @@ unsafe impl WorldQuery for EntityLocation {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -550,6 +598,10 @@ unsafe impl QueryData for EntityLocation {
     ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -684,10 +736,6 @@ unsafe impl WorldQuery for SpawnDetails {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -730,6 +778,10 @@ unsafe impl QueryData for SpawnDetails {
             last_run: fetch.last_run,
             this_run: fetch.this_run,
         })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -812,10 +864,6 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(Some(AccessEnum::ReadAllComponents))
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -853,6 +901,10 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         };
         // SAFETY: Read-only access to every component has been registered.
         Some(unsafe { EntityRef::new(cell) })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(Some(EcsAccessType::Component(EcsAccessLevel::ReadAll)))
     }
 }
 
@@ -922,10 +974,6 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(Some(AccessEnum::WriteAllComponents))
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -963,6 +1011,10 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { EntityMut::new(cell) })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(Some(EcsAccessType::Component(EcsAccessLevel::WriteAll)))
     }
 }
 
@@ -1031,12 +1083,6 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
         Some(Access::default())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1093,6 +1139,12 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityRef::new(cell, access) })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 }
 
@@ -1158,12 +1210,6 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
         Some(Access::default())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1218,6 +1264,12 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityMut::new(cell, access) })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 }
 
@@ -1296,12 +1348,6 @@ where
         Some(access)
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
-    }
-
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
@@ -1334,6 +1380,12 @@ where
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
         Some(EntityRefExcept::new(cell, access))
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 }
 
@@ -1416,12 +1468,6 @@ where
         Some(access)
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
-    }
-
     fn matches_component_set(_: &Self::State, _: &impl Fn(ComponentId) -> bool) -> bool {
         true
     }
@@ -1455,6 +1501,12 @@ where
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
         Some(EntityMutExcept::new(cell, access))
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        panic!("not sure how to support this yet");
+        // this might be correct, need to think about it more
+        iter::empty()
     }
 }
 
@@ -1509,10 +1561,6 @@ unsafe impl WorldQuery for &Archetype {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1546,6 +1594,10 @@ unsafe impl QueryData for &Archetype {
         let location = unsafe { entities.get_spawned(entity).debug_checked_unwrap() };
         // SAFETY: The assigned archetype for a living entity must always be valid.
         Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -1668,14 +1720,6 @@ unsafe impl<T: Component> WorldQuery for &T {
         components.component_id::<T>()
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(
-            components
-                .component_id::<T>()
-                .map(AccessEnum::ComponentRead),
-        )
-    }
-
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1723,6 +1767,14 @@ unsafe impl<T: Component> QueryData for &T {
                 item.deref()
             },
         ))
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Read(id))),
+        )
     }
 }
 
@@ -1862,14 +1914,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         components.component_id::<T>()
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(
-            components
-                .component_id::<T>()
-                .map(AccessEnum::ComponentRead),
-        )
-    }
-
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -1943,6 +1987,14 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 }
             },
         ))
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Read(id))),
+        )
     }
 }
 
@@ -2082,14 +2134,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         components.component_id::<T>()
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(
-            components
-                .component_id::<T>()
-                .map(AccessEnum::ComponentWrite),
-        )
-    }
-
     fn matches_component_set(
         &state: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -2163,6 +2207,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 }
             },
         ))
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Write(id))),
+        )
     }
 }
 
@@ -2244,14 +2296,6 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
         <&mut T as WorldQuery>::get_state(components)
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::once(
-            components
-                .component_id::<T>()
-                .map(AccessEnum::ComponentWrite),
-        )
-    }
-
     // Forwarded to `&mut T`
     fn matches_component_set(
         state: &ComponentId,
@@ -2286,6 +2330,14 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Write(id))),
+        )
     }
 }
 
@@ -2397,10 +2449,6 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         T::get_state(components)
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        T::iter_ids(components)
-    }
-
     fn matches_component_set(
         _state: &T::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -2438,6 +2486,10 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
                 .then(|| unsafe { T::fetch(state, &mut fetch.fetch, entity, table_row) })
                 .flatten(),
         )
+    }
+
+    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        T::iter_ids(components)
     }
 }
 
@@ -2584,10 +2636,6 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         components.component_id::<T>()
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -2618,6 +2666,10 @@ unsafe impl<T: Component> QueryData for Has<T> {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         Some(*fetch)
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -2693,6 +2745,10 @@ macro_rules! impl_tuple_query_data {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
                 Some(($(unsafe { $name::fetch($state, $name, entity, table_row) }?,)*))
+            }
+
+            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
+                iter::empty()$(.chain($name::iter_ids(components)))*
             }
         }
 
@@ -2827,10 +2883,6 @@ macro_rules! impl_anytuple_fetch {
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
-            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<AccessEnum>> {
-                iter::empty()$(.chain($name::iter_ids(components)))*
-            }
-
 
             fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = _state;
@@ -2894,6 +2946,10 @@ macro_rules! impl_anytuple_fetch {
                     // so we treat them as matching for non-archetypal queries, as well.
                     || !(false $(|| $name.1)*))
                 .then_some(result)
+            }
+
+            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
+                iter::empty()$(.chain($name::iter_ids(components)))*
             }
         }
 
@@ -2987,10 +3043,6 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
         D::get_state(components)
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -3019,6 +3071,10 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -3077,10 +3133,6 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-        iter::empty()
-    }
-
     fn matches_component_set(
         _state: &Self::State,
         _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -3108,6 +3160,10 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
+    }
+
+    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        iter::empty()
     }
 }
 
@@ -3287,10 +3343,6 @@ mod tests {
                 Some(())
             }
 
-            fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<AccessEnum>> {
-                iter::empty()
-            }
-
             fn matches_component_set(
                 _state: &Self::State,
                 _set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -3320,6 +3372,10 @@ mod tests {
                 _table_row: TableRow,
             ) -> Option<Self::Item<'w, 's>> {
                 Some(())
+            }
+
+            fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+                iter::empty()
             }
         }
 

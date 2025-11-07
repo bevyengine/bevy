@@ -327,13 +327,11 @@ impl<'w> EntityWorldMut<'w> {
     pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
         for (i, access) in Q::iter_ids(self.world.components()).enumerate() {
             for access_before in Q::iter_ids(self.world.components()).take(i) {
-                std::dbg!(i);
                 let (Some(access), Some(access_before)) = (access, access_before) else {
                     // A component wasn't registered
                     return None;
                 };
-                if !std::dbg!(access).is_compatible(std::dbg!(access_before)) {
-                    std::dbg!("not compatible");
+                if !access.is_compatible(access_before) {
                     return None;
                 }
             }

@@ -122,9 +122,6 @@ pub unsafe trait WorldQuery {
     /// access to [`Components`].
     fn get_state(components: &Components) -> Option<Self::State>;
 
-    /// Iterate over each ComponentId of the state
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<AccessEnum>>;
-
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// Used to check which [`Archetype`]s can be skipped by the query
@@ -214,52 +211,12 @@ macro_rules! impl_tuple_world_query {
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
-            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<AccessEnum>> {
-                core::iter::empty()$(.chain($name::iter_ids(components)))*
-            }
-
             fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
                 let ($($name,)*) = state;
                 true $(&& $name::matches_component_set($name, set_contains_id))*
             }
         }
     };
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum AccessEnum {
-    ComponentRead(ComponentId),
-    ComponentWrite(ComponentId),
-    ReadAllComponents,
-    WriteAllComponents,
-    ResourceRead(ComponentId),
-    ResourceWrite(ComponentId),
-}
-
-impl AccessEnum {
-    pub fn is_compatible(&self, other: Self) -> bool {
-        use AccessEnum::*;
-        match (self, other) {
-            (ComponentRead(_), WriteAllComponents)
-            | (ComponentWrite(_), ReadAllComponents)
-            | (ComponentWrite(_), WriteAllComponents)
-            | (ReadAllComponents, ComponentWrite(_))
-            | (ReadAllComponents, WriteAllComponents)
-            | (WriteAllComponents, ComponentRead(_))
-            | (WriteAllComponents, ComponentWrite(_))
-            | (WriteAllComponents, ReadAllComponents)
-            | (WriteAllComponents, WriteAllComponents) => false,
-
-            (ComponentRead(id), ComponentWrite(id_other))
-            | (ComponentWrite(id), ComponentRead(id_other))
-            | (ComponentWrite(id), ComponentWrite(id_other))
-            | (ResourceRead(id), ResourceWrite(id_other))
-            | (ResourceWrite(id), ResourceRead(id_other))
-            | (ResourceWrite(id), ResourceWrite(id_other)) => *id != id_other,
-
-            _ => true,
-        }
-    }
 }
 
 all_tuples!(

@@ -351,12 +351,6 @@ mod render_entities_world_query_impls {
             <&RenderEntity as WorldQuery>::get_state(components)
         }
 
-        fn iter_ids(
-            components: &Components,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
-            <&RenderEntity as WorldQuery>::iter_ids(components)
-        }
-
         fn matches_component_set(
             &state: &ComponentId,
             set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -390,6 +384,12 @@ mod render_entities_world_query_impls {
             let component =
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(RenderEntity::id)
+        }
+
+        fn iter_ids(
+            components: &Components,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
+            <&RenderEntity as WorldQuery>::iter_ids(components)
         }
     }
 
@@ -466,12 +466,6 @@ mod render_entities_world_query_impls {
             <&MainEntity as WorldQuery>::get_state(components)
         }
 
-        fn iter_ids(
-            components: &Components,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
-            <&MainEntity as WorldQuery>::iter_ids(components)
-        }
-
         fn matches_component_set(
             &state: &ComponentId,
             set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -505,6 +499,12 @@ mod render_entities_world_query_impls {
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(MainEntity::id)
+        }
+
+        fn iter_ids(
+            components: &Components,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::AccessEnum>> {
+            <&MainEntity as WorldQuery>::iter_ids(components)
         }
     }
 
