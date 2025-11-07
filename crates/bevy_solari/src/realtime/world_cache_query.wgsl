@@ -1,10 +1,33 @@
 #define_import_path bevy_solari::world_cache
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::utils::{rand_f, rand_vec2f}
+#import bevy_pbr::utils::{rand_f, rand_vec2f, rand_range_u}
 #import bevy_render::maths::{PI, orthonormalize}
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility}
+#import bevy_solari::realtime_bindings::{
+    view_output, 
+    light_tile_samples, 
+    gi_reservoirs_a, 
+    gbuffer, 
+    depth_buffer,
+    world_cache_checksums,
+    world_cache_life, 
+    world_cache_active_cells_count,
+    world_cache_active_cell_indices,
+    world_cache_geometry_data,
+    world_cache_light_data,
+    world_cache_light_data_new_lights,
+    world_cache_radiance,
+    world_cache_active_cells_new_radiance,
+    view, 
+    constants, 
+    LightSamplePacked,
+    WORLD_CACHE_CELL_LIGHT_COUNT,
+    WorldCacheSingleLightData,
+    WorldCacheLightDataRead,
+}
+#import bevy_solari::presample_light_tiles::unpack_light_sample
+#import bevy_solari::sampling::{light_contribution_no_trace, select_random_light, select_random_light_inverse_pdf, trace_light_visibility, calculate_light_contribution}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
@@ -13,9 +36,6 @@ const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
-/// Maximum lights stored in each cache cell
-/// This should match `WORLD_CACHE_CELL_LIGHT_COUNT` in `realtime/prepare.rs`!
-const WORLD_CACHE_CELL_LIGHT_COUNT: u32 = 8u;
 /// Lights searched that aren't in the cell
 const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MIN: u32 = 4u;
 const WORLD_CACHE_NEW_LIGHTS_SEARCH_COUNT_MAX: u32 = 8u;
@@ -30,46 +50,6 @@ const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
-
-struct WorldCacheGeometryData {
-    world_position: vec3<f32>,
-    padding_a: u32,
-    world_normal: vec3<f32>,
-    padding_b: u32
-}
-
-struct WorldCacheSingleLightData {
-    light: u32,
-    weight: f32,
-}
-
-struct WorldCacheLightDataRead {
-    visible_light_count: u32,
-    padding: u32,
-    visible_lights: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>,
-}
-
-struct WorldCacheLightDataWrite {
-    visible_light_count: atomic<u32>,
-    padding: u32,
-    visible_lights: array<atomic<u64>, WORLD_CACHE_CELL_LIGHT_COUNT>,
-}
-
-@group(1) @binding(10) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
-#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-@group(1) @binding(11) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
-#else
-@group(1) @binding(11) var<storage, read_write> world_cache_life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
-#endif
-@group(1) @binding(12) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(13) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(14) var<storage, read_write> world_cache_light_data: array<WorldCacheLightDataRead, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(15) var<storage, read_write> world_cache_light_data_new_lights: array<WorldCacheLightDataWrite, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(16) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(17) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(18) var<storage, read_write> world_cache_b: array<u32, 1024u>;
-@group(1) @binding(19) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(20) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache_radiance(rng: ptr<function, u32>, world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
@@ -290,15 +270,17 @@ fn select_light_randomly(
     wo: vec3<f32>,
     material: ResolvedMaterial,
     samples: u32,
-) -> SelectedLight { 
+) -> SelectedLight {
+    let light_tile_start = subgroupBroadcastFirst(rand_range_u(128u, rng) * 1024u);
     var p = rand_f(rng);
 
     var selected = 0u;
     var selected_weight = 0.0;
     var weight_sum = 0.0;
     for (var i = 0u; i < samples; i++) {
-        let light_id = select_random_light(rng);
-        let direct_lighting = light_contribution_no_trace(rng, light_id, world_position, world_normal);
+        let tile_sample = light_tile_start + rand_range_u(1024u, rng);
+        let sample = unpack_light_sample(light_tile_samples[tile_sample]);
+        let direct_lighting = calculate_light_contribution(sample, world_position, world_normal);
         let brdf = evaluate_brdf(world_normal, wo, direct_lighting.wi, material);
         let radiance = direct_lighting.radiance * direct_lighting.inverse_pdf * brdf;
 
@@ -307,7 +289,7 @@ fn select_light_randomly(
 
         let prob = weight / weight_sum;
         if p < prob {
-            selected = light_id;
+            selected = sample.light_id;
             selected_weight = weight;
             p /= prob;
         } else {

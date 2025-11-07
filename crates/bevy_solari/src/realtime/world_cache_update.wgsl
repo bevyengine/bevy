@@ -3,21 +3,21 @@
 #import bevy_render::view::View
 #import bevy_solari::sampling::{calculate_resolved_light_contribution, trace_light_visibility}
 #import bevy_solari::scene_bindings::{ResolvedMaterial, trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{
-    WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
+#import bevy_solari::realtime_bindings::{
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
     world_cache_geometry_data,
     world_cache_radiance,
     world_cache_active_cells_new_radiance,
+    view,
+    constants,
+}
+#import bevy_solari::world_cache::{
     query_world_cache_radiance,
     query_world_cache_lights, 
-    evaluate_lighting_from_cache, 
+    evaluate_lighting_from_cache,
+    WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
 }
-
-@group(1) @binding(8) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(1024, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {

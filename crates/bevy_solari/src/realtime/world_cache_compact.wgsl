@@ -1,4 +1,17 @@
-#import bevy_solari::world_cache::{WORLD_CACHE_EMPTY_CELL, world_cache_life, world_cache_checksums, world_cache_radiance, world_cache_a, world_cache_b, world_cache_active_cell_indices, world_cache_active_cells_count, world_cache_light_data, world_cache_light_data_new_lights, WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT}
+#import bevy_solari::realtime_bindings::{ 
+    world_cache_checksums, 
+    world_cache_life, 
+    world_cache_radiance, 
+    world_cache_a, 
+    world_cache_b, 
+    world_cache_active_cell_indices,
+    world_cache_active_cells_count, 
+    world_cache_light_data, 
+    world_cache_light_data_new_lights, 
+    WORLD_CACHE_CELL_LIGHT_COUNT,
+    WorldCacheSingleLightData, 
+}
+#import bevy_solari::world_cache::WORLD_CACHE_EMPTY_CELL
 
 @group(2) @binding(0) var<storage, read_write> world_cache_active_cells_dispatch: vec3<u32>;
 

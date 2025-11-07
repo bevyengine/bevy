@@ -5,16 +5,9 @@
 #import bevy_pbr::utils::{rand_f, rand_range_u, octahedral_decode, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
+#import bevy_solari::realtime_bindings::{view_output, gbuffer, depth_buffer, view, previous_view, constants}
 #import bevy_solari::scene_bindings::ResolvedMaterial
 #import bevy_solari::world_cache::{query_world_cache_lights, evaluate_lighting_from_cache, write_world_cache_light}
-
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(3) var gbuffer: texture_2d<u32>;
-@group(1) @binding(4) var depth_buffer: texture_depth_2d;
-@group(1) @binding(8) var<uniform> view: View;
-@group(1) @binding(9) var<uniform> previous_view: PreviousViewUniforms;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
 
 @compute @workgroup_size(8, 8, 1)
 fn shade(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) global_id: vec3<u32>) {

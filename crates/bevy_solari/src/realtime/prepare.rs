@@ -31,12 +31,18 @@ const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;
 /// Number of lights stored per world cache cell.
 const WORLD_CACHE_CELL_LIGHT_COUNT: u64 = 8;
 
+/// Size of the `LightSamplePacked` shader struct in bytes.
+const PACKED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 28;
+pub const LIGHT_TILE_BLOCKS: u64 = 128;
+pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
+
 /// Amount of entries in the world cache (must be a power of 2, and >= 2^10)
 pub const WORLD_CACHE_SIZE: u64 = 2u64.pow(20);
 
 /// Internal rendering resources used for Solari lighting.
 #[derive(Component)]
 pub struct SolariLightingResources {
+    pub light_tile_samples: Buffer,
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
     pub previous_gbuffer: (Texture, TextureView),
@@ -96,6 +102,15 @@ pub fn prepare_solari_lighting_resources(
         if solari_lighting_resources.map(|r| r.view_size) == Some(view_size) {
             continue;
         }
+
+        let light_tile_samples = render_device.create_buffer(&BufferDescriptor {
+            label: Some("solari_lighting_light_tile_samples"),
+            size: LIGHT_TILE_BLOCKS
+                * LIGHT_TILE_SAMPLES_PER_BLOCK
+                * PACKED_LIGHT_SAMPLE_STRUCT_SIZE,
+            usage: BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
 
         let gi_reservoirs = |name| {
             render_device.create_buffer(&BufferDescriptor {
@@ -219,6 +234,7 @@ pub fn prepare_solari_lighting_resources(
         });
 
         commands.entity(entity).insert(SolariLightingResources {
+            light_tile_samples,
             gi_reservoirs_a,
             gi_reservoirs_b,
             previous_gbuffer: (previous_gbuffer, previous_gbuffer_view),
