@@ -558,6 +558,9 @@ impl<'w> FilteredResourcesBuilder<'w> {
     /// Add accesses required to read all resources.
     pub fn add_read_all(&mut self) -> &mut Self {
         self.access.read_all_resources();
+        for &component_id in self.world.resource_entities().indices() {
+            self.access.add_component_read(component_id);
+        }
         self
     }
 
@@ -570,6 +573,7 @@ impl<'w> FilteredResourcesBuilder<'w> {
     /// Add accesses required to read the resource with the given [`ComponentId`].
     pub fn add_read_by_id(&mut self, component_id: ComponentId) -> &mut Self {
         self.access.add_resource_read(component_id);
+        self.access.add_component_read(component_id);
         self
     }
 
