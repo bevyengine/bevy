@@ -1,23 +1,26 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncCell;
+use bevy_utils::prelude::DebugName;
 use variadics_please::all_tuples;
 
 use crate::{
+    change_detection::{CheckChangeTicks, Tick},
     prelude::QueryBuilder,
-    query::{QueryData, QueryFilter, QueryState},
+    query::{FilteredAccessSet, QueryData, QueryFilter, QueryState},
     resource::Resource,
     system::{
-        DynSystemParam, DynSystemParamState, If, Local, ParamSet, Query, SystemParam,
-        SystemParamValidationError,
+        DynSystemParam, DynSystemParamState, FunctionSystem, If, Local, ParamSet, Query, System,
+        SystemMeta, SystemParam, SystemParamFunction, SystemParamValidationError,
     },
     world::{
-        FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
-        FilteredResourcesMutBuilder, FromWorld, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources,
+        FilteredResourcesBuilder, FilteredResourcesMut, FilteredResourcesMutBuilder, FromWorld,
+        World,
     },
 };
-use core::fmt::Debug;
+use core::{any::TypeId, fmt::Debug, mem, ptr};
 
-use super::{Res, ResMut, SystemState};
+use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -119,6 +122,15 @@ pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
     fn build_state(self, world: &mut World) -> SystemState<P> {
         SystemState::from_builder(world, self)
     }
+
+    /// Create a [`System`] from a [`SystemParamBuilder`]
+    fn build_system<Marker, Func>(self, func: Func) -> BuilderSystem<Marker, Self, Func>
+    where
+        Self: Send + Sync + 'static,
+        Func: SystemParamFunction<Marker, Param = P> + Send + Sync + 'static,
+    {
+        BuilderSystem::new(self, func)
+    }
 }
 
 /// A [`SystemParamBuilder`] for any [`SystemParam`] that uses its default initialization.
@@ -201,6 +213,188 @@ impl ParamBuilder {
     pub fn query_filtered<'w, 's, D: QueryData + 'static, F: QueryFilter + 'static>(
     ) -> impl SystemParamBuilder<Query<'w, 's, D, F>> {
         Self
+    }
+}
+
+/// A [`System`] created from a [`SystemParamBuilder`] whose state is not
+/// initialized until the first run.
+pub struct BuilderSystem<Marker, Builder, Func>
+where
+    Marker: 'static,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+    Func: SystemParamFunction<Marker>,
+{
+    inner: BuilderSystemInner<Marker, Builder, Func>,
+}
+
+impl<Marker, Builder, Func> BuilderSystem<Marker, Builder, Func>
+where
+    Marker: 'static,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+    Func: SystemParamFunction<Marker>,
+{
+    /// Returns a new `BuilderSystem` given a system param builder and a system function
+    pub fn new(builder: Builder, func: Func) -> Self {
+        Self {
+            inner: BuilderSystemInner::Uninitialized {
+                builder,
+                func,
+                meta: SystemMeta::new::<Func>(),
+            },
+        }
+    }
+}
+
+#[derive(Default)]
+enum BuilderSystemInner<Marker, Builder, Func>
+where
+    Marker: 'static,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+    Func: SystemParamFunction<Marker>,
+{
+    Initialized(FunctionSystem<Marker, Func::Out, Func>),
+    Uninitialized {
+        builder: Builder,
+        func: Func,
+        meta: SystemMeta,
+    },
+    // Only here as a `Default` for swapping in `initialize`
+    #[default]
+    ReallyUninitialized,
+}
+
+impl<Marker, Builder, Func> System for BuilderSystem<Marker, Builder, Func>
+where
+    Marker: 'static,
+    Builder: SystemParamBuilder<Func::Param> + Send + Sync + 'static,
+    Func: SystemParamFunction<Marker>,
+{
+    type In = Func::In;
+
+    type Out = Func::Out;
+
+    #[inline]
+    fn name(&self) -> DebugName {
+        match &self.inner {
+            BuilderSystemInner::Initialized(system) => system.name(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.name().clone(),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn flags(&self) -> SystemStateFlags {
+        match &self.inner {
+            BuilderSystemInner::Initialized(system) => system.flags(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.flags(),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    unsafe fn run_unsafe(
+        &mut self,
+        input: super::SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError> {
+        match &mut self.inner {
+            // SAFETY: requirements upheld by the caller.
+            BuilderSystemInner::Initialized(system) => unsafe { system.run_unsafe(input, world) },
+            BuilderSystemInner::Uninitialized { .. } => panic!(
+                "BuilderSystem {} was not initialized before calling run_unsafe.",
+                self.name()
+            ),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn refresh_hotpatch(&mut self) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized(system) => system.refresh_hotpatch(),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn apply_deferred(&mut self, world: &mut World) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized(system) => system.apply_deferred(world),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn queue_deferred(&mut self, world: DeferredWorld) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized(system) => system.queue_deferred(world),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        match &mut self.inner {
+            // SAFETY: requirements upheld by the caller.
+            BuilderSystemInner::Initialized(system) => unsafe {
+                system.validate_param_unsafe(world)
+            },
+            BuilderSystemInner::Uninitialized { .. } => Ok(()),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
+        let inner = mem::take(&mut self.inner);
+        match inner {
+            BuilderSystemInner::Initialized(mut system) => {
+                let access = system.initialize(world);
+                self.inner = BuilderSystemInner::Initialized(system);
+                access
+            }
+            BuilderSystemInner::Uninitialized { builder, func, .. } => {
+                // SAFETY: this is wildly unsafe please change this.
+                let mut system = builder.build_state(world).build_any_system(func);
+                let access = system.initialize(world);
+                self.inner = BuilderSystemInner::Initialized(system);
+                access
+            }
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn check_change_tick(&mut self, check: CheckChangeTicks) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized(system) => system.check_change_tick(check),
+            BuilderSystemInner::Uninitialized { .. } => {}
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn get_last_run(&self) -> Tick {
+        match &self.inner {
+            BuilderSystemInner::Initialized(system) => system.get_last_run(),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.get_last_run(),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
+    }
+
+    #[inline]
+    fn set_last_run(&mut self, last_run: Tick) {
+        match &mut self.inner {
+            BuilderSystemInner::Initialized(system) => system.set_last_run(last_run),
+            BuilderSystemInner::Uninitialized { meta, .. } => meta.set_last_run(last_run),
+            BuilderSystemInner::ReallyUninitialized => unreachable!(),
+        }
     }
 }
 
