@@ -9,6 +9,7 @@ mod event;
 mod message;
 mod query_data;
 mod query_filter;
+mod system_composition;
 mod world_query;
 
 use crate::{
@@ -716,4 +717,14 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 }
             }
     })
+}
+
+#[proc_macro]
+pub fn compose(input: TokenStream) -> TokenStream {
+    system_composition::compose(input, false)
+}
+
+#[proc_macro]
+pub fn compose_with(input: TokenStream) -> TokenStream {
+    system_composition::compose(input, true)
 }
