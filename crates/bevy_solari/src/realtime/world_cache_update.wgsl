@@ -19,7 +19,7 @@
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
-const DIRECT_LIGHT_SAMPLE_COUNT: u32 = 8u;
+const DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 
 @compute @workgroup_size(1024, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
