@@ -227,7 +227,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
             take: |entity| {
                 entity
                     .take::<B>()
-                    .map(|bundle| Box::new(bundle).into_reflect())
+                    .map(|bundle| Box::new(bundle) as Box<dyn Reflect>)
             },
         })
     }
