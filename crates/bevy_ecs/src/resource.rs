@@ -89,11 +89,9 @@ use bevy_platform::cell::SyncUnsafeCell;
 pub trait Resource: Component<Mutability = Mutable> {}
 
 /// The `on_add` component hook that maintains the uniqueness property of a resource.
-pub fn resource_on_add_hook(mut deferred_world: DeferredWorld, context: HookContext) {
-    let world = deferred_world.deref();
-
+pub fn resource_on_add_hook(mut world: DeferredWorld, context: HookContext) {
     if let Some(&original_entity) = world.resource_entities.get(context.component_id) {
-        let name = deferred_world
+        let name = world
             .components()
             .get_name(context.component_id)
             .expect("resource is registered");
@@ -106,7 +104,7 @@ pub fn resource_on_add_hook(mut deferred_world: DeferredWorld, context: HookCont
 
         if original_entity != context.entity {
             // the resource already exists and the new one should be removed
-            deferred_world
+            world
                 .commands()
                 .entity(context.entity)
                 .remove_by_id(context.component_id);
@@ -114,7 +112,7 @@ pub fn resource_on_add_hook(mut deferred_world: DeferredWorld, context: HookCont
         }
     } else {
         // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-        let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+        let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
         // SAFETY: There are no shared references to the map.
         // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
         // and that would conflict with the `DeferredWorld` passed to the resource hook.
@@ -123,10 +121,10 @@ pub fn resource_on_add_hook(mut deferred_world: DeferredWorld, context: HookCont
 }
 
 /// The `on_despawn` component hook that maintains the uniqueness property of a resource.
-pub fn resource_on_despawn_hook(mut deferred_world: DeferredWorld, context: HookContext) {
+pub fn resource_on_despawn_hook(mut world: DeferredWorld, context: HookContext) {
     warn!("Resource entities are not supposed to be despawned.");
     // SAFETY: We have exclusive world access (as long as we don't make structural changes).
-    let cache = unsafe { deferred_world.as_unsafe_world_cell().resource_entities() };
+    let cache = unsafe { world.as_unsafe_world_cell().resource_entities() };
     // SAFETY: There are no shared references to the map.
     // We only expose `&ResourceCache` to code with access to a resource (such as `&World`),
     // and that would conflict with the `DeferredWorld` passed to the resource hook.
@@ -164,6 +162,10 @@ impl DerefMut for ResourceCache {
 )]
 #[derive(Component, Debug, Default)]
 pub struct IsResource;
+
+/// [`ComponentId`] of the [`IsResource`] component.
+/// This must not conflict with any other [`ComponentId`] constants in the [lifecycle documentation](crate::lifecycle).
+pub const IS_RESOURCE: ComponentId = ComponentId::new(5);
 
 #[cfg(test)]
 mod tests {

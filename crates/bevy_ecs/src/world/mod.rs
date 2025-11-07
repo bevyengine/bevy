@@ -52,7 +52,7 @@ use crate::{
     prelude::{Add, Despawn, DetectChangesMut, Insert, Remove, Replace, Without},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
-    resource::{IsResource, Resource, ResourceCache},
+    resource::{IsResource, Resource, ResourceCache, IS_RESOURCE},
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -167,6 +167,9 @@ impl World {
 
         let on_despawn = self.register_event_key::<Despawn>();
         assert_eq!(DESPAWN, on_despawn);
+
+        let is_resource = self.register_component::<IsResource>();
+        assert_eq!(IS_RESOURCE, is_resource);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
         self.init_resource::<DefaultQueryFilters>();

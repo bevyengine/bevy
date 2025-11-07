@@ -9,7 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
-    resource::{IsResource, Resource},
+    resource::{Resource, IS_RESOURCE},
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
@@ -750,58 +750,53 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
-    type State = (ComponentId, ComponentId);
+    type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        (
-            world.components_registrator().register_resource::<T>(),
-            world
-                .components_registrator()
-                .register_component::<IsResource>(),
-        )
+        world.components_registrator().register_resource::<T>()
     }
 
     fn init_access(
-        (component_id, is_resource_id): &Self::State,
+        &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(*component_id) {
-            panic!(
+        assert!(
+            !combined_access.has_resource_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
-            system_meta.name);
-        }
+            system_meta.name,
+        );
 
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(*component_id);
-        filter.add_resource_read(*component_id);
-        filter.and_with(*is_resource_id);
-        let mut set = FilteredAccessSet::new();
-        set.add(filter.clone());
+        filter.add_component_read(component_id);
+        filter.add_resource_read(component_id);
+        filter.and_with(IS_RESOURCE);
 
-        if !component_access_set.is_compatible(&set) {
-            panic!("error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
-            system_meta.name);
-        }
+            system_meta.name
+        );
 
         component_access_set.add(filter);
     }
 
     #[inline]
     unsafe fn validate_param(
-        (component_id, _): &mut Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to the resource
-        if let Some(entity) = unsafe { world.resource_entities() }.get(*component_id)
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
             && let Ok(entity_ref) = world.get_entity(*entity)
-            && entity_ref.contains_id(*component_id)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -813,13 +808,13 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        (component_id, _): &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .get_resource_with_ticks(*component_id)
+            .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -843,61 +838,56 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 // SAFETY: Res ComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
-    type State = (ComponentId, ComponentId);
+    type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init_state(world: &mut World) -> Self::State {
-        (
-            world.components_registrator().register_resource::<T>(),
-            world
-                .components_registrator()
-                .register_component::<IsResource>(),
-        )
+        world.components_registrator().register_resource::<T>()
     }
 
     fn init_access(
-        (component_id, is_resource_id): &Self::State,
+        &component_id: &Self::State,
         system_meta: &mut SystemMeta,
         component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
         let combined_access = component_access_set.combined_access();
-        if combined_access.has_resource_write(*component_id) {
+        if combined_access.has_resource_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
-        } else if combined_access.has_resource_read(*component_id) {
+        } else if combined_access.has_resource_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
                 DebugName::type_name::<T>(), system_meta.name);
         }
 
         let mut filter = FilteredAccess::default();
-        filter.add_component_write(*component_id);
-        filter.add_resource_write(*component_id);
-        filter.and_with(*is_resource_id);
-        let mut set = FilteredAccessSet::new();
-        set.add(filter.clone());
+        filter.add_component_write(component_id);
+        filter.add_resource_write(component_id);
+        filter.and_with(IS_RESOURCE);
 
-        if !component_access_set.is_compatible(&set) {
-            panic!("error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
+        assert!(component_access_set
+            .get_conflicts_single(&filter)
+            .is_empty(),
+            "error[B0002]: Res<{}> in system {} conflicts with a previous query. Consider removing the duplicate access. See: https://bevy.org/learn/errors/b0002",
             DebugName::type_name::<T>(),
-            system_meta.name);
-        }
+            system_meta.name
+        );
 
         component_access_set.add(filter);
     }
 
     #[inline]
     unsafe fn validate_param(
-        (component_id, _): &mut Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to the resource.
-        if let Some(entity) = unsafe { world.resource_entities() }.get(*component_id)
+        if let Some(entity) = unsafe { world.resource_entities() }.get(component_id)
             && let Ok(entity_ref) = world.get_entity(*entity)
-            && entity_ref.contains_id(*component_id)
+            && entity_ref.contains_id(component_id)
         {
             Ok(())
         } else {
@@ -909,13 +899,13 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        (component_id, _): &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .get_resource_mut_by_id(*component_id)
+            .get_resource_mut_by_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
