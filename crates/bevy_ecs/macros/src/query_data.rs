@@ -268,8 +268,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         })
                     }
 
-                    fn iter_ids(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
-                        core::iter::empty() #(.chain(<#field_types>::iter_ids(components)))*
+                    fn iter_access(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
+                        core::iter::empty() #(.chain(<#field_types>::iter_access(components)))*
                     }
                 }
 
@@ -337,8 +337,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     })
                 }
 
-                fn iter_ids(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
-                    core::iter::empty() #(.chain(<#field_types>::iter_ids(components)))*
+                fn iter_access(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
+                    core::iter::empty() #(.chain(<#field_types>::iter_access(components)))*
                 }
             }
 

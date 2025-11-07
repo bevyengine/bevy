@@ -343,7 +343,7 @@ pub unsafe trait QueryData: WorldQuery {
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>>;
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>>;
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>>;
 }
 
 #[derive(Clone, Copy)]
@@ -503,7 +503,7 @@ unsafe impl QueryData for Entity {
         Some(entity)
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -600,7 +600,7 @@ unsafe impl QueryData for EntityLocation {
         Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -780,7 +780,7 @@ unsafe impl QueryData for SpawnDetails {
         })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -903,7 +903,7 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         Some(unsafe { EntityRef::new(cell) })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(Some(EcsAccessType::Component(EcsAccessLevel::ReadAll)))
     }
 }
@@ -1013,7 +1013,7 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         Some(unsafe { EntityMut::new(cell) })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(Some(EcsAccessType::Component(EcsAccessLevel::WriteAll)))
     }
 }
@@ -1141,7 +1141,7 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
         Some(unsafe { FilteredEntityRef::new(cell, access) })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         panic!("not sure how to support this yet");
         // this might be correct, need to think about it more
         iter::empty()
@@ -1266,7 +1266,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
         Some(unsafe { FilteredEntityMut::new(cell, access) })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         panic!("not sure how to support this yet");
         // this might be correct, need to think about it more
         iter::empty()
@@ -1382,7 +1382,7 @@ where
         Some(EntityRefExcept::new(cell, access))
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         panic!("not sure how to support this yet");
         // this might be correct, need to think about it more
         iter::empty()
@@ -1503,7 +1503,7 @@ where
         Some(EntityMutExcept::new(cell, access))
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         panic!("not sure how to support this yet");
         // this might be correct, need to think about it more
         iter::empty()
@@ -1596,7 +1596,7 @@ unsafe impl QueryData for &Archetype {
         Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -1769,7 +1769,7 @@ unsafe impl<T: Component> QueryData for &T {
         ))
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(
             components
                 .component_id::<T>()
@@ -1989,7 +1989,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         ))
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(
             components
                 .component_id::<T>()
@@ -2209,7 +2209,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         ))
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(
             components
                 .component_id::<T>()
@@ -2332,7 +2332,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::once(
             components
                 .component_id::<T>()
@@ -2488,8 +2488,8 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
         )
     }
 
-    fn iter_ids(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
-        T::iter_ids(components)
+    fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+        T::iter_access(components)
     }
 }
 
@@ -2668,7 +2668,7 @@ unsafe impl<T: Component> QueryData for Has<T> {
         Some(*fetch)
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -2747,8 +2747,8 @@ macro_rules! impl_tuple_query_data {
                 Some(($(unsafe { $name::fetch($state, $name, entity, table_row) }?,)*))
             }
 
-            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
-                iter::empty()$(.chain($name::iter_ids(components)))*
+            fn iter_access(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
+                iter::empty()$(.chain($name::iter_access(components)))*
             }
         }
 
@@ -2948,8 +2948,8 @@ macro_rules! impl_anytuple_fetch {
                 .then_some(result)
             }
 
-            fn iter_ids(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
-                iter::empty()$(.chain($name::iter_ids(components)))*
+            fn iter_access(components: &Components) -> impl Iterator<Item=Option<EcsAccessType>> {
+                iter::empty()$(.chain($name::iter_access(components)))*
             }
         }
 
@@ -3073,7 +3073,7 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -3162,7 +3162,7 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
         Some(())
     }
 
-    fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+    fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
         iter::empty()
     }
 }
@@ -3374,7 +3374,9 @@ mod tests {
                 Some(())
             }
 
-            fn iter_ids(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
+            fn iter_access(
+                _components: &Components,
+            ) -> impl Iterator<Item = Option<EcsAccessType>> {
                 iter::empty()
             }
         }

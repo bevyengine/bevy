@@ -898,7 +898,9 @@ mod tests {
             Some(())
         }
 
-        fn iter_ids(components: &Components) -> impl Iterator<Item = Option<super::EcsAccessType>> {
+        fn iter_access(
+            components: &Components,
+        ) -> impl Iterator<Item = Option<super::EcsAccessType>> {
             core::iter::once(
                 components
                     .resource_id::<R>()
