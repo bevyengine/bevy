@@ -377,7 +377,7 @@ struct QueueWriteBufferViewWrapper {
     capacity: usize,
 }
 
-impl<'a> BufferMut for QueueWriteBufferViewWrapper {
+impl BufferMut for QueueWriteBufferViewWrapper {
     #[inline]
     fn capacity(&self) -> usize {
         self.capacity
