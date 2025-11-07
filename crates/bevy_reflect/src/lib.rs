@@ -67,11 +67,8 @@
 //! ## Converting between `PartialReflect` and `Reflect`
 //!
 //! Since `T: Reflect` implies `T: PartialReflect`, conversion from a `dyn Reflect` to a `dyn PartialReflect`
-//! trait object (upcasting) is infallible and can be performed with one of the following methods.
-//! Note that these are temporary while [the language feature for dyn upcasting coercion] is experimental:
-//! * [`PartialReflect::as_partial_reflect`] for `&dyn PartialReflect`
-//! * [`PartialReflect::as_partial_reflect_mut`] for `&mut dyn PartialReflect`
-//! * [`PartialReflect::into_partial_reflect`] for `Box<dyn PartialReflect>`
+//! trait object (upcasting) is infallible and is performed automatically by the compiler.
+//! Passing a `&dyn Reflect` where a `&dyn PartialReflect` is expected will work seamlessly.
 //!
 //! For conversion in the other direction — downcasting `dyn PartialReflect` to `dyn Reflect` —
 //! there are fallible methods:
@@ -538,7 +535,6 @@
 //! [subtraits]: #the-reflection-subtraits
 //! [the type registry]: #type-registration
 //! [runtime cost]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html#trait-objects-perform-dynamic-dispatch
-//! [the language feature for dyn upcasting coercion]: https://github.com/rust-lang/rust/issues/65991
 //! [derive macro]: derive@crate::Reflect
 //! [`'static` lifetime]: https://doc.rust-lang.org/rust-by-example/scope/lifetime/static_lifetime.html#trait-bound
 //! [`Function`]: crate::func::Function

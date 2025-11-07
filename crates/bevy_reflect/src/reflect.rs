@@ -429,12 +429,21 @@ pub trait Reflect: PartialReflect + DynamicTyped + Any {
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed, fully-reflected value.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
 
     /// Casts this type to a fully-reflected value.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn as_reflect(&self) -> &dyn Reflect;
 
     /// Casts this type to a mutable, fully-reflected value.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Performs a type-checked assignment of a reflected value to this value.
