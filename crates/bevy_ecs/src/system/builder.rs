@@ -20,6 +20,7 @@ use crate::{
         World,
     },
 };
+use alloc::borrow::Cow;
 use core::{fmt::Debug, marker::PhantomData, mem};
 
 use super::{Res, ResMut, RunSystemError, SystemState, SystemStateFlags};
@@ -219,11 +220,26 @@ impl ParamBuilder {
         Self
     }
 
-    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::from_system`]
-    pub fn system<'w, 's, In: SystemInput + 'static, Out: 'static, Marker>(
-        system: impl IntoSystem<In, Out, Marker>,
-    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out>> {
-        SystemRunnerBuilder::from_system(system)
+    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::new`]
+    pub fn system<'w, 's, In, Out, Marker, Sys>(
+        system: Sys,
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, Sys::System>>
+    where
+        In: SystemInput,
+        Sys: IntoSystem<In, Out, Marker>,
+    {
+        SystemRunnerBuilder::new(IntoSystem::into_system(system))
+    }
+
+    /// Helper method for adding a [`SystemRunner`] as a param, equivalent to [`SystemRunnerBuilder::boxed`]
+    pub fn dyn_system<'w, 's, In, Out, Marker, Sys>(
+        system: Sys,
+    ) -> impl SystemParamBuilder<SystemRunner<'w, 's, In, Out, Sys::System>>
+    where
+        In: SystemInput,
+        Sys: IntoSystem<In, Out, Marker>,
+    {
+        SystemRunnerBuilder::boxed(Box::new(IntoSystem::into_system(system)))
     }
 }
 
@@ -288,6 +304,7 @@ where
     Func: SystemParamFunction<Marker>,
     Builder: SystemParamBuilder<Func::Param>,
 {
+    #[inline]
     /// Returns a new `BuilderSystem` given a system param builder and a system function
     pub fn new(builder: Builder, func: Func) -> Self {
         Self {
@@ -297,6 +314,17 @@ where
                 meta: SystemMeta::new::<Func>(),
             },
         }
+    }
+
+    #[inline]
+    /// Returns this `BuilderSystem` with a custom name.
+    pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
+        if let BuilderSystemInner::Uninitialized { meta, .. } = &mut self.inner {
+            meta.set_name(name);
+        } else {
+            panic!("Called with_name() on an already initialized BuilderSystem");
+        }
+        self
     }
 }
 
@@ -888,23 +916,28 @@ unsafe impl<P: SystemParam, B: SystemParamBuilder<P>> SystemParamBuilder<If<P>> 
 }
 
 /// A [`SystemParamBuilder`] for a [`SystemRunner`]
-pub struct SystemRunnerBuilder<In: SystemInput + 'static = (), Out: 'static = ()>(
-    BoxedSystem<In, Out>,
-);
+pub struct SystemRunnerBuilder<Sys: System + ?Sized>(Box<Sys>);
 
-impl<In: SystemInput + 'static, Out: 'static> SystemRunnerBuilder<In, Out> {
+impl<Sys: System> SystemRunnerBuilder<Sys> {
     /// Returns a `SystemRunnerBuilder` created from a given system.
-    pub fn from_system<S: IntoSystem<In, Out, M>, M>(system: S) -> Self {
-        Self(Box::new(S::into_system(system)))
+    pub fn new(system: Sys) -> Self {
+        Self(Box::new(system))
+    }
+}
+
+impl<In: SystemInput + 'static, Out: 'static> SystemRunnerBuilder<dyn System<In = In, Out = Out>> {
+    /// Returns a `SystemRunnerBuilder` created from a boxed system.
+    pub fn boxed(system: BoxedSystem<In, Out>) -> Self {
+        Self(system)
     }
 }
 
 // SAFETY: the state returned is always valid. In particular the access always
 // matches the contained system.
-unsafe impl<'w, 's, In: SystemInput + 'static, Out: 'static>
-    SystemParamBuilder<SystemRunner<'w, 's, In, Out>> for SystemRunnerBuilder<In, Out>
+unsafe impl<'w, 's, Sys: System + ?Sized>
+    SystemParamBuilder<SystemRunner<'w, 's, Sys::In, Sys::Out, Sys>> for SystemRunnerBuilder<Sys>
 {
-    fn build(mut self, world: &mut World) -> SystemRunnerState<In, Out> {
+    fn build(mut self, world: &mut World) -> SystemRunnerState<Sys> {
         let access = self.0.initialize(world);
         SystemRunnerState {
             system: Some(self.0),

@@ -1,5 +1,3 @@
-use core::mem;
-
 use bevy_macro_utils::ensure_no_collision;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
@@ -94,17 +92,26 @@ pub fn compose(input: TokenStream, has_input: bool) -> TokenStream {
     let runner_types: Vec<syn::Type> = visitor
         .system_paths
         .iter()
-        .map(|path| parse_quote_spanned!(path.span()=> #bevy_ecs_path::system::SystemRunner<_, _>))
+        .map(|path| parse_quote_spanned!(path.span()=> #bevy_ecs_path::system::SystemRunner<_, _, _>))
         .collect();
 
-    let mut builders: Vec<Expr> = vec![
-        parse_quote!(#bevy_ecs_path::system::builder::ParamBuilder);
-        if has_input {
-            expr_closure.inputs.len() - 1
-        } else {
-            expr_closure.inputs.len()
+    let param_count = if has_input {
+        if expr_closure.inputs.is_empty() {
+            return TokenStream::from(
+                syn::Error::new_spanned(
+                    &expr_closure.inputs,
+                    "closure must have at least one parameter",
+                )
+                .into_compile_error(),
+            );
         }
-    ];
+        expr_closure.inputs.len() - 1
+    } else {
+        expr_closure.inputs.len()
+    };
+
+    let mut builders: Vec<Expr> =
+        vec![parse_quote!(#bevy_ecs_path::system::ParamBuilder); param_count];
     let system_builders: Vec<Expr> = visitor.system_paths.iter().map(|path| parse_quote_spanned!(path.span()=> #bevy_ecs_path::system::ParamBuilder::system(#path))).collect();
     builders.push(parse_quote!(#bevy_ecs_path::system::ParamSetBuilder((#(#system_builders,)*))));
 
