@@ -20,7 +20,6 @@ fn evaluate_brdf(
         material.metallic,
         material.reflectance,
         material.perceptual_roughness,
-        material.roughness,
     );
     return diffuse_brdf + specular_brdf;
 }
@@ -38,8 +37,11 @@ fn evaluate_specular_brdf(
     metallic: f32,
     reflectance: vec3<f32>,
     perceptual_roughness: f32,
-    roughness: f32,
 ) -> vec3<f32> {
+    // Clamp roughness to prevent NaNs
+    let perceptual_roughness_clamped = clamp(perceptual_roughness, 0.0316227766, 1.0);
+    let roughness = perceptual_roughness_clamped * perceptual_roughness_clamped;
+
     let H = normalize(L + V);
     let NdotL = saturate(dot(N, L));
     let NdotH = saturate(dot(N, H));
@@ -47,10 +49,10 @@ fn evaluate_specular_brdf(
     let NdotV = max(dot(N, V), 0.0001);
 
     let F0 = calculate_F0(base_color, metallic, reflectance);
-    let F_ab = F_AB(perceptual_roughness, NdotV);
+    let F_ab = F_AB(perceptual_roughness_clamped, NdotV);
 
     let D = D_GGX(roughness, NdotH);
-    let Vs = saturate(V_SmithGGXCorrelated(roughness, NdotV, NdotL));
+    let Vs = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     let F = fresnel(F0, LdotH);
     return specular_multiscatter(D, Vs, F, F0, F_ab, 1.0);
 }
