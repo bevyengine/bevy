@@ -719,11 +719,83 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     })
 }
 
+/// Automatically compose systems together with function syntax.
+///
+/// This macro provides some nice syntax on top of the `SystemRunner` `SystemParam`
+/// to allow running systems inside other systems. Overall, the macro accepts normal
+/// closure syntax:
+///
+/// ```ignore
+/// let system_a = |world: &mut World| { 10 };
+/// let system_b = |a: In<u32>, world: &mut World| { println!("{}", *a + 12) };
+/// compose! {
+///     || -> Result<(), RunSystemError> {
+///         let a = run!(system-a)?;
+///         run!(system_b);
+///     }
+/// }
+/// ```
+///
+/// What's special is that the macro will expand any invocations of `run!()` into
+/// calls to `SystemRunner::run` or `SystemRunner::run_with`. The `run!()` accepts
+/// two parameters: first, a system identifier (or a path to one), and second, an
+/// optional input to invoke the system with.
+///
+/// Notes:
+/// 1. All system runners are passed through a `ParamSet`, so invoked systems will
+///    not conflict with each other. However, invoked systems may still conflict
+///    with system params in the outer closure.
+///
+/// 2. `run!` will not accept expressions that evaluate to systems, only direct
+///    identifiers or paths. So, if you want to call something like:
+///
+///    ```ignore
+///    run!(|query: Query<(&A, &B, &mut C)>| { ... })`
+///    ```
+///
+///    Assign the expression to a variable first.
 #[proc_macro]
 pub fn compose(input: TokenStream) -> TokenStream {
     system_composition::compose(input, false)
 }
 
+/// Automatically compose systems together with function syntax.
+///
+/// Unlike [`compose`], this macro allows generating systems that take input.
+///
+/// This macro provides some nice syntax on top of the `SystemRunner` `SystemParam`
+/// to allow running systems inside other systems. Overall, the macro accepts normal
+/// closure syntax:
+///
+/// ```ignore
+/// let system_a = |input: In<u32>, world: &mut World| { *input + 10 };
+/// let system_b = |a: In<u32>, world: &mut World| { println!("{}", *a + 12) };
+/// compose_with! {
+///     |input: In<u32>| -> Result<(), RunSystemError> {
+///         let a = run!(system_a, input)?;
+///         run!(system_b);
+///     }
+/// }
+/// ```
+///
+/// What's special is that the macro will expand any invocations of `run!()` into
+/// calls to `SystemRunner::run` or `SystemRunner::run_with`. The `run!()` accepts
+/// two parameters: first, a system identifier (or a path to one), and second, an
+/// optional input to invoke the system with.
+///
+/// Notes:
+/// 1. All system runners are passed through a `ParamSet`, so invoked systems will
+///    not conflict with each other. However, invoked systems may still conflict
+///    with system params in the outer closure.
+///
+/// 2. `run!` will not accept expressions that evaluate to systems, only direct
+///    identifiers or paths. So, if you want to call something like:
+///
+///    ```ignore
+///    run!(|query: Query<(&A, &B, &mut C)>| { ... })`
+///    ```
+///
+///    Assign the expression to a variable first.
 #[proc_macro]
 pub fn compose_with(input: TokenStream) -> TokenStream {
     system_composition::compose(input, true)
