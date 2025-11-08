@@ -372,7 +372,7 @@ impl Plugin for AssetPlugin {
             match self.mode {
                 AssetMode::Unprocessed => {
                     let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                    let sources = builders.build_sources(watch, false);
+                    let sources = builders.build_sources(watch, false, None);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
                         Arc::new(sources),
@@ -402,7 +402,7 @@ impl Plugin for AssetPlugin {
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
                     } else {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
-                        let sources = builders.build_sources(false, watch);
+                        let sources = builders.build_sources(false, watch, None);
                         app.insert_resource(AssetServer::new_with_meta_check(
                             Arc::new(sources),
                             AssetServerMode::Processed,
