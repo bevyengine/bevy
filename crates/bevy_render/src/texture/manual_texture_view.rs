@@ -42,7 +42,7 @@ impl ManualTextureView {
 /// const MANUAL_VIEW_HANDLE: ManualTextureViewHandle = ManualTextureViewHandle::new(42);
 /// manual_views.insert(MANUAL_VIEW_HANDLE, manual_view);
 ///
-/// // Now you can spawn a Cemera that renders to the manual view:
+/// // Now you can spawn a Camera that renders to the manual view:
 /// # use bevy_camera::{Camera, RenderTarget};
 /// world.spawn(Camera {
 ///     target: RenderTarget::TextureView(MANUAL_VIEW_HANDLE),

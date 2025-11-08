@@ -25,8 +25,8 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetReader, AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetWatcher,
-        PathStream, Reader,
+        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
+        AssetWatcher, PathStream, Reader,
     },
     processor::{
         AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
@@ -146,8 +146,7 @@ fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor
 
         app.register_asset_source(
             source_id,
-            AssetSource::build()
-                .with_reader(move || Box::new(source_memory_reader.clone()))
+            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
                 .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
                     source_event_sender_sender.send_blocking(sender).unwrap();
                     Some(Box::new(FakeWatcher))
