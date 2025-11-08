@@ -225,6 +225,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
 use core::any::TypeId;
+use std::sync::RwLock;
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -375,7 +376,7 @@ impl Plugin for AssetPlugin {
                     let sources = builders.build_sources(watch, false, None);
 
                     app.insert_resource(AssetServer::new_with_meta_check(
-                        Arc::new(sources),
+                        Arc::new(RwLock::new(sources)),
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
@@ -404,7 +405,7 @@ impl Plugin for AssetPlugin {
                         let mut builders = app.world_mut().resource_mut::<AssetSourceBuilders>();
                         let sources = builders.build_sources(false, watch, None);
                         app.insert_resource(AssetServer::new_with_meta_check(
-                            Arc::new(sources),
+                            Arc::new(RwLock::new(sources)),
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,

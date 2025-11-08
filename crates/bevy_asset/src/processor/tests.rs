@@ -413,7 +413,12 @@ fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, 
         // Before we even consider whether the processor is started, make sure that none of the
         // receivers have anything left in them. This prevents us accidentally, considering the
         // processor as processing before all the events have been processed.
-        for source in processor.sources().iter() {
+        for source in processor
+            .sources()
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+        {
             let Some(recv) = source.event_receiver() else {
                 continue;
             };

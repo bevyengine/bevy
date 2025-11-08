@@ -69,7 +69,7 @@ pub(crate) struct AssetServerData {
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
-    sources: Arc<AssetSources>,
+    sources: Arc<RwLock<AssetSources>>,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
@@ -91,7 +91,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         mode: AssetServerMode,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -109,7 +109,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
@@ -126,7 +126,7 @@ impl AssetServer {
     }
 
     pub(crate) fn new_with_loaders(
-        sources: Arc<AssetSources>,
+        sources: Arc<RwLock<AssetSources>>,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
@@ -183,7 +183,11 @@ impl AssetServer {
         &self,
         source: impl Into<AssetSourceId<'a>>,
     ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
-        self.data.sources.get(source.into())
+        self.data
+            .sources
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(source.into())
     }
 
     /// Returns true if the [`AssetServer`] watches for changes.
@@ -1873,7 +1877,13 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        for source in server.data.sources.iter() {
+        for source in server
+            .data
+            .sources
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .iter()
+        {
             match server.data.mode {
                 AssetServerMode::Unprocessed => {
                     if let Some(receiver) = source.event_receiver() {

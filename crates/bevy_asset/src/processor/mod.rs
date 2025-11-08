@@ -114,7 +114,8 @@ pub struct AssetProcessorData {
     log: async_lock::RwLock<Option<Box<dyn ProcessorTransactionLog>>>,
     /// The processors that will be used to process assets.
     processors: RwLock<Processors>,
-    sources: Arc<AssetSources>,
+    /// The asset sources for which this processor will process assets.
+    sources: Arc<RwLock<AssetSources>>,
 }
 
 /// The current state of processing, including the overall state and the state of all assets.
@@ -161,10 +162,10 @@ impl AssetProcessor {
     pub fn new(
         sources: &mut AssetSourceBuilders,
         watch_processed: bool,
-    ) -> (Self, Arc<AssetSources>) {
+    ) -> (Self, Arc<RwLock<AssetSources>>) {
         let state = Arc::new(ProcessingState::new());
         let sources = sources.build_sources(true, watch_processed, Some(state.clone()));
-        let sources = Arc::new(sources);
+        let sources = Arc::new(RwLock::new(sources));
 
         let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
         // The asset processor uses its own asset server with its own id space
@@ -200,11 +201,15 @@ impl AssetProcessor {
         &self,
         id: impl Into<AssetSourceId<'a>>,
     ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
-        self.data.sources.get(id.into())
+        self.data
+            .sources
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(id.into())
     }
 
     #[inline]
-    pub fn sources(&self) -> &AssetSources {
+    pub fn sources(&self) -> &RwLock<AssetSources> {
         &self.data.sources
     }
 
@@ -257,11 +262,19 @@ impl AssetProcessor {
                 let start_time = std::time::Instant::now();
                 debug!("Processing Assets");
 
-                processor.initialize().await.unwrap();
+                let sources = processor
+                    .sources()
+                    .read()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .iter_processed()
+                    .cloned()
+                    .collect::<Vec<_>>();
+
+                processor.initialize(&sources).await.unwrap();
 
                 let (new_task_sender, new_task_receiver) = async_channel::unbounded();
                 processor
-                    .queue_initial_processing_tasks(&new_task_sender)
+                    .queue_initial_processing_tasks(&sources, &new_task_sender)
                     .await;
 
                 // Once all the tasks are queued for the initial processing, start actually
@@ -284,7 +297,7 @@ impl AssetProcessor {
                 debug!("Processing finished in {:?}", end_time - start_time);
 
                 debug!("Listening for changes to source assets");
-                processor.spawn_source_change_event_listeners(&new_task_sender);
+                processor.spawn_source_change_event_listeners(&sources, &new_task_sender);
             })
             .detach();
     }
@@ -292,9 +305,10 @@ impl AssetProcessor {
     /// Sends start task events for all assets in all processed sources into `sender`.
     async fn queue_initial_processing_tasks(
         &self,
+        sources: &[Arc<AssetSource>],
         sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        for source in self.sources().iter_processed() {
+        for source in sources {
             self.queue_processing_tasks_for_folder(source, PathBuf::from(""), sender)
                 .await
                 .unwrap();
@@ -305,9 +319,10 @@ impl AssetProcessor {
     /// response.
     fn spawn_source_change_event_listeners(
         &self,
+        sources: &[Arc<AssetSource>],
         sender: &async_channel::Sender<(AssetSourceId<'static>, PathBuf)>,
     ) {
-        for source in self.data.sources.iter_processed() {
+        for source in sources {
             let Some(receiver) = source.event_receiver().cloned() else {
                 continue;
             };
@@ -838,8 +853,8 @@ impl AssetProcessor {
     /// This info will later be used to determine whether or not to re-process an asset
     ///
     /// This will validate transactions and recover failed transactions when necessary.
-    async fn initialize(&self) -> Result<(), InitializeError> {
-        self.validate_transaction_log_and_recover().await;
+    async fn initialize(&self, sources: &[Arc<AssetSource>]) -> Result<(), InitializeError> {
+        self.validate_transaction_log_and_recover(sources).await;
         let mut asset_infos = self.data.processing_state.asset_infos.write().await;
 
         /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
@@ -878,7 +893,7 @@ impl AssetProcessor {
             }
         }
 
-        for source in self.sources().iter_processed() {
+        for source in sources {
             let Some(processed_reader) = source.ungated_processed_reader() else {
                 continue;
             };
@@ -1253,7 +1268,7 @@ impl AssetProcessor {
         Ok(ProcessResult::Processed(new_processed_info))
     }
 
-    async fn validate_transaction_log_and_recover(&self) {
+    async fn validate_transaction_log_and_recover(&self, sources: &[Arc<AssetSource>]) {
         let log_factory = self
             .data
             .log_factory
@@ -1327,7 +1342,7 @@ impl AssetProcessor {
 
             if !state_is_valid {
                 error!("Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh.");
-                for source in self.sources().iter_processed() {
+                for source in sources {
                     let Ok(processed_writer) = source.processed_writer() else {
                         continue;
                     };
@@ -1350,7 +1365,10 @@ impl AssetProcessor {
 
 impl AssetProcessorData {
     /// Initializes a new [`AssetProcessorData`] using the given [`AssetSources`].
-    pub(crate) fn new(sources: Arc<AssetSources>, processing_state: Arc<ProcessingState>) -> Self {
+    pub(crate) fn new(
+        sources: Arc<RwLock<AssetSources>>,
+        processing_state: Arc<ProcessingState>,
+    ) -> Self {
         AssetProcessorData {
             processing_state,
             sources,
