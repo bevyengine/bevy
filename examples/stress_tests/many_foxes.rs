@@ -239,7 +239,7 @@ fn setup_scene_once_loaded(
         if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(scene_ready.entity.index() as f32 / 10.0);
+                playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
             commands
                 .entity(child)

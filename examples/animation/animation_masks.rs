@@ -105,7 +105,7 @@ fn main() {
         .add_systems(Update, setup_animation_graph_once_loaded)
         .add_systems(Update, handle_button_toggles)
         .add_systems(Update, update_ui)
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: WHITE.into(),
             brightness: 100.0,
             ..default()

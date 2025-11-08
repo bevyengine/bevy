@@ -1,6 +1,6 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
@@ -242,7 +242,7 @@ impl Table {
         if is_last {
             None
         } else {
-            // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+            // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
         }
     }
@@ -286,7 +286,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -328,7 +328,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -365,7 +365,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -605,8 +605,8 @@ impl Table {
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
         let len = self.entity_count();
-        // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
-        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
         let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
         let len = len as usize;
         self.entities.push(entity);
@@ -869,9 +869,9 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::MaybeLocation,
-        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
-        entity::{Entity, EntityRow},
+        change_detection::{MaybeLocation, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator},
+        entity::{Entity, EntityIndex},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
@@ -905,7 +905,7 @@ mod tests {
             .add_column(components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
-            .map(|index| Entity::from_row(EntityRow::from_raw_u32(index).unwrap()))
+            .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))
             .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

@@ -70,16 +70,6 @@ impl World {
         );
     }
 
-    /// A deprecated alias for [`trigger`](Self::trigger) to ease migration.
-    ///
-    /// Instead of specifying the trigger target separately,
-    /// information about the target of the event is embedded in the data held by
-    /// the event type itself.
-    #[deprecated(since = "0.17.0", note = "Use `World::trigger` instead.")]
-    pub fn trigger_targets<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
-        self.trigger(event);
-    }
-
     /// Triggers the given [`Event`] using the given [`Trigger`](crate::event::Trigger), which will run any [`Observer`]s watching for it.
     ///
     /// For a variant that borrows the `event` rather than consuming it, use [`World::trigger_ref`] instead.
@@ -260,7 +250,6 @@ mod tests {
 
     use crate::{
         change_detection::MaybeLocation,
-        entity_disabling::Internal,
         event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
         observer::{Observer, Replace},
@@ -453,13 +442,7 @@ mod tests {
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
         // we have one A entity and two observers
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
-        assert_eq!(
-            world
-                .query_filtered::<&Observer, Allow<Internal>>()
-                .query(&world)
-                .count(),
-            2
-        );
+        assert_eq!(world.query::<&Observer>().query(&world).count(), 2);
     }
 
     #[test]
@@ -1118,18 +1101,5 @@ mod tests {
             .get_observers_mut(event_key)
             .component_observers()
             .contains_key(&a));
-    }
-
-    #[test]
-    #[expect(deprecated, reason = "We still need to test `On::target`")]
-    fn observer_target() {
-        let mut world = World::new();
-        let entity = world
-            .spawn_empty()
-            .observe(|event: On<EntityEventA>| {
-                assert_eq!(event.target(), event.event_target());
-            })
-            .id();
-        world.trigger(EntityEventA(entity));
     }
 }

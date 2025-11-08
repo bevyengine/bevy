@@ -61,7 +61,7 @@ async-channel = { version = "2.3.0", default-features = false }
 async-task = { version = "4.4.0", default-features = false, features = [
   "portable-atomic",
 ] }
-heapless = { version = "0.8", default-features = false, features = [
+heapless = { version = "0.9", default-features = false, features = [
   "portable-atomic",
 ] }
 atomic-waker = { version = "1", default-features = false, features = [

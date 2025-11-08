@@ -1,9 +1,9 @@
-//! A camera controller for 2D scenes that supports panning and zooming.
+//! A controller for 2D cameras that supports panning, zooming, and rotation.
 //!
-//! To use this controller, add [`PanCamPlugin`] to your app,
-//! and insert a [`PanCam`] component into your camera entity.
+//! To use this controller, add [`PanCameraPlugin`] to your app,
+//! and insert a [`PanCamera`] component into your camera entity.
 //!
-//! To configure the settings of this controller, modify the fields of the [`PanCam`] component.
+//! To configure the settings of this controller, modify the fields of the [`PanCamera`] component.
 
 use bevy_app::{App, Plugin, RunFixedMainLoop, RunFixedMainLoopSystems};
 use bevy_camera::Camera;
@@ -17,28 +17,28 @@ use bevy_transform::prelude::Transform;
 
 use core::{f32::consts::*, fmt};
 
-/// A pancam-style camera controller plugin.
+/// A plugin that enables 2D camera panning and zooming controls.
 ///
-/// Use [`PanCam`] to add a pancam controller to a camera entity,
-/// and change its values to customize the controls and change its behavior.
-pub struct PanCamPlugin;
+/// Add this plugin to your [`App`] to enable [`PanCamera`] behavior
+/// on any camera entity that has the [`PanCamera`] component.
+pub struct PanCameraPlugin;
 
-impl Plugin for PanCamPlugin {
+impl Plugin for PanCameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             RunFixedMainLoop,
-            run_pancam_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
+            run_pancamera_controller.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop),
         );
     }
 }
 
-/// Pancam controller settings and state.
+/// Configuration and state for a 2D panning camera controller.
 ///
-/// Add this component to a [`Camera`] entity and add [`PanCamPlugin`]
-/// to your [`App`] to enable pancam controls.
+/// Add this component to a [`Camera`] entity to enable keyboard and mouse controls
+/// for panning, zooming, and optional rotation. Requires the [`PanCameraPlugin`].
 #[derive(Component)]
-pub struct PanCam {
-    /// Enables this [`PanCam`] when `true`.
+pub struct PanCamera {
+    /// Enables this [`PanCamera`] when `true`.
     pub enabled: bool,
     /// Current zoom level (factor applied to camera scale).
     pub zoom_factor: f32,
@@ -46,13 +46,13 @@ pub struct PanCam {
     pub min_zoom: f32,
     /// Maximum allowed zoom level.
     pub max_zoom: f32,
-    /// This [`PanCam`]'s zoom sensitivity.
+    /// Translation speed for panning movement.
     pub zoom_speed: f32,
     /// [`KeyCode`] to zoom in.
     pub key_zoom_in: Option<KeyCode>,
     /// [`KeyCode`] to zoom out.
     pub key_zoom_out: Option<KeyCode>,
-    /// This [`PanCam`]'s translation speed.
+    /// This [`PanCamera`]'s translation speed.
     pub pan_speed: f32,
     /// [`KeyCode`] for upward translation.
     pub key_up: Option<KeyCode>,
@@ -70,7 +70,7 @@ pub struct PanCam {
     pub key_rotate_cw: Option<KeyCode>,
 }
 
-/// Provides the default values for the `PanCam` controller.
+/// Provides the default values for the `PanCamera` controller.
 ///
 /// The default settings are:
 /// - Zoom factor: 1.0
@@ -83,10 +83,10 @@ pub struct PanCam {
 /// - Move left/right: A/D
 /// - Rotation speed: PI (radiradians per second)
 /// - Rotation ccw/cw: Q/E
-impl Default for PanCam {
-    /// Provides the default values for the `PanCam` controller.
+impl Default for PanCamera {
+    /// Provides the default values for the `PanCamera` controller.
     ///
-    /// Users can override these values by manually creating a `PanCam` instance
+    /// Users can override these values by manually creating a `PanCamera` instance
     /// or modifying the default instance.
     fn default() -> Self {
         Self {
@@ -109,18 +109,18 @@ impl Default for PanCam {
     }
 }
 
-impl PanCam {
+impl PanCamera {
     fn key_to_string(key: &Option<KeyCode>) -> String {
         key.map_or("None".to_string(), |k| format!("{:?}", k))
     }
 }
 
-impl fmt::Display for PanCam {
+impl fmt::Display for PanCamera {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "
-PanCam Controls:
+PanCamera Controls:
   Move Up / Down    - {} / {}
   Move Left / Right - {} / {}
   Rotate CCW / CW   - {} / {}
@@ -138,18 +138,18 @@ PanCam Controls:
     }
 }
 
-/// This system is typically added via the [`PanCamPlugin`].
+/// This system is typically added via the [`PanCameraPlugin`].
 ///
 /// Reads inputs and then moves the camera entity according
-/// to the settings given in [`PanCam`].
+/// to the settings given in [`PanCamera`].
 ///
 /// **Note**: The zoom applied in this controller is linear. The zoom factor is directly adjusted
 /// based on the input (either from the mouse scroll or keyboard).
-fn run_pancam_controller(
+fn run_pancamera_controller(
     time: Res<Time<Real>>,
     key_input: Res<ButtonInput<KeyCode>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mut query: Query<(&mut Transform, &mut PanCam), With<Camera>>,
+    mut query: Query<(&mut Transform, &mut PanCamera), With<Camera>>,
 ) {
     let dt = time.delta_secs();
 

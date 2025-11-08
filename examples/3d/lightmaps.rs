@@ -27,7 +27,7 @@ fn main() {
 
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight::NONE);
+        .insert_resource(GlobalAmbientLight::NONE);
 
     if args.deferred {
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());

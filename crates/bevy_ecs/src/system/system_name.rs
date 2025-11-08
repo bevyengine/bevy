@@ -1,5 +1,5 @@
 use crate::{
-    component::Tick,
+    change_detection::Tick,
     prelude::World,
     query::FilteredAccessSet,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},

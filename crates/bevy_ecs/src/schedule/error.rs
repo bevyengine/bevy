@@ -5,7 +5,10 @@ use thiserror::Error;
 
 use crate::{
     component::{ComponentId, Components},
-    schedule::{graph::GraphNodeId, NodeId, ScheduleGraph, SystemKey, SystemSetKey},
+    schedule::{
+        graph::{DiGraphToposortError, GraphNodeId},
+        NodeId, ScheduleGraph, SystemKey, SystemSetKey,
+    },
     world::World,
 };
 
@@ -13,18 +16,15 @@ use crate::{
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum ScheduleBuildError {
-    /// A system set contains itself.
-    #[error("System set `{0:?}` contains itself.")]
-    HierarchyLoop(NodeId),
-    /// The hierarchy of system sets contains a cycle.
-    #[error("The hierarchy of system sets contains a cycle: {0:?}")]
-    HierarchyCycle(Vec<Vec<NodeId>>),
-    /// A system (set) has been told to run before itself.
-    #[error("`{0:?}` has been told to run before itself.")]
-    DependencyLoop(NodeId),
-    /// The dependency graph contains a cycle.
-    #[error("The dependency graph contains a cycle: {0:?}")]
-    DependencyCycle(Vec<Vec<NodeId>>),
+    /// Tried to topologically sort the hierarchy of system sets.
+    #[error("Failed to topologically sort the hierarchy of system sets: {0}")]
+    HierarchySort(DiGraphToposortError<NodeId>),
+    /// Tried to topologically sort the dependency graph.
+    #[error("Failed to topologically sort the dependency graph: {0}")]
+    DependencySort(DiGraphToposortError<NodeId>),
+    /// Tried to topologically sort the flattened dependency graph.
+    #[error("Failed to topologically sort the flattened dependency graph: {0}")]
+    FlatDependencySort(DiGraphToposortError<SystemKey>),
     /// Tried to order a system (set) relative to a system set it belongs to.
     #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(NodeId, NodeId),
@@ -83,16 +83,22 @@ impl ScheduleBuildError {
     /// [`Schedule`]: crate::schedule::Schedule
     pub fn to_string(&self, graph: &ScheduleGraph, world: &World) -> String {
         match self {
-            ScheduleBuildError::HierarchyLoop(node_id) => {
+            ScheduleBuildError::HierarchySort(DiGraphToposortError::Loop(node_id)) => {
                 Self::hierarchy_loop_to_string(node_id, graph)
             }
-            ScheduleBuildError::HierarchyCycle(cycles) => {
+            ScheduleBuildError::HierarchySort(DiGraphToposortError::Cycle(cycles)) => {
                 Self::hierarchy_cycle_to_string(cycles, graph)
             }
-            ScheduleBuildError::DependencyLoop(node_id) => {
+            ScheduleBuildError::DependencySort(DiGraphToposortError::Loop(node_id)) => {
                 Self::dependency_loop_to_string(node_id, graph)
             }
-            ScheduleBuildError::DependencyCycle(cycles) => {
+            ScheduleBuildError::DependencySort(DiGraphToposortError::Cycle(cycles)) => {
+                Self::dependency_cycle_to_string(cycles, graph)
+            }
+            ScheduleBuildError::FlatDependencySort(DiGraphToposortError::Loop(node_id)) => {
+                Self::dependency_loop_to_string(&NodeId::System(*node_id), graph)
+            }
+            ScheduleBuildError::FlatDependencySort(DiGraphToposortError::Cycle(cycles)) => {
                 Self::dependency_cycle_to_string(cycles, graph)
             }
             ScheduleBuildError::CrossDependency(a, b) => {
@@ -164,10 +170,15 @@ impl ScheduleBuildError {
         )
     }
 
-    fn dependency_cycle_to_string(cycles: &[Vec<NodeId>], graph: &ScheduleGraph) -> String {
+    fn dependency_cycle_to_string<N: GraphNodeId + Into<NodeId>>(
+        cycles: &[Vec<N>],
+        graph: &ScheduleGraph,
+    ) -> String {
         let mut message = format!("schedule has {} before/after cycle(s):\n", cycles.len());
         for (i, cycle) in cycles.iter().enumerate() {
-            let mut names = cycle.iter().map(|id| (id.kind(), graph.get_node_name(id)));
+            let mut names = cycle
+                .iter()
+                .map(|&id| (id.kind(), graph.get_node_name(&id.into())));
             let (first_kind, first_name) = names.next().unwrap();
             writeln!(
                 message,
