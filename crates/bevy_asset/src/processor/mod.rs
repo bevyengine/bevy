@@ -163,8 +163,7 @@ impl AssetProcessor {
         watch_processed: bool,
     ) -> (Self, Arc<AssetSources>) {
         let state = Arc::new(ProcessingState::new());
-        let mut sources = sources.build_sources(true, watch_processed);
-        sources.gate_on_processor(state.clone());
+        let sources = sources.build_sources(true, watch_processed, Some(state.clone()));
         let sources = Arc::new(sources);
 
         let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
@@ -200,7 +199,7 @@ impl AssetProcessor {
     pub fn get_source<'a>(
         &self,
         id: impl Into<AssetSourceId<'a>>,
-    ) -> Result<&AssetSource, MissingAssetSourceError> {
+    ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
         self.data.sources.get(id.into())
     }
 
@@ -322,7 +321,7 @@ impl AssetProcessor {
                             return;
                         };
                         processor
-                            .handle_asset_source_event(source, event, &sender)
+                            .handle_asset_source_event(&source, event, &sender)
                             .await;
                     }
                 })
@@ -398,7 +397,9 @@ impl AssetProcessor {
                             let Ok(source) = processor.get_source(source_id) else {
                                 return;
                             };
-                            processor.process_asset(source, path, new_task_sender).await;
+                            processor
+                                .process_asset(&source, path, new_task_sender)
+                                .await;
                             // If the channel gets closed, that's ok. Just ignore it.
                             let _ = task_finished_sender.send(()).await;
                         })

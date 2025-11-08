@@ -165,13 +165,15 @@ impl AssetSourceBuilder {
         }
     }
 
-    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
-    /// If `watch_processed` is true, the processed source will watch for changes.
-    pub fn build(
+    /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source
+    /// will watch for changes. If `watch_processed` is true, the processed source will watch for
+    /// changes. If `processing_state` is [`Some`], the processed reader will be gated on the state.
+    pub(crate) fn build(
         &mut self,
         id: AssetSourceId<'static>,
         watch: bool,
         watch_processed: bool,
+        processing_state: Option<Arc<ProcessingState>>,
     ) -> AssetSource {
         let reader = self.reader.as_mut()();
         let writer = self.writer.as_mut().and_then(|w| w(false));
@@ -222,6 +224,13 @@ impl AssetSourceBuilder {
                 }
             }
         }
+
+        if source.should_process()
+            && let Some(processing_state) = processing_state
+        {
+            source.gate_on_processor(processing_state);
+        }
+
         source
     }
 
@@ -355,17 +364,25 @@ impl AssetSourceBuilders {
         }
     }
 
-    /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
-    /// If `watch_processed` is true, the processed sources will watch for changes.
-    pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
+    /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will
+    /// watch for changes. If `watch_processed` is true, the processed sources will watch for
+    /// changes. If `processing_state` is [`Some`], the processed readers will be gated on the
+    /// processing state.
+    pub(crate) fn build_sources(
+        &mut self,
+        watch: bool,
+        watch_processed: bool,
+        processing_state: Option<Arc<ProcessingState>>,
+    ) -> AssetSources {
         let mut sources = <HashMap<_, _>>::default();
         for (id, source) in &mut self.sources {
             let source = source.build(
                 AssetSourceId::Name(id.clone_owned()),
                 watch,
                 watch_processed,
+                processing_state.clone(),
             );
-            sources.insert(id.clone_owned(), source);
+            sources.insert(id.clone_owned(), Arc::new(source));
         }
 
         AssetSources {
@@ -373,7 +390,15 @@ impl AssetSourceBuilders {
             default: self
                 .default
                 .as_mut()
-                .map(|p| p.build(AssetSourceId::Default, watch, watch_processed))
+                .map(|p| {
+                    p.build(
+                        AssetSourceId::Default,
+                        watch,
+                        watch_processed,
+                        processing_state.clone(),
+                    )
+                })
+                .map(Arc::new)
                 .expect(MISSING_DEFAULT_SOURCE),
         }
     }
@@ -591,43 +616,34 @@ impl AssetSource {
 
 /// A collection of [`AssetSource`]s.
 pub struct AssetSources {
-    sources: HashMap<CowArc<'static, str>, AssetSource>,
-    default: AssetSource,
+    sources: HashMap<CowArc<'static, str>, Arc<AssetSource>>,
+    default: Arc<AssetSource>,
 }
 
 impl AssetSources {
     /// Gets the [`AssetSource`] with the given `id`, if it exists.
-    pub fn get<'a, 'b>(
-        &'a self,
-        id: impl Into<AssetSourceId<'b>>,
-    ) -> Result<&'a AssetSource, MissingAssetSourceError> {
+    pub fn get<'a>(
+        &self,
+        id: impl Into<AssetSourceId<'a>>,
+    ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
         match id.into().into_owned() {
-            AssetSourceId::Default => Ok(&self.default),
+            AssetSourceId::Default => Ok(self.default.clone()),
             AssetSourceId::Name(name) => self
                 .sources
                 .get(&name)
+                .cloned()
                 .ok_or(MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 
     /// Iterates all asset sources in the collection (including the default source).
-    pub fn iter(&self) -> impl Iterator<Item = &AssetSource> {
+    pub fn iter(&self) -> impl Iterator<Item = &Arc<AssetSource>> {
         self.sources.values().chain(Some(&self.default))
     }
 
-    /// Mutably iterates all asset sources in the collection (including the default source).
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
-        self.sources.values_mut().chain(Some(&mut self.default))
-    }
-
     /// Iterates all processed asset sources in the collection (including the default source).
-    pub fn iter_processed(&self) -> impl Iterator<Item = &AssetSource> {
+    pub fn iter_processed(&self) -> impl Iterator<Item = &Arc<AssetSource>> {
         self.iter().filter(|p| p.should_process())
-    }
-
-    /// Mutably iterates all processed asset sources in the collection (including the default source).
-    pub fn iter_processed_mut(&mut self) -> impl Iterator<Item = &mut AssetSource> {
-        self.iter_mut().filter(|p| p.should_process())
     }
 
     /// Iterates over the [`AssetSourceId`] of every [`AssetSource`] in the collection (including the default source).
@@ -636,14 +652,6 @@ impl AssetSources {
             .keys()
             .map(|k| AssetSourceId::Name(k.clone_owned()))
             .chain(Some(AssetSourceId::Default))
-    }
-
-    /// This will cause processed [`AssetReader`](crate::io::AssetReader) futures (such as [`AssetReader::read`](crate::io::AssetReader::read)) to wait until
-    /// the [`AssetProcessor`](crate::AssetProcessor) has finished processing the requested asset.
-    pub(crate) fn gate_on_processor(&mut self, processing_state: Arc<ProcessingState>) {
-        for source in self.iter_processed_mut() {
-            source.gate_on_processor(processing_state.clone());
-        }
     }
 }
 

@@ -182,7 +182,7 @@ impl AssetServer {
     pub fn get_source<'a>(
         &self,
         source: impl Into<AssetSourceId<'a>>,
-    ) -> Result<&AssetSource, MissingAssetSourceError> {
+    ) -> Result<Arc<AssetSource>, MissingAssetSourceError> {
         self.data.sources.get(source.into())
     }
 
@@ -711,8 +711,19 @@ impl AssetServer {
 
         let path = path.into_owned();
         let path_clone = path.clone();
+        let source = self.get_source(path.source()).inspect_err(|e| {
+            // If there was an input handle, a "load" operation has already started, so we must
+            // produce a "failure" event, if we cannot find the source.
+            if let Some(handle) = &input_handle {
+                self.send_asset_event(InternalAssetEvent::Failed {
+                    index: handle.try_into().unwrap(),
+                    path: path.clone_owned(),
+                    error: e.clone().into(),
+                });
+            }
+        })?;
         let (mut meta, loader, mut reader) = self
-            .get_meta_loader_and_reader(&path_clone, input_handle_type_id)
+            .get_meta_loader_and_reader(&path_clone, input_handle_type_id, &source)
             .await
             .inspect_err(|e| {
                 // if there was an input handle, a "load" operation has already started, so we must produce a "failure" event, if
@@ -1418,6 +1429,7 @@ impl AssetServer {
         &'a self,
         asset_path: &'a AssetPath<'_>,
         asset_type_id: Option<TypeId>,
+        source: &'a AssetSource,
     ) -> Result<
         (
             Box<dyn AssetMetaDyn>,
@@ -1426,7 +1438,6 @@ impl AssetServer {
         ),
         AssetLoadError,
     > {
-        let source = self.get_source(asset_path.source())?;
         let asset_reader = match self.data.mode {
             AssetServerMode::Unprocessed => source.reader(),
             AssetServerMode::Processed => source.processed_reader()?,
