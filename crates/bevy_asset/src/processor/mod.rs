@@ -120,6 +120,12 @@ pub struct AssetProcessorData {
 
 /// The current state of processing, including the overall state and the state of all assets.
 pub(crate) struct ProcessingState {
+    /// A bool indicating whether the processor has started or not.
+    ///
+    /// This is different from `state` since `state` is async, and we only assign to it once, so we
+    /// should ~never block on it.
+    // TODO: Remove this once the processor can process new asset sources.
+    pub(crate) started: RwLock<bool>,
     /// The overall state of processing.
     state: async_lock::RwLock<ProcessorState>,
     /// The channel to broadcast when the processor has completed initialization.
@@ -261,6 +267,12 @@ impl AssetProcessor {
                 let start_time = std::time::Instant::now();
                 debug!("Processing Assets");
 
+                *processor
+                    .data
+                    .processing_state
+                    .started
+                    .write()
+                    .unwrap_or_else(PoisonError::into_inner) = true;
                 let sources = processor
                     .sources()
                     .read()
@@ -1426,6 +1438,7 @@ impl ProcessingState {
         finished_sender.set_overflow(true);
 
         Self {
+            started: Default::default(),
             state: async_lock::RwLock::new(ProcessorState::Initializing),
             initialized_sender,
             initialized_receiver,
