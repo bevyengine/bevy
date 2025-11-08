@@ -3,13 +3,16 @@
 //! It does not know anything about the asset formats, only how to talk to the underlying storage.
 
 use bevy::{
-    asset::io::{
-        AssetReader, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceId,
-        ErasedAssetReader, PathStream, Reader, ReaderRequiredFeatures,
+    asset::{
+        io::{
+            AssetReader, AssetReaderError, AssetSource, AssetSourceBuilder, ErasedAssetReader,
+            PathStream, Reader, ReaderRequiredFeatures,
+        },
+        DefaultAssetSource,
     },
     prelude::*,
 };
-use std::path::Path;
+use std::{path::Path, sync::Mutex};
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);
@@ -39,26 +42,20 @@ impl AssetReader for CustomAssetReader {
     }
 }
 
-/// A plugins that registers our new asset reader
-struct CustomAssetReaderPlugin;
-
-impl Plugin for CustomAssetReaderPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(|| {
-                Box::new(CustomAssetReader(
-                    // This is the default reader for the current platform
-                    AssetSource::get_default_reader("assets".to_string())(),
-                ))
-            }),
-        );
-    }
-}
-
 fn main() {
     App::new()
-        .add_plugins((CustomAssetReaderPlugin, DefaultPlugins))
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            // The default source must be registered in the `AssetPlugin`.
+            default_source: DefaultAssetSource::FromBuilder(Mutex::new(AssetSourceBuilder::new(
+                || {
+                    Box::new(CustomAssetReader(
+                        // This is the default reader for the current platform
+                        AssetSource::get_default_reader("assets".to_string())(),
+                    ))
+                },
+            ))),
+            ..Default::default()
+        }))
         .add_systems(Startup, setup)
         .run();
 }

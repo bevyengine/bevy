@@ -10,7 +10,7 @@
 
 use argh::FromArgs;
 use bevy::{
-    asset::UnapprovedPathMode,
+    asset::{DefaultAssetSource, UnapprovedPathMode},
     camera::primitives::{Aabb, Sphere},
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
@@ -89,7 +89,11 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                default_source: DefaultAssetSource::FromPaths {
+                    file_path: std::env::var("CARGO_MANIFEST_DIR")
+                        .unwrap_or_else(|_| ".".to_string()),
+                    processed_file_path: None,
+                },
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()

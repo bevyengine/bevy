@@ -1971,16 +1971,17 @@ struct MorphTargetNames {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
+    use std::{path::Path, sync::Mutex};
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
-            AssetSourceBuilder, AssetSourceId,
+            AssetSourceBuilder,
         },
-        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, Handle, LoadState,
+        AssetApp, AssetLoader, AssetPlugin, AssetServer, Assets, DefaultAssetSource, Handle,
+        LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_image::{Image, ImageLoaderSettings};
@@ -1994,14 +1995,15 @@ mod test {
     fn test_app(dir: Dir) -> App {
         let mut app = App::new();
         let reader = MemoryAssetReader { root: dir };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                )),
+                ..Default::default()
+            },
             ScenePlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
@@ -2412,27 +2414,27 @@ mod test {
 
         let mut app = App::new();
         let custom_reader = MemoryAssetReader { root: dir.clone() };
-        // Create a default asset source so we definitely don't try to read from disk.
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: Dir::default(),
-                })
-            }),
-        )
-        .register_asset_source(
-            "custom",
-            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             LogPlugin::default(),
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || {
+                        Box::new(MemoryAssetReader {
+                            root: Dir::default(),
+                        })
+                    }),
+                )),
+                ..Default::default()
+            },
             ScenePlugin,
             MeshPlugin,
             crate::GltfPlugin::default(),
-        ));
+        ))
+        .register_asset_source(
+            "custom",
+            AssetSourceBuilder::new(move || Box::new(custom_reader.clone())),
+        );
 
         app.finish();
         app.cleanup();

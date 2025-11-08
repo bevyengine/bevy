@@ -12,17 +12,15 @@ use std::path::Path;
 
 fn main() {
     App::new()
+        // DefaultPlugins contains AssetPlugin so it must be added to our App
+        // before inserting our new asset source.
+        .add_plugins(DefaultPlugins)
         // Add an extra asset source with the name "example_files" to
         // AssetSourceBuilders.
-        //
-        // This must be done before AssetPlugin finalizes building assets.
         .register_asset_source(
             "example_files",
             AssetSourceBuilder::platform_default("examples/asset/files", None),
         )
-        // DefaultPlugins contains AssetPlugin so it must be added to our App
-        // after inserting our new asset source.
-        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
 }
