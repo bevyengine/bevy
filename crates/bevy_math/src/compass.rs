@@ -84,8 +84,7 @@ impl CompassQuadrant {
     /// This uses a cone-based check: the vector from origin to the candidate point
     /// must have a positive dot product with the direction vector.
     ///
-    /// **Note**: This function assumes **UI coordinates** where Y increases downward.
-    /// This is the opposite of mathematical coordinates where Y increases upward.
+    /// Uses standard mathematical coordinates where Y increases upward.
     ///
     /// # Arguments
     ///
@@ -102,24 +101,16 @@ impl CompassQuadrant {
     /// use bevy_math::{CompassQuadrant, Vec2};
     ///
     /// let origin = Vec2::new(0.0, 0.0);
-    /// // In UI coordinates, Y increases downward
-    /// let south_point = Vec2::new(0.0, 10.0);  // Below origin
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
     /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
     ///
-    /// assert!(CompassQuadrant::South.is_in_direction(origin, south_point));
-    /// assert!(!CompassQuadrant::South.is_in_direction(origin, east_point));
+    /// assert!(CompassQuadrant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassQuadrant::North.is_in_direction(origin, east_point));
     /// ```
     pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
-        // Use UI coordinates: Y increases downward
-        let dir = match self {
-            Self::North => Vec2::new(0.0, -1.0),
-            Self::East => Vec2::new(1.0, 0.0),
-            Self::South => Vec2::new(0.0, 1.0),
-            Self::West => Vec2::new(-1.0, 0.0),
-        };
-
+        let dir = Dir2::from(self);
         let to_candidate = candidate - origin;
-        to_candidate.dot(dir) > 0.0
+        to_candidate.dot(*dir) > 0.0
     }
 }
 
@@ -220,8 +211,7 @@ impl CompassOctant {
     /// This uses a cone-based check: the vector from origin to the candidate point
     /// must have a positive dot product with the direction vector.
     ///
-    /// **Note**: This function assumes **UI coordinates** where Y increases downward.
-    /// This is the opposite of mathematical coordinates where Y increases upward.
+    /// Uses standard mathematical coordinates where Y increases upward.
     ///
     /// # Arguments
     ///
@@ -238,28 +228,16 @@ impl CompassOctant {
     /// use bevy_math::{CompassOctant, Vec2};
     ///
     /// let origin = Vec2::new(0.0, 0.0);
-    /// // In UI coordinates, Y increases downward
-    /// let south_point = Vec2::new(0.0, 10.0);  // Below origin
+    /// let north_point = Vec2::new(0.0, 10.0);  // Above origin (Y+ = up)
     /// let east_point = Vec2::new(10.0, 0.0);   // Right of origin
     ///
-    /// assert!(CompassOctant::South.is_in_direction(origin, south_point));
-    /// assert!(!CompassOctant::South.is_in_direction(origin, east_point));
+    /// assert!(CompassOctant::North.is_in_direction(origin, north_point));
+    /// assert!(!CompassOctant::North.is_in_direction(origin, east_point));
     /// ```
     pub fn is_in_direction(self, origin: Vec2, candidate: Vec2) -> bool {
-        // Use UI coordinates: Y increases downward
-        let dir = match self {
-            Self::North => Vec2::new(0.0, -1.0),
-            Self::NorthEast => Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
-            Self::East => Vec2::new(1.0, 0.0),
-            Self::SouthEast => Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2),
-            Self::South => Vec2::new(0.0, 1.0),
-            Self::SouthWest => Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2),
-            Self::West => Vec2::new(-1.0, 0.0),
-            Self::NorthWest => Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
-        };
-
+        let dir = Dir2::from(self);
         let to_candidate = candidate - origin;
-        to_candidate.dot(dir) > 0.0
+        to_candidate.dot(*dir) > 0.0
     }
 }
 

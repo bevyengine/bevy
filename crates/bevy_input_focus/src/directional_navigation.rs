@@ -66,7 +66,7 @@ use bevy_ecs::{
     prelude::*,
     system::SystemParam,
 };
-use bevy_math::{CompassOctant, Vec2};
+use bevy_math::{CompassOctant, Dir2, Vec2};
 use bevy_ui::{ComputedNode, UiGlobalTransform, UiSystems};
 use thiserror::Error;
 
@@ -502,6 +502,29 @@ pub trait Navigable {
 // We can't directly implement this for `bevy_ui` types here without circular dependencies,
 // so we'll use a more generic approach with separate functions for different component sets.
 
+/// Calculate 1D overlap between two ranges.
+///
+/// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
+fn calculate_1d_overlap(
+    origin_pos: f32,
+    origin_size: f32,
+    candidate_pos: f32,
+    candidate_size: f32,
+) -> f32 {
+    let origin_min = origin_pos - origin_size / 2.0;
+    let origin_max = origin_pos + origin_size / 2.0;
+    let cand_min = candidate_pos - candidate_size / 2.0;
+    let cand_max = candidate_pos + candidate_size / 2.0;
+
+    let overlap = (origin_max.min(cand_max) - origin_min.max(cand_min)).max(0.0);
+    let max_overlap = origin_size.min(candidate_size);
+    if max_overlap > 0.0 {
+        overlap / max_overlap
+    } else {
+        0.0
+    }
+}
+
 /// Calculate the overlap factor between two nodes in the perpendicular axis.
 ///
 /// Returns a value between 0.0 (no overlap) and 1.0 (perfect overlap).
@@ -516,52 +539,14 @@ fn calculate_overlap(
     match octant {
         CompassOctant::North | CompassOctant::South => {
             // Check horizontal overlap
-            let origin_left = origin_pos.x - origin_size.x / 2.0;
-            let origin_right = origin_pos.x + origin_size.x / 2.0;
-            let cand_left = candidate_pos.x - candidate_size.x / 2.0;
-            let cand_right = candidate_pos.x + candidate_size.x / 2.0;
-
-            let overlap = (origin_right.min(cand_right) - origin_left.max(cand_left)).max(0.0);
-            let max_overlap = origin_size.x.min(candidate_size.x);
-            if max_overlap > 0.0 {
-                overlap / max_overlap
-            } else {
-                0.0
-            }
+            calculate_1d_overlap(origin_pos.x, origin_size.x, candidate_pos.x, candidate_size.x)
         }
         CompassOctant::East | CompassOctant::West => {
             // Check vertical overlap
-            let origin_bottom = origin_pos.y - origin_size.y / 2.0;
-            let origin_top = origin_pos.y + origin_size.y / 2.0;
-            let cand_bottom = candidate_pos.y - candidate_size.y / 2.0;
-            let cand_top = candidate_pos.y + candidate_size.y / 2.0;
-
-            let overlap = (origin_top.min(cand_top) - origin_bottom.max(cand_bottom)).max(0.0);
-            let max_overlap = origin_size.y.min(candidate_size.y);
-            if max_overlap > 0.0 {
-                overlap / max_overlap
-            } else {
-                0.0
-            }
+            calculate_1d_overlap(origin_pos.y, origin_size.y, candidate_pos.y, candidate_size.y)
         }
         // Diagonal directions don't require strict overlap
         _ => 1.0,
-    }
-}
-
-/// Converts a [`CompassOctant`] to a direction vector in UI coordinates (Y increases downward).
-fn octant_to_ui_direction(octant: CompassOctant) -> Vec2 {
-    use core::f32::consts::FRAC_1_SQRT_2;
-    use CompassOctant::*;
-    match octant {
-        North => Vec2::new(0.0, -1.0),
-        NorthEast => Vec2::new(FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
-        East => Vec2::new(1.0, 0.0),
-        SouthEast => Vec2::new(FRAC_1_SQRT_2, FRAC_1_SQRT_2),
-        South => Vec2::new(0.0, 1.0),
-        SouthWest => Vec2::new(-FRAC_1_SQRT_2, FRAC_1_SQRT_2),
-        West => Vec2::new(-1.0, 0.0),
-        NorthWest => Vec2::new(-FRAC_1_SQRT_2, -FRAC_1_SQRT_2),
     }
 }
 
@@ -576,12 +561,16 @@ fn score_candidate(
     octant: CompassOctant,
     config: &AutoNavigationConfig,
 ) -> f32 {
-    let dir = octant_to_ui_direction(octant);
+    // Get direction in mathematical coordinates, then flip Y for UI coordinates
+    let dir = Dir2::from(octant).as_vec2() * Vec2::new(1.0, -1.0);
     let to_candidate = candidate_pos - origin_pos;
     let distance = to_candidate.length();
 
     // Check direction first
-    if !octant.is_in_direction(origin_pos, candidate_pos) {
+    // Convert UI coordinates (Y+ = down) to mathematical coordinates (Y+ = up) by flipping Y
+    let origin_math = Vec2::new(origin_pos.x, -origin_pos.y);
+    let candidate_math = Vec2::new(candidate_pos.x, -candidate_pos.y);
+    if !octant.is_in_direction(origin_math, candidate_math) {
         return f32::INFINITY;
     }
 
@@ -951,13 +940,13 @@ mod tests {
     fn test_is_in_direction() {
         let origin = Vec2::new(100.0, 100.0);
 
-        // Node to the north (up on screen) should have smaller Y
-        let north_node = Vec2::new(100.0, 50.0);
+        // Node to the north (mathematically up) should have larger Y
+        let north_node = Vec2::new(100.0, 150.0);
         assert!(CompassOctant::North.is_in_direction(origin, north_node));
         assert!(!CompassOctant::South.is_in_direction(origin, north_node));
 
-        // Node to the south (down on screen) should have larger Y
-        let south_node = Vec2::new(100.0, 150.0);
+        // Node to the south (mathematically down) should have smaller Y
+        let south_node = Vec2::new(100.0, 50.0);
         assert!(CompassOctant::South.is_in_direction(origin, south_node));
         assert!(!CompassOctant::North.is_in_direction(origin, south_node));
 
@@ -966,8 +955,8 @@ mod tests {
         assert!(CompassOctant::East.is_in_direction(origin, east_node));
         assert!(!CompassOctant::West.is_in_direction(origin, east_node));
 
-        // Node to the northeast (up-right on screen) should have smaller Y, larger X
-        let ne_node = Vec2::new(150.0, 50.0);
+        // Node to the northeast (mathematically up-right) should have larger Y, larger X
+        let ne_node = Vec2::new(150.0, 150.0);
         assert!(CompassOctant::NorthEast.is_in_direction(origin, ne_node));
         assert!(!CompassOctant::SouthWest.is_in_direction(origin, ne_node));
     }

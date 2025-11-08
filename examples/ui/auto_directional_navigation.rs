@@ -23,7 +23,7 @@ use bevy::{
         },
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::CompassOctant,
+    math::{CompassOctant, Dir2},
     picking::{
         backend::HitData,
         pointer::{Location, PointerId},
@@ -339,18 +339,10 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
             .pressed_actions
             .contains(&DirectionalNavigationAction::Down) as i8;
 
-    let maybe_direction = match (net_east_west, net_north_south) {
-        (0, 0) => None,
-        (0, 1) => Some(CompassOctant::North),
-        (1, 1) => Some(CompassOctant::NorthEast),
-        (1, 0) => Some(CompassOctant::East),
-        (1, -1) => Some(CompassOctant::SouthEast),
-        (0, -1) => Some(CompassOctant::South),
-        (-1, -1) => Some(CompassOctant::SouthWest),
-        (-1, 0) => Some(CompassOctant::West),
-        (-1, 1) => Some(CompassOctant::NorthWest),
-        _ => None,
-    };
+    // Use Dir2::from_xy to convert input to direction, then convert to CompassOctant
+    let maybe_direction = Dir2::from_xy(net_east_west as f32, net_north_south as f32)
+        .ok()
+        .map(CompassOctant::from);
 
     if let Some(direction) = maybe_direction {
         match directional_navigation.navigate(direction) {
