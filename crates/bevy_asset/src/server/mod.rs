@@ -6,7 +6,7 @@ use crate::{
     io::{
         AddSourceError, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceEvent,
         AssetSourceId, AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
-        MissingAssetWriterError, MissingProcessedAssetReaderError, Reader,
+        MissingAssetWriterError, MissingProcessedAssetReaderError, Reader, RemoveSourceError,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -211,7 +211,7 @@ impl AssetServer {
     pub fn remove_source(
         &self,
         name: impl Into<CowArc<'static, str>>,
-    ) -> Result<(), MissingAssetSourceError> {
+    ) -> Result<(), RemoveSourceError> {
         self.data
             .sources
             .write()
