@@ -1,8 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
+    Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -87,7 +87,6 @@ pub fn ui_layout_system(
         &mut UiGlobalTransform,
         &Node,
         Option<&LayoutConfig>,
-        Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
         Option<&IgnoreScroll>,
@@ -199,7 +198,6 @@ pub fn ui_layout_system(
             &mut UiGlobalTransform,
             &Node,
             Option<&LayoutConfig>,
-            Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
@@ -215,7 +213,6 @@ pub fn ui_layout_system(
             mut global_transform,
             style,
             maybe_layout_config,
-            maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
@@ -279,14 +276,12 @@ pub fn ui_layout_system(
                 *global_transform = inherited_transform.into();
             }
 
-            if let Some(border_radius) = maybe_border_radius {
-                // We don't trigger change detection for changes to border radius
-                node.bypass_change_detection().border_radius = border_radius.resolve(
-                    inverse_target_scale_factor.recip(),
-                    node.size,
-                    target_size,
-                );
-            }
+            // We don't trigger change detection for changes to border radius
+            node.bypass_change_detection().border_radius = style.border_radius.resolve(
+                inverse_target_scale_factor.recip(),
+                node.size,
+                target_size,
+            );
 
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
