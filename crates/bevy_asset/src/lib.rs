@@ -2866,4 +2866,94 @@ mod tests {
             META_TEXT
         );
     }
+
+    // Creates a new asset source that reads from the returned dir.
+    fn create_dir_source() -> (AssetSourceBuilder, Dir) {
+        let dir = Dir::default();
+        let dir_clone = dir.clone();
+        (
+            AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: dir_clone.clone(),
+                })
+            }),
+            dir,
+        )
+    }
+
+    #[test]
+    fn can_load_asset_from_runtime_added_sources() {
+        let mut app = App::new();
+        let (default_source, _) = create_dir_source();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(default_source)),
+                ..Default::default()
+            },
+            DiagnosticsPlugin,
+        ));
+
+        app.init_asset::<TestAsset>()
+            .register_asset_loader(TrivialLoader);
+
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Failed(err) => match err.as_ref() {
+                    AssetLoadError::MissingAssetSourceError(_) => Some(()),
+                    err => panic!("Unexpected load error: {err}"),
+                },
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
+
+        // Drop the handle, and let the app update to react to that.
+        drop(custom_handle);
+        app.update();
+
+        let (mut custom_source, custom_dir) = create_dir_source();
+        custom_dir.insert_asset_text(Path::new("asset.txt"), "");
+
+        asset_server
+            .add_source("custom", &mut custom_source)
+            .unwrap();
+
+        // Now that we have added the "custom" asset source, loading the asset should work!
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Loaded => Some(()),
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
+
+        // Removing the source shouldn't change anything about the asset, so it should still be alive.
+        asset_server.remove_source("custom").unwrap();
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<TestAsset>>()
+            .contains(&custom_handle));
+
+        drop(custom_handle);
+        app.update();
+
+        // After removing the "custom" asset source, trying to load the asset again should fail.
+        let custom_handle: Handle<TestAsset> = asset_server.load("custom://asset.txt");
+        run_app_until(&mut app, |_| {
+            match asset_server.get_load_state(&custom_handle).unwrap() {
+                LoadState::Loading => None,
+                LoadState::Failed(err) => match err.as_ref() {
+                    AssetLoadError::MissingAssetSourceError(_) => Some(()),
+                    err => panic!("Unexpected load error: {err}"),
+                },
+                err => panic!("Unexpected state for asset load: {err:?}"),
+            }
+        });
+    }
 }
