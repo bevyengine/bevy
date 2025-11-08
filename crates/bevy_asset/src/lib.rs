@@ -757,8 +757,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
-        UntypedHandle,
+        AssetPlugin, AssetServer, Assets, DefaultAssetSource, InvalidGenerationError, LoadState,
+        UnapprovedPathMode, UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -943,13 +943,14 @@ mod tests {
     fn test_app(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
-            AssetPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
+                )),
+                ..Default::default()
+            },
             DiagnosticsPlugin,
         ));
         (app, gate_opener)
@@ -1882,18 +1883,18 @@ mod tests {
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
         let mut app = App::new();
-        app.register_asset_source(
-            "unstable",
-            AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-        .init_asset::<CoolText>()
-        .register_asset_loader(CoolTextLoader)
-        .init_resource::<ErrorTracker>()
-        .add_systems(
-            Update,
-            (asset_event_handler, asset_load_error_event_handler).chain(),
-        );
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .register_asset_source(
+                "unstable",
+                AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
+            )
+            .init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader)
+            .init_resource::<ErrorTracker>()
+            .add_systems(
+                Update,
+                (asset_event_handler, asset_load_error_event_handler).chain(),
+            );
 
         let asset_server = app.world().resource::<AssetServer>().clone();
         let a_path = format!("unstable://{a_path}");
@@ -1952,11 +1953,17 @@ mod tests {
         );
         dir.insert_asset_text(Path::new("empty.txt"), "");
 
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() })),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || {
+                        Box::new(MemoryAssetReader { root: dir.clone() })
+                    }),
+                )),
+                ..Default::default()
+            },
+        ));
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
@@ -2075,13 +2082,12 @@ mod tests {
 
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
+                )),
                 unapproved_path_mode: mode,
                 ..Default::default()
             },
@@ -2213,11 +2219,15 @@ mod tests {
         let dir = Dir::default();
         let mut app = App::new();
         let reader = MemoryAssetReader { root: dir.clone() };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(reader.clone())),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                )),
+                ..Default::default()
+            },
+        ));
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
@@ -2269,11 +2279,15 @@ mod tests {
         let dir = Dir::default();
         let mut app = App::new();
         let reader = MemoryAssetReader { root: dir.clone() };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(reader.clone())),
-        )
-        .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()));
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                )),
+                ..Default::default()
+            },
+        ));
 
         let (in_loader_sender, in_loader_receiver) = async_channel::bounded(1);
         let (gate_sender, gate_receiver) = async_channel::bounded(1);
@@ -2335,18 +2349,17 @@ mod tests {
         struct FakeWatcher;
         impl AssetWatcher for FakeWatcher {}
 
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
-                move |sender| {
-                    sender_sender.send(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                },
-            ),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
+                        move |sender| {
+                            sender_sender.send(sender).unwrap();
+                            Some(Box::new(FakeWatcher))
+                        },
+                    ),
+                )),
                 watch_for_changes_override: Some(true),
                 ..Default::default()
             },
@@ -2532,10 +2545,15 @@ mod tests {
 
         let mut app = App::new();
 
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<U8Asset>()
-            .register_asset_loader(U8Loader);
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                ..Default::default()
+            },
+        ))
+        .init_asset::<U8Asset>()
+        .register_asset_loader(U8Loader);
 
         let asset_server = app.world().resource::<AssetServer>();
 
@@ -2592,9 +2610,14 @@ mod tests {
         let asset_source =
             AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<TestAsset>();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                ..Default::default()
+            },
+        ))
+        .init_asset::<TestAsset>();
 
         struct TwoSubassetLoader;
 
@@ -2644,9 +2667,14 @@ mod tests {
         let asset_source =
             AssetSourceBuilder::new(move || Box::new(MemoryAssetReader { root: dir.clone() }));
 
-        app.register_asset_source(AssetSourceId::Default, asset_source)
-            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
-            .init_asset::<TestAsset>();
+        app.add_plugins((
+            TaskPoolPlugin::default(),
+            AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                ..Default::default()
+            },
+        ))
+        .init_asset::<TestAsset>();
 
         struct TrivialLoader;
 
