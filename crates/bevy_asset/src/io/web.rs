@@ -1,5 +1,7 @@
+#[cfg(any(feature = "http", feature = "https"))]
+use crate::io::AssetSourceBuilder;
+use crate::io::PathStream;
 use crate::io::{AssetReader, AssetReaderError, Reader};
-use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetPlugin};
 use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
@@ -71,16 +73,14 @@ impl Plugin for WebAssetPlugin {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http))
                 .with_processed_reader(move || Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https))
                 .with_processed_reader(move || Box::new(WebAssetReader::Https)),
         );
     }

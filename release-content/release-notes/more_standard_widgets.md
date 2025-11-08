@@ -1,7 +1,7 @@
 ---
 title: More Standard Widgets
 authors: ["@viridia"]
-pull_requests: [21636]
+pull_requests: [21636, 21743]
 ---
 
 ## More Standard Widgets
@@ -32,3 +32,10 @@ Popovers can be used for dropdown menus, but they can also be used for tooltips.
 
 The `Menu` component uses `Popover` to provide a dropdown menu widget. This adds events for opening
 and closing the menu, along with keyboard navigation and activation using the focus system.
+
+### Color Plane
+
+The `Color Plane` widget is a two-dimensional color picker that allows selecting two different
+channels within a color space, one along the horizontal axis and one along the vertical. It can be
+configured to display a variety of different color spaces: hue vs. lightness, hue vs. saturation,
+red vs. blue, and so on.

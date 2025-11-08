@@ -337,34 +337,6 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
-/// This is deprecated. See [`MessageCursor`](crate::message::MessageCursor)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageCursor`.")]
-pub type EventCursor<E> = crate::message::MessageCursor<E>;
-
-/// This is deprecated. See [`MessageMutator`](crate::message::MessageMutator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageMutator`.")]
-pub type EventMutator<'w, 's, E> = crate::message::MessageMutator<'w, 's, E>;
-
-/// This is deprecated. See [`MessageReader`](crate::message::MessageReader)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageReader`.")]
-pub type EventReader<'w, 's, E> = crate::message::MessageReader<'w, 's, E>;
-
-/// This is deprecated. See [`MessageWriter`](crate::message::MessageWriter)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageWriter`.")]
-pub type EventWriter<'w, E> = crate::message::MessageWriter<'w, E>;
-
-/// This is deprecated. See [`Messages`](crate::message::Messages)
-#[deprecated(since = "0.17.0", note = "Renamed to `Messages`.")]
-pub type Events<E> = crate::message::Messages<E>;
-
-/// This is deprecated. See [`MessageIterator`](crate::message::MessageIterator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
-pub type EventIterator<'a, E> = crate::message::MessageIterator<'a, E>;
-
-/// This is deprecated. See [`MessageMutIterator`](crate::message::MessageMutIterator)
-#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
-pub type EventMutIterator<'a, E> = crate::message::MessageMutIterator<'a, E>;
-
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
