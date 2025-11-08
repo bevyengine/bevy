@@ -757,8 +757,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
-        UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
+        AssetPlugin, AssetServer, Assets, DefaultAssetSource, InvalidGenerationError, LoadState,
+        LoadedAsset, UnapprovedPathMode, UntypedHandle, WriteDefaultMetaError,
     };
     use alloc::{
         boxed::Box,
@@ -951,22 +951,21 @@ mod tests {
         let dir = Dir::default();
         let dir_clone = dir.clone();
         let dir_clone2 = dir.clone();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                Box::new(MemoryAssetReader {
-                    root: dir_clone.clone(),
-                })
-            })
-            .with_writer(move |_| {
-                Some(Box::new(MemoryAssetWriter {
-                    root: dir_clone2.clone(),
-                }))
-            }),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || {
+                        Box::new(MemoryAssetReader {
+                            root: dir_clone.clone(),
+                        })
+                    })
+                    .with_writer(move |_| {
+                        Some(Box::new(MemoryAssetWriter {
+                            root: dir_clone2.clone(),
+                        }))
+                    }),
+                )),
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
@@ -979,13 +978,12 @@ mod tests {
     fn create_app_with_gate(dir: Dir) -> (App, GateOpener) {
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
+                )),
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
@@ -1922,28 +1920,27 @@ mod tests {
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
         let mut app = App::new();
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || {
-                // This reader is unused, but we set it here so we don't accidentally use the
-                // filesystem.
-                Box::new(MemoryAssetReader {
-                    root: Dir::default(),
-                })
-            }),
-        )
-        .register_asset_source(
-            "unstable",
-            AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    // This reader is unused, but we set it here so we don't accidentally use the
+                    // filesystem.
+                    AssetSourceBuilder::new(move || {
+                        Box::new(MemoryAssetReader {
+                            root: Dir::default(),
+                        })
+                    }),
+                )),
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
             },
         ))
+        .register_asset_source(
+            "unstable",
+            AssetSourceBuilder::new(move || Box::new(unstable_reader.clone())),
+        )
         .init_asset::<CoolText>()
         .register_asset_loader(CoolTextLoader)
         .init_resource::<ErrorTracker>()
@@ -2124,13 +2121,12 @@ mod tests {
 
         let mut app = App::new();
         let memory_reader = MemoryAssetReader { root: dir };
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
+                )),
                 unapproved_path_mode: mode,
                 watch_for_changes_override: Some(false),
                 use_asset_processor_override: Some(false),
@@ -2363,18 +2359,17 @@ mod tests {
         struct FakeWatcher;
         impl AssetWatcher for FakeWatcher {}
 
-        app.register_asset_source(
-            AssetSourceId::Default,
-            AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
-                move |sender| {
-                    sender_sender.send(sender).unwrap();
-                    Some(Box::new(FakeWatcher))
-                },
-            ),
-        )
-        .add_plugins((
+        app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
+                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
+                        move |sender| {
+                            sender_sender.send(sender).unwrap();
+                            Some(Box::new(FakeWatcher))
+                        },
+                    ),
+                )),
                 watch_for_changes_override: Some(true),
                 use_asset_processor_override: Some(false),
                 ..Default::default()
