@@ -861,6 +861,11 @@ impl GltfLoader {
         // Then check for cycles.
         check_for_cycles(&gltf)?;
 
+        // Record which meshes are skinned. We need to do this so that we don't
+        // generate AABBs for them, which might cause them to be incorrectly
+        // culled.
+        let mut skinned_meshes = HashSet::new();
+
         // Now populate the nodes.
         for node in gltf.nodes() {
             let skin = node.skin().map(|skin| {
@@ -907,10 +912,11 @@ impl GltfLoader {
                 .map(|child| nodes.get(&child.index()).unwrap().clone())
                 .collect();
 
-            let mesh = node
-                .mesh()
-                .map(|mesh| mesh.index())
-                .and_then(|i| meshes.get(i).cloned());
+            let maybe_mesh_index = node.mesh().map(|mesh| mesh.index());
+            let mesh = maybe_mesh_index.and_then(|i| meshes.get(i).cloned());
+            if let Some(mesh_index) = maybe_mesh_index {
+                skinned_meshes.insert(mesh_index);
+            }
 
             let gltf_node = GltfNode::new(
                 &node,
@@ -968,6 +974,7 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
+                            &skinned_meshes,
                             convert_coordinates,
                         );
                         if result.is_err() {
@@ -1412,6 +1419,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
+    skinned_meshes: &HashSet<usize>,
     convert_coordinates: bool,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
@@ -1559,18 +1567,23 @@ fn load_node(
                     mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
 
-                let mut bounds_min = Vec3::from_slice(&bounds.min);
-                let mut bounds_max = Vec3::from_slice(&bounds.max);
+                // Add an AABB if this mesh isn't skinned. (If it is skinned, we
+                // don't add the AABB because skinned meshes can be deformed
+                // arbitrarily.)
+                if !skinned_meshes.contains(&mesh.index()) {
+                    let mut bounds_min = Vec3::from_slice(&bounds.min);
+                    let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                if convert_coordinates {
-                    let converted_min = bounds_min.convert_coordinates();
-                    let converted_max = bounds_max.convert_coordinates();
+                    if convert_coordinates {
+                        let converted_min = bounds_min.convert_coordinates();
+                        let converted_max = bounds_max.convert_coordinates();
 
-                    bounds_min = converted_min.min(converted_max);
-                    bounds_max = converted_min.max(converted_max);
+                        bounds_min = converted_min.min(converted_max);
+                        bounds_max = converted_min.max(converted_max);
+                    }
+
+                    mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
                 }
-
-                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(GltfExtras {
@@ -1693,6 +1706,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
+                skinned_meshes,
                 convert_coordinates,
             ) {
                 gltf_error = Some(err);

@@ -13,6 +13,7 @@ pub use render_layers::*;
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
+use bevy_mesh::skinning::SkinnedMesh;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystems};
 use bevy_utils::{Parallel, TypeIdMap};
@@ -384,14 +385,29 @@ impl Plugin for VisibilityPlugin {
     }
 }
 
-/// Computes and adds an [`Aabb`] component to entities with a
-/// [`Mesh3d`] component and without a [`NoFrustumCulling`] component.
+/// Computes and adds an [`Aabb`] component to entities with a [`Mesh3d`]
+/// component and that have neither a [`NoFrustumCulling`] component nor a
+/// [`SkinnedMesh`] component.
+///
+/// Bevy doesn't automatically calculate bounding boxes for meshes that are
+/// skinned because, in general, the skin may deform the mesh arbitrarily. If
+/// you want Bevy to frustum cull skinned meshes, you can manually add an
+/// [`Aabb`] component to those meshes. If you do so, you're promising to Bevy
+/// that the deformed vertices of that mesh will never go outside the bounds of
+/// that AABB.
 ///
 /// This system is used in system set [`VisibilitySystems::CalculateBounds`].
 pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
+    without_aabb: Query<
+        (Entity, &Mesh3d),
+        (
+            Without<Aabb>,
+            Without<NoFrustumCulling>,
+            Without<SkinnedMesh>,
+        ),
+    >,
 ) {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle)

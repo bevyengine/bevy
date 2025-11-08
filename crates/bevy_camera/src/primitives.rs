@@ -43,13 +43,23 @@ impl MeshAabb for Mesh {
 /// It will be added automatically by the systems in [`CalculateBounds`] to entities that:
 /// - could be subject to frustum culling, for example with a [`Mesh3d`]
 ///   or `Sprite` component,
-/// - don't have the [`NoFrustumCulling`] component.
+/// - don't have the [`NoFrustumCulling`] component,
+/// - and don't have the [`SkinnedMesh`] component.
 ///
 /// It won't be updated automatically if the space occupied by the entity changes,
 /// for example if the vertex positions of a [`Mesh3d`] are updated.
 ///
+/// Bevy doesn't add the [`Aabb`] component to skinned meshes automatically,
+/// because skins can deform meshes arbitrarily and therefore there's no
+/// [`Aabb`] that can be automatically determined for them. You can, however,
+/// add an [`Aabb`] component yourself if you can guarantee to Bevy that no
+/// vertex in your skinned mesh will ever be positioned outside the boundaries
+/// of that AABB. This will allow your skinned meshes to participate in frustum
+/// and occlusion culling.
+///
 /// [`Camera`]: crate::Camera
 /// [`NoFrustumCulling`]: crate::visibility::NoFrustumCulling
+/// [`SkinnedMesh`]: bevy_mesh::skinning::SkinnedMesh
 /// [`CalculateBounds`]: crate::visibility::VisibilitySystems::CalculateBounds
 /// [`Mesh3d`]: bevy_mesh::Mesh
 #[derive(Component, Clone, Copy, Debug, Default, Reflect, PartialEq)]
