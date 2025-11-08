@@ -42,7 +42,3 @@ pub mod prelude {
 /// Label for `camera_system<T>`, shared across all `T`.
 #[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystems;
-
-/// Deprecated alias for [`CameraUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
-pub type CameraUpdateSystem = CameraUpdateSystems;

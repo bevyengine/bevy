@@ -19,7 +19,7 @@ use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
@@ -465,13 +465,8 @@ impl<'a> LoadContext<'a> {
         }
     }
 
-    /// Gets the source path for this load context.
-    pub fn path(&self) -> &Path {
-        self.asset_path.path()
-    }
-
     /// Gets the source asset path for this load context.
-    pub fn asset_path(&self) -> &AssetPath<'static> {
+    pub fn path(&self) -> &AssetPath<'static> {
         &self.asset_path
     }
 

@@ -70,6 +70,7 @@ impl AssetSaver for CompressedImageSaver {
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
             texture_format: None,
+            array_layout: None,
         })
     }
 }

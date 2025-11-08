@@ -9,14 +9,14 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset},
 };
 
-use crate::ViewLightsUniformOffset;
+use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 
 use super::{
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    Atmosphere, GpuAtmosphereSettings,
+    GpuAtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
@@ -33,7 +33,7 @@ impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
         Read<GpuAtmosphereSettings>,
         Read<AtmosphereBindGroups>,
-        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
         Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
@@ -167,7 +167,7 @@ impl ViewNode for RenderSkyNode {
     type ViewQuery = (
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
-        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
         Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
