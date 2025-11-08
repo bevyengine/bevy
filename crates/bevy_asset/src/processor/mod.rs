@@ -46,7 +46,7 @@ pub use process::*;
 
 use crate::{
     io::{
-        AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
+        AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
         ReaderRequiredFeatures,
     },
@@ -160,12 +160,11 @@ enum ShortTypeProcessorEntry {
 impl AssetProcessor {
     /// Creates a new [`AssetProcessor`] instance.
     pub fn new(
-        sources: &mut AssetSourceBuilders,
+        default_source: &mut AssetSourceBuilder,
         watch_processed: bool,
     ) -> (Self, Arc<RwLock<AssetSources>>) {
         let state = Arc::new(ProcessingState::new());
-        let sources = sources.build_sources(true, watch_processed, Some(state.clone()));
-        let sources = Arc::new(RwLock::new(sources));
+        let sources = AssetSources::new(default_source, true, watch_processed, Some(state.clone()));
 
         let data = Arc::new(AssetProcessorData::new(sources.clone(), state));
         // The asset processor uses its own asset server with its own id space
