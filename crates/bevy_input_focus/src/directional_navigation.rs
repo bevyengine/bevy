@@ -539,11 +539,21 @@ fn calculate_overlap(
     match octant {
         CompassOctant::North | CompassOctant::South => {
             // Check horizontal overlap
-            calculate_1d_overlap(origin_pos.x, origin_size.x, candidate_pos.x, candidate_size.x)
+            calculate_1d_overlap(
+                origin_pos.x,
+                origin_size.x,
+                candidate_pos.x,
+                candidate_size.x,
+            )
         }
         CompassOctant::East | CompassOctant::West => {
             // Check vertical overlap
-            calculate_1d_overlap(origin_pos.y, origin_size.y, candidate_pos.y, candidate_size.y)
+            calculate_1d_overlap(
+                origin_pos.y,
+                origin_size.y,
+                candidate_pos.y,
+                candidate_size.y,
+            )
         }
         // Diagonal directions don't require strict overlap
         _ => 1.0,
