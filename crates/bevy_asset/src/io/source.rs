@@ -8,9 +8,12 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
-use bevy_platform::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{
+    hash_map::{Entry, EntryRef},
+    HashMap,
+};
 use core::{fmt::Display, hash::Hash, time::Duration};
-use std::sync::RwLock;
+use std::sync::{PoisonError, RwLock};
 use thiserror::Error;
 use tracing::warn;
 
@@ -600,18 +603,41 @@ impl AssetSources {
         source_builder: &mut AssetSourceBuilder,
     ) -> Result<(), AddSourceError> {
         let name = name.into();
+
         let entry = match self.sources.entry(name) {
             Entry::Occupied(entry) => return Err(AddSourceError::NameInUse(entry.key().clone())),
             Entry::Vacant(entry) => entry,
         };
 
         let name = entry.key().clone();
-        entry.insert(source_builder.build(
+        // Build the asset source. This does mean that we may build the source and then **not** add
+        // it (due to checks later on), but we need to build the source to know if it's processed.
+        let source = source_builder.build(
             AssetSourceId::Name(name),
             self.watch,
             self.watch_processed,
             self.processing_state.clone(),
-        ));
+        );
+
+        // Hold the processor started lock until after we insert the source (so that the processor
+        // doesn't start between when we check and when we insert)
+        let started_lock;
+        // If the source wants to be processed, and the processor has already started, return an
+        // error.
+        // TODO: Remove this once the processor can handle newly added sources.
+        if source.should_process()
+            && let Some(processing_state) = self.processing_state.as_ref()
+        {
+            started_lock = processing_state
+                .started
+                .read()
+                .unwrap_or_else(PoisonError::into_inner);
+            if *started_lock {
+                return Err(AddSourceError::SourceIsProcessed);
+            }
+        }
+
+        entry.insert(source);
         Ok(())
     }
 
@@ -621,13 +647,36 @@ impl AssetSources {
     pub fn remove(
         &mut self,
         name: impl Into<CowArc<'static, str>>,
-    ) -> Result<(), MissingAssetSourceError> {
+    ) -> Result<(), RemoveSourceError> {
         let name = name.into();
-        if self.sources.remove(&name).is_none() {
-            return Err(MissingAssetSourceError(AssetSourceId::Name(
-                name.clone_owned(),
-            )));
+
+        // Use entry_ref so we don't need to clone the name just to remove the entry.
+        let entry = match self.sources.entry_ref(&name) {
+            EntryRef::Vacant(_) => {
+                return Err(RemoveSourceError::MissingSource(name.clone_owned()))
+            }
+            EntryRef::Occupied(entry) => entry,
+        };
+
+        // Hold the processor started lock until after we remove the source (so that the processor
+        // doesn't start between when we check and when we remove)
+        let started_lock;
+        // If the source wants to be processed, and the processor has already started, return an
+        // error.
+        // TODO: Remove this once the processor can handle removed sources.
+        if entry.get().should_process()
+            && let Some(processing_state) = self.processing_state.as_ref()
+        {
+            started_lock = processing_state
+                .started
+                .read()
+                .unwrap_or_else(PoisonError::into_inner);
+            if *started_lock {
+                return Err(RemoveSourceError::SourceIsProcessed);
+            }
         }
+
+        entry.remove();
         Ok(())
     }
 
@@ -653,9 +702,25 @@ impl AssetSources {
 /// An error when attempting to add a new asset source.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 pub enum AddSourceError {
+    /// The provided asset source is a "processed" source, and processing has already started, where adding is currently unsupported.
+    // TODO: Remove this once it's supported.
+    #[error("The provided asset source is processed, but the asset processor has already started. This is currently unsupported - processed sources can only be added at startup")]
+    SourceIsProcessed,
     /// An asset source with the given name already exists.
     #[error("Asset Source '{0}' already exists")]
     NameInUse(CowArc<'static, str>),
+}
+
+/// An error when attempting to remove an existing asset source.
+#[derive(Error, Debug, Clone, PartialEq, Eq)]
+pub enum RemoveSourceError {
+    /// The requested asset source is a "processed" source, and processing has already started, where removing is currently unsupported.
+    // TODO: Remove this once it's supported.
+    #[error("The asset source being removed is processed, but the asset processor has already started. This is currently unsupported - processed sources can only be removed at startup")]
+    SourceIsProcessed,
+    /// The requested source is missing, so it cannot be removed.
+    #[error("Asset Source '{0}' does not exist")]
+    MissingSource(CowArc<'static, str>),
 }
 
 /// An error returned when an [`AssetSource`] does not exist for a given id.
