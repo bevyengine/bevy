@@ -4,9 +4,9 @@ mod loaders;
 use crate::{
     folder::LoadedFolder,
     io::{
-        AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, Reader,
+        AddSourceError, AssetReaderError, AssetSource, AssetSourceBuilder, AssetSourceEvent,
+        AssetSourceId, AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
+        MissingAssetWriterError, MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
     meta::{
@@ -188,6 +188,35 @@ impl AssetServer {
             .read()
             .unwrap_or_else(PoisonError::into_inner)
             .get(source.into())
+    }
+
+    /// Adds a new named asset source.
+    ///
+    /// Note: Default asset sources cannot be changed at runtime.
+    pub fn add_source(
+        &self,
+        name: impl Into<CowArc<'static, str>>,
+        source_builder: &mut AssetSourceBuilder,
+    ) -> Result<(), AddSourceError> {
+        self.data
+            .sources
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .add(name.into(), source_builder)
+    }
+
+    /// Removes an existing named asset source.
+    ///
+    /// Note: Default asset sources cannot be removed at runtime.
+    pub fn remove_source(
+        &self,
+        name: impl Into<CowArc<'static, str>>,
+    ) -> Result<(), MissingAssetSourceError> {
+        self.data
+            .sources
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(name.into())
     }
 
     /// Returns true if the [`AssetServer`] watches for changes.
