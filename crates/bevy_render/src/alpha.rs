@@ -57,6 +57,12 @@ pub enum AlphaMode {
     ///
     /// Useful for effects like stained glass, window tint film and some colored liquids.
     Multiply,
+
+    /// Similar to [`AlphaMode::Blend`], however this material will skip CPU sorting and lead to an arbitrary blending order. This is intended to be used together with `ExactOit`.
+    UnsortedBlend,
+
+    /// Use weighted blended order independent transparency (WBOIT). The camera must have `WeightedBlendedOit` component to make this work.
+    WeightedBlend,
 }
 
 impl Eq for AlphaMode {}

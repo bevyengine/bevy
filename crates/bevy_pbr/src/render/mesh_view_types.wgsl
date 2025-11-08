@@ -169,7 +169,7 @@ struct EnvironmentMapUniform {
 };
 
 // Shader version of the order independent transparency settings component.
-struct OrderIndependentTransparencySettings {
+struct ExactOit {
   layers_count: i32,
   alpha_threshold: f32,
 };

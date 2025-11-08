@@ -1,7 +1,7 @@
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
-    oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
+    oit::{resolve::is_exact_oit_supported, ExactOit, ExactOitBuffers},
     prepass::ViewPrepassTextures,
     tonemapping::{
         get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
@@ -82,8 +82,8 @@ bitflags::bitflags! {
         const NORMAL_PREPASS              = 1 << 2;
         const MOTION_VECTOR_PREPASS       = 1 << 3;
         const DEFERRED_PREPASS            = 1 << 4;
-        const OIT_ENABLED                 = 1 << 5;
-        const ATMOSPHERE                  = 1 << 6;
+        const ATMOSPHERE                  = 1 << 5;
+        const OIT_METHOD_EXACT            = 1 << 6;
     }
 }
 
@@ -122,8 +122,8 @@ impl MeshPipelineViewLayoutKey {
             } else {
                 Default::default()
             },
-            if self.contains(Key::OIT_ENABLED) {
-                "_oit"
+            if self.contains(Key::OIT_METHOD_EXACT) {
+                "_exact_oit"
             } else {
                 Default::default()
             },
@@ -155,8 +155,8 @@ impl From<MeshPipelineKey> for MeshPipelineViewLayoutKey {
         if value.contains(MeshPipelineKey::DEFERRED_PREPASS) {
             result |= MeshPipelineViewLayoutKey::DEFERRED_PREPASS;
         }
-        if value.contains(MeshPipelineKey::OIT_ENABLED) {
-            result |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+        if value.contains(MeshPipelineKey::OIT_METHOD_EXACT) {
+            result |= MeshPipelineViewLayoutKey::OIT_METHOD_EXACT;
         }
         if value.contains(MeshPipelineKey::ATMOSPHERE) {
             result |= MeshPipelineViewLayoutKey::ATMOSPHERE;
@@ -377,21 +377,18 @@ fn layout_entries(
     ));
 
     // OIT
-    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_ENABLED) {
+    if layout_key.contains(MeshPipelineViewLayoutKey::OIT_METHOD_EXACT) {
         // Check if we can use OIT. This is a hack to avoid errors on webgl --
         // the OIT plugin will warn the user that OIT is not supported on their
         // platform, so we don't need to do it here.
-        if is_oit_supported(render_adapter, render_device, false) {
+        if is_exact_oit_supported(render_adapter, render_device, false) {
             entries = entries.extend_with_indices((
                 // oit_layers
                 (26, storage_buffer_sized(false, None)),
                 // oit_layer_ids,
                 (27, storage_buffer_sized(false, None)),
                 // oit_layer_count
-                (
-                    28,
-                    uniform_buffer::<OrderIndependentTransparencySettings>(true),
-                ),
+                (28, uniform_buffer::<ExactOit>(true)),
             ));
         }
     }
@@ -583,7 +580,7 @@ pub fn prepare_mesh_view_bind_groups(
         &Tonemapping,
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
-        Has<OrderIndependentTransparencySettings>,
+        Has<ExactOit>,
         Option<&AtmosphereTextures>,
         Has<ExtractedAtmosphere>,
     )>,
@@ -598,7 +595,7 @@ pub fn prepare_mesh_view_bind_groups(
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
-    oit_buffers: Res<OitBuffers>,
+    oit_buffers: Res<ExactOitBuffers>,
     (decals_buffer, render_decals, atmosphere_buffer, atmosphere_sampler): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
@@ -638,7 +635,7 @@ pub fn prepare_mesh_view_bind_groups(
             tonemapping,
             render_view_environment_maps,
             render_view_irradiance_volumes,
-            has_oit,
+            exact_oit,
             atmosphere_textures,
             has_atmosphere,
         ) in &views
@@ -653,8 +650,8 @@ pub fn prepare_mesh_view_bind_groups(
 
             let mut layout_key = MeshPipelineViewLayoutKey::from(*msaa)
                 | MeshPipelineViewLayoutKey::from(prepass_textures);
-            if has_oit {
-                layout_key |= MeshPipelineViewLayoutKey::OIT_ENABLED;
+            if exact_oit {
+                layout_key |= MeshPipelineViewLayoutKey::OIT_METHOD_EXACT;
             }
             if has_atmosphere {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
@@ -721,7 +718,7 @@ pub fn prepare_mesh_view_bind_groups(
             entries =
                 entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
 
-            if has_oit
+            if exact_oit
                 && let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),

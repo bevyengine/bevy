@@ -57,4 +57,7 @@ struct VertexOutput {
 
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
+#ifdef OIT_METHOD_WEIGHTED_BLEND
+    @location(1) alpha: f32,
+#endif
 }

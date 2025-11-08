@@ -23,9 +23,9 @@
 #import bevy_pbr::meshlet_visibility_buffer_resolve::resolve_vertex_output
 #endif
 
-#ifdef OIT_ENABLED
+#ifdef OIT_METHOD_EXACT
 #import bevy_core_pipeline::oit::oit_draw
-#endif // OIT_ENABLED
+#endif // OIT_METHOD_EXACT
 
 #ifdef FORWARD_DECAL
 #import bevy_pbr::decal::forward::get_forward_decal_info
@@ -90,18 +90,25 @@ fn fragment(
     out.color = main_pass_post_lighting_processing(pbr_input, out.color);
 #endif
 
-#ifdef OIT_ENABLED
-    let alpha_mode = pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
-    if alpha_mode != pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE {
-        // The fragments will only be drawn during the oit resolve pass.
-        oit_draw(in.position, out.color);
-        discard;
-    }
-#endif // OIT_ENABLED
-
-#ifdef FORWARD_DECAL
-        out.color.a = min(forward_decal_info.alpha, out.color.a);
+#ifdef OIT_METHOD_EXACT
+    // The fragments will only be drawn during the oit resolve pass.
+    oit_draw(in.position, out.color);
+    discard;
 #endif
 
-        return out;
+#ifdef FORWARD_DECAL
+    out.color.a = min(forward_decal_info.alpha, out.color.a);
+#endif
+
+#ifdef OIT_METHOD_WEIGHTED_BLEND
+    let weight = max(min(1.0, max(max(out.color.r, out.color.g), out.color.b) * out.color.a), out.color.a) * clamp(0.03 / (1e-5 + pow(in.position.z / 200, 4.0)), 1e-2, 3e3);
+
+    // blend func: ZERO, ONE_MINUS_SRC_ALPHA
+    out.alpha = out.color.a;
+    // switch to pre-multiplied alpha and weight
+    // blend func: ONE, ONE
+    out.color = vec4f(out.color.rgb * out.color.a, out.color.a) * weight;
+#endif
+
+    return out;
 }

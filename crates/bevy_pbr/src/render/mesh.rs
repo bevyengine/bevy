@@ -9,9 +9,15 @@ use bevy_camera::{
     Camera, Camera3d, Projection,
 };
 use bevy_core_pipeline::{
-    core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
+    core_3d::{
+        AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, UnsortedTransparent3d,
+        WeightedBlendedOit3d, CORE_3D_DEPTH_FORMAT,
+    },
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
-    oit::{prepare_oit_buffers, OrderIndependentTransparencySettingsOffset},
+    oit::{
+        prepare_oit_buffers, ExactOitOffset, WeightedBlendedOit, WBOIT_ACCUM_TEXTURE_FORMAT,
+        WBOIT_REVEAL_TEXTURE_FORMAT,
+    },
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -76,7 +82,7 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
+use bevy_core_pipeline::oit::ExactOit;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::change_detection::Tick;
@@ -165,6 +171,8 @@ impl Plugin for MeshRenderPlugin {
             BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::new(self.debug_flags),
             SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::new(self.debug_flags),
             SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<UnsortedTransparent3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<WeightedBlendedOit3d, MeshPipeline>::new(self.debug_flags),
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -328,7 +336,7 @@ pub fn check_views_need_specialization(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
-        Has<OrderIndependentTransparencySettings>,
+        (Has<ExactOit>, Has<WeightedBlendedOit>),
         Has<ExtractedAtmosphere>,
     )>,
     ticks: SystemChangeTick,
@@ -346,7 +354,7 @@ pub fn check_views_need_specialization(
         projection,
         distance_fog,
         (has_environment_maps, has_irradiance_volumes),
-        has_oit,
+        (exact_oit, wb_oit),
         has_atmosphere,
     ) in views.iter_mut()
     {
@@ -381,8 +389,12 @@ pub fn check_views_need_specialization(
             view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
         }
 
-        if has_oit {
-            view_key |= MeshPipelineKey::OIT_ENABLED;
+        if exact_oit {
+            view_key |= MeshPipelineKey::OIT_METHOD_EXACT;
+        }
+
+        if wb_oit {
+            view_key |= MeshPipelineKey::OIT_METHOD_WEIGHTED_BLEND;
         }
 
         if has_atmosphere {
@@ -2098,9 +2110,8 @@ bitflags::bitflags! {
         const SCREEN_SPACE_REFLECTIONS          = 1 << 17;
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
-        const OIT_ENABLED                       = 1 << 20;
-        const DISTANCE_FOG                      = 1 << 21;
-        const ATMOSPHERE                        = 1 << 22;
+        const DISTANCE_FOG                      = 1 << 20;
+        const ATMOSPHERE                        = 1 << 21;
         const LAST_FLAG                         = Self::ATMOSPHERE.bits();
 
         // Bitfields
@@ -2110,7 +2121,8 @@ bitflags::bitflags! {
         const BLEND_PREMULTIPLIED_ALPHA         = 1 << Self::BLEND_SHIFT_BITS;                     // ← As blend states is on 3 bits, it can range from 0 to 7
         const BLEND_MULTIPLY                    = 2 << Self::BLEND_SHIFT_BITS;                     // ← See `BLEND_MASK_BITS` for the number of bits available
         const BLEND_ALPHA                       = 3 << Self::BLEND_SHIFT_BITS;                     //
-        const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for three more values without adding more bits
+        const BLEND_ALPHA_TO_COVERAGE           = 4 << Self::BLEND_SHIFT_BITS;                     //
+        const BLEND_ALPHA_WBOIT                 = 6 << Self::BLEND_SHIFT_BITS;                     // ← We still have room for two more values without adding more bits
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_NONE               = 0 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -2134,13 +2146,18 @@ bitflags::bitflags! {
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_MEDIUM = 1 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_HIGH   = 2 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
         const SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA  = 3 << Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
+        const OIT_METHOD_RESERVED_BITS = Self::OIT_METHOD_MASK_BITS << Self::OIT_METHOD_SHIFT_BITS;
+        const OIT_METHOD_NONE           = 0 << Self::OIT_METHOD_SHIFT_BITS;
+        const OIT_METHOD_EXACT          = 1 << Self::OIT_METHOD_SHIFT_BITS;
+        const OIT_METHOD_WEIGHTED_BLEND = 2 << Self::OIT_METHOD_SHIFT_BITS;
         const ALL_RESERVED_BITS =
             Self::BLEND_RESERVED_BITS.bits() |
             Self::MSAA_RESERVED_BITS.bits() |
             Self::TONEMAP_METHOD_RESERVED_BITS.bits() |
             Self::SHADOW_FILTER_METHOD_RESERVED_BITS.bits() |
             Self::VIEW_PROJECTION_RESERVED_BITS.bits() |
-            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits();
+            Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_RESERVED_BITS.bits()|
+            Self::OIT_METHOD_RESERVED_BITS.bits();
     }
 }
 
@@ -2167,6 +2184,11 @@ impl MeshPipelineKey {
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS: u64 = 0b11;
     const SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS: u64 =
         Self::VIEW_PROJECTION_MASK_BITS.count_ones() as u64 + Self::VIEW_PROJECTION_SHIFT_BITS;
+
+    const OIT_METHOD_MASK_BITS: u64 = 0b11;
+    const OIT_METHOD_SHIFT_BITS: u64 = Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_MASK_BITS
+        .count_ones() as u64
+        + Self::SCREEN_SPACE_SPECULAR_TRANSMISSION_SHIFT_BITS;
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
@@ -2377,13 +2399,21 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let (label, blend, depth_write_enabled);
         let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         let (mut is_opaque, mut alpha_to_coverage_enabled) = (false, false);
-        if key.contains(MeshPipelineKey::OIT_ENABLED) && pass == MeshPipelineKey::BLEND_ALPHA {
-            label = "oit_mesh_pipeline".into();
+        let oit_method = key.intersection(MeshPipelineKey::OIT_METHOD_RESERVED_BITS);
+        if oit_method == MeshPipelineKey::OIT_METHOD_EXACT && pass == MeshPipelineKey::BLEND_ALPHA {
+            label = "exact_oit_mesh_pipeline".into();
             // TODO tail blending would need alpha blending
             blend = None;
-            shader_defs.push("OIT_ENABLED".into());
+            shader_defs.push("OIT_METHOD_EXACT".into());
             // TODO it should be possible to use this to combine MSAA and OIT
             // alpha_to_coverage_enabled = true;
+            depth_write_enabled = false;
+        } else if oit_method == MeshPipelineKey::OIT_METHOD_WEIGHTED_BLEND
+            && pass == MeshPipelineKey::BLEND_ALPHA_WBOIT
+        {
+            label = "weighted_blended_oit_mesh_pipeline".into();
+            blend = None; // will be set later.
+            shader_defs.push("OIT_METHOD_WEIGHTED_BLEND".into());
             depth_write_enabled = false;
         } else if pass == MeshPipelineKey::BLEND_ALPHA {
             label = "alpha_blend_mesh_pipeline".into();
@@ -2607,6 +2637,57 @@ impl SpecializedMeshPipeline for MeshPipeline {
             ));
         }
 
+        println!(
+            "Mesh is use wboit: {:?}",
+            key.contains(MeshPipelineKey::OIT_METHOD_WEIGHTED_BLEND)
+                && pass == MeshPipelineKey::BLEND_ALPHA_WBOIT
+        );
+
+        let targets = if key.contains(MeshPipelineKey::OIT_METHOD_WEIGHTED_BLEND)
+            && pass == MeshPipelineKey::BLEND_ALPHA_WBOIT
+        {
+            vec![
+                Some(ColorTargetState {
+                    format: WBOIT_ACCUM_TEXTURE_FORMAT,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::One,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                }),
+                Some(ColorTargetState {
+                    format: WBOIT_REVEAL_TEXTURE_FORMAT,
+                    blend: Some(BlendState {
+                        color: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::OneMinusSrc,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::Zero,
+                            operation: BlendOperation::Add,
+                        },
+                    }),
+                    write_mask: ColorWrites::ALL,
+                }),
+            ]
+        } else {
+            vec![Some(ColorTargetState {
+                format,
+                blend,
+                write_mask: ColorWrites::ALL,
+            })]
+        };
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
@@ -2617,11 +2698,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend,
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets,
                 ..default()
             }),
             layout: bind_group_layout,
@@ -2917,7 +2994,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         Read<ViewScreenSpaceReflectionsUniformOffset>,
         Read<ViewEnvironmentMapUniformOffset>,
         Read<MeshViewBindGroup>,
-        Option<Read<OrderIndependentTransparencySettingsOffset>>,
+        Option<Read<ExactOitOffset>>,
     );
     type ItemQuery = ();
 

@@ -9,21 +9,21 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
-use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
+use super::{ExactOitResolveBindGroup, ExactOitResolvePipeline, ExactOitResolvePipelineId};
 
 /// Render label for the OIT resolve pass.
 #[derive(RenderLabel, Debug, Clone, Hash, PartialEq, Eq)]
-pub struct OitResolvePass;
+pub struct ExactOitResolvePass;
 
 /// The node that executes the OIT resolve pass.
 #[derive(Default)]
-pub struct OitResolveNode;
-impl ViewNode for OitResolveNode {
+pub struct ExactOitResolveNode;
+impl ViewNode for ExactOitResolveNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static ViewUniformOffset,
-        &'static OitResolvePipelineId,
+        &'static ExactOitResolvePipelineId,
         &'static ViewDepthTexture,
         Option<&'static MainPassResolutionOverride>,
     );
@@ -37,7 +37,7 @@ impl ViewNode for OitResolveNode {
         >,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Some(resolve_pipeline) = world.get_resource::<OitResolvePipeline>() else {
+        let Some(resolve_pipeline) = world.get_resource::<ExactOitResolvePipeline>() else {
             return Ok(());
         };
 
@@ -45,7 +45,7 @@ impl ViewNode for OitResolveNode {
         // sorts the layers and renders the final blended color to the screen
         {
             let pipeline_cache = world.resource::<PipelineCache>();
-            let bind_group = world.resource::<OitResolveBindGroup>();
+            let bind_group = world.resource::<ExactOitResolveBindGroup>();
             let Some(pipeline) = pipeline_cache.get_render_pipeline(oit_resolve_pipeline_id.0)
             else {
                 return Ok(());

@@ -23,15 +23,18 @@ mod fullscreen_vertex_shader;
 mod skybox;
 
 use crate::{
-    blit::BlitPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
+    blit::BlitPlugin,
+    core_2d::Core2dPlugin,
+    core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
-    experimental::mip_generation::MipGenerationPlugin, tonemapping::TonemappingPlugin,
+    experimental::mip_generation::MipGenerationPlugin,
+    oit::{ExactOitPlugin, WeightedBlendedOitPlugin},
+    tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_render::RenderApp;
-use oit::OrderIndependentTransparencyPlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;
@@ -45,7 +48,8 @@ impl Plugin for CorePipelinePlugin {
                 BlitPlugin,
                 TonemappingPlugin,
                 UpscalingPlugin,
-                OrderIndependentTransparencyPlugin,
+                ExactOitPlugin,
+                WeightedBlendedOitPlugin,
                 MipGenerationPlugin,
             ));
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

@@ -1,5 +1,5 @@
-use super::OitBuffers;
-use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
+use super::ExactOitBuffers;
+use crate::{oit::exact_oit::ExactOit, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_derive::Deref;
@@ -42,7 +42,7 @@ impl Plugin for OitResolvePlugin {
             return;
         };
 
-        if !is_oit_supported(
+        if !is_exact_oit_supported(
             render_app.world().resource::<RenderAdapter>(),
             render_app.world().resource::<RenderDevice>(),
             true,
@@ -58,18 +58,18 @@ impl Plugin for OitResolvePlugin {
                     prepare_oit_resolve_bind_group.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
-            .insert_resource(OitResolvePipeline::new());
+            .insert_resource(ExactOitResolvePipeline::new());
     }
 }
 
-pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bool) -> bool {
+pub fn is_exact_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bool) -> bool {
     if !adapter
         .get_downlevel_capabilities()
         .flags
         .contains(DownlevelFlags::FRAGMENT_WRITABLE_STORAGE)
     {
         if warn {
-            warn!("OrderIndependentTransparencyPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
+            warn!("ExactOitPlugin not loaded. GPU lacks support: DownlevelFlags::FRAGMENT_WRITABLE_STORAGE.");
         }
         return false;
     }
@@ -81,7 +81,7 @@ pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bo
             warn!(
                 max_storage_buffers_per_shader_stage,
                 OIT_REQUIRED_STORAGE_BUFFERS,
-                "OrderIndependentTransparencyPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS."
+                "ExactOitPlugin not loaded. RenderDevice lacks support: max_storage_buffers_per_shader_stage < OIT_REQUIRED_STORAGE_BUFFERS."
             );
         }
         return false;
@@ -92,21 +92,21 @@ pub fn is_oit_supported(adapter: &RenderAdapter, device: &RenderDevice, warn: bo
 
 /// Bind group for the OIT resolve pass.
 #[derive(Resource, Deref)]
-pub struct OitResolveBindGroup(pub BindGroup);
+pub struct ExactOitResolveBindGroup(pub BindGroup);
 
 /// Bind group layouts used for the OIT resolve pass.
 #[derive(Resource)]
-pub struct OitResolvePipeline {
+pub struct ExactOitResolvePipeline {
     /// View bind group layout.
     pub view_bind_group_layout: BindGroupLayoutDescriptor,
     /// Depth bind group layout.
     pub oit_depth_bind_group_layout: BindGroupLayoutDescriptor,
 }
 
-impl OitResolvePipeline {
+impl ExactOitResolvePipeline {
     fn new() -> Self {
         let view_bind_group_layout = BindGroupLayoutDescriptor::new(
-            "oit_resolve_bind_group_layout",
+            "exact_oit_resolve_bind_group_layout",
             &BindGroupLayoutEntries::sequential(
                 ShaderStages::FRAGMENT,
                 (
@@ -123,7 +123,7 @@ impl OitResolvePipeline {
             "oit_depth_bind_group_layout",
             &BindGroupLayoutEntries::single(ShaderStages::FRAGMENT, texture_depth_2d()),
         );
-        OitResolvePipeline {
+        ExactOitResolvePipeline {
             view_bind_group_layout,
             oit_depth_bind_group_layout,
         }
@@ -131,11 +131,11 @@ impl OitResolvePipeline {
 }
 
 #[derive(Component, Deref, Clone, Copy)]
-pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
+pub struct ExactOitResolvePipelineId(pub CachedRenderPipelineId);
 
 /// This key is used to cache the pipeline id and to specialize the render pipeline descriptor.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct OitResolvePipelineKey {
+pub struct ExactOitResolvePipelineKey {
     hdr: bool,
     layer_count: i32,
 }
@@ -143,25 +143,20 @@ pub struct OitResolvePipelineKey {
 pub fn queue_oit_resolve_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
-    resolve_pipeline: Res<OitResolvePipeline>,
-    views: Query<
-        (
-            Entity,
-            &ExtractedView,
-            &OrderIndependentTransparencySettings,
-        ),
-        With<OrderIndependentTransparencySettings>,
-    >,
+    resolve_pipeline: Res<ExactOitResolvePipeline>,
+    views: Query<(Entity, &ExtractedView, &ExactOit), With<ExactOit>>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
-    mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
+    mut cached_pipeline_id: Local<
+        EntityHashMap<(ExactOitResolvePipelineKey, CachedRenderPipelineId)>,
+    >,
 ) {
     let mut current_view_entities = EntityHashSet::default();
     for (e, view, oit_settings) in &views {
         current_view_entities.insert(e);
-        let key = OitResolvePipelineKey {
+        let key = ExactOitResolvePipelineKey {
             hdr: view.hdr,
             layer_count: oit_settings.layer_count,
         };
@@ -169,7 +164,7 @@ pub fn queue_oit_resolve_pipeline(
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
             && *cached_key == key
         {
-            commands.entity(e).insert(OitResolvePipelineId(*id));
+            commands.entity(e).insert(ExactOitResolvePipelineId(*id));
             continue;
         }
 
@@ -181,7 +176,9 @@ pub fn queue_oit_resolve_pipeline(
         );
 
         let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
-        commands.entity(e).insert(OitResolvePipelineId(pipeline_id));
+        commands
+            .entity(e)
+            .insert(ExactOitResolvePipelineId(pipeline_id));
         cached_pipeline_id.insert(e, (key, pipeline_id));
     }
 
@@ -194,8 +191,8 @@ pub fn queue_oit_resolve_pipeline(
 }
 
 fn specialize_oit_resolve_pipeline(
-    key: OitResolvePipelineKey,
-    resolve_pipeline: &OitResolvePipeline,
+    key: ExactOitResolvePipelineKey,
+    resolve_pipeline: &ExactOitResolvePipeline,
     fullscreen_shader: &FullscreenShader,
     asset_server: &AssetServer,
 ) -> RenderPipelineDescriptor {
@@ -234,11 +231,11 @@ fn specialize_oit_resolve_pipeline(
 
 pub fn prepare_oit_resolve_bind_group(
     mut commands: Commands,
-    resolve_pipeline: Res<OitResolvePipeline>,
+    resolve_pipeline: Res<ExactOitResolvePipeline>,
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
     pipeline_cache: Res<PipelineCache>,
-    buffers: Res<OitBuffers>,
+    buffers: Res<ExactOitBuffers>,
 ) {
     if let (Some(binding), Some(layers_binding), Some(layer_ids_binding)) = (
         view_uniforms.uniforms.binding(),
@@ -250,6 +247,6 @@ pub fn prepare_oit_resolve_bind_group(
             &pipeline_cache.get_bind_group_layout(&resolve_pipeline.view_bind_group_layout),
             &BindGroupEntries::sequential((binding.clone(), layers_binding, layer_ids_binding)),
         );
-        commands.insert_resource(OitResolveBindGroup(bind_group));
+        commands.insert_resource(ExactOitResolveBindGroup(bind_group));
     }
 }

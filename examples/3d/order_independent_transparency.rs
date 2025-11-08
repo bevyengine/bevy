@@ -1,12 +1,13 @@
 //! A simple 3D scene showing how alpha blending can break and how order independent transparency (OIT) can fix it.
 //!
-//! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
+//! See [`ExactOitPlugin`] and [`WeightedBlendedOitPlugin`] for the trade-offs of using OIT.
 //!
-//! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
+//! [`ExactOitPlugin`]: bevy::core_pipeline::oit::ExactOitPlugin
+//! [`WeightedBlendedOitPlugin`]: bevy::core_pipeline::oit::WeightedBlendedOitPlugin
 use bevy::{
     camera::visibility::RenderLayers,
-    color::palettes::css::{BLUE, GREEN, RED},
-    core_pipeline::oit::OrderIndependentTransparencySettings,
+    color::palettes::css::{BLUE, GREEN, RED, YELLOW},
+    core_pipeline::oit::{ExactOit, WeightedBlendedOit},
     prelude::*,
 };
 
@@ -14,7 +15,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (toggle_oit, cycle_scenes))
+        .add_systems(Update, (toggle_oit, cycle_scenes).chain())
         .run();
 }
 
@@ -29,7 +30,7 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Add this component to this camera to render transparent meshes using OIT
-        OrderIndependentTransparencySettings::default(),
+        ExactOit::default(),
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
@@ -56,41 +57,72 @@ fn setup(
         },
         RenderLayers::layer(1),
         children![
-            TextSpan::new("Press T to toggle OIT\n"),
-            TextSpan::new("OIT Enabled"),
+            TextSpan::new("Press T to cycle OIT methods\n"),
+            TextSpan::new("OIT method: exact"),
             TextSpan::new("\nPress C to cycle test scenes"),
         ],
     ));
 
+    commands.insert_resource(MaterialAlphaMode(AlphaMode::UnsortedBlend));
+    commands.insert_resource(SceneId(0));
+
     // spawn default scene
-    spawn_spheres(&mut commands, &mut meshes, &mut materials);
+    spawn_spheres(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        MaterialAlphaMode(AlphaMode::UnsortedBlend),
+    );
 }
 
 fn toggle_oit(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     text: Single<Entity, With<Text>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
+    cam: Single<(Entity, Has<ExactOit>, Has<WeightedBlendedOit>), With<Camera3d>>,
+    q: Query<Entity, With<Mesh3d>>,
+    mut material_alpha_mode: ResMut<MaterialAlphaMode>,
+    scene_id: Res<SceneId>,
     mut text_writer: TextUiWriter,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
-        let (e, has_oit) = *q;
-        *text_writer.text(*text, 2) = if has_oit {
-            // Removing the component will completely disable OIT for this camera
-            commands
-                .entity(e)
-                .remove::<OrderIndependentTransparencySettings>();
-            "OIT disabled".to_string()
-        } else {
-            // Adding the component to the camera will render any transparent meshes
-            // with OIT instead of alpha blending
-            commands
-                .entity(e)
-                .insert(OrderIndependentTransparencySettings::default());
-            "OIT enabled".to_string()
+        let (e, exact_oit, wb_oit) = *cam;
+        *text_writer.text(*text, 2) = {
+            if wb_oit {
+                commands.entity(e).remove::<ExactOit>();
+                commands.entity(e).remove::<WeightedBlendedOit>();
+                material_alpha_mode.0 = AlphaMode::Blend;
+                "OIT disabled".to_string()
+            } else if exact_oit {
+                commands.entity(e).remove::<ExactOit>();
+                commands.entity(e).insert(WeightedBlendedOit);
+                material_alpha_mode.0 = AlphaMode::WeightedBlend;
+                "OIT method: weighted blend".to_string()
+            } else {
+                commands.entity(e).remove::<WeightedBlendedOit>();
+                commands.entity(e).insert(ExactOit::default());
+                material_alpha_mode.0 = AlphaMode::UnsortedBlend;
+                "OIT method: exact".to_string()
+            }
         };
+        respawn_scene(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            *material_alpha_mode,
+            *scene_id,
+            q,
+        );
     }
 }
+
+#[derive(Resource, Clone, Copy)]
+struct MaterialAlphaMode(AlphaMode);
+
+#[derive(Resource, Clone, Copy)]
+struct SceneId(u8);
 
 fn cycle_scenes(
     mut commands: Commands,
@@ -98,21 +130,41 @@ fn cycle_scenes(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     q: Query<Entity, With<Mesh3d>>,
-    mut scene_id: Local<usize>,
+    mut scene_id: ResMut<SceneId>,
+    material_alpha_mode: Res<MaterialAlphaMode>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
-        // despawn current scene
-        for e in &q {
-            commands.entity(e).despawn();
-        }
         // increment scene_id
-        *scene_id = (*scene_id + 1) % 2;
+        scene_id.0 = (scene_id.0 + 1) % 3;
         // spawn next scene
-        match *scene_id {
-            0 => spawn_spheres(&mut commands, &mut meshes, &mut materials),
-            1 => spawn_occlusion_test(&mut commands, &mut meshes, &mut materials),
-            _ => unreachable!(),
-        }
+        respawn_scene(
+            &mut commands,
+            &mut meshes,
+            &mut materials,
+            *material_alpha_mode,
+            *scene_id,
+            q,
+        );
+    }
+}
+
+fn respawn_scene(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    material_alpha_mode: MaterialAlphaMode,
+    scene_id: SceneId,
+    q: Query<Entity, With<Mesh3d>>,
+) {
+    // despawn current scene
+    for e in &q {
+        commands.entity(e).despawn();
+    }
+    match scene_id.0 {
+        0 => spawn_spheres(commands, meshes, materials, material_alpha_mode),
+        1 => spawn_quads(commands, meshes, materials, material_alpha_mode),
+        2 => spawn_occlusion_test(commands, meshes, materials, material_alpha_mode),
+        _ => unreachable!(),
     }
 }
 
@@ -123,6 +175,7 @@ fn spawn_spheres(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    material_alpha_mode: MaterialAlphaMode,
 ) {
     let pos_a = Vec3::new(-1.0, 0.75, 0.0);
     let pos_b = Vec3::new(0.0, -0.75, 0.0);
@@ -140,7 +193,7 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_translation(pos_a + offset),
@@ -150,7 +203,7 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: GREEN.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_translation(pos_b + offset),
@@ -160,10 +213,63 @@ fn spawn_spheres(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: BLUE.with_alpha(alpha).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_translation(pos_c + offset),
+        render_layers.clone(),
+    ));
+}
+
+fn spawn_quads(
+    commands: &mut Commands,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+    material_alpha_mode: MaterialAlphaMode,
+) {
+    let quad_handle = meshes.add(Rectangle::new(3.0, 3.0).mesh());
+    let render_layers = RenderLayers::layer(1);
+
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: RED.with_alpha(0.5).into(),
+            alpha_mode: material_alpha_mode.0,
+            ..default()
+        })),
+        Transform::from_xyz(1.0, 0., 0.).with_rotation(Quat::from_rotation_y(0.5)),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: BLUE.with_alpha(1.0).into(),
+            alpha_mode: material_alpha_mode.0,
+            ..default()
+        })),
+        Transform::from_xyz(0.5, 0., -0.5).with_rotation(Quat::from_rotation_y(0.5)),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: GREEN.with_green(1.0).with_alpha(0.5).into(),
+            alpha_mode: material_alpha_mode.0,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, 0., -1.)
+            .with_scale(Vec3::new(1.0, 1.2, 1.0))
+            .with_rotation(Quat::from_rotation_y(0.5)),
+        render_layers.clone(),
+    ));
+    commands.spawn((
+        Mesh3d(quad_handle.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: YELLOW.with_alpha(0.5).into(),
+            alpha_mode: material_alpha_mode.0,
+            ..default()
+        })),
+        Transform::from_xyz(-0.5, 0., -1.).with_rotation(Quat::from_rotation_y(0.5)),
         render_layers.clone(),
     ));
 }
@@ -175,6 +281,7 @@ fn spawn_occlusion_test(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
+    material_alpha_mode: MaterialAlphaMode,
 ) {
     let sphere_handle = meshes.add(Sphere::new(1.0).mesh());
     let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
@@ -194,7 +301,7 @@ fn spawn_occlusion_test(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),
@@ -212,7 +319,7 @@ fn spawn_occlusion_test(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_xyz(0., 0., 0.),
@@ -231,7 +338,7 @@ fn spawn_occlusion_test(
         Mesh3d(sphere_handle.clone()),
         MeshMaterial3d(materials.add(StandardMaterial {
             base_color: RED.with_alpha(0.5).into(),
-            alpha_mode: AlphaMode::Blend,
+            alpha_mode: material_alpha_mode.0,
             ..default()
         })),
         Transform::from_xyz(x, 0., 0.),

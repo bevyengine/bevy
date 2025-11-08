@@ -1,65 +1,93 @@
-use crate::core_3d::{Transparent3d, UnsortedTransparent3d};
 use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{ViewBinnedRenderPhases, ViewSortedRenderPhases},
-    render_resource::{RenderPassDescriptor, StoreOp},
+    render_phase::ViewBinnedRenderPhases,
+    render_resource::{
+        LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp,
+    },
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`] and [`UnsortedTransparent3d`]
-#[derive(Default)]
-pub struct MainTransparentPass3dNode;
+use crate::{
+    core_3d::WeightedBlendedOit3d,
+    oit::{WeightedBlendedOit, WeightedBlendedOitTextures},
+};
 
-impl ViewNode for MainTransparentPass3dNode {
+/// A [`bevy_render::render_graph::Node`] that runs the [`WbOit3d`]
+/// [`ViewBinnedRenderPhases`].
+#[derive(Default)]
+pub struct MainWbOitPass3dNode;
+
+impl ViewNode for MainWbOitPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
         &'static ExtractedView,
-        &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static MainPassResolutionOverride>,
+        Option<&'static WeightedBlendedOitTextures>,
+        &'static WeightedBlendedOit,
     );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view, target, depth, resolution_override): QueryItem<Self::ViewQuery>,
+        (camera, view, depth, resolution_override, wboit_textures, _wboit): QueryItem<
+            Self::ViewQuery,
+        >,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
-        let (Some(transparent_phases), Some(unsorted_transparent_phases)) = (
-            world.get_resource::<ViewSortedRenderPhases<Transparent3d>>(),
-            world.get_resource::<ViewBinnedRenderPhases<UnsortedTransparent3d>>(),
-        ) else {
+        let Some(wboit_phases) =
+            world.get_resource::<ViewBinnedRenderPhases<WeightedBlendedOit3d>>()
+        else {
             return Ok(());
         };
 
-        let (Some(transparent_phase), Some(unsorted_transparent_phase)) = (
-            transparent_phases.get(&view.retained_view_entity),
-            unsorted_transparent_phases.get(&view.retained_view_entity),
-        ) else {
+        let Some(wboit_phase) = wboit_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 
-        if !transparent_phase.items.is_empty() || !unsorted_transparent_phase.is_empty() {
-            // Run the transparent pass, sorted back-to-front
-            // NOTE: Scoped to drop the mutable borrow of render_context
+        let Some(wboit_textures) = wboit_textures else {
+            return Ok(());
+        };
+
+        if !wboit_phase.is_empty() {
             #[cfg(feature = "trace")]
-            let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+            let _main_wboit_pass_3d_span = info_span!("main_wboit_pass_3d").entered();
 
             let diagnostics = render_context.diagnostic_recorder();
 
+            let attachments = [
+                Some(RenderPassColorAttachment {
+                    view: &wboit_textures.accum.default_view,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                    resolve_target: None,
+                }),
+                Some(RenderPassColorAttachment {
+                    view: &wboit_textures.reveal.default_view,
+                    ops: Operations {
+                        load: LoadOp::Load,
+                        store: StoreOp::Store,
+                    },
+                    depth_slice: None,
+                    resolve_target: None,
+                }),
+            ];
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_transparent_pass_3d"),
-                color_attachments: &[Some(target.get_color_attachment())],
+                label: Some("main_wboit_pass_3d"),
+                color_attachments: &attachments,
                 // NOTE: For the transparent pass we load the depth buffer. There should be no
                 // need to write to it, but store is set to `true` as a workaround for issue #3776,
                 // https://github.com/bevyengine/bevy/issues/3776
@@ -71,7 +99,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 occlusion_query_set: None,
             });
 
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_wboit_pass_3d");
 
             if let Some(viewport) =
                 Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
@@ -79,14 +107,8 @@ impl ViewNode for MainTransparentPass3dNode {
                 render_pass.set_camera_viewport(&viewport);
             }
 
-            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
-                error!("Error encountered while rendering the transparent phase {err:?}");
-            }
-
-            if let Err(err) =
-                unsorted_transparent_phase.render(&mut render_pass, world, view_entity)
-            {
-                error!("Error encountered while rendering the unorder transparent phase {err:?}");
+            if let Err(err) = wboit_phase.render(&mut render_pass, world, view_entity) {
+                error!("Error encountered while rendering the wboit phase {err:?}");
             }
 
             pass_span.end(&mut render_pass);
