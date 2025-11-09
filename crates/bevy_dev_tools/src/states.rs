@@ -23,5 +23,5 @@ pub fn log_transitions<S: States>(mut transitions: MessageReader<StateTransition
     } else {
         ""
     };
-    info!("{name} transition: {exited:?} => {entered:?}{skip_text}",);
+    info!("{name} transition: {exited:?} => {entered:?}{skip_text}");
 }
