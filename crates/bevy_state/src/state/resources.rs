@@ -145,7 +145,7 @@ impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
     /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
-    /// If [`set_forced`](Self::set_forced) has already been called in the same frame with the same state, the transition schedules will be run anyways.
+    /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
     pub fn set_different(&mut self, state: S) {
         if !matches!(self, Self::Pending(s) if s == &state) {
             *self = Self::PendingDifferent(state);
