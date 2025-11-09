@@ -672,6 +672,7 @@ fn get_attrs<'a>(
             }
             .scale(scale_factor as f32),
         )
+        .font_features((&text_font.font_features).into())
         .color(cosmic_text::Color(color.to_linear().as_u32()))
 }
 
