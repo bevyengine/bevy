@@ -31,7 +31,7 @@ mod keyed_queues {
     use bevy_platform::sync::{Arc, RwLock};
     use concurrent_queue::ConcurrentQueue;
     use core::hash::Hash;
-    /// HashMap<K, Arc<ConcurrentQueue<V>>> behind a single RwLock.
+    /// `HashMap<K, Arc<ConcurrentQueue<V>>>` behind a single RwLock.
     /// - Writers only contend when creating a new key or GC'ing.
     /// - `push` is non-blocking (unbounded queue).
     pub struct KeyedQueues<K, V> {
@@ -76,17 +76,17 @@ mod keyed_queues {
     }
 }
 
-/// This is an abstraction that temporarily and soundly stores the UnsafeWorldCell in a static so we can access
+/// This is an abstraction that temporarily and soundly stores the `UnsafeWorldCell` in a static so we can access
 /// it from any async task, runtime, and thread.
 static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::new());
 
-/// The entrypoint, stores Wakers from async_access's that wish to be polled with world access
+/// The entrypoint, stores `Waker`s from `async_access`'s that wish to be polled with world access
 /// also stores the generic function pointer to the concrete function that initializes the
 /// system state for any set of SystemParams
 
 pub(crate) static GLOBAL_WAKE_REGISTRY: WakeRegistry = WakeRegistry(OnceLock::new());
 
-/// Acts as a barrier that is waited on in the `wait` call, and once the AtomicI64 reaches 0 the
+/// Acts as a barrier that is waited on in the `wait` call, and once the `AtomicI64` reaches 0 the
 /// thread that `wait` was called on gets woken up and resumes.
 #[derive(bevy_ecs_macros::Resource, Clone)]
 pub(crate) struct WakeParkBarrier(thread::Thread, Arc<AtomicI64>);
@@ -229,7 +229,7 @@ impl WakeRegistry {
 }
 
 /// This is a very low contention, no contention in the normal execution path, way of storing and
-/// using a UnsafeWorldCell from any thread/async task/async runtime.
+/// using a `UnsafeWorldCell` from any thread/async task/async runtime.
 /// The `Mutex<PhantomData<>>` is used to return `Poll::Pending` early from an `async_access` if
 /// another `async_access` is currently using it.
 pub(crate) struct WorldAccessRegistry(
@@ -249,7 +249,7 @@ pub(crate) struct WorldAccessRegistry(
 );
 
 impl WorldAccessRegistry {
-    /// During this `func: FnOnce()` call, calling `get` will access the stored UnsafeWorldCell
+    /// During this `func: FnOnce()` call, calling `get` will access the stored `UnsafeWorldCell`
     fn set(&self, world: &mut World, func: impl FnOnce()) -> Option<()> {
         let this = self.0.get_or_init(|| RwLock::new(HashMap::new()));
         let world_id = world.id();
@@ -345,8 +345,8 @@ impl WorldAccessRegistry {
 
 /// Allows you to access the ECS from any arbitrary async runtime.
 /// Calls will never return immediately and will always start Pending at least once.
-/// Call this with the same `PersistentTask` to persist SystemParams like Local or Changed
-/// Just use `world_id` if you do not mind a new SystemParam being initialized every time.
+/// Call this with the same `EcsTask` to persist `SystemParams` like `Local` or `Changed`
+/// Just use `world_id` if you do not mind a new `SystemParam` being initialized every time.
 pub async fn async_access<P, Func, Out>(
     task_identifier: impl Into<EcsTask<P>>,
     schedule: impl ScheduleLabel,
@@ -404,7 +404,7 @@ impl<P: SystemParam + 'static> From<WorldId> for EcsTask<P> {
     }
 }
 
-/// An EcsTask can be re-used in order to persist SystemParams like Local, Changed, or Added
+/// An `EcsTask` can be re-used in order to persist `SystemParams` like `Local`, `Changed`, or `Added`
 pub struct EcsTask<P: SystemParam + 'static>(Arc<InternalEcsTask<P>>);
 
 struct InternalEcsTask<P: SystemParam + 'static>(AsyncTaskId, WorldId, PhantomData<P>);
@@ -421,8 +421,8 @@ impl<P: SystemParam + 'static> Clone for EcsTask<P> {
     }
 }
 impl<P: SystemParam + 'static> EcsTask<P> {
-    /// Generates a new unique PersistentTask that can be re-used in order to persist SystemParams
-    /// like Local, Changed, or Added
+    /// Generates a new unique `EcsTask` that can be re-used in order to persist `SystemParams`
+    /// like `Local`, `Changed`, or `Added`
     pub fn new(world_id: WorldId) -> Self {
         Self(Arc::new(InternalEcsTask(
             AsyncTaskId::new().unwrap(),
