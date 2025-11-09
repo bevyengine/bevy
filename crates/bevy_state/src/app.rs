@@ -101,6 +101,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
                 allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
@@ -125,6 +126,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // makes no difference: the state didn't exist before anyways
                 allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
@@ -162,7 +164,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                allow_same_state_transitions: true,
+                allow_same_state_transitions: S::ALLOW_SAME_STATE_TRANSITIONS,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -192,6 +194,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
+                // makes no difference: the state didn't exist before anyways
                 allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
