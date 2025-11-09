@@ -545,7 +545,7 @@ impl dyn Reflect {
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     pub fn downcast<T: Any>(self: Box<dyn Reflect>) -> Result<Box<T>, Box<dyn Reflect>> {
         if self.is::<T>() {
-            Ok(self.into_any().downcast().unwrap())
+            Ok(self.downcast().unwrap())
         } else {
             Err(self)
         }
@@ -574,7 +574,7 @@ impl dyn Reflect {
     /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Any>(&self) -> bool {
-        self.as_any().type_id() == TypeId::of::<T>()
+        self.type_id() == TypeId::of::<T>()
     }
 
     /// Downcasts the value to type `T` by reference.
@@ -584,7 +584,8 @@ impl dyn Reflect {
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     #[inline]
     pub fn downcast_ref<T: Any>(&self) -> Option<&T> {
-        self.as_any().downcast_ref::<T>()
+        let any = self as &dyn Any;
+        any.downcast_ref::<T>()
     }
 
     /// Downcasts the value to type `T` by mutable reference.
@@ -594,7 +595,8 @@ impl dyn Reflect {
     /// For remote types, `T` should be the type itself rather than the wrapper type.
     #[inline]
     pub fn downcast_mut<T: Any>(&mut self) -> Option<&mut T> {
-        self.as_any_mut().downcast_mut::<T>()
+        let any = self as &mut dyn Any;
+        any.downcast_mut::<T>()
     }
 }
 
