@@ -231,8 +231,8 @@ mod web_asset_cache {
     const CACHE_DIR: &str = ".web-asset-cache";
 
     fn url_to_hash(url: &str) -> String {
-        FixedHasher.hash(&mut hasher);
-        std::format!("{:x}", hasher.finish())
+        let hash = FixedHasher.hash_one(url);
+        std::format!("{hash:x}")
     }
 
     pub async fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
