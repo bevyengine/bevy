@@ -12,6 +12,7 @@ pub mod hash_map;
 pub mod hash_set;
 pub mod hash_table;
 
-crate::cfg::alloc! {
-    pub use alloc::collections::{VecDeque, BTreeMap, BTreeSet, BinaryHeap, LinkedList, TryReserveError, vec_deque, btree_map, btree_set, binary_heap, linked_list};
-}
+pub use alloc::collections::{
+    binary_heap, btree_map, btree_set, linked_list, vec_deque, BTreeMap, BTreeSet, BinaryHeap,
+    LinkedList, TryReserveError, VecDeque,
+};
