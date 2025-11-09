@@ -23,8 +23,8 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetWatcher,
-        PathStream, Reader, ReaderRequiredFeatures,
+        AddSourceError, AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent,
+        AssetWatcher, PathStream, Reader, ReaderRequiredFeatures, RemoveSourceError,
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
@@ -36,8 +36,8 @@ use crate::{
         CoolTextRon, SubText,
     },
     transformer::{AssetTransformer, TransformedAsset},
-    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, DefaultAssetSource,
-    LoadContext, WriteDefaultMetaError,
+    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, AssetServer,
+    DefaultAssetSource, LoadContext, WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
@@ -1796,4 +1796,56 @@ fn write_default_meta_does_not_overwrite() {
         read_meta_as_string(&source, Path::new(ASSET_PATH)),
         META_TEXT
     );
+}
+
+// TODO: Replace this test once the asset processor can handle adding and removing sources.
+#[test]
+fn fails_to_add_or_remove_source_after_processor_starts() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        ..
+    } = create_app_with_asset_processor();
+
+    let asset_server = app.world().resource::<AssetServer>().clone();
+
+    app.register_asset_source("custom_1", create_source(source_gate.clone()).0);
+    // Despite the source being processed, we can remove it before the processor starts.
+    asset_server.remove_source("custom_1").unwrap();
+
+    // We can still add processed sources before the processor starts.
+    asset_server
+        .add_source("custom_2", &mut create_source(source_gate.clone()).0)
+        .unwrap();
+
+    let guard = source_gate.write_blocking();
+    // The processor starts as soon as we update for the first time.
+    app.update();
+    // Starting the processor task does not guarantee that the start flag is set in multi_threaded,
+    // so wait for processing to finish to avoid that race condition.
+    run_app_until_finished_processing(&mut app, guard);
+
+    // We can't remove the source because it is processed.
+    assert_eq!(
+        asset_server.remove_source("custom_2"),
+        Err(RemoveSourceError::SourceIsProcessed)
+    );
+
+    // We can't add a processed source, since the processor has started.
+    assert_eq!(
+        asset_server.add_source("custom_3", &mut create_source(source_gate).0),
+        Err(AddSourceError::SourceIsProcessed)
+    );
+
+    // However we can add unprocessed sources even after the processor has started!
+    asset_server
+        .add_source(
+            "custom_4",
+            &mut AssetSourceBuilder::new(move || {
+                Box::new(MemoryAssetReader {
+                    root: Dir::default(),
+                })
+            }),
+        )
+        .unwrap();
 }
