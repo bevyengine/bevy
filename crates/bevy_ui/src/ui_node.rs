@@ -629,7 +629,7 @@ pub struct Node {
     ///             width: Val::Px(100.),
     ///             height: Val::Px(100.),
     ///             border: UiRect::all(Val::Px(2.)),
-    ///             BorderRadius::new(
+    ///             border_radius: BorderRadius::new(
     ///                 // top left
     ///                 Val::Px(10.),
     ///                 // top right
@@ -2352,19 +2352,19 @@ pub struct GlobalZIndex(pub i32);
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),
+///             border_radius: BorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
 ///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
-///         BorderRadius::new(
-///             // top left
-///             Val::Px(10.),
-///             // top right
-///             Val::Px(20.),
-///             // bottom right
-///             Val::Px(30.),
-///             // bottom left
-///             Val::Px(40.),
-///         ),
 ///     ));
 /// }
 /// ```
