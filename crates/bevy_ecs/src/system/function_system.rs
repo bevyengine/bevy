@@ -216,9 +216,9 @@ impl SystemMeta {
 /// }
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
-    pub meta: SystemMeta,
-    pub param_state: Param::State,
-    pub world_id: WorldId,
+    meta: SystemMeta,
+    param_state: Param::State,
+    world_id: WorldId,
 }
 
 // Allow closure arguments to be inferred.
