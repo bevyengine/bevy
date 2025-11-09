@@ -5,7 +5,7 @@ mod deferred_world;
 mod entity_access;
 mod entity_fetch;
 mod filtered_resource;
-pub(crate) mod identifier;
+mod identifier;
 mod spawn_batch;
 
 pub mod error;

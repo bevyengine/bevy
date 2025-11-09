@@ -104,8 +104,8 @@ pub mod prelude {
             SystemParamFunction,
         },
         world::{
-            identifier::WorldId, EntityMut, EntityRef, EntityWorldMut, FilteredResources,
-            FilteredResourcesMut, FromWorld, World,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            FromWorld, World, WorldId,
         },
     };
 
