@@ -3,9 +3,9 @@
 use bevy::{
     animation::{AnimatedBy, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
+    platform::collections::HashSet,
     prelude::*,
 };
-use bevy_platform::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //

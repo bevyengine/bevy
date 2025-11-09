@@ -1,7 +1,9 @@
 //! Control animations of entities in the loaded scene.
-use bevy_platform::collections::HashMap;
 
-use bevy::{animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
+use bevy::{
+    animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf,
+    platform::collections::HashMap, prelude::*,
+};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
