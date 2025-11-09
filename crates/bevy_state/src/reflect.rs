@@ -59,8 +59,8 @@ pub struct ReflectFreelyMutableState(ReflectFreelyMutableStateFns);
 pub struct ReflectFreelyMutableStateFns {
     /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state()`].
     pub set_next_state: fn(&mut World, &dyn Reflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state_different()`].
-    pub set_next_state_different: fn(&mut World, &dyn Reflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectFreelyMutableState::set_next_state_if_neq()`].
+    pub set_next_state_if_neq: fn(&mut World, &dyn Reflect, &TypeRegistry),
 }
 
 impl ReflectFreelyMutableStateFns {
@@ -80,13 +80,13 @@ impl ReflectFreelyMutableState {
         (self.0.set_next_state)(world, state, registry);
     }
     /// Tentatively set a pending state transition to a reflected [`ReflectFreelyMutableState`], skipping state transitions if the target state is the same as the current state.
-    pub fn set_next_state_different(
+    pub fn set_next_state_if_neq(
         &self,
         world: &mut World,
         state: &dyn Reflect,
         registry: &TypeRegistry,
     ) {
-        (self.0.set_next_state_different)(world, state, registry);
+        (self.0.set_next_state_if_neq)(world, state, registry);
     }
 }
 
@@ -103,14 +103,14 @@ impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMu
                     next_state.set(new_state);
                 }
             },
-            set_next_state_different: |world, reflected_state, registry| {
+            set_next_state_if_neq: |world, reflected_state, registry| {
                 let new_state: S = from_reflect_with_fallback(
                     reflected_state.as_partial_reflect(),
                     world,
                     registry,
                 );
                 if let Some(mut next_state) = world.get_resource_mut::<NextState<S>>() {
-                    next_state.set_different(new_state);
+                    next_state.set_if_neq(new_state);
                 }
             },
         })

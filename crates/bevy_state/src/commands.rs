@@ -21,29 +21,29 @@ pub trait CommandsStatesExt {
     ///
     /// Note that commands introduce sync points to the ECS schedule, so modifying `NextState`
     /// directly may be more efficient depending on your use-case.
-    fn set_state_different<S: FreelyMutableState>(&mut self, state: S);
+    fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S);
 }
 
 impl CommandsStatesExt for Commands<'_, '_> {
     fn set_state<S: FreelyMutableState>(&mut self, state: S) {
         self.queue(move |w: &mut World| {
             let mut next = w.resource_mut::<NextState<S>>();
-            if let NextState::PendingDifferent(prev) = &*next {
+            if let NextState::PendingIfNeq(prev) = &*next {
                 debug!("overwriting next state {prev:?} with {state:?}");
             }
             next.set(state);
         });
     }
 
-    fn set_state_different<S: FreelyMutableState>(&mut self, state: S) {
+    fn set_state_if_neq<S: FreelyMutableState>(&mut self, state: S) {
         self.queue(move |w: &mut World| {
             let mut next = w.resource_mut::<NextState<S>>();
-            if let NextState::PendingDifferent(prev) = &*next
+            if let NextState::PendingIfNeq(prev) = &*next
                 && *prev != state
             {
-                debug!("overwriting next state {prev:?} with {state:?}");
+                debug!("overwriting next state {prev:?} with {state:?} if not equal");
             }
-            next.set_different(state);
+            next.set_if_neq(state);
         });
     }
 }

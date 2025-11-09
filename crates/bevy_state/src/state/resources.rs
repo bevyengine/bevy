@@ -126,18 +126,18 @@ pub enum NextState<S: FreelyMutableState> {
     #[default]
     Unchanged,
     /// There is a pending transition for state `S`
-    PendingDifferent(S),
+    Pending(S),
     /// There is a pending transition for state `S`
     ///
-    /// This will trigger state transitions schedules even if the target state is the same as the current one.
-    Pending(S),
+    /// This will not trigger state transitions schedules if the target state is the same as the current one.
+    PendingIfNeq(S),
 }
 
 impl<S: FreelyMutableState> NextState<S> {
     /// Tentatively set a pending state transition to `Some(state)`.
     ///
     /// This will run the state transition schedules [`OnEnter`](crate::state::OnEnter) and [`OnExit`](crate::state::OnExit).
-    /// If you want to skip those schedules for the same where we are transitioning to the same state, use [`set_different`](Self::set_different) instead.
+    /// If you want to skip those schedules for the same where we are transitioning to the same state, use [`set_if_neq`](Self::set_if_neq) instead.
     pub fn set(&mut self, state: S) {
         *self = Self::Pending(state);
     }
@@ -146,9 +146,9 @@ impl<S: FreelyMutableState> NextState<S> {
     ///
     /// Like [`set`](Self::set), but will not run any state transition schedules if the target state is the same as the current one.
     /// If [`set`](Self::set) has already been called in the same frame with the same state, the transition schedules will be run anyways.
-    pub fn set_different(&mut self, state: S) {
+    pub fn set_if_neq(&mut self, state: S) {
         if !matches!(self, Self::Pending(s) if s == &state) {
-            *self = Self::PendingDifferent(state);
+            *self = Self::PendingIfNeq(state);
         }
     }
 
@@ -168,7 +168,7 @@ pub(crate) fn take_next_state<S: FreelyMutableState>(
             next_state.set_changed();
             Some((x, true))
         }
-        NextState::PendingDifferent(x) => {
+        NextState::PendingIfNeq(x) => {
             next_state.set_changed();
             Some((x, false))
         }
