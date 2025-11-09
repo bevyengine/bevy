@@ -1,5 +1,5 @@
 ---
-title: "`AmbientLight` split into a component and a resource"
+title: "`BorderRadius` has been added to `Node` and is no longer a component"
 pull_requests: [21781]
 ---
 
