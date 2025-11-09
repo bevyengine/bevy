@@ -139,6 +139,8 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
+                // Not configurable for the moment. This controls whether inserting a state with the same value as a pre-existing state should run state transitions.
+                // Leaving it at `true` makes state insertion idempotent. Neat!
                 allow_same_state_transitions: true,
             });
         }
