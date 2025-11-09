@@ -9,7 +9,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, iter, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].

@@ -343,24 +343,37 @@ pub unsafe trait QueryData: WorldQuery {
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>>;
 
+    /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
+    /// checked in [`WorldQuery::init_fetch`], but in certain cases this method can be useful to implement
+    /// a way of checking for access conflicts in a non-allocating way.
     fn iter_access(components: &Components) -> impl Iterator<Item = Option<EcsAccessType>>;
 }
 
+/// The data storage type that is being accessed.
 #[derive(Clone, Copy)]
 pub enum EcsAccessType {
+    /// Accesses [`Component`] data
     Component(EcsAccessLevel),
+    /// Accesses [`Resource`] data
     Resource(EcsAccessLevel),
 }
 
+/// The way the data will be accessed and whether we take access on all the components on
+/// an entity or just one component.
 #[derive(Clone, Copy)]
 pub enum EcsAccessLevel {
+    /// Reads [`Component`] with [`ComponentId`]
     Read(ComponentId),
+    /// Writes [`Component`] with [`ComponentId`]
     Write(ComponentId),
+    /// Potentially reads all [`Component`]'s in the [`World`]
     ReadAll,
+    /// Potentially writes all [`Component`]'s in the [`World`]
     WriteAll,
 }
 
 impl EcsAccessType {
+    /// Returns true if the access between `self` and `other` do not conflict.
     pub fn is_compatible(&self, other: Self) -> bool {
         use EcsAccessLevel::*;
         use EcsAccessType::*;
