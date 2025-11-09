@@ -16,7 +16,7 @@ pub fn log_transitions<S: States>(mut transitions: MessageReader<StateTransition
     let StateTransitionEvent {
         exited,
         entered,
-        same_state_enforced,
+        allow_same_state_transitions: same_state_enforced,
     } = transition;
     info!(
         "{} transition: {:?} => {:?} | same state enforced: {:?}",

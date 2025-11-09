@@ -101,7 +101,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -125,7 +125,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -137,7 +137,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: Some(state),
-                same_state_enforced: false,
+                allow_same_state_transitions: true,
             });
         }
 
@@ -162,7 +162,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
@@ -192,7 +192,7 @@ impl AppExtStates for SubApp {
             self.world_mut().write_message(StateTransitionEvent {
                 exited: None,
                 entered: state,
-                same_state_enforced: false,
+                allow_same_state_transitions: true,
             });
             enable_state_scoped_entities::<S>(self);
         } else {
