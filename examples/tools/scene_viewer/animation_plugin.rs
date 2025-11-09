@@ -1,5 +1,5 @@
 //! Control animations of entities in the loaded scene.
-use std::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 use bevy::{animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
 

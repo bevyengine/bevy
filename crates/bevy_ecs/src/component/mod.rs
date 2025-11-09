@@ -571,7 +571,7 @@ pub trait Component: Send + Sync + 'static {
     ///
     /// ```
     /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_platform::collections::HashMap;
     /// #[derive(Component)]
     /// #[component(map_entities)]
     /// struct Inventory {
@@ -599,7 +599,7 @@ pub trait Component: Send + Sync + 'static {
     ///
     /// ```
     /// # use bevy_ecs::{component::Component, entity::{Entity, MapEntities, EntityMapper}};
-    /// # use std::collections::HashMap;
+    /// # use bevy_platform::collections::HashMap;
     /// #[derive(Component)]
     /// #[component(map_entities = map_the_map)]
     /// // Also works: map_the_map::<M> or map_the_map::<_>

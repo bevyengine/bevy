@@ -370,7 +370,7 @@ impl ReflectOwned {
 #[cfg(test)]
 mod tests {
     use alloc::vec;
-    use std::collections::HashSet;
+    use bevy_platform::collections::HashSet;
 
     use super::*;
 

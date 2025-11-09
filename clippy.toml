@@ -38,6 +38,13 @@ disallowed-methods = [
   { path = "f32::asinh", reason = "use bevy_math::ops::asinh instead for libm determinism" },
   { path = "f32::acosh", reason = "use bevy_math::ops::acosh instead for libm determinism" },
   { path = "f32::atanh", reason = "use bevy_math::ops::atanh instead for libm determinism" },
+  { path = "std::collections::HashMap", reason = "use bevy_platform::collections::HashMap instead for no_std compatibility" },
+  { path = "std::collections::HashSet", reason = "use bevy_platform::collections::HashSet instead for no_std compatibility" },
+  { path = "std::collections::VecDeque", reason = "use bevy_platform::collections::VecDeque instead for no_std compatibility" },
+  { path = "std::collections::BTreeMap", reason = "use bevy_platform::collections::BTreeMap instead for no_std compatibility" },
+  { path = "std::collections::BTreeSet", reason = "use bevy_platform::collections::BTreeSet instead for no_std compatibility" },
+  { path = "std::collections::BinaryHeap", reason = "use bevy_platform::collections::BinaryHeap instead for no_std compatibility" },
+  { path = "std::collections::LinkedList", reason = "use bevy_platform::collections::LinkedList instead for no_std compatibility" },
 ]
 
 # Require `bevy_ecs::children!` to use `[]` braces, instead of `()` or `{}`.

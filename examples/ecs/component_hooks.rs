@@ -18,7 +18,7 @@ use bevy::{
     ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
-use std::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 #[derive(Debug)]
 /// Hooks can also be registered during component initialization by

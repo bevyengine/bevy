@@ -10,6 +10,9 @@ proc-macro = true
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.18.0-dev" }
+bevy_platform = { path = "../../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+  "alloc",
+] }
 
 syn = { version = "2.0.108", features = ["full", "extra-traits"] }
 quote = "1.0"

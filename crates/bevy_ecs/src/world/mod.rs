@@ -3277,7 +3277,7 @@ impl World {
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
-    /// # use std::collections::HashMap;
+    /// # use bevy_platform::collections::HashMap;
     /// # use std::any::TypeId;
     /// # use bevy_ptr::Ptr;
     /// # #[derive(Resource)]
@@ -3355,7 +3355,7 @@ impl World {
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_ecs::change_detection::MutUntyped;
-    /// # use std::collections::HashMap;
+    /// # use bevy_platform::collections::HashMap;
     /// # use std::any::TypeId;
     /// # #[derive(Resource)]
     /// # struct A(u32);

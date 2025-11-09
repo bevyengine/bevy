@@ -220,9 +220,9 @@ impl AssetReader for WebAssetReader {
 mod web_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
+    use bevy_platform::collections::hash_map::DefaultHasher;
     use core::hash::{Hash, Hasher};
     use futures_lite::AsyncWriteExt;
-    use std::collections::hash_map::DefaultHasher;
     use std::io;
     use std::path::PathBuf;
 

@@ -4,8 +4,8 @@
 //! they are hovering over.
 
 use bevy_platform::collections::BTreeMap;
+use bevy_platform::collections::HashSet;
 use core::fmt::Debug;
-use std::collections::HashSet;
 
 use crate::{
     backend::{self, HitData},

@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use alloc::collections::BTreeMap;
+use bevy_platform::collections::BTreeMap;
 use proc_macro::TokenStream;
 use std::sync::{PoisonError, RwLock};
 use std::{

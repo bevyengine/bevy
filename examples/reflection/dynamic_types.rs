@@ -6,8 +6,8 @@ use bevy::reflect::{
     DynamicTupleStruct, DynamicVariant, FromReflect, PartialReflect, Reflect, ReflectFromReflect,
     Set, TypeRegistry, Typed,
 };
+use bevy_platform::collections::{HashMap, HashSet};
 use serde::de::DeserializeSeed;
-use std::collections::{HashMap, HashSet};
 
 fn main() {
     #[derive(Reflect, Default, PartialEq, Debug)]

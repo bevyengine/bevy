@@ -12,7 +12,4 @@ pub mod hash_map;
 pub mod hash_set;
 pub mod hash_table;
 
-pub use alloc::collections::{
-    binary_heap, btree_map, btree_set, linked_list, vec_deque, BTreeMap, BTreeSet, BinaryHeap,
-    LinkedList, TryReserveError, VecDeque,
-};
+pub use alloc::collections::*;

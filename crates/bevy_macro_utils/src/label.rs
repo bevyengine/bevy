@@ -1,6 +1,6 @@
+use bevy_platform::collections::HashSet;
 use proc_macro::{TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
-use std::collections::HashSet;
 use syn::{spanned::Spanned, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.

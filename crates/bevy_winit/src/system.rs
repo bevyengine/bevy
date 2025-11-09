@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use bevy_platform::collections::HashMap;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{

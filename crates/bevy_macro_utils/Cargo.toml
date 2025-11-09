@@ -15,6 +15,9 @@ proc-macro2 = "1.0"
 toml_edit = { version = "0.23.2", default-features = false, features = [
   "parse",
 ] }
+bevy_platform = { path = "../bevy_platform", version = "0.18.0-dev", default-features = false, features = [
+  "alloc",
+] }
 
 [lints]
 workspace = true

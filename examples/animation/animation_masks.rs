@@ -5,7 +5,7 @@ use bevy::{
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
-use std::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 // IDs of the mask groups we define for the running fox model.
 //

@@ -5,7 +5,7 @@ mod path;
 #[cfg(test)]
 mod tests {
     use crate::{FromReflect, PartialReflect};
-    use std::collections::HashMap;
+    use bevy_platform::collections::HashMap;
     use std::path::Path;
 
     #[test]

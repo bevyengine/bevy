@@ -32,7 +32,7 @@ use bevy_ptr::{move_as_ptr, OwningPtr};
 /// # Examples
 ///
 /// ```
-/// # use std::collections::HashSet;
+/// # use bevy_platform::collections::HashSet;
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::EntityCommand;
 /// #

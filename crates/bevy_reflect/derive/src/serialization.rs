@@ -3,8 +3,8 @@ use crate::{
     field_attributes::{DefaultBehavior, ReflectIgnoreBehavior},
 };
 use bevy_macro_utils::fq_std::FQDefault;
+use bevy_platform::collections::HashMap;
 use quote::quote;
-use std::collections::HashMap;
 use syn::{spanned::Spanned, Path};
 
 type ReflectionIndex = usize;
