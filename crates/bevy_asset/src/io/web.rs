@@ -220,8 +220,8 @@ impl AssetReader for WebAssetReader {
 mod web_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
-    use bevy_platform::collections::hash_map::DefaultHasher;
-    use core::hash::{Hash, Hasher};
+    use bevy_platform::hash::RandomState;
+    use core::hash::{BuildHasher, Hash, Hasher};
     use futures_lite::AsyncWriteExt;
     use std::io;
     use std::path::PathBuf;
@@ -231,7 +231,7 @@ mod web_asset_cache {
     const CACHE_DIR: &str = ".web-asset-cache";
 
     fn url_to_hash(url: &str) -> String {
-        let mut hasher = DefaultHasher::default();
+        let mut hasher = RandomState::default().build_hasher();
         url.hash(&mut hasher);
         std::format!("{:x}", hasher.finish())
     }

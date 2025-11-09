@@ -370,7 +370,7 @@ fn contributors_or_fallback() -> Contributors {
 
 /// Give each unique contributor name a particular hue that is stable between runs.
 fn name_to_hue(s: &str) -> f32 {
-    let mut hasher = DefaultHasher::default();
+    let mut hasher = DefaultHasher::new();
     s.hash(&mut hasher);
     hasher.finish() as f32 / u64::MAX as f32 * 360.
 }

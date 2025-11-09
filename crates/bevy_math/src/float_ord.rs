@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn float_ord_hash() {
         let hash = |num| {
-            let mut h = std::hash::DefaultHasher::default();
+            let mut h = std::hash::DefaultHasher::new();
             FloatOrd(num).hash(&mut h);
             h.finish()
         };
