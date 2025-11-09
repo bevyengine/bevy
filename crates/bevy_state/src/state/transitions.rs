@@ -67,7 +67,7 @@ pub struct StateTransitionEvent<S: States> {
     pub exited: Option<S>,
     /// The state being entered.
     pub entered: Option<S>,
-    /// Enforce this transition even if `exited` and `entered` are the same
+    /// Allow runnning state transition events when `exited` and `entered` are the same
     pub allow_same_state_transitions: bool,
 }
 
