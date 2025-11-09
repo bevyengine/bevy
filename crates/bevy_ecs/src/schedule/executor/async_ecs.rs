@@ -83,7 +83,6 @@ static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::
 /// The entrypoint, stores `Waker`s from `async_access`'s that wish to be polled with world access
 /// also stores the generic function pointer to the concrete function that initializes the
 /// system state for any set of `SystemParams`
-
 pub(crate) static GLOBAL_WAKE_REGISTRY: WakeRegistry = WakeRegistry(OnceLock::new());
 
 /// Acts as a barrier that is waited on in the `wait` call, and once the `AtomicI64` reaches 0 the
