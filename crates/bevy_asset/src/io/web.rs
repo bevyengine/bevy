@@ -221,7 +221,7 @@ mod web_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
     use bevy_platform::hash::FixedHasher;
-    use core::hash::{Hash, Hasher};
+    use core::hash::{BuildHasher as _, Hash, Hasher};
     use futures_lite::AsyncWriteExt;
     use std::io;
     use std::path::PathBuf;
