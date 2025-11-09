@@ -108,8 +108,6 @@ where
 {
     /// Draw an arrow in 3D, from `start` to `end`. Has four tips for convenient viewing from any direction.
     ///
-    /// This should be called for each frame the arrow needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -139,8 +137,6 @@ where
 
     /// Draw an arrow in 2D (on the xy plane), from `start` to `end`.
     ///
-    /// This should be called for each frame the arrow needs to be rendered.
-    ///
     /// # Example
     /// ```
     /// # use bevy_gizmos::prelude::*;
@@ -168,8 +164,6 @@ where
 {
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
-    ///
-    /// This should be called for each frame the axes need to be rendered.
     ///
     /// # Example
     /// ```
@@ -201,8 +195,6 @@ where
 
     /// Draw a set of axes local to the given transform (`transform`), with length scaled by a factor
     /// of `base_length`.
-    ///
-    /// This should be called for each frame the axes need to be rendered.
     ///
     /// # Example
     /// ```

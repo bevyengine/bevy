@@ -116,10 +116,9 @@ impl<'a> PartialEq for AssetSourceId<'a> {
 
 /// Metadata about an "asset source", such as how to construct the [`AssetReader`](crate::io::AssetReader) and [`AssetWriter`](crate::io::AssetWriter) for the source,
 /// and whether or not the source is processed.
-#[derive(Default)]
 pub struct AssetSourceBuilder {
     /// The [`ErasedAssetReader`] to use on the unprocessed asset.
-    pub reader: Option<Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>>,
+    pub reader: Box<dyn FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync>,
     /// The [`ErasedAssetWriter`] to use on the unprocessed asset.
     pub writer: Option<Box<dyn FnMut(bool) -> Option<Box<dyn ErasedAssetWriter>> + Send + Sync>>,
     /// The [`AssetWatcher`] to use for unprocessed assets, if any.
@@ -150,6 +149,22 @@ pub struct AssetSourceBuilder {
 }
 
 impl AssetSourceBuilder {
+    /// Creates a new builder, starting with the provided reader.
+    pub fn new(
+        reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
+    ) -> AssetSourceBuilder {
+        Self {
+            reader: Box::new(reader),
+            writer: None,
+            watcher: None,
+            processed_reader: None,
+            processed_writer: None,
+            processed_watcher: None,
+            watch_warning: None,
+            processed_watch_warning: None,
+        }
+    }
+
     /// Builds a new [`AssetSource`] with the given `id`. If `watch` is true, the unprocessed source will watch for changes.
     /// If `watch_processed` is true, the processed source will watch for changes.
     pub fn build(
@@ -157,8 +172,8 @@ impl AssetSourceBuilder {
         id: AssetSourceId<'static>,
         watch: bool,
         watch_processed: bool,
-    ) -> Option<AssetSource> {
-        let reader = self.reader.as_mut()?();
+    ) -> AssetSource {
+        let reader = self.reader.as_mut()();
         let writer = self.writer.as_mut().and_then(|w| w(false));
         let processed_writer = self.processed_writer.as_mut().and_then(|w| w(true));
         let mut source = AssetSource {
@@ -202,7 +217,7 @@ impl AssetSourceBuilder {
                 }
             }
         }
-        Some(source)
+        source
     }
 
     /// Will use the given `reader` function to construct unprocessed [`AssetReader`](crate::io::AssetReader) instances.
@@ -210,7 +225,7 @@ impl AssetSourceBuilder {
         mut self,
         reader: impl FnMut() -> Box<dyn ErasedAssetReader> + Send + Sync + 'static,
     ) -> Self {
-        self.reader = Some(Box::new(reader));
+        self.reader = Box::new(reader);
         self
     }
 
@@ -281,8 +296,7 @@ impl AssetSourceBuilder {
     /// For most platforms, this will use [`FileAssetReader`](crate::io::file::FileAssetReader) / [`FileAssetWriter`](crate::io::file::FileAssetWriter),
     /// but some platforms (such as Android) have their own default readers / writers / watchers.
     pub fn platform_default(path: &str, processed_path: Option<&str>) -> Self {
-        let default = Self::default()
-            .with_reader(AssetSource::get_default_reader(path.to_string()))
+        let default = Self::new(AssetSource::get_default_reader(path.to_string()))
             .with_writer(AssetSource::get_default_writer(path.to_string()))
             .with_watcher(AssetSource::get_default_watcher(
                 path.to_string(),
@@ -341,13 +355,12 @@ impl AssetSourceBuilders {
     pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
         let mut sources = <HashMap<_, _>>::default();
         for (id, source) in &mut self.sources {
-            if let Some(data) = source.build(
+            let source = source.build(
                 AssetSourceId::Name(id.clone_owned()),
                 watch,
                 watch_processed,
-            ) {
-                sources.insert(id.clone_owned(), data);
-            }
+            );
+            sources.insert(id.clone_owned(), source);
         }
 
         AssetSources {
@@ -355,7 +368,7 @@ impl AssetSourceBuilders {
             default: self
                 .default
                 .as_mut()
-                .and_then(|p| p.build(AssetSourceId::Default, watch, watch_processed))
+                .map(|p| p.build(AssetSourceId::Default, watch, watch_processed))
                 .expect(MISSING_DEFAULT_SOURCE),
         }
     }
@@ -382,11 +395,6 @@ pub struct AssetSource {
 }
 
 impl AssetSource {
-    /// Starts building a new [`AssetSource`].
-    pub fn build() -> AssetSourceBuilder {
-        AssetSourceBuilder::default()
-    }
-
     /// Returns this source's id.
     #[inline]
     pub fn id(&self) -> AssetSourceId<'static> {

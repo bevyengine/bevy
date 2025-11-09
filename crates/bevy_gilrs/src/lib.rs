@@ -87,10 +87,6 @@ pub struct GilrsPlugin;
 #[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct RumbleSystems;
 
-/// Deprecated alias for [`RumbleSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RumbleSystems`.")]
-pub type RumbleSystem = RumbleSystems;
-
 impl Plugin for GilrsPlugin {
     fn build(&self, app: &mut App) {
         match GilrsBuilder::new()
