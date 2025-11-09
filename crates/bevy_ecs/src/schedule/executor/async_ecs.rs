@@ -207,21 +207,16 @@ impl WakeRegistry {
             Arc::new(AtomicI64::new(waker_list_len as i64)),
         );
         world.insert_resource(wake_park_barrier.clone());
-        if GLOBAL_WORLD_ACCESS
-            .set(world, || {
-                for waker in waker_list {
-                    waker.wake();
-                }
-                // We do this because we can get spurious wakes, but we wanna ensure that
-                // we stay parked until we have at least given every poll a chance to happen.
-                while wake_park_barrier.1.load(Ordering::SeqCst) > 0 {
-                    thread::park();
-                }
-            })
-            .is_none()
-        {
-            return None;
-        }
+        GLOBAL_WORLD_ACCESS.set(world, || {
+            for waker in waker_list {
+                waker.wake();
+            }
+            // We do this because we can get spurious wakes, but we wanna ensure that
+            // we stay parked until we have at least given every poll a chance to happen.
+            while wake_park_barrier.1.load(Ordering::SeqCst) > 0 {
+                thread::park();
+            }
+        })?;
         // Applies all the commands stored up to the world
         world.try_resource_scope(|world, mut appliers: Mut<SystemParamAppliers>| {
             appliers.run(world);
@@ -488,11 +483,7 @@ where
 
         match GLOBAL_WORLD_ACCESS.get(world_id, |world: UnsafeWorldCell| {
             // SAFETY: We have a fake-mutex around our world, so no one else can do mutable access to it.
-            let system_param_queue = match unsafe { world.get_resource::<SystemStatePool<P>>() } {
-                None => return Poll::Pending,
-                Some(system_param_queue) => system_param_queue,
-            };
-
+            let Some(system_param_queue) = (unsafe { world.get_resource::<SystemStatePool<P>>() }) else { return Poll::Pending };
             let mut system_state = match system_param_queue.0.read().unwrap().get(&task_id) {
                 None => return Poll::Pending,
                 Some(cq) => cq.pop().unwrap(),
