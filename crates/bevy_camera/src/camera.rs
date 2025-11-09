@@ -494,7 +494,7 @@ impl Camera {
     /// This function is shared by `world_to_viewport` and `world_to_viewport_with_depth`
     /// to avoid code duplication.
     ///
-    /// Returns a tuple `(viewport_position, ndc_space_coords.z)`.
+    /// Returns a tuple `(viewport_position, depth)`.
     fn world_to_viewport_core(
         &self,
         camera_transform: &GlobalTransform,
@@ -513,6 +513,8 @@ impl Camera {
         if ndc_space_coords.z > 1.0 {
             return Err(ViewportConversionError::PastNearPlane);
         }
+        
+        let depth = ndc_space_coords.z;
 
         // Flip the Y co-ordinate origin from the bottom to the top.
         ndc_space_coords.y = -ndc_space_coords.y;
@@ -520,7 +522,7 @@ impl Camera {
         // Once in NDC space, we can discard the z element and map x/y to the viewport rect
         let viewport_position =
             (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_rect.size() + target_rect.min;
-        Ok((viewport_position, ndc_space_coords.z))
+        Ok((viewport_position, depth))
     }
 
     /// Given a position in world space, use the camera to compute the viewport-space coordinates.
@@ -559,6 +561,7 @@ impl Camera {
         world_position: Vec3,
     ) -> Result<Vec3, ViewportConversionError> {
         let result = self.world_to_viewport_core(camera_transform, world_position)?;
+        // Stretching ndc depth to value via near plane and negating result to be in positive room again.
         let depth = -self.depth_ndc_to_view_z(result.1);
         Ok(result.0.extend(depth))
     }
