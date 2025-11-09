@@ -231,7 +231,7 @@ mod web_asset_cache {
     const CACHE_DIR: &str = ".web-asset-cache";
 
     fn url_to_hash(url: &str) -> String {
-        let mut hasher = DefaultHasher::new();
+        let mut hasher = DefaultHasher::default();
         url.hash(&mut hasher);
         std::format!("{:x}", hasher.finish())
     }

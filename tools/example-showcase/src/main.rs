@@ -292,7 +292,7 @@ fn main() {
 
                 // Sort the examples so that they are not run by category
                 examples_to_run.sort_by_key(|example| {
-                    let mut hasher = DefaultHasher::new();
+                    let mut hasher = DefaultHasher::default();
                     example.hash(&mut hasher);
                     hasher.finish()
                 });
