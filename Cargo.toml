@@ -2507,7 +2507,7 @@ required-features = ["bevy_debug_stepping"]
 
 [package.metadata.example.async_ecs]
 name = "async_ecs"
-path = "examples/ecs/async_ecs.rs"
+description = "Showcases using the `async_access` primitive for async <-> ecs interaction"
 category = "ECS (Entity Component System)"
 wasm = false
 
