@@ -93,10 +93,8 @@ pub mod prelude {
         relationship::RelationshipTarget,
         resource::Resource,
         schedule::{
-            common_conditions::*,
-            executor::async_ecs::{async_access, cleanup_ecs_task, EcsTask},
-            ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule, Schedules,
-            SystemCondition, SystemSet,
+            common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
+            Schedules, SystemCondition, SystemSet,
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
@@ -113,7 +111,10 @@ pub mod prelude {
 
     #[doc(hidden)]
     #[cfg(feature = "std")]
-    pub use crate::system::ParallelCommands;
+    pub use crate::{
+        schedule::executor::async_ecs::{async_access, EcsTask},
+        system::ParallelCommands,
+    };
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]

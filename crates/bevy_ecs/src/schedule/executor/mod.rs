@@ -1,3 +1,4 @@
+#[cfg(feature = "std")]
 /// Async ECS access, using the ECS from Async Tasks
 pub mod async_ecs;
 #[cfg(feature = "std")]

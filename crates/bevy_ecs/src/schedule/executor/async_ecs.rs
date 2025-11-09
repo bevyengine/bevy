@@ -136,7 +136,7 @@ impl<T: SystemParam + 'static> FromWorld for SystemStatePool<T> {
 
 /// A monotonically increasing global identifier for any particular async task.
 /// Is an internal implementation detail and thus not generally accessible
-#[derive(Clone, Copy, Hash, PartialOrd, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialOrd, PartialEq, Eq, Debug)]
 struct AsyncTaskId(u64);
 
 /// The next [`AsyncTaskId`].
@@ -203,15 +203,20 @@ impl WakeRegistry {
         if waker_list_len == 0 {
             return None;
         }
-        world.insert_resource(WakeParkBarrier(
+        let wake_park_barrier = WakeParkBarrier(
             thread::current(),
-            Arc::new(AtomicI64::new(waker_list_len as i64 - 1)),
-        ));
+            Arc::new(AtomicI64::new(waker_list_len as i64)),
+        );
+        world.insert_resource(wake_park_barrier.clone());
         if let None = GLOBAL_WORLD_ACCESS.set(world, || {
             for waker in waker_list {
                 waker.wake();
             }
-            thread::park();
+            // We do this because we can get spurious wakes, but we wanna ensure that
+            // we stay parked until we have at least given every poll a chance to happen.
+            while wake_park_barrier.1.load(Ordering::SeqCst) > 0 {
+                thread::park();
+            }
         }) {
             return None;
         }
@@ -310,7 +315,9 @@ impl WorldAccessRegistry {
         struct UnparkOnDropGuard(WakeParkBarrier);
         impl Drop for UnparkOnDropGuard {
             fn drop(&mut self) {
-                let val = self.0 .1.fetch_add(-1, Ordering::SeqCst);
+                let val = self.0 .1.fetch_sub(1, Ordering::SeqCst) - 1;
+                // The runtime can poll us *more* often than when we call wake,
+                // this is why we use a AtomicI64 instead
                 if val == 0 {
                     self.0 .0.unpark();
                 }
@@ -328,7 +335,7 @@ impl WorldAccessRegistry {
                 .unwrap()
                 .clone()
         };
-        UnparkOnDropGuard(async_barrier.clone());
+        let _guard = UnparkOnDropGuard(async_barrier.clone());
         // this allows us to effectively yield as if pending if the world doesn't exist rn.
         let _world = our_thing.1.try_lock().ok()?;
         // SAFETY: this is safe because we ensure no one else has access to the world.
@@ -354,13 +361,10 @@ where
         PhantomData::<P>,
         PhantomData,
         Some(ecs_access),
-        (task_identifier.1, schedule.intern()),
-        task_identifier.0,
+        (task_identifier.0 .1, schedule.intern()),
+        task_identifier.0 .0,
     )
     .await;
-    if task_identifier.3 == Cleanup::Auto {
-        cleanup_ecs_task(task_identifier);
-    }
     out
 }
 
@@ -370,7 +374,7 @@ static TASKS_TO_CLEANUP: OnceLock<
 
 /// Pass the `EcsTask` into here after you're done using it
 /// This function will mark the `SystemState` for that task for cleanup.
-pub fn cleanup_ecs_task<P: SystemParam + 'static>(task: EcsTask<P>) {
+fn cleanup_ecs_task<P: SystemParam + 'static>(task: &InternalEcsTask<P>) {
     fn cleanup_task<P: SystemParam + 'static>(world: &mut World, task_id: AsyncTaskId) {
         world.try_resource_scope(|_world, param_pool: Mut<SystemStatePool<P>>| {
             let mut pool = param_pool.0.write().unwrap();
@@ -390,43 +394,41 @@ pub fn cleanup_ecs_task<P: SystemParam + 'static>(task: EcsTask<P>) {
     }
 }
 
-impl<T> From<WorldId> for EcsTask<T> {
+impl<P: SystemParam + 'static> From<WorldId> for EcsTask<P> {
     fn from(value: WorldId) -> Self {
-        EcsTask(
+        EcsTask(Arc::new(InternalEcsTask(
             AsyncTaskId::new().unwrap(),
             value,
             PhantomData,
-            Cleanup::Auto,
-        )
+        )))
     }
 }
 
 /// An EcsTask can be re-used in order to persist SystemParams like Local, Changed, or Added
-pub struct EcsTask<T>(AsyncTaskId, WorldId, PhantomData<T>, Cleanup);
+pub struct EcsTask<P: SystemParam + 'static>(Arc<InternalEcsTask<P>>);
 
-#[derive(PartialEq, Copy, Clone)]
-enum Cleanup {
-    Auto,
-    Manual,
-}
+struct InternalEcsTask<P: SystemParam + 'static>(AsyncTaskId, WorldId, PhantomData<P>);
 
-impl<T> Clone for EcsTask<T> {
-    fn clone(&self) -> Self {
-        *self
+impl<T: SystemParam + 'static> Drop for InternalEcsTask<T> {
+    fn drop(&mut self) {
+        cleanup_ecs_task(self)
     }
 }
 
-impl<T> Copy for EcsTask<T> {}
-impl<T> EcsTask<T> {
+impl<P: SystemParam + 'static> Clone for EcsTask<P> {
+    fn clone(&self) -> Self {
+        EcsTask(self.0.clone())
+    }
+}
+impl<P: SystemParam + 'static> EcsTask<P> {
     /// Generates a new unique PersistentTask that can be re-used in order to persist SystemParams
     /// like Local, Changed, or Added
     pub fn new(world_id: WorldId) -> Self {
-        Self(
+        Self(Arc::new(InternalEcsTask(
             AsyncTaskId::new().unwrap(),
             world_id,
             PhantomData,
-            Cleanup::Manual,
-        )
+        )))
     }
 }
 

@@ -1,10 +1,10 @@
 //! A minimal example showing how to perform asynchronous work in Bevy
-//! using [`AsyncComputeTaskPool`] for parallel task execution and a crossbeam channel
-//! to communicate between async tasks and the main ECS thread.
+//! using [`AsyncComputeTaskPool`] to run detached tasks, combined with
+//! `async_access` to safely access ECS data from async contexts.
 //!
-//! This example demonstrates how to spawn detached async tasks, send completion messages via channels,
-//! and dynamically spawn ECS entities (cubes) as results from these tasks. The system processes
-//! async task results in the main game loop, all without blocking or polling the main thread.
+//! Instead of using channels to send results back to the main thread,
+//! this example performs ECS world mutations directly *inside* async tasks
+//! by scheduling closures to run on a chosen schedule (e.g., `Update`).
 
 use bevy::{
     math::ops::{cos, sin},
@@ -29,18 +29,20 @@ fn main() {
         .run();
 }
 
-/// Spawns async tasks on the compute task pool to simulate delayed cube creation.
+/// Spawns a grid of async tasks to simulate delayed cube creation.
 ///
-/// Each task is executed on a separate thread and sends the result (cube position)
-/// back through the `CubeChannel` once completed. The tasks are detached to
-/// run asynchronously without blocking the main thread.
+/// Each task sleeps for a random duration, then uses `async_access`
+/// to enqueue a closure that runs on the ECS main thread, allowing
+/// mutation of ECS data (e.g., spawning entities and modifying `Local` state).
 ///
-/// In this example, we don't implement task tracking or proper error handling.
+/// No polling, task handles, or channels are needed — async work is detached,
+/// and ECS access happens only inside scheduled closures.
 fn spawn_tasks(world_id: WorldId) {
     let pool = AsyncComputeTaskPool::get();
     let task_id = EcsTask::new(world_id);
     for x in -NUM_CUBES..NUM_CUBES {
         for z in -NUM_CUBES..NUM_CUBES {
+            let task_id = task_id.clone();
             // Spawn a task on the async compute pool
             pool.spawn(async move {
                 let delay = Duration::from_secs_f32(rand::rng().random_range(2.0..8.0));
@@ -72,18 +74,15 @@ fn spawn_tasks(world_id: WorldId) {
                 )
                 .await;
                 if value as i32 == (NUM_CUBES * 2) * (NUM_CUBES * 2) {
-                    cleanup_ecs_task(task_id);
+                    println!("DONE");
                 }
-                println!("spawned {}", value);
-
+                // Showcasing how you can mutably access variables from outside the closure
                 let mut my_thing = String::new();
-
                 async_access::<(), _, _>(world_id, PreUpdate, |()| {
                     my_thing.push('h');
-                    //println!("In PreUpdate");
                 })
                 .await;
-                my_thing.push('h');
+                my_thing.push('i');
             })
             .detach();
         }

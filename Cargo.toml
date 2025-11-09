@@ -2505,6 +2505,12 @@ path = "examples/ecs/system_stepping.rs"
 doc-scrape-examples = true
 required-features = ["bevy_debug_stepping"]
 
+[package.metadata.example.async_ecs]
+name = "async_ecs"
+path = "examples/ecs/async_ecs.rs"
+category = "ECS (Entity Component System)"
+wasm = false
+
 [[example]]
 name = "async_ecs"
 path = "examples/ecs/async_ecs.rs"
