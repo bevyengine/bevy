@@ -31,9 +31,9 @@ mod keyed_queues {
     use bevy_platform::sync::{Arc, RwLock};
     use concurrent_queue::ConcurrentQueue;
     use core::hash::Hash;
-    /// `HashMap<K, Arc<ConcurrentQueue<V>>>` behind a single RwLock.
-    /// - Writers only contend when creating a new key or GC'ing.
-    /// - `push` is non-blocking (unbounded queue).
+    /// `HashMap<K, Arc<ConcurrentQueue<V>>>` behind a single `RwLock`.
+    /// - Writers only contend when creating a new key.
+    /// - `push` is almost always non-blocking (unbounded queue).
     pub struct KeyedQueues<K, V> {
         inner: RwLock<HashMap<K, Arc<ConcurrentQueue<V>>>>,
     }
@@ -67,7 +67,7 @@ mod keyed_queues {
         }
 
         /// Potentially-blocking send but almost never blocking (unbounded queue => `push` never fails).
-        /// ( Only blocks when the (WorldId, Schedule) has never been used before
+        /// ( Only blocks when the `(WorldId, Schedule)` has never been used before
         #[inline]
         pub fn try_send(&self, key: &K, val: V) -> Result<(), concurrent_queue::PushError<V>> {
             let q = self.get_or_create(key);
@@ -82,7 +82,7 @@ static GLOBAL_WORLD_ACCESS: WorldAccessRegistry = WorldAccessRegistry(OnceLock::
 
 /// The entrypoint, stores `Waker`s from `async_access`'s that wish to be polled with world access
 /// also stores the generic function pointer to the concrete function that initializes the
-/// system state for any set of SystemParams
+/// system state for any set of `SystemParams`
 
 pub(crate) static GLOBAL_WAKE_REGISTRY: WakeRegistry = WakeRegistry(OnceLock::new());
 
@@ -117,9 +117,8 @@ impl<T: SystemParam + 'static> FromWorld for SystemStatePool<T> {
             appliers.0.insert(TypeId::of::<T>(), |world: &mut World| {
                 world.try_resource_scope(|world, param_pool: Mut<SystemStatePool<T>>| {
                     for concurrent_queue in param_pool.0.read().unwrap().values() {
-                        let mut system_state = match concurrent_queue.pop() {
-                            Ok(val) => val,
-                            Err(_) => panic!(),
+                        let Ok(mut system_state) = concurrent_queue.pop() else {
+                            unreachable!()
                         };
                         system_state.apply(world);
                         match concurrent_queue.push(system_state) {
@@ -159,7 +158,7 @@ impl AsyncTaskId {
     }
 }
 
-/// Is the GLOBAL_WAKE_REGISTRY
+/// Is the `GLOBAL_WAKE_REGISTRY`
 pub(crate) struct WakeRegistry(
     OnceLock<
         KeyedQueues<
@@ -191,7 +190,7 @@ impl WakeRegistry {
         let mut waker_list = bevy_platform::prelude::vec![];
         while let Ok((waker, system_init, task_id)) = GLOBAL_WAKE_REGISTRY
             .0
-            .get_or_init(|| KeyedQueues::new())
+            .get_or_init(KeyedQueues::new)
             .get_or_create(&(world_id, schedule))
             .pop()
         {
@@ -208,16 +207,19 @@ impl WakeRegistry {
             Arc::new(AtomicI64::new(waker_list_len as i64)),
         );
         world.insert_resource(wake_park_barrier.clone());
-        if let None = GLOBAL_WORLD_ACCESS.set(world, || {
-            for waker in waker_list {
-                waker.wake();
-            }
-            // We do this because we can get spurious wakes, but we wanna ensure that
-            // we stay parked until we have at least given every poll a chance to happen.
-            while wake_park_barrier.1.load(Ordering::SeqCst) > 0 {
-                thread::park();
-            }
-        }) {
+        if GLOBAL_WORLD_ACCESS
+            .set(world, || {
+                for waker in waker_list {
+                    waker.wake();
+                }
+                // We do this because we can get spurious wakes, but we wanna ensure that
+                // we stay parked until we have at least given every poll a chance to happen.
+                while wake_park_barrier.1.load(Ordering::SeqCst) > 0 {
+                    thread::park();
+                }
+            })
+            .is_none()
+        {
             return None;
         }
         // Applies all the commands stored up to the world
@@ -281,6 +283,10 @@ impl WorldAccessRegistry {
                 }
             }
         }
+        // SAFETY: This mem transmute is safe only because we drop it after, and our GLOBAL_WORLD_ACCESS is private, and we don't clone it
+        // where we do use it, so the lifetime doesn't get propagated anywhere.
+        // Lifetimes are not used in any actual code optimization, so turning it into a static does not violate any of rust's rules
+        // As *LONG* as we keep it within it's lifetime, which we do here, manually, with our `ClearOnDrop` struct.
         unsafe {
             let binding = this.read().unwrap();
             let world_container = binding.get(&world_id).unwrap();
@@ -293,10 +299,12 @@ impl WorldAccessRegistry {
             // Lifetimes are not used in any actual code optimization, so turning it into a static does not violate any of rust's rules
             // As *LONG* as we keep it within it's lifetime, which we do here, manually, with our `ClearOnDrop` struct.
             world_container.write().unwrap().replace((
-                core::mem::transmute(world.as_unsafe_world_cell()),
+                core::mem::transmute::<UnsafeWorldCell, UnsafeWorldCell<'static>>(
+                    world.as_unsafe_world_cell(),
+                ),
                 Mutex::new(PhantomData),
             ));
-            func()
+            func();
         }
         Some(())
     }
@@ -309,9 +317,7 @@ impl WorldAccessRegistry {
         // where a thread is parked because of our world.
         let a = self.0.get()?.read().unwrap();
         let b = a.get(&world_id)?.read().unwrap();
-        let Some(our_thing) = b.as_ref() else {
-            return None;
-        };
+        let our_thing = b.as_ref()?;
         struct UnparkOnDropGuard(WakeParkBarrier);
         impl Drop for UnparkOnDropGuard {
             fn drop(&mut self) {
@@ -357,15 +363,14 @@ where
     for<'w, 's> Func: FnMut(P::Item<'w, 's>) -> Out,
 {
     let task_identifier = task_identifier.into();
-    let out = PendingEcsCall::<P, Func, Out>(
+    PendingEcsCall::<P, Func, Out>(
         PhantomData::<P>,
         PhantomData,
         Some(ecs_access),
         (task_identifier.0 .1, schedule.intern()),
         task_identifier.0 .0,
     )
-    .await;
-    out
+    .await
 }
 
 static TASKS_TO_CLEANUP: OnceLock<
@@ -411,7 +416,7 @@ struct InternalEcsTask<P: SystemParam + 'static>(AsyncTaskId, WorldId, PhantomDa
 
 impl<T: SystemParam + 'static> Drop for InternalEcsTask<T> {
     fn drop(&mut self) {
-        cleanup_ecs_task(self)
+        cleanup_ecs_task(self);
     }
 }
 
@@ -541,7 +546,7 @@ where
                 // `async_access` is currently running.
                 match GLOBAL_WAKE_REGISTRY
                     .0
-                    .get_or_init(|| KeyedQueues::new())
+                    .get_or_init(KeyedQueues::new)
                     .try_send(
                         &self.3,
                         (cx.waker().clone(), system_state_init::<P>, task_id),
