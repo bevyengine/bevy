@@ -9,13 +9,13 @@ use super::{
 };
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
-use alloc::collections::BTreeMap;
 #[cfg(feature = "morph")]
 use bevy_asset::Handle;
 use bevy_asset::{Asset, RenderAssetUsages};
 #[cfg(feature = "morph")]
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
+use bevy_platform::collections::BTreeMap;
 #[cfg(feature = "serialize")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;

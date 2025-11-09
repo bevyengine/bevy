@@ -4,7 +4,7 @@ impl_reflect_opaque!(::alloc::collections::BinaryHeap<T: Clone>(Clone));
 
 #[cfg(test)]
 mod tests {
-    use alloc::collections::BTreeMap;
+    use bevy_platform::collections::BTreeMap;
     use bevy_reflect::Reflect;
 
     #[test]

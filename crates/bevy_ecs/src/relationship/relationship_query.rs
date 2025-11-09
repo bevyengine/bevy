@@ -4,7 +4,7 @@ use crate::{
     relationship::{Relationship, RelationshipTarget},
     system::Query,
 };
-use alloc::collections::VecDeque;
+use bevy_platform::collections::VecDeque;
 use smallvec::SmallVec;
 
 use super::SourceIter;

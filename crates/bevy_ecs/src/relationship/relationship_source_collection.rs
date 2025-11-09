@@ -1,4 +1,4 @@
-use alloc::collections::{btree_set, BTreeSet};
+use bevy_platform::collections::{btree_set, BTreeSet};
 use core::{
     hash::BuildHasher,
     ops::{Deref, DerefMut},

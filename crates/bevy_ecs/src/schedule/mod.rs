@@ -802,7 +802,7 @@ mod tests {
 
     mod system_ambiguity {
         #[cfg(feature = "trace")]
-        use alloc::collections::BTreeSet;
+        use bevy_platform::collections::BTreeSet;
 
         use super::*;
         use crate::prelude::*;

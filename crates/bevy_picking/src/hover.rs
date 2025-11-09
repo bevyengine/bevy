@@ -3,7 +3,7 @@
 //! The most important type in this module is the [`HoverMap`], which maps pointers to the entities
 //! they are hovering over.
 
-use alloc::collections::BTreeMap;
+use bevy_platform::collections::BTreeMap;
 use core::fmt::Debug;
 use std::collections::HashSet;
 

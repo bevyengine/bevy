@@ -1,4 +1,3 @@
-use alloc::collections::VecDeque;
 use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
@@ -6,6 +5,7 @@ use bevy_ecs::{
 };
 use bevy_mesh::{Indices, Mesh};
 use bevy_platform::collections::HashMap;
+use bevy_platform::collections::VecDeque;
 use bevy_render::{
     mesh::{
         allocator::{MeshAllocator, MeshBufferSlice},
