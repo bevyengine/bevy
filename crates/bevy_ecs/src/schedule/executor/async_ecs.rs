@@ -27,10 +27,10 @@ use std::thread;
 /// arbitrary N number of worlds running in parallel on the same process do not interfere at all
 /// except the very first time a new world initializes it's key.
 mod keyed_queues {
+    use bevy_platform::collections::HashMap;
+    use bevy_platform::sync::{Arc, RwLock};
     use concurrent_queue::ConcurrentQueue;
-    use std::sync::Arc;
-    use std::{collections::HashMap, hash::Hash, sync::RwLock};
-
+    use core::hash::Hash;
     /// HashMap<K, Arc<ConcurrentQueue<V>>> behind a single RwLock.
     /// - Writers only contend when creating a new key or GC'ing.
     /// - `push` is non-blocking (unbounded queue).
@@ -293,7 +293,7 @@ impl WorldAccessRegistry {
             // Lifetimes are not used in any actual code optimization, so turning it into a static does not violate any of rust's rules
             // As *LONG* as we keep it within it's lifetime, which we do here, manually, with our `ClearOnDrop` struct.
             world_container.write().unwrap().replace((
-                std::mem::transmute(world.as_unsafe_world_cell()),
+                core::mem::transmute(world.as_unsafe_world_cell()),
                 Mutex::new(PhantomData),
             ));
             func()
