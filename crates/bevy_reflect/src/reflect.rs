@@ -416,16 +416,25 @@ pub trait Reflect: PartialReflect + DynamicTyped + Any {
     /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
     /// Returns the value as a [`&dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn as_any(&self) -> &dyn Any;
 
     /// Returns the value as a [`&mut dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
+    #[deprecated(
+        note = "Upcasting coercion is now automatic; this method is no longer necessary. Add type annotations as needed."
+    )]
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed, fully-reflected value.
