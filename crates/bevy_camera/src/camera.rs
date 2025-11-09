@@ -513,7 +513,7 @@ impl Camera {
         if ndc_space_coords.z > 1.0 {
             return Err(ViewportConversionError::PastNearPlane);
         }
-        
+
         let depth = ndc_space_coords.z;
 
         // Flip the Y co-ordinate origin from the bottom to the top.
