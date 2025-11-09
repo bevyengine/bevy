@@ -392,6 +392,10 @@ pub struct AssetSource {
     reader: Box<dyn ErasedAssetReader>,
     writer: Option<Box<dyn ErasedAssetWriter>>,
     processed_reader: Option<Arc<dyn ErasedAssetReader>>,
+    /// The ungated version of `processed_reader`.
+    ///
+    /// This allows the processor to read all the processed assets to initialize itself without
+    /// being gated on itself (causing a deadlock).
     ungated_processed_reader: Option<Arc<dyn ErasedAssetReader>>,
     processed_writer: Option<Box<dyn ErasedAssetWriter>>,
     watcher: Option<Box<dyn AssetWatcher>>,
