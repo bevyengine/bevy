@@ -10,17 +10,17 @@ use bevy_ecs::{
     lifecycle::RemovedComponentEntity,
     message::MessageCursor,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource, ReflectEvent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectEvent, ReflectResource},
     system::{In, Local},
-    world::{EntityRef, EntityWorldMut, FilteredEntityRef, World, Mut},
+    world::{EntityRef, EntityWorldMut, FilteredEntityRef, Mut, World},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    DynamicStruct, GetPath, PartialReflect, TypeRegistration, TypeRegistry
+    DynamicStruct, GetPath, PartialReflect, TypeRegistration, TypeRegistry,
 };
-use serde::{de::DeserializeSeed as _, Deserialize, Serialize, de::IntoDeserializer};
+use serde::{de::DeserializeSeed as _, de::IntoDeserializer, Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -1365,7 +1365,10 @@ pub fn process_remote_list_components_watching_request(
 }
 
 /// Handles a `world.trigger_event` request coming from a client.
-pub fn process_remote_trigger_event_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+pub fn process_remote_trigger_event_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
     let BrpTriggerEventParams { event, value } = parse_some(params)?;
 
     world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
@@ -1386,7 +1389,9 @@ pub fn process_remote_trigger_event_request(In(params): In<Option<Value>>, world
             let payload: Box<dyn PartialReflect> =
                 TypedReflectDeserializer::new(registration, &registry)
                     .deserialize(payload.into_deserializer())
-                    .map_err(|err| BrpError::resource_error(format!("{event} is invalid: {err}")))?;
+                    .map_err(|err| {
+                        BrpError::resource_error(format!("{event} is invalid: {err}"))
+                    })?;
             reflect_event.trigger(world, &*payload, &registry);
         } else {
             let payload = DynamicStruct::default();

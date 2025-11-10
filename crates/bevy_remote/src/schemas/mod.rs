@@ -1,6 +1,6 @@
 //! Module with schemas used for various BRP endpoints
 use bevy_ecs::{
-    reflect::{ReflectComponent, ReflectResource, ReflectEvent},
+    reflect::{ReflectComponent, ReflectEvent, ReflectResource},
     resource::Resource,
 };
 use bevy_platform::collections::HashMap;
