@@ -325,8 +325,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// returns None if component wasn't registered, or if the access is not compatible bewteen terms
     pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
-        for (i, access) in Q::iter_access(self.world.components()).enumerate() {
-            for access_before in Q::iter_access(self.world.components()).take(i) {
+        let mut index_outer = 0;
+        for (i, access) in Q::iter_access(self.world.components(), &mut index_outer).enumerate() {
+            let mut index_inner = 0;
+            for access_before in Q::iter_access(self.world.components(), &mut index_inner).take(i) {
                 let (Some(access), Some(access_before)) = (access, access_before) else {
                     // A component wasn't registered
                     return None;

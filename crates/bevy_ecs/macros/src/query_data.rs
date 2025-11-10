@@ -61,6 +61,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let path = bevy_ecs_path();
 
     let user_generics = ast.generics.clone();
+    let user_generics_ty_params = user_generics.type_params().map(|p| p.ident.clone());
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
         let mut generics = ast.generics.clone();
@@ -268,8 +269,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         })
                     }
 
-                    fn iter_access(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
-                        core::iter::empty() #(.chain(<#field_types>::iter_access(components)))*
+                    fn iter_access<'c>(
+                        components: &'c #path::component::Components,
+                        index: &mut usize
+                    ) -> impl core::iter::Iterator<Item = Option<#path::query::access_iter::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
+                        use #path::query::access_iter::AccessIter;
+                        core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
                     }
                 }
 
@@ -297,6 +302,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         let is_read_only = !attributes.is_mutable;
 
+        let user_generics_ty_params = user_generics.type_params().map(|p| p.ident.clone());
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
@@ -337,8 +343,12 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     })
                 }
 
-                fn iter_access(components: &#path::component::Components) -> impl Iterator<Item=Option<#path::query::EcsAccessType>> {
-                    core::iter::empty() #(.chain(<#field_types>::iter_access(components)))*
+                fn iter_access<'c>(
+                    components: &'c #path::component::Components,
+                    index: &mut usize
+                ) -> impl core::iter::Iterator<Item = Option<#path::query::access_iter::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
+                    use #path::query::access_iter::AccessIter;
+                    core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
                 }
             }
 

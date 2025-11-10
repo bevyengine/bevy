@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+pub mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -898,14 +899,15 @@ mod tests {
             Some(())
         }
 
-        fn iter_access(
-            components: &Components,
-        ) -> impl Iterator<Item = Option<super::EcsAccessType>> {
-            core::iter::once(
-                components
-                    .resource_id::<R>()
-                    .map(|id| super::EcsAccessType::Resource(super::EcsAccessLevel::Read(id))),
-            )
+        fn iter_access<'c>(
+            components: &'c Components,
+            _index: &mut usize,
+        ) -> impl Iterator<Item = Option<super::access_iter::EcsAccessType>> + use<'c> {
+            core::iter::once(components.resource_id::<R>().map(|id| {
+                super::access_iter::EcsAccessType::Resource(
+                    super::access_iter::ResourceAccessLevel::Read(id),
+                )
+            }))
         }
     }
 
