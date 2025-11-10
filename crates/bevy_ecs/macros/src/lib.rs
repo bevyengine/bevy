@@ -132,7 +132,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
-        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
@@ -146,6 +145,12 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ) {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
+            }
+
+            fn iter_component_ids(
+                components: &#ecs_path::component::Components,
+            ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {
+                core::iter::empty()#(.chain(<#active_field_types as #ecs_path::bundle::Bundle>::iter_component_ids(components)))*
             }
         }
     };

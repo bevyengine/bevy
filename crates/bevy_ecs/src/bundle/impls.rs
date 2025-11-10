@@ -1,4 +1,4 @@
-use core::any::TypeId;
+use core::{any::TypeId, iter};
 
 use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
@@ -20,6 +20,10 @@ unsafe impl<C: Component> Bundle for C {
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
+    }
+
+    fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+        iter::once(components.get_id(TypeId::of::<C>()))
     }
 }
 
@@ -77,6 +81,10 @@ macro_rules! tuple_impl {
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
+            }
+
+            fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+                iter::empty()$(.chain(<$name as Bundle>::iter_component_ids(components)))*
             }
         }
 

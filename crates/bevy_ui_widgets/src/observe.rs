@@ -39,6 +39,14 @@ unsafe impl<
     ) {
         // SAFETY: Empty function body
     }
+
+    #[inline]
+    fn iter_component_ids(
+        _components: &bevy_ecs::component::Components,
+    ) -> impl Iterator<Item = Option<bevy_ecs::component::ComponentId>> {
+        // SAFETY: Empty iterator
+        core::iter::empty()
+    }
 }
 
 impl<E: EntityEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>> DynamicBundle
