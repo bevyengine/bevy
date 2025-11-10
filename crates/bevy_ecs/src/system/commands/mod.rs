@@ -2313,10 +2313,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// ```
     #[track_caller]
-    pub fn trigger<M, T: IntoEventFromEntity<M>>(
-        &mut self,
-        event_fn: T,
-    ) -> &mut Self
+    pub fn trigger<M, T: IntoEventFromEntity<M>>(&mut self, event_fn: T) -> &mut Self
     where
         T::Event: Send + 'static,
         T::Trigger: Send + 'static,

@@ -2079,18 +2079,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
     #[track_caller]
-    pub fn trigger<M, T: IntoEventFromEntity<M>>(
-        &mut self,
-        event_fn: T,
-    ) -> &mut Self {
+    pub fn trigger<M, T: IntoEventFromEntity<M>>(&mut self, event_fn: T) -> &mut Self {
         let (mut event, mut trigger) = event_fn.into_event_from_entity(self.entity);
         let caller = MaybeLocation::caller();
         self.world_scope(|world| {
-            world.trigger_ref_with_caller(
-                &mut event,
-                &mut trigger,
-                caller,
-            );
+            world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
         });
         self
     }
