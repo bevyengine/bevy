@@ -51,14 +51,11 @@ fn setup(mut commands: Commands) {
             },
         )
         .observe(
-            |drag_start: On<Pointer<DragStart>>,
+            |_: On<Pointer<DragStart>>,
              mut scroll_position_query: Query<
                 (&ComputedNode, &mut ScrollStart),
                 With<ScrollableNode>,
             >| {
-                if drag_start.entity != drag_start.original_event_target() {
-                    return;
-                }
                 if let Ok((computed_node, mut start)) = scroll_position_query.single_mut() {
                     start.0 = computed_node.scroll_position * computed_node.inverse_scale_factor;
                 }
@@ -66,12 +63,18 @@ fn setup(mut commands: Commands) {
         )
         .with_children(|commands| {
             commands
-                .spawn(Node {
-                    display: Display::Grid,
-                    grid_template_rows: RepeatedGridTrack::px(w as i32, 100.),
-                    grid_template_columns: RepeatedGridTrack::px(h as i32, 100.),
-                    ..default()
-                })
+                .spawn((
+                    Node {
+                        display: Display::Grid,
+                        grid_template_rows: RepeatedGridTrack::px(w as i32, 100.),
+                        grid_template_columns: RepeatedGridTrack::px(h as i32, 100.),
+                        ..default()
+                    },
+                    Pickable {
+                        is_hoverable: false,
+                        should_block_lower: true,
+                    }
+                ))
                 .with_children(|commands| {
                     for y in 0..h {
                         for x in 0..w {

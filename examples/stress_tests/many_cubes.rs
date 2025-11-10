@@ -16,7 +16,7 @@ use bevy::{
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::NotShadowCaster,
-    math::{DVec2, DVec3},
+    math::{ops::cbrt, DVec2, DVec3},
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
@@ -72,16 +72,21 @@ struct Args {
     #[argh(switch)]
     shadows: bool,
 
+    /// whether to continuously rotate individual cubes.
+    #[argh(switch)]
+    rotate_cubes: bool,
+
     /// animate the cube materials by updating the material from the cpu each frame
     #[argh(switch)]
     animate_materials: bool,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq)]
 enum Layout {
     Cube,
     #[default]
     Sphere,
+    Dense,
 }
 
 impl FromStr for Layout {
@@ -91,8 +96,9 @@ impl FromStr for Layout {
         match s {
             "cube" => Ok(Self::Cube),
             "sphere" => Ok(Self::Sphere),
+            "dense" => Ok(Self::Dense),
             _ => Err(format!(
-                "Unknown layout value: '{s}', valid options: 'cube', 'sphere'"
+                "Unknown layout value: '{s}', valid options: 'cube', 'sphere', 'dense'"
             )),
         }
     }
@@ -123,7 +129,15 @@ fn main() {
         unfocused_mode: UpdateMode::Continuous,
     })
     .add_systems(Startup, setup)
-    .add_systems(Update, (move_camera, print_mesh_count));
+    .add_systems(Update, print_mesh_count);
+
+    if args.layout != Layout::Dense {
+        app.add_systems(Update, move_camera);
+    }
+
+    if args.rotate_cubes {
+        app.add_systems(Update, rotate_cubes);
+    }
 
     if args.animate_materials {
         app.add_systems(Update, update_materials);
@@ -199,7 +213,7 @@ fn setup(
                 NotShadowCaster,
             ));
         }
-        _ => {
+        Layout::Cube => {
             // NOTE: This pattern is good for demonstrating that frustum culling is working correctly
             // as the number of visible meshes rises and falls depending on the viewing angle.
             let scale = 2.5;
@@ -246,6 +260,34 @@ fn setup(
                 Transform::from_scale(-Vec3::ONE).with_translation(center),
                 NotShadowCaster,
             ));
+        }
+        Layout::Dense => {
+            // NOTE: This pattern is good for demonstrating a dense configuration of cubes
+            // overlapping each other, all within the camera frustum.
+            let count = WIDTH * HEIGHT * 2;
+            let size = cbrt(count as f32).round();
+            let gap = 1.25;
+
+            let cubes = (0..count).map(move |i| {
+                let x = i as f32 % size;
+                let y = (i as f32 / size) % size;
+                let z = i as f32 / (size * size);
+                let pos = Vec3::new(x * gap, y * gap, z * gap);
+                (
+                    Mesh3d(meshes.choose(&mut material_rng).unwrap().0.clone()),
+                    MeshMaterial3d(materials.choose(&mut material_rng).unwrap().clone()),
+                    Transform::from_translation(pos),
+                )
+            });
+
+            // camera
+            commands.spawn((
+                Camera3d::default(),
+                Transform::from_xyz(100.0, 90.0, 100.0)
+                    .looking_at(Vec3::new(0.0, -10.0, 0.0), Vec3::Y),
+            ));
+
+            commands.spawn_batch(cubes);
         }
     }
 
@@ -294,6 +336,7 @@ fn init_materials(
         match args.layout {
             Layout::Cube => (WIDTH - WIDTH / 10) * (HEIGHT - HEIGHT / 10),
             Layout::Sphere => WIDTH * HEIGHT * 4,
+            Layout::Dense => WIDTH * HEIGHT * 2,
         }
     } else {
         args.material_texture_count
@@ -498,6 +541,15 @@ fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<T
         let color = fast_hue_to_rgb(hue);
         material.base_color = Color::linear_rgb(color.x, color.y, color.z);
     }
+}
+
+fn rotate_cubes(
+    mut query: Query<&mut Transform, (With<Mesh3d>, Without<NotShadowCaster>)>,
+    time: Res<Time>,
+) {
+    query.par_iter_mut().for_each(|mut transform| {
+        transform.rotate_y(10.0 * time.delta_secs());
+    });
 }
 
 #[inline]
