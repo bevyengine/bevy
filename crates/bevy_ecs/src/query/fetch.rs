@@ -370,6 +370,12 @@ pub enum EcsAccessLevel {
     ReadAll,
     /// Potentially writes all [`Component`]'s in the [`World`]
     WriteAll,
+    /// [`FilteredEntityRef`] captures it's access at the `SystemParam` level, so will
+    /// not conflict with other `QueryData` in the same Query
+    FilteredReadAll,
+    /// [`FilteredEntityMut`] captures it's access at the `SystemParam` level, so will
+    /// not conflict with other `QueryData` in the same Query
+    FilteredWriteAll,
 }
 
 impl EcsAccessType {
@@ -404,7 +410,18 @@ impl EcsAccessType {
             | (Resource(Read(_)), Resource(Read(_)))
             | (Resource(ReadAll), Resource(Read(_)))
             | (Resource(Read(_)), Resource(ReadAll))
-            | (Resource(ReadAll), Resource(ReadAll)) => true,
+            | (Resource(ReadAll), Resource(ReadAll))
+            // TODO: I think (FilterdReadAll, FilteredWriteAll) should probably conflict, but should
+            // double check with the normal conflict check
+            | (Component(FilteredReadAll), _)
+            | (_, Component(FilteredReadAll))
+            | (Component(FilteredWriteAll), _)
+            | (_, Component(FilteredWriteAll))
+            // TODO: should maybe make a separate accessLevel for Resources
+            | (Resource(FilteredReadAll), _)
+            | (_, Resource(FilteredReadAll))
+            | (Resource(FilteredWriteAll), _)
+            | (_, Resource(FilteredWriteAll))=> true,
         }
     }
 }
@@ -1155,9 +1172,9 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
     }
 
     fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
+        iter::once(Some(EcsAccessType::Component(
+            EcsAccessLevel::FilteredReadAll,
+        )))
     }
 }
 
@@ -1280,9 +1297,9 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     }
 
     fn iter_access(_components: &Components) -> impl Iterator<Item = Option<EcsAccessType>> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
+        iter::once(Some(EcsAccessType::Component(
+            EcsAccessLevel::FilteredWriteAll,
+        )))
     }
 }
 
