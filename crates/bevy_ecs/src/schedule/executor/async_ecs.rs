@@ -182,8 +182,7 @@ impl WakeRegistry {
             .0
             .get_or_init(KeyedQueues::new)
             .get_or_create(&(world_id, schedule))
-            .len()
-            == 0
+            .is_empty()
         {
             return None;
         }
