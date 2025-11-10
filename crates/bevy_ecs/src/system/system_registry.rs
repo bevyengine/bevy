@@ -505,6 +505,9 @@ impl World {
     /// type for error handling:
     ///
     /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # fn my_system() -> Result { Ok(()) }
+    /// # let mut world = World::new();
     /// // Either constrain the output type
     /// () = world.run_system_cached(my_system)?;
     /// // or supply the type parameter explicitly
