@@ -509,6 +509,7 @@ impl World {
     /// () = world.run_system_cached(my_system)?;
     /// // or supply the type parameter explicitly
     /// world.run_system_cached::<(), _, _>(my_system)?;
+    /// # Ok::<(), BevyError>(())
     /// ```
     ///
     /// Without this, Rust may fail to infer the system’s output type and produce
