@@ -24,7 +24,7 @@ use crate::{
         InvalidEntityError, OptIn, OptOut,
     },
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{EntityEvent, Event},
+    event::{Event, EventFromEntity, IntoEventFromEntity},
     message::Message,
     observer::Observer,
     resource::Resource,
@@ -2022,9 +2022,8 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
-    /// targets this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    /// Creates an [`Observer`] watching for an [`EventFromEntity`] of type `E` whose event targets this entity.
+    pub fn observe<E: EventFromEntity, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -2314,12 +2313,20 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// ```
     #[track_caller]
-    pub fn trigger<'t, E: EntityEvent<Trigger<'t>: Default>>(
+    pub fn trigger<M, T: IntoEventFromEntity<M>>(
         &mut self,
-        event_fn: impl FnOnce(Entity) -> E,
-    ) -> &mut Self {
-        let event = (event_fn)(self.entity);
-        self.commands.trigger(event);
+        event_fn: T,
+    ) -> &mut Self
+    where
+        T::Event: Send + 'static,
+        T::Trigger: Send + 'static,
+    {
+        let entity = self.entity;
+        let (mut event, mut trigger) = event_fn.into_event_from_entity(entity);
+        let caller = MaybeLocation::caller();
+        self.commands.queue(move |world: &mut World| {
+            world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
+        });
         self
     }
 }
