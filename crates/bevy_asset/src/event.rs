@@ -45,6 +45,24 @@ impl<A: Asset> From<&AssetLoadFailedEvent<A>> for UntypedAssetLoadFailedEvent {
 }
 
 /// [`Message`]s that occur for a specific loaded [`Asset`], such as "value changed" events and "dependency" events.
+/// Events concerning a specific [`Asset`] value.
+///
+/// Each variant carries the [`AssetId`] of the asset affected by the event. These
+/// messages are emitted by the asset system to notify other systems about
+/// lifecycle changes for individual assets:
+///
+/// - `Added`: a new asset value was inserted into the asset storage.
+/// - `Modified`: an existing asset value has been updated.
+/// - `Removed`: the asset value was removed from the asset storage.
+/// - `Unused`: the last strong handle to the asset was dropped; the asset may
+///   be eligible for cleanup.
+/// - `LoadedWithDependencies`: the asset and all of its recursive dependencies
+///   have been fully loaded and are ready for use.
+///
+/// Note on the `id` fields:
+/// The `id` in every variant is a stable identifier for the asset that the
+/// event refers to. The `id` semantics are consistent across all variants, so
+/// they are documented here rather than on each variant individually.
 #[expect(missing_docs, reason = "Documenting the id fields is unhelpful.")]
 #[derive(Message, Reflect)]
 pub enum AssetEvent<A: Asset> {
