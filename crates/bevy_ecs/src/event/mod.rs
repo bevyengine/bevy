@@ -322,25 +322,6 @@ impl<E: EntityEvent> EventFromEntity for E {}
 /// This trait allows methods like [`EntityWorldMut::trigger`](crate::world::EntityWorldMut::trigger)
 /// to accept both the `FnOnce(Entity) -> E` pattern and custom implementations
 /// that may use non-default triggers.
-///
-/// # Example
-///
-/// ```ignore
-/// // Usage with FnOnce
-/// entity.trigger(|entity| MyEvent { entity });
-///
-/// // Custom implementation with non-default trigger
-/// struct MyEventWithCustomTrigger;
-///
-/// impl IntoEventFromEntity<()> for MyEventWithCustomTrigger {
-///     type Event = MyEvent;
-///     type Trigger = MyCustomTrigger;
-///
-///     fn into_event_from_entity(self, entity: Entity) -> (Self::Event, Self::Trigger) {
-///         (MyEvent { entity }, MyCustomTrigger::new(entity))
-///     }
-/// }
-/// ```
 pub trait IntoEventFromEntity<M> {
     /// The event type.
     type Event: for<'a> Event<Trigger<'a> = Self::Trigger>;
