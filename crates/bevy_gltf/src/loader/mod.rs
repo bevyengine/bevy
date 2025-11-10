@@ -787,6 +787,8 @@ impl GltfLoader {
                     });
                 }
 
+                mesh.generate_skinned_mesh_bounds();
+
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
                     &gltf_mesh,

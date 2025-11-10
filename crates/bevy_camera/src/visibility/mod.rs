@@ -6,6 +6,9 @@ use core::any::TypeId;
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
+use bevy_mesh::skinning::{
+    entity_aabb_from_skinned_mesh_bounds, SkinnedMesh, SkinnedMeshInverseBindposes,
+};
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
@@ -368,7 +371,9 @@ impl Plugin for VisibilityPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds.in_set(CalculateBounds),
+                    (calculate_bounds, update_skinned_mesh_bounds)
+                        .chain()
+                        .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
@@ -399,6 +404,41 @@ pub fn calculate_bounds(
         {
             commands.entity(entity).try_insert(aabb);
         }
+    }
+}
+
+// XXX TODO: Document.
+fn update_skinned_mesh_bounds(
+    mesh_assets: Res<Assets<Mesh>>,
+    skinned_mesh_inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    mut skinned_mesh_entities: Query<
+        (&Mesh3d, &SkinnedMesh, &GlobalTransform, &mut Aabb),
+        Without<NoFrustumCulling>,
+    >,
+    joint_entities: Query<&GlobalTransform>,
+) {
+    for (mesh, skinned_mesh, world_from_entity, mut aabb) in &mut skinned_mesh_entities {
+        let Some(mesh_asset) = mesh_assets.get(mesh) else {
+            continue;
+        };
+
+        let Some(skinned_mesh_inverse_bindposes_asset) =
+            skinned_mesh_inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
+        else {
+            continue;
+        };
+
+        let Some(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
+            &joint_entities,
+            mesh_asset,
+            skinned_mesh,
+            skinned_mesh_inverse_bindposes_asset,
+            world_from_entity,
+        ) else {
+            continue;
+        };
+
+        *aabb = skinned_aabb.into();
     }
 }
 

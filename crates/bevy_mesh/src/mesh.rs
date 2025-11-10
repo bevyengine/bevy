@@ -7,6 +7,7 @@ use super::{
     MeshVertexBufferLayoutRef, MeshVertexBufferLayouts, MeshWindingInvertError,
     VertexAttributeValues, VertexBufferLayout,
 };
+use crate::skinning::{create_skinned_mesh_bounds, SkinnedMeshBounds};
 #[cfg(feature = "serialize")]
 use crate::SerializedMeshAttributeData;
 use alloc::collections::BTreeMap;
@@ -150,6 +151,9 @@ pub struct Mesh {
     /// Does nothing if not used with `bevy_solari`, or if the mesh is not compatible
     /// with `bevy_solari` (see `bevy_solari`'s docs).
     pub enable_raytracing: bool,
+
+    #[reflect(ignore, clone)] // XXX TODO: Is this correct?
+    skinned_mesh_bounds: Option<SkinnedMeshBounds>,
 }
 
 impl Mesh {
@@ -241,6 +245,7 @@ impl Mesh {
             morph_target_names: None,
             asset_usage,
             enable_raytracing: true,
+            skinned_mesh_bounds: None,
         }
     }
 
@@ -1361,6 +1366,15 @@ impl Mesh {
                 vertices: [vert0, vert1, vert2],
             })
         }
+    }
+
+    pub fn skinned_mesh_bounds(&self) -> &Option<SkinnedMeshBounds> {
+        &self.skinned_mesh_bounds
+    }
+
+    // XXX TODO: Document.
+    pub fn generate_skinned_mesh_bounds(&mut self) {
+        self.skinned_mesh_bounds = create_skinned_mesh_bounds(self);
     }
 }
 
