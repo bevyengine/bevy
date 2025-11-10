@@ -512,7 +512,17 @@ impl World {
     /// ```
     ///
     /// Without this, Rust may fail to infer the system’s output type and produce
-    /// a `IntoResult<!>` inference error.
+    /// an error either of the form
+    ///
+    /// ```text
+    /// the trait `IntoResult<!>` is not implemented for `Result<(), BevyError>`
+    /// ```
+    ///
+    /// or
+    ///
+    /// ```text
+    /// cannot infer type of the type parameter `O` declared on the method `run_system_cached`
+    /// ```
     /// See [`World::register_system_cached`] for more information.
     pub fn run_system_cached<O: 'static, M, S: IntoSystem<(), O, M> + 'static>(
         &mut self,
