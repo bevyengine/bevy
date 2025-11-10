@@ -178,6 +178,15 @@ impl WakeRegistry {
     /// Returns `Some` as long as the last call processed any number of waiting `async_access` calls.
     pub fn wait(&self, schedule: InternedScheduleLabel, world: &mut World) -> Option<()> {
         let world_id = world.id();
+        if GLOBAL_WAKE_REGISTRY
+            .0
+            .get_or_init(KeyedQueues::new)
+            .get_or_create(&(world_id, schedule))
+            .len()
+            == 0
+        {
+            return None;
+        }
         // Cleanups the garbage first.
         for (cleanup_function, task_to_cleanup) in TASKS_TO_CLEANUP
             .get_or_init(KeyedQueues::new)
@@ -198,9 +207,6 @@ impl WakeRegistry {
             waker_list.push(waker);
         }
         let waker_list_len = waker_list.len();
-        if waker_list_len == 0 {
-            return None;
-        }
         let wake_park_barrier = WakeParkBarrier(
             thread::current(),
             Arc::new(AtomicI64::new(waker_list_len as i64)),
