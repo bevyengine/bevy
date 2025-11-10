@@ -2765,6 +2765,47 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
     }
 }
 
+/// A [`SystemParam`] that allows running other systems.
+///
+/// To be useful, this must be configured using a [`SystemRunnerBuilder`](crate::system::SystemRunnerBuilder)
+/// to build the system using a [`SystemParamBuilder`](crate::prelude::SystemParamBuilder).
+///
+/// Also see the macros [`compose`](crate::system::compose) and [`compose_with`](crate::system::compose_with)
+/// for some nice syntax on top of this API.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::{prelude::*, system::*};
+/// #
+/// # #[derive(Component)]
+/// # struct A;
+/// #
+/// # #[derive(Component)]
+/// # struct B;
+/// # let mut world = World::new();
+/// #
+/// fn count_a(a: Query<&A>) -> u32 {
+///     a.len()
+/// }
+///
+/// fn count_b(b: Query<&B>) -> u32 {
+///     b.len()
+/// }
+///
+/// let get_sum = (
+///     ParamBuilder::system(count_a),
+///     ParamBuilder::system(count_b)
+/// )
+/// .build_state(&mut world)
+/// .build_system(
+///     |mut run_a: SystemRunner<(), u32>, mut run_b: SystemRunner<(), u32>| -> Result<u32, RunSystemError> {
+///         let a = run_a.run()?;
+///         let b = run_b.run()?;
+///         Ok(a + b)
+///     }
+/// );
+/// ```
 pub struct SystemRunner<'w, 's, In = (), Out = (), Sys = dyn System<In = In, Out = Out>>
 where
     In: SystemInput,
@@ -2779,6 +2820,7 @@ where
     In: SystemInput,
     Sys: System<In = In, Out = Out> + ?Sized,
 {
+    /// Run the system with input.
     #[inline]
     pub fn run_with(&mut self, input: In::Inner<'_>) -> Result<Out, RunSystemError> {
         // SAFETY:
@@ -2798,6 +2840,7 @@ impl<'w, 's, Out, Sys> SystemRunner<'w, 's, (), Out, Sys>
 where
     Sys: System<In = (), Out = Out> + ?Sized,
 {
+    /// Run the system.
     #[inline]
     pub fn run(&mut self) -> Result<Out, RunSystemError> {
         self.run_with(())
