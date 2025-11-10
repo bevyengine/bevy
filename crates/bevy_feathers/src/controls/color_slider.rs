@@ -23,13 +23,14 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
-use bevy_ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy_ui_widgets::{Slider, SliderRange, SliderStep, SliderThumb, SliderValue, TrackClick};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
     cursor::EntityCursor,
     palette,
     rounded_corners::RoundedCorners,
+    FocusIndicator,
 };
 
 const SLIDER_HEIGHT: f32 = 16.0;
@@ -202,9 +203,11 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             channel: props.channel.clone(),
         },
         SliderValue(props.value),
+        SliderStep(0.01),
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![
             // track

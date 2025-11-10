@@ -12,9 +12,9 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugins,
+        tokens, FeathersPlugins, FocusIndicator,
     },
-    input_focus::tab_navigation::TabGroup,
+    input_focus::tab_navigation::{TabGroup, TabIndex},
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
@@ -239,6 +239,8 @@ fn demo_root() -> impl Bundle {
                         ..default()
                     },
                     RadioGroup,
+                    TabIndex(0),
+                    FocusIndicator,
                     observe(
                         |value_change: On<ValueChange<Entity>>,
                          q_radio: Query<Entity, With<RadioButton>>,
