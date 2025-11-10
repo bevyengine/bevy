@@ -505,7 +505,10 @@ impl World {
     /// type for error handling:
     ///
     /// ```rust
+    /// // Either constrain the output type
     /// () = world.run_system_cached(my_system)?;
+    /// // or supply the type parameter explicitly
+    /// world.run_system_cached::<(), _, _>(my_system)?;
     /// ```
     ///
     /// Without this, Rust may fail to infer the system’s output type and produce
