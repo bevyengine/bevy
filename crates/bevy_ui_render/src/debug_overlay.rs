@@ -4,6 +4,7 @@ use super::ExtractedUiNodes;
 use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
+use crate::Feature;
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
@@ -69,6 +70,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
+            Feature,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
@@ -80,7 +82,9 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, maybe_clip, computed_target) in &uinode_query {
+    for (entity, uinode, transform, visibility, maybe_clip, computed_target, _feature) in
+        &uinode_query
+    {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -114,6 +118,7 @@ pub fn extract_debug_overlay(
                 node_type: NodeType::Border(shader_flags::BORDER_ALL),
             },
             main_entity: entity.into(),
+            is_contain: _feature,
         });
     }
 }
