@@ -321,7 +321,44 @@ impl<E: EntityEvent> EventFromEntity for E {}
 ///
 /// This trait allows methods like [`EntityWorldMut::trigger`](crate::world::EntityWorldMut::trigger)
 /// to accept both the `FnOnce(Entity) -> E` pattern and custom implementations
-/// that may use non-default triggers.
+/// that may use events targeting entities for which `EntityEvent` is not a good fit.
+///
+/// # Example
+///
+/// By default this type is implemented for any `FnOnce(Entity) -> E where E: EntityEvent`.
+/// A surprising number of functions meet this pattern:
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(EntityEvent)]
+/// struct Explode(Entity);
+///
+/// impl From<Entity> for Explode {
+///    fn from(entity: Entity) -> Self {
+///       Explode(entity)
+///    }
+/// }
+///
+///
+/// fn trigger_via_constructor(mut commands: Commands) {
+///     // The fact that `Explode` is a single-field tuple struct
+///     // ensures that `Explode(entity)` is a function that generates
+///     // an EntityEvent, meeting the trait bounds for `event_fn`.
+///     commands.spawn_empty().trigger(Explode);
+///
+/// }
+///
+///
+/// fn trigger_via_from_trait(mut commands: Commands) {
+///     // This variant also works for events like `struct Explode { entity: Entity }`
+///     commands.spawn_empty().trigger(Explode::from);
+/// }
+///
+/// fn trigger_via_closure(mut commands: Commands) {
+///     commands.spawn_empty().trigger(|entity| Explode(entity));
+/// }
+/// ```
 pub trait IntoEventFromEntity<M> {
     /// The event type.
     type Event: for<'a> Event<Trigger<'a> = Self::Trigger>;

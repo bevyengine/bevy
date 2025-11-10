@@ -1759,8 +1759,7 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
-    /// targets this entity.
+    /// Creates an [`Observer`] watching for an [`EventFromEntity`] of type `E` that targets this entity.
     ///
     /// # Panics
     ///
@@ -2074,10 +2073,8 @@ impl<'w> EntityWorldMut<'w> {
         })
     }
 
-    /// Passes the current entity into the given function, and triggers the [`EntityEvent`] returned by that function.
-    /// See [`EntityCommands::trigger`] for usage examples
-    ///
-    /// [`EntityCommands::trigger`]: crate::system::EntityCommands::trigger
+    /// Passes the current entity into the given function, and triggers the event returned by that function.
+    /// See [`IntoEventFromEntity`] for usage examples.
     #[track_caller]
     pub fn trigger<M, T: IntoEventFromEntity<M>>(&mut self, event_fn: T) -> &mut Self {
         let (mut event, mut trigger) = event_fn.into_event_from_entity(self.entity);
