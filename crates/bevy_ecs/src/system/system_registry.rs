@@ -501,7 +501,7 @@ impl World {
     /// Runs a cached system, registering it if necessary.
     ///
     /// # Type Inference Note
-    /// If the system returns `()`, you may need to explicitly constrain the output
+    /// If the system returns `Result`, you may need to explicitly constrain the output
     /// type for error handling:
     ///
     /// ```rust
