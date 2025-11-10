@@ -359,7 +359,7 @@ pub async fn async_access<P, Func, Out>(
 ) -> Out
 where
     P: SystemParam + 'static,
-    for<'w, 's> Func: FnMut(P::Item<'w, 's>) -> Out,
+    for<'w, 's> Func: FnOnce(P::Item<'w, 's>) -> Out,
 {
     let task_identifier = task_identifier.into();
     PendingEcsCall::<P, Func, Out>(
