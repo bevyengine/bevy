@@ -16,11 +16,9 @@ use bevy_ecs::{
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{
-    serde::{ReflectSerializer, TypedReflectDeserializer},
-    GetPath, PartialReflect, TypeRegistration, TypeRegistry,
-};
+use bevy_reflect::{serde::{ReflectSerializer, TypedReflectDeserializer}, DynamicStruct, GetPath, PartialReflect, TypeRegistration, TypeRegistry};
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
+use serde::de::IntoDeserializer;
 use serde_json::{Map, Value};
 
 use crate::{
@@ -34,6 +32,8 @@ use crate::{
 
 #[cfg(all(feature = "http", not(target_family = "wasm")))]
 use {crate::schemas::open_rpc::ServerObject, bevy_utils::default};
+use bevy_ecs::reflect::ReflectEvent;
+use bevy_ecs::world::Mut;
 
 /// The method path for a `world.get_components` request.
 pub const BRP_GET_COMPONENTS_METHOD: &str = "world.get_components";
@@ -82,6 +82,9 @@ pub const BRP_MUTATE_RESOURCE_METHOD: &str = "world.mutate_resources";
 
 /// The method path for a `world.list_resources` request.
 pub const BRP_LIST_RESOURCES_METHOD: &str = "world.list_resources";
+
+/// The method path for a `world.trigger_event` request.
+pub const BRP_TRIGGER_EVENT_METHOD: &str = "world.trigger_event";
 
 /// The method path for a `registry.schema` request.
 pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "registry.schema";
@@ -297,6 +300,19 @@ pub struct BrpMutateResourcesParams {
 
     /// The value to insert at `path`.
     pub value: Value,
+}
+
+/// `world.trigger_event`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+struct BrpTriggerEventParams {
+    /// The [full path] of the event to trigger.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub event: String,
+    /// The serialized value of the event to be triggered, if any.
+    pub value: Option<Value>,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -1346,6 +1362,39 @@ pub fn process_remote_list_components_watching_request(
             serde_json::to_value(response).map_err(BrpError::internal)?,
         ))
     }
+}
+
+/// Handles a `world.trigger_event` request coming from a client.
+pub fn process_remote_trigger_event_request(In(params): In<Option<Value>>, world: &mut World) -> BrpResult {
+    let BrpTriggerEventParams { event, value } = parse_some(params)?;
+
+    world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+        let registry = registry.read();
+
+        let Some(registration) = registry.get_with_type_path(&event) else {
+            return Err(BrpError::resource_error(format!(
+                "Unknown event type: `{event}`"
+            )));
+        };
+        let Some(reflect_event) = registration.data::<ReflectEvent>() else {
+            return Err(BrpError::resource_error(format!(
+                "Event `{event}` is not reflectable"
+            )));
+        };
+
+        if let Some(payload) = value {
+            let payload: Box<dyn PartialReflect> =
+                TypedReflectDeserializer::new(registration, &registry)
+                    .deserialize(payload.into_deserializer())
+                    .map_err(|err| BrpError::resource_error(format!("{event} is invalid: {err}")))?;
+            reflect_event.trigger(world, &*payload, &registry);
+        } else {
+            let payload = DynamicStruct::default();
+            reflect_event.trigger(world, &payload, &registry);
+        }
+
+        Ok(Value::Null)
+    })
 }
 
 /// Handles a `registry.schema` request (list all registry types in form of schema) coming from a client.
