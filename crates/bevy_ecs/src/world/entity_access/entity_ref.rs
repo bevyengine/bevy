@@ -256,6 +256,74 @@ impl<'w> EntityRef<'w> {
         unsafe { component_ids.fetch_ref(self.cell) }
     }
 
+    /// Gets the "target" entity of this entity via the [`Relationship`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`ComponentId`]
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut world = World::new();
+    /// let parent = world.spawn_empty().id();
+    /// let child = world.spawn(ChildOf(parent)).id();
+    ///
+    /// // Grab the component ID for `ChildOf` in whatever way you like.
+    /// let component_id = world.register_component::<ChildOf>();
+    ///
+    /// // Then, get the target entity via the 'ChildOf' relationship by ID.
+    /// let target = world.entity(child).get_relationship_by_id(component_id).unwrap();
+    /// assert_eq!(target, parent);
+    /// ```
+    ///
+    /// [`Relationship`]: crate::relationship::Relationship
+    pub fn get_relationship_by_id(&self, relationship_id: ComponentId) -> Option<Entity> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.cell.get_relationship_by_id(relationship_id) }
+    }
+
+    /// Gets an iterator to the "related" entities of this entity via the [`RelationshipTarget`] component with the given [`ComponentId`].
+    ///
+    /// **You should prefer to use the typed API where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Examples
+    ///
+    /// ## Single [`ComponentId`]
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut world = World::new();
+    /// let parent = world.spawn_empty().id();
+    /// let child = world.spawn(ChildOf(parent)).id();
+    ///
+    /// // Grab the component ID for `Children` in whatever way you like.
+    /// let component_id = world.register_component::<Children>();
+    ///
+    /// // Then, get the target entities via the 'Children' relationship by ID.
+    /// let targets: Vec<Entity> = world.entity(parent).get_relationship_targets_by_id(component_id).unwrap().collect();
+    /// assert_eq!(targets, vec![child]);
+    /// ```
+    ///
+    /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+    pub fn get_relationship_targets_by_id(
+        &self,
+        relationship_target_id: ComponentId,
+    ) -> Option<impl Iterator<Item = Entity> + use<'w>> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe {
+            self.cell
+                .get_relationship_targets_by_id(relationship_target_id)
+        }
+    }
+
     /// Returns read-only components for the current entity that match the query `Q`.
     ///
     /// # Panics
