@@ -167,6 +167,13 @@ impl Plugin for UiPlugin {
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
             );
 
+        #[cfg(feature = "bevy_ui_contain")]
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<UiContainTarget>::default().in_set(UiSystems::Propagate),
+        )
+        .add_plugins(HierarchyPropagatePlugin::<UiContainTarget>::new(PostUpdate));
+
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)
             .add_systems(
