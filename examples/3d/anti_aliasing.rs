@@ -36,7 +36,10 @@ fn main() {
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (modify_aa, modify_sharpening, update_ui));
+        .add_systems(
+            Update,
+            (modify_aa, modify_sharpening, modify_projection, update_ui),
+        );
 
     app.run();
 }
@@ -257,9 +260,28 @@ fn modify_sharpening(
     }
 }
 
+fn modify_projection(keys: Res<ButtonInput<KeyCode>>, mut query: Query<&mut Projection>) {
+    for mut projection in &mut query {
+        if keys.just_pressed(KeyCode::KeyO) {
+            match *projection {
+                Projection::Perspective(_) => {
+                    *projection = Projection::Orthographic(OrthographicProjection {
+                        scale: 0.002,
+                        ..OrthographicProjection::default_3d()
+                    });
+                }
+                _ => {
+                    *projection = Projection::Perspective(PerspectiveProjection::default());
+                }
+            }
+        }
+    }
+}
+
 fn update_ui(
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
+            &Projection,
             Option<&Fxaa>,
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
@@ -271,6 +293,7 @@ fn update_ui(
     >,
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] camera: Single<
         (
+            &Projection,
             Option<&Fxaa>,
             Option<&Smaa>,
             Option<&TemporalAntiAliasing>,
@@ -285,9 +308,9 @@ fn update_ui(
     >,
 ) {
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (fxaa, smaa, taa, cas, msaa, dlss) = *camera;
+    let (projection, fxaa, smaa, taa, cas, msaa, dlss) = *camera;
     #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-    let (fxaa, smaa, taa, cas, msaa) = *camera;
+    let (projection, fxaa, smaa, taa, cas, msaa) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
@@ -375,6 +398,14 @@ fn update_ui(
         ui.push_str(&format!("(-/+) Strength: {:.1}\n", cas.sharpening_strength));
         draw_selectable_menu_item(ui, "Denoising", 'D', cas.denoise);
     }
+
+    ui.push_str("\n----------\n\n");
+    draw_selectable_menu_item(
+        ui,
+        "Orthographic",
+        'O',
+        matches!(projection, Projection::Orthographic(_)),
+    );
 }
 
 /// Set up a simple 3D scene

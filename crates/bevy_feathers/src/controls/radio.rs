@@ -1,6 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
 use bevy_camera::visibility::Visibility;
-use bevy_core_widgets::CoreRadio;
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -21,6 +20,7 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
 };
+use bevy_ui_widgets::RadioButton;
 
 use crate::{
     constants::{fonts, size},
@@ -47,6 +47,12 @@ struct RadioMark;
 /// * `props` - construction properties for the radio.
 /// * `overrides` - a bundle of components that are merged in with the normal radio components.
 /// * `label` - the label of the radio.
+///
+/// # Emitted events
+/// * [`bevy_ui_widgets::ValueChange<bool>`] with the value true when it becomes checked.
+/// * [`bevy_ui_widgets::ValueChange<Entity>`] with the selected entity's id when a new radio button is selected.
+///
+///  These events can be disabled by adding an [`bevy_ui::InteractionDisabled`] component to the entity
 pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
     overrides: B,
     label: C,
@@ -60,7 +66,7 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             column_gap: Val::Px(4.0),
             ..Default::default()
         },
-        CoreRadio,
+        RadioButton,
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
@@ -111,7 +117,7 @@ fn update_radio_styles(
             &ThemeFontColor,
         ),
         (
-            With<CoreRadio>,
+            With<RadioButton>,
             Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
@@ -159,7 +165,7 @@ fn update_radio_styles_remove(
             &Hovered,
             &ThemeFontColor,
         ),
-        With<CoreRadio>,
+        With<RadioButton>,
     >,
     q_children: Query<&Children>,
     mut q_outline: Query<&ThemeBorderColor, With<RadioOutline>>,
@@ -252,7 +258,7 @@ fn set_radio_styles(
 
     // Change mark visibility
     commands.entity(mark_ent).insert(match checked {
-        true => Visibility::Visible,
+        true => Visibility::Inherited,
         false => Visibility::Hidden,
     });
 

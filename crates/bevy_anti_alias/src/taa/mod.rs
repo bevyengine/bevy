@@ -1,6 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{Camera, Camera3d, Projection};
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
@@ -24,12 +24,12 @@ use bevy_render::{
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState,
+        Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor, TextureDimension,
+        TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
     sync_component::SyncComponentPlugin,
@@ -73,7 +73,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
                     Node3d::Taa,
                     Node3d::Bloom,
@@ -83,7 +83,7 @@ impl Plugin for TemporalAntiAliasPlugin {
     }
 }
 
-/// Component to apply temporal anti-aliasing to a 3D perspective camera.
+/// Component to apply temporal anti-aliasing to a 3D camera.
 ///
 /// Temporal anti-aliasing (TAA) is a form of image smoothing/filtering, like
 /// multisample anti-aliasing (MSAA), or fast approximate anti-aliasing (FXAA).
@@ -108,8 +108,6 @@ impl Plugin for TemporalAntiAliasPlugin {
 /// # Usage Notes
 ///
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
-///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_camera::OrthographicProjection`].
 ///
 /// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
@@ -188,7 +186,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
         let taa_bind_group = render_context.render_device().create_bind_group(
             "taa_bind_group",
-            &pipelines.taa_bind_group_layout,
+            &pipeline_cache.get_bind_group_layout(&pipelines.taa_bind_group_layout),
             &BindGroupEntries::sequential((
                 view_target.source,
                 &taa_history_textures.read.default_view,
@@ -238,7 +236,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
 #[derive(Resource)]
 struct TaaPipeline {
-    taa_bind_group_layout: BindGroupLayout,
+    taa_bind_group_layout: BindGroupLayoutDescriptor,
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
     fullscreen_shader: FullscreenShader,
@@ -264,7 +262,7 @@ fn init_taa_pipeline(
         ..SamplerDescriptor::default()
     });
 
-    let taa_bind_group_layout = render_device.create_bind_group_layout(
+    let taa_bind_group_layout = BindGroupLayoutDescriptor::new(
         "taa_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -344,20 +342,15 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query::<(
-        RenderEntity,
-        &Camera,
-        &Projection,
-        Option<&mut TemporalAntiAliasing>,
-    )>();
+    let mut cameras_3d =
+        main_world.query::<(RenderEntity, &Camera, Option<&mut TemporalAntiAliasing>)>();
 
-    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
+    for (entity, camera, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
         if let Some(mut taa_settings) = taa_settings
             && camera.is_active
-            && camera_projection.is_perspective()
         {
             entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;

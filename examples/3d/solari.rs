@@ -1,11 +1,9 @@
 //! Demonstrates realtime dynamic raytraced lighting using Bevy Solari.
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
+    camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
@@ -15,7 +13,6 @@ use bevy::{
         prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
@@ -41,7 +38,7 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, FreeCameraPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
@@ -118,7 +115,7 @@ fn setup(
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
-        CameraController {
+        FreeCamera {
             walk_speed: 3.0,
             run_speed: 10.0,
             ..Default::default()
@@ -159,7 +156,7 @@ fn setup(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    event: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<(
         &Mesh3d,
@@ -171,7 +168,7 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    for descendant in children.iter_descendants(event.entity()) {
+    for descendant in children.iter_descendants(scene_ready.entity) {
         if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
             mesh_query.get(descendant)
         {

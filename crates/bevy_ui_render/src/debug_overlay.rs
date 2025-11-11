@@ -8,6 +8,7 @@ use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::prelude::ReflectResource;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -15,6 +16,7 @@ use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_math::Rect;
 use bevy_math::Vec2;
+use bevy_reflect::Reflect;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
@@ -25,7 +27,8 @@ use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
-#[derive(Resource)]
+#[derive(Resource, Reflect)]
+#[reflect(Resource)]
 pub struct UiDebugOptions {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
@@ -98,7 +101,7 @@ pub fn extract_debug_overlay(
             extracted_camera_entity,
             transform: transform.into(),
             item: ExtractedUiItem::Node {
-                color: Hsla::sequential_dispersed(entity.index()).into(),
+                color: Hsla::sequential_dispersed(entity.index_u32()).into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.size,

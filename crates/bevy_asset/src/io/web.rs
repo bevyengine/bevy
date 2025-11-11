@@ -1,10 +1,11 @@
+#[cfg(any(feature = "http", feature = "https"))]
+use crate::io::AssetSourceBuilder;
+use crate::io::PathStream;
 use crate::io::{AssetReader, AssetReaderError, Reader};
-use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetPlugin};
-use alloc::{borrow::ToOwned, boxed::Box};
+use alloc::boxed::Box;
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
-use blocking::unblock;
 use std::path::{Path, PathBuf};
 use tracing::warn;
 
@@ -72,16 +73,14 @@ impl Plugin for WebAssetPlugin {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Http))
                 .with_processed_reader(move || Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https))
+            AssetSourceBuilder::new(move || Box::new(WebAssetReader::Https))
                 .with_processed_reader(move || Box::new(WebAssetReader::Https)),
         );
     }
@@ -104,7 +103,7 @@ impl WebAssetReader {
         PathBuf::from(prefix).join(path)
     }
 
-    /// See [`crate::io::get_meta_path`]
+    /// See [`io::get_meta_path`](`crate::io::get_meta_path`)
     fn make_meta_uri(&self, path: &Path) -> PathBuf {
         let meta_path = crate::io::get_meta_path(path);
         self.make_uri(&meta_path)
@@ -124,8 +123,9 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use alloc::{boxed::Box, vec::Vec};
+    use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
+    use blocking::unblock;
     use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
@@ -138,9 +138,19 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
+    use ureq::tls::{RootCerts, TlsConfig};
     use ureq::Agent;
 
-    static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
+    static AGENT: LazyLock<Agent> = LazyLock::new(|| {
+        Agent::config_builder()
+            .tls_config(
+                TlsConfig::builder()
+                    .root_certs(RootCerts::PlatformVerifier)
+                    .build(),
+            )
+            .build()
+            .new_agent()
+    });
 
     let uri = str_path.to_owned();
     // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's

@@ -17,7 +17,7 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
+use bevy_image::{BevyDefault, Image, TextureAtlasLayout};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
@@ -34,12 +34,12 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    texture::{DefaultImageSampler, FallbackImage, GpuImage},
+    texture::{FallbackImage, GpuImage},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
-use bevy_sprite::{Anchor, ScalingMode, Sprite};
+use bevy_sprite::{Anchor, Sprite, SpriteScalingMode};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -47,21 +47,14 @@ use fixedbitset::FixedBitSet;
 
 #[derive(Resource)]
 pub struct SpritePipeline {
-    view_layout: BindGroupLayout,
-    material_layout: BindGroupLayout,
+    view_layout: BindGroupLayoutDescriptor,
+    material_layout: BindGroupLayoutDescriptor,
     shader: Handle<Shader>,
-    pub dummy_white_gpu_image: GpuImage,
 }
 
-pub fn init_sprite_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    default_sampler: Res<DefaultImageSampler>,
-    render_queue: Res<RenderQueue>,
-    asset_server: Res<AssetServer>,
-) {
+pub fn init_sprite_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
     let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-    let view_layout = render_device.create_bind_group_layout(
+    let view_layout = BindGroupLayoutDescriptor::new(
         "sprite_view_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::VERTEX_FRAGMENT,
@@ -73,7 +66,7 @@ pub fn init_sprite_pipeline(
         ),
     );
 
-    let material_layout = render_device.create_bind_group_layout(
+    let material_layout = BindGroupLayoutDescriptor::new(
         "sprite_material_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -83,43 +76,10 @@ pub fn init_sprite_pipeline(
             ),
         ),
     );
-    let dummy_white_gpu_image = {
-        let image = Image::default();
-        let texture = render_device.create_texture(&image.texture_descriptor);
-        let sampler = match image.sampler {
-            ImageSampler::Default => (**default_sampler).clone(),
-            ImageSampler::Descriptor(ref descriptor) => {
-                render_device.create_sampler(&descriptor.as_wgpu())
-            }
-        };
-
-        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-        }
-        let texture_view = texture.create_view(&TextureViewDescriptor::default());
-        GpuImage {
-            texture,
-            texture_view,
-            texture_format: image.texture_descriptor.format,
-            sampler,
-            size: image.texture_descriptor.size,
-            mip_level_count: image.texture_descriptor.mip_level_count,
-        }
-    };
 
     commands.insert_resource(SpritePipeline {
         view_layout,
         material_layout,
-        dummy_white_gpu_image,
         shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
     });
 }
@@ -334,7 +294,7 @@ pub enum ExtractedSpriteKind {
     Single {
         anchor: Vec2,
         rect: Option<Rect>,
-        scaling_mode: Option<ScalingMode>,
+        scaling_mode: Option<SpriteScalingMode>,
         custom_size: Option<Vec2>,
     },
     /// Indexes into the list of [`ExtractedSlice`]s stored in the [`ExtractedSlices`] resource
@@ -359,7 +319,7 @@ pub struct SpriteAssetEvents {
 
 pub fn extract_sprite_events(
     mut events: ResMut<SpriteAssetEvents>,
-    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
+    mut image_events: Extract<MessageReader<AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
@@ -564,7 +524,7 @@ pub fn queue_sprites(
         view_entities.extend(
             visible_entities
                 .iter::<Sprite>()
-                .map(|(_, e)| e.index() as usize),
+                .map(|(_, e)| e.index_u32() as usize),
         );
 
         transparent_phase
@@ -572,7 +532,7 @@ pub fn queue_sprites(
             .reserve(extracted_sprites.sprites.len());
 
         for (index, extracted_sprite) in extracted_sprites.sprites.iter().enumerate() {
-            let view_index = extracted_sprite.main_entity.index();
+            let view_index = extracted_sprite.main_entity.index_u32();
 
             if !view_entities.contains(view_index as usize) {
                 continue;
@@ -603,6 +563,7 @@ pub fn queue_sprites(
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
@@ -619,7 +580,7 @@ pub fn prepare_sprite_view_bind_groups(
             get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
-            &sprite_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.view_layout),
             &BindGroupEntries::sequential((view_binding.clone(), lut_bindings.0, lut_bindings.1)),
         );
 
@@ -632,6 +593,7 @@ pub fn prepare_sprite_view_bind_groups(
 pub fn prepare_sprite_image_bind_groups(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut sprite_meta: ResMut<SpriteMeta>,
     sprite_pipeline: Res<SpritePipeline>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
@@ -701,7 +663,7 @@ pub fn prepare_sprite_image_bind_groups(
                     .or_insert_with(|| {
                         render_device.create_bind_group(
                             "sprite_material_bind_group",
-                            &sprite_pipeline.material_layout,
+                            &pipeline_cache.get_bind_group_layout(&sprite_pipeline.material_layout),
                             &BindGroupEntries::sequential((
                                 &gpu_image.texture_view,
                                 &gpu_image.sampler,
@@ -947,7 +909,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
-            0,
             IndexFormat::Uint32,
         );
         pass.set_vertex_buffer(
@@ -965,7 +926,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
 /// Scales a texture to fit within a given quad size with keeping the aspect ratio.
 fn apply_scaling(
-    scaling_mode: ScalingMode,
+    scaling_mode: SpriteScalingMode,
     texture_size: Vec2,
     quad_size: &mut Vec2,
     quad_translation: &mut Vec2,
@@ -977,7 +938,7 @@ fn apply_scaling(
     let quad_tex_scale = quad_ratio / texture_ratio;
 
     match scaling_mode {
-        ScalingMode::FillCenter => {
+        SpriteScalingMode::FillCenter => {
             if quad_ratio > texture_ratio {
                 // offset texture to center by y coordinate
                 uv_offset_scale.y += (uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale) * 0.5;
@@ -989,7 +950,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             };
         }
-        ScalingMode::FillStart => {
+        SpriteScalingMode::FillStart => {
             if quad_ratio > texture_ratio {
                 uv_offset_scale.y += uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale;
                 uv_offset_scale.w *= tex_quad_scale;
@@ -997,7 +958,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             }
         }
-        ScalingMode::FillEnd => {
+        SpriteScalingMode::FillEnd => {
             if quad_ratio > texture_ratio {
                 uv_offset_scale.w *= tex_quad_scale;
             } else {
@@ -1005,7 +966,7 @@ fn apply_scaling(
                 uv_offset_scale.z *= quad_tex_scale;
             }
         }
-        ScalingMode::FitCenter => {
+        SpriteScalingMode::FitCenter => {
             if texture_ratio > quad_ratio {
                 // Scale based on width
                 quad_size.y *= quad_tex_scale;
@@ -1014,7 +975,7 @@ fn apply_scaling(
                 quad_size.x *= tex_quad_scale;
             }
         }
-        ScalingMode::FitStart => {
+        SpriteScalingMode::FitStart => {
             if texture_ratio > quad_ratio {
                 // The quad is scaled to match the image ratio, and the quad translation is adjusted
                 // to start of the quad within the original quad size.
@@ -1031,7 +992,7 @@ fn apply_scaling(
                 *quad_size = new_quad;
             }
         }
-        ScalingMode::FitEnd => {
+        SpriteScalingMode::FitEnd => {
             if texture_ratio > quad_ratio {
                 let scale = Vec2::new(1.0, quad_tex_scale);
                 let new_quad = *quad_size * scale;

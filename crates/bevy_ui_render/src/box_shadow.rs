@@ -105,16 +105,12 @@ impl Default for BoxShadowMeta {
 
 #[derive(Resource)]
 pub struct BoxShadowPipeline {
-    pub view_layout: BindGroupLayout,
+    pub view_layout: BindGroupLayoutDescriptor,
     pub shader: Handle<Shader>,
 }
 
-pub fn init_box_shadow_pipeline(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    asset_server: Res<AssetServer>,
-) {
-    let view_layout = render_device.create_bind_group_layout(
+pub fn init_box_shadow_pipeline(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let view_layout = BindGroupLayoutDescriptor::new(
         "box_shadow_view_layout",
         &BindGroupLayoutEntries::single(
             ShaderStages::VERTEX_FRAGMENT,
@@ -360,6 +356,7 @@ pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
+    pipeline_cache: Res<PipelineCache>,
     mut ui_meta: ResMut<BoxShadowMeta>,
     mut extracted_shadows: ResMut<ExtractedBoxShadows>,
     view_uniforms: Res<ViewUniforms>,
@@ -374,7 +371,7 @@ pub fn prepare_shadows(
         ui_meta.indices.clear();
         ui_meta.view_bind_group = Some(render_device.create_bind_group(
             "box_shadow_view_bind_group",
-            &box_shadow_pipeline.view_layout,
+            &pipeline_cache.get_bind_group_layout(&box_shadow_pipeline.view_layout),
             &BindGroupEntries::single(view_binding),
         ));
 
@@ -385,118 +382,119 @@ pub fn prepare_shadows(
         for ui_phase in phases.values_mut() {
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(box_shadow) = extracted_shadows
+                let Some(box_shadow) = extracted_shadows
                     .box_shadows
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
-                {
-                    let rect_size = box_shadow.bounds;
+                else {
+                    continue;
+                };
+                let rect_size = box_shadow.bounds;
 
-                    // Specify the corners of the node
-                    let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
-                        box_shadow
-                            .transform
-                            .transform_point2(pos * rect_size)
-                            .extend(0.)
-                    });
+                // Specify the corners of the node
+                let positions = QUAD_VERTEX_POSITIONS.map(|pos| {
+                    box_shadow
+                        .transform
+                        .transform_point2(pos * rect_size)
+                        .extend(0.)
+                });
 
-                    // Calculate the effect of clipping
-                    // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = box_shadow.clip {
-                        [
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[0].x, 0.),
-                                f32::max(clip.min.y - positions[0].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[1].x, 0.),
-                                f32::max(clip.min.y - positions[1].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::min(clip.max.x - positions[2].x, 0.),
-                                f32::min(clip.max.y - positions[2].y, 0.),
-                            ),
-                            Vec2::new(
-                                f32::max(clip.min.x - positions[3].x, 0.),
-                                f32::min(clip.max.y - positions[3].y, 0.),
-                            ),
-                        ]
-                    } else {
-                        [Vec2::ZERO; 4]
-                    };
-
-                    let positions_clipped = [
-                        positions[0] + positions_diff[0].extend(0.),
-                        positions[1] + positions_diff[1].extend(0.),
-                        positions[2] + positions_diff[2].extend(0.),
-                        positions[3] + positions_diff[3].extend(0.),
-                    ];
-
-                    let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size);
-
-                    // Don't try to cull nodes that have a rotation
-                    // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
-                    // In those two cases, the culling check can proceed normally as corners will be on
-                    // horizontal / vertical lines
-                    // For all other angles, bypass the culling check
-                    // This does not properly handles all rotations on all axis
-                    if box_shadow.transform.x_axis[1] == 0.0 {
-                        // Cull nodes that are completely clipped
-                        if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
-                            || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
-                        {
-                            continue;
-                        }
-                    }
-
-                    let uvs = [
-                        Vec2::new(positions_diff[0].x, positions_diff[0].y),
+                // Calculate the effect of clipping
+                // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
+                let positions_diff = if let Some(clip) = box_shadow.clip {
+                    [
                         Vec2::new(
-                            box_shadow.bounds.x + positions_diff[1].x,
-                            positions_diff[1].y,
+                            f32::max(clip.min.x - positions[0].x, 0.),
+                            f32::max(clip.min.y - positions[0].y, 0.),
                         ),
                         Vec2::new(
-                            box_shadow.bounds.x + positions_diff[2].x,
-                            box_shadow.bounds.y + positions_diff[2].y,
+                            f32::min(clip.max.x - positions[1].x, 0.),
+                            f32::max(clip.min.y - positions[1].y, 0.),
                         ),
                         Vec2::new(
-                            positions_diff[3].x,
-                            box_shadow.bounds.y + positions_diff[3].y,
+                            f32::min(clip.max.x - positions[2].x, 0.),
+                            f32::min(clip.max.y - positions[2].y, 0.),
+                        ),
+                        Vec2::new(
+                            f32::max(clip.min.x - positions[3].x, 0.),
+                            f32::min(clip.max.y - positions[3].y, 0.),
                         ),
                     ]
-                    .map(|pos| pos / box_shadow.bounds);
+                } else {
+                    [Vec2::ZERO; 4]
+                };
 
-                    for i in 0..4 {
-                        ui_meta.vertices.push(BoxShadowVertex {
-                            position: positions_clipped[i].into(),
-                            uvs: uvs[i].into(),
-                            vertex_color: box_shadow.color.to_f32_array(),
-                            size: box_shadow.size.into(),
-                            radius: box_shadow.radius.into(),
-                            blur: box_shadow.blur_radius,
-                            bounds: rect_size.into(),
-                        });
+                let positions_clipped = [
+                    positions[0] + positions_diff[0].extend(0.),
+                    positions[1] + positions_diff[1].extend(0.),
+                    positions[2] + positions_diff[2].extend(0.),
+                    positions[3] + positions_diff[3].extend(0.),
+                ];
+
+                let transformed_rect_size = box_shadow.transform.transform_vector2(rect_size);
+
+                // Don't try to cull nodes that have a rotation
+                // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
+                // In those two cases, the culling check can proceed normally as corners will be on
+                // horizontal / vertical lines
+                // For all other angles, bypass the culling check
+                // This does not properly handles all rotations on all axis
+                if box_shadow.transform.x_axis[1] == 0.0 {
+                    // Cull nodes that are completely clipped
+                    if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
+                        || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
+                    {
+                        continue;
                     }
-
-                    for &i in &QUAD_INDICES {
-                        ui_meta.indices.push(indices_index + i as u32);
-                    }
-
-                    batches.push((
-                        item.entity(),
-                        UiShadowsBatch {
-                            range: vertices_index..vertices_index + 6,
-                            camera: box_shadow.extracted_camera_entity,
-                        },
-                    ));
-
-                    vertices_index += 6;
-                    indices_index += 4;
-
-                    // shadows are sent to the gpu non-batched
-                    *ui_phase.items[item_index].batch_range_mut() =
-                        item_index as u32..item_index as u32 + 1;
                 }
+
+                let uvs = [
+                    Vec2::new(positions_diff[0].x, positions_diff[0].y),
+                    Vec2::new(
+                        box_shadow.bounds.x + positions_diff[1].x,
+                        positions_diff[1].y,
+                    ),
+                    Vec2::new(
+                        box_shadow.bounds.x + positions_diff[2].x,
+                        box_shadow.bounds.y + positions_diff[2].y,
+                    ),
+                    Vec2::new(
+                        positions_diff[3].x,
+                        box_shadow.bounds.y + positions_diff[3].y,
+                    ),
+                ]
+                .map(|pos| pos / box_shadow.bounds);
+
+                for i in 0..4 {
+                    ui_meta.vertices.push(BoxShadowVertex {
+                        position: positions_clipped[i].into(),
+                        uvs: uvs[i].into(),
+                        vertex_color: box_shadow.color.to_f32_array(),
+                        size: box_shadow.size.into(),
+                        radius: box_shadow.radius.into(),
+                        blur: box_shadow.blur_radius,
+                        bounds: rect_size.into(),
+                    });
+                }
+
+                for &i in &QUAD_INDICES {
+                    ui_meta.indices.push(indices_index + i as u32);
+                }
+
+                batches.push((
+                    item.entity(),
+                    UiShadowsBatch {
+                        range: vertices_index..vertices_index + 6,
+                        camera: box_shadow.extracted_camera_entity,
+                    },
+                ));
+
+                vertices_index += 6;
+                indices_index += 4;
+
+                // shadows are sent to the gpu non-batched
+                *ui_phase.items[item_index].batch_range_mut() =
+                    item_index as u32..item_index as u32 + 1;
             }
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
@@ -558,7 +556,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawBoxShadow {
         // Store the vertices
         pass.set_vertex_buffer(0, vertices.slice(..));
         // Define how to "connect" the vertices
-        pass.set_index_buffer(indices.slice(..), 0, IndexFormat::Uint32);
+        pass.set_index_buffer(indices.slice(..), IndexFormat::Uint32);
         // Draw the vertices
         pass.draw_indexed(batch.range.clone(), 0, 0..1);
         RenderCommandResult::Success

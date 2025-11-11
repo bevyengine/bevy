@@ -153,7 +153,7 @@ pub fn propagate_ui_target_cameras(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiTargetCamera { camera }));
+            .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -168,7 +168,7 @@ pub fn propagate_ui_target_cameras(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiRenderTargetInfo {
+            .try_insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
             }));

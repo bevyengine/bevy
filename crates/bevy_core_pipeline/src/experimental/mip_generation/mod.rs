@@ -25,7 +25,10 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
-use bevy_render::{batching::gpu_preprocessing::GpuPreprocessingSupport, RenderStartup};
+use bevy_render::{
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
+    render_resource::BindGroupLayoutDescriptor, RenderStartup,
+};
 use bevy_render::{
     experimental::occlusion_culling::{
         OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
@@ -95,7 +98,7 @@ impl Plugin for MipGenerationPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::LateDownsampleDepth,
                     Node3d::EndMainPassPostProcessing,
                 ),
@@ -283,7 +286,7 @@ fn downsample_depth<'w>(
 #[derive(Resource)]
 pub struct DownsampleDepthPipeline {
     /// The bind group layout for this pipeline.
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     /// A handle that identifies the compiled shader.
     pipeline_id: Option<CachedComputePipelineId>,
     /// The shader asset handle.
@@ -296,7 +299,10 @@ impl DownsampleDepthPipeline {
     ///
     /// This doesn't actually specialize the pipeline; that must be done
     /// afterward.
-    fn new(bind_group_layout: BindGroupLayout, shader: Handle<Shader>) -> DownsampleDepthPipeline {
+    fn new(
+        bind_group_layout: BindGroupLayoutDescriptor,
+        shader: Handle<Shader>,
+    ) -> DownsampleDepthPipeline {
         DownsampleDepthPipeline {
             bind_group_layout,
             pipeline_id: None,
@@ -352,10 +358,8 @@ fn create_downsample_depth_pipelines(
     // between the first and second passes, so the only thing we need to
     // treat specially is the type of the first mip level (non-multisampled
     // or multisampled).
-    let standard_bind_group_layout =
-        create_downsample_depth_bind_group_layout(&render_device, false);
-    let multisampled_bind_group_layout =
-        create_downsample_depth_bind_group_layout(&render_device, true);
+    let standard_bind_group_layout = create_downsample_depth_bind_group_layout(false);
+    let multisampled_bind_group_layout = create_downsample_depth_bind_group_layout(true);
 
     // Create the depth pyramid sampler. This is shared among all shaders.
     let sampler = render_device.create_sampler(&SamplerDescriptor {
@@ -413,11 +417,8 @@ fn create_downsample_depth_pipelines(
 }
 
 /// Creates a single bind group layout for the downsample depth pass.
-fn create_downsample_depth_bind_group_layout(
-    render_device: &RenderDevice,
-    is_multisampled: bool,
-) -> BindGroupLayout {
-    render_device.create_bind_group_layout(
+fn create_downsample_depth_bind_group_layout(is_multisampled: bool) -> BindGroupLayoutDescriptor {
+    BindGroupLayoutDescriptor::new(
         if is_multisampled {
             "downsample multisample depth bind group layout"
         } else {
@@ -737,6 +738,7 @@ fn prepare_downsample_depth_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     downsample_depth_pipelines: Res<DownsampleDepthPipelines>,
+    pipeline_cache: Res<PipelineCache>,
     view_depth_textures: Query<
         (
             Entity,
@@ -762,13 +764,13 @@ fn prepare_downsample_depth_view_bind_groups(
                     } else {
                         "downsample depth bind group"
                     },
-                    if is_multisampled {
+                    &pipeline_cache.get_bind_group_layout(if is_multisampled {
                         &downsample_depth_pipelines
                             .first_multisample
                             .bind_group_layout
                     } else {
                         &downsample_depth_pipelines.first.bind_group_layout
-                    },
+                    }),
                     match (view_depth_texture, shadow_occlusion_culling) {
                         (Some(view_depth_texture), _) => view_depth_texture.view(),
                         (None, Some(shadow_occlusion_culling)) => {

@@ -3,7 +3,9 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::AnimationTargetId, color::palettes::css::WHITE, light::CascadeShadowConfigBuilder,
+    animation::{AnimationEvent, AnimationTargetId},
+    color::palettes::css::WHITE,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
 };
 use rand::{Rng, SeedableRng};
@@ -13,7 +15,7 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
+        .insert_resource(GlobalAmbientLight {
             color: Color::WHITE,
             brightness: 2000.,
             ..default()
@@ -37,17 +39,17 @@ struct Animations {
     graph_handle: Handle<AnimationGraph>,
 }
 
-#[derive(EntityEvent, Reflect, Clone)]
-struct OnStep;
+#[derive(AnimationEvent, Reflect, Clone)]
+struct Step;
 
 fn observe_on_step(
-    event: On<OnStep>,
+    step: On<Step>,
     particle: Res<ParticleAssets>,
     mut commands: Commands,
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
-) {
-    let translation = transforms.get(event.entity()).unwrap().translation();
+) -> Result {
+    let translation = transforms.get(step.trigger().target)?.translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);
@@ -72,6 +74,7 @@ fn observe_on_step(
             },
         ));
     }
+    Ok(())
 }
 
 fn setup(
@@ -164,10 +167,10 @@ fn setup_scene_once_loaded(
         // You can determine the time an event should trigger if you know witch frame it occurs and
         // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
         // and the animation has a frame rate of 24 fps, then time = 15 / 24 = 0.625.
-        running_animation.add_event_to_target(feet.front_left, 0.625, OnStep);
-        running_animation.add_event_to_target(feet.front_right, 0.5, OnStep);
-        running_animation.add_event_to_target(feet.back_left, 0.0, OnStep);
-        running_animation.add_event_to_target(feet.back_right, 0.125, OnStep);
+        running_animation.add_event_to_target(feet.front_left, 0.625, Step);
+        running_animation.add_event_to_target(feet.front_right, 0.5, Step);
+        running_animation.add_event_to_target(feet.back_left, 0.0, Step);
+        running_animation.add_event_to_target(feet.back_right, 0.125, Step);
 
         // Start the animation
 

@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -95,7 +95,15 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    LineHeight,
+    TextNodeFlags,
+    ContentSize
+)]
 pub struct Text(pub String);
 
 impl Text {
@@ -163,7 +171,8 @@ pub struct TextMeasure {
 
 impl TextMeasure {
     /// Checks if the cosmic text buffer is needed for measuring the text.
-    pub fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+    #[inline]
+    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
     }
 }
@@ -219,7 +228,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -251,7 +260,13 @@ fn create_text_measure<'a>(
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -317,7 +332,7 @@ fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_sets: &mut FontAtlasSets,
+    font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
@@ -352,7 +367,7 @@ fn queue_text(
         scale_factor.into(),
         block,
         physical_node_size,
-        font_atlas_sets,
+        font_atlas_set,
         texture_atlases,
         textures,
         computed,
@@ -363,7 +378,13 @@ fn queue_text(
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
@@ -386,7 +407,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
@@ -406,7 +427,7 @@ pub fn text_system(
                 entity,
                 &fonts,
                 &mut text_pipeline,
-                &mut font_atlas_sets,
+                &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
                 node.inverse_scale_factor.recip(),

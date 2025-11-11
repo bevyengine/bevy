@@ -13,94 +13,24 @@ use syn::{
     LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
-pub const EVENT: &str = "entity_event";
-pub const AUTO_PROPAGATE: &str = "auto_propagate";
-pub const TRAVERSAL: &str = "traversal";
-
-pub fn derive_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-    })
-}
-
-pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let mut auto_propagate = false;
-    let mut traversal: Type = parse_quote!(());
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    let mut processed_attrs = Vec::new();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
-        if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
-            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
-                Err(meta.error(format!("duplicate attribute: {ident}")))
-            }
-            Some(ident) if ident == AUTO_PROPAGATE => {
-                auto_propagate = true;
-                processed_attrs.push(AUTO_PROPAGATE);
-                Ok(())
-            }
-            Some(ident) if ident == TRAVERSAL => {
-                traversal = meta.value()?.parse()?;
-                processed_attrs.push(TRAVERSAL);
-                Ok(())
-            }
-            Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
-            None => Err(meta.error("expected identifier")),
-        }) {
-            return e.to_compile_error().into();
-        }
-    }
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {}
-        impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
-            type Traversal = #traversal;
-            const AUTO_PROPAGATE: bool = #auto_propagate;
-        }
-    })
-}
-
-pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_ecs_path: Path = crate::bevy_ecs_path();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::event::BufferedEvent for #struct_name #type_generics #where_clause {}
-    })
-}
-
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    // We want to raise a compile time error when the generic lifetimes
+    // are not bound to 'static lifetime
+    let non_static_lifetime_error = ast
+        .generics
+        .lifetimes()
+        .filter(|lifetime| !lifetime.bounds.iter().any(|bound| bound.ident == "static"))
+        .map(|param| syn::Error::new(param.span(), "Lifetimes must be 'static"))
+        .reduce(|mut err_acc, err| {
+            err_acc.combine(err);
+            err_acc
+        });
+    if let Some(err) = non_static_lifetime_error {
+        return err.into_compile_error().into();
+    }
 
     ast.generics
         .make_where_clause()
@@ -286,6 +216,35 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         )
     };
 
+    let relationship_accessor = if (relationship.is_some() || relationship_target.is_some())
+        && let Data::Struct(DataStruct {
+            fields,
+            struct_token,
+            ..
+        }) = &ast.data
+        && let Ok(field) = relationship_field(fields, "Relationship", struct_token.span())
+    {
+        let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+        if relationship.is_some() {
+            quote! {
+                Some(
+                    // Safety: we pass valid offset of a field containing Entity (obtained via offset_off!)
+                    unsafe {
+                        #bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship(
+                            core::mem::offset_of!(Self, #relationship_member)
+                        )
+                    }
+                )
+            }
+        } else {
+            quote! {
+                Some(#bevy_ecs_path::relationship::ComponentRelationshipAccessor::<Self>::relationship_target())
+            }
+        }
+    } else {
+        quote! {None}
+    };
+
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
@@ -311,6 +270,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             }
 
             #map_entities
+
+            fn relationship_accessor() -> Option<#bevy_ecs_path::relationship::ComponentRelationshipAccessor<Self>> {
+                #relationship_accessor
+            }
         }
 
         #relationship
@@ -387,7 +350,7 @@ pub(crate) fn map_entities(
                 let ident = &variant.ident;
                 let field_idents = field_members
                     .iter()
-                    .map(|member| format_ident!("__self_{}", member))
+                    .map(|member| format_ident!("__self{}", member))
                     .collect::<Vec<_>>();
 
                 map.push(

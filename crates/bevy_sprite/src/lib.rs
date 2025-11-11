@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![cfg_attr(docsrs, feature(doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevy.org/assets/icon.png",
@@ -10,7 +10,7 @@
 
 extern crate alloc;
 
-#[cfg(feature = "bevy_sprite_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 mod picking_backend;
 mod sprite;
 #[cfg(feature = "bevy_text")]
@@ -21,7 +21,7 @@ mod texture_slice;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[cfg(feature = "bevy_sprite_picking_backend")]
+    #[cfg(feature = "bevy_picking")]
     #[doc(hidden)]
     pub use crate::picking_backend::{
         SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
@@ -33,7 +33,7 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ScalingMode,
+        SpriteScalingMode,
     };
 }
 
@@ -44,7 +44,7 @@ use bevy_camera::{
     visibility::VisibilitySystems,
 };
 use bevy_mesh::{Mesh, Mesh2d};
-#[cfg(feature = "bevy_sprite_picking_backend")]
+#[cfg(feature = "bevy_picking")]
 pub use picking_backend::*;
 pub use sprite::*;
 #[cfg(feature = "bevy_text")]
@@ -66,10 +66,6 @@ pub enum SpriteSystems {
     ComputeSlices,
 }
 
-/// Deprecated alias for [`SpriteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
-pub type SpriteSystem = SpriteSystems;
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
@@ -87,7 +83,7 @@ impl Plugin for SpritePlugin {
                 bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout
                     .after(bevy_camera::CameraUpdateSystems)
-                    .after(bevy_text::remove_dropped_font_atlas_sets),
+                    .after(bevy_text::free_unused_font_atlases_system),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
                 .chain()
@@ -95,7 +91,7 @@ impl Plugin for SpritePlugin {
                 .after(bevy_app::AnimationSystems),
         );
 
-        #[cfg(feature = "bevy_sprite_picking_backend")]
+        #[cfg(feature = "bevy_picking")]
         app.add_plugins(SpritePickingPlugin);
     }
 }

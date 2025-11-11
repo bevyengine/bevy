@@ -18,6 +18,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
+use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -56,6 +57,32 @@ pub struct TilemapChunk {
     pub tileset: Handle<Image>,
     /// The alpha mode to use for the tilemap chunk.
     pub alpha_mode: AlphaMode2d,
+}
+
+impl TilemapChunk {
+    pub fn calculate_tile_transform(&self, position: UVec2) -> Transform {
+        Transform::from_xyz(
+            // tile position
+            position.x as f32
+            // times display size for a tile
+            * self.tile_display_size.x as f32
+            // plus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.x as f32 / 2.
+            // minus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at left of tilemapchunk
+            - self.tile_display_size.x as f32 * self.chunk_size.x as f32 / 2.,
+            // tile position
+            position.y as f32
+            // times display size for a tile
+            * self.tile_display_size.y as f32
+            // minus 1/2 the tile_display_size to correct the center
+            + self.tile_display_size.y as f32 / 2.
+            // plus 1/2 the tilechunk size, in terms of the tile_display_size,
+            // to place the 0 at bottom of tilemapchunk
+            - self.tile_display_size.y as f32 * self.chunk_size.y as f32 / 2.,
+            0.,
+        )
+    }
 }
 
 /// Data for a single tile in the tilemap chunk.
@@ -208,5 +235,17 @@ fn update_tilemap_chunk_indices(
         };
         data.clear();
         data.extend_from_slice(bytemuck::cast_slice(&packed_tile_data));
+    }
+}
+
+impl TilemapChunkTileData {
+    pub fn tile_data_from_tile_pos(
+        &self,
+        tilemap_size: UVec2,
+        position: UVec2,
+    ) -> Option<&TileData> {
+        self.0
+            .get(tilemap_size.x as usize * position.y as usize + position.x as usize)
+            .and_then(|opt| opt.as_ref())
     }
 }
