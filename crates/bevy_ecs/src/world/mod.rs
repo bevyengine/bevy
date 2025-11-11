@@ -75,7 +75,7 @@ use unsafe_world_cell::UnsafeWorldCell;
 /// and their associated metadata.
 ///
 /// Each [`Entity`] has a set of unique components, based on their type.
-/// Entity components can be created, updated, removed, and queried using a given
+/// Entity components can be created, updated, removed, and queried using a given [`World`].
 ///
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
