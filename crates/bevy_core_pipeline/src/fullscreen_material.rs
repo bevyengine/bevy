@@ -7,15 +7,17 @@
 use core::any::type_name;
 use core::marker::PhantomData;
 
-use crate::FullscreenShader;
+use crate::{core_2d::graph::Core2d, core_3d::graph::Core3d, FullscreenShader};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
+use bevy_camera::{Camera2d, Camera3d};
 use bevy_ecs::{
     component::Component,
-    query::QueryItem,
+    entity::Entity,
+    query::{Added, Has, QueryItem},
     resource::Resource,
     system::{Commands, Res},
-    world::World,
+    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault;
 use bevy_render::{
@@ -24,8 +26,8 @@ use bevy_render::{
         UniformComponentPlugin,
     },
     render_graph::{
-        InternedRenderLabel, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-        RenderGraphExt, RenderLabel, RenderSubGraph, ViewNode, ViewNodeRunner,
+        InternedRenderLabel, InternedRenderSubGraph, NodeRunError, RenderGraph, RenderGraphContext,
+        RenderGraphError, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -38,7 +40,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     view::ViewTarget,
-    RenderApp, RenderStartup,
+    ExtractSchedule, MainWorld, RenderApp, RenderStartup,
 };
 use bevy_shader::ShaderRef;
 use bevy_utils::default;
@@ -58,35 +60,82 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app.add_systems(RenderStartup, init_pipeline::<T>);
 
-        render_app.add_render_graph_node::<ViewNodeRunner<FullscreenMaterialNode<T>>>(
-            T::sub_graph(),
-            T::node_label(),
-        );
+        if let Some(sub_graph) = T::sub_graph() {
+            render_app.add_render_graph_node::<ViewNodeRunner<FullscreenMaterialNode<T>>>(
+                sub_graph,
+                T::node_label(),
+            );
 
-        // We can't use add_render_graph_edges because it doesn't accept a Vec<RenderLabel>
-        if let Some(mut render_graph) = render_app.world_mut().get_resource_mut::<RenderGraph>()
-            && let Some(graph) = render_graph.get_sub_graph_mut(T::sub_graph())
-        {
-            for window in T::node_edges().windows(2) {
-                let [a, b] = window else {
-                    break;
-                };
-                let Err(err) = graph.try_add_node_edge(*a, *b) else {
+            // We can't use add_render_graph_edges because it doesn't accept a Vec<RenderLabel>
+            if let Some(mut render_graph) = render_app.world_mut().get_resource_mut::<RenderGraph>()
+                && let Some(graph) = render_graph.get_sub_graph_mut(sub_graph)
+            {
+                for window in T::node_edges().windows(2) {
+                    let [a, b] = window else {
+                        break;
+                    };
+                    let Err(err) = graph.try_add_node_edge(*a, *b) else {
+                        continue;
+                    };
+                    match err {
+                        // Already existing edges are very easy to produce with this api
+                        // and shouldn't cause a panic
+                        RenderGraphError::EdgeAlreadyExists(_) => {}
+                        _ => panic!("{err:?}"),
+                    }
+                }
+            } else {
+                warn!("Failed to add edges for FullscreenMaterial");
+            };
+        } else {
+            // If there was no sub_graph specify we try to determine the graph based on the camera
+            // it gets added to.
+            render_app.add_systems(ExtractSchedule, extract_on_add::<T>);
+        }
+    }
+}
+
+fn extract_on_add<T: FullscreenMaterial>(world: &mut World) {
+    world.resource_scope::<MainWorld, ()>(|world, mut main_world| {
+        // Extract the material from the main world
+        let mut query =
+            main_world.query_filtered::<(Entity, Has<Camera3d>, Has<Camera2d>), Added<T>>();
+
+        // Create the node and add it to the render graph
+        world.resource_scope::<RenderGraph, ()>(|world, mut render_graph| {
+            for (_entity, is_3d, is_2d) in query.iter(&main_world) {
+                let graph = if is_3d && let Some(graph) = render_graph.get_sub_graph_mut(Core3d) {
+                    graph
+                } else if is_2d && let Some(graph) = render_graph.get_sub_graph_mut(Core2d) {
+                    graph
+                } else {
+                    warn!("FullscreenMaterial was added to an entity that isn't a camera");
                     continue;
                 };
-                match err {
-                    // Already existing edges are very easy to produce with this api
-                    // and shouldn't cause a panic
-                    RenderGraphError::EdgeAlreadyExists(_) => {}
-                    _ => panic!("{err:?}"),
+
+                let node = ViewNodeRunner::<FullscreenMaterialNode<T>>::from_world(world);
+                graph.add_node(T::node_label(), node);
+
+                for window in T::node_edges().windows(2) {
+                    let [a, b] = window else {
+                        break;
+                    };
+                    let Err(err) = graph.try_add_node_edge(*a, *b) else {
+                        continue;
+                    };
+                    match err {
+                        // Already existing edges are very easy to produce with this api
+                        // and shouldn't cause a panic
+                        RenderGraphError::EdgeAlreadyExists(_) => {}
+                        _ => panic!("{err:?}"),
+                    }
                 }
             }
-        } else {
-            warn!("Failed to add edges for FullscreenMaterial");
-        };
-    }
+        });
+    });
 }
 
 /// A trait to define a material that will render to the entire screen using a fullscrene triangle
@@ -95,17 +144,6 @@ pub trait FullscreenMaterial:
 {
     /// The shader that will run on the entire screen using a fullscreen triangle
     fn fragment_shader() -> ShaderRef;
-
-    /// The [`RenderSubGraph`] the effect will run in
-    ///
-    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's
-    /// [`crate::core_3d::graph::Core3d`]
-    fn sub_graph() -> impl RenderSubGraph;
-
-    /// The label used to represent the render node that will run the pass
-    fn node_label() -> impl RenderLabel {
-        FullscreenMaterialLabel(type_name::<Self>())
-    }
 
     /// The list of `node_edges`. In 3d, for a post processing effect, it would look like this:
     ///
@@ -123,6 +161,19 @@ pub trait FullscreenMaterial:
     /// before the end of post processing. For 2d, it would be the same but using Node2d. You can
     /// specify any edges you want but make sure to include your own label.
     fn node_edges() -> Vec<InternedRenderLabel>;
+
+    /// The [`RenderSubGraph`] the effect will run in
+    ///
+    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's
+    /// [`crate::core_3d::graph::Core3d`]
+    fn sub_graph() -> Option<InternedRenderSubGraph> {
+        None
+    }
+
+    /// The label used to represent the render node that will run the pass
+    fn node_label() -> impl RenderLabel {
+        FullscreenMaterialLabel(type_name::<Self>())
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]

@@ -4,13 +4,13 @@
 
 use bevy::{
     core_pipeline::{
-        core_3d::graph::{Core3d, Node3d},
+        core_3d::graph::Node3d,
         fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     },
     prelude::*,
     render::{
         extract_component::ExtractComponent,
-        render_graph::{InternedRenderLabel, RenderLabel, RenderSubGraph},
+        render_graph::{InternedRenderLabel, RenderLabel},
         render_resource::ShaderType,
     },
     shader::ShaderRef,
@@ -72,12 +72,6 @@ impl FullscreenMaterial for FullscreenEffect {
         "shaders/fullscreen_effect.wgsl".into()
     }
 
-    // The sub graph the effect will run in. In 2d, this will generally be [`Core2d`] and in 3d it will
-    // be [`Core3d`]
-    fn sub_graph() -> impl RenderSubGraph {
-        Core3d
-    }
-
     // This let's you specify a list of edges used to order when your effect pass will run
     //
     // This example is a post processing effect so it will run after tonemapping but before the end
@@ -85,7 +79,6 @@ impl FullscreenMaterial for FullscreenEffect {
     //
     // In 2d you would need to use [`Node2d`] instead of [`Node3d`]
     fn node_edges() -> Vec<InternedRenderLabel> {
-        println!("{:?}", Self::node_label());
         vec![
             Node3d::Tonemapping.intern(),
             // The label is automatically generated from the name of the struct
