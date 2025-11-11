@@ -5,8 +5,7 @@ use crate::{
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
     query::{
-        access_iter,
-        access_iter::{AccessIter, EcsAccessLevel, EcsAccessType},
+        access_iter::{EcsAccessLevel, EcsAccessType},
         Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
     },
     storage::{ComponentSparseSet, Table, TableRow},

@@ -1,8 +1,4 @@
-use core::{option};
-
 use crate::component::ComponentId;
-
-
 
 /// The data storage type that is being accessed.
 #[derive(Clone, Copy)]
@@ -33,21 +29,21 @@ pub enum EcsAccessLevel {
     FilteredWriteAll,
     /// Potentially reads all [`Components`]'s except [`ComponentId`]
     ReadAllExcept {
-        /// used to group excepts from the same QueryData together
+        /// used to group excepts from the same [`QueryData`] together
         index: usize,
         /// read all except this id
         component_id: ComponentId,
     },
     /// Potentially writes all [`Components`]'s except [`ComponentId`]
     WriteAllExcept {
-        /// used to group excepts from the same QueryData together
+        /// used to group excepts from the same [`QueryData`] together
         index: usize,
         /// write all except this id
         component_id: ComponentId,
     },
 }
 
-/// Access level needed by QueryData fetch to the resource.
+/// Access level needed by [`QueryData`] fetch to the resource.
 #[derive(Copy, Clone)]
 pub enum ResourceAccessLevel {
     /// Reads the resource with [`ComponentId`]
@@ -109,69 +105,3 @@ impl EcsAccessType {
         }
     }
 }
-
-pub trait AccessIter {
-    fn fetch_next(&mut self) -> Option<Option<EcsAccessType>>;
-    
-    fn chain<U>(self, other: U) -> Chain<Self, U>
-        where Self: Sized, U: AccessIter, {
-            Chain::new(self, other)
-    }
-}
-
-pub const fn empty() -> Empty {
-    Empty
-}
-
-/// An AccessIter that yields nothing.
-///
-/// This `struct` is created by the [`empty()`] function. See its documentation for more.
-pub struct Empty;
-
-impl AccessIter for Empty {
-    fn fetch_next(&mut self) -> Option<Option<EcsAccessType>> {
-        None
-    }
-}
-
-pub fn once(value: Option<EcsAccessType>) -> Once {
-    Once { inner: Some(value).into_iter() }
-}
-
-pub struct Once {
-    inner: option::IntoIter<Option<EcsAccessType>>
-}
-
-impl AccessIter for Once {
-    fn fetch_next(&mut self) -> Option<Option<EcsAccessType>> {
-        self.inner.next()
-    }
-}
-
-pub struct Chain<A, B> {
-    a: Option<A>,
-    b: Option<B>,
-}
-impl<A, B> Chain<A, B> {
-    pub fn new(a: A, b: B) -> Chain<A, B> {
-        Chain { a: Some(a), b: Some(b) }
-    }
-}
-
-impl<A, B> AccessIter for Chain<A, B> where A: AccessIter, B: AccessIter {
-    fn fetch_next(&mut self) -> Option<Option<EcsAccessType>> {
-        and_then_or_clear(&mut self.a, A::fetch_next).or_else(|| self.b.as_mut()?.fetch_next())
-    }
-}
-
-#[inline]
-fn and_then_or_clear<T, U>(opt: &mut Option<T>, f: impl FnOnce(&mut T) -> Option<U>) -> Option<U> {
-    let x = f(opt.as_mut()?);
-    if x.is_none() {
-        *opt = None;
-    }
-    x
-}
-
-
-

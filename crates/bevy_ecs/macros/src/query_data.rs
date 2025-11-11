@@ -272,8 +272,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     fn iter_access<'c>(
                         components: &'c #path::component::Components,
                         index: &mut usize
-                    ) -> impl core::iter::Iterator<Item = Option<#path::query::access_iter::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
-                        use #path::query::access_iter::AccessIter;
+                    ) -> impl core::iter::Iterator<Item = Option<#path::query::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
                         core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
                     }
                 }
@@ -346,8 +345,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 fn iter_access<'c>(
                     components: &'c #path::component::Components,
                     index: &mut usize
-                ) -> impl core::iter::Iterator<Item = Option<#path::query::access_iter::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
-                    use #path::query::access_iter::AccessIter;
+                ) -> impl core::iter::Iterator<Item = Option<#path::query::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
                     core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
                 }
             }

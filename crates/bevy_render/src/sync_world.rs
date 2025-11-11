@@ -389,8 +389,7 @@ mod render_entities_world_query_impls {
         fn iter_access<'c>(
             components: &'c Components,
             index: &mut usize,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::access_iter::EcsAccessType>> + use<'c>
-        {
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
             <&RenderEntity as QueryData>::iter_access(components, index)
         }
     }
@@ -506,8 +505,7 @@ mod render_entities_world_query_impls {
         fn iter_access<'c>(
             components: &'c Components,
             index: &mut usize,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::access_iter::EcsAccessType>> + use<'c>
-        {
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
             <&MainEntity as QueryData>::iter_access(components, index)
         }
     }

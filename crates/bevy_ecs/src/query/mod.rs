@@ -1,7 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
-pub mod access_iter;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -12,6 +12,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
