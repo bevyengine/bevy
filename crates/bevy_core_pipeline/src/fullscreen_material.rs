@@ -5,6 +5,7 @@
 //! Users need to use the [`FullscreenMaterial`] trait to define the parameters like the graph label or the graph ordering.
 
 use core::marker::PhantomData;
+use std::any::type_name;
 
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
@@ -63,6 +64,7 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
             T::sub_graph(),
             T::node_label(),
         );
+
         // We can't use add_render_graph_edges because it doesn't accept a Vec<RenderLabel>
         if let Some(mut render_graph) = render_app.world_mut().get_resource_mut::<RenderGraph>()
             && let Some(graph) = render_graph.get_sub_graph_mut(T::sub_graph())
@@ -93,12 +95,18 @@ pub trait FullscreenMaterial:
 {
     /// The shader that will run on the entire screen using a fullscreen triangle
     fn fragment_shader() -> ShaderRef;
+
     /// The [`RenderSubGraph`] the effect will run in
     ///
-    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's [`crate::core_3d::graph::Core3d`]
+    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's
+    /// [`crate::core_3d::graph::Core3d`]
     fn sub_graph() -> impl RenderSubGraph;
+
     /// The label used to represent the render node that will run the pass
-    fn node_label() -> impl RenderLabel;
+    fn node_label() -> impl RenderLabel {
+        FullscreenMaterialLabel(type_name::<Self>())
+    }
+
     /// The list of `node_edges`. In 3d, for a post processing effect, it would look like this:
     ///
     /// ```compile_fail
@@ -115,6 +123,18 @@ pub trait FullscreenMaterial:
     /// before the end of post processing. For 2d, it would be the same but using Node2d. You can
     /// specify any edges you want but make sure to include your own label.
     fn node_edges() -> Vec<InternedRenderLabel>;
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+struct FullscreenMaterialLabel(&'static str);
+
+impl RenderLabel for FullscreenMaterialLabel
+where
+    Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash,
+{
+    fn dyn_clone(&self) -> Box<dyn RenderLabel> {
+        Box::new(::core::clone::Clone::clone(self))
+    }
 }
 
 #[derive(Resource)]

@@ -44,6 +44,7 @@ fn setup(
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
         Transform::default(),
     ));
+
     // light
     commands.spawn(DirectionalLight {
         illuminance: 1_000.,
@@ -51,9 +52,11 @@ fn setup(
     });
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct FullscreenEffectLabel;
-
+// This is the struct that will be sent to your shader
+//
+// Currently, this doesn't support AsBindGroup so you can only use it to send a struct to your
+// shader. We are working on adding AsBindGroup support in the future so you can bind anything you
+// need.
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
 struct FullscreenEffect {
     // For this example, this is used as the intensity of the effect, but you can pass in any valid
@@ -69,11 +72,6 @@ impl FullscreenMaterial for FullscreenEffect {
         "shaders/fullscreen_effect.wgsl".into()
     }
 
-    // The material needs to know the label that will be used for the render graph
-    fn node_label() -> impl RenderLabel {
-        FullscreenEffectLabel
-    }
-
     // The sub graph the effect will run in. In 2d, this will generally be [`Core2d`] and in 3d it will
     // be [`Core3d`]
     fn sub_graph() -> impl RenderSubGraph {
@@ -87,8 +85,10 @@ impl FullscreenMaterial for FullscreenEffect {
     //
     // In 2d you would need to use [`Node2d`] instead of [`Node3d`]
     fn node_edges() -> Vec<InternedRenderLabel> {
+        println!("{:?}", Self::node_label());
         vec![
             Node3d::Tonemapping.intern(),
+            // The label is automatically generated from the name of the struct
             Self::node_label().intern(),
             Node3d::EndMainPassPostProcessing.intern(),
         ]
