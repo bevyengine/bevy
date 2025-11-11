@@ -43,7 +43,7 @@ use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
-use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3Swizzles};
+use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
 use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
@@ -508,6 +508,7 @@ pub fn extract_uinode_background_colors(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            #[cfg(feature = "bevy_ui_contain")]
             is_contain: _feature,
         });
     }
@@ -596,6 +597,7 @@ pub fn extract_uinode_images(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            #[cfg(feature = "bevy_ui_contain")]
             is_contain: _feature,
         });
     }
@@ -701,6 +703,7 @@ pub fn extract_uinode_borders(
                     },
                     main_entity: entity.into(),
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }
@@ -734,6 +737,7 @@ pub fn extract_uinode_borders(
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
+                #[cfg(feature = "bevy_ui_contain")]
                 is_contain: _feature,
             });
         }
@@ -982,6 +986,7 @@ pub fn extract_viewport_nodes(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
+            #[cfg(feature = "bevy_ui_contain")]
             is_contain: _feature,
         });
     }
@@ -1086,6 +1091,7 @@ pub fn extract_text_sections(
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                     transform,
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
                 start = end;
@@ -1181,6 +1187,7 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
                 start = end;
@@ -1219,6 +1226,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }
@@ -1245,6 +1253,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }
@@ -1337,6 +1346,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }
@@ -1368,6 +1378,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }
@@ -1399,6 +1410,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
+                    #[cfg(feature = "bevy_ui_contain")]
                     is_contain: _feature,
                 });
             }

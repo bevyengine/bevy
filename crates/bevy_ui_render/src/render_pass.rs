@@ -106,18 +106,20 @@ impl Node for UiPassNode {
         if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
             error!("Error encountered while rendering the ui phase {err:?}");
         }
-
-        let contain_view_entity = if let Ok(ui_camera_view) = self
-            .ui_camera_view_query
-            .get_manual(world, input_view_entity)
-        {
-            ui_camera_view.ui_contain
-        } else {
-            input_view_entity
-        };
         #[cfg(feature = "bevy_ui_contain")]
-        if let Err(err) = transparent_phase.render(&mut render_pass, world, contain_view_entity) {
-            error!("Error encountered while rendering the ui phase {err:?}");
+        {
+            let contain_view_entity = if let Ok(ui_camera_view) = self
+                .ui_camera_view_query
+                .get_manual(world, input_view_entity)
+            {
+                ui_camera_view.ui_contain
+            } else {
+                input_view_entity
+            };
+            if let Err(err) = transparent_phase.render(&mut render_pass, world, contain_view_entity)
+            {
+                error!("Error encountered while rendering the ui phase {err:?}");
+            }
         }
 
         pass_span.end(&mut render_pass);

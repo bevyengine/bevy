@@ -467,6 +467,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    #[cfg(feature = "bevy_ui_contain")]
                     contain_query,
                 );
             }

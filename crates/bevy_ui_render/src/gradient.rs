@@ -421,6 +421,7 @@ pub fn extract_gradients(
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        #[cfg(feature = "bevy_ui_contain")]
                         is_contain: _feature,
                     });
                     continue;
