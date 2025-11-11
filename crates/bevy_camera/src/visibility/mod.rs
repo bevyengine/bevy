@@ -412,7 +412,7 @@ fn update_skinned_mesh_bounds(
     mesh_assets: Res<Assets<Mesh>>,
     skinned_mesh_inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
     mut skinned_mesh_entities: Query<
-        (&Mesh3d, &SkinnedMesh, &GlobalTransform, &mut Aabb),
+        (&Mesh3d, &SkinnedMesh, Option<&GlobalTransform>, &mut Aabb),
         Without<NoFrustumCulling>,
     >,
     joint_entities: Query<&GlobalTransform>,

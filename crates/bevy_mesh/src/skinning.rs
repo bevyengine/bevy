@@ -148,7 +148,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     mesh: &Mesh,
     skinned_mesh: &SkinnedMesh,
     skinned_mesh_inverse_bindposes: &SkinnedMeshInverseBindposes,
-    world_from_entity: &GlobalTransform,
+    world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
     let Some(skinned_mesh_bounds) = mesh.skinned_mesh_bounds() else {
         return None;
@@ -183,12 +183,15 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 
     let worldspace_entity_aabb = worldspace_entity_aabb_accumulator.finish()?;
 
-    let entityspace_entity_aabb = transform_bounds(
-        worldspace_entity_aabb.into(),
-        world_from_entity.affine().inverse(),
-    );
-
-    Some(entityspace_entity_aabb)
+    // If necessary, transform the AABB from world-space to entity-space.
+    if let Some(world_from_entity) = world_from_entity {
+        Some(transform_bounds(
+            worldspace_entity_aabb.into(),
+            world_from_entity.affine().inverse(),
+        ))
+    } else {
+        Some(worldspace_entity_aabb)
+    }
 }
 
 // Match the `Mesh` limits on joint indices (ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4)
