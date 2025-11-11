@@ -29,7 +29,10 @@ use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
-    skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+    skinning::{
+        create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset,
+        SkinnedMeshInverseBindposes,
+    },
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
 #[cfg(feature = "pbr_transmission_textures")]
@@ -787,7 +790,20 @@ impl GltfLoader {
                     });
                 }
 
-                mesh.generate_skinned_mesh_bounds();
+                let mut skinned_mesh_bounds_handle = Option::<Handle<SkinnedMeshBoundsAsset>>::None;
+
+                if let Some(skinned_mesh_bounds_asset) = create_skinned_mesh_bounds_asset(&mesh) {
+                    skinned_mesh_bounds_handle = Some(
+                        load_context.add_labeled_asset(
+                            GltfAssetLabel::SkinnedMeshBounds {
+                                mesh: gltf_mesh.index(),
+                                primitive: primitive.index(),
+                            }
+                            .to_string(),
+                            skinned_mesh_bounds_asset,
+                        ),
+                    );
+                }
 
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
@@ -804,6 +820,7 @@ impl GltfLoader {
                         .extras()
                         .as_deref()
                         .map(GltfExtras::from),
+                    skinned_mesh_bounds_handle,
                 ));
             }
 
@@ -1540,6 +1557,17 @@ fn load_node(
                         load_context.get_label_handle(&material_label),
                     ),
                 ));
+
+                let skinned_mesh_bounds_label = GltfAssetLabel::SkinnedMeshBounds {
+                    mesh: mesh.index(),
+                    primitive: primitive.index(),
+                };
+
+                if load_context.has_labeled_asset(skinned_mesh_bounds_label.to_string()) {
+                    mesh_entity.insert(SkinnedMeshBounds(
+                        load_context.get_label_handle(skinned_mesh_bounds_label.to_string()),
+                    ));
+                }
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {

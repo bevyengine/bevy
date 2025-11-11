@@ -66,10 +66,34 @@ impl From<Aabb3d> for JointBounds {
     }
 }
 
+#[derive(Component, Default, Debug, Clone, Reflect)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct SkinnedMeshBounds(pub Handle<SkinnedMeshBoundsAsset>);
+
+impl From<SkinnedMeshBounds> for AssetId<SkinnedMeshBoundsAsset> {
+    fn from(value: SkinnedMeshBounds) -> Self {
+        value.0.id()
+    }
+}
+
+impl From<&SkinnedMeshBounds> for AssetId<SkinnedMeshBoundsAsset> {
+    fn from(value: &SkinnedMeshBounds) -> Self {
+        value.0.id()
+    }
+}
+
+impl AsAssetId for SkinnedMeshBounds {
+    type Asset = SkinnedMeshBoundsAsset;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.0.id()
+    }
+}
+
 // XXX TODO: Consider folding `bounds` and `bounds_index_to_joint_index` into
 // one array.
-#[derive(Clone, Debug, PartialEq)]
-pub struct SkinnedMeshBounds {
+#[derive(Asset, TypePath, Debug)]
+pub struct SkinnedMeshBoundsAsset {
     // Model-space bounds of each skinned joint.
     pub bounds: Box<[JointBounds]>,
 
@@ -77,7 +101,7 @@ pub struct SkinnedMeshBounds {
     pub bounds_index_to_joint_index: Box<[JointIndex]>,
 }
 
-impl SkinnedMeshBounds {
+impl SkinnedMeshBoundsAsset {
     pub fn iter(&self) -> impl Iterator<Item = (&JointBounds, &JointIndex)> {
         self.bounds
             .iter()
@@ -86,7 +110,8 @@ impl SkinnedMeshBounds {
 }
 
 // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
-pub(crate) fn create_skinned_mesh_bounds(mesh: &Mesh) -> Option<SkinnedMeshBounds> {
+// XXX TODO: Move into an `impl SkinnedMeshBoundsAsset`?.
+pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
     // XXX TODO: Error.
     let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?;
 
@@ -137,7 +162,7 @@ pub(crate) fn create_skinned_mesh_bounds(mesh: &Mesh) -> Option<SkinnedMeshBound
     assert!(bounds.len() == num_bounds);
     assert!(bounds_index_to_joint_index.len() == num_bounds);
 
-    Some(SkinnedMeshBounds {
+    Some(SkinnedMeshBoundsAsset {
         bounds: bounds.into(),
         bounds_index_to_joint_index: bounds_index_to_joint_index.into(),
     })
@@ -145,15 +170,11 @@ pub(crate) fn create_skinned_mesh_bounds(mesh: &Mesh) -> Option<SkinnedMeshBound
 
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
-    mesh: &Mesh,
     skinned_mesh: &SkinnedMesh,
     skinned_mesh_inverse_bindposes: &SkinnedMeshInverseBindposes,
+    skinned_mesh_bounds: &SkinnedMeshBoundsAsset,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
-    let Some(skinned_mesh_bounds) = mesh.skinned_mesh_bounds() else {
-        return None;
-    };
-
     let mut worldspace_entity_aabb_accumulator = AabbAccumulator::new();
 
     for (&joint_bounds, &joint_index) in skinned_mesh_bounds.iter() {

@@ -7,7 +7,8 @@ use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
 use bevy_mesh::skinning::{
-    entity_aabb_from_skinned_mesh_bounds, SkinnedMesh, SkinnedMeshInverseBindposes,
+    entity_aabb_from_skinned_mesh_bounds, SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset,
+    SkinnedMeshInverseBindposes,
 };
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -409,30 +410,38 @@ pub fn calculate_bounds(
 
 // XXX TODO: Document.
 fn update_skinned_mesh_bounds(
-    mesh_assets: Res<Assets<Mesh>>,
     skinned_mesh_inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    skinned_mesh_bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
     mut skinned_mesh_entities: Query<
-        (&Mesh3d, &SkinnedMesh, Option<&GlobalTransform>, &mut Aabb),
+        (
+            &SkinnedMesh,
+            &SkinnedMeshBounds,
+            Option<&GlobalTransform>,
+            &mut Aabb,
+        ),
         Without<NoFrustumCulling>,
     >,
     joint_entities: Query<&GlobalTransform>,
 ) {
-    for (mesh, skinned_mesh, world_from_entity, mut aabb) in &mut skinned_mesh_entities {
-        let Some(mesh_asset) = mesh_assets.get(mesh) else {
-            continue;
-        };
-
+    for (skinned_mesh, skinned_mesh_bounds, world_from_entity, mut aabb) in
+        &mut skinned_mesh_entities
+    {
         let Some(skinned_mesh_inverse_bindposes_asset) =
             skinned_mesh_inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
         else {
             continue;
         };
 
+        let Some(skinned_mesh_bounds_asset) = skinned_mesh_bounds_assets.get(skinned_mesh_bounds)
+        else {
+            continue;
+        };
+
         let Some(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
             &joint_entities,
-            mesh_asset,
             skinned_mesh,
             skinned_mesh_inverse_bindposes_asset,
+            skinned_mesh_bounds_asset,
             world_from_entity,
         ) else {
             continue;
