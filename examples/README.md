@@ -62,6 +62,7 @@ git checkout v0.4.0
   - [Scene](#scene)
   - [Shader Advanced](#shader-advanced)
   - [Shaders](#shaders)
+  - [Shaders Advanced](#shaders-advanced)
   - [State](#state)
   - [Stress Tests](#stress-tests)
   - [Time](#time)
@@ -450,7 +451,6 @@ Example | Description
 Example | Description
 --- | ---
 [Manual Material Implementation](../examples/shader_advanced/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
-[Fullscreen Material](../examples/shader/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 
 ### Shaders
 
@@ -486,6 +486,12 @@ Example | Description
 [Specialized Mesh Pipeline](../examples/shader_advanced/specialized_mesh_pipeline.rs) | Demonstrates how to write a specialized mesh pipeline
 [Storage Buffer](../examples/shader/storage_buffer.rs) | A shader that shows how to bind a storage buffer using a custom material.
 [Texture Binding Array (Bindless Textures)](../examples/shader_advanced/texture_binding_array.rs) | A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures).
+
+### Shaders Advanced
+
+Example | Description
+--- | ---
+[Fullscreen Material](../examples/shader_advanced/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 
 ### State
 

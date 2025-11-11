@@ -4,8 +4,8 @@
 //!
 //! Users need to use the [`FullscreenMaterial`] trait to define the parameters like the graph label or the graph ordering.
 
+use core::any::type_name;
 use core::marker::PhantomData;
-use std::any::type_name;
 
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
