@@ -6,6 +6,8 @@ use crate::{
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
+#[cfg(feature = "bevy_ui_contain")]
+use crate::{UiContainOverflow, UiContainSize, UiContainTarget};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -16,7 +18,11 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -30,14 +36,53 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
+    #[cfg(feature = "bevy_ui_contain")] contain_target_query: Query<&UiContainTarget>,
+    #[cfg(feature = "bevy_ui_contain")] contain_query: Query<(
+        &UiContainSize,
+        &UiContainOverflow,
+        &Anchor,
+        &GlobalTransform,
+    )>,
 ) {
     for root_node in root_nodes.iter() {
+        #[cfg(feature = "bevy_ui_contain")]
+        let clip = {
+            if let Ok(target) = contain_target_query.get(root_node) {
+                use bevy_math::Vec3Swizzles;
+
+                let Ok((size, overflow, anchor, global)) = contain_query.get(target.0) else {
+                    continue;
+                };
+                // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
+                let mut clip_rect = Rect::from_center_size(
+                    global.translation().xy() - anchor.as_vec() * size.0,
+                    size.0,
+                );
+
+                if overflow.0.x == OverflowAxis::Visible {
+                    clip_rect.min.x = -f32::INFINITY;
+                    clip_rect.max.x = f32::INFINITY;
+                }
+                if overflow.0.y == OverflowAxis::Visible {
+                    clip_rect.min.y = -f32::INFINITY;
+                    clip_rect.max.y = f32::INFINITY;
+                }
+
+                Some(clip_rect)
+            } else {
+                None
+            }
+        };
+
+        #[cfg(not(feature = "bevy_ui_contain"))]
+        let clip = None;
+
         update_clipping(
             &mut commands,
             &ui_children,
             &mut node_query,
             root_node,
-            None,
+            clip,
         );
     }
 }

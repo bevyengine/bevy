@@ -22,8 +22,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let uicontain = commands
         .spawn((
             UiContainSize(Vec2::new(300.0, 300.0)),
-            // Anchor::CENTER,
-            // UiContainOverflow(Overflow::clip()),
+            Anchor::CENTER,
+            UiContainOverflow(Overflow::clip()),
             // Transform::from_xyz(-500.0, 0.0, 0.0),
             // Sprite {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
@@ -76,6 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: px(300.0),
                 height: px(300.0),
                 border: px(4.0).all(),
+                // overflow:Overflow::clip(),
                 ..Default::default()
             },
             BorderColor {
@@ -85,6 +86,64 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 left: Srgba::WHITE.into(),
             },
             Propagate(UiContainTarget(uicontain)),
+            // Button,
+        ))
+        .with_children(|parent| {
+            parent
+                .spawn((
+                    Node {
+                        display: Display::Block,
+                        width: px(700.0),
+                        height: px(700.0),
+                        border: px(4.0).all(),
+                        ..Default::default()
+                    },
+                    BorderColor {
+                        top: Srgba::BLUE.into(),
+                        right: Srgba::GREEN.into(),
+                        bottom: Srgba::RED.into(),
+                        left: Srgba::WHITE.into(),
+                    },
+                ))
+                .with_children(|parent| {
+                    parent.spawn((
+                        Node {
+                            display: Display::Block,
+                            width: px(500.0),
+                            height: px(500.0),
+                            border: px(4.0).all(),
+                            ..Default::default()
+                        },
+                        BorderColor {
+                            top: Srgba::BLUE.with_blue(0.5).into(),
+                            right: Srgba::GREEN.with_green(0.5).into(),
+                            bottom: Srgba::RED.with_red(0.5).into(),
+                            left: Srgba::WHITE.into(),
+                        },
+                    ));
+                });
+            // parent.spawn(ImageNode::new(
+            //     asset_server.load("branding/bevy_bird_dark.png"),
+            // ));
+        });
+
+    commands
+        .spawn((
+            Node {
+                display: Display::Block,
+                width: px(300.0),
+                height: px(300.0),
+                border: px(4.0).all(),
+                overflow: Overflow::clip(),
+                ..Default::default()
+            },
+            BorderColor {
+                top: Srgba::BLUE.into(),
+                right: Srgba::GREEN.into(),
+                bottom: Srgba::RED.into(),
+                left: Srgba::WHITE.into(),
+            },
+            // Propagate(UiContainTarget(uicontain)),
             // Button,
         ))
         .with_children(|parent| {
