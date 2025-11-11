@@ -162,7 +162,7 @@ pub trait FullscreenMaterial:
     /// specify any edges you want but make sure to include your own label.
     fn node_edges() -> Vec<InternedRenderLabel>;
 
-    /// The [`RenderSubGraph`] the effect will run in
+    /// The [`bevy_render::render_graph::RenderSubGraph`] the effect will run in
     ///
     /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's
     /// [`crate::core_3d::graph::Core3d`]
