@@ -3113,6 +3113,17 @@ description = "Demonstrates how to write a specialized mesh pipeline"
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "fullscreen_material"
+path = "examples/shader_advanced/fullscreen_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.fullscreen_material]
+name = "Fullscreen Material"
+description = "Demonstrates how to write a fullscreen material"
+category = "Shaders Advanced"
+wasm = true
+
 # Stress tests
 [[package.metadata.example_category]]
 name = "Stress Tests"
@@ -3971,17 +3982,6 @@ doc-scrape-examples = true
 
 [package.metadata.example.fallback_image]
 hidden = true
-
-[[example]]
-name = "fullscreen_material"
-path = "examples/shader/fullscreen_material.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.fullscreen_material]
-name = "Fullscreen Material"
-description = "Demonstrates how to write a fullscreen material"
-category = "Shader"
-wasm = true
 
 [[example]]
 name = "reflection_probes"

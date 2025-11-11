@@ -29,16 +29,17 @@ use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         encase::internal::WriteInto,
-        BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
-        ColorTargetState, ColorWrites, FragmentState, Operations, PipelineCache,
-        RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderRef, ShaderStages, ShaderType, TextureFormat,
+        BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries,
+        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, Operations,
+        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
+        Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureFormat,
         TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
     view::ViewTarget,
     RenderApp, RenderStartup,
 };
+use bevy_shader::ShaderRef;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -118,7 +119,7 @@ pub trait FullscreenMaterial:
 
 #[derive(Resource)]
 struct FullscreenMaterialPipeline {
-    layout: BindGroupLayout,
+    layout: BindGroupLayoutDescriptor,
     sampler: Sampler,
     pipeline_id: CachedRenderPipelineId,
     pipeline_id_hdr: CachedRenderPipelineId,
@@ -131,7 +132,7 @@ fn init_pipeline<T: FullscreenMaterial>(
     fullscreen_shader: Res<FullscreenShader>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    let layout = render_device.create_bind_group_layout(
+    let layout = BindGroupLayoutDescriptor::new(
         "post_process_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,
@@ -221,13 +222,11 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
             return Ok(());
         };
 
-        // We should maybe rename this because this can be used for other reasons that aren't
-        // post-processing
         let post_process = view_target.post_process_write();
 
         let bind_group = render_context.render_device().create_bind_group(
             "post_process_bind_group",
-            &fullscreen_pipeline.layout,
+            &pipeline_cache.get_bind_group_layout(&fullscreen_pipeline.layout),
             &BindGroupEntries::sequential((
                 post_process.source,
                 &fullscreen_pipeline.sampler,

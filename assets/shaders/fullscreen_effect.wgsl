@@ -22,6 +22,7 @@
 
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var texture_sampler: sampler;
+
 struct FullScreenEffect {
     intensity: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
@@ -29,7 +30,8 @@ struct FullScreenEffect {
     _webgl2_padding: vec3<f32>
 #endif
 }
-@group(0) @binding(2) var<uniform> settings: FullscreenEffect;
+
+@group(0) @binding(2) var<uniform> settings: FullScreenEffect;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
