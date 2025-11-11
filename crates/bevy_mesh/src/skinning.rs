@@ -87,7 +87,18 @@ impl SkinnedMeshBounds {
 
 // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
 pub(crate) fn create_skinned_mesh_bounds(mesh: &Mesh) -> Option<SkinnedMeshBounds> {
-    let max_joint_index = InfluenceIterator::new(mesh)
+    // XXX TODO: Error.
+    let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?;
+
+    // XXX TODO: Error.
+    let VertexAttributeValues::Float32x3(vertex_positions) = vertex_positions else {
+        return None;
+    };
+
+    let vertex_influences = InfluenceIterator::new(mesh)?;
+
+    let max_joint_index = vertex_influences
+        .clone()
         .map(|i| i.joint_index)
         .reduce(Ord::max)?;
 
@@ -96,11 +107,14 @@ pub(crate) fn create_skinned_mesh_bounds(mesh: &Mesh) -> Option<SkinnedMeshBound
     let mut optional_bounds: Box<[Option<Aabb3d>]> =
         vec![None; (max_joint_index as usize) + 1].into();
 
-    for influence in InfluenceIterator::new(mesh) {
-        extend(
-            &mut optional_bounds[influence.joint_index as usize],
-            Vec3A::from(influence.position),
-        );
+    for influence in vertex_influences {
+        // XXX TODO: Should error if vertex index is out of range?
+        if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
+            extend(
+                &mut optional_bounds[influence.joint_index as usize],
+                Vec3A::from_array(vertex_position),
+            );
+        }
     }
 
     let num_bounds = optional_bounds.iter().filter(|o| o.is_some()).count();
@@ -264,48 +278,47 @@ fn extend(optional_aabb: &mut Option<Aabb3d>, point: Vec3A) {
     }
 }
 
-struct Influence {
-    position: Vec3,
-    joint_index: JointIndex,
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct Influence {
+    pub vertex_index: usize,
+    pub joint_index: JointIndex,
+    pub joint_weight: f32,
 }
 
 /// Iterator over all vertex influences with non-zero weight.
-#[derive(Default)]
-struct InfluenceIterator<'a> {
-    vertex_index: usize,
-    influence_index: usize,
-    positions: &'a [[f32; 3]],
+#[derive(Clone, Debug)]
+pub struct InfluenceIterator<'a> {
+    vertex_count: usize,
     joint_indices: &'a [[u16; 4]],
     joint_weights: &'a [[f32; 4]],
+    vertex_index: usize,
+    influence_index: usize,
 }
 
 impl<'a> InfluenceIterator<'a> {
     // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
-    fn new(mesh: &'a Mesh) -> Self {
+    pub fn new(mesh: &'a Mesh) -> Option<Self> {
+        // XXX TODO: Should error if attributes are present but in unsupported form?
         if let (
-            Some(VertexAttributeValues::Float32x3(positions)),
             Some(VertexAttributeValues::Uint16x4(joint_indices)),
             Some(VertexAttributeValues::Float32x4(joint_weights)),
         ) = (
-            mesh.attribute(Mesh::ATTRIBUTE_POSITION),
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
-        ) {
-            if (joint_indices.len() != positions.len()) | (joint_weights.len() != positions.len()) {
-                // TODO: Should be an error?
-                return InfluenceIterator::default();
-            }
-
-            return InfluenceIterator {
-                vertex_index: 0,
-                influence_index: 0,
-                positions,
+        ) &&
+            // TODO: Should be an error if the attribute lengths don't match?            
+            (joint_indices.len() == joint_weights.len())
+        {
+            Some(InfluenceIterator {
+                vertex_count: joint_indices.len(),
                 joint_indices,
                 joint_weights,
-            };
+                vertex_index: 0,
+                influence_index: 0,
+            })
+        } else {
+            None
         }
-
-        InfluenceIterator::default()
     }
 }
 
@@ -315,27 +328,27 @@ impl Iterator for InfluenceIterator<'_> {
     fn next(&mut self) -> Option<Influence> {
         loop {
             assert!(self.influence_index <= MAX_INFLUENCES);
-            assert!(self.vertex_index <= self.positions.len());
+            assert!(self.vertex_index <= self.vertex_count);
 
             if self.influence_index >= MAX_INFLUENCES {
                 self.influence_index = 0;
                 self.vertex_index += 1;
             }
 
-            if self.vertex_index >= self.positions.len() {
-                break None;
+            if self.vertex_index >= self.vertex_count {
+                return None;
             }
 
-            let position = Vec3::from_array(self.positions[self.vertex_index]);
             let joint_index = self.joint_indices[self.vertex_index][self.influence_index];
             let joint_weight = self.joint_weights[self.vertex_index][self.influence_index];
 
             self.influence_index += 1;
 
             if joint_weight > 0.0 {
-                break Some(Influence {
-                    position,
+                return Some(Influence {
+                    vertex_index: self.vertex_index,
                     joint_index,
+                    joint_weight,
                 });
             }
         }
@@ -345,6 +358,7 @@ impl Iterator for InfluenceIterator<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bevy_asset::RenderAssetUsages;
     use bevy_math::{bounding::BoundingVolume, vec3a};
 
     #[test]
@@ -387,5 +401,114 @@ mod tests {
 
             assert_eq!(multiple.finish(), Some(expected));
         }
+    }
+
+    #[test]
+    fn influence_iterator() {
+        let mesh = Mesh::new(
+            wgpu_types::PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        );
+
+        assert!(InfluenceIterator::new(&mesh).is_none());
+
+        let mesh = mesh
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_JOINT_INDEX,
+                VertexAttributeValues::Uint16x4(vec![
+                    [1, 0, 0, 0],
+                    [0, 2, 0, 0],
+                    [0, 0, 3, 0],
+                    [0, 0, 0, 4],
+                    [1, 2, 0, 0],
+                    [3, 4, 5, 0],
+                    [6, 7, 8, 9],
+                ]),
+            )
+            .with_inserted_attribute(
+                Mesh::ATTRIBUTE_JOINT_WEIGHT,
+                VertexAttributeValues::Float32x4(vec![
+                    [1.0, 0.0, 0.0, 0.0],
+                    [0.0, 1.0, 0.0, 0.0],
+                    [0.0, 0.0, 1.0, 0.0],
+                    [0.0, 0.0, 0.0, 1.0],
+                    [0.1, 0.9, 0.0, 0.0],
+                    [0.1, 0.2, 0.7, 0.0],
+                    [0.1, 0.2, 0.4, 0.3],
+                ]),
+            );
+
+        let expected = &[
+            Influence {
+                vertex_index: 0,
+                joint_index: 1,
+                joint_weight: 1.0,
+            },
+            Influence {
+                vertex_index: 1,
+                joint_index: 2,
+                joint_weight: 1.0,
+            },
+            Influence {
+                vertex_index: 2,
+                joint_index: 3,
+                joint_weight: 1.0,
+            },
+            Influence {
+                vertex_index: 3,
+                joint_index: 4,
+                joint_weight: 1.0,
+            },
+            Influence {
+                vertex_index: 4,
+                joint_index: 1,
+                joint_weight: 0.1,
+            },
+            Influence {
+                vertex_index: 4,
+                joint_index: 2,
+                joint_weight: 0.9,
+            },
+            Influence {
+                vertex_index: 5,
+                joint_index: 3,
+                joint_weight: 0.1,
+            },
+            Influence {
+                vertex_index: 5,
+                joint_index: 4,
+                joint_weight: 0.2,
+            },
+            Influence {
+                vertex_index: 5,
+                joint_index: 5,
+                joint_weight: 0.7,
+            },
+            Influence {
+                vertex_index: 6,
+                joint_index: 6,
+                joint_weight: 0.1,
+            },
+            Influence {
+                vertex_index: 6,
+                joint_index: 7,
+                joint_weight: 0.2,
+            },
+            Influence {
+                vertex_index: 6,
+                joint_index: 8,
+                joint_weight: 0.4,
+            },
+            Influence {
+                vertex_index: 6,
+                joint_index: 9,
+                joint_weight: 0.3,
+            },
+        ];
+
+        assert_eq!(
+            InfluenceIterator::new(&mesh).unwrap().collect::<Vec<_>>(),
+            expected
+        );
     }
 }
