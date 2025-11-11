@@ -1364,12 +1364,19 @@ where
     }
 
     fn iter_access<'c>(
-        _components: &'c Components,
-        _index: &mut usize,
+        components: &'c Components,
+        index: &mut usize,
     ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
+        *index += 1;
+        let index = *index;
+        B::iter_component_ids(components).map(move |component_id| {
+            component_id.map(|component_id| {
+                EcsAccessType::Component(EcsAccessLevel::ReadAllExcept {
+                    index,
+                    component_id,
+                })
+            })
+        })
     }
 }
 
@@ -1488,12 +1495,19 @@ where
     }
 
     fn iter_access<'c>(
-        _components: &'c Components,
-        _index: &mut usize,
+        components: &'c Components,
+        index: &mut usize,
     ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
-        panic!("not sure how to support this yet");
-        // this might be correct, need to think about it more
-        iter::empty()
+        *index += 1;
+        let index = *index;
+        B::iter_component_ids(components).map(move |component_id| {
+            component_id.map(|component_id| {
+                EcsAccessType::Component(EcsAccessLevel::WriteAllExcept {
+                    index,
+                    component_id,
+                })
+            })
+        })
     }
 }
 
