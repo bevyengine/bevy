@@ -5,9 +5,13 @@ use std::f32::consts::*;
 
 use bevy::{
     asset::RenderAssetUsages,
+    input::common_conditions::input_just_pressed,
     math::ops,
     mesh::{
-        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        skinning::{
+            create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds,
+            SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
+        },
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
     prelude::*,
@@ -24,6 +28,12 @@ fn main() {
         })
         .add_systems(Startup, setup)
         .add_systems(Update, joint_animation)
+        // XXX TODO: Decide if we keep bounds debug rendering. Makes this
+        // example a convenient test but a worse example.
+        .add_systems(
+            Update,
+            toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+        )
         .run();
 }
 
@@ -40,6 +50,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
+    mut skinned_mesh_bounds_assets: ResMut<Assets<SkinnedMeshBoundsAsset>>,
 ) {
     // Create a camera
     commands.spawn((
@@ -137,6 +148,11 @@ fn setup(
         0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 7, 4, 7, 6, 6, 7, 9, 6, 9, 8,
     ]));
 
+    // Create skinned mesh bounds. This ensures that the mesh's `Aabb` takes
+    // skinning into account.
+    let skinned_mesh_bounds =
+        skinned_mesh_bounds_assets.add(create_skinned_mesh_bounds_asset(&mesh).unwrap());
+
     let mesh = meshes.add(mesh);
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -178,6 +194,7 @@ fn setup(
                 inverse_bindposes: inverse_bindposes.clone(),
                 joints: joint_entities,
             },
+            SkinnedMeshBounds(skinned_mesh_bounds.clone()),
         ));
     }
 }
@@ -230,4 +247,8 @@ fn joint_animation(
         axis.translation.x += animated_joint.0 as f32 * 1.5;
         gizmos.axes(axis, 1.0);
     }
+}
+
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
