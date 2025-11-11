@@ -18,6 +18,8 @@ use bevy_ecs::{
 
 use bevy_math::{Affine2, Vec2};
 #[cfg(feature = "bevy_ui_contain")]
+use bevy_platform::collections::HashSet;
+#[cfg(feature = "bevy_ui_contain")]
 use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_contain")]
@@ -117,6 +119,7 @@ pub fn ui_layout_system(
         &UiContainSize,
         &Anchor,
     )>,
+    #[cfg(feature = "bevy_ui_contain")] mut removed_uicontain: RemovedComponents<UiContainTarget>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
@@ -129,16 +132,32 @@ pub fn ui_layout_system(
         );
     }
 
+    #[cfg(feature = "bevy_ui_contain")]
+    let removed_uicontains = removed_uicontain.read().collect::<HashSet<Entity>>();
+
+    #[cfg(feature = "bevy_ui_contain")]
+    for entity in &removed_uicontains {
+        ui_surface_query.iter_mut().for_each(
+            |mut ui_surface: bevy_ecs::world::Mut<'_, UiSurface>| {
+                ui_surface.try_remove_node_context(*entity);
+            },
+        );
+    }
+
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
         .for_each(|(entity, node, content_size, computed_target)| {
-            if computed_target.is_changed()
+            let is_update = computed_target.is_changed()
                 || node.is_changed()
                 || content_size
                     .as_ref()
-                    .is_some_and(|c| c.is_changed() || c.measure.is_some())
-            {
+                    .is_some_and(|c| c.is_changed() || c.measure.is_some());
+
+            #[cfg(feature = "bevy_ui_contain")]
+            let is_update = is_update || removed_uicontains.contains(&entity);
+
+            if is_update {
                 let layout_context = LayoutContext::new(
                     computed_target.scale_factor,
                     computed_target.physical_size.as_vec2(),
@@ -199,19 +218,29 @@ pub fn ui_layout_system(
             ui_children: &UiChildren,
             added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
+            #[cfg(feature = "bevy_ui_contain")] removed_uicontains: &HashSet<Entity>,
         ) {
-            if ui_surface.entity_to_taffy.contains_key(&entity)
+            let is_update = ui_surface.entity_to_taffy.contains_key(&entity)
                 && (added_node_query.contains(entity)
                     || ui_children.is_changed(entity)
                     || ui_children
                         .iter_ui_children(entity)
-                        .any(|child| added_node_query.contains(child)))
-            {
+                        .any(|child| added_node_query.contains(child)));
+            #[cfg(feature = "bevy_ui_contain")]
+            let is_update = is_update || removed_uicontains.contains(&entity);
+            if is_update {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
 
             for child in ui_children.iter_ui_children(entity) {
-                update_children_recursively(ui_surface, ui_children, added_node_query, child);
+                update_children_recursively(
+                    ui_surface,
+                    ui_children,
+                    added_node_query,
+                    child,
+                    #[cfg(feature = "bevy_ui_contain")]
+                    removed_uicontains,
+                );
             }
         }
 
@@ -232,7 +261,14 @@ pub fn ui_layout_system(
         #[cfg(not(feature = "bevy_ui_contain"))]
         let ui_surface = &mut ui_surface;
 
-        update_children_recursively(ui_surface, &ui_children, &added_node_query, ui_root_entity);
+        update_children_recursively(
+            ui_surface,
+            &ui_children,
+            &added_node_query,
+            ui_root_entity,
+            #[cfg(feature = "bevy_ui_contain")]
+            &removed_uicontains,
+        );
 
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 

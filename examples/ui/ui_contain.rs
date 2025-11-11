@@ -1,24 +1,43 @@
 //! Node can choose Camera as the layout or [`UiContainSet`](bevy::prelude::UiContainSet) Component for layout.
 //! Nodes will be laid out according to the size and Transform of `UiContainSet`
 
-use bevy::{app::Propagate, prelude::*, sprite::Anchor};
+use std::{cell::OnceCell, sync::OnceLock};
+
+use bevy::{
+    app::Propagate, input::common_conditions::input_just_released, prelude::*, sprite::Anchor,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_camera, update_node))
+        .add_systems(
+            Update,
+            (
+                update_camera,
+                update_contain,
+                switch_node.run_if(input_just_released(KeyCode::Space)),
+            ),
+        )
         .run();
 }
+
+#[derive(Component)]
+struct ContainNode;
+
+#[derive(Component)]
+struct UiContain;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
+    // world center
     commands.spawn(Sprite {
         custom_size: Some(Vec2::new(5.0, 5.0)),
         ..Default::default()
     });
 
+    // Initialize uicontain
     let uicontain = commands
         .spawn((
             UiContainSize(Vec2::new(300.0, 300.0)),
@@ -29,47 +48,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
             //     ..Default::default()
             // },
+            UiContain,
         ))
         .id();
 
-    // commands.spawn((
-    //     Node {
-    //         display: Display::Block,
-    //         width: percent(10.0),
-    //         height: percent(10.0),
-    //         border: px(4.0).all(),
-    //         ..Default::default()
-    //     },
-    //     BorderColor {
-    //         top: Srgba::BLUE.into(),
-    //         right: Srgba::GREEN.into(),
-    //         bottom: Srgba::RED.into(),
-    //         left: Srgba::WHITE.into(),
-    //     },
-    //     Propagate(UiContainTarget(uicontain)),
-    //     // Button,
-    // ));
-
-    // commands
-    //     .spawn((
-    //         Node {
-    //             display: Display::Block,
-    //             width: percent(100.0),
-    //             height: percent(100.0),
-    //             border: px(4.0).all(),
-    //             ..Default::default()
-    //         },
-    //         BorderColor {
-    //             top: Srgba::BLUE.into(),
-    //             right: Srgba::GREEN.into(),
-    //             bottom: Srgba::RED.into(),
-    //             left: Srgba::WHITE.into(),
-    //         },
-    //         Propagate(UiContainTarget(uicontain)),
-    //         // Button,
-    //     ));
-
-    commands
+    let entity = commands
         .spawn((
             Node {
                 display: Display::Block,
@@ -86,10 +69,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 left: Srgba::WHITE.into(),
             },
             Propagate(UiContainTarget(uicontain)),
-            // Button,
+            ContainNode, // Button,
         ))
         .with_children(|parent| {
-            parent
+            let entity = parent
                 .spawn((
                     Node {
                         display: Display::Block,
@@ -106,132 +89,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                 ))
                 .with_children(|parent| {
-                    parent.spawn((
-                        Node {
-                            display: Display::Block,
-                            width: px(500.0),
-                            height: px(500.0),
-                            border: px(4.0).all(),
-                            ..Default::default()
-                        },
-                        BorderColor {
-                            top: Srgba::BLUE.with_blue(0.5).into(),
-                            right: Srgba::GREEN.with_green(0.5).into(),
-                            bottom: Srgba::RED.with_red(0.5).into(),
-                            left: Srgba::WHITE.into(),
-                        },
-                    ));
+                    let entity = parent
+                        .spawn((
+                            Node {
+                                display: Display::Block,
+                                width: px(500.0),
+                                height: px(500.0),
+                                border: px(4.0).all(),
+                                ..Default::default()
+                            },
+                            BorderColor {
+                                top: Srgba::BLUE.with_blue(0.5).into(),
+                                right: Srgba::GREEN.with_green(0.5).into(),
+                                bottom: Srgba::RED.with_red(0.5).into(),
+                                left: Srgba::WHITE.into(),
+                            },
+                        ))
+                        .with_child(ImageNode::new(
+                            asset_server.load("branding/bevy_bird_dark.png"),
+                        ));
                 });
-            // parent.spawn(ImageNode::new(
-            //     asset_server.load("branding/bevy_bird_dark.png"),
-            // ));
         });
-
-    commands
-        .spawn((
-            Node {
-                display: Display::Block,
-                width: px(300.0),
-                height: px(300.0),
-                border: px(4.0).all(),
-                overflow: Overflow::clip(),
-                ..Default::default()
-            },
-            BorderColor {
-                top: Srgba::BLUE.into(),
-                right: Srgba::GREEN.into(),
-                bottom: Srgba::RED.into(),
-                left: Srgba::WHITE.into(),
-            },
-            // Propagate(UiContainTarget(uicontain)),
-            // Button,
-        ))
-        .with_children(|parent| {
-            parent
-                .spawn((
-                    Node {
-                        display: Display::Block,
-                        width: px(700.0),
-                        height: px(700.0),
-                        border: px(4.0).all(),
-                        ..Default::default()
-                    },
-                    BorderColor {
-                        top: Srgba::BLUE.into(),
-                        right: Srgba::GREEN.into(),
-                        bottom: Srgba::RED.into(),
-                        left: Srgba::WHITE.into(),
-                    },
-                ))
-                .with_children(|parent| {
-                    parent.spawn((
-                        Node {
-                            display: Display::Block,
-                            width: px(500.0),
-                            height: px(500.0),
-                            border: px(4.0).all(),
-                            ..Default::default()
-                        },
-                        BorderColor {
-                            top: Srgba::BLUE.with_blue(0.5).into(),
-                            right: Srgba::GREEN.with_green(0.5).into(),
-                            bottom: Srgba::RED.with_red(0.5).into(),
-                            left: Srgba::WHITE.into(),
-                        },
-                    ));
-                });
-            // parent.spawn(ImageNode::new(
-            //     asset_server.load("branding/bevy_bird_dark.png"),
-            // ));
-        });
-
-    // commands
-    //     .spawn((
-    //         Node {
-    //             width: percent(20.0),
-    //             height: percent(20.0),
-    //             right: px(0.0),
-    //             border: px(4.0).all(),
-    //             ..Default::default()
-    //         },
-    //         BorderColor {
-    //             top: Srgba::BLUE.into(),
-    //             right: Srgba::GREEN.into(),
-    //             bottom: Srgba::RED.into(),
-    //             left: Srgba::WHITE.into(),
-    //         },
-    //         // Propagate(UiContainTarget(uicontain)),
-    //     ))
-    //     .with_children(|parent| {
-    //         parent
-    //             .spawn((
-    //                 Node {
-    //                     width: px(150.0),
-    //                     height: px(150.0),
-    //                     border: px(4.0).all(),
-    //                     justify_self: JustifySelf::Center,
-    //                     ..Default::default()
-    //                 },
-    //                 BorderColor {
-    //                     top: Srgba::BLUE.into(),
-    //                     right: Srgba::GREEN.into(),
-    //                     bottom: Srgba::RED.into(),
-    //                     left: Srgba::WHITE.into(),
-    //                 },
-    //                 Text::new("node text"),
-    //             ))
-    //             .with_child((Text::new("node text"),));
-    //     });
-
-    // commands.spawn((
-    //     Text2d::new("sprite"),
-    //     TextColor(Srgba::RED.into()),
-    //     Sprite {
-    //         custom_size: Some(Vec2::splat(50.0)),
-    //         ..Default::default()
-    //     },
-    //     // Transform::from_xyz(-100.0, 0.0, 0.0),
-    // ));
 }
 
 fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonInput<KeyCode>>) {
@@ -246,7 +124,7 @@ fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonIn
     }
 }
 
-fn update_node(
+fn update_contain(
     query: Query<&mut Transform, With<UiContainSize>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
@@ -258,5 +136,25 @@ fn update_node(
 
         trans.translation.x += right - left;
         trans.translation.y += up - down;
+    }
+}
+
+fn switch_node(
+    mut commands: Commands,
+    query: Single<(Entity, Has<UiContainTarget>), With<ContainNode>>,
+    contain: Single<Entity, With<UiContain>>,
+) {
+    let (entity_node, is_contain_node) = query.into_inner();
+
+    if is_contain_node {
+        commands
+            .entity(entity_node)
+            .remove::<Propagate<UiContainTarget>>();
+        info!("此处运行1");
+    } else {
+        commands
+            .entity(entity_node)
+            .insert(Propagate(UiContainTarget(contain.into_inner())));
+        info!("此处运行2");
     }
 }
