@@ -372,7 +372,17 @@ impl<'w> EntityWorldMut<'w> {
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
     /// [`with_children`]: EntityWorldMut::with_children
+    #[deprecated = "Use spawn_child instead"]
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.spawn_child(bundle)
+    }
+
+    /// Spawns the passed bundle and adds it to this entity as a child.
+    ///
+    /// For efficient spawning of multiple children, use [`with_children`].
+    ///
+    /// [`with_children`]: EntityWorldMut::with_children
+    pub fn spawn_child(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.world_scope(|world| {
             world.spawn((bundle, ChildOf(parent)));
@@ -484,7 +494,17 @@ impl<'a> EntityCommands<'a> {
     /// For efficient spawning of multiple children, use [`with_children`].
     ///
     /// [`with_children`]: EntityCommands::with_children
+    #[deprecated = "Use spawn_child instead"]
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.spawn_child(bundle)
+    }
+
+    /// Spawns the passed bundle and adds it to this entity as a child.
+    ///
+    /// For efficient spawning of multiple children, use [`with_children`].
+    ///
+    /// [`with_children`]: EntityCommands::with_children
+    pub fn spawn_child(&mut self, bundle: impl Bundle) -> &mut Self {
         self.with_related::<ChildOf>(bundle);
         self
     }

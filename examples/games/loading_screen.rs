@@ -90,7 +90,7 @@ fn setup(mut commands: Commands) {
             },
             BackgroundColor(Color::NONE),
         ))
-        .with_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
+        .spawn_child((Text::new("Press 1 or 2 to load a new scene."), text_style));
 }
 
 // Selects the level you want to load.
@@ -256,7 +256,7 @@ fn load_loading_screen(mut commands: Commands) {
             BackgroundColor(Color::BLACK),
             LoadingScreen,
         ))
-        .with_child((Text::new("Loading..."), text_style.clone()));
+        .spawn_child((Text::new("Loading..."), text_style.clone()));
 }
 
 // Determines when to show the loading screen

@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Instructions,
         ))
-        .with_child((
+        .spawn_child((
             TextSpan::new(format!("{:?}", Overflow::clip())),
             text_font.clone(),
         ));

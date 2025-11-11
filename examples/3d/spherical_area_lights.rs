@@ -57,7 +57,7 @@ fn setup(
                 Transform::from_xyz(position_range.start + percent * pos_len, 0.3, 0.0)
                     .with_scale(Vec3::splat(radius)),
             ))
-            .with_child(PointLight {
+            .spawn_child(PointLight {
                 radius,
                 color: Color::srgb(0.2, 0.2, 1.0),
                 ..default()

@@ -40,7 +40,7 @@ fn setup_ui(mut commands: Commands) {
             ..default()
         })
         // Text where we display current resolution
-        .with_child((
+        .spawn_child((
             Text::new("Resolution"),
             TextFont {
                 font_size: 42.0,
