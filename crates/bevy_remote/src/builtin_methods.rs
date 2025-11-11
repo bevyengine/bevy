@@ -1682,6 +1682,11 @@ mod tests {
     }
 
     use super::*;
+    use bevy_ecs::{
+        component::Component, event::Event, observer::On, resource::Resource, system::ResMut,
+    };
+    use bevy_reflect::Reflect;
+    use serde_json::Value::Null;
 
     #[test]
     fn insert_reflect_only_component() {
@@ -1711,6 +1716,37 @@ mod tests {
         world.insert_resource(atr);
         let e = world.spawn_empty();
         insert_reflected_components(e, deserialized_components).expect("FAIL");
+    }
+
+    #[test]
+    fn trigger_reflect_only_event() {
+        #[derive(Event, Reflect)]
+        #[reflect(Event)]
+        struct Pass;
+
+        #[derive(Resource)]
+        struct TestResult(pub bool);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Pass>();
+        }
+        let mut world = World::new();
+        world.add_observer(move |_event: On<Pass>, mut result: ResMut<TestResult>| result.0 = true);
+        world.insert_resource(TestResult(false));
+        world.insert_resource(atr);
+
+        let params = serde_json::to_value(&BrpTriggerEventParams {
+            event: "bevy_remote::builtin_methods::tests::Pass".to_owned(),
+            value: None,
+        })
+        .expect("FAIL");
+        assert_eq!(
+            process_remote_trigger_event_request(In(Some(params)), &mut world),
+            Ok(Null)
+        );
+        assert!(world.resource::<TestResult>().0);
     }
 
     #[test]
