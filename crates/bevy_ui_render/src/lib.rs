@@ -543,6 +543,17 @@ pub fn extract_uinode_images(
             || image.image_mode.uses_slices()
             || uinode.is_empty()
         {
+            tracing::info!(
+                "此处运行:{:?}",
+                (
+                    entity,
+                    !inherited_visibility.get(),
+                    image.color.is_fully_transparent(),
+                    image.image.id() == TRANSPARENT_IMAGE_HANDLE.id(),
+                    image.image_mode.uses_slices(),
+                    uinode.is_empty()
+                )
+            );
             continue;
         }
 

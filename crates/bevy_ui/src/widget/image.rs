@@ -1,9 +1,13 @@
+#[cfg(feature = "bevy_ui_contain")]
+use crate::UiContainTarget;
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
+#[cfg(feature = "bevy_ui_contain")]
+use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};
@@ -275,6 +279,12 @@ impl Measure for ImageMeasure {
     }
 }
 
+#[cfg(not(feature = "bevy_ui_contain"))]
+type ExtraFeature = ();
+
+#[cfg(feature = "bevy_ui_contain")]
+type ExtraFeature = Entity;
+
 type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
@@ -287,11 +297,18 @@ pub fn update_image_content_size_system(
             Ref<ImageNode>,
             &mut ImageNodeSize,
             Ref<ComputedUiRenderTargetInfo>,
+            ExtraFeature,
         ),
         UpdateImageFilter,
     >,
+    #[cfg(feature = "bevy_ui_contain")] mut removed_uicontain: RemovedComponents<UiContainTarget>,
 ) {
-    for (mut content_size, image, mut image_size, computed_target) in &mut query {
+    #[cfg(feature = "bevy_ui_contain")]
+    let removed_uicontains = query
+        .is_empty()
+        .then_some(removed_uicontain.read().collect::<HashSet<Entity>>());
+
+    for (mut content_size, image, mut image_size, computed_target, _extra) in &mut query {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -312,7 +329,16 @@ pub fn update_image_content_size_system(
                 })
         {
             // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size || computed_target.is_changed() || content_size.is_added() {
+            let is_update =
+                size != image_size.size || computed_target.is_changed() || content_size.is_added();
+
+            #[cfg(feature = "bevy_ui_contain")]
+            let is_update = is_update
+                || removed_uicontains
+                    .as_ref()
+                    .is_none_or(|removes| removes.contains(&_extra));
+
+            if is_update {
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size

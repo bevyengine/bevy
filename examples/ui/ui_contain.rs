@@ -52,7 +52,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         .id();
 
-    let entity = commands
+    commands
         .spawn((
             Node {
                 display: Display::Block,
