@@ -115,8 +115,6 @@ impl EcsAccessType {
             | (Component(Read(_)), Component(ReadAll))
             | (Component(ReadAll), Component(ReadAll))
             | (Resource(ResourceAccessLevel::Read(_)), Resource(ResourceAccessLevel::Read(_)))
-            // TODO: I think (FilterdReadAll, FilteredWriteAll) should probably conflict, but should
-            // double check with the normal conflict check
             | (Component(FilteredReadAll), _)
             | (_, Component(FilteredReadAll))
             | (Component(FilteredWriteAll), _)
@@ -125,36 +123,85 @@ impl EcsAccessType {
             | (Component(Read(_)), Component(ReadAllExcept { .. }))
             | (Component(ReadAllExcept { .. }), Component(ReadAll))
             | (Component(ReadAll), Component(ReadAllExcept { .. }))
-            | (Component(ReadAllExcept { .. }), Component(ReadAllExcept { .. })) => AccessCompatible::Compatible,
+            | (Component(ReadAllExcept { .. }), Component(ReadAllExcept { .. })) => {
+                AccessCompatible::Compatible
+            }
 
             (Component(Read(id)), Component(Write(id_other)))
             | (Component(Write(id)), Component(Read(id_other)))
             | (Component(Write(id)), Component(Write(id_other)))
-            | (Resource(ResourceAccessLevel::Read(id)), Resource(ResourceAccessLevel::Write(id_other)))
-            | (Resource(ResourceAccessLevel::Write(id)), Resource(ResourceAccessLevel::Read(id_other)))
-            | (Resource(ResourceAccessLevel::Write(id)), Resource(ResourceAccessLevel::Write(id_other))) => (*id != id_other).into(),
+            | (
+                Resource(ResourceAccessLevel::Read(id)),
+                Resource(ResourceAccessLevel::Write(id_other)),
+            )
+            | (
+                Resource(ResourceAccessLevel::Write(id)),
+                Resource(ResourceAccessLevel::Read(id_other)),
+            )
+            | (
+                Resource(ResourceAccessLevel::Write(id)),
+                Resource(ResourceAccessLevel::Write(id_other)),
+            ) => (*id != id_other).into(),
 
-            (Component(ReadAllExcept { component_id: id, .. }), Component(Write(id_other)))
-            | (Component(WriteAllExcept { component_id: id, .. }), Component(Read(id_other)))
-            | (Component(WriteAllExcept { component_id: id, .. }), Component(Write(id_other))) => {
+            (
+                Component(ReadAllExcept {
+                    component_id: id, ..
+                }),
+                Component(Write(id_other)),
+            )
+            | (
+                Component(WriteAllExcept {
+                    component_id: id, ..
+                }),
+                Component(Read(id_other)),
+            )
+            | (
+                Component(WriteAllExcept {
+                    component_id: id, ..
+                }),
+                Component(Write(id_other)),
+            ) => {
                 if *id == id_other {
                     AccessCompatible::Compatible
                 } else {
                     AccessCompatible::ConflictsExceptFirst
                 }
-            },
+            }
 
-            (Component(Write(id)), Component(ReadAllExcept { component_id: id_other, index }))
-            | (Component(Read(id)), Component(WriteAllExcept { component_id: id_other, index }))
-            | (Component(Write(id)), Component(WriteAllExcept { component_id: id_other, index })) => {
+            (
+                Component(Write(id)),
+                Component(ReadAllExcept {
+                    component_id: id_other,
+                    index,
+                }),
+            )
+            | (
+                Component(Read(id)),
+                Component(WriteAllExcept {
+                    component_id: id_other,
+                    index,
+                }),
+            )
+            | (
+                Component(Write(id)),
+                Component(WriteAllExcept {
+                    component_id: id_other,
+                    index,
+                }),
+            ) => {
                 if *id == id_other {
                     AccessCompatible::CompatibleExcept(index)
                 } else {
                     AccessCompatible::ConflictsExceptSecond(index)
                 }
-            },
+            }
 
-            (Component(WriteAllExcept { index, .. }), Component(WriteAllExcept { index: index_other, .. })) => (*index == index_other).into(),
+            (
+                Component(WriteAllExcept { index, .. }),
+                Component(WriteAllExcept {
+                    index: index_other, ..
+                }),
+            ) => (*index == index_other).into(),
         }
     }
 }
