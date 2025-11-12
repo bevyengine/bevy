@@ -394,20 +394,20 @@ pub fn ui_layout_system(
                 // Transform the node coordinate system
                 let flip_y = Affine2::from_scale(Vec2::new(1.0, -1.0));
                 // Coordinate correction for root node
-                if ui_children.get_parent(entity).is_none() {
-                    if let Ok((global, contain, anchor)) = contain_query.get(target.0) {
-                        use bevy_math::Vec3Swizzles;
+                if ui_children.get_parent(entity).is_none()
+                    && let Ok((global, contain, anchor)) = contain_query.get(target.0)
+                {
+                    use bevy_math::Vec3Swizzles;
 
-                        local_transform.translation += global.translation().xy();
+                    local_transform.translation += global.translation().xy();
 
-                        // Root node center offset
-                        let offset = flip_y.transform_vector2(contain.0);
-                        local_transform.translation -= offset / 2.0;
+                    // Root node center offset
+                    let offset = flip_y.transform_vector2(contain.0);
+                    local_transform.translation -= offset / 2.0;
 
-                        // Anchor offset
-                        let offset_anchor = anchor.as_vec() * contain.0;
-                        local_transform.translation -= offset_anchor;
-                    }
+                    // Anchor offset
+                    let offset_anchor = anchor.as_vec() * contain.0;
+                    local_transform.translation -= offset_anchor;
                 }
                 local_transform.translation += flip_y.transform_vector2(local_center);
                 inherited_transform *= local_transform;
