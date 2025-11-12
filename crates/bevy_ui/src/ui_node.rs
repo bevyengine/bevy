@@ -2875,9 +2875,9 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
-/// Pointing to [`UiContainSet`](crate::UiContainSet), actually choosing [`UiSurface`](crate::ui_surface::UiSurface) for layout.
-/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSet` is located in world space.
-/// When the root node and its child nodes point to the same `UiContainSet`, the functionality is work.
+/// Pointing to [`UiContainSize`](crate::UiContainSize),layout based on this container size.
+/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSize` is located in world space.
+/// When the root node and its child nodes point to the same `UiContainSize`, the functionality is work.
 /// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
 ///
 /// If you want to enable this feature, you need to enable the `bevy_ui_contain` feature
@@ -2897,7 +2897,8 @@ pub struct UiContains(Vec<Entity>);
     crate::ui_surface::UiSurface,
     bevy_transform::components::Transform,
     UiContains,
-    Anchor
+    Anchor,
+    Visibility
 )]
 pub struct UiContainSize(pub Vec2);
 
