@@ -830,7 +830,7 @@ mod tests {
         let e3 = world.spawn_empty().id();
 
         let mut entity_mut_1 = world.entity_mut(e1);
-        let Some((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
+        let Ok((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
             panic!("could not get components");
         };
         x.0 += 1;
@@ -843,23 +843,23 @@ mod tests {
         assert!(world
             .entity_mut(e2)
             .get_components_mut::<(&X, &Y)>()
-            .is_none());
+            .is_err());
         assert!(world
             .entity_mut(e3)
             .get_components_mut::<(&X, &Y)>()
-            .is_none());
+            .is_err());
         assert!(world
             .entity_mut(e1)
             .get_components_mut::<(&X, &mut X)>()
-            .is_none());
+            .is_err());
         assert!(world
             .entity_mut(e1)
             .get_components_mut::<(EntityRef, &mut X)>()
-            .is_none());
+            .is_err());
         assert!(world
             .entity_mut(e1)
             .get_components_mut::<(EntityMut, &X)>()
-            .is_none());
+            .is_err());
     }
 
     #[test]

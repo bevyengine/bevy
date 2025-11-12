@@ -9,7 +9,10 @@ use crate::{
     event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
-    query::{has_conflicts, Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{
+        has_conflicts, Access, AccessError, DebugCheckedUnwrap, ReadOnlyQueryData,
+        ReleaseStateQueryData,
+    },
     relationship::RelationshipHookMode,
     resource::Resource,
     storage::{SparseSets, Table},
@@ -324,13 +327,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// returns None if component wasn't registered, or if the access is not compatible bewteen terms
-    pub fn get_components_mut<Q: ReleaseStateQueryData>(&mut self) -> Option<Q::Item<'_, 'static>> {
-        if has_conflicts::<Q>(self.world.components()) {
-            return None;
-        }
-
+    pub fn get_components_mut<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Result<Q::Item<'_, 'static>, AccessError> {
+        has_conflicts::<Q>(self.world.components())?;
         // SAFETY: we checked that there were not conflicting components above
-        unsafe { self.get_components_mut_unchecked::<Q>() }
+        unsafe { self.get_components_mut_unchecked::<Q>() }.ok_or(AccessError::EntityDoesNotMatch)
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,

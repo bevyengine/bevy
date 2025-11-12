@@ -4,31 +4,31 @@ use crate::{
 };
 
 /// The data storage type that is being accessed.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum EcsAccessType {
-    /// Accesses [`Component`] data
+    /// Accesses [`Component`](crate::prelude::Component) data
     Component(EcsAccessLevel),
-    /// Accesses [`Resource`] data
+    /// Accesses [`Resource`](crate::prelude::Resource) data
     Resource(ResourceAccessLevel),
 }
 
 /// The way the data will be accessed and whether we take access on all the components on
 /// an entity or just one component.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum EcsAccessLevel {
-    /// Reads [`Component`] with [`ComponentId`]
+    /// Reads [`Component`](crate::prelude::Component) with [`ComponentId`]
     Read(ComponentId),
-    /// Writes [`Component`] with [`ComponentId`]
+    /// Writes [`Component`](crate::prelude::Component) with [`ComponentId`]
     Write(ComponentId),
-    /// Potentially reads all [`Component`]'s in the [`World`]
+    /// Potentially reads all [`Component`](crate::prelude::Component)'s in the [`World`](crate::prelude::World)
     ReadAll,
-    /// Potentially writes all [`Component`]'s in the [`World`]
+    /// Potentially writes all [`Component`](crate::prelude::Component)'s in the [`World`](crate::prelude::World)
     WriteAll,
-    /// [`FilteredEntityRef`] captures it's access at the `SystemParam` level, so will
-    /// not conflict with other `QueryData` in the same Query
+    /// [`FilteredEntityRef`](crate::world::FilteredEntityRef) captures it's access at the `SystemParam` level, so will
+    /// not conflict with other [`QueryData`] in the same Query
     FilteredReadAll,
-    /// [`FilteredEntityMut`] captures it's access at the `SystemParam` level, so will
-    /// not conflict with other `QueryData` in the same Query
+    /// [`FilteredEntityMut`](crate::world::FilteredEntityMut) captures it's access at the `SystemParam` level, so will
+    /// not conflict with other [`QueryData`] in the same Query
     FilteredWriteAll,
     /// Potentially reads all [`Components`]'s except [`ComponentId`]
     ReadAllExcept {
@@ -47,7 +47,7 @@ pub enum EcsAccessLevel {
 }
 
 /// Access level needed by [`QueryData`] fetch to the resource.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum ResourceAccessLevel {
     /// Reads the resource with [`ComponentId`]
     Read(ComponentId),
@@ -93,7 +93,7 @@ impl EcsAccessType {
         }
     }
 
-    /// Returns true if the access between `self` and `other` do not conflict.
+    /// See [`AccessCompatible`] for more info
     pub fn is_compatible(&self, other: Self) -> AccessCompatible {
         use EcsAccessLevel::*;
         use EcsAccessType::*;
@@ -206,21 +206,52 @@ impl EcsAccessType {
     }
 }
 
+/// Error returned from [`has_conflicts`].
+#[derive(Clone, Copy, Debug)]
+pub enum AccessError {
+    ComponentNotRegistered,
+    Conflict(EcsAccessType, EcsAccessType),
+    EntityDoesNotMatch,
+}
+
+impl core::error::Error for AccessError {}
+
+impl core::fmt::Display for AccessError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match *self {
+            AccessError::ComponentNotRegistered => {
+                write!(
+                    f,
+                    "At least one component in Q was not registered in world. 
+                    Consider calling `World::register_component`"
+                )
+            }
+            AccessError::Conflict(ecs_access, ecs_access1) => {
+                write!(f, "Conflict between {ecs_access:?} and {ecs_access1:?}")
+            }
+            AccessError::EntityDoesNotMatch => {
+                write!(f, "Entity does not match Q")
+            }
+        }
+    }
+}
+
 /// Check if `Q` has any internal conflicts.
-pub fn has_conflicts<Q: QueryData>(components: &Components) -> bool {
+pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), AccessError> {
     let mut index_outer = 0;
     for (i, access) in Q::iter_access(components, &mut index_outer).enumerate() {
         let mut index_inner = 0;
         let mut except_index = None;
         let mut except_compatible = false;
+        let mut last_access = None;
         for (j, access_other) in Q::iter_access(components, &mut index_inner).enumerate() {
+            last_access = access_other;
             // don't check for conflicts when the access is the same access
             if i == j {
                 continue;
             }
             let (Some(access), Some(access_other)) = (access, access_other) else {
-                // A component wasn't registered
-                return true;
+                return Err(AccessError::ComponentNotRegistered);
             };
 
             // if we're in an except sequence, check if the sequence has ended
@@ -233,7 +264,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> bool {
 
                 if sequence_ended {
                     if !except_compatible {
-                        return true;
+                        return Err(AccessError::Conflict(access, access_other));
                     }
                     except_compatible = false;
                     except_index = None;
@@ -248,7 +279,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> bool {
                     except_index = Some(index);
                     except_compatible = true;
                 },
-                AccessCompatible::Conflicts => return true,
+                AccessCompatible::Conflicts => return Err(AccessError::Conflict(access, access_other)),
                 AccessCompatible::ConflictsExceptSecond(index) => {
                     except_index = Some(index);
                 }
@@ -256,10 +287,12 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> bool {
         }
 
         if except_index.is_some() && !except_compatible {
-            return true;
+            if let (Some(access), Some(access_other)) = (access, last_access) {
+                return Err(AccessError::Conflict(access, access_other));
+            }
         }
     }
-    false
+    Ok(())
 }
 
 #[cfg(test)]
@@ -284,14 +317,23 @@ mod tests {
         let c = world.components();
 
         // Compatible
-        assert!(!has_conflicts::<&mut C1>(c));
-        assert!(!has_conflicts::<&C1>(c));
-        assert!(!has_conflicts::<(&C1, &C1)>(c));
+        assert!(has_conflicts::<&mut C1>(c).is_ok());
+        assert!(has_conflicts::<&C1>(c).is_ok());
+        assert!(has_conflicts::<(&C1, &C1)>(c).is_ok());
 
         // Conflicts
-        assert!(has_conflicts::<(&C1, &mut C1)>(c));
-        assert!(has_conflicts::<(&mut C1, &C1)>(c));
-        assert!(has_conflicts::<(&mut C1, &mut C1)>(c));
+        assert!(matches!(
+            has_conflicts::<(&C1, &mut C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C1, &C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C1, &mut C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
     }
 
     #[test]
@@ -302,19 +344,43 @@ mod tests {
         let c = world.components();
 
         // Compatible
-        assert!(!has_conflicts::<(EntityRef, &C1)>(c));
-        assert!(!has_conflicts::<(&C1, EntityRef)>(c));
-        assert!(!has_conflicts::<(EntityRef, EntityRef)>(c));
+        assert!(has_conflicts::<(EntityRef, &C1)>(c).is_ok());
+        assert!(has_conflicts::<(&C1, EntityRef)>(c).is_ok());
+        assert!(has_conflicts::<(EntityRef, EntityRef)>(c).is_ok());
 
         // Conflicts
-        assert!(has_conflicts::<(EntityRef, &mut C1)>(c));
-        assert!(has_conflicts::<(&mut C1, EntityRef)>(c));
-        assert!(has_conflicts::<(EntityMut, &C1)>(c));
-        assert!(has_conflicts::<(&C1, EntityMut)>(c));
-        assert!(has_conflicts::<(EntityMut, &mut C1)>(c));
-        assert!(has_conflicts::<(&mut C1, EntityMut)>(c));
-        assert!(has_conflicts::<(EntityMut, EntityRef)>(c));
-        assert!(has_conflicts::<(EntityRef, EntityMut)>(c));
+        assert!(matches!(
+            has_conflicts::<(EntityRef, &mut C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C1, EntityRef)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityMut, &C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&C1, EntityMut)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityMut, &mut C1)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C1, EntityMut)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityMut, EntityRef)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityRef, EntityMut)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
     }
 
     #[test]
@@ -325,30 +391,24 @@ mod tests {
         let c = world.components();
 
         // Compatible
-        assert!(!has_conflicts::<(EntityRefExcept<C1>, &mut C1)>(c));
-        assert!(!has_conflicts::<(&mut C1, EntityRefExcept<C1>)>(c));
-        assert!(!has_conflicts::<(&C2, EntityRefExcept<C1>)>(c));
-        assert!(!has_conflicts::<(&mut C1, EntityRefExcept<(C1, C2)>,)>(c));
-        assert!(!has_conflicts::<(EntityRefExcept<(C1, C2)>, &mut C1,)>(c));
-        assert!(!has_conflicts::<(
-            &mut C1,
-            &mut C2,
-            EntityRefExcept<(C1, C2)>,
-        )>(c));
-        assert!(!has_conflicts::<(
-            &mut C1,
-            EntityRefExcept<(C1, C2)>,
-            &mut C2,
-        )>(c));
-        assert!(!has_conflicts::<(
-            EntityRefExcept<(C1, C2)>,
-            &mut C1,
-            &mut C2,
-        )>(c));
+        assert!(has_conflicts::<(EntityRefExcept<C1>, &mut C1)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityRefExcept<C1>)>(c).is_ok());
+        assert!(has_conflicts::<(&C2, EntityRefExcept<C1>)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityRefExcept<(C1, C2)>,)>(c).is_ok());
+        assert!(has_conflicts::<(EntityRefExcept<(C1, C2)>, &mut C1,)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, &mut C2, EntityRefExcept<(C1, C2)>,)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityRefExcept<(C1, C2)>, &mut C2,)>(c).is_ok());
+        assert!(has_conflicts::<(EntityRefExcept<(C1, C2)>, &mut C1, &mut C2,)>(c).is_ok());
 
         // Conflicts
-        assert!(has_conflicts::<(EntityRefExcept<C1>, &mut C2)>(c));
-        assert!(has_conflicts::<(&mut C2, EntityRefExcept<C1>)>(c));
+        assert!(matches!(
+            has_conflicts::<(EntityRefExcept<C1>, &mut C2)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C2, EntityRefExcept<C1>)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
     }
 
     #[test]
@@ -359,30 +419,30 @@ mod tests {
         let c = world.components();
 
         // Compatible
-        assert!(!has_conflicts::<(EntityMutExcept<C1>, &mut C1)>(c));
-        assert!(!has_conflicts::<(&mut C1, EntityMutExcept<C1>)>(c));
-        assert!(!has_conflicts::<(&mut C1, EntityMutExcept<(C1, C2)>,)>(c));
-        assert!(!has_conflicts::<(EntityMutExcept<(C1, C2)>, &mut C1,)>(c));
-        assert!(!has_conflicts::<(
-            &mut C1,
-            &mut C2,
-            EntityMutExcept<(C1, C2)>,
-        )>(c));
-        assert!(!has_conflicts::<(
-            &mut C1,
-            EntityMutExcept<(C1, C2)>,
-            &mut C2,
-        )>(c));
-        assert!(!has_conflicts::<(
-            EntityMutExcept<(C1, C2)>,
-            &mut C1,
-            &mut C2,
-        )>(c));
+        assert!(has_conflicts::<(EntityMutExcept<C1>, &mut C1)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityMutExcept<C1>)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityMutExcept<(C1, C2)>,)>(c).is_ok());
+        assert!(has_conflicts::<(EntityMutExcept<(C1, C2)>, &mut C1,)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, &mut C2, EntityMutExcept<(C1, C2)>,)>(c).is_ok());
+        assert!(has_conflicts::<(&mut C1, EntityMutExcept<(C1, C2)>, &mut C2,)>(c).is_ok());
+        assert!(has_conflicts::<(EntityMutExcept<(C1, C2)>, &mut C1, &mut C2,)>(c).is_ok());
 
         // Conflicts
-        assert!(has_conflicts::<(&C2, EntityMutExcept<C1>)>(c));
-        assert!(has_conflicts::<(EntityMutExcept<C1>, &C2)>(c));
-        assert!(has_conflicts::<(EntityMutExcept<C1>, &mut C2)>(c));
-        assert!(has_conflicts::<(&mut C2, EntityMutExcept<C1>)>(c));
+        assert!(matches!(
+            has_conflicts::<(&C2, EntityMutExcept<C1>)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityMutExcept<C1>, &C2)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(EntityMutExcept<C1>, &mut C2)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
+        assert!(matches!(
+            has_conflicts::<(&mut C2, EntityMutExcept<C1>)>(c),
+            Err(AccessError::Conflict(_, _))
+        ));
     }
 }
