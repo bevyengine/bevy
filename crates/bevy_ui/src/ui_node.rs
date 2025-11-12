@@ -2879,6 +2879,8 @@ impl ComputedUiRenderTargetInfo {
 /// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSet` is located in world space.
 /// When the root node and its child nodes point to the same `UiContainSet`, the functionality is work.
 /// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
+///
+/// If you want to enable this feature, you need to enable the bevy_ui_contain feature
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, PartialEq, Clone)]
 #[relationship(relationship_target = UiContains)]
@@ -2888,6 +2890,7 @@ pub struct UiContainTarget(pub Entity);
 #[relationship_target(relationship = UiContainTarget, linked_spawn)]
 pub struct UiContains(Vec<Entity>);
 
+/// If you want to enable this feature, you need to enable the bevy_ui_contain feature
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
 #[require(

@@ -25,9 +25,6 @@ fn main() {
 struct ContainNode;
 
 #[derive(Component)]
-struct UiContain;
-
-#[derive(Component)]
 struct UiContainInfo;
 
 #[derive(Component)]
@@ -59,7 +56,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
             //     ..Default::default()
             // },
-            UiContain,
             UiContainInfo,
         ))
         .id();
@@ -188,24 +184,23 @@ fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonIn
 }
 
 fn update_contain(
-    query: Query<&mut Transform, With<UiContainSize>>,
+    query: Single<&mut Transform, With<UiContainInfo>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
-    for mut trans in query {
-        let left = input.pressed(KeyCode::KeyA) as i8 as f32;
-        let right = input.pressed(KeyCode::KeyD) as i8 as f32;
-        let up = input.pressed(KeyCode::KeyW) as i8 as f32;
-        let down = input.pressed(KeyCode::KeyS) as i8 as f32;
+    let mut trans = query.into_inner();
+    let left = input.pressed(KeyCode::KeyA) as i8 as f32;
+    let right = input.pressed(KeyCode::KeyD) as i8 as f32;
+    let up = input.pressed(KeyCode::KeyW) as i8 as f32;
+    let down = input.pressed(KeyCode::KeyS) as i8 as f32;
 
-        trans.translation.x += right - left;
-        trans.translation.y += up - down;
-    }
+    trans.translation.x += right - left;
+    trans.translation.y += up - down;
 }
 
 fn switch_node(
     mut commands: Commands,
     query: Single<(Entity, Has<UiContainTarget>), With<ContainNode>>,
-    contain: Single<Entity, With<UiContain>>,
+    contain: Single<Entity, With<UiContainInfo>>,
 ) {
     let (entity_node, is_contain_node) = query.into_inner();
 
