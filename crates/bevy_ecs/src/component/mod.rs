@@ -406,7 +406,7 @@ use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 ///
 /// ```
 ///
-/// Hook's function path can be elided if it is `Self::on_add`, `Self::on_insert` etc.
+/// A hook's function path can be elided if it is `Self::on_add`, `Self::on_insert` etc.
 /// ```
 /// # use bevy_ecs::lifecycle::HookContext;
 /// # use bevy_ecs::prelude::*;
