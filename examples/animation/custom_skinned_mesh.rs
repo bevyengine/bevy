@@ -9,8 +9,7 @@ use bevy::{
     math::ops,
     mesh::{
         skinning::{
-            create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds,
-            SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
+            SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
         },
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
@@ -151,7 +150,7 @@ fn setup(
     // Create skinned mesh bounds. This ensures that the mesh's `Aabb` takes
     // skinning into account.
     let skinned_mesh_bounds =
-        skinned_mesh_bounds_assets.add(create_skinned_mesh_bounds_asset(&mesh).unwrap());
+        skinned_mesh_bounds_assets.add(SkinnedMeshBoundsAsset::from_mesh(&mesh).unwrap());
 
     let mesh = meshes.add(mesh);
 

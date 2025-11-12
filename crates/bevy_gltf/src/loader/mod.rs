@@ -31,8 +31,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{
-        create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds,
-        SkinnedMeshInverseBindposes,
+        SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
     },
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
@@ -801,11 +800,11 @@ impl GltfLoader {
                     });
                 }
 
-                // XXX TODO: Review after `create_skinned_mesh_bounds_asset` starts
-                // returning proper errors.
+                // XXX TODO: Review after we add proper errors to `from_mesh`.
                 let skinned_mesh_bounds_handle = if (skinned_mesh_bounds_policy
                     == GltfSkinnedMeshBoundsPolicy::Dynamic)
-                    && let Some(skinned_mesh_bounds_asset) = create_skinned_mesh_bounds_asset(&mesh)
+                    && let Some(skinned_mesh_bounds_asset) =
+                        SkinnedMeshBoundsAsset::from_mesh(&mesh)
                 {
                     Some(
                         load_context.add_labeled_asset(

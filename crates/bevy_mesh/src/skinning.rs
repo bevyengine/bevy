@@ -41,9 +41,7 @@ impl Deref for SkinnedMeshInverseBindposes {
     }
 }
 
-// An `Aabb3d` that uses `Vec3` instead of `Vec3A`. The skinned bounds transform
-// (see 'transform_aabb`) only does broadcast loads, so alignment would have
-// no benefit.
+// An `Aabb3d` that uses `Vec3` instead of `Vec3A`.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct PackedAabb3d {
     pub min: Vec3,
@@ -68,6 +66,7 @@ impl From<Aabb3d> for PackedAabb3d {
     }
 }
 
+/// XXX TODO: Document.
 #[derive(Component, Default, Debug, Clone, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct SkinnedMeshBounds(pub Handle<SkinnedMeshBoundsAsset>);
@@ -92,75 +91,79 @@ impl AsAssetId for SkinnedMeshBounds {
     }
 }
 
-// Caution: `aabbs` and `aabb_index_to_joint_index` should be the same length.
-// They're kept separate as a small optimisation - folding them into one array
-// would waste two bytes per joint due to alignment.
+/// XXX TODO: Document.
 #[derive(Asset, TypePath, Debug)]
 pub struct SkinnedMeshBoundsAsset {
     // Model-space AABBs of each joint with skinned vertices. This may be a
     // subset of the joints.
+    //
+    // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same length.
+    // They're kept separate as a minor optimisation - folding them into one array
+    // would waste two bytes per joint due to alignment.
     pub aabbs: Box<[PackedAabb3d]>,
 
     // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     pub aabb_index_to_joint_index: Box<[JointIndex]>,
 }
 
-// XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
-// XXX TODO: Move into an `impl SkinnedMeshBoundsAsset`?.
-pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
-    // XXX TODO: Error.
-    let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?;
+impl SkinnedMeshBoundsAsset {
+    /// XXX TODO: Document.
+    pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
+        // XXX TODO: Error if missing?
+        let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?;
 
-    // XXX TODO: Error.
-    let VertexAttributeValues::Float32x3(vertex_positions) = vertex_positions else {
-        return None;
-    };
+        // XXX TODO: Error if wrong format?
+        let VertexAttributeValues::Float32x3(vertex_positions) = vertex_positions else {
+            return None;
+        };
 
-    let vertex_influences = InfluenceIterator::new(mesh)?;
+        let vertex_influences = InfluenceIterator::new(mesh)?;
 
-    let max_joint_index = vertex_influences
-        .clone()
-        .map(|i| i.joint_index)
-        .reduce(Ord::max)?;
+        let max_joint_index = vertex_influences
+            .clone()
+            .map(|i| i.joint_index)
+            .reduce(Ord::max)?;
 
-    // Accumulate the AABB of each joint. Some joints may not have skinned
-    // vertices, so their accumulators will be left empty.
+        // Accumulate the AABB of each joint. Some joints may not have skinned
+        // vertices, so their accumulators will be left empty.
 
-    let mut accumulators: Box<[AabbAccumulator]> =
-        vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
+        let mut accumulators: Box<[AabbAccumulator]> =
+            vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
 
-    for influence in vertex_influences {
-        // XXX TODO: Should error if vertex index is out of range?
-        if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
-            accumulators[influence.joint_index as usize]
-                .add_point(Vec3A::from_array(vertex_position));
+        for influence in vertex_influences {
+            // XXX TODO: Should error if vertex index is out of range?
+            if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
+                accumulators[influence.joint_index as usize]
+                    .add_point(Vec3A::from_array(vertex_position));
+            }
         }
-    }
 
-    // Finish the accumulator and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
-    // for why the AABBs and indices are separate arrays.
+        // Finish the accumulator and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
+        // for why the AABBs and indices are separate arrays.
 
-    let aabbs = accumulators
-        .iter()
-        .filter_map(|&accumulator| accumulator.finish().map(PackedAabb3d::from))
-        .collect::<Box<[_]>>();
+        let aabbs = accumulators
+            .iter()
+            .filter_map(|&accumulator| accumulator.finish().map(PackedAabb3d::from))
+            .collect::<Box<[_]>>();
 
-    let aabb_index_to_joint_index = accumulators
-        .iter()
-        .enumerate()
-        .filter_map(|(joint_index, &accumulator)| {
-            accumulator.finish().map(|_| joint_index as JointIndex)
+        let aabb_index_to_joint_index = accumulators
+            .iter()
+            .enumerate()
+            .filter_map(|(joint_index, &accumulator)| {
+                accumulator.finish().map(|_| joint_index as JointIndex)
+            })
+            .collect::<Box<[_]>>();
+
+        assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
+
+        Some(SkinnedMeshBoundsAsset {
+            aabbs,
+            aabb_index_to_joint_index,
         })
-        .collect::<Box<[_]>>();
-
-    assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
-
-    Some(SkinnedMeshBoundsAsset {
-        aabbs,
-        aabb_index_to_joint_index,
-    })
+    }
 }
 
+/// XXX TODO: Document.
 pub fn entity_aabb_from_skinned_mesh_bounds(
     joint_entities: &Query<&GlobalTransform>,
     skinned_mesh: &SkinnedMesh,
@@ -210,17 +213,17 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     }
 }
 
-// Match the `Mesh` limits on joint indices (ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4)
+// Match the `Mesh` limits on joint indices (`ATTRIBUTE_JOINT_INDEX = VertexFormat::Uint16x4`)
 //
 // XXX TODO: Where should this go?
 pub type JointIndex = u16;
 
-// XXX TODO: Where should this go?
-pub const MAX_INFLUENCES: usize = 4;
-
-// Return the smallest AABB that contains the transformed AABB.
+// Return the smallest AABB that contains the transformed input AABB.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
+//
+// This input AABB is a `PackedAabb3d` because it doesn't benefit from
+// alignment - the components of the AABB are broadcast loaded through `Vec3A::splat`.
 #[inline]
 fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {
     let rs = transform.matrix3;
@@ -250,6 +253,8 @@ fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {
 
 // Helper for efficiently accumulating an AABB from points or other AABBs, while
 // returning `None` if nothing was added.
+//
+// XXX TODO: Could make the argument for this being in `bevy_math`?
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,
@@ -289,6 +294,7 @@ impl AabbAccumulator {
     }
 }
 
+/// A single vertex influence. Used by [`InfluenceIterator`].
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Influence {
     pub vertex_index: usize,
@@ -307,7 +313,6 @@ pub struct InfluenceIterator<'a> {
 }
 
 impl<'a> InfluenceIterator<'a> {
-    // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
     pub fn new(mesh: &'a Mesh) -> Option<Self> {
         // XXX TODO: Should error if attributes are present but in unsupported form?
         if let (
@@ -331,6 +336,11 @@ impl<'a> InfluenceIterator<'a> {
             None
         }
     }
+
+    // `Mesh` only supports four influences, so we can make this const for
+    // simplicity. If  `Mesh` gains support for variable influences then this
+    // will become a variable.
+    const MAX_INFLUENCES: usize = 4;
 }
 
 impl Iterator for InfluenceIterator<'_> {
@@ -338,10 +348,10 @@ impl Iterator for InfluenceIterator<'_> {
 
     fn next(&mut self) -> Option<Influence> {
         loop {
-            assert!(self.influence_index <= MAX_INFLUENCES);
+            assert!(self.influence_index <= Self::MAX_INFLUENCES);
             assert!(self.vertex_index <= self.vertex_count);
 
-            if self.influence_index >= MAX_INFLUENCES {
+            if self.influence_index >= Self::MAX_INFLUENCES {
                 self.influence_index = 0;
                 self.vertex_index += 1;
             }

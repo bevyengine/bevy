@@ -419,6 +419,8 @@ fn update_skinned_mesh_bounds(
             Option<&GlobalTransform>,
             &mut Aabb,
         ),
+        // XXX TODO: This is debatable - frustum culling is not the only
+        // system that might want skinned bounds.
         Without<NoFrustumCulling>,
     >,
     joint_entities: Query<&GlobalTransform>,
