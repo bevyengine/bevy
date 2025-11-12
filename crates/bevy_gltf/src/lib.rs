@@ -136,6 +136,7 @@ mod vertex_attributes;
 extern crate alloc;
 
 use alloc::sync::Arc;
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use tracing::warn;
 
@@ -189,6 +190,24 @@ impl DefaultGltfImageSampler {
     }
 }
 
+/// Controls the bounds related components that are assigned to skinned mesh
+/// entities. These components are used by systems like frustum culling and
+/// picking.
+#[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
+pub enum GltfSkinnedMeshBoundsPolicy {
+    /// Skinned meshes are assigned an `Aabb` component calculated from the bind
+    /// pose `Mesh`.
+    BindPose,
+    /// Skinned meshes are assigned a `SkinnedMeshBounds` component, which will
+    /// be used by the `bevy_camera` plugin to update the `Aabb` component
+    /// based on joint positions.
+    Dynamic,
+    /// Same as `BindPose`, but also assign a `NoFrustumCulling` component. That
+    /// component tells the `bevy_camera` plugin to avoid frustum culling the
+    /// skinned mesh.
+    NoFrustumCulling,
+}
+
 /// Adds support for glTF file loading to the app.
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
@@ -214,6 +233,9 @@ pub struct GltfPlugin {
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
+
+    /// XXX TODO: Document.
+    pub skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 impl Default for GltfPlugin {
@@ -222,6 +244,7 @@ impl Default for GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
             use_model_forward_direction: false,
+            skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy::Dynamic, // XXX TODO: Decide default.
         }
     }
 }
@@ -272,6 +295,7 @@ impl Plugin for GltfPlugin {
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
             default_use_model_forward_direction: self.use_model_forward_direction,
+            default_skinned_mesh_bounds_policy: self.skinned_mesh_bounds_policy,
         });
     }
 }

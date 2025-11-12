@@ -11,8 +11,9 @@ use bevy_asset::{
     ReadAssetBytesError, RenderAssetUsages,
 };
 use bevy_camera::{
-    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
-    PerspectiveProjection, Projection, ScalingMode,
+    primitives::Aabb,
+    visibility::{NoFrustumCulling, Visibility},
+    Camera, Camera3d, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
@@ -30,7 +31,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{
-        create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset,
+        create_skinned_mesh_bounds_asset, SkinnedMesh, SkinnedMeshBounds,
         SkinnedMeshInverseBindposes,
     },
     Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
@@ -62,6 +63,7 @@ use tracing::{error, info_span, warn};
 use crate::{
     vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
     GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    GltfSkinnedMeshBoundsPolicy,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -163,6 +165,8 @@ pub struct GltfLoader {
     ///
     /// The default is `false`.
     pub default_use_model_forward_direction: bool,
+    /// XXX TODO: Document.
+    pub default_skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -221,6 +225,8 @@ pub struct GltfLoaderSettings {
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
     pub use_model_forward_direction: Option<bool>,
+    /// XXX TODO: Document.
+    pub skinned_mesh_bounds_policy: Option<GltfSkinnedMeshBoundsPolicy>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -235,6 +241,7 @@ impl Default for GltfLoaderSettings {
             default_sampler: None,
             override_sampler: false,
             use_model_forward_direction: None,
+            skinned_mesh_bounds_policy: None,
         }
     }
 }
@@ -280,6 +287,10 @@ impl GltfLoader {
             Some(convert_coordinates) => convert_coordinates,
             None => loader.default_use_model_forward_direction,
         };
+
+        let skinned_mesh_bounds_policy = settings
+            .skinned_mesh_bounds_policy
+            .unwrap_or(loader.default_skinned_mesh_bounds_policy);
 
         #[cfg(feature = "bevy_animation")]
         let (animations, named_animations, animation_roots) = if settings.load_animations {
@@ -790,10 +801,13 @@ impl GltfLoader {
                     });
                 }
 
-                let mut skinned_mesh_bounds_handle = Option::<Handle<SkinnedMeshBoundsAsset>>::None;
-
-                if let Some(skinned_mesh_bounds_asset) = create_skinned_mesh_bounds_asset(&mesh) {
-                    skinned_mesh_bounds_handle = Some(
+                // XXX TODO: Review after `create_skinned_mesh_bounds_asset` starts
+                // returning proper errors.
+                let skinned_mesh_bounds_handle = if (skinned_mesh_bounds_policy
+                    == GltfSkinnedMeshBoundsPolicy::Dynamic)
+                    && let Some(skinned_mesh_bounds_asset) = create_skinned_mesh_bounds_asset(&mesh)
+                {
+                    Some(
                         load_context.add_labeled_asset(
                             GltfAssetLabel::SkinnedMeshBounds {
                                 mesh: gltf_mesh.index(),
@@ -802,8 +816,10 @@ impl GltfLoader {
                             .to_string(),
                             skinned_mesh_bounds_asset,
                         ),
-                    );
-                }
+                    )
+                } else {
+                    None
+                };
 
                 let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
                 primitives.push(super::GltfPrimitive::new(
@@ -988,6 +1004,7 @@ impl GltfLoader {
                             None,
                             &gltf.document,
                             convert_coordinates,
+                            skinned_mesh_bounds_policy,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1432,6 +1449,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
     convert_coordinates: bool,
+    skinned_mesh_bounds_policy: GltfSkinnedMeshBoundsPolicy,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node, convert_coordinates);
@@ -1558,15 +1576,26 @@ fn load_node(
                     ),
                 ));
 
-                let skinned_mesh_bounds_label = GltfAssetLabel::SkinnedMeshBounds {
-                    mesh: mesh.index(),
-                    primitive: primitive.index(),
-                };
+                if gltf_node.skin().is_some() {
+                    match skinned_mesh_bounds_policy {
+                        GltfSkinnedMeshBoundsPolicy::Dynamic => {
+                            let skinned_mesh_bounds_label = GltfAssetLabel::SkinnedMeshBounds {
+                                mesh: mesh.index(),
+                                primitive: primitive.index(),
+                            }
+                            .to_string();
 
-                if load_context.has_labeled_asset(skinned_mesh_bounds_label.to_string()) {
-                    mesh_entity.insert(SkinnedMeshBounds(
-                        load_context.get_label_handle(skinned_mesh_bounds_label.to_string()),
-                    ));
+                            if load_context.has_labeled_asset(skinned_mesh_bounds_label.clone()) {
+                                mesh_entity.insert(SkinnedMeshBounds(
+                                    load_context.get_label_handle(skinned_mesh_bounds_label),
+                                ));
+                            }
+                        }
+                        GltfSkinnedMeshBoundsPolicy::NoFrustumCulling => {
+                            mesh_entity.insert(NoFrustumCulling);
+                        }
+                        _ => {}
+                    }
                 }
 
                 let target_count = primitive.morph_targets().len();
@@ -1724,6 +1753,7 @@ fn load_node(
                 animation_context.clone(),
                 document,
                 convert_coordinates,
+                skinned_mesh_bounds_policy,
             ) {
                 gltf_error = Some(err);
                 return;
