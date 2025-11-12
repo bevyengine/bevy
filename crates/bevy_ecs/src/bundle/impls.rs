@@ -18,7 +18,7 @@ unsafe impl<C: Component> Bundle for C {
         ids(components.register_component::<C>());
     }
 
-    fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+    fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
         iter::once(components.get_id(TypeId::of::<C>()))
     }
 }
@@ -75,8 +75,8 @@ macro_rules! tuple_impl {
                 $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
-            fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
-                iter::empty()$(.chain(<$name as Bundle>::iter_component_ids(components)))*
+            fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
+                iter::empty()$(.chain(<$name as Bundle>::get_component_ids(components)))*
             }
         }
 

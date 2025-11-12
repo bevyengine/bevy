@@ -490,7 +490,7 @@ where
     B: Bundle,
 {
     let mut found = false;
-    for id in B::iter_component_ids(components).flatten() {
+    for id in B::get_component_ids(components).flatten() {
         found = found || id == query_id;
     }
     found

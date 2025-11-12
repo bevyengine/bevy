@@ -1258,7 +1258,7 @@ where
         // This is sound because access checks will run on the resulting access.
         // Since the component isn't registered, there are no entities with that
         // component, and the extra access will usually have no effect.
-        for id in B::iter_component_ids(components).flatten() {
+        for id in B::get_component_ids(components).flatten() {
             access.remove_component_read(id);
         }
         Some(access)
@@ -1372,7 +1372,7 @@ where
         // This is sound because access checks will run on the resulting access.
         // Since the component isn't registered, there are no entities with that
         // component, and the extra access will usually have no effect.
-        for id in B::iter_component_ids(components).flatten() {
+        for id in B::get_component_ids(components).flatten() {
             access.remove_component_read(id);
         }
         Some(access)

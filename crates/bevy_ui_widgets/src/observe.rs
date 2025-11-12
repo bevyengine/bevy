@@ -33,7 +33,7 @@ unsafe impl<
     }
 
     #[inline]
-    fn iter_component_ids(
+    fn get_component_ids(
         _components: &bevy_ecs::component::Components,
     ) -> impl Iterator<Item = Option<bevy_ecs::component::ComponentId>> {
         // SAFETY: Empty iterator

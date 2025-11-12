@@ -305,10 +305,10 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
         <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
-    fn iter_component_ids(
+    fn get_component_ids(
         components: &crate::component::Components,
     ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
-        <R::RelationshipTarget as Bundle>::iter_component_ids(components)
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
@@ -396,10 +396,10 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
         <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
-    fn iter_component_ids(
+    fn get_component_ids(
         components: &crate::component::Components,
     ) -> impl Iterator<Item = Option<crate::component::ComponentId>> {
-        <R::RelationshipTarget as Bundle>::iter_component_ids(components)
+        <R::RelationshipTarget as Bundle>::get_component_ids(components)
     }
 }
 
