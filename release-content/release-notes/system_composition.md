@@ -12,11 +12,11 @@ systems inside other systems!
 
 ```rust
 fn count_a(a: Query<&A>) -> u32 {
-    a.iter().len()
+    a.count()
 }
 
 fn count_b(b: Query<&B>) -> u32 {
-    b.iter().len()
+    b.count()
 }
 
 let get_sum = (

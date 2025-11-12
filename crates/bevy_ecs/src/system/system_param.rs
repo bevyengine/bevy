@@ -2786,11 +2786,11 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 /// # let mut world = World::new();
 /// #
 /// fn count_a(a: Query<&A>) -> u32 {
-///     a.len()
+///     a.count()
 /// }
 ///
 /// fn count_b(b: Query<&B>) -> u32 {
-///     b.len()
+///     b.count()
 /// }
 ///
 /// let get_sum = (
