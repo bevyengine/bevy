@@ -1,3 +1,4 @@
+use benches::bench;
 use core::hint::black_box;
 
 use bevy_ecs::{
@@ -5,7 +6,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Query, SystemState},
-    world::World,
+    world::{EntityMut, World},
 };
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
@@ -356,4 +357,75 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
             });
         });
     }
+}
+
+pub fn query_get_components_mut(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group(bench!("world_query_get_components_mut"));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    for entity_count in RANGE.map(|i| i * 10_000) {
+        let (mut world, entities) = setup_wide::<(
+            WideTable<0>,
+            WideTable<1>,
+            WideTable<2>,
+            WideTable<3>,
+            WideTable<4>,
+            WideTable<5>,
+            WideTable<6>,
+            WideTable<7>,
+            WideTable<8>,
+            WideTable<9>,
+        )>(entity_count);
+        let mut query = world.query::<EntityMut>();
+        group.bench_function(format!("{entity_count}_entities"), |bencher| {
+            bencher.iter(|| {
+                for entity in &entities {
+                    assert!(query
+                        .get_mut(&mut world, *entity)
+                        .unwrap()
+                        .get_components_mut::<(
+                            &mut WideTable<0>,
+                            &mut WideTable<1>,
+                            &mut WideTable<2>,
+                            &mut WideTable<3>,
+                            &mut WideTable<4>,
+                            &mut WideTable<5>,
+                            &mut WideTable<6>,
+                            &mut WideTable<7>,
+                            &mut WideTable<8>,
+                            &mut WideTable<9>,
+                        )>()
+                        .is_ok());
+                }
+            });
+        });
+        group.bench_function(format!("unchecked_{entity_count}_entities"), |bencher| {
+            bencher.iter(|| {
+                for entity in &entities {
+                    // SAFETY: no duplicate components are listed
+                    unsafe {
+                        assert!(query
+                            .get_mut(&mut world, *entity)
+                            .unwrap()
+                            .get_components_mut_unchecked::<(
+                                &mut WideTable<0>,
+                                &mut WideTable<1>,
+                                &mut WideTable<2>,
+                                &mut WideTable<3>,
+                                &mut WideTable<4>,
+                                &mut WideTable<5>,
+                                &mut WideTable<6>,
+                                &mut WideTable<7>,
+                                &mut WideTable<8>,
+                                &mut WideTable<9>,
+                            )>()
+                            .is_ok());
+                    }
+                }
+            });
+        });
+    }
+
+    group.finish();
 }

@@ -3,7 +3,7 @@ use crate::{
     change_detection::{ComponentTicks, MaybeLocation, Tick},
     component::{Component, ComponentId, Mutable},
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityLocation},
-    query::{has_conflicts, Access, AccessError, ReadOnlyQueryData, ReleaseStateQueryData},
+    query::{has_conflicts, Access, QueryAccessError, ReadOnlyQueryData, ReleaseStateQueryData},
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DynamicComponentFetch,
         EntityRef, FilteredEntityMut, FilteredEntityRef, Mut, Ref,
@@ -152,7 +152,7 @@ impl<'w> EntityMut<'w> {
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
-    ) -> Option<Q::Item<'_, 'static>> {
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         self.as_readonly().get_components::<Q>()
     }
 
@@ -186,18 +186,40 @@ impl<'w> EntityMut<'w> {
     /// the `QueryData` does not provide aliasing mutable references to the same component.
     pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
         &mut self,
-    ) -> Option<Q::Item<'_, 'static>> {
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         // SAFETY: Caller ensures the `QueryData` does not provide aliasing mutable references to the same component
         unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
     }
 
-    /// returns None if component wasn't registered, or if the access is not compatible bewteen terms
+    /// Returns components for the current entity that match the query `Q`.
+    /// In the case of conflicting [`QueryData`](crate::query::QueryData), unregistered components, or missing components,
+    /// this will return a [`QueryAccessError`]
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) = entity.get_components_mut::<(&mut X, &mut Y)>().unwrap();
+    /// ```
+    ///
+    /// Note that this does a O(n^2) check that the [`QueryData`](crate::query::QueryData) does not conflict. If performance is a
+    /// consideration you should use [`Self::get_components_mut_unchecked`] instead.
     pub fn get_components_mut<Q: ReleaseStateQueryData>(
         &mut self,
-    ) -> Result<Q::Item<'_, 'static>, AccessError> {
+    ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
         has_conflicts::<Q>(self.cell.world().components())?;
         // SAFETY: we checked that there were not conflicting components above
-        unsafe { self.get_components_mut_unchecked::<Q>() }.ok_or(AccessError::EntityDoesNotMatch)
+        unsafe { self.get_components_mut_unchecked::<Q>() }
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
@@ -230,7 +252,7 @@ impl<'w> EntityMut<'w> {
     /// the `QueryData` does not provide aliasing mutable references to the same component.
     pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
         self,
-    ) -> Option<Q::Item<'w, 'static>> {
+    ) -> Result<Q::Item<'w, 'static>, QueryAccessError> {
         // SAFETY:
         // - We have mutable access to all components of this entity.
         // - Caller asserts the `QueryData` does not provide aliasing mutable references to the same component
