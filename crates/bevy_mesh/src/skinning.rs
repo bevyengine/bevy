@@ -41,15 +41,17 @@ impl Deref for SkinnedMeshInverseBindposes {
     }
 }
 
-// XXX TODO: Document why this is different from `Aabb3d`.
+// An `Aabb3d` that uses `Vec3` instead of `Vec3A`. The skinned bounds transform
+// (see 'transform_aabb`) only does broadcast loads, so alignment would have
+// no benefit.
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct JointBounds {
+pub struct PackedAabb3d {
     pub min: Vec3,
     pub max: Vec3,
 }
 
-impl From<JointBounds> for Aabb3d {
-    fn from(value: JointBounds) -> Self {
+impl From<PackedAabb3d> for Aabb3d {
+    fn from(value: PackedAabb3d) -> Self {
         Self {
             min: value.min.into(),
             max: value.max.into(),
@@ -57,7 +59,7 @@ impl From<JointBounds> for Aabb3d {
     }
 }
 
-impl From<Aabb3d> for JointBounds {
+impl From<Aabb3d> for PackedAabb3d {
     fn from(value: Aabb3d) -> Self {
         Self {
             min: value.min.into(),
@@ -90,17 +92,17 @@ impl AsAssetId for SkinnedMeshBounds {
     }
 }
 
-// Caution: `bounds` and `bounds_index_to_joint_index` should be the same length.
+// Caution: `aabbs` and `aabb_index_to_joint_index` should be the same length.
 // They're kept separate as a small optimisation - folding them into one array
 // would waste two bytes per joint due to alignment.
 #[derive(Asset, TypePath, Debug)]
 pub struct SkinnedMeshBoundsAsset {
-    // Model-space bounds of each joint with skinned vertices. This may be a
-    // a subset of the joints.
-    pub bounds: Box<[JointBounds]>,
+    // Model-space AABBs of each joint with skinned vertices. This may be a
+    // subset of the joints.
+    pub aabbs: Box<[PackedAabb3d]>,
 
-    // Maps from a `bounds` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
-    pub bounds_index_to_joint_index: Box<[JointIndex]>,
+    // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
+    pub aabb_index_to_joint_index: Box<[JointIndex]>,
 }
 
 // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
@@ -121,29 +123,29 @@ pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBounds
         .map(|i| i.joint_index)
         .reduce(Ord::max)?;
 
-    // Accumulate the bounds of each joint. Some joints may not have skinned
+    // Accumulate the AABB of each joint. Some joints may not have skinned
     // vertices, so their accumulators will be left empty.
 
-    let mut joint_accumulators: Box<[AabbAccumulator]> =
+    let mut accumulators: Box<[AabbAccumulator]> =
         vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
 
     for influence in vertex_influences {
         // XXX TODO: Should error if vertex index is out of range?
         if let Some(&vertex_position) = vertex_positions.get(influence.vertex_index) {
-            joint_accumulators[influence.joint_index as usize]
-                .add_position(Vec3A::from_array(vertex_position));
+            accumulators[influence.joint_index as usize]
+                .add_point(Vec3A::from_array(vertex_position));
         }
     }
 
-    // Finish the accumulator and keep only joints with bounds. See `SkinnedMeshBoundsAsset`
-    // for why the bounds and indices are separate arrays.
+    // Finish the accumulator and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
+    // for why the AABBs and indices are separate arrays.
 
-    let bounds = joint_accumulators
+    let aabbs = accumulators
         .iter()
-        .filter_map(|&accumulator| accumulator.finish().map(JointBounds::from))
+        .filter_map(|&accumulator| accumulator.finish().map(PackedAabb3d::from))
         .collect::<Box<[_]>>();
 
-    let bounds_index_to_joint_index = joint_accumulators
+    let aabb_index_to_joint_index = accumulators
         .iter()
         .enumerate()
         .filter_map(|(joint_index, &accumulator)| {
@@ -151,11 +153,11 @@ pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBounds
         })
         .collect::<Box<[_]>>();
 
-    assert_eq!(bounds.len(), bounds_index_to_joint_index.len());
+    assert_eq!(aabbs.len(), aabb_index_to_joint_index.len());
 
     Some(SkinnedMeshBoundsAsset {
-        bounds,
-        bounds_index_to_joint_index,
+        aabbs,
+        aabb_index_to_joint_index,
     })
 }
 
@@ -166,13 +168,21 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     skinned_mesh_bounds: &SkinnedMeshBoundsAsset,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
-    let mut worldspace_entity_aabb_accumulator = AabbAccumulator::new();
+    let mut accumulator = AabbAccumulator::new();
 
-    for (&joint_bounds, &joint_index) in skinned_mesh_bounds
-        .bounds
+    for (&modelspace_joint_aabb, &joint_index) in skinned_mesh_bounds
+        .aabbs
         .iter()
-        .zip(skinned_mesh_bounds.bounds_index_to_joint_index.iter())
+        .zip(skinned_mesh_bounds.aabb_index_to_joint_index.iter())
     {
+        let Some(joint_from_model) = skinned_mesh_inverse_bindposes
+            .get(joint_index as usize)
+            .map(|&m| Affine3A::from_mat4(m))
+        else {
+            // XXX TODO: Error?
+            continue;
+        };
+
         let Some(&joint_entity) = skinned_mesh.joints.get(joint_index as usize) else {
             // XXX TODO: Error?
             continue;
@@ -182,31 +192,21 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
             continue;
         };
 
-        let Some(joint_from_model) = skinned_mesh_inverse_bindposes
-            .get(joint_index as usize)
-            .map(|&m| Affine3A::from_mat4(m))
-        else {
-            // XXX TODO: Error?
-            continue;
-        };
-
         let world_from_model = world_from_joint.affine() * joint_from_model;
+        let worldspace_joint_aabb = transform_aabb(modelspace_joint_aabb, world_from_model);
 
-        let worldspace_joint_aabb = transform_bounds(joint_bounds, world_from_model);
-
-        worldspace_entity_aabb_accumulator.add_aabb(worldspace_joint_aabb);
+        accumulator.add_aabb(worldspace_joint_aabb);
     }
 
-    let worldspace_entity_aabb = worldspace_entity_aabb_accumulator.finish()?;
+    let worldspace_entity_aabb = accumulator.finish()?;
 
     // If necessary, transform the AABB from world-space to entity-space.
-    if let Some(world_from_entity) = world_from_entity {
-        Some(transform_bounds(
+    match world_from_entity {
+        Some(world_from_entity) => Some(transform_aabb(
             worldspace_entity_aabb.into(),
             world_from_entity.affine().inverse(),
-        ))
-    } else {
-        Some(worldspace_entity_aabb)
+        )),
+        None => Some(worldspace_entity_aabb),
     }
 }
 
@@ -218,11 +218,11 @@ pub type JointIndex = u16;
 // XXX TODO: Where should this go?
 pub const MAX_INFLUENCES: usize = 4;
 
-// Return an AABB that contains the transformed joint bounds.
+// Return the smallest AABB that contains the transformed AABB.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
 #[inline]
-pub fn transform_bounds(input: JointBounds, transform: Affine3A) -> Aabb3d {
+fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {
     let rs = transform.matrix3;
     let t = transform.translation;
 
@@ -248,6 +248,8 @@ pub fn transform_bounds(input: JointBounds, transform: Affine3A) -> Aabb3d {
     Aabb3d { min, max }
 }
 
+// Helper for efficiently accumulating an AABB from points or other AABBs, while
+// returning `None` if nothing was added.
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,
@@ -256,6 +258,9 @@ struct AabbAccumulator {
 
 impl AabbAccumulator {
     fn new() -> Self {
+        // Initialize our state such that `min > max`, but the first add will
+        // make `min <= max`. This means adding can be branchless, while
+        // `finish` can still detect if nothing was added.
         Self {
             min: Vec3A::MAX,
             max: Vec3A::MIN,
@@ -267,7 +272,7 @@ impl AabbAccumulator {
         self.max = self.max.max(aabb.max);
     }
 
-    fn add_position(&mut self, position: Vec3A) {
+    fn add_point(&mut self, position: Vec3A) {
         self.min = self.min.min(position);
         self.max = self.max.max(position);
     }
@@ -369,43 +374,73 @@ mod tests {
 
     #[test]
     fn aabb_accumulator() {
-        let aabb_0 = Aabb3d {
-            min: vec3a(1.0, 2.0, 3.0),
-            max: vec3a(5.0, 4.0, 3.0),
-        };
+        assert_eq!(AabbAccumulator::new().finish(), None);
 
-        let aabb_1 = Aabb3d {
-            min: vec3a(-99.0, 2.0, 3.0),
-            max: vec3a(5.0, 4.0, 3.0),
-        };
+        let nice_aabbs = &[
+            Aabb3d {
+                min: vec3a(1.0, 2.0, 3.0),
+                max: vec3a(5.0, 4.0, 3.0),
+            },
+            Aabb3d {
+                min: vec3a(-99.0, 2.0, 3.0),
+                max: vec3a(5.0, 4.0, 3.0),
+            },
+            Aabb3d {
+                min: vec3a(1.0, 2.0, 3.0),
+                max: vec3a(5.0, 99.0, 3.0),
+            },
+        ];
 
-        let aabb_2 = Aabb3d {
-            min: vec3a(1.0, 2.0, 3.0),
-            max: vec3a(5.0, 99.0, 3.0),
-        };
+        let naughty_aabbs = &[
+            Aabb3d {
+                min: Vec3A::MIN,
+                max: Vec3A::MAX,
+            },
+            Aabb3d {
+                min: Vec3A::MIN,
+                max: Vec3A::MIN,
+            },
+            Aabb3d {
+                min: Vec3A::MAX,
+                max: Vec3A::MAX,
+            },
+        ];
 
-        {
-            let none = AabbAccumulator::new();
+        for aabbs in [nice_aabbs, naughty_aabbs] {
+            for &aabb in aabbs {
+                let point = aabb.min;
 
-            assert_eq!(none.finish(), None);
-        }
+                let mut one_aabb = AabbAccumulator::new();
+                let mut one_point = AabbAccumulator::new();
 
-        {
-            let mut one = AabbAccumulator::new();
-            one.add_aabb(aabb_0);
+                one_aabb.add_aabb(aabb);
+                one_point.add_point(point);
 
-            assert_eq!(one.finish(), Some(aabb_0));
-        }
+                assert_eq!(one_aabb.finish(), Some(aabb));
+                assert_eq!(
+                    one_point.finish(),
+                    Some(Aabb3d {
+                        min: point,
+                        max: point
+                    })
+                );
+            }
 
-        {
-            let mut multiple = AabbAccumulator::new();
-            multiple.add_aabb(aabb_0);
-            multiple.add_aabb(aabb_1);
-            multiple.add_aabb(aabb_2);
+            {
+                let mut multiple_aabbs = AabbAccumulator::new();
+                let mut multiple_points = AabbAccumulator::new();
 
-            let expected = aabb_0.merge(&aabb_1.merge(&aabb_2));
+                for &aabb in aabbs {
+                    multiple_aabbs.add_aabb(aabb);
+                    multiple_points.add_point(aabb.min);
+                    multiple_points.add_point(aabb.max);
+                }
 
-            assert_eq!(multiple.finish(), Some(expected));
+                let expected = aabbs.iter().cloned().reduce(|l, r| l.merge(&r));
+
+                assert_eq!(multiple_aabbs.finish(), expected);
+                assert_eq!(multiple_points.finish(), expected);
+            }
         }
     }
 
