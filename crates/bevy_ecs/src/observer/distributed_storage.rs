@@ -426,7 +426,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 ) {
     world.commands().queue(move |world: &mut World| {
         let event_key = world.register_event_key::<E>();
-        let components: Vec<_> = B::component_ids(&mut world.components_registrator()).collect();
+        let components = B::component_ids(&mut world.components_registrator());
 
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
             observer.descriptor.event_keys.push(event_key);
