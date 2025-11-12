@@ -262,7 +262,7 @@ where
     }
 
     #[inline]
-    /// Returns this BuilderSystem with a custom name.
+    /// Returns this `BuilderSystem` with a custom name.
     pub fn with_name(mut self, name: impl Into<Cow<'static, str>>) -> Self {
         if let BuilderSystemInner::Uninitialized { meta, .. } = &mut self.inner {
             meta.set_name(name);
