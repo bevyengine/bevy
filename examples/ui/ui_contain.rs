@@ -1,8 +1,6 @@
 //! Node can choose Camera as the layout or [`UiContainSet`](bevy::prelude::UiContainSet) Component for layout.
 //! Nodes will be laid out according to the size and Transform of `UiContainSet`
 
-use std::{cell::OnceCell, sync::OnceLock};
-
 use bevy::{
     app::Propagate, input::common_conditions::input_just_released, prelude::*, sprite::Anchor,
 };
@@ -17,6 +15,7 @@ fn main() {
                 update_camera,
                 update_contain,
                 switch_node.run_if(input_just_released(KeyCode::Space)),
+                update_text,
             ),
         )
         .run();
@@ -28,8 +27,20 @@ struct ContainNode;
 #[derive(Component)]
 struct UiContain;
 
+#[derive(Component)]
+struct UiContainInfo;
+
+#[derive(Component)]
+struct CameraInfo;
+
+#[derive(Component)]
+struct InfoTextUiContain(Entity);
+
+#[derive(Component)]
+struct InfoTextCamera(Entity);
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2d);
+    let camera = commands.spawn((Camera2d, CameraInfo)).id();
 
     // world center
     commands.spawn(Sprite {
@@ -49,6 +60,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             //     ..Default::default()
             // },
             UiContain,
+            UiContainInfo,
         ))
         .id();
 
@@ -72,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ContainNode, // Button,
         ))
         .with_children(|parent| {
-            let entity = parent
+            parent
                 .spawn((
                     Node {
                         display: Display::Block,
@@ -89,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                 ))
                 .with_children(|parent| {
-                    let entity = parent
+                    parent
                         .spawn((
                             Node {
                                 display: Display::Block,
@@ -110,6 +122,57 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ));
                 });
         });
+
+    // text spawn
+    commands.spawn((
+        Node {
+            display: Display::Grid,
+            position_type: PositionType::Absolute,
+            bottom: px(0.0),
+            ..Default::default()
+        },
+        Text::new("WASD move uicontain\nArrowKey move camera\nSpace Switching node type"),
+        GlobalZIndex(10),
+        TextColor(Srgba::rgb(0.0, 1.0, 1.0).into()),
+    ));
+
+    commands
+        .spawn((Node {
+            position_type: PositionType::Absolute,
+            bottom: px(0.0),
+            right: px(0.0),
+            flex_direction: FlexDirection::Column,
+            ..Default::default()
+        },))
+        .with_children(|parent| {
+            parent.spawn((
+                Text::new("GlobalTranfrom Camera: None"),
+                InfoTextCamera(camera),
+            ));
+            parent.spawn((
+                Text::new("GlobalTranfrom UiContain: None"),
+                InfoTextUiContain(uicontain),
+            ));
+        });
+}
+
+fn update_text(
+    info_camera: Single<(&mut Text, &InfoTextCamera), Without<InfoTextUiContain>>,
+    info_uicontain: Single<(&mut Text, &InfoTextUiContain), Without<InfoTextCamera>>,
+    query: Query<&GlobalTransform>,
+) {
+    let (mut text_camera, related) = info_camera.into_inner();
+
+    text_camera.0 = format!(
+        "GlobalTranfrom Camera: {:?}",
+        query.get(related.0).map(|trans| trans.translation()),
+    );
+
+    let (mut text_contain, related) = info_uicontain.into_inner();
+    text_contain.0 = format!(
+        "GlobalTranfrom UiContain: {:?}",
+        query.get(related.0).map(|trans| trans.translation()),
+    );
 }
 
 fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonInput<KeyCode>>) {
