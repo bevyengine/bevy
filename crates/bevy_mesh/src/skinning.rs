@@ -90,12 +90,17 @@ impl AsAssetId for SkinnedMeshBounds {
     }
 }
 
-// XXX TODO: Consider folding `bounds` and `bounds_index_to_joint_index` into
-// one array.
+// Caution: `bounds` and `bounds_index_to_joint_index` should be the same length.
+// They're kept separate as a small optimisation - folding them into one array
+// would waste two bytes per joint due to alignment.
 #[derive(Asset, TypePath, Debug)]
 pub struct SkinnedMeshBoundsAsset {
-    // Model-space bounds of each joint with skinned vertices.
-    pub bounds: Box<[(JointIndex, JointBounds)]>,
+    // Model-space bounds of each joint with skinned vertices. This may be a
+    // a subset of the joints.
+    pub bounds: Box<[JointBounds]>,
+
+    // Maps from a `bounds` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
+    pub bounds_index_to_joint_index: Box<[JointIndex]>,
 }
 
 // XXX TODO: Avoid dependency on `Mesh`? Take attributes instead.
@@ -116,6 +121,9 @@ pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBounds
         .map(|i| i.joint_index)
         .reduce(Ord::max)?;
 
+    // Accumulate the bounds of each joint. Some joints may not have skinned
+    // vertices, so their accumulators will be left empty.
+
     let mut joint_accumulators: Box<[AabbAccumulator]> =
         vec![AabbAccumulator::new(); (max_joint_index as usize) + 1].into();
 
@@ -127,18 +135,27 @@ pub fn create_skinned_mesh_bounds_asset(mesh: &Mesh) -> Option<SkinnedMeshBounds
         }
     }
 
-    let joint_bounds = joint_accumulators
+    // Finish the accumulator and keep only joints with bounds. See `SkinnedMeshBoundsAsset`
+    // for why the bounds and indices are separate arrays.
+
+    let bounds = joint_accumulators
+        .iter()
+        .filter_map(|&accumulator| accumulator.finish().map(JointBounds::from))
+        .collect::<Box<[_]>>();
+
+    let bounds_index_to_joint_index = joint_accumulators
         .iter()
         .enumerate()
-        .filter_map(|(joint_index, accumulator)| {
-            accumulator
-                .finish()
-                .map(|aabb| (joint_index as JointIndex, JointBounds::from(aabb)))
+        .filter_map(|(joint_index, &accumulator)| {
+            accumulator.finish().map(|_| joint_index as JointIndex)
         })
-        .collect::<Vec<_>>();
+        .collect::<Box<[_]>>();
+
+    assert_eq!(bounds.len(), bounds_index_to_joint_index.len());
 
     Some(SkinnedMeshBoundsAsset {
-        bounds: joint_bounds.into(),
+        bounds,
+        bounds_index_to_joint_index,
     })
 }
 
@@ -151,7 +168,11 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 ) -> Option<Aabb3d> {
     let mut worldspace_entity_aabb_accumulator = AabbAccumulator::new();
 
-    for &(joint_index, joint_bounds) in &skinned_mesh_bounds.bounds {
+    for (&joint_bounds, &joint_index) in skinned_mesh_bounds
+        .bounds
+        .iter()
+        .zip(skinned_mesh_bounds.bounds_index_to_joint_index.iter())
+    {
         let Some(&joint_entity) = skinned_mesh.joints.get(joint_index as usize) else {
             // XXX TODO: Error?
             continue;
