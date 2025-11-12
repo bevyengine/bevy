@@ -2785,11 +2785,11 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 /// # struct B;
 /// # let mut world = World::new();
 /// #
-/// fn count_a(a: Query<&A>) -> u32 {
+/// fn count_a(a: Query<&A>) -> usize {
 ///     a.count()
 /// }
 ///
-/// fn count_b(b: Query<&B>) -> u32 {
+/// fn count_b(b: Query<&B>) -> usize {
 ///     b.count()
 /// }
 ///
@@ -2799,7 +2799,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 /// )
 /// .build_state(&mut world)
 /// .build_system(
-///     |mut run_a: SystemRunner<(), u32>, mut run_b: SystemRunner<(), u32>| -> Result<u32, RunSystemError> {
+///     |mut run_a: SystemRunner<(), usize>, mut run_b: SystemRunner<(), usize>| -> Result<usize, RunSystemError> {
 ///         let a = run_a.run()?;
 ///         let b = run_b.run()?;
 ///         Ok(a + b)

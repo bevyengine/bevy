@@ -11,11 +11,11 @@ even easier. Bevy 0.18 introduces the `SystemRunner` `SystemParam`, allowing run
 systems inside other systems!
 
 ```rust
-fn count_a(a: Query<&A>) -> u32 {
+fn count_a(a: Query<&A>) -> usize {
     a.count()
 }
 
-fn count_b(b: Query<&B>) -> u32 {
+fn count_b(b: Query<&B>) -> usize {
     b.count()
 }
 
@@ -24,7 +24,7 @@ let get_sum = (
     ParamBuilder::system(count_b)
 )
 .build_system(
-    |mut run_a: SystemRunner<(), u32>, mut run_b: SystemRunner<(), u32>| -> Result<u32, RunSystemError> {
+    |mut run_a: SystemRunner<(), usize>, mut run_b: SystemRunner<(), usize>| -> Result<usize, RunSystemError> {
         let a = run_a.run()?;
         let b = run_b.run()?;
         Ok(a + b)
@@ -40,7 +40,7 @@ the new `SystemRunner` params almost seamless to use.
 
 ```rust
 compose! {
-    || -> Result<u32, RunSystemError> {
+    || -> Result<usize, RunSystemError> {
         let a = run!(count_a)?;
         let b = run!(count_b)?;
         Ok(a + b)
