@@ -1,6 +1,6 @@
 ---
 title: "New required method on SystemInput"
-pull_requests: [todo]
+pull_requests: [21811]
 ---
 
 Custom implementations of the `SystemInput` trait will need to implement a new

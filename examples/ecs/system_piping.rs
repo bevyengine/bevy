@@ -1,8 +1,8 @@
 //! Illustrates how to make a single system from multiple functions running in sequence,
 //! passing the output of the first into the input of the next.
 
+use bevy::ecs::system::{compose, RunSystemError};
 use bevy::prelude::*;
-use bevy_ecs::system::{compose, RunSystemError};
 use std::num::ParseIntError;
 
 use bevy::log::{debug, error, info, Level, LogPlugin};
