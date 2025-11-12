@@ -33,14 +33,6 @@ unsafe impl<
     }
 
     #[inline]
-    fn get_component_ids(
-        _components: &bevy_ecs::component::Components,
-        _ids: &mut impl FnMut(Option<bevy_ecs::component::ComponentId>),
-    ) {
-        // SAFETY: Empty function body
-    }
-
-    #[inline]
     fn iter_component_ids(
         _components: &bevy_ecs::component::Components,
     ) -> impl Iterator<Item = Option<bevy_ecs::component::ComponentId>> {

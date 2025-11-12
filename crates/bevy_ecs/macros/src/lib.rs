@@ -140,13 +140,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components, ids);)*
             }
 
-            fn get_component_ids(
-                components: &#ecs_path::component::Components,
-                ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
-            }
-
             fn iter_component_ids(
                 components: &#ecs_path::component::Components,
             ) -> impl Iterator<Item = Option<#ecs_path::component::ComponentId>> {

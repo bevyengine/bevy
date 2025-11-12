@@ -1252,17 +1252,15 @@ where
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.read_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::iter_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 
@@ -1368,17 +1366,15 @@ where
     fn get_state(components: &Components) -> Option<Self::State> {
         let mut access = Access::new();
         access.write_all_components();
-        B::get_component_ids(components, &mut |maybe_id| {
-            // If the component isn't registered, we don't have a `ComponentId`
-            // to use to exclude its access.
-            // Rather than fail, just try to take additional access.
-            // This is sound because access checks will run on the resulting access.
-            // Since the component isn't registered, there are no entities with that
-            // component, and the extra access will usually have no effect.
-            if let Some(id) = maybe_id {
-                access.remove_component_read(id);
-            }
-        });
+        // If the component isn't registered, we don't have a `ComponentId`
+        // to use to exclude its access.
+        // Rather than fail, just try to take additional access.
+        // This is sound because access checks will run on the resulting access.
+        // Since the component isn't registered, there are no entities with that
+        // component, and the extra access will usually have no effect.
+        for id in B::iter_component_ids(components).flatten() {
+            access.remove_component_read(id);
+        }
         Some(access)
     }
 

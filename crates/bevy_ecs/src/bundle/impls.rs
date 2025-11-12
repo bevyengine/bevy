@@ -18,10 +18,6 @@ unsafe impl<C: Component> Bundle for C {
         ids(components.register_component::<C>());
     }
 
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
-        ids(components.get_id(TypeId::of::<C>()));
-    }
-
     fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
         iter::once(components.get_id(TypeId::of::<C>()))
     }
@@ -77,10 +73,6 @@ macro_rules! tuple_impl {
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, ids);)*
-            }
-
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
             fn iter_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>> {
