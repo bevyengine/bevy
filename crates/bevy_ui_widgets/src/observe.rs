@@ -27,9 +27,9 @@ unsafe impl<
     #[inline]
     fn component_ids(
         _components: &mut bevy_ecs::component::ComponentsRegistrator,
-        _ids: &mut impl FnMut(bevy_ecs::component::ComponentId),
-    ) {
-        // SAFETY: Empty function body
+    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+        // SAFETY: Empty iterator
+        core::iter::empty()
     }
 
     #[inline]

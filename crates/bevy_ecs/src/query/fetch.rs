@@ -1243,9 +1243,9 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.read_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 
@@ -1357,9 +1357,9 @@ where
     fn init_state(world: &mut World) -> Self::State {
         let mut access = Access::new();
         access.write_all_components();
-        B::component_ids(&mut world.components_registrator(), &mut |id| {
+        for id in B::component_ids(&mut world.components_registrator()) {
             access.remove_component_read(id);
-        });
+        }
         access
     }
 

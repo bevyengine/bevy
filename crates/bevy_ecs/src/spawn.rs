@@ -300,9 +300,8 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, L> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
@@ -391,9 +390,8 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
-        ids: &mut impl FnMut(crate::component::ComponentId),
-    ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
+    ) -> impl Iterator<Item = crate::component::ComponentId> + use<R, B> {
+        <R::RelationshipTarget as Bundle>::component_ids(components)
     }
 
     fn get_component_ids(
