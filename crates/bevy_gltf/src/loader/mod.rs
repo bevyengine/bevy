@@ -801,6 +801,10 @@ impl GltfLoader {
                 }
 
                 // XXX TODO: Review after we add proper errors to `from_mesh`.
+                // XXX TODO: This is arguably wrong if the mesh has skinning
+                // attributes but is never assigned to a node with a skin.
+                // Unclear if that case it worth worrying about, but should be
+                // documented.
                 let skinned_mesh_bounds_handle = if (skinned_mesh_bounds_policy
                     == GltfSkinnedMeshBoundsPolicy::Dynamic)
                     && let Some(skinned_mesh_bounds_asset) =
