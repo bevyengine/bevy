@@ -37,6 +37,13 @@ pub enum EntityCursor {
     System(SystemCursorIcon),
 }
 
+/// A component used to override any EntityCursor cursor changes.
+///
+/// This is meant for cases like loading where you don't want the cursor to imply you 
+/// can interact with something.
+#[derive(Resource, Debug, Clone, Default, Reflect)]
+pub struct OverrideCursor(pub Option<SystemCursorIcon>);
+
 impl EntityCursor {
     /// Convert the [`EntityCursor`] to a [`CursorIcon`] so that it can be inserted into a
     /// window.
@@ -80,6 +87,7 @@ pub(crate) fn update_cursor(
     cursor_query: Query<&EntityCursor, Without<Window>>,
     q_windows: Query<(Entity, Option<&CursorIcon>), With<Window>>,
     r_default_cursor: Res<DefaultCursor>,
+    override_cursor: Res<OverrideCursor>,
 ) {
     let cursor = hover_map
         .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
@@ -93,14 +101,15 @@ pub(crate) fn update_cursor(
             None => None,
         })
         .unwrap_or(&r_default_cursor.0);
+    let cursor = override_cursor.0.map(CursorIcon::from).unwrap_or(cursor.to_cursor_icon());
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor
-            && cursor.eq_cursor_icon(prev_cursor)
+            && cursor == *prev_cursor
         {
             continue;
         }
-        commands.entity(entity).insert(cursor.to_cursor_icon());
+        commands.entity(entity).insert(cursor.clone());
     }
 }
 
@@ -111,6 +120,7 @@ impl Plugin for CursorIconPlugin {
     fn build(&self, app: &mut App) {
         if app.world().get_resource::<DefaultCursor>().is_none() {
             app.init_resource::<DefaultCursor>();
+            app.init_resource::<OverrideCursor>();
         }
         app.add_systems(PreUpdate, update_cursor.in_set(PickingSystems::Last));
     }

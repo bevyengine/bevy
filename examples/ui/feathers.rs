@@ -13,6 +13,7 @@ use bevy::{
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
+        cursor::OverrideCursor,
     },
     input_focus::tab_navigation::TabGroup,
     prelude::*,
@@ -20,7 +21,7 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
-    },
+    }, window::SystemCursorIcon,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -52,7 +53,10 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(
+    mut commands: Commands,
+    mut override_cursor: ResMut<OverrideCursor>
+) {
     // ui camera
     commands.spawn(Camera2d);
     commands.spawn(demo_root());
@@ -185,10 +189,11 @@ fn demo_root() -> impl Bundle {
                     button(
                         ButtonProps::default(),
                         (),
-                        Spawn((Text::new("Button"), ThemedText))
+                        Spawn((Text::new("Toggle override"), ThemedText))
                     ),
-                    observe(|_activate: On<Activate>| {
-                        info!("Wide button clicked!");
+                    observe(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
+                        ovr.0 = if ovr.0.is_some() { None } else { Some(SystemCursorIcon::Wait) };
+                        info!("Override cursor button clicked!");
                     })
                 ),
                 (
