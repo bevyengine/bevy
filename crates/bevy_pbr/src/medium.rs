@@ -117,23 +117,31 @@ impl ScatteringMedium {
     }
 
     /// Returns a scattering medium representing an earthlike atmosphere.
+    ///
+    /// Uses physically-based scale heights from Earth's atmosphere, assuming
+    /// a 60 km atmosphere height:
+    /// - Rayleigh (molecular) scattering: 8 km scale height
+    /// - Mie (aerosol) scattering: 1.2 km scale height
     pub fn earthlike(falloff_resolution: u32, phase_resolution: u32) -> Self {
         Self::new(
             falloff_resolution,
             phase_resolution,
             [
+                // Rayleigh scattering Term
                 ScatteringTerm {
                     absorption: Vec3::ZERO,
                     scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-                    falloff: Falloff::Exponential { strength: 12.5 },
+                    falloff: Falloff::Exponential { scale: 8.0 / 60.0 },
                     phase: PhaseFunction::Rayleigh,
                 },
+                // Mie scattering Term
                 ScatteringTerm {
                     absorption: Vec3::splat(3.996e-6),
                     scattering: Vec3::splat(0.444e-6),
-                    falloff: Falloff::Exponential { strength: 83.5 },
+                    falloff: Falloff::Exponential { scale: 1.2 / 60.0 },
                     phase: PhaseFunction::Mie { asymmetry: 0.8 },
                 },
+                // Ozone scattering Term
                 ScatteringTerm {
                     absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
                     scattering: Vec3::ZERO,
@@ -158,7 +166,7 @@ impl ScatteringMedium {
 /// which are denser but lie closer to the ground.
 #[derive(Default, Clone)]
 pub struct ScatteringTerm {
-    /// This term's optical obsorption density, or how much light of each wavelength
+    /// This term's optical absorption density, or how much light of each wavelength
     /// it absorbs per meter.
     ///
     /// units: m^-1
@@ -203,18 +211,30 @@ pub enum Falloff {
     /// f(p) = p
     #[default]
     Linear,
-    /// An exponential falloff function with adjustable strength.
+    /// An exponential falloff function parametrized by a proportional scale.
+    /// When paired with an absolute "falloff distance" like the distance from
+    /// Earth's surface to the edge of space, this is analogous to the "height
+    /// scale" value common in atmospheric scattering literature, though it will
+    /// diverge from this for large or negative `scale` values.
     ///
     /// f(1) = 1
     /// f(0) = 0
-    /// f(p) = (e^sp - 1)/(e^s - 1)
+    /// f(p) = (e^((1-p)/s) - e^(1/s))/(e - e^(1/s))
     Exponential {
-        /// The "strength" of the exponential falloff. The higher
-        /// this value is, the quicker the medium's density will
-        /// decrease with distance.
+        /// The "scale" of the exponential falloff. Values closer to zero will
+        /// produce steeper falloff, and values farther from zero will produce
+        /// gentler falloff, approaching linear falloff as scale goes to `+-∞`.
+        ///
+        /// Negative values change the *concavity* of the falloff function:
+        /// rather than an initial narrow region of steep falloff followed by a
+        /// wide region of gentle falloff, there will be an initial wide region
+        /// of gentle falloff followed by a narrow region of steep falloff.
         ///
         /// domain: (-∞, ∞)
-        strength: f32,
+        ///
+        /// NOTE, this function is not defined when `scale == 0`.
+        /// In that case, it will fall back to linear falloff.
+        scale: f32,
     },
     /// A tent-shaped falloff function, which produces a triangular
     /// peak at the center and linearly falls off to either side.
@@ -244,25 +264,23 @@ impl Falloff {
         Self::Curve(Arc::new(curve))
     }
 
-    fn sample(&self, falloff: f32) -> f32 {
+    fn sample(&self, p: f32) -> f32 {
         match self {
-            Falloff::Linear => falloff,
-            Falloff::Exponential { strength } => {
-                // fill discontinuity at strength == 0
-                if *strength == 0.0 {
-                    falloff
+            Falloff::Linear => p,
+            Falloff::Exponential { scale } => {
+                // fill discontinuity at scale == 0,
+                // arbitrarily choose linear falloff
+                if *scale == 0.0 {
+                    p
                 } else {
-                    let scale_exp_m1 = ops::exp_m1(*strength);
-                    let domain_offset = ops::ln(scale_exp_m1.abs());
-                    let range_offset = scale_exp_m1.recip();
-                    let eval_pos = falloff * strength - domain_offset;
-                    scale_exp_m1.signum() * ops::exp(eval_pos) - range_offset
+                    let s = -1.0 / scale;
+                    let exp_p_s = ops::exp((1.0 - p) * s);
+                    let exp_s = ops::exp(s);
+                    (exp_p_s - exp_s) / (1.0 - exp_s)
                 }
             }
-            Falloff::Tent { center, width } => {
-                (1.0 - (falloff - center).abs() / (0.5 * width)).max(0.0)
-            }
-            Falloff::Curve(curve) => curve.sample(falloff).unwrap_or(0.0),
+            Falloff::Tent { center, width } => (1.0 - (p - center).abs() / (0.5 * width)).max(0.0),
+            Falloff::Curve(curve) => curve.sample(p).unwrap_or(0.0),
         }
     }
 }

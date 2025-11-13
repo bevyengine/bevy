@@ -59,8 +59,8 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Justify, LineBreak, Strikethrough, TextColor, TextError, TextFont, TextLayout,
-        TextSpan, Underline,
+        Font, Justify, LineBreak, Strikethrough, StrikethroughColor, TextColor, TextError,
+        TextFont, TextLayout, TextSpan, Underline, UnderlineColor,
     };
 }
 
@@ -82,10 +82,6 @@ pub struct TextPlugin;
 /// System set in [`PostUpdate`] where all 2d text update systems are executed.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct Text2dUpdateSystems;
-
-/// Deprecated alias for [`Text2dUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
-pub type Update2dText = Text2dUpdateSystems;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {

@@ -2,12 +2,19 @@ use alloc::{
     boxed::Box,
     collections::BTreeMap,
     string::{String, ToString},
+    sync::Arc,
     vec,
     vec::Vec,
+};
+use async_lock::{RwLock, RwLockWriteGuard};
+use bevy_platform::{
+    collections::HashMap,
+    sync::{Mutex, PoisonError},
 };
 use bevy_reflect::TypePath;
 use core::marker::PhantomData;
 use futures_lite::AsyncWriteExt;
+use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -18,7 +25,8 @@ use bevy_tasks::BoxedFuture;
 use crate::{
     io::{
         memory::{Dir, MemoryAssetReader, MemoryAssetWriter},
-        AssetSource, AssetSourceId, Reader,
+        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceEvent, AssetSourceId,
+        AssetWatcher, PathStream, Reader,
     },
     processor::{
         AssetProcessor, LoadTransformAndSave, LogEntry, ProcessorState, ProcessorTransactionLog,
@@ -30,39 +38,152 @@ use crate::{
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
 };
 
-struct AppWithProcessor {
-    app: App,
-    source_dir: Dir,
-    processed_dir: Dir,
+#[derive(Clone)]
+struct ProcessingDirs {
+    source: Dir,
+    processed: Dir,
+    source_event_sender: async_channel::Sender<AssetSourceEvent>,
 }
 
-fn create_app_with_asset_processor() -> AppWithProcessor {
+struct AppWithProcessor {
+    app: App,
+    source_gate: Arc<RwLock<()>>,
+    default_source_dirs: ProcessingDirs,
+    extra_sources_dirs: HashMap<String, ProcessingDirs>,
+}
+
+/// Similar to [`crate::io::gated::GatedReader`], but uses a lock instead of a channel to avoid
+/// needing to send the "correct" number of messages.
+#[derive(Clone)]
+struct LockGatedReader<R: AssetReader> {
+    reader: R,
+    gate: Arc<RwLock<()>>,
+}
+
+impl<R: AssetReader> LockGatedReader<R> {
+    /// Creates a new [`GatedReader`], which wraps the given `reader`. Also returns a [`GateOpener`] which
+    /// can be used to open "path gates" for this [`GatedReader`].
+    fn new(gate: Arc<RwLock<()>>, reader: R) -> Self {
+        Self { gate, reader }
+    }
+}
+
+impl<R: AssetReader> AssetReader for LockGatedReader<R> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        let _guard = self.gate.read().await;
+        self.reader.read(path).await
+    }
+
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
+        let _guard = self.gate.read().await;
+        self.reader.read_meta(path).await
+    }
+
+    async fn read_directory<'a>(
+        &'a self,
+        path: &'a Path,
+    ) -> Result<Box<PathStream>, AssetReaderError> {
+        let _guard = self.gate.read().await;
+        self.reader.read_directory(path).await
+    }
+
+    async fn is_directory<'a>(&'a self, path: &'a Path) -> Result<bool, AssetReaderError> {
+        let _guard = self.gate.read().await;
+        self.reader.is_directory(path).await
+    }
+}
+
+fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
     let mut app = App::new();
-    let source_dir = Dir::default();
-    let processed_dir = Dir::default();
+    let source_gate = Arc::new(RwLock::new(()));
 
-    let source_memory_reader = MemoryAssetReader {
-        root: source_dir.clone(),
-    };
-    let processed_memory_reader = MemoryAssetReader {
-        root: processed_dir.clone(),
-    };
-    let processed_memory_writer = MemoryAssetWriter {
-        root: processed_dir.clone(),
-    };
+    struct UnfinishedProcessingDirs {
+        source: Dir,
+        processed: Dir,
+        // The receiver channel for the source event sender for the unprocessed source.
+        source_event_sender_receiver:
+            async_channel::Receiver<async_channel::Sender<AssetSourceEvent>>,
+    }
 
-    app.register_asset_source(
-        AssetSourceId::Default,
-        AssetSource::build()
-            .with_reader(move || Box::new(source_memory_reader.clone()))
-            .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
-            .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
-    )
-    .add_plugins((
+    impl UnfinishedProcessingDirs {
+        fn finish(self) -> ProcessingDirs {
+            ProcessingDirs {
+                source: self.source,
+                processed: self.processed,
+                // The processor listens for events on the source unconditionally, and we enable
+                // watching for the processed source, so both of these channels will be filled.
+                source_event_sender: self.source_event_sender_receiver.recv_blocking().unwrap(),
+            }
+        }
+    }
+
+    fn create_source(
+        app: &mut App,
+        source_id: AssetSourceId<'static>,
+        source_gate: Arc<RwLock<()>>,
+    ) -> UnfinishedProcessingDirs {
+        let source_dir = Dir::default();
+        let processed_dir = Dir::default();
+
+        let source_memory_reader = LockGatedReader::new(
+            source_gate,
+            MemoryAssetReader {
+                root: source_dir.clone(),
+            },
+        );
+        let processed_memory_reader = MemoryAssetReader {
+            root: processed_dir.clone(),
+        };
+        let processed_memory_writer = MemoryAssetWriter {
+            root: processed_dir.clone(),
+        };
+
+        let (source_event_sender_sender, source_event_sender_receiver) = async_channel::bounded(1);
+
+        struct FakeWatcher;
+
+        impl AssetWatcher for FakeWatcher {}
+
+        app.register_asset_source(
+            source_id,
+            AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
+                .with_watcher(move |sender: async_channel::Sender<AssetSourceEvent>| {
+                    source_event_sender_sender.send_blocking(sender).unwrap();
+                    Some(Box::new(FakeWatcher))
+                })
+                .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
+                .with_processed_writer(move |_| Some(Box::new(processed_memory_writer.clone()))),
+        );
+
+        UnfinishedProcessingDirs {
+            source: source_dir,
+            processed: processed_dir,
+            source_event_sender_receiver,
+        }
+    }
+
+    let default_source_dirs = create_source(&mut app, AssetSourceId::Default, source_gate.clone());
+
+    let extra_sources_dirs = extra_sources
+        .iter()
+        .map(|source_name| {
+            (
+                source_name.clone(),
+                create_source(
+                    &mut app,
+                    AssetSourceId::Name(source_name.clone().into()),
+                    source_gate.clone(),
+                ),
+            )
+        })
+        .collect::<Vec<_>>();
+
+    app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
+            watch_for_changes_override: Some(true),
             ..Default::default()
         },
     ));
@@ -113,22 +234,31 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
         .set_log_factory(Box::new(FakeTransactionLogFactory))
         .unwrap();
 
+    // Now that we've built the app, finish all the processing dirs.
+
     AppWithProcessor {
         app,
-        source_dir,
-        processed_dir,
+        source_gate,
+        default_source_dirs: default_source_dirs.finish(),
+        extra_sources_dirs: extra_sources_dirs
+            .into_iter()
+            .map(|(name, dirs)| (name, dirs.finish()))
+            .collect(),
     }
 }
 
-fn run_app_until_finished_processing(app: &mut App) {
-    run_app_until(app, |world| {
-        if bevy_tasks::block_on(world.resource::<AssetProcessor>().get_state())
-            == ProcessorState::Finished
-        {
-            Some(())
-        } else {
-            None
-        }
+fn run_app_until_finished_processing(app: &mut App, guard: RwLockWriteGuard<'_, ()>) {
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    // We can't just wait for the processor state to be finished since we could have already
+    // finished before, but now that something has changed, we may not have restarted processing
+    // yet. So wait for processing to start, then finish.
+    run_app_until(app, |_| {
+        let state = bevy_tasks::block_on(processor.get_state());
+        (state == ProcessorState::Processing || state == ProcessorState::Initializing).then_some(())
+    });
+    drop(guard);
+    run_app_until(app, |_| {
+        (bevy_tasks::block_on(processor.get_state()) == ProcessorState::Finished).then_some(())
     });
 }
 
@@ -162,7 +292,7 @@ impl AssetSaver for CoolTextSaver {
             // another file to do so.
             embedded_dependencies: vec![],
         };
-        let ron = ron::ser::to_string(&ron).unwrap();
+        let ron = ron::ser::to_string_pretty(&ron, PrettyConfig::new().new_line("\n")).unwrap();
         writer.write_all(ron.as_bytes()).await?;
         Ok(())
     }
@@ -199,6 +329,19 @@ impl<M: MutateAsset<A>, A: Asset> AssetTransformer for RootAssetTransformer<M, A
     }
 }
 
+struct AddText(String);
+
+impl MutateAsset<CoolText> for AddText {
+    fn mutate(&self, text: &mut CoolText) {
+        text.text.push_str(&self.0);
+    }
+}
+
+fn read_asset_as_string(dir: &Dir, path: &Path) -> String {
+    let bytes = dir.get_asset(path).unwrap();
+    str::from_utf8(bytes.value()).unwrap().to_string()
+}
+
 #[test]
 fn no_meta_or_default_processor_copies_asset() {
     // Assets without a meta file or a default processor should still be accessible in the
@@ -209,9 +352,17 @@ fn no_meta_or_default_processor_copies_asset() {
 
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    let guard = source_gate.write_blocking();
 
     let path = Path::new("abc.cool.ron");
     let source_asset = r#"(
@@ -223,7 +374,7 @@ fn no_meta_or_default_processor_copies_asset() {
 
     source_dir.insert_asset_text(path, source_asset);
 
-    run_app_until_finished_processing(&mut app);
+    run_app_until_finished_processing(&mut app, guard);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
@@ -234,17 +385,15 @@ fn no_meta_or_default_processor_copies_asset() {
 fn asset_processor_transforms_asset_default_processor() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
-
-    struct AddText;
-
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -253,10 +402,12 @@ fn asset_processor_transforms_asset_default_processor() {
     >;
     app.register_asset_loader(CoolTextLoader)
         .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(AddText),
+            RootAssetTransformer::new(AddText("_def".into())),
             CoolTextSaver,
         ))
         .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    let guard = source_gate.write_blocking();
 
     let path = Path::new("abc.cool.ron");
     source_dir.insert_asset_text(
@@ -269,13 +420,18 @@ fn asset_processor_transforms_asset_default_processor() {
 )"#,
     );
 
-    run_app_until_finished_processing(&mut app);
+    run_app_until_finished_processing(&mut app, guard);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
     assert_eq!(
         processed_asset,
-        r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
     );
 }
 
@@ -283,17 +439,15 @@ fn asset_processor_transforms_asset_default_processor() {
 fn asset_processor_transforms_asset_with_meta() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
-
-    struct AddText;
-
-    impl MutateAsset<CoolText> for AddText {
-        fn mutate(&self, text: &mut CoolText) {
-            text.text.push_str("_def");
-        }
-    }
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
@@ -302,9 +456,11 @@ fn asset_processor_transforms_asset_with_meta() {
     >;
     app.register_asset_loader(CoolTextLoader)
         .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(AddText),
+            RootAssetTransformer::new(AddText("_def".into())),
             CoolTextSaver,
         ));
+
+    let guard = source_gate.write_blocking();
 
     let path = Path::new("abc.cool.ron");
     source_dir.insert_asset_text(
@@ -319,7 +475,7 @@ fn asset_processor_transforms_asset_with_meta() {
     source_dir.insert_meta_text(path, r#"(
     meta_format_version: "1.0",
     asset: Process(
-        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::asset_processor_transforms_asset_with_meta::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
+        processor: "bevy_asset::processor::process::LoadTransformAndSave<bevy_asset::tests::CoolTextLoader, bevy_asset::processor::tests::RootAssetTransformer<bevy_asset::processor::tests::AddText, bevy_asset::tests::CoolText>, bevy_asset::processor::tests::CoolTextSaver>",
         settings: (
             loader_settings: (),
             transformer_settings: (),
@@ -328,13 +484,18 @@ fn asset_processor_transforms_asset_with_meta() {
     ),
 )"#);
 
-    run_app_until_finished_processing(&mut app);
+    run_app_until_finished_processing(&mut app, guard);
 
     let processed_asset = processed_dir.get_asset(path).unwrap();
     let processed_asset = str::from_utf8(processed_asset.value()).unwrap();
     assert_eq!(
         processed_asset,
-        r#"(text:"abc_def",dependencies:[],embedded_dependencies:[],sub_texts:[])"#
+        r#"(
+    text: "abc_def",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#
     );
 }
 
@@ -462,8 +623,6 @@ impl AssetSaver for FakeBsnSaver {
     ) -> Result<(), Self::Error> {
         use std::io::{Error, ErrorKind};
 
-        use ron::ser::PrettyConfig;
-
         let ron_string =
             ron::ser::to_string_pretty(asset.get(), PrettyConfig::new().new_line("\n"))
                 .map_err(|err| Error::new(ErrorKind::InvalidData, err))?;
@@ -477,9 +636,15 @@ fn asset_processor_loading_can_read_processed_assets() {
 
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     // This processor loads a gltf file, converts it to BSN and then saves out the BSN.
     type GltfProcessor = LoadTransformAndSave<FakeGltfLoader, GltfToBsn, FakeBsnSaver>;
@@ -496,6 +661,8 @@ fn asset_processor_loading_can_read_processed_assets() {
         ))
         .set_default_asset_processor::<GltfProcessor>("gltf")
         .set_default_asset_processor::<BsnProcessor>("bsn");
+
+    let guard = source_gate.write_blocking();
 
     let gltf_path = Path::new("abc.gltf");
     source_dir.insert_asset_text(
@@ -521,7 +688,7 @@ fn asset_processor_loading_can_read_processed_assets() {
 )"#,
     );
 
-    run_app_until_finished_processing(&mut app);
+    run_app_until_finished_processing(&mut app, guard);
 
     let processed_bsn = processed_dir.get_asset(bsn_path).unwrap();
     let processed_bsn = str::from_utf8(processed_bsn.value()).unwrap();
@@ -543,9 +710,15 @@ fn asset_processor_loading_can_read_processed_assets() {
 fn asset_processor_loading_can_read_source_assets() {
     let AppWithProcessor {
         mut app,
-        source_dir,
-        processed_dir,
-    } = create_app_with_asset_processor();
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
 
     #[derive(Serialize, Deserialize)]
     struct FakeGltfxData {
@@ -647,6 +820,8 @@ fn asset_processor_loading_can_read_source_assets() {
         .set_default_asset_processor::<GltfProcessor>("gltf")
         .set_default_asset_processor::<GltfxProcessor>("gltfx");
 
+    let guard = source_gate.write_blocking();
+
     let gltf_path_1 = Path::new("abc.gltf");
     source_dir.insert_asset_text(
         gltf_path_1,
@@ -676,7 +851,7 @@ fn asset_processor_loading_can_read_source_assets() {
 )"#,
     );
 
-    run_app_until_finished_processing(&mut app);
+    run_app_until_finished_processing(&mut app, guard);
 
     // Sanity check that the two gltf files were actually processed.
     let processed_gltf_1 = processed_dir.get_asset(gltf_path_1).unwrap();
@@ -725,4 +900,347 @@ fn asset_processor_loading_can_read_source_assets() {
 
     // This assertion exists to "prove" that this problem exists.
     assert!(processed_dir.get_asset(gltfx_path).is_none());
+}
+
+#[test]
+fn asset_processor_processes_all_sources() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+                source_event_sender: default_source_events,
+            },
+        extra_sources_dirs,
+    } = create_app_with_asset_processor(&["custom_1".into(), "custom_2".into()]);
+    let ProcessingDirs {
+        source: custom_1_source_dir,
+        processed: custom_1_processed_dir,
+        source_event_sender: custom_1_source_events,
+    } = extra_sources_dirs["custom_1"].clone();
+    let ProcessingDirs {
+        source: custom_2_source_dir,
+        processed: custom_2_processed_dir,
+        source_event_sender: custom_2_source_events,
+    } = extra_sources_dirs["custom_2"].clone();
+
+    type AddTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor(AddTextProcessor::new(
+            RootAssetTransformer::new(AddText(" processed".into())),
+            CoolTextSaver,
+        ))
+        .set_default_asset_processor::<AddTextProcessor>("cool.ron");
+
+    let guard = source_gate.write_blocking();
+
+    // All the assets will have the same path, but they will still be separately processed since
+    // they are in different sources.
+    let path = Path::new("asset.cool.ron");
+    let serialize_as_cool_text = |text: &str| {
+        let cool_text_ron = CoolTextRon {
+            text: text.into(),
+            dependencies: vec![],
+            embedded_dependencies: vec![],
+            sub_texts: vec![],
+        };
+        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+    };
+    default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset"));
+    custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset"));
+    custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset"));
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    // Check that all the assets are processed.
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset processed")
+    );
+
+    let guard = source_gate.write_blocking();
+
+    // Update the default source asset and notify the watcher.
+    default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset changed"));
+    default_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    // Check that all the assets are processed again.
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset processed")
+    );
+
+    let guard = source_gate.write_blocking();
+
+    // Update the custom source assets and notify the watchers.
+    custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset changed"));
+    custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset changed"));
+    custom_1_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+    custom_2_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset(path.to_path_buf()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    // Check that all the assets are processed again.
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, path),
+        serialize_as_cool_text("default asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_1_processed_dir, path),
+        serialize_as_cool_text("custom 1 asset changed processed")
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_2_processed_dir, path),
+        serialize_as_cool_text("custom 2 asset changed processed")
+    );
+}
+
+#[test]
+fn nested_loads_of_processed_asset_reprocesses_on_reload() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+                source_event_sender: default_source_events,
+            },
+        extra_sources_dirs,
+    } = create_app_with_asset_processor(&["custom".into()]);
+    let ProcessingDirs {
+        source: custom_source_dir,
+        processed: custom_processed_dir,
+        source_event_sender: custom_source_events,
+    } = extra_sources_dirs["custom"].clone();
+
+    #[derive(Serialize, Deserialize)]
+    enum NesterSerialized {
+        Leaf(String),
+        Path(String),
+    }
+
+    #[derive(Asset, TypePath)]
+    struct Nester {
+        value: String,
+    }
+
+    struct NesterLoader;
+
+    impl AssetLoader for NesterLoader {
+        type Asset = Nester;
+        type Settings = ();
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            let mut bytes = vec![];
+            reader.read_to_end(&mut bytes).await?;
+
+            let serialized: NesterSerialized = ron::de::from_bytes(&bytes).unwrap();
+            Ok(match serialized {
+                NesterSerialized::Leaf(value) => Nester { value },
+                NesterSerialized::Path(path) => {
+                    let loaded_asset = load_context.loader().immediate().load(path).await.unwrap();
+                    loaded_asset.take()
+                }
+            })
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["nest"]
+        }
+    }
+
+    struct AddTextToNested(String, Arc<Mutex<u32>>);
+
+    impl MutateAsset<Nester> for AddTextToNested {
+        fn mutate(&self, asset: &mut Nester) {
+            asset.value.push_str(&self.0);
+
+            *self.1.lock().unwrap_or_else(PoisonError::into_inner) += 1;
+        }
+    }
+
+    fn serialize_as_leaf(value: String) -> String {
+        let serialized = NesterSerialized::Leaf(value);
+        ron::ser::to_string(&serialized).unwrap()
+    }
+
+    struct NesterSaver;
+
+    impl AssetSaver for NesterSaver {
+        type Asset = Nester;
+        type Error = std::io::Error;
+        type Settings = ();
+        type OutputLoader = NesterLoader;
+
+        async fn save(
+            &self,
+            writer: &mut crate::io::Writer,
+            asset: crate::saver::SavedAsset<'_, Self::Asset>,
+            _settings: &Self::Settings,
+        ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, Self::Error> {
+            let serialized = serialize_as_leaf(asset.get().value.clone());
+            writer.write_all(serialized.as_bytes()).await
+        }
+    }
+
+    let process_counter = Arc::new(Mutex::new(0));
+
+    type NesterProcessor = LoadTransformAndSave<
+        NesterLoader,
+        RootAssetTransformer<AddTextToNested, Nester>,
+        NesterSaver,
+    >;
+    app.init_asset::<Nester>()
+        .register_asset_loader(NesterLoader)
+        .register_asset_processor(NesterProcessor::new(
+            RootAssetTransformer::new(AddTextToNested("-ref".into(), process_counter.clone())),
+            NesterSaver,
+        ))
+        .set_default_asset_processor::<NesterProcessor>("nest");
+
+    let guard = source_gate.write_blocking();
+
+    // This test also checks that processing of nested assets can occur across asset sources.
+    custom_source_dir.insert_asset_text(
+        Path::new("top.nest"),
+        &ron::ser::to_string(&NesterSerialized::Path("middle.nest".into())).unwrap(),
+    );
+    default_source_dir.insert_asset_text(
+        Path::new("middle.nest"),
+        &ron::ser::to_string(&NesterSerialized::Path("custom://bottom.nest".into())).unwrap(),
+    );
+    custom_source_dir
+        .insert_asset_text(Path::new("bottom.nest"), &serialize_as_leaf("leaf".into()));
+    default_source_dir.insert_asset_text(
+        Path::new("unrelated.nest"),
+        &serialize_as_leaf("unrelated".into()),
+    );
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    // The initial processing step should have processed all assets.
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    let get_process_count = || {
+        *process_counter
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    };
+    assert_eq!(get_process_count(), 4);
+
+    // Now we will only send a single source event, but that should still result in all related
+    // assets being reprocessed.
+    let guard = source_gate.write_blocking();
+
+    custom_source_dir.insert_asset_text(
+        Path::new("bottom.nest"),
+        &serialize_as_leaf("leaf changed".into()),
+    );
+    custom_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset("bottom.nest".into()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf changed-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf changed-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf changed-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    assert_eq!(get_process_count(), 7);
+
+    // Send a modify event to the middle asset without changing the asset bytes. This should do
+    // **nothing** since neither its dependencies nor its bytes have changed.
+    let guard = source_gate.write_blocking();
+
+    default_source_events
+        .send_blocking(AssetSourceEvent::ModifiedAsset("middle.nest".into()))
+        .unwrap();
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("bottom.nest")),
+        serialize_as_leaf("leaf changed-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("middle.nest")),
+        serialize_as_leaf("leaf changed-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&custom_processed_dir, Path::new("top.nest")),
+        serialize_as_leaf("leaf changed-ref-ref-ref".into())
+    );
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, Path::new("unrelated.nest")),
+        serialize_as_leaf("unrelated-ref".into())
+    );
+
+    assert_eq!(get_process_count(), 7);
 }

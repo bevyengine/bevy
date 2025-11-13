@@ -391,31 +391,6 @@ impl App {
         self
     }
 
-    /// Initializes [`Message`] handling for `T` by inserting an event queue resource ([`Messages::<T>`])
-    /// and scheduling an [`message_update_system`] in [`First`].
-    ///
-    /// See [`Messages`] for information on how to define events.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Message)]
-    /// # struct MyMessage;
-    /// # let mut app = App::new();
-    /// #
-    /// app.add_event::<MyMessage>();
-    /// ```
-    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
-    pub fn add_event<T>(&mut self) -> &mut Self
-    where
-        T: Message,
-    {
-        self.add_message::<T>()
-    }
-
     /// Initializes [`Message`] handling for `T` by inserting a message queue resource ([`Messages::<T>`])
     /// and scheduling an [`message_update_system`] in [`First`].
     ///
