@@ -14,8 +14,8 @@ use crate::{
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids<'a>(
-        components: &'a mut ComponentsRegistrator,
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
     ) -> impl Iterator<Item = ComponentId> + use<C> {
         iter::once(components.register_component::<C>())
     }

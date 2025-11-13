@@ -21,8 +21,9 @@ unsafe impl<C: Component> Bundle for C {
 
 // After
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids<'a>(
-        components: &'a mut ComponentsRegistrator,
+    fn component_ids<(
+        components: &mut ComponentsRegistrator,
+    // we use a `use` here to explicitly not capture the lifetime of `components`
     ) -> impl Iterator<Item = ComponentId> + use<C> {
         iter::once(components.register_component::<C>())
     }
