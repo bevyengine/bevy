@@ -55,7 +55,6 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut override_cursor: ResMut<OverrideCursor>
 ) {
     // ui camera
     commands.spawn(Camera2d);
