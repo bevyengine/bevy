@@ -1,11 +1,11 @@
 ---
-title: Allow mutable access to multiple Mesh attributes simultaniously
+title: Allow mutable access to multiple Mesh attributes simultaneously
 authors: ["@hukasu"]
 pull_requests: [18976]
 ---
 
 `Mesh` holds multiple attributes, having mutable access to multiple attributes
-simultaniously allows to edit them all at once, if they are derived from the same data.
+simultaneously allows to edit them all at once, if they are derived from the same data.
 
 To access multiple the attributes you can use the new method `get_attributes_mut`:
 
