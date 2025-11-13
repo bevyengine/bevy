@@ -9,11 +9,11 @@ use bevy::{
             ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
             SliderProps,
         },
+        cursor::OverrideCursor,
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
         tokens, FeathersPlugins,
-        cursor::OverrideCursor,
     },
     input_focus::tab_navigation::TabGroup,
     prelude::*,
@@ -21,7 +21,8 @@ use bevy::{
     ui_widgets::{
         checkbox_self_update, observe, slider_self_update, Activate, RadioButton, RadioGroup,
         SliderPrecision, SliderStep, SliderValue, ValueChange,
-    }, window::SystemCursorIcon,
+    },
+    window::SystemCursorIcon,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -53,9 +54,7 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-) {
+fn setup(mut commands: Commands) {
     // ui camera
     commands.spawn(Camera2d);
     commands.spawn(demo_root());
@@ -191,7 +190,11 @@ fn demo_root() -> impl Bundle {
                         Spawn((Text::new("Toggle override"), ThemedText))
                     ),
                     observe(|_activate: On<Activate>, mut ovr: ResMut<OverrideCursor>| {
-                        ovr.0 = if ovr.0.is_some() { None } else { Some(SystemCursorIcon::Wait) };
+                        ovr.0 = if ovr.0.is_some() {
+                            None
+                        } else {
+                            Some(SystemCursorIcon::Wait)
+                        };
                         info!("Override cursor button clicked!");
                     })
                 ),

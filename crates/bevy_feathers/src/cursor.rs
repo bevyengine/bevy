@@ -39,7 +39,7 @@ pub enum EntityCursor {
 
 /// A component used to override any EntityCursor cursor changes.
 ///
-/// This is meant for cases like loading where you don't want the cursor to imply you 
+/// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.
 #[derive(Resource, Debug, Clone, Default, Reflect)]
 pub struct OverrideCursor(pub Option<SystemCursorIcon>);
@@ -101,7 +101,10 @@ pub(crate) fn update_cursor(
             None => None,
         })
         .unwrap_or(&r_default_cursor.0);
-    let cursor = override_cursor.0.map(CursorIcon::from).unwrap_or(cursor.to_cursor_icon());
+    let cursor = override_cursor
+        .0
+        .map(CursorIcon::from)
+        .unwrap_or(cursor.to_cursor_icon());
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor
