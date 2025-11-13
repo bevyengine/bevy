@@ -1071,7 +1071,6 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// # Safety
     /// `index` must be in-bounds.
     pub unsafe fn get(self, index: usize) -> &'a T {
-        #[cfg(debug_assertions)]
         debug_assert!(index < self.len);
 
         let ptr = self.ptr.as_ptr();
