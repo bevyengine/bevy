@@ -1108,6 +1108,7 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     /// `index` must be in-bounds.
     #[deprecated(since = "0.18.0", note = "use get_unchecked() instead")]
     pub unsafe fn get(self, index: usize) -> &'a T {
+        // SAFETY: The caller guarantees that `index` is in-bounds.
         unsafe { self.get_unchecked(index) }
     }
 }
