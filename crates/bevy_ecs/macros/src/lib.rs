@@ -646,6 +646,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 /// `function` can be either a path, e.g. `some_function::<Self>`,
 /// or a function call that returns a function that can be turned into
 /// a `ComponentHook`, e.g. `get_closure("Hi!")`.
+/// `function` can be elided if the path is `Self::on_add`, `Self::on_insert` etc.
 ///
 /// ## Ignore this component when cloning an entity
 /// ```ignore
