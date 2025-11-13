@@ -1065,17 +1065,18 @@ pub struct ThinSlicePtr<'a, T> {
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
-    #[inline]
-    /// Indexes the slice without doing bounds checks
+    /// Indexes the slice without performing bounds checks.
     ///
     /// # Safety
+    ///
     /// `index` must be in-bounds.
+    #[inline]
     pub unsafe fn get(self, index: usize) -> &'a T {
-        debug_assert!(index < self.len);
+        debug_assert!(index < self.len, "tried to index out-of-bounds of a slice");
 
-        let ptr = self.ptr.as_ptr();
-        // SAFETY: `index` is in-bounds so the resulting pointer is valid to dereference.
-        unsafe { &*ptr.add(index) }
+        // SAFETY: The caller guarantees `index` is in-bounds so that the resulting pointer is
+        // valid to dereference.
+        unsafe { &*self.ptr.add(index).as_ptr() }
     }
 }
 
