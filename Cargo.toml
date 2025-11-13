@@ -2400,7 +2400,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
