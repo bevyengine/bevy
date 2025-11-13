@@ -1,5 +1,5 @@
 ---
-title: `Bundle::component_ids` and `Bundle::get_commponent_ids` were changed to return an iterator.
+title: Change  `Bundle::component_ids` and `Bundle::get_component_ids` to return an iterator.
 pull_requests: [14791, 15458, 15269]
 ---
 
