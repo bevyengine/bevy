@@ -1797,7 +1797,8 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Ref {
                     value: component.deref(),
@@ -2006,7 +2007,8 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get_unchecked(table_row.index()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                let caller = callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
+                let caller =
+                    callers.map(|callers| unsafe { callers.get_unchecked(table_row.index()) });
 
                 Mut {
                     value: component.deref_mut(),
