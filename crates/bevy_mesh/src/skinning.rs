@@ -163,6 +163,10 @@ impl SkinnedMeshBoundsAsset {
             aabb_index_to_joint_index,
         })
     }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&JointIndex, &PackedAabb3d)> {
+        self.aabb_index_to_joint_index.iter().zip(self.aabbs.iter())
+    }
 }
 
 /// XXX TODO: Document.
@@ -177,11 +181,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 
     let mut accumulator = AabbAccumulator::new();
 
-    for (&modelspace_joint_aabb, &joint_index) in skinned_mesh_bounds
-        .aabbs
-        .iter()
-        .zip(skinned_mesh_bounds.aabb_index_to_joint_index.iter())
-    {
+    for (&joint_index, &modelspace_joint_aabb) in skinned_mesh_bounds.iter() {
         let Some(joint_from_model) = skinned_mesh_inverse_bindposes
             .get(joint_index as usize)
             .map(|&m| Affine3A::from_mat4(m))
