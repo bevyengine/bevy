@@ -1071,12 +1071,22 @@ impl<'a, T> ThinSlicePtr<'a, T> {
     ///
     /// `index` must be in-bounds.
     #[inline]
-    pub unsafe fn get(self, index: usize) -> &'a T {
+    pub unsafe fn get_unchecked(self, index: usize) -> &'a T {
         debug_assert!(index < self.len, "tried to index out-of-bounds of a slice");
 
         // SAFETY: The caller guarantees `index` is in-bounds so that the resulting pointer is
         // valid to dereference.
         unsafe { &*self.ptr.add(index).as_ptr() }
+    }
+
+    /// Indexes the slice without performing bounds checks.
+    ///
+    /// # Safety
+    ///
+    /// `index` must be in-bounds.
+    #[deprecated(since = "0.18.0", note = "use get_unchecked() instead")]
+    pub unsafe fn get(self, index: usize) -> &'a T {
+        unsafe { self.get_unchecked(index) }
     }
 }
 
