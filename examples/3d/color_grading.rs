@@ -244,10 +244,10 @@ fn button_for_value(
             align_items: AlignItems::Center,
             padding: UiRect::axes(px(12), px(6)),
             margin: UiRect::right(px(12)),
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         BorderColor::all(Color::WHITE),
-        BorderRadius::MAX,
         BackgroundColor(Color::BLACK),
         ColorGradingOptionWidget {
             widget_type: ColorGradingOptionWidgetType::Button,

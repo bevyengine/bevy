@@ -85,19 +85,19 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     width: size::RADIO_SIZE,
                     height: size::RADIO_SIZE,
                     border: UiRect::all(Val::Px(2.0)),
+                    border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 RadioOutline,
-                BorderRadius::MAX,
                 ThemeBorderColor(tokens::RADIO_BORDER),
                 children![(
                     // Cheesy checkmark: rotated node with L-shaped border.
                     Node {
                         width: Val::Px(8.),
                         height: Val::Px(8.),
+                        border_radius: BorderRadius::MAX,
                         ..Default::default()
                     },
-                    BorderRadius::MAX,
                     RadioMark,
                     ThemeBackgroundColor(tokens::RADIO_MARK),
                 )],
