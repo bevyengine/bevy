@@ -97,9 +97,9 @@ pub struct SkinnedMeshBoundsAsset {
     // Model-space AABBs of each joint with skinned vertices. This may be a
     // subset of the joints.
     //
-    // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same length.
-    // They're kept separate as a minor optimisation - folding them into one array
-    // would waste two bytes per joint due to alignment.
+    // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same
+    // length. They're kept separate as a minor optimisation - folding them into
+    // one array would waste two bytes per joint due to alignment.
     pub aabbs: Box<[PackedAabb3d]>,
 
     // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
@@ -109,14 +109,16 @@ pub struct SkinnedMeshBoundsAsset {
 impl SkinnedMeshBoundsAsset {
     /// XXX TODO: Document.
     pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
-        // XXX TODO: Error if missing?
-        let vertex_positions = mesh.attribute(Mesh::ATTRIBUTE_POSITION)?;
-
-        // XXX TODO: Error if wrong format?
-        let VertexAttributeValues::Float32x3(vertex_positions) = vertex_positions else {
-            return None;
+        let vertex_positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
+            Some(VertexAttributeValues::Float32x3(v)) => v,
+            // XXX TODO: Error for unrecognised format? Not currently possible but might be in future.
+            Some(_) => return None,
+            // XXX TODO: Error?
+            #[expect(clippy::match_same_arms, reason = "Will be a different error")]
+            None => return None,
         };
 
+        // XXX TODO: Error?
         let vertex_influences = InfluenceIterator::new(mesh)?;
 
         let max_joint_index = vertex_influences
@@ -138,7 +140,7 @@ impl SkinnedMeshBoundsAsset {
             }
         }
 
-        // Finish the accumulator and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
+        // Finish the accumulators and keep only joints with AABBs. See `SkinnedMeshBoundsAsset`
         // for why the AABBs and indices are separate arrays.
 
         let aabbs = accumulators
@@ -171,6 +173,8 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     skinned_mesh_bounds: &SkinnedMeshBoundsAsset,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
+    // Calculate an AABB that encloses the tranformed AABBs of each joint.
+
     let mut accumulator = AabbAccumulator::new();
 
     for (&modelspace_joint_aabb, &joint_index) in skinned_mesh_bounds
@@ -251,10 +255,25 @@ fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {
     Aabb3d { min, max }
 }
 
-// Helper for efficiently accumulating an AABB from points or other AABBs, while
-// returning `None` if nothing was added.
+// Helper for efficiently accumulating an enclosing AABB from a set of points or
+// other AABBs. Intended for cases where the size of the set is not known in
+// advance and might be zero.
 //
-// XXX TODO: Could make the argument for this being in `bevy_math`?
+// ```
+// let a = AabbAccumulator::new();
+//
+// a.add_point(point); // Add a `Vec3A`.
+// a.add_aabb(aabb); // Add an `Aabb3d`.
+//
+// // Returns `Some(Aabb3d)` if at least one thing was added.
+// let result = a.finish();
+// ```
+//
+// For alternatives, see [`Aabb3d::from_point_clound`](`bevy_math::bounding::bounded3d::Aabb3d::from_point_cloud`)
+// and [`BoundingVolume::merge`](`bevy_math::bounding::BoundingVolume::merge`).
+//
+// XXX TODO: Maybe could move to `bevy_math`? Not sure if it's general purpose
+// enough.
 #[derive(Copy, Clone)]
 struct AabbAccumulator {
     min: Vec3A,
@@ -263,9 +282,9 @@ struct AabbAccumulator {
 
 impl AabbAccumulator {
     fn new() -> Self {
-        // Initialize our state such that `min > max`, but the first add will
-        // make `min <= max`. This means adding can be branchless, while
-        // `finish` can still detect if nothing was added.
+        // The initial state has `min > max`, and the first add will make
+        // `min <= max`. This means `finish` can detect if nothing was added,
+        // and the add functions can be branchless.
         Self {
             min: Vec3A::MAX,
             max: Vec3A::MIN,
@@ -282,6 +301,7 @@ impl AabbAccumulator {
         self.max = self.max.max(position);
     }
 
+    /// Returns the enclosing AABB if at least one thing was added, otherwise `None`.
     fn finish(self) -> Option<Aabb3d> {
         if self.min.cmpgt(self.max).any() {
             None
@@ -322,7 +342,7 @@ impl<'a> InfluenceIterator<'a> {
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_INDEX),
             mesh.attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT),
         ) &&
-            // TODO: Should be an error if the attribute lengths don't match?            
+            // XXX TODO: Should be an error if the attribute lengths don't match?            
             (joint_indices.len() == joint_weights.len())
         {
             Some(InfluenceIterator {
@@ -338,7 +358,7 @@ impl<'a> InfluenceIterator<'a> {
     }
 
     // `Mesh` only supports four influences, so we can make this const for
-    // simplicity. If  `Mesh` gains support for variable influences then this
+    // simplicity. If `Mesh` gains support for variable influences then this
     // will become a variable.
     const MAX_INFLUENCES: usize = 4;
 }
