@@ -16,13 +16,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query},
 };
-use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
+use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
-use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, prelude::ReflectDefault};
 use bevy_ui::{
     ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, UiGlobalTransform, UiScale,
 };
@@ -270,9 +270,15 @@ pub(crate) fn slider_on_pointer_down(
         // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
-            .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| {
-                if is_vertical { thumb.size().y } else { thumb.size().x }
-            }))
+            .find_map(|child_id| {
+                q_thumb.get(child_id).ok().map(|thumb| {
+                    if is_vertical {
+                        thumb.size().y
+                    } else {
+                        thumb.size().x
+                    }
+                })
+            })
             .unwrap_or(0.0);
 
         // Detect track click.
@@ -284,7 +290,7 @@ pub(crate) fn slider_on_pointer_down(
         } else {
             node.size().x - thumb_size
         };
-        
+
         // Avoid division by zero
         let click_val = if track_size > 0. {
             if is_vertical {
@@ -374,31 +380,33 @@ pub(crate) fn slider_on_drag(
         if drag.dragging && !disabled {
             // Detect orientation: vertical if height > width
             let is_vertical = node.size().y > node.size().x;
-            
+
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
-            
+
             // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
-                .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| {
-                    if is_vertical { thumb.size().y } else { thumb.size().x }
-                }))
+                .find_map(|child_id| {
+                    q_thumb.get(child_id).ok().map(|thumb| {
+                        if is_vertical {
+                            thumb.size().y
+                        } else {
+                            thumb.size().x
+                        }
+                    })
+                })
                 .unwrap_or(0.0);
-            
+
             let slider_size = if is_vertical {
                 ((node.size().y - thumb_size) * node.inverse_scale_factor).max(1.0)
             } else {
                 ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0)
             };
-            
-            let drag_distance = if is_vertical { 
-                distance.y
-            } else { 
-                distance.x 
-            };
-            
+
+            let drag_distance = if is_vertical { distance.y } else { distance.x };
+
             let span = range.span();
             let new_value = if span > 0. {
                 drag.offset + (drag_distance * span) / slider_size
