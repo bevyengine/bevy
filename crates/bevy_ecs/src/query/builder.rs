@@ -36,7 +36,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 /// let (entity, b) = query.single(&world).unwrap();
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
-    access: FilteredAccess<ComponentId>,
+    access: FilteredAccess,
     world: &'w mut World,
     or: bool,
     first: bool,
@@ -81,15 +81,17 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        let Ok(component_accesses) = self.access.access().try_iter_component_access() else {
-            // Access is unbounded, pessimistically assume it's sparse.
-            return false;
-        };
-
-        component_accesses
-            .map(|access| *access.index())
-            .all(is_dense)
-            && !self.access.access().has_read_all_components()
+        // Use dense iteration if possible, but fall back to sparse if we need to.
+        // Both `D` and `F` must allow dense iteration, just as for queries without dynamic filters.
+        // All `with` and `without` filters must be dense to ensure that we match all archetypes in a table.
+        // We also need to ensure that any sparse set components in `access.required` cause sparse iteration,
+        // but anything that adds a `required` component also adds a `with` filter.
+        //
+        // Note that `EntityRef` and `EntityMut` types, including `FilteredEntityRef` and `FilteredEntityMut`, have `D::IS_DENSE = true`.
+        // Calling `builder.data::<&Sparse>()` will add a filter and force sparse iteration,
+        // but calling `builder.data::<Option<&Sparse>>()` will still allow them to use dense iteration!
+        D::IS_DENSE
+            && F::IS_DENSE
             && self.access.with_filters().all(is_dense)
             && self.access.without_filters().all(is_dense)
     }
@@ -105,7 +107,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds access to self's underlying [`FilteredAccess`] respecting [`Self::or`] and [`Self::and`]
-    pub fn extend_access(&mut self, mut access: FilteredAccess<ComponentId>) {
+    pub fn extend_access(&mut self, mut access: FilteredAccess) {
         if self.or {
             if self.first {
                 access.required.clear();
@@ -231,7 +233,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Returns a reference to the [`FilteredAccess`] that will be provided to the built [`Query`].
-    pub fn access(&self) -> &FilteredAccess<ComponentId> {
+    pub fn access(&self) -> &FilteredAccess {
         &self.access
     }
 
@@ -248,10 +250,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     pub fn transmute_filtered<NewD: QueryData, NewF: QueryFilter>(
         &mut self,
     ) -> &mut QueryBuilder<'w, NewD, NewF> {
-        let mut fetch_state = NewD::init_state(self.world);
+        let fetch_state = NewD::init_state(self.world);
         let filter_state = NewF::init_state(self.world);
-
-        NewD::set_access(&mut fetch_state, &self.access);
 
         let mut access = FilteredAccess::default();
         NewD::update_component_access(&fetch_state, &mut access);
@@ -275,7 +275,10 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, world::FilteredEntityRef};
+    use crate::{
+        prelude::*,
+        world::{EntityMutExcept, EntityRefExcept, FilteredEntityMut, FilteredEntityRef},
+    };
     use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
@@ -286,6 +289,9 @@ mod tests {
 
     #[derive(Component, PartialEq, Debug)]
     struct C(usize);
+
+    #[derive(Component)]
+    struct D;
 
     #[test]
     fn builder_with_without_static() {
@@ -331,11 +337,11 @@ mod tests {
     #[test]
     fn builder_or() {
         let mut world = World::new();
-        world.spawn((A(0), B(0)));
-        world.spawn(B(0));
-        world.spawn(C(0));
+        world.spawn((A(0), B(0), D));
+        world.spawn((B(0), D));
+        world.spawn((C(0), D));
 
-        let mut query_a = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_a = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.with::<B>();
@@ -343,7 +349,7 @@ mod tests {
             .build();
         assert_eq!(2, query_a.iter(&world).count());
 
-        let mut query_b = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_b = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.without::<B>();
@@ -352,7 +358,7 @@ mod tests {
         dbg!(&query_b.component_access);
         assert_eq!(2, query_b.iter(&world).count());
 
-        let mut query_c = QueryBuilder::<Entity>::new(&mut world)
+        let mut query_c = QueryBuilder::<&D>::new(&mut world)
             .or(|builder| {
                 builder.with::<A>();
                 builder.with::<B>();
@@ -422,6 +428,95 @@ mod tests {
         }
     }
 
+    #[test]
+    fn builder_provide_access() {
+        let mut world = World::new();
+        world.spawn((A(0), B(1), D));
+
+        let mut query =
+            QueryBuilder::<(Entity, FilteredEntityRef, FilteredEntityMut), With<D>>::new(
+                &mut world,
+            )
+            .data::<&mut A>()
+            .data::<&B>()
+            .build();
+
+        // The `FilteredEntityRef` only has read access, so the `FilteredEntityMut` can have read access without conflicts
+        let (_entity, entity_ref_1, mut entity_ref_2) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref_1.get::<A>().is_some());
+        assert!(entity_ref_1.get::<B>().is_some());
+        assert!(entity_ref_2.get::<A>().is_some());
+        assert!(entity_ref_2.get_mut::<A>().is_none());
+        assert!(entity_ref_2.get::<B>().is_some());
+        assert!(entity_ref_2.get_mut::<B>().is_none());
+
+        let mut query =
+            QueryBuilder::<(Entity, FilteredEntityMut, FilteredEntityMut), With<D>>::new(
+                &mut world,
+            )
+            .data::<&mut A>()
+            .data::<&B>()
+            .build();
+
+        // The first `FilteredEntityMut` has write access to A, so the second one cannot have write access
+        let (_entity, mut entity_ref_1, mut entity_ref_2) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref_1.get::<A>().is_some());
+        assert!(entity_ref_1.get_mut::<A>().is_some());
+        assert!(entity_ref_1.get::<B>().is_some());
+        assert!(entity_ref_1.get_mut::<B>().is_none());
+        assert!(entity_ref_2.get::<A>().is_none());
+        assert!(entity_ref_2.get_mut::<A>().is_none());
+        assert!(entity_ref_2.get::<B>().is_some());
+        assert!(entity_ref_2.get_mut::<B>().is_none());
+
+        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B), With<D>>::new(&mut world)
+            .data::<&mut A>()
+            .data::<&mut B>()
+            .build();
+
+        // Any `A` access would conflict with `&mut A`, and write access to `B` would conflict with `&B`.
+        let (mut entity_ref, _a, _b) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref.get::<A>().is_none());
+        assert!(entity_ref.get_mut::<A>().is_none());
+        assert!(entity_ref.get::<B>().is_some());
+        assert!(entity_ref.get_mut::<B>().is_none());
+
+        let mut query = QueryBuilder::<(FilteredEntityMut, &mut A, &B), With<D>>::new(&mut world)
+            .data::<EntityMut>()
+            .build();
+
+        // Same as above, but starting from "all" access
+        let (mut entity_ref, _a, _b) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref.get::<A>().is_none());
+        assert!(entity_ref.get_mut::<A>().is_none());
+        assert!(entity_ref.get::<B>().is_some());
+        assert!(entity_ref.get_mut::<B>().is_none());
+
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityMutExcept<A>), With<D>>::new(&mut world)
+                .data::<EntityMut>()
+                .build();
+
+        // Removing `EntityMutExcept<A>` just leaves A
+        let (mut entity_ref_1, _entity_ref_2) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref_1.get::<A>().is_some());
+        assert!(entity_ref_1.get_mut::<A>().is_some());
+        assert!(entity_ref_1.get::<B>().is_none());
+        assert!(entity_ref_1.get_mut::<B>().is_none());
+
+        let mut query =
+            QueryBuilder::<(FilteredEntityMut, EntityRefExcept<A>), With<D>>::new(&mut world)
+                .data::<EntityMut>()
+                .build();
+
+        // Removing `EntityRefExcept<A>` just leaves A, plus read access
+        let (mut entity_ref_1, _entity_ref_2) = query.single_mut(&mut world).unwrap();
+        assert!(entity_ref_1.get::<A>().is_some());
+        assert!(entity_ref_1.get_mut::<A>().is_some());
+        assert!(entity_ref_1.get::<B>().is_some());
+        assert!(entity_ref_1.get_mut::<B>().is_none());
+    }
+
     /// Regression test for issue #14348
     #[test]
     fn builder_static_dense_dynamic_sparse() {
@@ -443,5 +538,33 @@ mod tests {
 
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);
+    }
+
+    #[test]
+    fn builder_dynamic_can_be_dense() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        // FilteredEntityRef and FilteredEntityMut are dense by default
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        let query = QueryBuilder::<FilteredEntityMut>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        // Adding a required sparse term makes the query sparse
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<&Sparse>()
+            .build();
+        assert!(!query.is_dense);
+
+        // Adding an optional sparse term lets it remain dense
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<Option<&Sparse>>()
+            .build();
+        assert!(query.is_dense);
     }
 }

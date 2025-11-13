@@ -14,7 +14,8 @@
 //!   between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{ComponentHook, HookContext, Mutable, StorageType},
+    ecs::component::{Mutable, StorageType},
+    ecs::lifecycle::{ComponentHook, HookContext},
     prelude::*,
 };
 use std::collections::HashMap;
@@ -44,8 +45,8 @@ impl Component for MyComponent {
 #[derive(Resource, Default, Debug, Deref, DerefMut)]
 struct MyComponentIndex(HashMap<KeyCode, Entity>);
 
-#[derive(Event)]
-struct MyEvent;
+#[derive(Message)]
+struct MyMessage;
 
 fn main() {
     App::new()
@@ -53,7 +54,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, trigger_hooks)
         .init_resource::<MyComponentIndex>()
-        .add_event::<MyEvent>()
+        .add_message::<MyMessage>()
         .run();
 }
 
@@ -93,8 +94,8 @@ fn setup(world: &mut World) {
                 world
                     .resource_mut::<MyComponentIndex>()
                     .insert(value, entity);
-                // Or send events
-                world.send_event(MyEvent);
+                // Or send messages
+                world.write_message(MyMessage);
             },
         )
         // `on_insert` will trigger when a component is inserted onto an entity,

@@ -6,10 +6,11 @@ use std::{f32::consts::PI, time::Duration};
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
+    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -45,8 +46,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                     present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
+                    resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                     ..default()
                 }),
                 ..default()
@@ -54,10 +54,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continuous())
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,
@@ -68,7 +65,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                setup_scene_once_loaded,
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
@@ -173,12 +169,14 @@ fn setup(
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn((
-                    SceneRoot(fox_handle.clone()),
-                    Transform::from_xyz(x, 0.0, z)
-                        .with_scale(Vec3::splat(0.01))
-                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                ));
+                builder
+                    .spawn((
+                        SceneRoot(fox_handle.clone()),
+                        Transform::from_xyz(x, 0.0, z)
+                            .with_scale(Vec3::splat(0.01))
+                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ))
+                    .observe(setup_scene_once_loaded);
             });
         }
 
@@ -230,25 +228,23 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    scene_ready: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
-    mut player: Query<(Entity, &mut AnimationPlayer)>,
-    mut done: Local<bool>,
+    children: Query<&Children>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    if !*done && player.iter().len() == foxes.count {
-        for (entity, mut player) in &mut player {
-            commands
-                .entity(entity)
-                .insert(AnimationGraphHandle(animations.graph.clone()))
-                .insert(AnimationTransitions::new());
-
+    for child in children.iter_descendants(scene_ready.entity) {
+        if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(entity.index() as f32 / 10.0);
+                playing_animation.seek_to(scene_ready.entity.index_u32() as f32 / 10.0);
             }
+            commands
+                .entity(child)
+                .insert(AnimationGraphHandle(animations.graph.clone()));
         }
-        *done = true;
     }
 }
 

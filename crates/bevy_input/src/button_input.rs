@@ -71,7 +71,7 @@ use {
 /// Reading and checking against the current set of pressed buttons:
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, Update};
-/// # use bevy_ecs::{prelude::{IntoScheduleConfigs, Res, Resource, resource_changed}, schedule::Condition};
+/// # use bevy_ecs::{prelude::{IntoScheduleConfigs, Res, Resource, resource_changed}, schedule::SystemCondition};
 /// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
@@ -122,7 +122,7 @@ use {
 /// [`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
-pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
+pub struct ButtonInput<T: Clone + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -131,7 +131,7 @@ pub struct ButtonInput<T: Copy + Eq + Hash + Send + Sync + 'static> {
     just_released: HashSet<T>,
 }
 
-impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for ButtonInput<T> {
+impl<T: Clone + Eq + Hash + Send + Sync + 'static> Default for ButtonInput<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -143,12 +143,12 @@ impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for ButtonInput<T> {
 
 impl<T> ButtonInput<T>
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {
         // Returns `true` if the `input` wasn't pressed.
-        if self.pressed.insert(input) {
+        if self.pressed.insert(input.clone()) {
             self.just_pressed.insert(input);
         }
     }

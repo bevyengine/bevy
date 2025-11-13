@@ -1,6 +1,6 @@
 //! Contains the [`AutoFocus`] component and related machinery.
 
-use bevy_ecs::{component::HookContext, prelude::*, world::DeferredWorld};
+use bevy_ecs::{lifecycle::HookContext, prelude::*, world::DeferredWorld};
 
 use crate::InputFocus;
 

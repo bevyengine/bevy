@@ -1,10 +1,10 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssetUsages},
+    render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
     render_resource::{Buffer, BufferUsages},
     renderer::RenderDevice,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId};
+use bevy_asset::{Asset, AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
@@ -18,7 +18,6 @@ pub struct StoragePlugin;
 impl Plugin for StoragePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RenderAssetPlugin::<GpuShaderStorageBuffer>::default())
-            .register_type::<ShaderStorageBuffer>()
             .init_asset::<ShaderStorageBuffer>()
             .register_asset_reflect::<ShaderStorageBuffer>();
     }
@@ -116,6 +115,7 @@ impl RenderAsset for GpuShaderStorageBuffer {
         source_asset: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         render_device: &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match source_asset.data {
             Some(data) => {

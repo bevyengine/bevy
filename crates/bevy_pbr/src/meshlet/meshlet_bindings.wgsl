@@ -5,6 +5,13 @@
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::utils::octahedral_decode_signed
 
+struct BvhNode {
+    aabbs: array<MeshletAabbErrorOffset, 8>,
+    lod_bounds: array<vec4<f32>, 8>,
+    child_counts: array<u32, 2>,
+    _padding: vec2<u32>,
+}
+
 struct Meshlet {
     start_vertex_position_bit: u32,
     start_vertex_attribute_id: u32,
@@ -17,22 +24,41 @@ struct Meshlet {
 }
 
 fn get_meshlet_vertex_count(meshlet: ptr<function, Meshlet>) -> u32 {
-    return extractBits((*meshlet).packed_a, 0u, 8u);
+    return extractBits((*meshlet).packed_a, 0u, 8u) + 1u;
 }
 
 fn get_meshlet_triangle_count(meshlet: ptr<function, Meshlet>) -> u32 {
     return extractBits((*meshlet).packed_a, 8u, 8u);
 }
 
-struct MeshletBoundingSpheres {
-    culling_sphere: MeshletBoundingSphere,
-    lod_group_sphere: MeshletBoundingSphere,
-    lod_parent_group_sphere: MeshletBoundingSphere,
+struct MeshletCullData {
+    aabb: MeshletAabbErrorOffset,
+    lod_group_sphere: vec4<f32>,
 }
 
-struct MeshletBoundingSphere {
+struct MeshletAabb {
     center: vec3<f32>,
-    radius: f32,
+    half_extent: vec3<f32>,
+}
+
+struct MeshletAabbErrorOffset {
+    center_and_error: vec4<f32>,
+    half_extent_and_child_offset: vec4<f32>,
+}
+
+fn get_aabb(aabb: ptr<function, MeshletAabbErrorOffset>) -> MeshletAabb {
+    return MeshletAabb(
+        (*aabb).center_and_error.xyz,
+        (*aabb).half_extent_and_child_offset.xyz,
+    );
+}
+
+fn get_aabb_error(aabb: ptr<function, MeshletAabbErrorOffset>) -> f32 {
+    return (*aabb).center_and_error.w;
+}
+
+fn get_aabb_child_offset(aabb: ptr<function, MeshletAabbErrorOffset>) -> u32 {
+    return bitcast<u32>((*aabb).half_extent_and_child_offset.w);
 }
 
 struct DispatchIndirectArgs {
@@ -48,63 +74,133 @@ struct DrawIndirectArgs {
     first_instance: u32,
 }
 
+// Either a BVH node or a meshlet, along with the instance it is associated with.
+// Refers to BVH nodes in `meshlet_bvh_cull_queue` and `meshlet_second_pass_bvh_queue`, where `offset` is the index into `meshlet_bvh_nodes`.
+// Refers to meshlets in `meshlet_meshlet_cull_queue` and `meshlet_raster_clusters`.
+// In `meshlet_meshlet_cull_queue`, `offset` is the index into `meshlet_cull_data`.
+// In `meshlet_raster_clusters`, `offset` is the index into `meshlets`.
+struct InstancedOffset {
+    instance_id: u32,
+    offset: u32,
+}
+
 const CENTIMETERS_PER_METER = 100.0;
 
-#ifdef MESHLET_FILL_CLUSTER_BUFFERS_PASS
-var<push_constant> scene_instance_count: u32;
-@group(0) @binding(0) var<storage, read> meshlet_instance_meshlet_counts: array<u32>; // Per entity instance
-@group(0) @binding(1) var<storage, read> meshlet_instance_meshlet_slice_starts: array<u32>; // Per entity instance
-@group(0) @binding(2) var<storage, read_write> meshlet_cluster_instance_ids: array<u32>; // Per cluster
-@group(0) @binding(3) var<storage, read_write> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
-@group(0) @binding(4) var<storage, read_write> meshlet_global_cluster_count: atomic<u32>; // Single object shared between all workgroups
+#ifdef MESHLET_INSTANCE_CULLING_PASS
+struct Constants { scene_instance_count: u32 }
+var<push_constant> constants: Constants;
+
+// Cull data
+@group(0) @binding(0) var depth_pyramid: texture_2d<f32>;
+@group(0) @binding(1) var<uniform> view: View;
+@group(0) @binding(2) var<uniform> previous_view: PreviousViewUniforms;
+
+// Per entity instance data
+@group(0) @binding(3) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+@group(0) @binding(4) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
+@group(0) @binding(5) var<storage, read> meshlet_instance_aabbs: array<MeshletAabb>;
+@group(0) @binding(6) var<storage, read> meshlet_instance_bvh_root_nodes: array<u32>;
+
+// BVH cull queue data
+@group(0) @binding(7) var<storage, read_write> meshlet_bvh_cull_count_write: atomic<u32>;
+@group(0) @binding(8) var<storage, read_write> meshlet_bvh_cull_dispatch: DispatchIndirectArgs;
+@group(0) @binding(9) var<storage, read_write> meshlet_bvh_cull_queue: array<InstancedOffset>;
+
+// Second pass queue data
+#ifdef MESHLET_FIRST_CULLING_PASS
+@group(0) @binding(10) var<storage, read_write> meshlet_second_pass_instance_count: atomic<u32>;
+@group(0) @binding(11) var<storage, read_write> meshlet_second_pass_instance_dispatch: DispatchIndirectArgs;
+@group(0) @binding(12) var<storage, read_write> meshlet_second_pass_instance_candidates: array<u32>;
+#else
+@group(0) @binding(10) var<storage, read> meshlet_second_pass_instance_count: u32;
+@group(0) @binding(11) var<storage, read> meshlet_second_pass_instance_candidates: array<u32>;
+#endif
 #endif
 
-#ifdef MESHLET_CULLING_PASS
-struct Constants { scene_cluster_count: u32, meshlet_raster_cluster_rightmost_slot: u32 }
+#ifdef MESHLET_BVH_CULLING_PASS
+struct Constants { read_from_front: u32, rightmost_slot: u32 }
 var<push_constant> constants: Constants;
-@group(0) @binding(0) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
-@group(0) @binding(1) var<storage, read> meshlet_bounding_spheres: array<MeshletBoundingSpheres>; // Per meshlet
-@group(0) @binding(2) var<storage, read> meshlet_simplification_errors: array<u32>; // Per meshlet
-@group(0) @binding(3) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
-@group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(5) var<storage, read> meshlet_view_instance_visibility: array<u32>; // 1 bit per entity instance, packed as a bitmask
-@group(0) @binding(6) var<storage, read_write> meshlet_second_pass_candidates: array<atomic<u32>>; // 1 bit per cluster , packed as a bitmask
-@group(0) @binding(7) var<storage, read_write> meshlet_software_raster_indirect_args: DispatchIndirectArgs; // Single object shared between all workgroups
-@group(0) @binding(8) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs; // Single object shared between all workgroups
-@group(0) @binding(9) var<storage, read_write> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups
-@group(0) @binding(10) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
-@group(0) @binding(11) var<uniform> view: View;
-@group(0) @binding(12) var<uniform> previous_view: PreviousViewUniforms;
 
-fn should_cull_instance(instance_id: u32) -> bool {
-    let bit_offset = instance_id % 32u;
-    let packed_visibility = meshlet_view_instance_visibility[instance_id / 32u];
-    return bool(extractBits(packed_visibility, bit_offset, 1u));
-}
+// Cull data
+@group(0) @binding(0) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
+@group(0) @binding(1) var<uniform> view: View;
+@group(0) @binding(2) var<uniform> previous_view: PreviousViewUniforms;
 
-// TODO: Load 4x per workgroup instead of once per thread?
-fn cluster_is_second_pass_candidate(cluster_id: u32) -> bool {
-    let packed_candidates = meshlet_second_pass_candidates[cluster_id / 32u];
-    let bit_offset = cluster_id % 32u;
-    return bool(extractBits(packed_candidates, bit_offset, 1u));
-}
+// Global mesh data
+@group(0) @binding(3) var<storage, read> meshlet_bvh_nodes: array<BvhNode>;
+
+// Per entity instance data
+@group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+
+// BVH cull queue data
+@group(0) @binding(5) var<storage, read> meshlet_bvh_cull_count_read: u32;
+@group(0) @binding(6) var<storage, read_write> meshlet_bvh_cull_count_write: atomic<u32>;
+@group(0) @binding(7) var<storage, read_write> meshlet_bvh_cull_dispatch: DispatchIndirectArgs;
+@group(0) @binding(8) var<storage, read_write> meshlet_bvh_cull_queue: array<InstancedOffset>;
+
+// Meshlet cull queue data
+@group(0) @binding(9) var<storage, read_write> meshlet_meshlet_cull_count_early: atomic<u32>;
+@group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_count_late: atomic<u32>;
+@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_dispatch_early: DispatchIndirectArgs;
+@group(0) @binding(12) var<storage, read_write> meshlet_meshlet_cull_dispatch_late: DispatchIndirectArgs;
+@group(0) @binding(13) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
+
+// Second pass queue data
+#ifdef MESHLET_FIRST_CULLING_PASS
+@group(0) @binding(14) var<storage, read_write> meshlet_second_pass_bvh_count: atomic<u32>;
+@group(0) @binding(15) var<storage, read_write> meshlet_second_pass_bvh_dispatch: DispatchIndirectArgs;
+@group(0) @binding(16) var<storage, read_write> meshlet_second_pass_bvh_queue: array<InstancedOffset>;
+#endif
+#endif
+
+#ifdef MESHLET_CLUSTER_CULLING_PASS
+struct Constants { rightmost_slot: u32 }
+var<push_constant> constants: Constants;
+
+// Cull data
+@group(0) @binding(0) var depth_pyramid: texture_2d<f32>; // From the end of the last frame for the first culling pass, and from the first raster pass for the second culling pass
+@group(0) @binding(1) var<uniform> view: View;
+@group(0) @binding(2) var<uniform> previous_view: PreviousViewUniforms;
+
+// Global mesh data
+@group(0) @binding(3) var<storage, read> meshlet_cull_data: array<MeshletCullData>;
+
+// Per entity instance data
+@group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>;
+
+// Raster queue data
+@group(0) @binding(5) var<storage, read_write> meshlet_software_raster_indirect_args: DispatchIndirectArgs;
+@group(0) @binding(6) var<storage, read_write> meshlet_hardware_raster_indirect_args: DrawIndirectArgs;
+@group(0) @binding(7) var<storage, read> meshlet_previous_raster_counts: array<u32>;
+@group(0) @binding(8) var<storage, read_write> meshlet_raster_clusters: array<InstancedOffset>;
+
+// Meshlet cull queue data
+@group(0) @binding(9) var<storage, read> meshlet_meshlet_cull_count_read: u32;
+
+// Second pass queue data
+#ifdef MESHLET_FIRST_CULLING_PASS
+@group(0) @binding(10) var<storage, read_write> meshlet_meshlet_cull_count_write: atomic<u32>;
+@group(0) @binding(11) var<storage, read_write> meshlet_meshlet_cull_dispatch: DispatchIndirectArgs;
+@group(0) @binding(12) var<storage, read_write> meshlet_meshlet_cull_queue: array<InstancedOffset>;
+#else
+@group(0) @binding(10) var<storage, read> meshlet_meshlet_cull_queue: array<InstancedOffset>;
+#endif
 #endif
 
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS
-@group(0) @binding(0) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
+@group(0) @binding(0) var<storage, read> meshlet_raster_clusters: array<InstancedOffset>; // Per cluster
 @group(0) @binding(1) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
 @group(0) @binding(2) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
 @group(0) @binding(3) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
-@group(0) @binding(4) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
-@group(0) @binding(5) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
-@group(0) @binding(6) var<storage, read> meshlet_raster_clusters: array<u32>; // Single object shared between all workgroups
-@group(0) @binding(7) var<storage, read> meshlet_software_raster_cluster_count: u32;
+@group(0) @binding(4) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
+@group(0) @binding(5) var<storage, read> meshlet_previous_raster_counts: array<u32>;
+@group(0) @binding(6) var<storage, read> meshlet_software_raster_cluster_count: u32;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-@group(0) @binding(8) var meshlet_visibility_buffer: texture_storage_2d<r64uint, atomic>;
+@group(0) @binding(7) var meshlet_visibility_buffer: texture_storage_2d<r64uint, atomic>;
 #else
-@group(0) @binding(8) var meshlet_visibility_buffer: texture_storage_2d<r32uint, atomic>;
+@group(0) @binding(7) var meshlet_visibility_buffer: texture_storage_2d<r32uint, atomic>;
 #endif
-@group(0) @binding(9) var<uniform> view: View;
+@group(0) @binding(8) var<uniform> view: View;
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
 fn get_meshlet_vertex_id(index_id: u32) -> u32 {
@@ -149,15 +245,14 @@ fn get_meshlet_vertex_position(meshlet: ptr<function, Meshlet>, vertex_id: u32) 
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
-@group(1) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
-@group(1) @binding(1) var<storage, read> meshlet_cluster_meshlet_ids: array<u32>; // Per cluster
-@group(1) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
-@group(1) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
-@group(1) @binding(4) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
-@group(1) @binding(5) var<storage, read> meshlet_vertex_normals: array<u32>; // Many per meshlet
-@group(1) @binding(6) var<storage, read> meshlet_vertex_uvs: array<vec2<f32>>; // Many per meshlet
-@group(1) @binding(7) var<storage, read> meshlet_cluster_instance_ids: array<u32>; // Per cluster
-@group(1) @binding(8) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
+@group(2) @binding(0) var meshlet_visibility_buffer: texture_storage_2d<r64uint, read>;
+@group(2) @binding(1) var<storage, read> meshlet_raster_clusters: array<InstancedOffset>; // Per cluster
+@group(2) @binding(2) var<storage, read> meshlets: array<Meshlet>; // Per meshlet
+@group(2) @binding(3) var<storage, read> meshlet_indices: array<u32>; // Many per meshlet
+@group(2) @binding(4) var<storage, read> meshlet_vertex_positions: array<u32>; // Many per meshlet
+@group(2) @binding(5) var<storage, read> meshlet_vertex_normals: array<u32>; // Many per meshlet
+@group(2) @binding(6) var<storage, read> meshlet_vertex_uvs: array<vec2<f32>>; // Many per meshlet
+@group(2) @binding(7) var<storage, read> meshlet_instance_uniforms: array<Mesh>; // Per entity instance
 
 // TODO: Load only twice, instead of 3x in cases where you load 3 indices per thread?
 fn get_meshlet_vertex_id(index_id: u32) -> u32 {

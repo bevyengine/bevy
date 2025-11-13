@@ -77,6 +77,20 @@ pub trait Alpha: Sized {
     }
 }
 
+impl Alpha for f32 {
+    fn with_alpha(&self, alpha: f32) -> Self {
+        alpha
+    }
+
+    fn alpha(&self) -> f32 {
+        *self
+    }
+
+    fn set_alpha(&mut self, alpha: f32) {
+        *self = alpha;
+    }
+}
+
 /// Trait for manipulating the hue of a color.
 pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.
@@ -98,7 +112,7 @@ pub trait Hue: Sized {
 /// Trait for manipulating the saturation of a color.
 ///
 /// When working with color spaces that do not have native saturation components
-/// the operations are performed in [`crate::Hsla`].
+/// the operations are performed in [`Hsla`](`crate::Hsla`).
 pub trait Saturation: Sized {
     /// Return a new version of this color with the saturation channel set to the given value.
     fn with_saturation(&self, saturation: f32) -> Self;

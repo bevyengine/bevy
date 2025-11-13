@@ -37,7 +37,7 @@ fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn check_textures(
     mut next_state: ResMut<NextState<AppState>>,
     rpg_sprite_folder: Res<RpgSpriteFolder>,
-    mut events: EventReader<AssetEvent<LoadedFolder>>,
+    mut events: MessageReader<AssetEvent<LoadedFolder>>,
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
@@ -279,7 +279,7 @@ fn create_label(
     commands.spawn((
         Text2d::new(text),
         text_style,
-        TextLayout::new_with_justify(JustifyText::Center),
+        TextLayout::new_with_justify(Justify::Center),
         Transform {
             translation: Vec3::new(translation.0, translation.1, translation.2),
             ..default()

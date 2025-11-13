@@ -2,17 +2,18 @@ use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
+use bevy_mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy_platform::collections::hash_map::Entry;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
+use bevy_render::settings::WgpuLimits;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -118,7 +119,7 @@ pub struct SkinUniforms {
 impl FromWorld for SkinUniforms {
     fn from_world(world: &mut World) -> Self {
         let device = world.resource::<RenderDevice>();
-        let buffer_usages = (if skins_use_uniform_buffers(device) {
+        let buffer_usages = (if skins_use_uniform_buffers(&device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -190,10 +191,9 @@ impl SkinUniformInfo {
 
 /// Returns true if skinning must use uniforms (and dynamic offsets) because
 /// storage buffers aren't supported on the current platform.
-pub fn skins_use_uniform_buffers(render_device: &RenderDevice) -> bool {
+pub fn skins_use_uniform_buffers(limits: &WgpuLimits) -> bool {
     static SKINS_USE_UNIFORM_BUFFERS: OnceLock<bool> = OnceLock::new();
-    *SKINS_USE_UNIFORM_BUFFERS
-        .get_or_init(|| render_device.limits().max_storage_buffers_per_shader_stage == 0)
+    *SKINS_USE_UNIFORM_BUFFERS.get_or_init(|| limits.max_storage_buffers_per_shader_stage == 0)
 }
 
 /// Uploads the buffers containing the joints to the GPU.
@@ -220,11 +220,11 @@ pub fn prepare_skins(
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
             // 1.5× growth factor.
-            new_size += new_size / 2;
+            new_size = (new_size + new_size / 2).next_multiple_of(4);
         }
 
         // Create the new buffers.
-        let buffer_usages = if skins_use_uniform_buffers(&render_device) {
+        let buffer_usages = if skins_use_uniform_buffers(&render_device.limits()) {
             BufferUsages::UNIFORM
         } else {
             BufferUsages::STORAGE
@@ -309,7 +309,6 @@ pub fn extract_skins(
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
 ) {
     let skin_uniforms = skin_uniforms.into_inner();
@@ -335,10 +334,7 @@ pub fn extract_skins(
     );
 
     // Delete skins that became invisible.
-    for skinned_mesh_entity in removed_visibilities_query
-        .read()
-        .chain(removed_skinned_meshes_query.read())
-    {
+    for skinned_mesh_entity in removed_skinned_meshes_query.read() {
         // Only remove a skin if we didn't pick it up in `add_or_delete_skins`.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -617,7 +613,7 @@ pub fn no_automatic_skin_batching(
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
     render_device: Res<RenderDevice>,
 ) {
-    if !skins_use_uniform_buffers(&render_device) {
+    if !skins_use_uniform_buffers(&render_device.limits()) {
         return;
     }
 

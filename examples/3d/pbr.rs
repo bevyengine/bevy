@@ -1,7 +1,7 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
+use bevy::camera::ScalingMode;
 use bevy::prelude::*;
-use bevy::render::camera::ScalingMode;
 
 fn main() {
     App::new()
@@ -67,8 +67,8 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(20.0),
-            left: Val::Px(100.0),
+            top: px(20),
+            left: px(100),
             ..default()
         },
     ));
@@ -81,12 +81,12 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(130.0),
+            top: px(130),
             right: Val::ZERO,
             ..default()
         },
-        Transform {
-            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+        UiTransform {
+            rotation: Rot2::degrees(90.),
             ..default()
         },
     ));
@@ -99,8 +99,8 @@ fn setup(
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(20.0),
-            right: Val::Px(20.0),
+            bottom: px(20),
+            right: px(20),
             ..default()
         },
         EnvironmentMapLabel,

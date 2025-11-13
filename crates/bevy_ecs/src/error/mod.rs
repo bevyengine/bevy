@@ -7,8 +7,9 @@
 //! All [`BevyError`]s returned by a system, observer or command are handled by an "error handler". By default, the
 //! [`panic`] error handler function is used, resulting in a panic with the error message attached.
 //!
-//! You can change the default behavior by registering a custom error handler.
-//! Modify the [`GLOBAL_ERROR_HANDLER`] value to set a custom error handler function for your entire app.
+//! You can change the default behavior by registering a custom error handler:
+//! Use [`DefaultErrorHandler`] to set a custom error handler function for a world,
+//! or `App::set_error_handler` for a whole app.
 //! In practice, this is generally feature-flagged: panicking or loudly logging errors in development,
 //! and quietly logging or ignoring them in production to avoid crashing the app.
 //!
@@ -33,10 +34,8 @@
 //! The [`ErrorContext`] allows you to access additional details relevant to providing
 //! context surrounding the error – such as the system's [`name`] – in your error messages.
 //!
-//! Remember to turn on the `configurable_error_handler` feature to set a global error handler!
-//!
 //! ```rust, ignore
-//! use bevy_ecs::error::{GLOBAL_ERROR_HANDLER, BevyError, ErrorContext};
+//! use bevy_ecs::error::{BevyError, ErrorContext, DefaultErrorHandler};
 //! use log::trace;
 //!
 //! fn my_error_handler(error: BevyError, ctx: ErrorContext) {
@@ -48,10 +47,9 @@
 //! }
 //!
 //! fn main() {
-//!     // This requires the "configurable_error_handler" feature to be enabled to be in scope.
-//!     GLOBAL_ERROR_HANDLER.set(my_error_handler).expect("The error handler can only be set once.");
-//!     
-//!     // Initialize your Bevy App here
+//!     let mut world = World::new();
+//!     world.insert_resource(DefaultErrorHandler(my_error_handler));
+//!     // Use your world here
 //! }
 //! ```
 //!

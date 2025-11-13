@@ -1,5 +1,5 @@
 use bevy_ecs::{
-    event::EventWriter,
+    message::MessageWriter,
     prelude::Schedule,
     schedule::IntoScheduleConfigs,
     system::{Commands, IntoSystem, ResMut},
@@ -17,11 +17,11 @@ pub trait FreelyMutableState: States {
     fn register_state(schedule: &mut Schedule) {
         schedule.configure_sets((
             ApplyStateTransition::<Self>::default()
-                .in_set(StateTransitionSteps::DependentTransitions),
-            ExitSchedules::<Self>::default().in_set(StateTransitionSteps::ExitSchedules),
+                .in_set(StateTransitionSystems::DependentTransitions),
+            ExitSchedules::<Self>::default().in_set(StateTransitionSystems::ExitSchedules),
             TransitionSchedules::<Self>::default()
-                .in_set(StateTransitionSteps::TransitionSchedules),
-            EnterSchedules::<Self>::default().in_set(StateTransitionSteps::EnterSchedules),
+                .in_set(StateTransitionSystems::TransitionSchedules),
+            EnterSchedules::<Self>::default().in_set(StateTransitionSystems::EnterSchedules),
         ));
 
         schedule
@@ -47,16 +47,22 @@ pub trait FreelyMutableState: States {
 }
 
 fn apply_state_transition<S: FreelyMutableState>(
-    event: EventWriter<StateTransitionEvent<S>>,
+    event: MessageWriter<StateTransitionEvent<S>>,
     commands: Commands,
     current_state: Option<ResMut<State<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
-    let Some(next_state) = take_next_state(next_state) else {
+    let Some((next_state, same_state_enforced)) = take_next_state(next_state) else {
         return;
     };
     let Some(current_state) = current_state else {
         return;
     };
-    internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
+    internal_apply_state_transition(
+        event,
+        commands,
+        Some(current_state),
+        Some(next_state),
+        same_state_enforced,
+    );
 }

@@ -10,8 +10,8 @@ use bevy::{
         bounding::{Bounded2d, BoundingVolume},
         Isometry2d,
     },
+    mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
     prelude::*,
-    render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
 };
 
 fn main() {

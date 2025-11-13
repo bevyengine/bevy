@@ -1,5 +1,8 @@
 name: Example Run
 
+permissions:
+  contents: read
+
 on:
   merge_group:
   pull_request:
@@ -8,6 +11,7 @@ on:
     branches:
       - main
 
+# Environment variables must be kept in sync with all workflows that defines them.
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
@@ -16,14 +20,28 @@ env:
 
 jobs:
   run-examples-macos-metal:
-    runs-on: macos-latest
+    runs-on: macos-14
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: Disable audio
         # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
         run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -40,7 +58,7 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: example-traces-macos
           path: traces
@@ -49,11 +67,11 @@ jobs:
         run: |
           echo ${{ github.event.number }} > ./screenshots/PR
       - name: save screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: screenshots-macos
           path: screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-macos
@@ -76,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       # At some point this may be merged into `install-linux-deps`, but for now it is its own step.
@@ -84,16 +102,21 @@ jobs:
         run: |
           sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-      - uses: actions/cache@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
         with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-run-examples-${{ hashFiles('**/Cargo.toml') }}
-      - uses: dtolnay/rust-toolchain@stable
       - name: Run examples
         run: |
           for example in .github/example-run/*.ron; do
@@ -110,16 +133,16 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: example-traces-linux
           path: traces
       - name: save screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: screenshots-linux
           path: screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-linux
@@ -141,8 +164,22 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache/restore@v4
+        with:
+          # key won't match, will rely on restore-keys
+          key: ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+          # See .github/workflows/validation-jobs.yml for how keys are generated
+          restore-keys: |
+            ${{ runner.os }}-stable--${{ hashFiles('**/Cargo.toml') }}-
+            ${{ runner.os }}-stable--
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
       - name: Run examples
         shell: bash
         run: |
@@ -160,16 +197,16 @@ jobs:
           mkdir traces && mv trace*.json traces/
           mkdir screenshots && mv screenshots-* screenshots/
       - name: save traces
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: example-traces-windows
           path: traces
       - name: save screenshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: screenshots-windows
           path: screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ failure() && github.event_name == 'pull_request' }}
         with:
           name: example-run-windows

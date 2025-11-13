@@ -42,6 +42,9 @@ use serde::Deserializer;
 /// [`ReflectDeserializer`]: crate::serde::ReflectDeserializer
 /// [via the registry]: TypeRegistry::register_type_data
 pub trait DeserializeWithRegistry<'de>: Sized {
+    /// Deserialize this value using the given [Deserializer] and [`TypeRegistry`].
+    ///
+    /// [`Deserializer`]: ::serde::Deserializer
     fn deserialize<D>(deserializer: D, registry: &TypeRegistry) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>;
