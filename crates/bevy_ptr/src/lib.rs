@@ -1056,7 +1056,29 @@ impl<'a> OwningPtr<'a, Unaligned> {
     }
 }
 
-/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance
+/// reasons.
+///
+/// Because this type does not store the length of the slice, it is unable to do any sort of bounds
+/// checking. As such, only [`Self::get_unchecked()`] is available for indexing into the slice,
+/// where the user is responsible for checking the bounds.
+///
+/// When compiled in debug mode (`#[cfg(debug_assertion)]`), this type will store the length of the
+/// slice and perform bounds checking in [`Self::get_unchecked()`].
+///
+/// # Example
+///
+/// ```
+/// # use core::mem::size_of;
+/// # use bevy_ptr::ThinSlicePtr;
+/// #
+/// let slice: &[u32] = &[2, 4, 8];
+/// let thin_slice = ThinSlicePtr::from(slice);
+///
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(0) }, 2);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(1) }, 4);
+/// assert_eq!(*unsafe { thin_slice.get_unchecked(2) }, 8);
+/// ```
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
