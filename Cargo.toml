@@ -3800,7 +3800,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
+wasm = false
 
 [[example]]
 name = "viewport_node"
