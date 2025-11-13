@@ -1101,10 +1101,11 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
-        let ptr = slice.as_ptr().cast_mut();
+        let ptr = slice.as_ptr().cast_mut().debug_ensure_aligned();
+
         Self {
-            // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
+            // SAFETY: A reference can never be null.
+            ptr: unsafe { NonNull::new_unchecked(ptr) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
