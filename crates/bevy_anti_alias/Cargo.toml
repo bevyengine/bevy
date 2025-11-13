@@ -34,7 +34,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.18.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dlss_wgpu = { version = "1", optional = true }
+dlss_wgpu = { version = "2", optional = true }
 uuid = { version = "1", optional = true }
 
 [lints]

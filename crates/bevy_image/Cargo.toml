@@ -70,7 +70,7 @@ image = { version = "0.25.2", default-features = false }
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "26", default-features = false }
+wgpu-types = { version = "27", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 futures-lite = "2.0.1"
