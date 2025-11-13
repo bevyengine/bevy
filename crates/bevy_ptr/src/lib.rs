@@ -1103,13 +1103,17 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
 }
 
 /// Creates a dangling pointer with specified alignment.
-/// See [`NonNull::dangling`].
+///
+/// This is an untyped version of [`NonNull::dangling()`]. The returned pointer has no
+/// [provenance](https://doc.rust-lang.org/stable/std/ptr/index.html#provenance).
+///
+/// # Panics
+///
+/// If `align` is not a power of two (2, 4, 8, 16, etc.).
 pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
-    // SAFETY: The pointer will not be null, since it was created
-    // from the address of a `NonZero<usize>`.
-    // TODO: use https://doc.rust-lang.org/std/ptr/struct.NonNull.html#method.with_addr once stabilized
-    unsafe { NonNull::new_unchecked(ptr::null_mut::<u8>().wrapping_add(align.get())) }
+
+    NonNull::without_provenance(align)
 }
 
 mod private {
