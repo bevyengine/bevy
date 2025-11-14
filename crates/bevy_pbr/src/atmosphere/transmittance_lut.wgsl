@@ -1,10 +1,11 @@
 #import bevy_pbr::atmosphere::{
-    types::{Atmosphere, AtmosphereSettings},
-    bindings::{settings, atmosphere},
-    functions::{AtmosphereSample, sample_density_lut, get_local_r, max_atmosphere_distance, MIDPOINT_RATIO, ABSORPTION_DENSITY, SCATTERING_DENSITY},
-    bruneton_functions::{transmittance_lut_uv_to_r_mu, distance_to_bottom_atmosphere_boundary, distance_to_top_atmosphere_boundary},
+    bindings::settings,
+    functions::{
+        sample_density_lut, get_local_r, max_atmosphere_distance,
+        MIDPOINT_RATIO, ABSORPTION_DENSITY, SCATTERING_DENSITY
+    },
+    bruneton_functions::transmittance_lut_uv_to_r_mu,
 }
-
 
 #import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
 
