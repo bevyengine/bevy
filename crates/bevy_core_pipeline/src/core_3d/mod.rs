@@ -5,7 +5,7 @@ mod main_transparent_pass_3d_node;
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
 
-    #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderSubGraph)]
+    #[derive(Debug, Hash, PartialEq, Eq, Clone, Default, RenderSubGraph)]
     pub struct Core3d;
 
     pub mod input {
