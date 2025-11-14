@@ -1122,6 +1122,7 @@ mod tests {
 
     use super::*;
     use approx::assert_relative_eq;
+    use core::f32::consts::FRAC_1_SQRT_2;
 
     #[test]
     fn dir2_creation() {
@@ -1267,6 +1268,33 @@ mod tests {
             "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
+    }
+
+    #[test]
+    fn dir3_from_compass_dir() {
+        assert_eq!(
+            Dir3::from_compass_dir(Dir2::NORTH),
+            Dir3::from_xyz(0.0, 0.0, 1.0).unwrap()
+        );
+        assert_eq!(
+            Dir3::from_compass_dir(Dir2::SOUTH),
+            Dir3::from_xyz(0.0, 0.0, -1.0).unwrap()
+        );
+        assert_eq!(
+            Dir3::from_compass_dir(Dir2::EAST),
+            Dir3::from_xyz(1.0, 0.0, 0.0).unwrap()
+        );
+        assert_eq!(
+            Dir3::from_compass_dir(Dir2::WEST),
+            Dir3::from_xyz(-1.0, 0.0, 0.0).unwrap()
+        );
+
+        let diagonal = Dir3::from_compass_dir(Dir2::NORTH_EAST);
+        assert_relative_eq!(
+            diagonal,
+            Dir3::from_xyz(FRAC_1_SQRT_2, 0.0, FRAC_1_SQRT_2).unwrap(),
+            epsilon = f32::EPSILON
+        );
     }
 
     #[test]
