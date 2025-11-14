@@ -104,7 +104,7 @@ pub struct SkinnedMeshBoundsAsset {
     // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     //
     // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same
-    // length. They're kept separate as a minor optimisation - folding them into
+    // length. They're kept separate as a minor optimization - folding them into
     // one array would waste two bytes per joint due to alignment.
     pub aabb_index_to_joint_index: Box<[JointIndex]>,
 }
@@ -114,7 +114,7 @@ impl SkinnedMeshBoundsAsset {
     pub fn from_mesh(mesh: &Mesh) -> Option<SkinnedMeshBoundsAsset> {
         let vertex_positions = match mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
             Some(VertexAttributeValues::Float32x3(v)) => v,
-            // XXX TODO: Error for unrecognised format? Not currently possible but might be in future.
+            // XXX TODO: Error for unrecognized format? Not currently possible but might be in future.
             Some(_) => return None,
             // XXX TODO: Error?
             #[expect(clippy::match_same_arms, reason = "Will be a different error")]
@@ -180,7 +180,7 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
     skinned_mesh_bounds: &SkinnedMeshBoundsAsset,
     world_from_entity: Option<&GlobalTransform>,
 ) -> Option<Aabb3d> {
-    // Calculate an AABB that encloses the tranformed AABBs of each joint.
+    // Calculate an AABB that encloses the transformed AABBs of each joint.
 
     let mut accumulator = AabbAccumulator::new();
 
