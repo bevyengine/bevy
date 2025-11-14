@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
                         width: px(1000),
                         ..Default::default()
                     })
-                    .with_child((Text(text_string.clone()), text_font.clone(), text_block));
+                    .spawn_child((Text(text_string.clone()), text_font.clone(), text_block));
             });
     }
 

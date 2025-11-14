@@ -306,7 +306,7 @@ fn spawn_button(
                     },
                     TextColor(Color::srgb(0.5, 0.2, 0.2)),
                 ))
-                .with_child((
+                .spawn_child((
                     TextSpan(format!("{row}")),
                     TextFont {
                         font_size: FONT_SIZE,

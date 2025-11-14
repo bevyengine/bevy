@@ -132,7 +132,7 @@ fn setup(
                     ..default()
                 },
             ))
-            .with_child(TextSpan(gizmo_color_text(light_config)));
+            .spawn_child(TextSpan(gizmo_color_text(light_config)));
     }
 }
 
