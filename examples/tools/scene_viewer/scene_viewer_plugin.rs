@@ -4,10 +4,10 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    camera_controller::free_camera::FreeCamera, gltf::Gltf,
+    camera_controller::free_camera::FreeCamera,
+    gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup, gltf::Gltf,
     input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
-use bevy_gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup;
 
 use std::{f32::consts::*, fmt};
 
