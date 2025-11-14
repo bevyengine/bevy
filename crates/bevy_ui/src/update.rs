@@ -56,7 +56,7 @@ fn update_clipping(
         Has<IgnoreParentClip>,
     )>,
     entity: Entity,
-    mut maybe_grandparent_inherited_clip: Option<Rect>,
+    maybe_grandparent_inherited_clip: Option<Rect>,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
     let Ok((
