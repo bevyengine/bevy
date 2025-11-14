@@ -392,16 +392,22 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
 
             let dynamic_value: Box<dyn PartialReflect> = match self.registration.type_info() {
                 TypeInfo::Struct(struct_info) => {
-                    let mut dynamic_struct = deserializer.deserialize_struct(
-                        struct_info.type_path_table().ident().unwrap(),
-                        struct_info.field_names(),
-                        StructVisitor {
-                            struct_info,
-                            registration: self.registration,
-                            registry: self.registry,
-                            processor: self.processor,
-                        },
-                    )?;
+                    let visitor = StructVisitor {
+                        struct_info,
+                        registration: self.registration,
+                        registry: self.registry,
+                        processor: self.processor,
+                    };
+
+                    let mut dynamic_struct = match struct_info.field_len() {
+                        0 => deserializer.deserialize_unit(visitor)?,
+                        _ => deserializer.deserialize_struct(
+                            struct_info.type_path_table().ident().unwrap(),
+                            struct_info.field_names(),
+                            visitor,
+                        )?,
+                    };
+
                     dynamic_struct.set_represented_type(Some(self.registration.type_info()));
                     Box::new(dynamic_struct)
                 }
@@ -537,5 +543,146 @@ impl<'de, P: ReflectDeserializerProcessor> DeserializeSeed<'de>
         TYPE_INFO_STACK.with_borrow_mut(crate::type_info_stack::TypeInfoStack::pop);
 
         output
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use serde::{Deserialize, Serialize};
+    use std::fmt::Debug;
+    use std::str::FromStr;
+
+    use crate as bevy_reflect;
+    use bevy_reflect::prelude::*;
+
+    #[derive(Reflect, Default, Debug, PartialEq, Serialize, Deserialize)]
+    struct UnitStruct;
+
+    #[derive(Reflect, Default, Debug, PartialEq, Serialize, Deserialize)]
+    struct SomeStruct {
+        field_1: f32,
+        field_2: i32,
+        field_3: String,
+    }
+
+    #[derive(Reflect, Default, Debug, PartialEq, Serialize, Deserialize)]
+    struct IgnoredStruct {
+        #[reflect(ignore)]
+        field_1: f32,
+        #[reflect(ignore)]
+        field_2: i32,
+        #[reflect(ignore)]
+        field_3: String,
+    }
+
+    fn check_equivalence<T>(
+        type_registry: &TypeRegistry,
+        json_raw: &str,
+        val: T,
+    ) -> Result<(), serde_json::error::Error>
+    where
+        T: Serialize + for<'de> Deserialize<'de> + Debug + Reflect + FromReflect + PartialEq,
+    {
+        // Json raw to json value
+        let json_val = serde_json::Value::from_str(json_raw).unwrap();
+
+        // Json value to reflect
+        let registration = type_registry.get(std::any::TypeId::of::<T>()).unwrap();
+        let deserializer = TypedReflectDeserializer::new(registration, &type_registry);
+        let reflected = match deserializer.deserialize(json_val.clone()) {
+            Ok(v) => v,
+            Err(e) => return Err(e),
+        };
+
+        // Reflect to val
+        let extracted = T::from_reflect(reflected.as_ref()).unwrap();
+        if val != extracted {
+            return Err(serde_json::error::Error::custom(format!(
+                "val: {val:?} != extracted: {extracted:?}"
+            )));
+        }
+
+        // Val to json value
+        let serialized_val = serde_json::to_value(&val).unwrap();
+
+        if json_val != serialized_val {
+            return Err(serde_json::error::Error::custom(format!(
+                "json_val: {json_val:?} != serialized_val: {serialized_val:?}"
+            )));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_reflect_symmetry() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<UnitStruct>();
+        type_registry.register::<SomeStruct>();
+        type_registry.register::<IgnoredStruct>();
+
+        let result = check_equivalence(&type_registry, "null", UnitStruct);
+        assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
+
+        let result = check_equivalence(
+            &type_registry,
+            r#"{"field_1":0.0,"field_2":0,"field_3":""}"#,
+            SomeStruct::default(),
+        );
+        assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
+
+        let result = check_equivalence(
+            &type_registry,
+            r#"{"field_1":1.0,"field_2":2,"field_3":"3"}"#,
+            SomeStruct {
+                field_1: 1.0,
+                field_2: 2,
+                field_3: "3".to_string(),
+            },
+        );
+        assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
+
+        let result = check_equivalence(
+            &type_registry,
+            r#"{"field_1":0.0,"field_2":0,"field_3":""}"#,
+            IgnoredStruct::default(),
+        );
+        assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
+
+        let result = check_equivalence(
+            &type_registry,
+            r#"{"field_1":1.0,"field_2":2,"field_3":"3"}"#,
+            IgnoredStruct {
+                field_1: 1.0,
+                field_2: 2,
+                field_3: "3".to_string(),
+            },
+        );
+        assert!(result.is_ok(), "Error: {:?}", result.unwrap_err());
+    }
+
+    #[test]
+    fn test_reflect_symmetry_fail() {
+        let mut type_registry = TypeRegistry::default();
+        type_registry.register::<UnitStruct>();
+        type_registry.register::<SomeStruct>();
+        type_registry.register::<IgnoredStruct>();
+
+        let result = check_equivalence(&type_registry, "[]", UnitStruct);
+        assert!(
+            result.is_err(),
+            "UnitStruct should fail to serialize to an array"
+        );
+
+        let result = check_equivalence(&type_registry, "null", SomeStruct::default());
+        assert!(result.is_err(), "Structs should serialize ino to an object");
+
+        let result = check_equivalence(&type_registry, "null", IgnoredStruct::default());
+        assert!(
+            result.is_err(),
+            "even structs with ignored fields should serialize ino to an object",
+        );
     }
 }
