@@ -1368,7 +1368,7 @@ where
     ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
         *index += 1;
         let index = *index;
-        B::iter_component_ids(components).map(move |component_id| {
+        B::get_component_ids(components).map(move |component_id| {
             component_id.map(|component_id| {
                 EcsAccessType::Component(EcsAccessLevel::ReadAllExcept {
                     index,
@@ -1499,7 +1499,7 @@ where
     ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
         *index += 1;
         let index = *index;
-        B::iter_component_ids(components).map(move |component_id| {
+        B::get_component_ids(components).map(move |component_id| {
             component_id.map(|component_id| {
                 EcsAccessType::Component(EcsAccessLevel::WriteAllExcept {
                     index,
