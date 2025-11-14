@@ -1,5 +1,5 @@
 ---
-title: `AtmosphericScattering` component for opting-in a `DirectionalLight` into influencing in `Atmosphere`
+title: Add `AtmosphericScattering` component for opting-in a `DirectionalLight` into influencing in `Atmosphere`
 authors: ["@hukasu"]
 pull_requests: [21839]
 ---
