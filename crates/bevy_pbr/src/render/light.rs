@@ -336,7 +336,7 @@ pub fn extract_lights(
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
-                Has<AtmosphericScatterring>,
+                Has<AtmosphericScattering>,
             ),
             Without<SpotLight>,
         >,

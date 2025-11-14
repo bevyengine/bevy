@@ -467,4 +467,4 @@ pub enum AtmosphereMode {
 /// Marks which [`DirectionalLights`](bevy_light::DirectionalLight)
 /// will scatter in the atmosphere.
 #[derive(Default, Clone, Copy, Reflect, Component)]
-pub struct AtmosphericScatterring;
+pub struct AtmosphericScattering;
