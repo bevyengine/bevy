@@ -1,6 +1,7 @@
 #define_import_path bevy_core_pipeline::oit
 
-#import bevy_pbr::mesh_view_bindings::{view, oit_layers, oit_layer_ids, oit_settings}
+#import bevy_pbr::mesh_view_bindings::{view, oit_nodes, oit_headers, oit_atomic_counter, oit_settings}
+#import bevy_pbr::mesh_view_types::OitFragmentNode
 
 #ifdef OIT_ENABLED
 // Add the fragment to the oit buffer
@@ -11,27 +12,22 @@ fn oit_draw(position: vec4f, color: vec4f) {
         return;
     }
     // get the index of the current fragment relative to the screen size
-    let screen_index = i32(floor(position.x) + floor(position.y) * view.viewport.z);
+    let screen_index = u32(floor(position.x) + floor(position.y) * view.viewport.z);
     // get the size of the buffer.
     // It's always the size of the screen
-    let buffer_size = i32(view.viewport.z * view.viewport.w);
+    let buffer_size = u32(view.viewport.z * view.viewport.w * oit_settings.fragments_per_pixel_average);
 
-    // gets the layer index of the current fragment
-    var layer_id = atomicAdd(&oit_layer_ids[screen_index], 1);
-    // exit early if we've reached the maximum amount of fragments per layer
-    if layer_id >= oit_settings.layers_count {
-        // force to store the oit_layers_count to make sure we don't
-        // accidentally increase the index above the maximum value
-        atomicStore(&oit_layer_ids[screen_index], oit_settings.layers_count);
-        // TODO for tail blending we should return the color here
+    var new_node_index = atomicAdd(&oit_atomic_counter, 1);
+    // exit early if we've reached the maximum amount of fragments nodes
+    if new_node_index >= buffer_size {
         return;
     }
 
-    // get the layer_index from the screen
-    let layer_index = screen_index + layer_id * buffer_size;
-    let rgb9e5_color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
-    let depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
-    oit_layers[layer_index] = vec2(rgb9e5_color, depth_alpha);
+    var node: OitFragmentNode;
+    node.next = atomicExchange(&oit_headers[screen_index], new_node_index);
+    node.color = bevy_pbr::rgb9e5::vec3_to_rgb9e5_(color.rgb);
+    node.depth_alpha = pack_24bit_depth_8bit_alpha(position.z, color.a);
+    oit_nodes[new_node_index] = node;
 }
 #endif // OIT_ENABLED
 
