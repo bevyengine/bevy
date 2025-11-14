@@ -386,6 +386,14 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
     ///
+    /// # Tick and Change Detection Behavior
+    ///
+    /// When using `distributive_run_if`:
+    /// - Each system evaluates the condition independently
+    /// - System ticks are updated individually based on when each system attempts to run
+    /// - Change detection remains accurate since each system maintains its own tick state
+    /// - In chained systems, later systems will still update their ticks even if earlier ones don't run
+    ///
     /// This is equivalent to calling [`run_if`](IntoScheduleConfigs::run_if) on each individual
     /// system, as shown below:
     ///
@@ -417,8 +425,11 @@ pub trait IntoScheduleConfigs<T: Schedulable<Metadata = GraphInfo, GroupMetadata
 
     /// Run the systems only if the [`SystemCondition`] is `true`.
     ///
-    /// The `SystemCondition` will be evaluated at most once (per schedule run),
-    /// the first time a system in this set prepares to run.
+    /// Multiple conditions can be added in two ways:
+    /// - Chained calls like `.run_if(a).run_if(b)` evaluate all conditions independently
+    /// - Single call like `run_if(a.and(b))` short-circuits (`b` won't run if `a` is false)
+    ///
+    /// For per-system condition evaluation, use [`distributive_run_if`].
     ///
     /// If this set contains more than one system, calling `run_if` is equivalent to adding each
     /// system to a common set and configuring the run condition on that set, as shown below:
@@ -549,6 +560,16 @@ impl<T: Schedulable<Metadata = GraphInfo, GroupMetadata = Chain>> IntoScheduleCo
         self
     }
 
+    /// Chain systems to run in sequence, by implicitly adding ordering constraints between them.
+    ///
+    /// Systems in a chain:
+    /// - Execute in sequential order
+    /// - Each maintain their own tick state
+    /// - Have independent change detection
+    /// - Update ticks even when skipped by conditions
+    /// - Equivalent to using `before` / `after` system orderings.
+    /// Later systems in the chain will see changes made by earlier systems while maintaining
+    /// their own change detection state.
     fn chain(self) -> Self {
         self.chain_inner()
     }
