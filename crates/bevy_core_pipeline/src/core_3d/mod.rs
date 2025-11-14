@@ -1,6 +1,7 @@
 mod main_opaque_pass_3d_node;
 mod main_transmissive_pass_3d_node;
 mod main_transparent_pass_3d_node;
+mod main_wboit_pass_3d_node;
 
 pub mod graph {
     use bevy_render::render_graph::{RenderLabel, RenderSubGraph};
@@ -83,6 +84,7 @@ use bevy_render::{
 };
 pub use main_opaque_pass_3d_node::*;
 pub use main_transparent_pass_3d_node::*;
+pub use main_wboit_pass_3d_node::*;
 
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::UntypedAssetId;
@@ -155,6 +157,8 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transmissive3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resource::<DrawFunctions<UnsortedTransparent3d>>()
+            .init_resource::<DrawFunctions<WeightedBlendedOit3d>>()
             .init_resource::<DrawFunctions<Opaque3dPrepass>>()
             .init_resource::<DrawFunctions<AlphaMask3dPrepass>>()
             .init_resource::<DrawFunctions<Opaque3dDeferred>>()
@@ -167,6 +171,8 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
             .init_resource::<ViewSortedRenderPhases<Transmissive3d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
+            .init_resource::<ViewBinnedRenderPhases<UnsortedTransparent3d>>()
+            .init_resource::<ViewBinnedRenderPhases<WeightedBlendedOit3d>>()
             .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
             .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
@@ -616,11 +622,275 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
     }
 }
 
+/// Unsorted transparent 3D [`BinnedPhaseItem`]s for OIT.
+pub struct UnsortedTransparent3d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: UnsortedTransparent3dBatchSetKey,
+    /// The key, which determines which can be batched.
+    pub bin_key: UnsortedTransparent3dBinKey,
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
+    pub representative_entity: (Entity, MainEntity),
+    /// The ranges of instances.
+    pub batch_range: Range<u32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
+    pub extra_index: PhaseItemExtraIndex,
+}
+
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set*.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UnsortedTransparent3dBatchSetKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
+
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+
+    /// The ID of a bind group specific to the material instance.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
+
+    /// The ID of the slab of GPU memory that contains vertex data.
+    ///
+    /// For non-mesh items, you can fill this with 0 if your items can be
+    /// multi-drawn, or with a unique value if they can't.
+    pub vertex_slab: SlabId,
+
+    /// The ID of the slab of GPU memory that contains index data, if present.
+    ///
+    /// For non-mesh items, you can safely fill this with `None`.
+    pub index_slab: Option<SlabId>,
+}
+
+impl PhaseItemBatchSetKey for UnsortedTransparent3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
+/// Data that must be identical in order to *batch* phase items together.
+///
+/// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UnsortedTransparent3dBinKey {
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItem for UnsortedTransparent3d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.batch_set_key.draw_function
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index.clone()
+    }
+
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl BinnedPhaseItem for UnsortedTransparent3d {
+    type BatchSetKey = UnsortedTransparent3dBatchSetKey;
+    type BinKey = UnsortedTransparent3dBinKey;
+
+    #[inline]
+    fn new(
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
+        representative_entity: (Entity, MainEntity),
+        batch_range: Range<u32>,
+        extra_index: PhaseItemExtraIndex,
+    ) -> Self {
+        UnsortedTransparent3d {
+            batch_set_key,
+            bin_key,
+            representative_entity,
+            batch_range,
+            extra_index,
+        }
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for UnsortedTransparent3d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.batch_set_key.pipeline
+    }
+}
+
+/// Weighted blended order independent transparency 3D [`BinnedPhaseItem`]s.
+pub struct WeightedBlendedOit3d {
+    /// Determines which objects can be placed into a *batch set*.
+    ///
+    /// Objects in a single batch set can potentially be multi-drawn together,
+    /// if it's enabled and the current platform supports it.
+    pub batch_set_key: WbOit3dBatchSetKey,
+    /// The key, which determines which can be batched.
+    pub bin_key: WbOit3dBinKey,
+    /// An entity from which data will be fetched, including the mesh if
+    /// applicable.
+    pub representative_entity: (Entity, MainEntity),
+    /// The ranges of instances.
+    pub batch_range: Range<u32>,
+    /// An extra index, which is either a dynamic offset or an index in the
+    /// indirect parameters list.
+    pub extra_index: PhaseItemExtraIndex,
+}
+
+/// Information that must be identical in order to place opaque meshes in the
+/// same *batch set*.
+///
+/// A batch set is a set of batches that can be multi-drawn together, if
+/// multi-draw is in use.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WbOit3dBatchSetKey {
+    /// The identifier of the render pipeline.
+    pub pipeline: CachedRenderPipelineId,
+
+    /// The function used to draw.
+    pub draw_function: DrawFunctionId,
+
+    /// The ID of a bind group specific to the material instance.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
+
+    /// The ID of the slab of GPU memory that contains vertex data.
+    ///
+    /// For non-mesh items, you can fill this with 0 if your items can be
+    /// multi-drawn, or with a unique value if they can't.
+    pub vertex_slab: SlabId,
+
+    /// The ID of the slab of GPU memory that contains index data, if present.
+    ///
+    /// For non-mesh items, you can safely fill this with `None`.
+    pub index_slab: Option<SlabId>,
+}
+
+impl PhaseItemBatchSetKey for WbOit3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
+/// Data that must be identical in order to *batch* phase items together.
+///
+/// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WbOit3dBinKey {
+    /// The asset that this phase item is associated with.
+    ///
+    /// Normally, this is the ID of the mesh, but for non-mesh items it might be
+    /// the ID of another type of asset.
+    pub asset_id: UntypedAssetId,
+}
+
+impl PhaseItem for WeightedBlendedOit3d {
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.representative_entity.0
+    }
+
+    #[inline]
+    fn main_entity(&self) -> MainEntity {
+        self.representative_entity.1
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.batch_set_key.draw_function
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index.clone()
+    }
+
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
+    }
+}
+
+impl BinnedPhaseItem for WeightedBlendedOit3d {
+    type BatchSetKey = WbOit3dBatchSetKey;
+    type BinKey = WbOit3dBinKey;
+
+    #[inline]
+    fn new(
+        batch_set_key: Self::BatchSetKey,
+        bin_key: Self::BinKey,
+        representative_entity: (Entity, MainEntity),
+        batch_range: Range<u32>,
+        extra_index: PhaseItemExtraIndex,
+    ) -> Self {
+        WeightedBlendedOit3d {
+            batch_set_key,
+            bin_key,
+            representative_entity,
+            batch_range,
+            extra_index,
+        }
+    }
+}
+
+impl CachedRenderPipelinePhaseItem for WeightedBlendedOit3d {
+    #[inline]
+    fn cached_pipeline(&self) -> CachedRenderPipelineId {
+        self.batch_set_key.pipeline
+    }
+}
+
 pub fn extract_core_3d_camera_phases(
     mut opaque_3d_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_3d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_3d_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_3d_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    mut unsorted_transparent_3d_phases: ResMut<ViewBinnedRenderPhases<UnsortedTransparent3d>>,
+    mut wboit_3d_phases: ResMut<ViewBinnedRenderPhases<WeightedBlendedOit3d>>,
     cameras_3d: Extract<Query<(Entity, &Camera, Has<NoIndirectDrawing>), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
@@ -647,6 +917,9 @@ pub fn extract_core_3d_camera_phases(
         alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         transmissive_3d_phases.insert_or_clear(retained_view_entity);
         transparent_3d_phases.insert_or_clear(retained_view_entity);
+        unsorted_transparent_3d_phases
+            .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+        wboit_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
 
         live_entities.insert(retained_view_entity);
     }
@@ -655,6 +928,8 @@ pub fn extract_core_3d_camera_phases(
     alpha_mask_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     transmissive_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
     transparent_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    unsorted_transparent_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
+    wboit_3d_phases.retain(|view_entity, _| live_entities.contains(view_entity));
 }
 
 // Extract the render phases for the prepass
@@ -777,6 +1052,8 @@ pub fn prepare_core_3d_depth_textures(
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
+    unsorted_transparent_3d_phases: Res<ViewBinnedRenderPhases<UnsortedTransparent3d>>,
+    wboit_3d_phases: Res<ViewBinnedRenderPhases<WeightedBlendedOit3d>>,
     views_3d: Query<(
         Entity,
         &ExtractedCamera,
@@ -792,6 +1069,8 @@ pub fn prepare_core_3d_depth_textures(
             || !alpha_mask_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transmissive_3d_phases.contains_key(&extracted_view.retained_view_entity)
             || !transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !unsorted_transparent_3d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !wboit_3d_phases.contains_key(&extracted_view.retained_view_entity)
         {
             continue;
         };
@@ -862,6 +1141,8 @@ pub fn prepare_core_3d_transmission_textures(
     alpha_mask_3d_phases: Res<ViewBinnedRenderPhases<AlphaMask3d>>,
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
+    unsorted_transparent_3d_phases: Res<ViewBinnedRenderPhases<UnsortedTransparent3d>>,
+    wboit_3d_phases: Res<ViewBinnedRenderPhases<WeightedBlendedOit3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
@@ -869,6 +1150,8 @@ pub fn prepare_core_3d_transmission_textures(
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
             || !alpha_mask_3d_phases.contains_key(&view.retained_view_entity)
             || !transparent_3d_phases.contains_key(&view.retained_view_entity)
+            || !unsorted_transparent_3d_phases.contains_key(&view.retained_view_entity)
+            || !wboit_3d_phases.contains_key(&view.retained_view_entity)
         {
             continue;
         };
