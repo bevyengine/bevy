@@ -71,8 +71,13 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             // There is still room in the sorted list.
             // Insert the fragment so that the list stay sorted.
             var i = sorted_frag_count;
-            for(; (i > 0) && (depth_alpha.x < fragment_list[i - 1].depth); i -= 1) {
-                fragment_list[i] = fragment_list[i - 1];
+            for(; i > 0; i -= 1) {
+                // short-circuit can't be used in for-loop, https://github.com/gfx-rs/wgpu/issues/4394
+                if depth_alpha.x < fragment_list[i - 1].depth {
+                    fragment_list[i] = fragment_list[i - 1];
+                } else {
+                    break;
+                }
             }
             fragment_list[i].color = color;
             fragment_list[i].alpha = depth_alpha.y;
@@ -85,8 +90,13 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             // This is an approximation.
             final_color = blend(vec4f(fragment_list[0].color * fragment_list[0].alpha, fragment_list[0].alpha), final_color);
             var i = 0u;
-            for(; (i < SORTED_FRAGMENT_MAX_COUNT - 1) && (fragment_list[i + 1].depth < depth_alpha.x); i += 1) {
-               fragment_list[i] = fragment_list[i + 1];
+            for(; i < SORTED_FRAGMENT_MAX_COUNT - 1; i += 1) {
+                // short-circuit can't be used in for-loop, https://github.com/gfx-rs/wgpu/issues/4394
+                if fragment_list[i + 1].depth < depth_alpha.x {
+                    fragment_list[i] = fragment_list[i + 1];
+                } else {
+                    break;
+                }
             }
             fragment_list[i].color = color;
             fragment_list[i].alpha = depth_alpha.y;

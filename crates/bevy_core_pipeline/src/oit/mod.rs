@@ -52,8 +52,8 @@ pub struct OrderIndependentTransparencySettings {
 impl Default for OrderIndependentTransparencySettings {
     fn default() -> Self {
         Self {
-            sorted_fragment_max_count: 8,
-            fragments_per_pixel_average: 4.0,
+            sorted_fragment_max_count: 16,
+            fragments_per_pixel_average: 8.0,
             alpha_threshold: 0.0,
         }
     }

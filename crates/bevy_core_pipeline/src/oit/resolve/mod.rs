@@ -1,4 +1,4 @@
-use std::num::NonZero;
+use core::num::NonZero;
 
 use super::OitBuffers;
 use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
@@ -221,7 +221,7 @@ fn specialize_oit_resolve_pipeline(
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs: vec![ShaderDefVal::UInt(
                 "SORTED_FRAGMENT_MAX_COUNT".into(),
-                key.sorted_fragment_max_count as u32,
+                key.sorted_fragment_max_count,
             )],
             targets: vec![Some(ColorTargetState {
                 format,
