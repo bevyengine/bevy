@@ -63,11 +63,9 @@ pub enum AccessCompatible {
     Conflicts,
     /// Access is allowed by `EntityExcept*`. Returns index of the `Except` param.
     CompatibleExcept(usize),
-    /// Access conflicts, but is the first param, so we ignore it and check when the order is reversed.
-    ConflictsExceptFirst,
     /// Access conflicts with the `Except` being the second param. Holds the index of the `Except` param
     /// which can be used to disambiguate between different `Except`'s
-    ConflictsExceptSecond(usize),
+    ConflictsExcept(usize),
 }
 
 impl From<bool> for AccessCompatible {
@@ -93,12 +91,23 @@ impl EcsAccessType {
         }
     }
 
+    fn is_except(&self) -> bool {
+        use EcsAccessLevel::*;
+        use EcsAccessType::*;
+
+        match self {
+            Component(ReadAllExcept { .. }) | Component(WriteAllExcept { .. }) => true,
+            _ => false,
+        }
+    }
+
     /// See [`AccessCompatible`] for more info
+    #[inline(never)]
     pub fn is_compatible(&self, other: Self) -> AccessCompatible {
         use EcsAccessLevel::*;
         use EcsAccessType::*;
 
-        match (self, other) {
+        match (*self, other) {
             (Component(ReadAll), Component(Write(_)))
             | (Component(Write(_)), Component(ReadAll))
             | (Component(_), Component(WriteAll))
@@ -145,36 +154,32 @@ impl EcsAccessType {
             | (
                 Resource(ResourceAccessLevel::Write(id)),
                 Resource(ResourceAccessLevel::Write(id_other)),
-            ) => (*id != id_other).into(),
+            ) => (id != id_other).into(),
 
             // Except* access in first parameter
             (
                 Component(ReadAllExcept {
-                    component_id: id, ..
+                    component_id: id,
+                    index,
                 }),
                 Component(Write(id_other)),
             )
             | (
                 Component(WriteAllExcept {
-                    component_id: id, ..
+                    component_id: id,
+                    index,
                 }),
                 Component(Read(id_other)),
             )
             | (
                 Component(WriteAllExcept {
-                    component_id: id, ..
+                    component_id: id,
+                    index,
                 }),
                 Component(Write(id_other)),
-            ) => {
-                if *id == id_other {
-                    AccessCompatible::Compatible
-                } else {
-                    AccessCompatible::ConflictsExceptFirst
-                }
-            }
-
+            )
             // Except* access in second parameter
-            (
+            | (
                 Component(Write(id)),
                 Component(ReadAllExcept {
                     component_id: id_other,
@@ -195,10 +200,10 @@ impl EcsAccessType {
                     index,
                 }),
             ) => {
-                if *id == id_other {
+                if id == id_other {
                     AccessCompatible::CompatibleExcept(index)
                 } else {
-                    AccessCompatible::ConflictsExceptSecond(index)
+                    AccessCompatible::ConflictsExcept(index)
                 }
             }
 
@@ -208,7 +213,7 @@ impl EcsAccessType {
                 Component(WriteAllExcept {
                     index: index_other, ..
                 }),
-            ) => (*index == index_other).into(),
+            ) => (index == index_other).into(),
         }
     }
 }
@@ -247,57 +252,127 @@ impl core::fmt::Display for QueryAccessError {
 }
 
 /// Check if `Q` has any internal conflicts.
+#[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
+    // increasing this too much may slow down smaller queries
+    const MAX_SIZE: usize = 16;
     let mut index_outer = 0;
-    for (i, access) in Q::iter_access(components, &mut index_outer).enumerate() {
-        let mut index_inner = 0;
-        let mut except_index = None;
-        let mut except_compatible = false;
-        for (_j, access_other) in Q::iter_access(components, &mut index_inner)
-            .enumerate()
-            .filter(|(j, _)| i != *j)
-        {
-            let (Some(access), Some(access_other)) = (access, access_other) else {
-                return Err(QueryAccessError::ComponentNotRegistered);
-            };
+    let iter = Q::iter_access(components, &mut index_outer).enumerate();
+    // size is too big or indeterminate
+    if iter
+        .size_hint()
+        .1
+        .is_none_or(|max_size| max_size > MAX_SIZE)
+    {
+        for (i, access) in iter {
+            // only check except* conflicts in second iterator
+            if matches!(
+                access,
+                Some(EcsAccessType::Component(
+                    EcsAccessLevel::ReadAllExcept { .. }
+                ))
+            ) || matches!(
+                access,
+                Some(EcsAccessType::Component(
+                    EcsAccessLevel::WriteAllExcept { .. }
+                ))
+            ) {
+                continue;
+            }
 
-            // if we're in an except sequence, check if the sequence has ended
-            if let Some(current_index) = except_index {
-                let sequence_ended = if let Some(index_other) = access_other.index() {
-                    current_index != index_other
-                } else {
-                    true
+            let mut index_inner = 0;
+            let mut except_index = None;
+            let mut except_compatible = false;
+            for (j, access_other) in Q::iter_access(components, &mut index_inner).enumerate() {
+                // don't check for conflicts when the access is the same access
+                if i == j {
+                    continue;
+                }
+                let (Some(access), Some(access_other)) = (access, access_other) else {
+                    return Err(QueryAccessError::ComponentNotRegistered);
                 };
 
-                if sequence_ended {
-                    if !except_compatible {
-                        return Err(QueryAccessError::Conflict);
+                // if we're in an except sequence, check if the sequence has ended
+                if let Some(current_index) = except_index {
+                    let sequence_ended = if let Some(index_other) = access_other.index() {
+                        current_index != index_other
+                    } else {
+                        true
+                    };
+
+                    if sequence_ended {
+                        if !except_compatible {
+                            return Err(QueryAccessError::Conflict);
+                        }
+                        except_compatible = false;
+                        except_index = None;
                     }
-                    except_compatible = false;
-                    except_index = None;
+                }
+
+                match access.is_compatible(access_other) {
+                    AccessCompatible::Compatible => continue,
+                    AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
+                    AccessCompatible::CompatibleExcept(index) => {
+                        except_index = Some(index);
+                        except_compatible = true;
+                    }
+                    AccessCompatible::ConflictsExcept(index) => {
+                        except_index = Some(index);
+                    }
                 }
             }
 
-            match access.is_compatible(access_other) {
-                AccessCompatible::Compatible
-                    // ignore *Except conflicts if they're in the outer loop and only check them in the inner loop
-                    | AccessCompatible::ConflictsExceptFirst => continue,
-                AccessCompatible::CompatibleExcept(index) => {
-                    except_index = Some(index);
-                    except_compatible = true;
-                },
-                AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
-                AccessCompatible::ConflictsExceptSecond(index) => {
-                    except_index = Some(index);
+            if except_index.is_some() && !except_compatible {
+                return Err(QueryAccessError::Conflict);
+            }
+        }
+        Ok(())
+    } else {
+        // we can use a faster algorithm
+        let mut compatibles = [[false; MAX_SIZE]; MAX_SIZE];
+        let mut conflicts = [[false; MAX_SIZE]; MAX_SIZE];
+        let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
+        for (i, access) in iter {
+            let mut index_inner = 0;
+            for (j, access_other) in Q::iter_access(components, &mut index_inner)
+                .enumerate()
+                .take(i)
+            {
+                if i == j {
+                    continue;
+                }
+                let (Some(access), Some(access_other)) = (access, access_other) else {
+                    return Err(QueryAccessError::ComponentNotRegistered);
+                };
+
+                match access.is_compatible(access_other) {
+                    AccessCompatible::Compatible => continue,
+                    AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
+                    AccessCompatible::CompatibleExcept(index) => {
+                        let not_except = if access.is_except() { j } else { i };
+                        compatibles[index][not_except] = true;
+                    }
+                    AccessCompatible::ConflictsExcept(index) => {
+                        let not_except = if access.is_except() { j } else { i };
+                        conflicts[index][not_except] = true;
+                    }
                 }
             }
         }
 
-        if except_index.is_some() && !except_compatible {
-            return Err(QueryAccessError::Conflict);
+        for (compatible, conflict) in compatibles
+            .iter()
+            .flatten()
+            .take(size * size)
+            .zip(conflicts.iter().flatten().take(size * size))
+        {
+            if *conflict && !*compatible {
+                return Err(QueryAccessError::Conflict);
+            }
         }
+
+        Ok(())
     }
-    Ok(())
 }
 
 #[cfg(test)]
