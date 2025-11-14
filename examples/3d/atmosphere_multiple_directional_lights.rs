@@ -118,6 +118,22 @@ fn setup(
         Transform::from_translation(Vec3::new(5., 5., -15.)).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLightFlag(0b100),
     ));
+
+    // Legend
+    commands.spawn((
+        Node {
+            top: Val::Px(0.),
+            left: Val::Px(0.),
+            padding: UiRect::all(Val::Px(4.)),
+            flex_direction: FlexDirection::Column,
+            row_gap: Val::Px(4.),
+            ..Default::default()
+        },
+        children![
+            Text::new("[1]~[7] Change directional light with AtmosphericScattering"),
+            Text::new("[0] Disable AtmosphericScattering for all lights")
+        ],
+    ));
 }
 
 /// Changes which [`DirectionalLight`] will have [`AtmosphericScattering`].
