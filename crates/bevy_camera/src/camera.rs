@@ -41,12 +41,9 @@ use wgpu_types::{BlendState, TextureUsages};
 ///     let window = windows.single().expect("Window not found");
 ///     let scale = window.resolution.scale_factor();
 ///
-///    // Convert the scale to a UVec2 to enable easy multiplication later
-///     let scale = UVec2::new(scale as u32, scale as u32);
-///
 ///     camera.viewport = Some(Viewport { 
-///         physical_position: UVec::new(10, 10) * scale, 
-///         physical_size: UVec::new(100, 100) * scale,
+///         physical_position: (UVec2::new(10, 10).as_vec2() * scale).as_uvec2(), 
+///         physical_size: (UVec2::new(100, 100).as_vec2() * scale).as_uvec2(),
 ///         ..default()
 ///     });
 /// }
