@@ -38,12 +38,21 @@ pub mod rounded_box;
 #[cfg(feature = "bevy_light")]
 pub mod light;
 
+#[cfg(feature = "bevy_mesh")]
+pub mod skinned_mesh_bounds;
+
 /// The gizmos prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
+
+    #[doc(hidden)]
+    #[cfg(feature = "bevy_mesh")]
+    pub use crate::skinned_mesh_bounds::{
+        ShowSkinnedMeshBoundsGizmo, SkinnedMeshBoundsGizmoConfigGroup,
+    };
 
     #[doc(hidden)]
     pub use crate::{
@@ -78,8 +87,12 @@ use bevy_utils::TypeIdMap;
 use config::{DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore};
 use core::{any::TypeId, marker::PhantomData, mem};
 use gizmos::{GizmoStorage, Swap};
+
 #[cfg(feature = "bevy_light")]
 use light::LightGizmoPlugin;
+
+#[cfg(feature = "bevy_mesh")]
+use crate::skinned_mesh_bounds::SkinnedMeshBoundsGizmoPlugin;
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 #[derive(Default)]
@@ -96,6 +109,9 @@ impl Plugin for GizmoPlugin {
 
         #[cfg(feature = "bevy_light")]
         app.add_plugins(LightGizmoPlugin);
+
+        #[cfg(feature = "bevy_mesh")]
+        app.add_plugins(SkinnedMeshBoundsGizmoPlugin);
     }
 }
 

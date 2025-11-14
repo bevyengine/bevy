@@ -4,16 +4,10 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    camera_controller::free_camera::FreeCamera,
-    gltf::Gltf,
-    input::common_conditions::input_just_pressed,
-    math::Affine3A,
-    mesh::skinning::{
-        SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset, SkinnedMeshInverseBindposes,
-    },
-    prelude::*,
-    scene::InstanceId,
+    camera_controller::free_camera::FreeCamera, gltf::Gltf,
+    input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
+use bevy_gizmos::skinned_mesh_bounds::SkinnedMeshBoundsGizmoConfigGroup;
 
 use std::{f32::consts::*, fmt};
 
@@ -72,14 +66,6 @@ pub struct SceneViewerPlugin;
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraTracker>()
-            .init_gizmo_group::<SkinnedMeshBoundsGizmos>()
-            .insert_gizmo_config(
-                SkinnedMeshBoundsGizmos::default(),
-                GizmoConfig {
-                    enabled: false,
-                    ..Default::default()
-                },
-            )
             .add_systems(PreUpdate, scene_load_check)
             .add_systems(
                 Update,
@@ -92,16 +78,19 @@ impl Plugin for SceneViewerPlugin {
                     )
                         .chain(),
                 ),
-            )
-            .add_systems(
-                PostUpdate,
-                draw_skinned_mesh_bounds.after(TransformSystems::Propagate),
             );
     }
 }
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
+    config
+        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
+        .1
+        .draw_all ^= true;
 }
 
 fn scene_load_check(
@@ -252,46 +241,6 @@ fn camera_tracker(
             && let Ok(mut camera) = queries.p2().get_mut(e)
         {
             camera.is_active = true;
-        }
-    }
-}
-
-fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
-    config.config_mut::<SkinnedMeshBoundsGizmos>().0.enabled ^= true;
-}
-
-#[derive(Default, Reflect, GizmoConfigGroup)]
-struct SkinnedMeshBoundsGizmos {}
-
-fn draw_skinned_mesh_bounds(
-    mut gizmos: Gizmos<SkinnedMeshBoundsGizmos>,
-    meshes: Query<(&SkinnedMeshBounds, &SkinnedMesh)>,
-    joints: Query<&GlobalTransform>,
-    bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
-    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-) {
-    for (bounds, mesh) in meshes {
-        if let Some(bounds_asset) = bounds_assets.get(bounds)
-            && let Some(inverse_bindposes_asset) =
-                inverse_bindposes_assets.get(&mesh.inverse_bindposes)
-        {
-            for (&joint_index, &joint_aabb) in bounds_asset
-                .aabb_index_to_joint_index
-                .iter()
-                .zip(bounds_asset.aabbs.iter())
-            {
-                let joint_index = joint_index as usize;
-
-                if let Some(&joint_entity) = mesh.joints.get(joint_index)
-                    && let Ok(&world_from_joint) = joints.get(joint_entity)
-                    && let Some(&joint_from_mesh) = inverse_bindposes_asset.get(joint_index)
-                {
-                    let world_from_mesh =
-                        world_from_joint.affine() * Affine3A::from_mat4(joint_from_mesh);
-
-                    gizmos.aabb_3d(joint_aabb, world_from_mesh, Color::WHITE);
-                }
-            }
         }
     }
 }

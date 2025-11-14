@@ -31,7 +31,10 @@ fn main() {
         // example a convenient test but a worse example.
         .add_systems(
             Update,
-            toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+            (
+                toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
+                toggle_skinned_mesh_bounds.run_if(input_just_pressed(KeyCode::KeyJ)),
+            ),
         )
         .run();
 }
@@ -250,4 +253,11 @@ fn joint_animation(
 
 fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
     config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
+}
+
+fn toggle_skinned_mesh_bounds(mut config: ResMut<GizmoConfigStore>) {
+    config
+        .config_mut::<SkinnedMeshBoundsGizmoConfigGroup>()
+        .1
+        .draw_all ^= true;
 }
