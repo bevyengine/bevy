@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -95,7 +95,15 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    LineHeight,
+    TextNodeFlags,
+    ContentSize
+)]
 pub struct Text(pub String);
 
 impl Text {
@@ -220,7 +228,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -252,7 +260,13 @@ fn create_text_measure<'a>(
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -364,7 +378,13 @@ fn queue_text(
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {

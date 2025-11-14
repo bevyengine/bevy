@@ -735,10 +735,6 @@ pub enum RemoteSystems {
     Cleanup,
 }
 
-/// Deprecated alias for [`RemoteSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
-pub type RemoteSet = RemoteSystems;
-
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
 pub enum RemoteMethodHandler {

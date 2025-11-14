@@ -4,11 +4,9 @@
         types::{Atmosphere, AtmosphereSettings},
         bindings::{atmosphere, view, settings},
         functions::{
-            sample_atmosphere, AtmosphereSample,
-            sample_local_inscattering, get_view_position,
+            get_view_position, raymarch_atmosphere,
             max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
-            MIDPOINT_RATIO, raymarch_atmosphere, EPSILON
         },
     }
 }

@@ -8,8 +8,6 @@ use syn::{
 pub const EVENT: &str = "event";
 pub const ENTITY_EVENT: &str = "entity_event";
 pub const PROPAGATE: &str = "propagate";
-#[deprecated(since = "0.17.0", note = "This has been renamed to `propagate`.")]
-pub const TRAVERSAL: &str = "traversal";
 pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRIGGER: &str = "trigger";
 pub const EVENT_TARGET: &str = "event_target";
@@ -89,12 +87,6 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
                 auto_propagate = true;
                 processed_attrs.push(AUTO_PROPAGATE);
                 Ok(())
-            }
-            #[expect(deprecated, reason = "we want to continue supporting this for a release")]
-            Some(ident) if ident == TRAVERSAL => {
-                Err(meta.error(
-                    "`traversal` has been renamed to `propagate`, use that instead. If you were writing `traversal = &'static ChildOf`, you can now just write `propagate`, which defaults to the `ChildOf` traversal."
-                ))
             }
             Some(ident) if ident == PROPAGATE => {
                 propagate = true;

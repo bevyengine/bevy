@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use crate::{component::Tick, error::BevyError, prelude::Resource};
+use crate::{change_detection::Tick, error::BevyError, prelude::Resource};
 use bevy_utils::prelude::DebugName;
 use derive_more::derive::{Deref, DerefMut};
 
