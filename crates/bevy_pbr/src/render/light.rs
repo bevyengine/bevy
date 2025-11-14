@@ -106,6 +106,8 @@ pub struct ExtractedDirectionalLight {
     pub occlusion_culling: bool,
     pub sun_disk_angular_size: f32,
     pub sun_disk_intensity: f32,
+    /// This directional light is enabled for atmospheric scattering
+    pub atmospheric_scattering: bool,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -152,6 +154,7 @@ bitflags::bitflags! {
         const SHADOWS_ENABLED                   = 1 << 0;
         const VOLUMETRIC                        = 1 << 1;
         const AFFECTS_LIGHTMAPPED_MESH_DIFFUSE  = 1 << 2;
+        const ATMOSPHERIC_SCATTERING            = 1 << 3;
         const NONE                              = 0;
         const UNINITIALIZED                     = 0xFFFF;
     }
@@ -333,6 +336,7 @@ pub fn extract_lights(
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
                 Option<&SunDisk>,
+                Has<AtmosphericScatterring>,
             ),
             Without<SpotLight>,
         >,
@@ -515,6 +519,7 @@ pub fn extract_lights(
         volumetric_light,
         occlusion_culling,
         sun_disk,
+        atmospheric_scattering,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -583,6 +588,7 @@ pub fn extract_lights(
                     occlusion_culling,
                     sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
                     sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
+                    atmospheric_scattering,
                 },
                 RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
@@ -1197,6 +1203,10 @@ pub fn prepare_lights(
 
             if light.affects_lightmapped_mesh_diffuse {
                 flags |= DirectionalLightFlags::AFFECTS_LIGHTMAPPED_MESH_DIFFUSE;
+            }
+
+            if light.atmospheric_scattering {
+                flags |= DirectionalLightFlags::ATMOSPHERIC_SCATTERING;
             }
 
             gpu_directional_lights[index] = GpuDirectionalLight {
