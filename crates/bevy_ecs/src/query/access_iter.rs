@@ -253,11 +253,10 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         let mut index_inner = 0;
         let mut except_index = None;
         let mut except_compatible = false;
-        for (j, access_other) in Q::iter_access(components, &mut index_inner).enumerate() {
-            // don't check for conflicts when the access is the same access
-            if i == j {
-                continue;
-            }
+        for (_j, access_other) in Q::iter_access(components, &mut index_inner)
+            .enumerate()
+            .filter(|(j, _)| i != *j)
+        {
             let (Some(access), Some(access_other)) = (access, access_other) else {
                 return Err(QueryAccessError::ComponentNotRegistered);
             };
