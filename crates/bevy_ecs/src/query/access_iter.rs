@@ -108,25 +108,29 @@ impl EcsAccessType {
             | (Component(WriteAllExcept { .. }), Component(ReadAll))
             | (Component(ReadAll), Component(WriteAllExcept { .. })) => AccessCompatible::Conflicts,
 
+            // resources and components never conflict
             (Component(_), Resource(_))
             | (Resource(_), Component(_))
+            // read only access doesn't conflict
             | (Component(Read(_)), Component(Read(_)))
             | (Component(ReadAll), Component(Read(_)))
             | (Component(Read(_)), Component(ReadAll))
             | (Component(ReadAll), Component(ReadAll))
             | (Resource(ResourceAccessLevel::Read(_)), Resource(ResourceAccessLevel::Read(_)))
-            | (Component(FilteredReadAll), _)
-            | (_, Component(FilteredReadAll))
-            | (Component(FilteredWriteAll), _)
-            | (_, Component(FilteredWriteAll))
             | (Component(ReadAllExcept { .. }), Component(Read(_)))
             | (Component(Read(_)), Component(ReadAllExcept { .. }))
             | (Component(ReadAllExcept { .. }), Component(ReadAll))
             | (Component(ReadAll), Component(ReadAllExcept { .. }))
-            | (Component(ReadAllExcept { .. }), Component(ReadAllExcept { .. })) => {
+            | (Component(ReadAllExcept { .. }), Component(ReadAllExcept { .. }))
+            // filtered access takes it's access from what is remaining
+            | (Component(FilteredReadAll), _)
+            | (_, Component(FilteredReadAll))
+            | (Component(FilteredWriteAll), _)
+            | (_, Component(FilteredWriteAll)) => {
                 AccessCompatible::Compatible
             }
 
+            // single component checks
             (Component(Read(id)), Component(Write(id_other)))
             | (Component(Write(id)), Component(Read(id_other)))
             | (Component(Write(id)), Component(Write(id_other)))
@@ -143,6 +147,7 @@ impl EcsAccessType {
                 Resource(ResourceAccessLevel::Write(id_other)),
             ) => (*id != id_other).into(),
 
+            // Except* access in first parameter
             (
                 Component(ReadAllExcept {
                     component_id: id, ..
@@ -168,6 +173,7 @@ impl EcsAccessType {
                 }
             }
 
+            // Except* access in second parameter
             (
                 Component(Write(id)),
                 Component(ReadAllExcept {
@@ -196,6 +202,7 @@ impl EcsAccessType {
                 }
             }
 
+            // WriteAll will always conflict if they have different indexes
             (
                 Component(WriteAllExcept { index, .. }),
                 Component(WriteAllExcept {
