@@ -41,7 +41,10 @@ struct WorldCacheGeometryData {
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
-    let cell_size = get_cell_size(world_position, view_position);
+    let cell_lod = get_cell_lod(world_position, view_position);
+    let lower_cell_lod = max(cell_lod - 1.0, 0.5);
+    let cell_size = cell_lod * WORLD_CACHE_POSITION_BASE_CELL_SIZE;
+    let lower_cell_size = lower_cell_lod * WORLD_CACHE_POSITION_BASE_CELL_SIZE;
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
     let TBN = orthonormalize(world_normal);
@@ -49,8 +52,9 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
     let jittered_position = world_position + offset.x * TBN[0] + offset.y * TBN[1];
 
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(jittered_position, cell_size));
+    let world_position_quantized_lower = bitcast<vec3<u32>>(quantize_position(jittered_position, lower_cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-    var key = compute_key(world_position_quantized, world_normal_quantized);
+    var key = compute_key(world_position_quantized, world_position_quantized_lower, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
@@ -75,10 +79,9 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
 }
 #endif
 
-fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
+fn get_cell_lod(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
     let camera_distance = distance(view_position, world_position) / WORLD_CACHE_POSITION_LOD_SCALE;
-    let lod = exp2(floor(log2(1.0 + camera_distance)));
-    return WORLD_CACHE_POSITION_BASE_CELL_SIZE * lod;
+    return exp2(floor(log2(1.0 + camera_distance)));
 }
 
 fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
@@ -89,24 +92,30 @@ fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
     return floor(world_normal + 0.0001);
 }
 
-// TODO: Clustering
-fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
-    var key = pcg_hash(world_position.x);
-    key = pcg_hash(key + world_position.y);
-    key = pcg_hash(key + world_position.z);
-    key = pcg_hash(key + world_normal.x);
-    key = pcg_hash(key + world_normal.y);
-    key = pcg_hash(key + world_normal.z);
+// https://dl.acm.org/doi/10.1145/3532836.3536239, section 2.1
+fn compute_key(position: vec3<u32>, position_lower: vec3<u32>, normal: vec3<u32>) -> u32 {
+    var key = hash_for_key(position_lower, normal);
+    key += dot(position % 2u, vec3(1u, 2u, 4u));
     return wrap_key(key);
 }
 
-fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
-    var key = iqint_hash(world_position.x);
-    key = iqint_hash(key + world_position.y);
-    key = iqint_hash(key + world_position.z);
-    key = iqint_hash(key + world_normal.x);
-    key = iqint_hash(key + world_normal.y);
-    key = iqint_hash(key + world_normal.z);
+fn hash_for_key(position: vec3<u32>, normal: vec3<u32>) -> u32 {
+    var key = pcg_hash(position.x);
+    key = pcg_hash(key + position.y);
+    key = pcg_hash(key + position.z);
+    key = pcg_hash(key + normal.x);
+    key = pcg_hash(key + normal.y);
+    key = pcg_hash(key + normal.z);
+    return key;
+}
+
+fn compute_checksum(position: vec3<u32>, normal: vec3<u32>) -> u32 {
+    var key = iqint_hash(position.x);
+    key = iqint_hash(key + position.y);
+    key = iqint_hash(key + position.z);
+    key = iqint_hash(key + normal.x);
+    key = iqint_hash(key + normal.y);
+    key = iqint_hash(key + normal.z);
     return key;
 }
 
