@@ -191,8 +191,11 @@ impl DefaultGltfImageSampler {
 }
 
 /// Controls the bounds related components that are assigned to skinned mesh
-/// entities. These components are used by systems like frustum culling and
-/// picking.
+/// entities. These components are used by systems like frustum culling.
+///
+/// XXX TODO: More documentation on how to choose the right option?
+/// XXX TODO: Is "Policy" the best name? `GltfSkinnedMeshBounds` alone seems a
+//  bit vague, and this option might move out of the glTF importer at some point.
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GltfSkinnedMeshBoundsPolicy {
     /// Skinned meshes are assigned an `Aabb` component calculated from the bind

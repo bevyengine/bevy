@@ -94,15 +94,18 @@ impl AsAssetId for SkinnedMeshBounds {
 /// XXX TODO: Document.
 #[derive(Asset, TypePath, Debug)]
 pub struct SkinnedMeshBoundsAsset {
-    // Model-space AABBs of each joint with skinned vertices. This may be a
-    // subset of the joints.
+    // Model-space AABBs that enclose the vertices skinned to a joint. This may
+    // be a subset of the joints, as some might not be skinned to any vertices.
+    //
+    // `aabb_index_to_joint_index` maps from this array's indices to joint
+    // indices.
+    pub aabbs: Box<[PackedAabb3d]>,
+
+    // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     //
     // Caution: `aabbs` and `aabb_index_to_joint_index` should be the same
     // length. They're kept separate as a minor optimisation - folding them into
     // one array would waste two bytes per joint due to alignment.
-    pub aabbs: Box<[PackedAabb3d]>,
-
-    // Maps from an `aabbs` array index to its joint index (`Mesh::ATTRIBUTE_JOINT_INDEX`).
     pub aabb_index_to_joint_index: Box<[JointIndex]>,
 }
 
@@ -222,11 +225,11 @@ pub fn entity_aabb_from_skinned_mesh_bounds(
 // XXX TODO: Where should this go?
 pub type JointIndex = u16;
 
-// Return the smallest AABB that contains the transformed input AABB.
+// Return the smallest AABB that encloses the transformed input AABB.
 //
 // Algorithm from "Transforming Axis-Aligned Bounding Boxes", James Arvo, Graphics Gems (1990).
 //
-// This input AABB is a `PackedAabb3d` because it doesn't benefit from
+// The input AABB is a `PackedAabb3d` because it doesn't benefit from
 // alignment - the components of the AABB are broadcast loaded through `Vec3A::splat`.
 #[inline]
 fn transform_aabb(input: PackedAabb3d, transform: Affine3A) -> Aabb3d {

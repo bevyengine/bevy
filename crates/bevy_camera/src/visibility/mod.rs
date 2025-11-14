@@ -410,9 +410,9 @@ pub fn calculate_bounds(
 
 // XXX TODO: Document.
 fn update_skinned_mesh_bounds(
-    skinned_mesh_inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
-    skinned_mesh_bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
-    mut skinned_mesh_entities: Query<
+    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
+    mut mesh_entities: Query<
         (
             &SkinnedMesh,
             &SkinnedMeshBounds,
@@ -425,33 +425,31 @@ fn update_skinned_mesh_bounds(
     >,
     joint_entities: Query<&GlobalTransform>,
 ) {
-    skinned_mesh_entities.par_iter_mut().for_each(
-        |(skinned_mesh, skinned_mesh_bounds, world_from_entity, mut aabb)| {
-            let Some(skinned_mesh_inverse_bindposes_asset) =
-                skinned_mesh_inverse_bindposes_assets.get(&skinned_mesh.inverse_bindposes)
+    mesh_entities
+        .par_iter_mut()
+        .for_each(|(mesh, bounds, world_from_entity, mut aabb)| {
+            let Some(inverse_bindposes_asset) =
+                inverse_bindposes_assets.get(&mesh.inverse_bindposes)
             else {
                 return;
             };
 
-            let Some(skinned_mesh_bounds_asset) =
-                skinned_mesh_bounds_assets.get(skinned_mesh_bounds)
-            else {
+            let Some(bounds_asset) = bounds_assets.get(bounds) else {
                 return;
             };
 
             let Some(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
                 &joint_entities,
-                skinned_mesh,
-                skinned_mesh_inverse_bindposes_asset,
-                skinned_mesh_bounds_asset,
+                mesh,
+                inverse_bindposes_asset,
+                bounds_asset,
                 world_from_entity,
             ) else {
                 return;
             };
 
             *aabb = skinned_aabb.into();
-        },
-    );
+        });
 }
 
 /// Updates [`Frustum`].
