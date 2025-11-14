@@ -292,7 +292,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
     let atmosphere_position = atmosphere_transforms.world_from_atmosphere[3].xyz;
-    var world_pos = (view.world_position - atmosphere_position) * settings.scene_units_to_m;
+    var world_pos = view.world_position * settings.scene_units_to_m - atmosphere_position;
 
     // If the camera is underground, clamp it to the ground surface along the local up.
     let r = length(world_pos);
