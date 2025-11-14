@@ -211,27 +211,7 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
-/// This component describes the atmosphere of a planet, and when added to a camera
-/// will enable atmospheric scattering for that camera. This is only compatible with
-/// HDR cameras.
-///
-/// Most atmospheric particles scatter and absorb light in two main ways:
-///
-/// Rayleigh scattering occurs among very small particles, like individual gas
-/// molecules. It's wavelength dependent, and causes colors to separate out as
-/// light travels through the atmosphere. These particles *don't* absorb light.
-///
-/// Mie scattering occurs among slightly larger particles, like dust and sea spray.
-/// These particles *do* absorb light, but Mie scattering and absorption is
-/// *wavelength independent*.
-///
-/// Ozone acts differently from the other two, and is special-cased because
-/// it's very important to the look of Earth's atmosphere. It's wavelength
-/// dependent, but only *absorbs* light. Also, while the density of particles
-/// participating in Rayleigh and Mie scattering falls off roughly exponentially
-/// from the planet's surface, ozone only exists in a band centered at a fairly
-/// high altitude.
-#[derive(Clone, Component, Reflect, ShaderType, Resource)]
+#[derive(Resource)]
 pub struct EarthlikeAtmosphere(Atmosphere);
 
 impl EarthlikeAtmosphere {
@@ -255,14 +235,10 @@ pub struct Atmosphere {
     /// units: m
     pub top_radius: f32,
 
-    /// Position of the planet in the world.
+    /// Position of the center of the planet in the world.
     ///
     /// units: m
     pub world_position: Vec3,
-
-    /// The position of the planet in world coordinates.
-    /// Can be added to a camera with an [`Atmosphere`].
-    /// Not adding this component places the planet at `(0.0, -bottom_radius, 0.0)`.
 
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
