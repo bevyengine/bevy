@@ -463,3 +463,8 @@ pub enum AtmosphereMode {
     /// accurate long-distance lighting.
     Raymarched = 1,
 }
+
+/// Marks which [`DirectionalLights`](bevy_light::DirectionalLight)
+/// will scatter in the atmosphere.
+#[derive(Default, Clone, Copy, Reflect, Component)]
+pub struct AtmosphericScatterring;
