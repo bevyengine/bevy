@@ -1,4 +1,4 @@
-use crate::{GpuLights, LightMeta};
+use crate::{AtmospherePosition, GpuLights, LightMeta};
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::FullscreenShader;
@@ -11,7 +11,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::ToExtents;
-use bevy_math::{Affine3A, Mat4, Vec3A};
+use bevy_math::{Mat3A, Mat4, Vec3, Vec3A};
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_resource::{binding_types::*, *},
@@ -114,6 +114,7 @@ impl AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
@@ -515,7 +516,16 @@ impl AtmosphereTransformsOffset {
 }
 
 pub(super) fn prepare_atmosphere_transforms(
-    views: Query<(Entity, &ExtractedView), (With<Atmosphere>, With<Camera3d>)>,
+    views: Query<
+        (
+            Entity,
+            &ExtractedView,
+            &Atmosphere,
+            &GpuAtmosphereSettings,
+            Option<&AtmospherePosition>,
+        ),
+        With<Camera3d>,
+    >,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
@@ -530,20 +540,32 @@ pub(super) fn prepare_atmosphere_transforms(
         return;
     };
 
-    for (entity, view) in &views {
+    for (entity, view, atmosphere, settings, position) in &views {
+        // Set the default planet position if it was not specified.
+        let planet_position = position
+            .map(|AtmospherePosition(p)| *p)
+            .unwrap_or(Vec3::new(
+                0.0,
+                -atmosphere.bottom_radius / settings.scene_units_to_m,
+                0.0,
+            ));
         let world_from_view = view.world_from_view.affine();
+        let camera_position = world_from_view.translation - Vec3A::from(planet_position);
+        let up = camera_position.normalize();
         let camera_z = world_from_view.matrix3.z_axis;
-        let camera_y = world_from_view.matrix3.y_axis;
-        let atmo_z = camera_z
-            .with_y(0.0)
-            .try_normalize()
-            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-        let atmo_y = Vec3A::Y;
-        let atmo_x = atmo_y.cross(atmo_z).normalize();
-        let world_from_atmosphere =
-            Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
 
-        let world_from_atmosphere = Mat4::from(world_from_atmosphere);
+        // Rotate the camera so that is aligned with the horizon.
+        let atmo_x = up
+            .cross(camera_z)
+            .try_normalize()
+            .unwrap_or_else(|| up.any_orthonormal_vector());
+        let atmo_y = up;
+        let atmo_z = atmo_x.cross(atmo_y);
+
+        let world_from_atmosphere = Mat4::from_mat3_translation(
+            Mat3A::from_cols(atmo_x, atmo_y, atmo_z).into(),
+            planet_position,
+        );
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
@@ -652,6 +674,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),

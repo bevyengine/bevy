@@ -103,6 +103,7 @@ impl Plugin for AtmospherePlugin {
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
+            ExtractComponentPlugin::<AtmospherePosition>::default(),
             ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
             UniformComponentPlugin::<Atmosphere>::default(),
@@ -189,6 +190,13 @@ impl Plugin for AtmospherePlugin {
             );
     }
 }
+
+/// The position of the planet in world coordinates.
+/// Can be added to a camera with an [`Atmosphere`].
+/// Not adding this component places the planet at `(0.0, -bottom_radius, 0.0)`.
+#[derive(Default, Clone, Copy, Component, Reflect, ExtractComponent)]
+#[reflect(Clone, Default)]
+pub struct AtmospherePosition(pub Vec3);
 
 /// This component describes the atmosphere of a planet, and when added to a camera
 /// will enable atmospheric scattering for that camera. This is only compatible with
@@ -350,6 +358,8 @@ impl ExtractComponent for Atmosphere {
 /// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
+///
+/// For more control over the atmosphere position, see [`AtmospherePosition`].
 #[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
 pub struct AtmosphereSettings {

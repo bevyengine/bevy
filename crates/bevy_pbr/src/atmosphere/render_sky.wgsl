@@ -2,7 +2,7 @@ enable dual_source_blending;
 
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    bindings::{atmosphere, view, atmosphere_transforms, settings},
+    bindings::{atmosphere, view, settings},
     functions::{
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,

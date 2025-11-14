@@ -311,8 +311,9 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Returns the observer's position in the atmosphere
 fn get_view_position() -> vec3<f32> {
-    var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
-    
+    let atmosphere_position = atmosphere_transforms.world_from_atmosphere[3].xyz;
+    var world_pos = (view.world_position - atmosphere_position) * settings.scene_units_to_m;
+
     // If the camera is underground, clamp it to the ground surface along the local up.
     let r = length(world_pos);
     // Nudge r above ground to avoid sqrt cancellation, zero-length segments where 
@@ -351,15 +352,8 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 
 /// Converts a direction in world space to atmosphere space
 fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
-    // Camera forward in world space (-Z in view to world transform)
-    let forward_ws = (view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
-    let tangent_z = normalize(up * dot(forward_ws, up) - forward_ws);
-    let tangent_x = cross(up, tangent_z);
-    return vec3(
-        dot(dir_ws, tangent_x),
-        dot(dir_ws, up),
-        dot(dir_ws, tangent_z),
-    );
+    let dir_as = transpose(atmosphere_transforms.world_from_atmosphere) * vec4(dir_ws, 0.0);
+    return dir_as.xyz;
 }
 
 /// Converts a direction in atmosphere space to world space
