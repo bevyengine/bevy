@@ -13,8 +13,6 @@ struct OitFragment {
     alpha: f32,
     depth: f32,
 }
-// Contains all the colors and depth for this specific fragment
-var<private> fragment_list: array<OitFragment, #{SORTED_FRAGMENT_MAX_COUNT}>;
 
 struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -22,6 +20,7 @@ struct FullscreenVertexOutput {
 };
 
 const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
+const SORTED_FRAGMENT_MAX_COUNT: u32 = #{SORTED_FRAGMENT_MAX_COUNT};
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
@@ -41,31 +40,34 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         // This should be done during the draw pass so those fragments simply don't exist in the list,
         // but this requires a bigger refactor
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
-        let result = resolve(header, d);
+        let color = resolve(header, d);
         headers[screen_index] = LINKED_LIST_END_SENTINEL;
-        return result.color;
+        return color;
     }
 }
 
-struct SortResult {
-    color: vec4f,
-    depth: f32,
-}
-
-fn resolve(header: u32, opaque_depth: f32) -> SortResult {
-    var final_color = vec4(0.0);
+fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
+    // Contains all the colors and depth for this specific fragment
+    // Fragments are sorted from back to front.
+    var fragment_list: array<OitFragment, SORTED_FRAGMENT_MAX_COUNT>;
+    var final_color = vec4<f32>(0.0);
 
     // fill list
     var current_node = header;
     var sorted_frag_count = 0u;
     while current_node != LINKED_LIST_END_SENTINEL {
         let fragment_node = nodes[current_node];
-        // unpack color/alpha/depth
+        // unpack color, alpha, depth
         let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
         let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment_node.depth_alpha);
         current_node = fragment_node.next;
 
-        if sorted_frag_count < #{SORTED_FRAGMENT_MAX_COUNT} {
+        // depth testing
+        if depth_alpha.x < opaque_depth {
+            continue;
+        }
+
+        if sorted_frag_count < SORTED_FRAGMENT_MAX_COUNT {
             // There is still room in the sorted list.
             // Insert the fragment so that the list stay sorted.
             var i = sorted_frag_count;
@@ -83,7 +85,7 @@ fn resolve(header: u32, opaque_depth: f32) -> SortResult {
             // This is an approximation.
             final_color = blend(vec4f(fragment_list[0].color * fragment_list[0].alpha, fragment_list[0].alpha), final_color);
             var i = 0u;
-            for(; (i < #{SORTED_FRAGMENT_MAX_COUNT} - 1) && (fragment_list[i + 1].depth < depth_alpha.x); i += 1) {
+            for(; (i < SORTED_FRAGMENT_MAX_COUNT - 1) && (fragment_list[i + 1].depth < depth_alpha.x); i += 1) {
                fragment_list[i] = fragment_list[i + 1];
             }
             fragment_list[i].color = color;
@@ -99,12 +101,6 @@ fn resolve(header: u32, opaque_depth: f32) -> SortResult {
 
     // blend sorted fragments
     for (var i = 0u; i < sorted_frag_count; i += 1) {
-        // depth testing
-        // This needs to happen here because we can only stop iterating if the fragment is
-        // occluded by something opaque and the fragments need to be sorted first
-        if fragment_list[i].depth < opaque_depth {
-            break;
-        }
         let color = fragment_list[i].color;
         let alpha = fragment_list[i].alpha;
         var base_color = vec4(color.rgb * alpha, alpha);
@@ -113,11 +109,8 @@ fn resolve(header: u32, opaque_depth: f32) -> SortResult {
             break;
         }
     }
-    var result: SortResult;
-    result.color = final_color;
-    result.depth = fragment_list[0].depth;
 
-    return result;
+    return final_color;
 }
 
 // OVER operator using premultiplied alpha

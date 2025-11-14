@@ -52,8 +52,8 @@ pub struct OrderIndependentTransparencySettings {
 impl Default for OrderIndependentTransparencySettings {
     fn default() -> Self {
         Self {
-            sorted_fragment_max_count: 16,
-            fragments_per_pixel_average: 8.0,
+            sorted_fragment_max_count: 8,
+            fragments_per_pixel_average: 4.0,
             alpha_threshold: 0.0,
         }
     }
@@ -159,7 +159,7 @@ impl Default for OitFragmentNode {
 #[derive(Resource)]
 pub struct OitBuffers {
     pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
-    /// The OIT layers containing color/depth/next_node for each fragments.
+    /// The OIT buffers containing color, depth and linked next node for each fragments.
     /// This is essentially used as a 3d array where xy is the screen coordinate and z is
     /// the list of fragments rendered with OIT.
     pub nodes: BufferVec<OitFragmentNode>,
@@ -244,7 +244,7 @@ pub fn prepare_oit_buffers(
         }
         buffers.headers.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT headers texture updated in {:.01}ms with total size {} MiB",
+            "OIT headers buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
             buffers.headers.capacity() * size_of::<u32>() / 1024 / 1024,
         );

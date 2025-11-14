@@ -32,7 +32,7 @@ use tracing::warn;
 pub mod node;
 
 /// Minimum required value of `wgpu::Limits::max_storage_buffers_per_shader_stage`.
-pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 2;
+pub const OIT_REQUIRED_STORAGE_BUFFERS: u32 = 3;
 
 /// Plugin needed to resolve the Order Independent Transparency (OIT) buffer to the screen.
 pub struct OitResolvePlugin;
