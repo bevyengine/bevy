@@ -5,7 +5,11 @@
 //!
 //! Same as [`component`](`super::component`), but for events.
 
-use crate::{event::Event, reflect::from_reflect_with_fallback, world::World};
+use crate::{
+    event::{EntityEvent, Event},
+    reflect::from_reflect_with_fallback,
+    world::World,
+};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
@@ -19,7 +23,7 @@ pub struct ReflectEvent(ReflectEventFns);
 /// The raw function pointers needed to make up a [`ReflectEvent`].
 ///
 /// This is used when creating custom implementations of [`ReflectEvent`] with
-/// [`ReflectEvent::new()`].
+/// [`ReflectEventFns::new()`].
 ///
 /// > **Note:**
 /// > Creating custom implementations of [`ReflectEvent`] is an advanced feature that most users
