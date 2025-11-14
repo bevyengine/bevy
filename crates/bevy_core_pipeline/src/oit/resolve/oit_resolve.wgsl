@@ -1,8 +1,10 @@
 #import bevy_render::view::View
+#import bevy_pbr::mesh_view_types::{OitFragmentNode, OrderIndependentTransparencySettings}
 
 @group(0) @binding(0) var<uniform> view: View;
-@group(0) @binding(1) var<storage, read_write> layers: array<vec2<u32>>;
-@group(0) @binding(2) var<storage, read_write> layer_ids: array<atomic<i32>>;
+@group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
+@group(0) @binding(2) var<storage, read_write> headers: array<u32>;
+@group(0) @binding(3) var<storage, read_write> atomic_counter: u32;
 
 @group(1) @binding(0) var depth: texture_depth_2d;
 
@@ -12,22 +14,22 @@ struct OitFragment {
     depth: f32,
 }
 // Contains all the colors and depth for this specific fragment
-var<private> fragment_list: array<OitFragment, #{LAYER_COUNT}>;
+var<private> fragment_list: array<OitFragment, #{SORTED_FRAGMENT_MAX_COUNT}>;
 
 struct FullscreenVertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
 };
 
+const LINKED_LIST_END_SENTINEL: u32 = 0xFFFFFFFFu;
+
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    let buffer_size = i32(view.viewport.z * view.viewport.w);
-    let screen_index = i32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
+    atomic_counter = 0u;
+    let screen_index = u32(floor(in.position.x) + floor(in.position.y) * view.viewport.z);
 
-    let counter = atomicLoad(&layer_ids[screen_index]);
-    if counter == 0 {
-        reset_indices(screen_index);
-
+    let header = headers[screen_index];
+    if header == LINKED_LIST_END_SENTINEL {
         // https://github.com/gfx-rs/wgpu/issues/4416
         if true {
             discard;
@@ -39,18 +41,10 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         // This should be done during the draw pass so those fragments simply don't exist in the list,
         // but this requires a bigger refactor
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
-        let result = sort(screen_index, buffer_size, d);
-        reset_indices(screen_index);
-
+        let result = resolve(header, d);
+        headers[screen_index] = LINKED_LIST_END_SENTINEL;
         return result.color;
     }
-}
-
-// Resets all indices to 0.
-// This means we don't have to clear the entire layers buffer
-fn reset_indices(screen_index: i32) {
-    atomicStore(&layer_ids[screen_index], 0);
-    layers[screen_index] = vec2(0u);
 }
 
 struct SortResult {
@@ -58,35 +52,53 @@ struct SortResult {
     depth: f32,
 }
 
-fn sort(screen_index: i32, buffer_size: i32, opaque_depth: f32) -> SortResult {
-    var counter = atomicLoad(&layer_ids[screen_index]);
+fn resolve(header: u32, opaque_depth: f32) -> SortResult {
+    var final_color = vec4(0.0);
 
     // fill list
-    for (var i = 0; i < counter; i += 1) {
-        let fragment = layers[screen_index + buffer_size * i];
+    var current_node = header;
+    var sorted_frag_count = 0u;
+    while current_node != LINKED_LIST_END_SENTINEL {
+        let fragment_node = nodes[current_node];
         // unpack color/alpha/depth
-        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment.x);
-        let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment.y);
-        fragment_list[i].color = color;
-        fragment_list[i].alpha = depth_alpha.y;
-        fragment_list[i].depth = depth_alpha.x;
-    }
+        let color = bevy_pbr::rgb9e5::rgb9e5_to_vec3_(fragment_node.color);
+        let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment_node.depth_alpha);
+        current_node = fragment_node.next;
 
-    // bubble sort the list based on the depth
-    for (var i = counter; i >= 0; i -= 1) {
-        for (var j = 0; j < i; j += 1) {
-            if fragment_list[j].depth < fragment_list[j + 1].depth {
-                // swap
-                let temp = fragment_list[j + 1];
-                fragment_list[j + 1] = fragment_list[j];
-                fragment_list[j] = temp;
+        if sorted_frag_count < #{SORTED_FRAGMENT_MAX_COUNT} {
+            // There is still room in the sorted list.
+            // Insert the fragment so that the list stay sorted.
+            var i = sorted_frag_count;
+            for(; (i > 0) && (depth_alpha.x < fragment_list[i - 1].depth); i -= 1) {
+                fragment_list[i] = fragment_list[i - 1];
             }
+            fragment_list[i].color = color;
+            fragment_list[i].alpha = depth_alpha.y;
+            fragment_list[i].depth = depth_alpha.x;
+            sorted_frag_count += 1;
+        } else if fragment_list[0].depth < depth_alpha.x {
+            // The fragment is closer than the farthest sorted one.
+            // First, make room by blending the farthest fragment from the sorted list.
+            // Then, insert the fragment in the sorted list.
+            // This is an approximation.
+            final_color = blend(vec4f(fragment_list[0].color * fragment_list[0].alpha, fragment_list[0].alpha), final_color);
+            var i = 0u;
+            for(; (i < #{SORTED_FRAGMENT_MAX_COUNT} - 1) && (fragment_list[i + 1].depth < depth_alpha.x); i += 1) {
+               fragment_list[i] = fragment_list[i + 1];
+            }
+            fragment_list[i].color = color;
+            fragment_list[i].alpha = depth_alpha.y;
+            fragment_list[i].depth = depth_alpha.x;
+        } else {
+            // The next fragment is farther than any of the sorted ones.
+            // Blend it early.
+            // This is an approximation.
+            final_color = blend(vec4f(color * depth_alpha.y, depth_alpha.y), final_color);
         }
     }
 
-    // resolve blend
-    var final_color = vec4(0.0);
-    for (var i = 0; i <= counter; i += 1) {
+    // blend sorted fragments
+    for (var i = 0u; i < sorted_frag_count; i += 1) {
         // depth testing
         // This needs to happen here because we can only stop iterating if the fragment is
         // occluded by something opaque and the fragments need to be sorted first
@@ -96,7 +108,7 @@ fn sort(screen_index: i32, buffer_size: i32, opaque_depth: f32) -> SortResult {
         let color = fragment_list[i].color;
         let alpha = fragment_list[i].alpha;
         var base_color = vec4(color.rgb * alpha, alpha);
-        final_color = blend(final_color, base_color);
+        final_color = blend(base_color, final_color);
         if final_color.a == 1.0 {
             break;
         }

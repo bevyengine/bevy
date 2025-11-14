@@ -1,10 +1,9 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_camera::{Camera, Camera3d};
-use bevy_ecs::{component::*, lifecycle::ComponentHook, prelude::*};
-use bevy_math::UVec2;
-use bevy_platform::collections::HashSet;
+use bevy_camera::Camera3d;
+use bevy_ecs::{component::*, prelude::*};
+use bevy_math::{UVec2, UVec3};
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -17,12 +16,11 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_shader::load_shader_library;
-use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
 };
-use tracing::{trace, warn};
+use tracing::trace;
 
 use crate::core_3d::graph::{Core3d, Node3d};
 
@@ -35,13 +33,16 @@ pub mod resolve;
 // depth peeling, stochastic transparency, ray tracing etc.
 // This should probably be done by adding an enum to this component.
 // We use the same struct to pass on the settings to the drawing shader.
-#[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType)]
+#[derive(Clone, Copy, ExtractComponent, Reflect, ShaderType, Component)]
 #[reflect(Clone, Default)]
 pub struct OrderIndependentTransparencySettings {
-    /// Controls how many layers will be used to compute the blending.
-    /// The more layers you use the more memory it will use but it will also give better results.
-    /// 8 is generally recommended, going above 32 is probably not worth it in the vast majority of cases
-    pub layer_count: i32,
+    /// Controls how many fragments will be exactly sorted.
+    /// If the scene has more fragments than this, they will be merged approximately.
+    /// More sorted fragments is more accurate but will be slower.
+    pub sorted_fragment_max_count: u32,
+    /// The average fragments per pixel stored in the buffer. This should be bigger enough to make oit succeed.
+    /// Higher values increase memory usage.
+    pub fragments_per_pixel_average: f32,
     /// Threshold for which fragments will be added to the blending layers.
     /// This can be tweaked to optimize quality / layers count. Higher values will
     /// allow lower number of layers and a better performance, compromising quality.
@@ -51,29 +52,10 @@ pub struct OrderIndependentTransparencySettings {
 impl Default for OrderIndependentTransparencySettings {
     fn default() -> Self {
         Self {
-            layer_count: 8,
+            sorted_fragment_max_count: 16,
+            fragments_per_pixel_average: 8.0,
             alpha_threshold: 0.0,
         }
-    }
-}
-
-// OrderIndependentTransparencySettings is also a Component. We explicitly implement the trait so
-// we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
-impl Component for OrderIndependentTransparencySettings {
-    const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    type Mutability = Mutable;
-
-    fn on_add() -> Option<ComponentHook> {
-        Some(|world, context| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity)
-                && value.layer_count > 32
-            {
-                warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
-                        context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                        value.layer_count
-                    );
-            }
-        })
     }
 }
 
@@ -88,8 +70,8 @@ impl Component for OrderIndependentTransparencySettings {
 /// # Implementation details
 /// This implementation uses 2 passes.
 ///
-/// The first pass writes the depth and color of all the fragments to a big buffer.
-/// The buffer contains N layers for each pixel, where N can be set with [`OrderIndependentTransparencySettings::layer_count`].
+/// The first pass constructs a linked list which stores depth and color of all fragments in a big buffer.
+/// The linked list capacity can be set with [`OrderIndependentTransparencySettings::fragments_per_pixel_average`].
 /// This pass is essentially a forward pass.
 ///
 /// The second pass is a single fullscreen triangle pass that sorts all the fragments then blends them together
@@ -103,8 +85,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             ExtractComponentPlugin::<OrderIndependentTransparencySettings>::default(),
             OitResolvePlugin,
         ))
-        .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages);
+        .add_systems(Update, check_msaa);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -114,7 +95,10 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             .add_systems(RenderStartup, init_oit_buffers)
             .add_systems(
                 Render,
-                prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
+                (
+                    configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
+                    prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
+                ),
             );
 
         render_app
@@ -130,34 +114,17 @@ impl Plugin for OrderIndependentTransparencyPlugin {
     }
 }
 
-// WARN This should only happen for cameras with the [`OrderIndependentTransparencySettings`] component
-// but when multiple cameras are present on the same window
-// bevy reuses the same depth texture so we need to set this on all cameras with the same render target.
-fn configure_depth_texture_usages(
-    p: Query<Entity, With<PrimaryWindow>>,
-    cameras: Query<(&Camera, Has<OrderIndependentTransparencySettings>)>,
-    mut new_cameras: Query<(&mut Camera3d, &Camera), Added<Camera3d>>,
+fn configure_camera_depth_usages(
+    mut cameras: Query<
+        &mut Camera3d,
+        (
+            Changed<Camera3d>,
+            With<OrderIndependentTransparencySettings>,
+        ),
+    >,
 ) {
-    if new_cameras.is_empty() {
-        return;
-    }
-
-    // Find all the render target that potentially uses OIT
-    let primary_window = p.single().ok();
-    let mut render_target_has_oit = <HashSet<_>>::default();
-    for (camera, has_oit) in &cameras {
-        if has_oit {
-            render_target_has_oit.insert(camera.target.normalize(primary_window));
-        }
-    }
-
-    // Update the depth texture usage for cameras with a render target that has OIT
-    for (mut camera_3d, camera) in &mut new_cameras {
-        if render_target_has_oit.contains(&camera.target.normalize(primary_window)) {
-            let mut usages = TextureUsages::from(camera_3d.depth_texture_usages);
-            usages |= TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
-            camera_3d.depth_texture_usages = usages.into();
-        }
+    for mut camera in &mut cameras {
+        camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
 }
 
@@ -169,18 +136,35 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
     }
 }
 
+#[derive(Clone, Copy, ShaderType)]
+pub struct OitFragmentNode {
+    color: u32,
+    depth_alpha: u32,
+    next: u32,
+}
+
+impl Default for OitFragmentNode {
+    fn default() -> Self {
+        Self {
+            color: 0,
+            depth_alpha: 0,
+            next: u32::MAX,
+        }
+    }
+}
+
 /// Holds the buffers that contain the data of all OIT layers.
 /// We use one big buffer for the entire app. Each camera will reuse it so it will
 /// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
-    /// The OIT layers containing depth and color for each fragments.
+    pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
+    /// The OIT layers containing color/depth/next_node for each fragments.
     /// This is essentially used as a 3d array where xy is the screen coordinate and z is
     /// the list of fragments rendered with OIT.
-    pub layers: BufferVec<UVec2>,
-    /// Buffer containing the index of the last layer that was written for each fragment.
-    pub layer_ids: BufferVec<i32>,
-    pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
+    pub nodes: BufferVec<OitFragmentNode>,
+    pub headers: BufferVec<u32>,
+    pub atomic_counter: BufferVec<u32>,
 }
 
 pub fn init_oit_buffers(
@@ -190,22 +174,28 @@ pub fn init_oit_buffers(
 ) {
     // initialize buffers with something so there's a valid binding
 
-    let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-    layers.set_label(Some("oit_layers"));
-    layers.reserve(1, &render_device);
-    layers.write_buffer(&render_device, &render_queue);
+    let mut nodes = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    nodes.set_label(Some("oit_nodes"));
+    nodes.push(OitFragmentNode::default());
+    nodes.write_buffer(&render_device, &render_queue);
 
-    let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-    layer_ids.set_label(Some("oit_layer_ids"));
-    layer_ids.reserve(1, &render_device);
-    layer_ids.write_buffer(&render_device, &render_queue);
+    let mut headers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    headers.set_label(Some("oit_headers"));
+    headers.push(u32::MAX);
+    headers.write_buffer(&render_device, &render_queue);
+
+    let mut atomic_counter = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    atomic_counter.set_label(Some("oit_atomic_counter"));
+    atomic_counter.push(0);
+    atomic_counter.write_buffer(&render_device, &render_queue);
 
     let mut settings = DynamicUniformBuffer::default();
     settings.set_label(Some("oit_settings"));
 
     commands.insert_resource(OitBuffers {
-        layers,
-        layer_ids,
+        nodes,
+        headers,
+        atomic_counter,
         settings,
     });
 }
@@ -233,52 +223,46 @@ pub fn prepare_oit_buffers(
     mut buffers: ResMut<OitBuffers>,
 ) {
     // Get the max buffer size for any OIT enabled camera
-    let mut max_layer_ids_size = usize::MIN;
-    let mut max_layers_size = usize::MIN;
+    let mut max_size = UVec2::new(0, 0);
+    let mut fragments_per_pixel_average = 0f32;
     for (camera, settings) in &cameras {
         let Some(size) = camera.physical_target_size else {
             continue;
         };
-
-        let layer_count = settings.layer_count as usize;
-        let size = (size.x * size.y) as usize;
-        max_layer_ids_size = max_layer_ids_size.max(size);
-        max_layers_size = max_layers_size.max(size * layer_count);
+        max_size = max_size.max(size);
+        fragments_per_pixel_average =
+            fragments_per_pixel_average.max(settings.fragments_per_pixel_average);
     }
 
-    // Create or update the layers buffer based on the max size
-    if buffers.layers.capacity() < max_layers_size {
+    // Create or update the headers texture based on the max size
+    let headers_size = (max_size.x * max_size.y) as usize;
+    if buffers.headers.capacity() < headers_size {
         let start = Instant::now();
-        buffers.layers.reserve(max_layers_size, &render_device);
-        let remaining = max_layers_size - buffers.layers.capacity();
-        for _ in 0..remaining {
-            buffers.layers.push(UVec2::ZERO);
+        buffers.headers.clear();
+        for _ in 0..headers_size {
+            buffers.headers.push(u32::MAX);
         }
-        buffers.layers.write_buffer(&render_device, &render_queue);
+        buffers.headers.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT layers buffer updated in {:.01}ms with total size {} MiB",
+            "OIT headers texture updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.layers.capacity() * size_of::<UVec2>() / 1024 / 1024,
+            buffers.headers.capacity() * size_of::<u32>() / 1024 / 1024,
         );
     }
 
-    // Create or update the layer_ids buffer based on the max size
-    if buffers.layer_ids.capacity() < max_layer_ids_size {
+    // Create or update the nodes buffer based on the max size
+    let nodes_size = ((max_size.x * max_size.y) as f32 * fragments_per_pixel_average) as usize;
+    if buffers.nodes.capacity() < nodes_size {
         let start = Instant::now();
-        buffers
-            .layer_ids
-            .reserve(max_layer_ids_size, &render_device);
-        let remaining = max_layer_ids_size - buffers.layer_ids.capacity();
-        for _ in 0..remaining {
-            buffers.layer_ids.push(0);
+        buffers.nodes.clear();
+        for _ in 0..nodes_size {
+            buffers.nodes.push(OitFragmentNode::default());
         }
-        buffers
-            .layer_ids
-            .write_buffer(&render_device, &render_queue);
+        buffers.nodes.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT layer ids buffer updated in {:.01}ms with total size {} MiB",
+            "OIT nodes buffer updated in {:.01}ms with total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.layer_ids.capacity() * size_of::<UVec2>() / 1024 / 1024,
+            buffers.nodes.capacity() * size_of::<UVec3>() / 1024 / 1024,
         );
     }
 
