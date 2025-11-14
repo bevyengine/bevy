@@ -27,17 +27,17 @@ unsafe impl<
     #[inline]
     fn component_ids(
         _components: &mut bevy_ecs::component::ComponentsRegistrator,
-        _ids: &mut impl FnMut(bevy_ecs::component::ComponentId),
-    ) {
-        // SAFETY: Empty function body
+    ) -> impl Iterator<Item = bevy_ecs::component::ComponentId> + use<E, B, M, I> {
+        // SAFETY: Empty iterator
+        core::iter::empty()
     }
 
     #[inline]
     fn get_component_ids(
         _components: &bevy_ecs::component::Components,
-        _ids: &mut impl FnMut(Option<bevy_ecs::component::ComponentId>),
-    ) {
-        // SAFETY: Empty function body
+    ) -> impl Iterator<Item = Option<bevy_ecs::component::ComponentId>> {
+        // SAFETY: Empty iterator
+        core::iter::empty()
     }
 }
 
