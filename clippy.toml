@@ -5,6 +5,8 @@ doc-valid-idents = [
   "NVidia",
   "OpenXR",
   "VSync",
+  "AppKit",
+  "UIKit",
   "..",
 ]
 
