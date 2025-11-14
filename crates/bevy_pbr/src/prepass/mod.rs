@@ -697,7 +697,7 @@ pub fn init_prepass_view_bind_group(
 ) {
     let empty_bind_group = render_device.create_bind_group(
         "prepass_view_empty_bind_group",
-        &pipeline_cache.get_bind_group_layout(&pipeline.empty_layout),
+        pipeline_cache.get_bind_group_layout(&pipeline.empty_layout),
         &[],
     );
     commands.insert_resource(PrepassViewBindGroup {
@@ -724,7 +724,7 @@ pub fn prepare_prepass_view_bind_group(
     ) {
         prepass_view_bind_group.no_motion_vectors = Some(render_device.create_bind_group(
             "prepass_view_no_motion_vectors_bind_group",
-            &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_no_motion_vectors),
+            pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_no_motion_vectors),
             &BindGroupEntries::with_indices((
                 (0, view_binding.clone()),
                 (1, globals_binding.clone()),
@@ -735,7 +735,7 @@ pub fn prepare_prepass_view_bind_group(
         if let Some(previous_view_uniforms_binding) = previous_view_uniforms.uniforms.binding() {
             prepass_view_bind_group.motion_vectors = Some(render_device.create_bind_group(
                 "prepass_view_motion_vectors_bind_group",
-                &pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_motion_vectors),
+                pipeline_cache.get_bind_group_layout(&prepass_pipeline.view_layout_motion_vectors),
                 &BindGroupEntries::with_indices((
                     (0, view_binding),
                     (1, globals_binding),

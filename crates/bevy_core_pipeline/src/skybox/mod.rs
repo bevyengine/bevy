@@ -285,7 +285,7 @@ fn prepare_skybox_bind_groups(
         ) {
             let bind_group = render_device.create_bind_group(
                 "skybox_bind_group",
-                &pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
+                pipeline_cache.get_bind_group_layout(&pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &skybox.texture_view,
                     &skybox.sampler,

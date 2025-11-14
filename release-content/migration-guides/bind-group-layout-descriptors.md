@@ -35,7 +35,7 @@ commands.insert_resource(MyPipeline {
 // ...
 let bind_group = render_context.render_device().create_bind_group(
     None
-    &pipeline_cache.get_bind_group_layout(&my_pipeline.bind_group),
+    pipeline_cache.get_bind_group_layout(&my_pipeline.bind_group),
     // ...
 );
 ```
