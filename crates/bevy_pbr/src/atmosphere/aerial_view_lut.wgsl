@@ -2,7 +2,7 @@
     mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
         types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
+        bindings::{settings, aerial_view_lut_out},
         functions::{
             sample_transmittance_lut, sample_density_lut, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
