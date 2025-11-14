@@ -192,9 +192,10 @@ mod tests {
         // On mac backtraces can start with Backtrace::create
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "std::backtrace::Backtrace::create" {
-                skip = true;
-            }
+            && &line[6..] == "std::backtrace::Backtrace::create"
+        {
+            skip = true;
+        }
 
         if skip {
             lines.next().unwrap();
@@ -212,9 +213,10 @@ mod tests {
             assert_eq!(&line[6..], expected);
             let mut skip = false;
             if let Some(line) = lines.peek()
-                && line.starts_with("             at") {
-                    skip = true;
-                }
+                && line.starts_with("             at")
+            {
+                skip = true;
+            }
 
             if skip {
                 lines.next().unwrap();
@@ -224,17 +226,19 @@ mod tests {
         // on linux there is a second call_once
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && &line[6..] == "core::ops::function::FnOnce::call_once" {
-                skip = true;
-            }
+            && &line[6..] == "core::ops::function::FnOnce::call_once"
+        {
+            skip = true;
+        }
         if skip {
             lines.next().unwrap();
         }
         let mut skip = false;
         if let Some(line) = lines.peek()
-            && line.starts_with("             at") {
-                skip = true;
-            }
+            && line.starts_with("             at")
+        {
+            skip = true;
+        }
 
         if skip {
             lines.next().unwrap();

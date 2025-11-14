@@ -3215,9 +3215,10 @@ mod tests {
         fn system(query: Query<EntityRef>) {
             for entity_ref in &query {
                 if let Some(c) = entity_ref.get_ref::<C>()
-                    && !c.is_added() {
-                        panic!("Expected C to be added");
-                    }
+                    && !c.is_added()
+                {
+                    panic!("Expected C to be added");
+                }
             }
         }
 
