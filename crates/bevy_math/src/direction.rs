@@ -395,6 +395,26 @@ impl Dir3 {
     pub const NEG_Z: Self = Self(Vec3::NEG_Z);
     /// The directional axes.
     pub const AXES: [Self; 3] = [Self::X, Self::Y, Self::Z];
+    /// The "up" direction, equivalent to [`Dir3::Y`].
+    pub const UP: Self = Self(Vec3::Y);
+    /// The "down" direction, equivalent to [`Dir3::NEG_Y`].
+    pub const DOWN: Self = Self(Vec3::NEG_Y);
+    /// The "north" direction.
+    pub const NORTH: Self = Self::from_compass_dir(Dir2::NORTH);
+    /// The "south" direction.
+    pub const SOUTH: Self = Self::from_compass_dir(Dir2::SOUTH);
+    /// The "east" direction..
+    pub const EAST: Self = Self::from_compass_dir(Dir2::EAST);
+    /// The "west" direction.
+    pub const WEST: Self = Self::from_compass_dir(Dir2::WEST);
+    /// The "north-east" direction, between [`Dir3::NORTH`] and [`Dir3::EAST`].
+    pub const NORTH_EAST: Self = Self::from_compass_dir(Dir2::NORTH_EAST);
+    /// The "north-west" direction, between [`Dir3::NORTH`] and [`Dir3::WEST`].
+    pub const NORTH_WEST: Self = Self::from_compass_dir(Dir2::NORTH_WEST);
+    /// The "south-east" direction, between [`Dir3::SOUTH`] and [`Dir3::EAST`].
+    pub const SOUTH_EAST: Self = Self::from_compass_dir(Dir2::SOUTH_EAST);
+    /// The "south-west" direction, between [`Dir3::SOUTH`] and [`Dir3::WEST`].
+    pub const SOUTH_WEST: Self = Self::from_compass_dir(Dir2::SOUTH_WEST);
 
     /// Create a direction from a finite, nonzero [`Vec3`], normalizing it.
     ///
@@ -538,6 +558,21 @@ impl Dir3 {
 
         let length_squared = self.0.length_squared();
         Self(self * (0.5 * (3.0 - length_squared)))
+    }
+
+    /// from a dir2 representing a compass direction
+    /// per bevy space standard, Y is the up direction
+    /// so returns (x, 0, y)
+    #[inline]
+    pub const fn from_compass_dir(compass: Dir2) -> Self {
+        let v = compass.as_vec2();
+        Dir3(Vec3::new(v.x, 0.0, v.y))
+    }
+}
+
+impl<T: Into<Dir2>> From<T> for Dir3 {
+    fn from(value: T) -> Self {
+        Self::from_compass_dir(value.into())
     }
 }
 
