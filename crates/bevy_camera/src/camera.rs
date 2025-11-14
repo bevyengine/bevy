@@ -26,7 +26,7 @@ use wgpu_types::{BlendState, TextureUsages};
 /// <div class="warning">
 ///
 /// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
-/// On some operating systems you may need to use the scaleing factor reported by the window.
+/// On some operating systems you may need to use the scaling factor reported by the window.
 /// Please see the example code (which assumes a single camera and window)
 /// 
 /// ```
