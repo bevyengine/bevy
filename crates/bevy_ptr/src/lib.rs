@@ -12,7 +12,6 @@ use core::{
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
-    num::NonZeroUsize,
     ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
@@ -1100,20 +1099,6 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
             _marker: PhantomData,
         }
     }
-}
-
-/// Creates a dangling pointer with specified alignment.
-///
-/// This is an untyped version of [`NonNull::dangling()`]. The returned pointer has no
-/// [provenance](https://doc.rust-lang.org/stable/std/ptr/index.html#provenance).
-///
-/// # Panics
-///
-/// If `align` is not a power of two (2, 4, 8, 16, etc.).
-pub const fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
-    debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
-
-    NonNull::without_provenance(align)
 }
 
 mod private {
