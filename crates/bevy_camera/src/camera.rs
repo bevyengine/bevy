@@ -22,6 +22,35 @@ use wgpu_types::{BlendState, TextureUsages};
 /// The viewport defines the area on the render target to which the camera renders its image.
 /// You can overlay multiple cameras in a single window using viewports to create effects like
 /// split screen, minimaps, and character viewers.
+/// 
+/// <div class="warning">
+///
+/// Note that the physical position is in actual screen coordinates and not virtual pixels for window targets.  
+/// On some operating systems you may need to use the scaleing factor reported by the window.
+/// Please see the example code (which assumes a single camera and window)
+/// 
+/// ```
+/// fn update_viewport(
+///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>, 
+///    windows: Query<&Window>
+/// ) {
+///     let Ok((mut camera, _, _)) = camera_query.single_mut() else { return; };
+///
+///     let window = windows.single().expect("Window not found");
+///     let scale = window.resolution.scale_factor();
+///
+///    // Convert the scale to a UVec2 to enable easy multiplication later
+///     let scale = UVec2::new(scale as u32, scale as u32);
+///
+///     camera.viewport = Some(Viewport { 
+///         physical_position: UVec::new(10, 10) * scale, 
+///         physical_size: UVec::new(100, 100) * scale,
+///         ..default()
+///     });
+/// }
+/// ```
+///
+/// </div>
 #[derive(Reflect, Debug, Clone)]
 #[reflect(Default, Clone)]
 pub struct Viewport {
