@@ -219,7 +219,7 @@ pub enum QueryAccessError {
     /// Component was not registered on world
     ComponentNotRegistered,
     /// The [`EcsAccessType`]'s conflict with each other
-    Conflict(EcsAccessType, EcsAccessType),
+    Conflict,
     /// Entity did not have the requested components
     EntityDoesNotMatch,
 }
@@ -236,8 +236,8 @@ impl core::fmt::Display for QueryAccessError {
                     Consider calling `World::register_component`"
                 )
             }
-            QueryAccessError::Conflict(ecs_access, ecs_access1) => {
-                write!(f, "Conflict between {ecs_access:?} and {ecs_access1:?}")
+            QueryAccessError::Conflict => {
+                write!(f, "Access conflict in Q")
             }
             QueryAccessError::EntityDoesNotMatch => {
                 write!(f, "Entity does not match Q")
@@ -253,9 +253,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         let mut index_inner = 0;
         let mut except_index = None;
         let mut except_compatible = false;
-        let mut last_access = None;
         for (j, access_other) in Q::iter_access(components, &mut index_inner).enumerate() {
-            last_access = access_other;
             // don't check for conflicts when the access is the same access
             if i == j {
                 continue;
@@ -274,7 +272,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
 
                 if sequence_ended {
                     if !except_compatible {
-                        return Err(QueryAccessError::Conflict(access, access_other));
+                        return Err(QueryAccessError::Conflict);
                     }
                     except_compatible = false;
                     except_index = None;
@@ -289,7 +287,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
                     except_index = Some(index);
                     except_compatible = true;
                 },
-                AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict(access, access_other)),
+                AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
                 AccessCompatible::ConflictsExceptSecond(index) => {
                     except_index = Some(index);
                 }
@@ -297,9 +295,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         }
 
         if except_index.is_some() && !except_compatible {
-            if let (Some(access), Some(access_other)) = (access, last_access) {
-                return Err(QueryAccessError::Conflict(access, access_other));
-            }
+            return Err(QueryAccessError::Conflict);
         }
     }
     Ok(())
@@ -334,15 +330,15 @@ mod tests {
         // Conflicts
         assert!(matches!(
             has_conflicts::<(&C1, &mut C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C1, &C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C1, &mut C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
     }
 
@@ -361,35 +357,35 @@ mod tests {
         // Conflicts
         assert!(matches!(
             has_conflicts::<(EntityRef, &mut C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C1, EntityRef)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityMut, &C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&C1, EntityMut)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityMut, &mut C1)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C1, EntityMut)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityMut, EntityRef)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityRef, EntityMut)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
     }
 
@@ -413,11 +409,11 @@ mod tests {
         // Conflicts
         assert!(matches!(
             has_conflicts::<(EntityRefExcept<C1>, &mut C2)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C2, EntityRefExcept<C1>)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
     }
 
@@ -440,19 +436,19 @@ mod tests {
         // Conflicts
         assert!(matches!(
             has_conflicts::<(&C2, EntityMutExcept<C1>)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityMutExcept<C1>, &C2)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(EntityMutExcept<C1>, &mut C2)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
         assert!(matches!(
             has_conflicts::<(&mut C2, EntityMutExcept<C1>)>(c),
-            Err(QueryAccessError::Conflict(_, _))
+            Err(QueryAccessError::Conflict)
         ));
     }
 }
