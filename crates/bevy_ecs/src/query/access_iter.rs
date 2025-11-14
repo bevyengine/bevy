@@ -95,10 +95,10 @@ impl EcsAccessType {
         use EcsAccessLevel::*;
         use EcsAccessType::*;
 
-        match self {
-            Component(ReadAllExcept { .. }) | Component(WriteAllExcept { .. }) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Component(ReadAllExcept { .. }) | Component(WriteAllExcept { .. })
+        )
     }
 
     /// See [`AccessCompatible`] for more info
@@ -258,25 +258,17 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
     const MAX_SIZE: usize = 16;
     let mut index_outer = 0;
     let iter = Q::iter_access(components, &mut index_outer).enumerate();
-    // size is too big or indeterminate
+    // Note: The two algorithms have very similar performance at small sizes. It's only around n = 10
+    // where they start to diverge significantly.
     if iter
         .size_hint()
         .1
         .is_none_or(|max_size| max_size > MAX_SIZE)
     {
+        // This algorithm will work for any size
         for (i, access) in iter {
             // only check except* conflicts in second iterator
-            if matches!(
-                access,
-                Some(EcsAccessType::Component(
-                    EcsAccessLevel::ReadAllExcept { .. }
-                ))
-            ) || matches!(
-                access,
-                Some(EcsAccessType::Component(
-                    EcsAccessLevel::WriteAllExcept { .. }
-                ))
-            ) {
+            if access.as_ref().is_some_and(EcsAccessType::is_except) {
                 continue;
             }
 
@@ -328,7 +320,8 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         }
         Ok(())
     } else {
-        // we can use a faster algorithm
+        // we can use a faster algorithm by putting some fixed size
+        // arrays onto the stack
         let mut compatibles = [[false; MAX_SIZE]; MAX_SIZE];
         let mut conflicts = [[false; MAX_SIZE]; MAX_SIZE];
         let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
