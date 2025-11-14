@@ -30,6 +30,8 @@ use wgpu_types::{BlendState, TextureUsages};
 /// Please see the example code (which assumes a single camera and window)
 /// 
 /// ```
+/// use bevy::{camera::{Viewport}, prelude::*};
+/// 
 /// fn update_viewport(
 ///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>, 
 ///    windows: Query<&Window>
