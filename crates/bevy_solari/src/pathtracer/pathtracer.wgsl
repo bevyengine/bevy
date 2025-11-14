@@ -104,7 +104,7 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
     if is_perfectly_specular {
         return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, true);
     }
-    let diffuse_weight = mix(mix(0.4f, 0.9f, ray_hit.material.perceptual_roughness), 0.f, ray_hit.material.metallic);
+    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.perceptual_roughness), 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
@@ -133,7 +133,7 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
-    let diffuse_weight = mix(mix(0.4f, 0.9f, ray_hit.material.roughness), 0.f, ray_hit.material.metallic);
+    let diffuse_weight = mix(mix(0.4, 0.9, ray_hit.material.roughness), 0.0, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
 
     let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
