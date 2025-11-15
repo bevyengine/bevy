@@ -2092,6 +2092,66 @@ mod tests {
 
         #[test]
         #[cfg(feature = "bevy_ui_contain")]
+        fn no_camera_ui() {
+            let mut app = App::new();
+
+            app.add_systems(
+                PostUpdate,
+                (propagate_ui_target_cameras, ApplyDeferred, ui_layout_system).chain(),
+            );
+
+            app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
+                PostUpdate,
+            ));
+
+            app.configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiTargetCamera>::default()
+                    .after(propagate_ui_target_cameras)
+                    .before(ui_layout_system),
+            );
+
+            let world = app.world_mut();
+            world.init_resource::<UiScale>();
+            world.init_resource::<UiSurface>();
+
+            world.init_resource::<bevy_text::TextPipeline>();
+
+            world.init_resource::<bevy_text::CosmicFontSystem>();
+
+            world.init_resource::<bevy_text::SwashCache>();
+
+            let ui_contain = world.spawn(UiContainSize::default()).id();
+
+            let ui_root = world
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiContainTarget(ui_contain),
+                ))
+                .id();
+
+            let ui_child = world
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiContainTarget(ui_contain),
+                ))
+                .id();
+
+            world.entity_mut(ui_root).add_child(ui_child);
+
+            app.update();
+        }
+
+        #[test]
+        #[cfg(feature = "bevy_ui_contain")]
         fn test_ui_surface_compute_camera_layout() {
             use bevy_ecs::prelude::ResMut;
 
@@ -2141,6 +2201,104 @@ mod tests {
 
             let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
             assert!(ui_surface.taffy.layout(taffy_node.id).is_ok());
+        }
+
+        #[test]
+        #[cfg(feature = "bevy_ui_contain")]
+        fn no_viewport_node_leak_on_root_despawned() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let ui_contain = world.spawn(UiContainSize::default()).id();
+
+            let ui_root_entity = world
+                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .id();
+
+            // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
+            // main world's tree of `Node` entities.
+            app.update();
+            let world = app.world_mut();
+
+            // Two taffy nodes are added to the internal `TaffyTree` for each root UI entity.
+            // An implicit taffy node representing the viewport and a taffy node corresponding to the
+            // root UI entity which is parented to the viewport taffy node.
+            assert_eq!(
+                world
+                    .get_mut::<UiSurface>(ui_contain)
+                    .unwrap()
+                    .taffy
+                    .total_node_count(),
+                2
+            );
+
+            world.despawn(ui_root_entity);
+
+            // The UI schedule removes both the taffy node corresponding to `ui_root_entity` and its
+            // parent viewport node.
+            app.update();
+            let world = app.world_mut();
+
+            // Both taffy nodes should now be removed from the internal `TaffyTree`
+            assert_eq!(
+                world
+                    .get_mut::<UiSurface>(ui_contain)
+                    .unwrap()
+                    .taffy
+                    .total_node_count(),
+                0
+            );
+        }
+
+        #[test]
+        #[cfg(feature = "bevy_ui_contain")]
+        fn no_viewport_node_leak_on_parented_root() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let ui_contain = world.spawn(UiContainSize::default()).id();
+
+            let ui_root_entity_1 = world
+                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .id();
+            let ui_root_entity_2 = world
+                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .id();
+
+            app.update();
+            let world = app.world_mut();
+
+            // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
+            // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
+            assert_eq!(
+                world
+                    .get_mut::<UiSurface>(ui_contain)
+                    .unwrap()
+                    .taffy
+                    .total_node_count(),
+                4
+            );
+
+            // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
+            // UI root entity.
+            world
+                .entity_mut(ui_root_entity_1)
+                .add_child(ui_root_entity_2);
+
+            // Now there is only one root node so the second viewport node is removed by
+            // the UI schedule.
+            app.update();
+            let world = app.world_mut();
+
+            // There is only one viewport node now, so the `TaffyTree` contains 3 nodes in total.
+            assert_eq!(
+                world
+                    .get_mut::<UiSurface>(ui_contain)
+                    .unwrap()
+                    .taffy
+                    .total_node_count(),
+                3
+            );
         }
     }
 }

@@ -1,5 +1,5 @@
-//! Node can choose Camera as the layout or [`UiContainSet`](bevy::prelude::UiContainSet) Component for layout.
-//! Nodes will be laid out according to the size and Transform of `UiContainSet`
+//! Node can choose Camera as the layout or [`UiContainSize`](bevy::prelude::UiContainSize) Component for layout.
+//! Nodes will be laid out according to the size and Transform of `UiContainSize`
 
 use bevy::{
     app::Propagate, input::common_conditions::input_just_released, prelude::*, sprite::Anchor,
@@ -12,9 +12,11 @@ fn main() {
         .add_systems(
             Update,
             (
-                update_camera,
-                update_contain,
-                switch_node.run_if(input_just_released(KeyCode::Space)),
+                update_camera_pos,
+                update_contain_pos,
+                switch_node_type.run_if(input_just_released(KeyCode::Space)),
+                switch_ui_contain_overflow.run_if(input_just_released(KeyCode::Digit1)),
+                switch_ui_contain_anchor.run_if(input_just_released(KeyCode::Digit2)),
                 update_text,
             ),
         )
@@ -31,13 +33,10 @@ struct UiContainInfo;
 struct CameraInfo;
 
 #[derive(Component)]
-struct InfoTextUiContain(Entity);
-
-#[derive(Component)]
-struct InfoTextCamera(Entity);
+struct InfoText;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let camera = commands.spawn((Camera2d, CameraInfo)).id();
+    commands.spawn((Camera2d, CameraInfo));
 
     // world center
     commands.spawn(Sprite {
@@ -50,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             UiContainSize(Vec2::new(300.0, 300.0)),
             Anchor::TOP_LEFT,
-            // UiContainOverflow(Overflow::clip()),
+            UiContainOverflow(Overflow::clip()),
             // Transform::from_xyz(-500.0, 0.0, 0.0),
             // Sprite {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
@@ -127,7 +126,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             bottom: px(0.0),
             ..Default::default()
         },
-        Text::new("WASD move uicontain\nArrowKey move camera\nSpace Switching node type"),
+        Text::new(
+            "WASD move uicontain
+ArrowKey move camera
+Space Switching node type
+Digit1 Switching uicontain Overflow
+Digit2 Switching uicontain Anchor",
+        ),
         GlobalZIndex(10),
         TextColor(Srgba::rgb(0.0, 1.0, 1.0).into()),
     ));
@@ -142,36 +147,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },))
         .with_children(|parent| {
             parent.spawn((
-                Text::new("GlobalTranfrom Camera: None"),
-                InfoTextCamera(camera),
-            ));
-            parent.spawn((
-                Text::new("GlobalTranfrom UiContain: None"),
-                InfoTextUiContain(ui_contain),
+                Text::new(
+                    "UiContain: 
+Anchor: None
+Overflow: UnKnown
+GlobalTransform: None
+
+GlobalTranfrom Camera: None",
+                ),
+                InfoText,
             ));
         });
 }
 
 fn update_text(
-    info_camera: Single<(&mut Text, &InfoTextCamera), Without<InfoTextUiContain>>,
-    info_uicontain: Single<(&mut Text, &InfoTextUiContain), Without<InfoTextCamera>>,
+    info_camera: Single<Entity, With<Camera>>,
+    info_uicontain: Single<(Entity, &Anchor, &UiContainOverflow), With<UiContainInfo>>,
+    info_text: Single<&mut Text, With<InfoText>>,
     query: Query<&GlobalTransform>,
 ) {
-    let (mut text_camera, related) = info_camera.into_inner();
+    let mut info_text = info_text.into_inner();
 
-    text_camera.0 = format!(
-        "GlobalTranfrom Camera: {:?}",
-        query.get(related.0).map(bevy::prelude::GlobalTransform::translation),
-    );
+    let (entity_contain, anchor, overflow) = info_uicontain.into_inner();
 
-    let (mut text_contain, related) = info_uicontain.into_inner();
-    text_contain.0 = format!(
-        "GlobalTranfrom UiContain: {:?}",
-        query.get(related.0).map(bevy::prelude::GlobalTransform::translation),
+    let overflow_text = if overflow.0 == Overflow::visible() {
+        "Overflow::visible"
+    } else if overflow.0 == Overflow::clip() {
+        "Overflow::clip"
+    } else if overflow.0 == Overflow::clip_x() {
+        "Overflow::clip_x"
+    } else if overflow.0 == Overflow::clip_y() {
+        "Overflow::clip_y"
+    } else {
+        "UnKnown"
+    };
+
+    let global_camera = query
+        .get(info_camera.into_inner())
+        .map(GlobalTransform::translation)
+        .ok();
+    let global_uicontain = query
+        .get(entity_contain)
+        .map(GlobalTransform::translation)
+        .ok();
+
+    info_text.0 = format!(
+        "UiContain: 
+Anchor: {:?}
+Overflow: {:?}
+GlobalTransform: {:?}
+
+GlobalTranfrom Camera: {:?}",
+        anchor, overflow_text, global_uicontain, global_camera,
     );
 }
 
-fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonInput<KeyCode>>) {
+fn update_camera_pos(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonInput<KeyCode>>) {
     for mut trans in query {
         let left = input.pressed(KeyCode::ArrowLeft) as i8 as f32;
         let right = input.pressed(KeyCode::ArrowRight) as i8 as f32;
@@ -183,7 +214,7 @@ fn update_camera(query: Query<&mut Transform, With<Camera>>, input: Res<ButtonIn
     }
 }
 
-fn update_contain(
+fn update_contain_pos(
     query: Single<&mut Transform, With<UiContainInfo>>,
     input: Res<ButtonInput<KeyCode>>,
 ) {
@@ -197,7 +228,7 @@ fn update_contain(
     trans.translation.y += up - down;
 }
 
-fn switch_node(
+fn switch_node_type(
     mut commands: Commands,
     query: Single<(Entity, Has<UiContainTarget>), With<ContainNode>>,
     contain: Single<Entity, With<UiContainInfo>>,
@@ -212,5 +243,36 @@ fn switch_node(
         commands
             .entity(entity_node)
             .insert(Propagate(UiContainTarget(contain.into_inner())));
+    }
+}
+
+fn switch_ui_contain_overflow(query: Single<&mut UiContainOverflow, With<UiContainInfo>>) {
+    let mut overflow = query.into_inner();
+
+    if overflow.0 == Overflow::visible() {
+        overflow.0 = Overflow::clip()
+    } else if overflow.0 == Overflow::clip() {
+        overflow.0 = Overflow::clip_x()
+    } else if overflow.0 == Overflow::clip_x() {
+        overflow.0 = Overflow::clip_y()
+    } else {
+        overflow.0 = Overflow::visible()
+    }
+}
+
+fn switch_ui_contain_anchor(query: Single<&mut Anchor, With<UiContainInfo>>) {
+    let mut anchor = query.into_inner();
+
+    match anchor.as_mut() {
+        anchor if *anchor == Anchor::BOTTOM_LEFT => *anchor = Anchor::BOTTOM_CENTER,
+        anchor if *anchor == Anchor::BOTTOM_CENTER => *anchor = Anchor::BOTTOM_RIGHT,
+        anchor if *anchor == Anchor::BOTTOM_RIGHT => *anchor = Anchor::CENTER_LEFT,
+        anchor if *anchor == Anchor::CENTER_LEFT => *anchor = Anchor::CENTER,
+        anchor if *anchor == Anchor::CENTER => *anchor = Anchor::CENTER_RIGHT,
+        anchor if *anchor == Anchor::CENTER_RIGHT => *anchor = Anchor::TOP_LEFT,
+        anchor if *anchor == Anchor::TOP_LEFT => *anchor = Anchor::TOP_CENTER,
+        anchor if *anchor == Anchor::TOP_CENTER => *anchor = Anchor::TOP_RIGHT,
+        anchor if *anchor == Anchor::TOP_RIGHT => *anchor = Anchor::BOTTOM_LEFT,
+        _ => *anchor = Anchor::CENTER,
     }
 }
