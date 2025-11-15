@@ -93,6 +93,20 @@ impl<R: AssetReader> AssetReader for LockGatedReader<R> {
     }
 }
 
+/// Serializes `text` into a `CoolText` that can be loaded.
+///
+/// This doesn't support all the features of `CoolText`, so more complex scenarios may require doing
+/// this manually.
+fn serialize_as_cool_text(text: &str) -> String {
+    let cool_text_ron = CoolTextRon {
+        text: text.into(),
+        dependencies: vec![],
+        embedded_dependencies: vec![],
+        sub_texts: vec![],
+    };
+    ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
+}
+
 fn create_app_with_asset_processor(extra_sources: &[String]) -> AppWithProcessor {
     let mut app = App::new();
     let source_gate = Arc::new(RwLock::new(()));
@@ -945,15 +959,6 @@ fn asset_processor_processes_all_sources() {
     // All the assets will have the same path, but they will still be separately processed since
     // they are in different sources.
     let path = Path::new("asset.cool.ron");
-    let serialize_as_cool_text = |text: &str| {
-        let cool_text_ron = CoolTextRon {
-            text: text.into(),
-            dependencies: vec![],
-            embedded_dependencies: vec![],
-            sub_texts: vec![],
-        };
-        ron::ser::to_string_pretty(&cool_text_ron, PrettyConfig::new().new_line("\n")).unwrap()
-    };
     default_source_dir.insert_asset_text(path, &serialize_as_cool_text("default asset"));
     custom_1_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 1 asset"));
     custom_2_source_dir.insert_asset_text(path, &serialize_as_cool_text("custom 2 asset"));
@@ -1243,4 +1248,74 @@ fn nested_loads_of_processed_asset_reprocesses_on_reload() {
     );
 
     assert_eq!(get_process_count(), 7);
+}
+
+#[test]
+fn clears_invalid_data_from_processed_dir() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                processed: default_processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor(CoolTextProcessor::new(
+            RootAssetTransformer::new(AddText(" processed".to_string())),
+            CoolTextSaver,
+        ))
+        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+
+    let guard = source_gate.write_blocking();
+
+    default_source_dir.insert_asset_text(Path::new("a.cool.ron"), &serialize_as_cool_text("a"));
+    default_source_dir.insert_asset_text(Path::new("dir/b.cool.ron"), &serialize_as_cool_text("b"));
+    default_source_dir.insert_asset_text(
+        Path::new("dir/subdir/c.cool.ron"),
+        &serialize_as_cool_text("c"),
+    );
+
+    // This asset has the right data, but no meta, so it should be reprocessed.
+    let a = Path::new("a.cool.ron");
+    default_processed_dir.insert_asset_text(a, &serialize_as_cool_text("a processed"));
+    // These assets aren't present in the unprocessed directory, so they should be deleted.
+    let missing1 = Path::new("missing1.cool.ron");
+    let missing2 = Path::new("dir/missing2.cool.ron");
+    let missing3 = Path::new("other_dir/missing3.cool.ron");
+    default_processed_dir.insert_asset_text(missing1, &serialize_as_cool_text("missing1"));
+    default_processed_dir.insert_meta_text(missing1, ""); // This asset has metadata.
+    default_processed_dir.insert_asset_text(missing2, &serialize_as_cool_text("missing2"));
+    default_processed_dir.insert_asset_text(missing3, &serialize_as_cool_text("missing3"));
+    // This directory is empty, so it should be deleted.
+    let empty_dir = Path::new("empty_dir");
+    let empty_dir_subdir = Path::new("empty_dir/empty_subdir");
+    default_processed_dir.get_or_insert_dir(empty_dir_subdir);
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        read_asset_as_string(&default_processed_dir, a),
+        serialize_as_cool_text("a processed")
+    );
+    assert!(default_processed_dir.get_metadata(a).is_some());
+
+    assert!(default_processed_dir.get_asset(missing1).is_none());
+    assert!(default_processed_dir.get_metadata(missing1).is_none());
+    assert!(default_processed_dir.get_asset(missing2).is_none());
+    assert!(default_processed_dir.get_asset(missing3).is_none());
+
+    assert!(default_processed_dir.get_dir(empty_dir_subdir).is_none());
+    assert!(default_processed_dir.get_dir(empty_dir).is_none());
 }
