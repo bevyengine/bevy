@@ -44,6 +44,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 default = []
 serialize = ["bevy_math/serialize", "bevy_platform/serialize"]
 bevy_ui_debug = []
+bevy_ui_contain = []
 
 [lints]
 workspace = true

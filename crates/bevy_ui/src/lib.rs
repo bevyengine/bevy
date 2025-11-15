@@ -113,7 +113,7 @@ pub enum UiSystems {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+#[derive(Debug, Reflect, Resource, Component, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
 
@@ -166,6 +166,13 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
             );
+
+        #[cfg(feature = "bevy_ui_contain")]
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<UiContainTarget>::default().in_set(UiSystems::Propagate),
+        )
+        .add_plugins(HierarchyPropagatePlugin::<UiContainTarget>::new(PostUpdate));
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)

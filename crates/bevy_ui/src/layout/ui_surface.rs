@@ -1,6 +1,7 @@
 use core::fmt;
 use core::ops::{Deref, DerefMut};
 
+use bevy_ecs::component::Component;
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
@@ -54,7 +55,7 @@ impl<T> DerefMut for UiTree<T> {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Component)]
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
@@ -265,6 +266,18 @@ impl UiSurface {
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
+                self.taffy.remove(node.id).unwrap();
+                if let Some(viewport_node) = node.viewport_id {
+                    self.taffy.remove(viewport_node).ok();
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "bevy_ui_contain")]
+    pub fn remove_entities_ref<'a>(&mut self, entities: impl IntoIterator<Item = &'a Entity>) {
+        for entity in entities {
+            if let Some(node) = self.entity_to_taffy.remove(entity) {
                 self.taffy.remove(node.id).unwrap();
                 if let Some(viewport_node) = node.viewport_id {
                     self.taffy.remove(viewport_node).ok();

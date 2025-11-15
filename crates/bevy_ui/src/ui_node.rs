@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    FocusPolicy, UiRect, UiScale, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -8,7 +8,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_sprite::BorderRect;
+use bevy_sprite::{Anchor, BorderRect};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -2913,6 +2913,37 @@ impl ComputedUiRenderTargetInfo {
         self.physical_size.as_vec2() / self.scale_factor
     }
 }
+
+/// Pointing to [`UiContainSize`](crate::UiContainSize),layout based on this container size.
+/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSize` is located in world space.
+/// When the root node and its child nodes point to the same `UiContainSize`, the functionality is work.
+/// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
+///
+/// If you want to enable this feature, you need to enable the `bevy_ui_contain` feature
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+#[relationship(relationship_target = UiContains)]
+pub struct UiContainTarget(pub Entity);
+
+#[derive(Component, Default, Debug, PartialEq, Eq)]
+#[relationship_target(relationship = UiContainTarget, linked_spawn)]
+pub struct UiContains(Vec<Entity>);
+
+/// If you want to enable this feature, you need to enable the `bevy_ui_contain` feature
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[require(
+    crate::ui_surface::UiSurface,
+    bevy_transform::components::Transform,
+    UiContains,
+    Anchor,
+    UiScale
+)]
+pub struct UiContainSize(pub Vec2);
+
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
+#[reflect(Component, PartialEq, Clone)]
+pub struct UiContainOverflow(pub Overflow);
 
 #[cfg(test)]
 mod tests {
