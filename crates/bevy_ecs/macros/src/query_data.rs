@@ -61,6 +61,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
     let path = bevy_ecs_path();
 
     let user_generics = ast.generics.clone();
+    let user_generics_ty_params = user_generics.type_params().map(|p| p.ident.clone());
     let (user_impl_generics, user_ty_generics, user_where_clauses) = user_generics.split_for_impl();
     let user_generics_with_world = {
         let mut generics = ast.generics.clone();
@@ -267,6 +268,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                             #(#field_members: <#read_only_field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                         })
                     }
+
+                    fn iter_access<'c>(
+                        components: &'c #path::component::Components,
+                        index: &mut usize
+                    ) -> impl core::iter::Iterator<Item = Option<#path::query::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
+                        core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
+                    }
                 }
 
                 impl #user_impl_generics #path::query::ReleaseStateQueryData
@@ -293,6 +301,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
         let is_read_only = !attributes.is_mutable;
 
+        let user_generics_ty_params = user_generics.type_params().map(|p| p.ident.clone());
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
@@ -331,6 +340,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                     Some(Self::Item {
                         #(#field_members: <#field_types>::fetch(&_state.#field_aliases, &mut _fetch.#field_aliases, _entity, _table_row)?,)*
                     })
+                }
+
+                fn iter_access<'c>(
+                    components: &'c #path::component::Components,
+                    index: &mut usize
+                ) -> impl core::iter::Iterator<Item = Option<#path::query::EcsAccessType>> + use<'c, #(#user_generics_ty_params,)*> {
+                    core::iter::empty() #(.chain(<#field_types>::iter_access(components, index)))*
                 }
             }
 

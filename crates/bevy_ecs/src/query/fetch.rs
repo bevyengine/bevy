@@ -4,7 +4,10 @@ use crate::{
     change_detection::{ComponentTicksMut, ComponentTicksRef, MaybeLocation, Tick},
     component::{Component, ComponentId, Components, Mutable, StorageType},
     entity::{Entities, Entity, EntityLocation},
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{
+        access_iter::{EcsAccessLevel, EcsAccessType},
+        Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery,
+    },
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
         unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
@@ -13,7 +16,7 @@ use crate::{
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, iter, marker::PhantomData, panic::Location};
 use variadics_please::all_tuples;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
@@ -342,6 +345,14 @@ pub unsafe trait QueryData: WorldQuery {
         entity: Entity,
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>>;
+
+    /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
+    /// checked in [`WorldQuery::init_fetch`], but in certain cases this method can be useful to implement
+    /// a way of checking for access conflicts in a non-allocating way.
+    fn iter_access<'a>(
+        components: &'a Components,
+        index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, Self>;
 }
 
 /// A [`QueryData`] that is read only.
@@ -450,6 +461,13 @@ unsafe impl QueryData for Entity {
     ) -> Option<Self::Item<'w, 's>> {
         Some(entity)
     }
+
+    fn iter_access<'a>(
+        _components: &'a Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a> {
+        iter::empty()
+    }
 }
 
 /// SAFETY: access is read only
@@ -542,6 +560,13 @@ unsafe impl QueryData for EntityLocation {
     ) -> Option<Self::Item<'w, 's>> {
         // SAFETY: `fetch` must be called with an entity that exists in the world
         Some(unsafe { fetch.get_spawned(entity).debug_checked_unwrap() })
+    }
+
+    fn iter_access<'a>(
+        _components: &'a Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a> {
+        iter::empty()
     }
 }
 
@@ -719,6 +744,13 @@ unsafe impl QueryData for SpawnDetails {
             this_run: fetch.this_run,
         })
     }
+
+    fn iter_access<'a>(
+        _components: &'a Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a> {
+        iter::empty()
+    }
 }
 
 /// SAFETY: access is read only
@@ -838,6 +870,13 @@ unsafe impl<'a> QueryData for EntityRef<'a> {
         // SAFETY: Read-only access to every component has been registered.
         Some(unsafe { EntityRef::new(cell) })
     }
+
+    fn iter_access<'b>(
+        _components: &'b Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b> {
+        iter::once(Some(EcsAccessType::Component(EcsAccessLevel::ReadAll)))
+    }
 }
 
 /// SAFETY: access is read only
@@ -944,6 +983,13 @@ unsafe impl<'a> QueryData for EntityMut<'a> {
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { EntityMut::new(cell) })
     }
+
+    fn iter_access<'b>(
+        _components: &'b Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b> {
+        iter::once(Some(EcsAccessType::Component(EcsAccessLevel::WriteAll)))
+    }
 }
 
 impl ReleaseStateQueryData for EntityMut<'_> {
@@ -1020,7 +1066,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl QueryData for FilteredEntityRef<'_, '_> {
+unsafe impl<'a, 'b> QueryData for FilteredEntityRef<'a, 'b> {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1067,6 +1113,15 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
         };
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityRef::new(cell, access) })
+    }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c> {
+        iter::once(Some(EcsAccessType::Component(
+            EcsAccessLevel::FilteredReadAll,
+        )))
     }
 }
 
@@ -1187,6 +1242,15 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
         // SAFETY: mutable access to every component has been registered.
         Some(unsafe { FilteredEntityMut::new(cell, access) })
     }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c> {
+        iter::once(Some(EcsAccessType::Component(
+            EcsAccessLevel::FilteredWriteAll,
+        )))
+    }
 }
 
 impl ArchetypeQueryData for FilteredEntityMut<'_, '_> {}
@@ -1296,6 +1360,22 @@ where
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
             .unwrap();
         Some(EntityRefExcept::new(cell, access))
+    }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
+        *index += 1;
+        let index = *index;
+        B::get_component_ids(components).map(move |component_id| {
+            component_id.map(|component_id| {
+                EcsAccessType::Component(EcsAccessLevel::ReadAllExcept {
+                    index,
+                    component_id,
+                })
+            })
+        })
     }
 }
 
@@ -1412,6 +1492,22 @@ where
             .unwrap();
         Some(EntityMutExcept::new(cell, access))
     }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'b, 'c, B> {
+        *index += 1;
+        let index = *index;
+        B::get_component_ids(components).map(move |component_id| {
+            component_id.map(|component_id| {
+                EcsAccessType::Component(EcsAccessLevel::WriteAllExcept {
+                    index,
+                    component_id,
+                })
+            })
+        })
+    }
 }
 
 impl<B: Bundle> ArchetypeQueryData for EntityMutExcept<'_, '_, B> {}
@@ -1474,7 +1570,7 @@ unsafe impl WorldQuery for &Archetype {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl QueryData for &Archetype {
+unsafe impl<'a> QueryData for &'a Archetype {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1498,6 +1594,13 @@ unsafe impl QueryData for &Archetype {
         let location = unsafe { entities.get_spawned(entity).debug_checked_unwrap() };
         // SAFETY: The assigned archetype for a living entity must always be valid.
         Some(unsafe { archetypes.get(location.archetype_id).debug_checked_unwrap() })
+    }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'c> {
+        iter::empty()
     }
 }
 
@@ -1629,7 +1732,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<T: Component> QueryData for &T {
+unsafe impl<'a, T: Component> QueryData for &'a T {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1667,6 +1770,17 @@ unsafe impl<T: Component> QueryData for &T {
                 item.deref()
             },
         ))
+    }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, 'c, T> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Read(id))),
+        )
     }
 }
 
@@ -1880,6 +1994,17 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
             },
         ))
     }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'__w, 'c, T> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Read(id))),
+        )
+    }
 }
 
 /// SAFETY: access is read only
@@ -2092,6 +2217,17 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
             },
         ))
     }
+
+    fn iter_access<'a>(
+        components: &'a Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, '__w, T> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Write(id))),
+        )
+    }
 }
 
 impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
@@ -2206,6 +2342,17 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
         table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         <&mut T as QueryData>::fetch(state, fetch, entity, table_row)
+    }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, '__w, T> {
+        iter::once(
+            components
+                .component_id::<T>()
+                .map(|id| EcsAccessType::Component(EcsAccessLevel::Write(id))),
+        )
     }
 }
 
@@ -2354,6 +2501,13 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
                 .then(|| unsafe { T::fetch(state, &mut fetch.fetch, entity, table_row) })
                 .flatten(),
         )
+    }
+
+    fn iter_access<'c>(
+        components: &'c Components,
+        index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, T> {
+        T::iter_access(components, index)
     }
 }
 
@@ -2531,6 +2685,13 @@ unsafe impl<T: Component> QueryData for Has<T> {
     ) -> Option<Self::Item<'w, 's>> {
         Some(*fetch)
     }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, T> {
+        iter::empty()
+    }
 }
 
 /// SAFETY: [`Has`] is read only
@@ -2605,6 +2766,10 @@ macro_rules! impl_tuple_query_data {
                 let ($($name,)*) = fetch;
                 // SAFETY: The invariants are upheld by the caller.
                 Some(($(unsafe { $name::fetch($state, $name, entity, table_row) }?,)*))
+            }
+
+            fn iter_access<'a, 'b>(components: &'a Components, index: &'b mut usize) -> impl Iterator<Item = Option<EcsAccessType>> + use<'a, $($name,)*> {
+                iter::empty()$(.chain($name::iter_access(components, index)))*
             }
         }
 
@@ -2803,6 +2968,10 @@ macro_rules! impl_anytuple_fetch {
                     || !(false $(|| $name.1)*))
                 .then_some(result)
             }
+
+            fn iter_access<'c>(components: &'c Components, index: &mut usize) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, $($name,)*> {
+                iter::empty()$(.chain($name::iter_access(components, index)))*
+            }
         }
 
         $(#[$meta])*
@@ -2924,6 +3093,13 @@ unsafe impl<D: QueryData> QueryData for NopWorldQuery<D> {
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
     }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, D> {
+        iter::empty()
+    }
 }
 
 /// SAFETY: `NopFetch` never accesses any data
@@ -3008,6 +3184,13 @@ unsafe impl<T: ?Sized> QueryData for PhantomData<T> {
         _table_row: TableRow,
     ) -> Option<Self::Item<'w, 's>> {
         Some(())
+    }
+
+    fn iter_access<'c>(
+        _components: &'c Components,
+        _index: &mut usize,
+    ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c, T> {
+        iter::empty()
     }
 }
 
@@ -3216,6 +3399,13 @@ mod tests {
                 _table_row: TableRow,
             ) -> Option<Self::Item<'w, 's>> {
                 Some(())
+            }
+
+            fn iter_access<'c>(
+                _components: &'c Components,
+                _index: &mut usize,
+            ) -> impl Iterator<Item = Option<EcsAccessType>> + use<'c> {
+                iter::empty()
             }
         }
 

@@ -1,6 +1,7 @@
 //! Contains APIs for retrieving component data from the world.
 
 mod access;
+mod access_iter;
 mod builder;
 mod error;
 mod fetch;
@@ -11,6 +12,7 @@ mod state;
 mod world_query;
 
 pub use access::*;
+pub use access_iter::*;
 pub use bevy_ecs_macros::{QueryData, QueryFilter};
 pub use builder::*;
 pub use error::*;
@@ -896,6 +898,17 @@ mod tests {
             _table_row: TableRow,
         ) -> Option<Self::Item<'w, 's>> {
             Some(())
+        }
+
+        fn iter_access<'c>(
+            components: &'c Components,
+            _index: &mut usize,
+        ) -> impl Iterator<Item = Option<super::access_iter::EcsAccessType>> + use<'c> {
+            core::iter::once(components.resource_id::<R>().map(|id| {
+                super::access_iter::EcsAccessType::Resource(
+                    super::access_iter::ResourceAccessLevel::Read(id),
+                )
+            }))
         }
     }
 

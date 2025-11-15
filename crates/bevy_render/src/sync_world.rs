@@ -385,6 +385,13 @@ mod render_entities_world_query_impls {
                 unsafe { <&RenderEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(RenderEntity::id)
         }
+
+        fn iter_access<'c>(
+            components: &'c Components,
+            index: &mut usize,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
+            <&RenderEntity as QueryData>::iter_access(components, index)
+        }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
@@ -493,6 +500,13 @@ mod render_entities_world_query_impls {
             let component =
                 unsafe { <&MainEntity as QueryData>::fetch(state, fetch, entity, table_row) };
             component.map(MainEntity::id)
+        }
+
+        fn iter_access<'c>(
+            components: &'c Components,
+            index: &mut usize,
+        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
+            <&MainEntity as QueryData>::iter_access(components, index)
         }
     }
 
