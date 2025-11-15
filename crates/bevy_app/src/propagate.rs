@@ -5,6 +5,7 @@ use crate::{App, Plugin};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
+    change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
@@ -192,19 +193,18 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
 
 /// When `PropagateOver` or `PropagateStop` is removed, update the `Inherited::<C>` to trigger propagation
 pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
-    mut commands: Commands,
-    inherited: Query<&Inherited<C>>,
+    mut inherited: Query<&mut Inherited<C>>,
     mut removed_skip: RemovedComponents<PropagateOver<C>>,
     mut removed_stop: RemovedComponents<PropagateStop<C>>,
 ) {
     for entity in removed_skip.read() {
-        if let Ok(inherited) = inherited.get(entity) {
-            commands.entity(entity).try_insert(inherited.clone());
+        if let Ok(mut inherited) = inherited.get_mut(entity) {
+            inherited.set_changed();
         }
     }
     for entity in removed_stop.read() {
-        if let Ok(inherited) = inherited.get(entity) {
-            commands.entity(entity).try_insert(inherited.clone());
+        if let Ok(mut inherited) = inherited.get_mut(entity) {
+            inherited.set_changed();
         }
     }
 }
