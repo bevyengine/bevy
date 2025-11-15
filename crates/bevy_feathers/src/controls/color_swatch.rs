@@ -48,13 +48,13 @@ pub fn color_swatch<B: Bundle>(overrides: B) -> impl Bundle {
         Node {
             height: size::ROW_HEIGHT,
             min_width: size::ROW_HEIGHT,
+            border_radius: BorderRadius::all(Val::Px(5.0)),
             ..Default::default()
         },
         ColorSwatch,
         ColorSwatchValue::default(),
         AlphaPattern,
         MaterialNode::<AlphaPatternMaterial>(Handle::default()),
-        BorderRadius::all(Val::Px(5.0)),
         overrides,
         children![(
             Node {
@@ -63,12 +63,12 @@ pub fn color_swatch<B: Bundle>(overrides: B) -> impl Bundle {
                 top: Val::Px(0.),
                 bottom: Val::Px(0.),
                 right: Val::Px(0.),
+                border_radius: BorderRadius::all(Val::Px(5.0)),
                 ..Default::default()
             },
             ColorSwatchFg,
             BackgroundColor(palette::ACCENT.with_alpha(0.5)),
-            BorderRadius::all(Val::Px(5.0))
-        ),],
+        )],
     )
 }
 
