@@ -80,9 +80,8 @@ pub fn init_bloom_downsampling_pipeline(
     let sampler = render_device.create_sampler(&SamplerDescriptor {
         min_filter: FilterMode::Linear,
         mag_filter: FilterMode::Linear,
-        address_mode_u: AddressMode::ClampToBorder,
-        address_mode_v: AddressMode::ClampToBorder,
-        border_color: Some(SamplerBorderColor::TransparentBlack),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
         ..Default::default()
     });
 

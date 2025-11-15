@@ -14,6 +14,7 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
+    renderer::RenderDevice,
     view::ViewTarget,
 };
 use bevy_shader::Shader;
@@ -27,7 +28,7 @@ pub struct UpsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     pub sampler: Sampler,
     /// The asset handle for the fullscreen vertex shader.
     pub fullscreen_shader: FullscreenShader,
@@ -44,6 +45,7 @@ pub struct BloomUpsamplingPipelineKeys {
 
 pub fn init_bloom_upscaling_pipeline(
     mut commands: Commands,
+    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
