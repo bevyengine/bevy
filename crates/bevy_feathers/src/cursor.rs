@@ -102,7 +102,7 @@ pub(crate) fn update_cursor(
                 }),
                 None => None,
             })
-            .unwrap_or_else(|| &r_default_cursor)
+            .unwrap_or(&r_default_cursor)
     });
 
     for (entity, prev_cursor) in q_windows.iter() {
