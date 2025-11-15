@@ -921,43 +921,42 @@ impl AssetProcessor {
             for path in processed_paths {
                 let mut dependencies = Vec::new();
                 let asset_path = AssetPath::from(path).with_source(source.id());
-                if let Some(info) = asset_infos.get_mut(&asset_path) {
-                    match processed_reader.read_meta_bytes(asset_path.path()).await {
-                        Ok(meta_bytes) => {
-                            match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
-                                Ok(minimal) => {
-                                    trace!(
-                                        "Populated processed info for asset {asset_path} {:?}",
-                                        minimal.processed_info
-                                    );
-
-                                    if let Some(processed_info) = &minimal.processed_info {
-                                        for process_dependency_info in
-                                            &processed_info.process_dependencies
-                                        {
-                                            dependencies.push(process_dependency_info.path.clone());
-                                        }
-                                    }
-                                    info.processed_info = minimal.processed_info;
-                                }
-                                Err(err) => {
-                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
-                                    self.remove_processed_asset_and_meta(source, asset_path.path())
-                                        .await;
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
-                            self.remove_processed_asset_and_meta(source, asset_path.path())
-                                .await;
-                        }
-                    }
-                } else {
+                let Some(info) = asset_infos.get_mut(&asset_path) else {
                     trace!("Removing processed data for non-existent asset {asset_path}");
                     self.remove_processed_asset_and_meta(source, asset_path.path())
                         .await;
+                    continue;
+                };
+                let meta_bytes = match processed_reader.read_meta_bytes(asset_path.path()).await {
+                    Ok(meta_bytes) => meta_bytes,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+                let minimal = match ron::de::from_bytes::<ProcessedInfoMinimal>(&meta_bytes) {
+                    Ok(minimal) => minimal,
+                    Err(err) => {
+                        trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
+                        self.remove_processed_asset_and_meta(source, asset_path.path())
+                            .await;
+                        continue;
+                    }
+                };
+
+                trace!(
+                    "Populated processed info for asset {asset_path} {:?}",
+                    minimal.processed_info
+                );
+
+                if let Some(processed_info) = &minimal.processed_info {
+                    for process_dependency_info in &processed_info.process_dependencies {
+                        dependencies.push(process_dependency_info.path.clone());
+                    }
                 }
+                info.processed_info = minimal.processed_info;
 
                 for dependency in dependencies {
                     asset_infos.add_dependent(&dependency, asset_path.clone());
