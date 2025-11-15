@@ -151,7 +151,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
     }
 }
 
-/// add/remove `Inherited::<C>` and `C` for entities with a direct `Propagate::<C>`
+/// add/remove `Inherited::<C>` for entities with a direct `Propagate::<C>`
 pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
     mut commands: Commands,
     changed: Query<(Entity, &Propagate<C>), (Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,)>,
@@ -165,64 +165,46 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
 
     for removed in removed.read() {
         if let Ok(mut commands) = commands.get_entity(removed) {
-            commands.remove::<(Inherited<C>, C)>();
+            commands.remove::<Inherited<C>>();
         }
     }
 }
 
-/// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
+/// add/remove `Inherited::<C>` for entities which have changed relationship
 pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
-    moved: Query<
-        (Entity, &R, Option<&Inherited<C>>, Option<&PropagateOver<C>>),
-        (Changed<R>, Without<Propagate<C>>, F),
-    >,
+    moved: Query<(Entity, &R, Option<&Inherited<C>>), (Changed<R>, Without<Propagate<C>>, F)>,
     relations: Query<(Entity, &Inherited<C>)>,
-    skipped_children: Query<&<R as Relationship>::RelationshipTarget, With<PropagateOver<C>>>,
-    orphaned: Query<(Entity, Option<&Inherited<C>>), (Without<Propagate<C>>, Without<R>, F)>,
+    orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
-    for (entity, relation, maybe_inherited, maybe_skip) in &moved {
-        if maybe_skip.is_some() {
-            continue;
-        }
+    for (entity, relation, maybe_inherited) in &moved {
         if let Ok((_, inherited)) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
-            commands.entity(entity).remove::<(Inherited<C>, C)>();
+            commands.entity(entity).remove::<Inherited<C>>();
         }
     }
 
-    for (orphan, maybe_inherited) in &orphaned {
-        if maybe_inherited.is_some() {
-            commands.entity(orphan).remove::<(Inherited<C>, C)>();
-        } else if let Ok(children) = skipped_children.get(orphan) {
-            for (child, _) in relations.iter_many(children.iter()) {
-                commands.entity(child).remove::<(Inherited<C>, C)>();
-            }
-        }
+    for orphan in &orphaned {
+        commands.entity(orphan).remove::<Inherited<C>>();
     }
 }
 
-/// When `PropagateOver` or `PropagateStop` is removed, connect into the inheritance chain
+/// When `PropagateOver` or `PropagateStop` is removed, update the `Inherited::<C>` to trigger propagation
 pub fn update_removed_limit<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
-    parents: Query<&Inherited<C>>,
-    children: Query<&R>,
+    inherited: Query<&Inherited<C>>,
     mut removed_skip: RemovedComponents<PropagateOver<C>>,
     mut removed_stop: RemovedComponents<PropagateStop<C>>,
 ) {
     for entity in removed_skip.read() {
-        if let Ok(child_of) = children.get(entity)
-            && let Ok(parent) = parents.get(child_of.get())
-        {
-            commands.entity(entity).try_insert(parent.clone());
+        if let Ok(inherited) = inherited.get(entity) {
+            commands.entity(entity).try_insert(inherited.clone());
         }
     }
     for entity in removed_stop.read() {
-        if let Ok(child_of) = children.get(entity)
-            && let Ok(parent) = parents.get(child_of.get())
-        {
-            commands.entity(entity).try_insert(parent.clone());
+        if let Ok(inherited) = inherited.get(entity) {
+            commands.entity(entity).try_insert(inherited.clone());
         }
     }
 }
@@ -238,9 +220,9 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
         (
             Option<&R::RelationshipTarget>,
             Option<&Inherited<C>>,
-            Option<&PropagateOver<C>>,
+            Option<&PropagateStop<C>>,
         ),
-        (Without<Propagate<C>>, Without<PropagateStop<C>>, F),
+        (Without<Propagate<C>>, F),
     >,
     mut removed: RemovedComponents<Inherited<C>>,
     mut to_process: Local<Vec<(Entity, Option<Inherited<C>>)>>,
@@ -263,7 +245,7 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
 
     // propagate
     while let Some((entity, maybe_inherited)) = (*to_process).pop() {
-        let Ok((maybe_targets, maybe_current, maybe_skip)) = recurse.get(entity) else {
+        let Ok((maybe_targets, maybe_current, maybe_stop)) = recurse.get(entity) else {
             continue;
         };
 
@@ -271,33 +253,35 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
             continue;
         }
 
-        if let Some(targets) = maybe_targets {
-            to_process.extend(
-                targets
-                    .iter()
-                    .map(|target| (target, maybe_inherited.clone())),
-            );
+        // update children if required
+        if maybe_stop.is_none() {
+            if let Some(targets) = maybe_targets {
+                to_process.extend(
+                    targets
+                        .iter()
+                        .map(|target| (target, maybe_inherited.clone())),
+                );
+            }
         }
 
-        if maybe_skip.is_some() {
-            continue;
-        }
-
+        // update this node's `Inherited<C>`
         if let Some(inherited) = maybe_inherited {
-            commands.entity(entity).try_insert(inherited.clone());
+            commands.entity(entity).try_insert(inherited);
         } else {
-            commands.entity(entity).remove::<(Inherited<C>, C)>();
+            commands.entity(entity).remove::<Inherited<C>>();
         }
     }
 }
 
-/// add `C` to entities with `Inherited::<C>`
+/// add/remove `C` on entities with `Inherited::<C>`
 pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
     mut commands: Commands,
     changed: Query<
         (Entity, &Inherited<C>, Option<&C>),
         (Changed<Inherited<C>>, Without<PropagateOver<C>>, F),
     >,
+    mut removed: RemovedComponents<Inherited<C>>,
+    skip: Query<(), With<PropagateOver<C>>>,
 ) {
     for (entity, inherited, maybe_current) in &changed {
         if maybe_current.is_some_and(|c| &inherited.0 == c) {
@@ -305,6 +289,12 @@ pub fn propagate_output<C: Component + Clone + PartialEq, F: QueryFilter>(
         }
 
         commands.entity(entity).try_insert(inherited.0.clone());
+    }
+
+    for removed in removed.read() {
+        if skip.get(removed).is_err() {
+            commands.entity(removed).remove::<C>();
+        }
     }
 }
 
@@ -510,11 +500,12 @@ mod tests {
             .id();
 
         app.update();
-        assert!(app
-            .world_mut()
-            .query::<&Inherited<TestValue>>()
-            .get(app.world(), propagate_over)
-            .is_err());
+        assert_eq!(
+            app.world_mut()
+                .query::<&Inherited<TestValue>>()
+                .get(app.world(), propagate_over),
+            Ok(&Inherited(TestValue(1)))
+        );
         assert_eq!(
             app.world_mut()
                 .query::<&Inherited<TestValue>>()
@@ -536,6 +527,38 @@ mod tests {
             query.get_many(app.world(), [propagate_over, propagatee]),
             Ok([&TestValue(1), &TestValue(1)])
         );
+    }
+
+    #[test]
+    fn test_propagate_over_parent_removed() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let propagate_over = app
+            .world_mut()
+            .spawn(TestValue(2))
+            .insert((PropagateOver::<TestValue>::default(), ChildOf(propagator)))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagator, propagate_over]),
+            Ok([&TestValue(1), &TestValue(2)])
+        );
+
+        app.world_mut()
+            .commands()
+            .entity(propagator)
+            .remove::<Propagate<TestValue>>();
+        app.update();
+
+        assert!(query.get(app.world(), propagator).is_err(),);
+        assert_eq!(query.get(app.world(), propagate_over), Ok(&TestValue(2)));
     }
 
     #[test]
