@@ -113,7 +113,7 @@ pub enum UiSystems {
 ///
 /// A multiplier to fixed-sized ui values.
 /// **Note:** This will only affect fixed ui values like [`Val::Px`]
-#[derive(Debug, Reflect, Resource, Deref, DerefMut)]
+#[derive(Debug, Reflect, Resource, Component, Deref, DerefMut)]
 #[reflect(Resource, Debug, Default)]
 pub struct UiScale(pub f32);
 

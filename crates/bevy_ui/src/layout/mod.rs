@@ -155,11 +155,11 @@ pub fn ui_layout_system(
                 #[cfg(feature = "bevy_ui_contain")]
                 {
                     if let Ok(target) = contain_target_query.get(entity) {
-                        let Ok((_, size, ..)) = contain_query.get(target.0) else {
-                            return;
-                        };
+                        // let Ok((_, size, ..)) = contain_query.get(target.0) else {
+                        //     return;
+                        // };
 
-                        let layout_context = LayoutContext::new(1.0, size.0);
+                        // let layout_context = LayoutContext::new(1.0, size.0);
 
                         let Ok(mut ui_surface) = ui_surface_query.get_mut(target.0) else {
                             tracing::error!(
@@ -1202,7 +1202,6 @@ mod tests {
                     .sum();
                 let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                 assert!((width_sum - parent_width).abs() < 0.001);
-                println!("width_sum:{:?},r:{:?}", width_sum, r);
                 assert!((width_sum - 320. * s).abs() <= 1.);
                 s += r;
             }
@@ -1383,7 +1382,7 @@ mod tests {
 
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainSize(Vec2::new(WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32))).id();
 
             // spawn a root entity with width and height set to fill 100% of its parent
             let ui_root = world
@@ -2077,7 +2076,7 @@ mod tests {
                 // This fails with very small / unrealistic scale values
                 let mut s = 1. - r;
                 while s <= 5. {
-                    app.world_mut().resource_mut::<UiScale>().0 = s;
+                    app.world_mut().get_mut::<UiScale>(ui_contain).unwrap().0 = s;
                     app.update();
                     let world = app.world_mut();
                     let width_sum: f32 = children
@@ -2086,7 +2085,6 @@ mod tests {
                         .sum();
                     let parent_width = world.get::<ComputedNode>(parent).unwrap().size.x;
                     assert!((width_sum - parent_width).abs() < 0.001);
-                    println!("width_sum:{:?},r:{:?}", width_sum, r);
                     assert!((width_sum - 320. * s).abs() <= 1.);
                     s += r;
                 }

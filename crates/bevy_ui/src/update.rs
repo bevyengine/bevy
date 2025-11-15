@@ -185,6 +185,8 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    #[cfg(feature = "bevy_ui_contain")] query_ui_scale: Query<(&UiScale, &UiContainSize)>,
+    #[cfg(feature = "bevy_ui_contain")] query_target: Query<&UiContainTarget>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -204,6 +206,21 @@ pub fn propagate_ui_target_cameras(
             .get(camera)
             .ok()
             .map(|camera| {
+                #[cfg(feature = "bevy_ui_contain")]
+                {
+                    if let Ok(target) = query_target.get(root_entity) {
+                        let Ok((scale, size)) = query_ui_scale.get(target.0) else {
+                            return (1.0, UVec2::ZERO);
+                        };
+                        (scale.0, size.0.as_uvec2())
+                    } else {
+                        (
+                            camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                            camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                        )
+                    }
+                }
+                #[cfg(not(feature = "bevy_ui_contain"))]
                 (
                     camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
                     camera.physical_viewport_size().unwrap_or(UVec2::ZERO),

@@ -1,6 +1,5 @@
 use crate::{
-    ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    FocusPolicy, UiRect, UiScale, Val, ui_transform::{UiGlobalTransform, UiTransform}
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -2898,7 +2897,7 @@ pub struct UiContains(Vec<Entity>);
     bevy_transform::components::Transform,
     UiContains,
     Anchor,
-    Visibility
+    UiScale
 )]
 pub struct UiContainSize(pub Vec2);
 
