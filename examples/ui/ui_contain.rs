@@ -113,9 +113,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 left: Srgba::WHITE.into(),
                             },
                         ))
-                        .with_child(ImageNode::new(
-                            asset_server.load("branding/bevy_bird_dark.png"),
-                        ));
+                        .with_child(
+                            (ImageNode::new(asset_server.load("branding/bevy_bird_dark.png"))),
+                        );
                 });
         });
 
@@ -208,7 +208,6 @@ fn switch_node(
         commands
             .entity(entity_node)
             .remove::<Propagate<UiContainTarget>>();
-
     } else {
         commands
             .entity(entity_node)

@@ -1823,6 +1823,14 @@ pub fn prepare_uinodes(
                             }
                         }
                         let uvs = if flags == shader_flags::UNTEXTURED {
+                            #[cfg(feature = "bevy_ui_contain")]
+                            if extracted_uinode.is_contain {
+                                [Vec2::Y, Vec2::ONE, Vec2::X, Vec2::ZERO]
+                            } else {
+                                [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
+                            }
+
+                            #[cfg(not(feature = "bevy_ui_contain"))]
                             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                         } else {
                             let image = gpu_images
@@ -1846,6 +1854,51 @@ pub fn prepare_uinodes(
                                 positions_diff[2].y *= -1.;
                                 positions_diff[3].y *= -1.;
                             }
+
+                            #[cfg(feature = "bevy_ui_contain")]
+                            if extracted_uinode.is_contain {
+                                [
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[3].x,
+                                        uinode_rect.max.y + positions_diff[3].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[2].x,
+                                        uinode_rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[1].x,
+                                        uinode_rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[0].x,
+                                        uinode_rect.min.y + positions_diff[0].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent)
+                            } else {
+                                [
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[0].x,
+                                        uinode_rect.min.y + positions_diff[0].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[1].x,
+                                        uinode_rect.min.y + positions_diff[1].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.max.x + positions_diff[2].x,
+                                        uinode_rect.max.y + positions_diff[2].y,
+                                    ),
+                                    Vec2::new(
+                                        uinode_rect.min.x + positions_diff[3].x,
+                                        uinode_rect.max.y + positions_diff[3].y,
+                                    ),
+                                ]
+                                .map(|pos| pos / atlas_extent)
+                            }
+
+                            #[cfg(not(feature = "bevy_ui_contain"))]
                             [
                                 Vec2::new(
                                     uinode_rect.min.x + positions_diff[0].x,
@@ -1885,10 +1938,9 @@ pub fn prepare_uinodes(
                                 point: points[i].into(),
                                 #[cfg(feature = "bevy_ui_contain")]
                                 point: if extracted_uinode.is_contain {
-                                    // Affine2::from_scale(Vec2::new(1.0, -1.0))
-                                    //     .transform_point2(points[i])
-                                    //     .into()
-                                        points[i].into()
+                                    Affine2::from_scale(Vec2::new(1.0, -1.0))
+                                        .transform_point2(points[i])
+                                        .into()
                                 } else {
                                     points[i].into()
                                 },
