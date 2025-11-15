@@ -912,6 +912,10 @@ impl AssetProcessor {
             for empty_dir in empty_dirs {
                 // We don't care if this succeeds, since it's just a cleanup task. It is best-effort
                 let _ = processed_writer.remove_empty_directory(&empty_dir).await;
+                // The directory may also have been an asset that was processed - try to delete its
+                // meta. If it fails, that either means there was no meta (which is fine), or the
+                // delete itself failed, which is also fine like above.
+                let _ = processed_writer.remove_meta(&empty_dir).await;
             }
 
             for path in unprocessed_paths {
