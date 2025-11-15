@@ -15,10 +15,11 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "custom_cursor")]
 use bevy_window::CustomCursor;
 use bevy_window::{CursorIcon, SystemCursorIcon, Window};
+use derive_more::Deref;
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.
-#[derive(Resource, Debug, Clone, Default, Reflect)]
+#[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
 #[reflect(Resource, Debug, Default)]
 pub struct DefaultCursor(pub EntityCursor);
 
@@ -41,7 +42,7 @@ pub enum EntityCursor {
 ///
 /// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.
-#[derive(Resource, Debug, Clone, Default, Reflect)]
+#[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
 pub struct OverrideCursor(pub Option<SystemCursorIcon>);
 
 impl EntityCursor {
@@ -87,24 +88,23 @@ pub(crate) fn update_cursor(
     cursor_query: Query<&EntityCursor, Without<Window>>,
     q_windows: Query<(Entity, Option<&CursorIcon>), With<Window>>,
     r_default_cursor: Res<DefaultCursor>,
-    override_cursor: Res<OverrideCursor>,
+    r_override_cursor: Res<OverrideCursor>,
 ) {
-    let cursor = hover_map
-        .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
-            Some(hover_set) => hover_set.keys().find_map(|entity| {
-                cursor_query.get(*entity).ok().or_else(|| {
-                    parent_query
-                        .iter_ancestors(*entity)
-                        .find_map(|e| cursor_query.get(e).ok())
-                })
-            }),
-            None => None,
-        })
-        .unwrap_or(&r_default_cursor.0);
-    let cursor = override_cursor
-        .0
-        .map(CursorIcon::from)
-        .unwrap_or(cursor.to_cursor_icon());
+    let cursor = (**r_override_cursor).map(CursorIcon::from).unwrap_or(
+        hover_map
+            .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
+                Some(hover_set) => hover_set.keys().find_map(|entity| {
+                    cursor_query.get(*entity).ok().or_else(|| {
+                        parent_query
+                            .iter_ancestors(*entity)
+                            .find_map(|e| cursor_query.get(e).ok())
+                    })
+                }),
+                None => None,
+            })
+            .unwrap_or(&*r_default_cursor)
+            .to_cursor_icon(),
+    );
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor
