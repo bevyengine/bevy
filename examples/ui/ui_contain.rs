@@ -46,7 +46,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     // Initialize uicontain
-    let uicontain = commands
+    let ui_contain = commands
         .spawn((
             UiContainSize(Vec2::new(300.0, 300.0)),
             Anchor::TOP_LEFT,
@@ -76,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 bottom: Srgba::RED.into(),
                 left: Srgba::WHITE.into(),
             },
-            Propagate(UiContainTarget(uicontain)),
+            Propagate(UiContainTarget(ui_contain)),
             ContainNode, // Button,
         ))
         .with_children(|parent| {
@@ -147,7 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ));
             parent.spawn((
                 Text::new("GlobalTranfrom UiContain: None"),
-                InfoTextUiContain(uicontain),
+                InfoTextUiContain(ui_contain),
             ));
         });
 }
