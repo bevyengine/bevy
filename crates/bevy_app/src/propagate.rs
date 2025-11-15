@@ -140,7 +140,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
         app.add_systems(
             self.schedule,
             (
-                update_source::<C, F>,
+                update_source::<C, F, R>,
                 update_reparented::<C, F, R>,
                 update_removed_limit::<C, F, R>,
                 propagate_inherited::<C, F, R>,
@@ -153,10 +153,12 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
 }
 
 /// add/remove `Inherited::<C>` for entities with a direct `Propagate::<C>`
-pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
+pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     changed: Query<(Entity, &Propagate<C>), (Or<(Changed<Propagate<C>>, Without<Inherited<C>>)>,)>,
     mut removed: RemovedComponents<Propagate<C>>,
+    relationship: Query<&R>,
+    relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
 ) {
     for (entity, source) in &changed {
         commands
@@ -164,9 +166,18 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
             .try_insert(Inherited(source.0.clone()));
     }
 
+    // set `Inherited::<C>` based on ancestry when `Propagate::<C>` is removed
     for removed in removed.read() {
         if let Ok(mut commands) = commands.get_entity(removed) {
-            commands.remove::<Inherited<C>>();
+            if let Some(inherited) = relationship
+                .get(removed)
+                .ok()
+                .and_then(|r| relations.get(r.get()).ok())
+            {
+                commands.insert(inherited.clone());
+            } else {
+                commands.remove::<Inherited<C>>();
+            }
         }
     }
 }
@@ -175,11 +186,11 @@ pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
 pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
     mut commands: Commands,
     moved: Query<(Entity, &R, Option<&Inherited<C>>), (Changed<R>, Without<Propagate<C>>, F)>,
-    relations: Query<(Entity, &Inherited<C>)>,
+    relations: Query<&Inherited<C>, Without<PropagateStop<C>>>,
     orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
     for (entity, relation, maybe_inherited) in &moved {
-        if let Ok((_, inherited)) = relations.get(relation.get()) {
+        if let Ok(inherited) = relations.get(relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
             commands.entity(entity).remove::<Inherited<C>>();
@@ -756,6 +767,40 @@ mod tests {
             app.world_mut()
                 .query::<&TestValue>()
                 .get_many(app.world(), [propagator, propagatee]),
+            Ok([&TestValue(1), &TestValue(1)])
+        );
+    }
+
+    #[test]
+    fn test_removed_propagate_still_inherits() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
+        let propagatee = app
+            .world_mut()
+            .spawn(Propagate(TestValue(2)))
+            .insert(ChildOf(propagator))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagator, propagatee]),
+            Ok([&TestValue(1), &TestValue(2)])
+        );
+
+        app.world_mut()
+            .commands()
+            .entity(propagatee)
+            .remove::<Propagate<TestValue>>();
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagator, propagatee]),
             Ok([&TestValue(1), &TestValue(1)])
         );
     }
