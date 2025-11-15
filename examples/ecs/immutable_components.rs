@@ -154,6 +154,7 @@ fn demo_3(world: &mut World) {
                     None,
                     false,
                     ComponentCloneBehavior::Default,
+                    None,
                 )
             };
 

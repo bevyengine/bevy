@@ -35,12 +35,12 @@ pub use winit::{
     window::{CustomCursor as WinitCustomCursor, CustomCursorSource},
 };
 pub use winit_config::*;
+pub use winit_monitors::*;
 pub use winit_windows::*;
 
 use crate::{
     accessibility::{AccessKitPlugin, WinitActionRequestHandlers},
     state::winit_runner,
-    winit_monitors::WinitMonitors,
 };
 
 pub mod accessibility;

@@ -45,6 +45,8 @@ pub use bevy_feathers as feathers;
 pub use bevy_gilrs as gilrs;
 #[cfg(feature = "bevy_gizmos")]
 pub use bevy_gizmos as gizmos;
+#[cfg(feature = "bevy_gizmos_render")]
+pub use bevy_gizmos_render as gizmos_render;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
 #[cfg(feature = "bevy_image")]

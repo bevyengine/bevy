@@ -177,7 +177,8 @@ impl ViewNode for BloomNode {
             {
                 let downsampling_first_bind_group = render_device.create_bind_group(
                     "bloom_downsampling_first_bind_group",
-                    &downsampling_pipeline_res.bind_group_layout,
+                    &pipeline_cache
+                        .get_bind_group_layout(&downsampling_pipeline_res.bind_group_layout),
                     &BindGroupEntries::sequential((
                         // Read from main texture directly
                         view_texture,
@@ -433,6 +434,7 @@ fn prepare_bloom_bind_groups(
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomTexture, Option<&BloomBindGroups>)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
+    pipeline_cache: Res<PipelineCache>,
 ) {
     for (entity, bloom_texture, bloom_bind_groups) in &views {
         if let Some(b) = bloom_bind_groups
@@ -451,7 +453,7 @@ fn prepare_bloom_bind_groups(
         for mip in 1..bloom_texture.mip_count {
             downsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_downsampling_bind_group",
-                &downsampling_pipeline.bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&downsampling_pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip - 1),
                     &downsampling_pipeline.sampler,
@@ -464,7 +466,7 @@ fn prepare_bloom_bind_groups(
         for mip in (0..bloom_texture.mip_count).rev() {
             upsampling_bind_groups.push(render_device.create_bind_group(
                 "bloom_upsampling_bind_group",
-                &upsampling_pipeline.bind_group_layout,
+                &pipeline_cache.get_bind_group_layout(&upsampling_pipeline.bind_group_layout),
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip),
                     &upsampling_pipeline.sampler,

@@ -14,7 +14,6 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
-    renderer::RenderDevice,
     view::ViewTarget,
 };
 use bevy_shader::Shader;
@@ -45,11 +44,10 @@ pub struct BloomUpsamplingPipelineKeys {
 
 pub fn init_bloom_upscaling_pipeline(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
     fullscreen_shader: Res<FullscreenShader>,
     asset_server: Res<AssetServer>,
 ) {
-    let bind_group_layout = render_device.create_bind_group_layout(
+    let bind_group_layout = BindGroupLayoutDescriptor::new(
         "bloom_upsampling_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
             ShaderStages::FRAGMENT,

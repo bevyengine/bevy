@@ -20,6 +20,7 @@ use crate::{
     },
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
+    relationship::RelationshipAccessor,
     resource::Resource,
     storage::SparseSetIndex,
 };
@@ -140,6 +141,11 @@ impl ComponentInfo {
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
+
+    /// Returns [`RelationshipAccessor`] for this component if it is a [`Relationship`](crate::relationship::Relationship) or [`RelationshipTarget`](crate::relationship::RelationshipTarget) , `None` otherwise.
+    pub fn relationship_accessor(&self) -> Option<&RelationshipAccessor> {
+        self.descriptor.relationship_accessor.as_ref()
+    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -219,6 +225,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
+    relationship_accessor: Option<RelationshipAccessor>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -232,6 +239,7 @@ impl Debug for ComponentDescriptor {
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
             .field("clone_behavior", &self.clone_behavior)
+            .field("relationship_accessor", &self.relationship_accessor)
             .finish()
     }
 }
@@ -258,6 +266,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
+            relationship_accessor: T::relationship_accessor().map(|v| v.accessor),
         }
     }
 
@@ -266,6 +275,7 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    /// - `relationship_accessor` must be valid for this component type if not `None`
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -273,6 +283,7 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
+        relationship_accessor: Option<RelationshipAccessor>,
     ) -> Self {
         Self {
             name: name.into().into(),
@@ -283,6 +294,7 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
+            relationship_accessor,
         }
     }
 
@@ -301,6 +313,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None,
         }
     }
 
@@ -314,6 +327,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            relationship_accessor: None,
         }
     }
 
@@ -349,7 +363,7 @@ pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
     pub(super) resource_indices: TypeIdMap<ComponentId>,
-    // This is kept internal and local to verify that no deadlocks can occor.
+    // This is kept internal and local to verify that no deadlocks can occur.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
 
