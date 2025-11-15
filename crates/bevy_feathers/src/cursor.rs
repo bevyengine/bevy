@@ -43,7 +43,7 @@ pub enum EntityCursor {
 /// This is meant for cases like loading where you don't want the cursor to imply you
 /// can interact with something.
 #[derive(Deref, Resource, Debug, Clone, Default, Reflect)]
-pub struct OverrideCursor(pub Option<SystemCursorIcon>);
+pub struct OverrideCursor(pub Option<EntityCursor>);
 
 impl EntityCursor {
     /// Convert the [`EntityCursor`] to a [`CursorIcon`] so that it can be inserted into a
@@ -90,7 +90,7 @@ pub(crate) fn update_cursor(
     r_default_cursor: Res<DefaultCursor>,
     r_override_cursor: Res<OverrideCursor>,
 ) {
-    let cursor = (**r_override_cursor).map(CursorIcon::from).unwrap_or(
+    let cursor = (**r_override_cursor).as_ref().unwrap_or_else(|| 
         hover_map
             .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
                 Some(hover_set) => hover_set.keys().find_map(|entity| {
@@ -102,9 +102,8 @@ pub(crate) fn update_cursor(
                 }),
                 None => None,
             })
-            .unwrap_or(&*r_default_cursor)
-            .to_cursor_icon(),
-    );
+            .unwrap_or_else(|| &r_default_cursor)
+    ).to_cursor_icon();
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor

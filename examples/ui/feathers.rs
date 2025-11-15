@@ -9,7 +9,7 @@ use bevy::{
             ColorSlider, ColorSliderProps, ColorSwatch, ColorSwatchValue, SliderBaseColor,
             SliderProps,
         },
-        cursor::OverrideCursor,
+        cursor::{EntityCursor, OverrideCursor},
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
@@ -193,7 +193,7 @@ fn demo_root() -> impl Bundle {
                         ovr.0 = if ovr.0.is_some() {
                             None
                         } else {
-                            Some(SystemCursorIcon::Wait)
+                            Some(EntityCursor::System(SystemCursorIcon::Wait))
                         };
                         info!("Override cursor button clicked!");
                     })
