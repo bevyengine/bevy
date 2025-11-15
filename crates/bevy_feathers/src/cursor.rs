@@ -90,20 +90,23 @@ pub(crate) fn update_cursor(
     r_default_cursor: Res<DefaultCursor>,
     r_override_cursor: Res<OverrideCursor>,
 ) {
-    let cursor = (**r_override_cursor).as_ref().unwrap_or_else(|| 
-        hover_map
-            .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
-                Some(hover_set) => hover_set.keys().find_map(|entity| {
-                    cursor_query.get(*entity).ok().or_else(|| {
-                        parent_query
-                            .iter_ancestors(*entity)
-                            .find_map(|e| cursor_query.get(e).ok())
-                    })
-                }),
-                None => None,
-            })
-            .unwrap_or_else(|| &r_default_cursor)
-    ).to_cursor_icon();
+    let cursor = (**r_override_cursor)
+        .as_ref()
+        .unwrap_or_else(|| {
+            hover_map
+                .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
+                    Some(hover_set) => hover_set.keys().find_map(|entity| {
+                        cursor_query.get(*entity).ok().or_else(|| {
+                            parent_query
+                                .iter_ancestors(*entity)
+                                .find_map(|e| cursor_query.get(e).ok())
+                        })
+                    }),
+                    None => None,
+                })
+                .unwrap_or_else(|| &r_default_cursor)
+        })
+        .to_cursor_icon();
 
     for (entity, prev_cursor) in q_windows.iter() {
         if let Some(prev_cursor) = prev_cursor
