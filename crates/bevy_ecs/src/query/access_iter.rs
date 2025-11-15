@@ -320,10 +320,9 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         }
         Ok(())
     } else {
-        // we can use a faster algorithm by putting some fixed size
-        // arrays onto the stack
-        let mut compatibles = [[false; MAX_SIZE]; MAX_SIZE];
-        let mut conflicts = [[false; MAX_SIZE]; MAX_SIZE];
+        // we can make a faster algorithm by putting some fixed size arrays on the stack
+        let mut compatibles = [false; MAX_SIZE * MAX_SIZE];
+        let mut conflicts = [false; MAX_SIZE * MAX_SIZE];
         let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
         for (i, access) in iter {
             let mut index_inner = 0;
@@ -343,22 +342,17 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
                     AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
                     AccessCompatible::CompatibleExcept(index) => {
                         let not_except = if access.is_except() { j } else { i };
-                        compatibles[index][not_except] = true;
+                        compatibles[index * size + not_except] = true;
                     }
                     AccessCompatible::ConflictsExcept(index) => {
                         let not_except = if access.is_except() { j } else { i };
-                        conflicts[index][not_except] = true;
+                        conflicts[index * size + not_except] = true;
                     }
                 }
             }
         }
 
-        for (compatible, conflict) in compatibles
-            .iter()
-            .flatten()
-            .take(size * size)
-            .zip(conflicts.iter().flatten().take(size * size))
-        {
+        for (compatible, conflict) in compatibles.iter().zip(conflicts.iter()).take(size * size) {
             if *conflict && !*compatible {
                 return Err(QueryAccessError::Conflict);
             }
