@@ -161,13 +161,13 @@ fn update_text(
 
     text_camera.0 = format!(
         "GlobalTranfrom Camera: {:?}",
-        query.get(related.0).map(|trans| trans.translation()),
+        query.get(related.0).map(bevy::prelude::GlobalTransform::translation),
     );
 
     let (mut text_contain, related) = info_uicontain.into_inner();
     text_contain.0 = format!(
         "GlobalTranfrom UiContain: {:?}",
-        query.get(related.0).map(|trans| trans.translation()),
+        query.get(related.0).map(bevy::prelude::GlobalTransform::translation),
     );
 }
 
