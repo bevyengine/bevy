@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             UiContainSize(Vec2::new(300.0, 300.0)),
             Anchor::TOP_LEFT,
-            UiContainOverflow(Overflow::clip()),
+            // UiContainOverflow(Overflow::clip()),
             // Transform::from_xyz(-500.0, 0.0, 0.0),
             // Sprite {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
@@ -208,11 +208,10 @@ fn switch_node(
         commands
             .entity(entity_node)
             .remove::<Propagate<UiContainTarget>>();
-        info!("此处运行1");
+
     } else {
         commands
             .entity(entity_node)
             .insert(Propagate(UiContainTarget(contain.into_inner())));
-        info!("此处运行2");
     }
 }

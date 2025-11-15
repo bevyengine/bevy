@@ -1,5 +1,6 @@
 use crate::{
-    FocusPolicy, UiRect, UiScale, Val, ui_transform::{UiGlobalTransform, UiTransform}
+    ui_transform::{UiGlobalTransform, UiTransform},
+    FocusPolicy, UiRect, UiScale, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};

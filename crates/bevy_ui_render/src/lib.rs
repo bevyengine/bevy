@@ -543,17 +543,6 @@ pub fn extract_uinode_images(
             || image.image_mode.uses_slices()
             || uinode.is_empty()
         {
-            tracing::info!(
-                "此处运行:{:?}",
-                (
-                    entity,
-                    !inherited_visibility.get(),
-                    image.color.is_fully_transparent(),
-                    image.image.id() == TRANSPARENT_IMAGE_HANDLE.id(),
-                    image.image_mode.uses_slices(),
-                    uinode.is_empty()
-                )
-            );
             continue;
         }
 
@@ -1896,9 +1885,10 @@ pub fn prepare_uinodes(
                                 point: points[i].into(),
                                 #[cfg(feature = "bevy_ui_contain")]
                                 point: if extracted_uinode.is_contain {
-                                    Affine2::from_scale(Vec2::new(1.0, -1.0))
-                                        .transform_point2(points[i])
-                                        .into()
+                                    // Affine2::from_scale(Vec2::new(1.0, -1.0))
+                                    //     .transform_point2(points[i])
+                                    //     .into()
+                                        points[i].into()
                                 } else {
                                     points[i].into()
                                 },
