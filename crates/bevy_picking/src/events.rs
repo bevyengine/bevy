@@ -655,7 +655,9 @@ pub fn pointer_events(
                 // Then emit the drop events.
                 for (drag_target, drag) in state.dragging.drain() {
                     // Emit DragDrop
-                    for (dragged_over, hit) in state.dragging_over.iter() {
+                    for (dragged_over, _) in state.dragging_over.iter() {
+                        let hover_hit_map = hover_map.get(&pointer_id).unwrap();
+                        let hit = hover_hit_map.get(dragged_over).unwrap();
                         let drag_drop_event = Pointer::new(
                             pointer_id,
                             location.clone(),
