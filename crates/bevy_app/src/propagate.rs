@@ -804,4 +804,40 @@ mod tests {
             Ok([&TestValue(1), &TestValue(1)])
         );
     }
+
+    #[test]
+    fn test_reparent_respects_stop() {
+        let mut app = App::new();
+        app.add_schedule(Schedule::new(Update));
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
+
+        let mut query = app.world_mut().query::<&TestValue>();
+
+        let propagator = app
+            .world_mut()
+            .spawn((Propagate(TestValue(1)), PropagateStop::<TestValue>::default()))
+            .id();
+        let propagatee = app
+            .world_mut()
+            .spawn(TestValue(2))
+            .id();
+
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagator, propagatee]),
+            Ok([&TestValue(1), &TestValue(2)])
+        );
+
+        app.world_mut()
+            .commands()
+            .entity(propagatee)
+            .insert(ChildOf(propagator));
+        app.update();
+
+        assert_eq!(
+            query.get_many(app.world(), [propagator, propagatee]),
+            Ok([&TestValue(1), &TestValue(2)])
+        );
+    }
 }
