@@ -815,12 +815,12 @@ mod tests {
 
         let propagator = app
             .world_mut()
-            .spawn((Propagate(TestValue(1)), PropagateStop::<TestValue>::default()))
+            .spawn((
+                Propagate(TestValue(1)),
+                PropagateStop::<TestValue>::default(),
+            ))
             .id();
-        let propagatee = app
-            .world_mut()
-            .spawn(TestValue(2))
-            .id();
+        let propagatee = app.world_mut().spawn(TestValue(2)).id();
 
         app.update();
 
