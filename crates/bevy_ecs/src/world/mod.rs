@@ -49,7 +49,7 @@ use crate::{
     lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
-    prelude::{Add, Despawn, Insert, Remove, Replace},
+    prelude::{Add, Despawn, Insert, IntoSystemSet, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -3651,6 +3651,40 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// # #[derive(Default, Resource)]
+    /// # struct Counter(u32);
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSchedule;
+    ///
+    /// # fn foo_system(mut counter: ResMut<Counter>) {
+    /// #     counter.0 += 1;
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::new(FooSchedule);
+    /// # schedule.add_systems(foo_system);
+    /// #
+    /// # let mut world = World::default();
+    /// #
+    /// # world.init_resource::<Counter>();
+    /// # world.add_schedule(schedule);
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 0);
+    /// #
+    /// // This will succeed because the schedule exists
+    /// assert!(world.try_run_schedule(FooSchedule).is_ok());
+    /// # assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // This will fail because the schedule doesn't exist
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct BarSchedule;
+    /// assert!(world.try_run_schedule(BarSchedule).is_err());
+    /// ```
     pub fn try_run_schedule(
         &mut self,
         label: impl ScheduleLabel,
@@ -3666,11 +3700,89 @@ impl World {
     /// For simple testing use cases, call [`Schedule::run(&mut world)`](Schedule::run) instead.
     /// This avoids the need to create a unique [`ScheduleLabel`].
     ///
+    /// See [`World::try_run_schedule`] for an example.
+    ///
     /// # Panics
     ///
     /// If the requested schedule does not exist.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         self.schedule_scope(label, |world, sched| sched.run(world));
+    }
+
+    /// Attempts to run the specified [`SystemSet`] within the [`Schedule`]
+    /// associated with the `label` a single time, and returns a
+    /// [`TryRunScheduleError`] if the schedule does not exist. All systems in
+    /// the set (including transitively) will be executed.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world
+    /// by its label, and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run_system_set`] instead.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ecs::schedule::ScheduleLabel;
+    /// # #[derive(Default, Resource)]
+    /// # struct Counter(u32);
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSchedule;
+    ///
+    /// #[derive(SystemSet, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct FooSet;
+    ///
+    /// # fn foo_system(mut counter: ResMut<Counter>) {
+    /// #     counter.0 += 1;
+    /// # }
+    /// #
+    /// # let mut schedule = Schedule::new(FooSchedule);
+    /// # schedule.add_systems(foo_system.in_set(FooSet));
+    /// #
+    /// # let mut world = World::default();
+    /// #
+    /// # world.init_resource::<Counter>();
+    /// # world.add_schedule(schedule);
+    /// #
+    /// # assert_eq!(world.resource::<Counter>().0, 0);
+    /// #
+    /// // This will succeed because the schedule exists
+    /// assert!(world.try_run_system_set(FooSchedule, FooSet).is_ok());
+    /// # assert_eq!(world.resource::<Counter>().0, 1);
+    ///
+    /// // This will fail because the schedule doesn't exist
+    /// #[derive(ScheduleLabel, Hash, Debug, PartialEq, Eq, Clone, Copy)]
+    /// struct BarSchedule;
+    /// assert!(world.try_run_system_set(BarSchedule, FooSet).is_err());
+    /// ```
+    ///
+    /// [`SystemSet`]: crate::schedule::SystemSet
+    pub fn try_run_system_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<(), TryRunScheduleError> {
+        self.try_schedule_scope(schedule, |world, sched| sched.run_system_set(world, set))
+    }
+
+    /// Runs the specified [`SystemSet`] within the [`Schedule`] associated with
+    /// the `label` a single time. All systems in the set (including transitively)
+    /// will be executed.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world
+    /// by its label, and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run_system_set`] instead.
+    ///
+    /// See [`World::try_run_system_set`] for an example.
+    ///
+    /// # Panics
+    ///
+    /// If the requested schedule does not exist.
+    ///
+    /// [`SystemSet`]: crate::schedule::SystemSet
+    pub fn run_system_set<M>(&mut self, schedule: impl ScheduleLabel, set: impl IntoSystemSet<M>) {
+        self.schedule_scope(schedule, |world, sched| sched.run_system_set(world, set));
     }
 
     /// Ignore system order ambiguities caused by conflicts on [`Component`]s of type `T`.
