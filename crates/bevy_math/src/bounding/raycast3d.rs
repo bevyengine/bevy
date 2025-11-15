@@ -1,4 +1,4 @@
-use super::{Aabb3d, BoundingSphere, IntersectsVolume};
+use super::{BoundingBox, BoundingSphere, IntersectsVolume};
 use crate::{
     ops::{self, FloatPow},
     Dir3A, Ray3d, Vec3A,
@@ -45,8 +45,8 @@ impl RayCast3d {
         self.direction_recip
     }
 
-    /// Get the distance of an intersection with an [`Aabb3d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb3d) -> Option<f32> {
+    /// Get the distance of an intersection with a [`BoundingBox`], if any.
+    pub fn aabb_intersection_at(&self, aabb: &BoundingBox) -> Option<f32> {
         let positive = self.direction.signum().cmpgt(Vec3A::ZERO);
         let min = Vec3A::select(positive, aabb.min, aabb.max);
         let max = Vec3A::select(positive, aabb.max, aabb.min);
@@ -92,8 +92,8 @@ impl RayCast3d {
     }
 }
 
-impl IntersectsVolume<Aabb3d> for RayCast3d {
-    fn intersects(&self, volume: &Aabb3d) -> bool {
+impl IntersectsVolume<BoundingBox> for RayCast3d {
+    fn intersects(&self, volume: &BoundingBox) -> bool {
         self.aabb_intersection_at(volume).is_some()
     }
 }
@@ -104,22 +104,22 @@ impl IntersectsVolume<BoundingSphere> for RayCast3d {
     }
 }
 
-/// An intersection test that casts an [`Aabb3d`] along a ray.
+/// An intersection test that casts a [`BoundingBox`] along a ray.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct AabbCast3d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast3d,
     /// The aabb that is being cast
-    pub aabb: Aabb3d,
+    pub aabb: BoundingBox,
 }
 
 impl AabbCast3d {
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], origin, [direction], and max distance.
+    /// Construct an [`AabbCast3d`] from a [`BoundingBox`], origin, [direction], and max distance.
     ///
     /// [direction]: crate::direction::Dir3
     pub fn new(
-        aabb: Aabb3d,
+        aabb: BoundingBox,
         origin: impl Into<Vec3A>,
         direction: impl Into<Dir3A>,
         max: f32,
@@ -130,21 +130,21 @@ impl AabbCast3d {
         }
     }
 
-    /// Construct an [`AabbCast3d`] from an [`Aabb3d`], [`Ray3d`], and max distance.
-    pub fn from_ray(aabb: Aabb3d, ray: Ray3d, max: f32) -> Self {
+    /// Construct an [`AabbCast3d`] from a [`BoundingBox`], [`Ray3d`], and max distance.
+    pub fn from_ray(aabb: BoundingBox, ray: Ray3d, max: f32) -> Self {
         Self::new(aabb, ray.origin, ray.direction, max)
     }
 
-    /// Get the distance at which the [`Aabb3d`]s collide, if at all.
-    pub fn aabb_collision_at(&self, mut aabb: Aabb3d) -> Option<f32> {
+    /// Get the distance at which the [`BoundingBox`]s collide, if at all.
+    pub fn aabb_collision_at(&self, mut aabb: BoundingBox) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
         self.ray.aabb_intersection_at(&aabb)
     }
 }
 
-impl IntersectsVolume<Aabb3d> for AabbCast3d {
-    fn intersects(&self, volume: &Aabb3d) -> bool {
+impl IntersectsVolume<BoundingBox> for AabbCast3d {
+    fn intersects(&self, volume: &BoundingBox) -> bool {
         self.aabb_collision_at(*volume).is_some()
     }
 }
@@ -315,37 +315,37 @@ mod tests {
             (
                 // Hit the center of a centered aabb
                 RayCast3d::new(Vec3::Y * -5., Dir3::Y, 90.),
-                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                BoundingBox::new(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
                 RayCast3d::new(Vec3::Y * 5., -Dir3::Y, 90.),
-                Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                BoundingBox::new(Vec3::ZERO, Vec3::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
                 RayCast3d::new(Vec3::ZERO, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 3., Vec3::splat(2.)),
+                BoundingBox::new(Vec3::Y * 3., Vec3::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
                 RayCast3d::new(Vec3::X, Dir3::Y, 1.),
-                Aabb3d::new(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
+                BoundingBox::new(Vec3::new(1., 1., 0.), Vec3::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
                 RayCast3d::new(Vec3::X, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 5., Vec3::splat(2.)),
+                BoundingBox::new(Vec3::Y * 5., Vec3::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
                 RayCast3d::new(Vec3::X * -0.001, Dir3::from_xyz(1., 1., 1.).unwrap(), 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 2., Vec3::ONE),
                 1.732,
             ),
         ] {
@@ -373,17 +373,17 @@ mod tests {
             (
                 // The ray doesn't go in the right direction
                 RayCast3d::new(Vec3::ZERO, Dir3::X, 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 2., Vec3::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
                 RayCast3d::new(Vec3::ZERO, Dir3::from_xyz(1., 0.99, 1.).unwrap(), 90.),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 2., Vec3::ONE),
             ),
             (
                 // The ray's maximum distance isn't high enough
                 RayCast3d::new(Vec3::ZERO, Dir3::Y, 0.5),
-                Aabb3d::new(Vec3::Y * 2., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 2., Vec3::ONE),
             ),
         ] {
             assert!(
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_ray_intersection_aabb_inside() {
-        let volume = Aabb3d::new(Vec3::splat(0.5), Vec3::ONE);
+        let volume = BoundingBox::new(Vec3::splat(0.5), Vec3::ONE);
         for origin in &[Vec3::X, Vec3::Y, Vec3::ONE, Vec3::ZERO] {
             for direction in &[Dir3::X, Dir3::Y, Dir3::Z, -Dir3::X, -Dir3::Y, -Dir3::Z] {
                 for max in &[0., 1., 900.] {
@@ -422,41 +422,46 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of the aabb, that a ray would've also hit
-                AabbCast3d::new(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Vec3::ZERO, Dir3::Y, 90.),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                AabbCast3d::new(
+                    BoundingBox::new(Vec3::ZERO, Vec3::ONE),
+                    Vec3::ZERO,
+                    Dir3::Y,
+                    90.,
+                ),
+                BoundingBox::new(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the center of the aabb, but from the other side
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                    BoundingBox::new(Vec3::ZERO, Vec3::ONE),
                     Vec3::Y * 10.,
                     -Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, that a ray would've missed
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::ZERO, Vec3::ONE),
+                    BoundingBox::new(Vec3::ZERO, Vec3::ONE),
                     Vec3::X * 1.5,
                     Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, by casting an off-center AABB
                 AabbCast3d::new(
-                    Aabb3d::new(Vec3::X * -2., Vec3::ONE),
+                    BoundingBox::new(Vec3::X * -2., Vec3::ONE),
                     Vec3::X * 3.,
                     Dir3::Y,
                     90.,
                 ),
-                Aabb3d::new(Vec3::Y * 5., Vec3::ONE),
+                BoundingBox::new(Vec3::Y * 5., Vec3::ONE),
                 3.,
             ),
         ] {

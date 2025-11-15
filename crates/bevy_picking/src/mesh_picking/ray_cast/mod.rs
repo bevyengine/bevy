@@ -10,7 +10,7 @@ use bevy_camera::{
     primitives::Aabb,
     visibility::{InheritedVisibility, ViewVisibility},
 };
-use bevy_math::{bounding::Aabb3d, Ray3d};
+use bevy_math::{bounding::BoundingBox, Ray3d};
 use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -235,7 +235,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 if should_ray_cast
                     && let Some(distance) = ray_aabb_intersection_3d(
                         ray,
-                        &Aabb3d::new(aabb.center, aabb.half_extents),
+                        &BoundingBox::new(aabb.center, aabb.half_extents),
                         &transform.affine(),
                     )
                 {

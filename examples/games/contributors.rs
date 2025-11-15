@@ -1,6 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*};
+use bevy::{math::bounding::BoundingRectangle, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{
@@ -262,7 +262,7 @@ fn collisions(
 
     let window_size = window.size();
 
-    let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
+    let collision_area = BoundingRectangle::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
     let max_bounce_height = (window_size.y - SPRITE_SIZE * 2.0).max(0.0);

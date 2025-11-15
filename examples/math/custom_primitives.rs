@@ -13,7 +13,8 @@ use bevy::{
     input::common_conditions::{input_just_pressed, input_toggle_active},
     math::{
         bounding::{
-            Aabb2d, Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingVolume,
+            Bounded2d, Bounded3d, BoundedExtrusion, BoundingCircle, BoundingRectangle,
+            BoundingVolume,
         },
         Isometry2d,
     },
@@ -294,7 +295,7 @@ fn bounding_shapes_2d(
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the primitive with the rotation and translation of the mesh.
-                let aabb = HEART.aabb_2d(isometry);
+                let aabb = HEART.bounding_rectangle(isometry);
                 gizmos.rect_2d(aabb.center(), aabb.half_size() * 2., WHITE);
             }
             BoundingShape::BoundingSphere => {
@@ -328,7 +329,7 @@ fn bounding_shapes_3d(
             BoundingShape::None => (),
             BoundingShape::BoundingBox => {
                 // Get the AABB of the extrusion with the rotation and translation of the mesh.
-                let aabb = EXTRUSION.aabb_3d(transform.to_isometry());
+                let aabb = EXTRUSION.bounding_box(transform.to_isometry());
 
                 gizmos.primitive_3d(
                     &Cuboid::from_size(Vec3::from(aabb.half_size()) * 2.),
@@ -430,7 +431,7 @@ impl Measured2d for Heart {
 
 // The `Bounded2d` or `Bounded3d` traits are used to compute the Axis Aligned Bounding Boxes or bounding circles / spheres for primitives.
 impl Bounded2d for Heart {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
+    fn bounding_rectangle(&self, isometry: impl Into<Isometry2d>) -> BoundingRectangle {
         let isometry = isometry.into();
 
         // The center of the circle at the center of the right wing of the heart
@@ -443,7 +444,7 @@ impl Bounded2d for Heart {
         // The position of the tip at the bottom of the heart
         let tip_position = isometry.rotation * Vec2::new(0.0, -self.radius * (1. + SQRT_2));
 
-        Aabb2d {
+        BoundingRectangle {
             min: isometry.translation + min_circle.min(tip_position),
             max: isometry.translation + max_circle.max(tip_position),
         }

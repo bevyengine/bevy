@@ -3,7 +3,7 @@
 //! Demonstrates Bevy's stepping capabilities if compiled with the `bevy_debug_stepping` feature.
 
 use bevy::{
-    math::bounding::{Aabb2d, BoundingCircle, BoundingVolume, IntersectsVolume},
+    math::bounding::{BoundingCircle, BoundingRectangle, BoundingVolume, IntersectsVolume},
     prelude::*,
 };
 
@@ -403,7 +403,7 @@ enum Collision {
 
 // Returns `Some` if `ball` collides with `bounding_box`.
 // The returned `Collision` is the side of `bounding_box` that `ball` hit.
-fn ball_collision(ball: BoundingCircle, bounding_box: Aabb2d) -> Option<Collision> {
+fn ball_collision(ball: BoundingCircle, bounding_box: BoundingRectangle) -> Option<Collision> {
     if !ball.intersects(&bounding_box) {
         return None;
     }

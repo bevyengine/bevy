@@ -3,7 +3,7 @@ use crate::meshlet::asset::{MeshletAabb, MeshletAabbErrorOffset, MeshletCullData
 use super::asset::{BvhNode, Meshlet, MeshletBoundingSphere, MeshletMesh};
 use alloc::borrow::Cow;
 use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
+    bounding::{BoundingBox, BoundingSphere, BoundingVolume},
     ops::log2,
     IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
 };
@@ -375,7 +375,7 @@ fn compute_meshlets(
             });
 
             cull_data.push(TempMeshletCullData {
-                aabb: Aabb3d::from_point_cloud(
+                aabb: BoundingBox::from_point_cloud(
                     Isometry3d::IDENTITY,
                     meshlet.vertices.iter().map(get_vertex),
                 ),
@@ -683,14 +683,14 @@ fn merge_spheres(a: BoundingSphere, b: BoundingSphere) -> BoundingSphere {
 
 #[derive(Copy, Clone)]
 struct TempMeshletCullData {
-    aabb: Aabb3d,
+    aabb: BoundingBox,
     lod_group_sphere: BoundingSphere,
     error: f32,
 }
 
 #[derive(Clone)]
 struct TempMeshletGroup {
-    aabb: Aabb3d,
+    aabb: BoundingBox,
     lod_bounds: BoundingSphere,
     parent_error: f32,
     meshlets: SmallVec<[u32; TARGET_MESHLETS_PER_GROUP]>,
@@ -710,7 +710,7 @@ impl Default for TempMeshletGroup {
 // All the BVH build code was stolen from https://github.com/SparkyPotato/radiance/blob/4aa17a3a5be7a0466dc69713e249bbcee9f46057/crates/rad-renderer/src/assets/mesh/virtual_mesh.rs because it works and I'm lazy and don't want to reimplement it
 struct TempBvhNode {
     group: u32,
-    aabb: Aabb3d,
+    aabb: BoundingBox,
     children: SmallVec<[u32; 8]>,
 }
 
@@ -892,7 +892,7 @@ impl BvhBuilder {
                         break;
                     }
 
-                    aabb = aabb.merge(&Aabb3d::new(
+                    aabb = aabb.merge(&BoundingBox::new(
                         child.aabbs[i].center,
                         child.aabbs[i].half_extent,
                     ));
@@ -963,7 +963,7 @@ impl BvhBuilder {
                     break;
                 }
 
-                aabb = aabb.merge(&Aabb3d::new(
+                aabb = aabb.merge(&BoundingBox::new(
                     root.aabbs[i].center,
                     root.aabbs[i].half_extent,
                 ));
@@ -1034,14 +1034,14 @@ fn verify_bvh(
     }
 }
 
-fn aabb_default() -> Aabb3d {
-    Aabb3d {
+fn aabb_default() -> BoundingBox {
+    BoundingBox {
         min: Vec3A::INFINITY,
         max: Vec3A::NEG_INFINITY,
     }
 }
 
-fn aabb_to_meshlet(aabb: Aabb3d, error: f32, child_offset: u32) -> MeshletAabbErrorOffset {
+fn aabb_to_meshlet(aabb: BoundingBox, error: f32, child_offset: u32) -> MeshletAabbErrorOffset {
     MeshletAabbErrorOffset {
         center: aabb.center().into(),
         error,

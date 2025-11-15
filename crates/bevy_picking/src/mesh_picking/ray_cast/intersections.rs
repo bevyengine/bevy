@@ -1,4 +1,4 @@
-use bevy_math::{bounding::Aabb3d, Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
+use bevy_math::{bounding::BoundingBox, Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 
@@ -287,7 +287,7 @@ fn ray_triangle_intersection(
 /// The distance is zero if the ray starts inside the AABB.
 pub fn ray_aabb_intersection_3d(
     ray: Ray3d,
-    aabb: &Aabb3d,
+    aabb: &BoundingBox,
     model_to_world: &Affine3A,
 ) -> Option<f32> {
     // Transform the ray to model space

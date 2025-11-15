@@ -6,6 +6,8 @@ use bevy::{
     prelude::*,
 };
 
+use bevy::math::bounding::BoundingRectangle;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -135,7 +137,7 @@ enum DesiredVolume {
 
 #[derive(Component, Debug)]
 enum CurrentVolume {
-    Aabb(Aabb2d),
+    Aabb(BoundingRectangle),
     Circle(BoundingCircle),
 }
 
@@ -153,12 +155,12 @@ fn update_volumes(
         match desired_volume {
             DesiredVolume::Aabb => {
                 let aabb = match shape {
-                    Shape::Rectangle(r) => r.aabb_2d(isometry),
-                    Shape::Circle(c) => c.aabb_2d(isometry),
-                    Shape::Triangle(t) => t.aabb_2d(isometry),
-                    Shape::Line(l) => l.aabb_2d(isometry),
-                    Shape::Capsule(c) => c.aabb_2d(isometry),
-                    Shape::Polygon(p) => p.aabb_2d(isometry),
+                    Shape::Rectangle(r) => r.bounding_rectangle(isometry),
+                    Shape::Circle(c) => c.bounding_rectangle(isometry),
+                    Shape::Triangle(t) => t.bounding_rectangle(isometry),
+                    Shape::Line(l) => l.bounding_rectangle(isometry),
+                    Shape::Capsule(c) => c.bounding_rectangle(isometry),
+                    Shape::Polygon(p) => p.bounding_rectangle(isometry),
                 };
                 commands.entity(entity).insert(CurrentVolume::Aabb(aabb));
             }
@@ -326,7 +328,7 @@ fn aabb_cast_system(
 ) {
     let ray_cast = get_and_draw_ray(&mut gizmos, &time);
     let aabb_cast = AabbCast2d {
-        aabb: Aabb2d::new(Vec2::ZERO, Vec2::splat(15.)),
+        aabb: BoundingRectangle::new(Vec2::ZERO, Vec2::splat(15.)),
         ray: ray_cast,
     };
 
@@ -387,7 +389,7 @@ fn aabb_intersection_system(
     mut volumes: Query<(&CurrentVolume, &mut Intersects)>,
 ) {
     let center = get_intersection_position(&time);
-    let aabb = Aabb2d::new(center, Vec2::splat(50.));
+    let aabb = BoundingRectangle::new(center, Vec2::splat(50.));
     gizmos.rect_2d(center, aabb.half_size() * 2., YELLOW);
 
     for (volume, mut intersects) in volumes.iter_mut() {

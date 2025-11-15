@@ -1,4 +1,4 @@
-use super::{Aabb2d, BoundingCircle, IntersectsVolume};
+use super::{BoundingCircle, BoundingRectangle, IntersectsVolume};
 use crate::{
     ops::{self, FloatPow},
     Dir2, Ray2d, Vec2,
@@ -39,8 +39,8 @@ impl RayCast2d {
         self.direction_recip
     }
 
-    /// Get the distance of an intersection with an [`Aabb2d`], if any.
-    pub fn aabb_intersection_at(&self, aabb: &Aabb2d) -> Option<f32> {
+    /// Get the distance of an intersection with a [`BoundingRectangle`], if any.
+    pub fn aabb_intersection_at(&self, aabb: &BoundingRectangle) -> Option<f32> {
         let (min_x, max_x) = if self.ray.direction.x.is_sign_positive() {
             (aabb.min.x, aabb.max.x)
         } else {
@@ -95,8 +95,8 @@ impl RayCast2d {
     }
 }
 
-impl IntersectsVolume<Aabb2d> for RayCast2d {
-    fn intersects(&self, volume: &Aabb2d) -> bool {
+impl IntersectsVolume<BoundingRectangle> for RayCast2d {
+    fn intersects(&self, volume: &BoundingRectangle) -> bool {
         self.aabb_intersection_at(volume).is_some()
     }
 }
@@ -107,40 +107,40 @@ impl IntersectsVolume<BoundingCircle> for RayCast2d {
     }
 }
 
-/// An intersection test that casts an [`Aabb2d`] along a ray.
+/// An intersection test that casts a [`BoundingRectangle`] along a ray.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 pub struct AabbCast2d {
     /// The ray along which to cast the bounding volume
     pub ray: RayCast2d,
     /// The aabb that is being cast
-    pub aabb: Aabb2d,
+    pub aabb: BoundingRectangle,
 }
 
 impl AabbCast2d {
-    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], origin, [`Dir2`], and max distance.
-    pub fn new(aabb: Aabb2d, origin: Vec2, direction: Dir2, max: f32) -> Self {
+    /// Construct an [`AabbCast2d`] from a [`BoundingRectangle`], origin, [`Dir2`], and max distance.
+    pub fn new(aabb: BoundingRectangle, origin: Vec2, direction: Dir2, max: f32) -> Self {
         Self::from_ray(aabb, Ray2d { origin, direction }, max)
     }
 
-    /// Construct an [`AabbCast2d`] from an [`Aabb2d`], [`Ray2d`], and max distance.
-    pub fn from_ray(aabb: Aabb2d, ray: Ray2d, max: f32) -> Self {
+    /// Construct an [`AabbCast2d`] from a [`BoundingRectangle`], [`Ray2d`], and max distance.
+    pub fn from_ray(aabb: BoundingRectangle, ray: Ray2d, max: f32) -> Self {
         Self {
             ray: RayCast2d::from_ray(ray, max),
             aabb,
         }
     }
 
-    /// Get the distance at which the [`Aabb2d`]s collide, if at all.
-    pub fn aabb_collision_at(&self, mut aabb: Aabb2d) -> Option<f32> {
+    /// Get the distance at which the [`BoundingRectangle`]s collide, if at all.
+    pub fn aabb_collision_at(&self, mut aabb: BoundingRectangle) -> Option<f32> {
         aabb.min -= self.aabb.max;
         aabb.max -= self.aabb.min;
         self.ray.aabb_intersection_at(&aabb)
     }
 }
 
-impl IntersectsVolume<Aabb2d> for AabbCast2d {
-    fn intersects(&self, volume: &Aabb2d) -> bool {
+impl IntersectsVolume<BoundingRectangle> for AabbCast2d {
+    fn intersects(&self, volume: &BoundingRectangle) -> bool {
         self.aabb_collision_at(*volume).is_some()
     }
 }
@@ -303,37 +303,37 @@ mod tests {
             (
                 // Hit the center of a centered aabb
                 RayCast2d::new(Vec2::Y * -5., Dir2::Y, 90.),
-                Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                BoundingRectangle::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of a centered aabb, but from the other side
                 RayCast2d::new(Vec2::Y * 5., -Dir2::Y, 90.),
-                Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                BoundingRectangle::new(Vec2::ZERO, Vec2::ONE),
                 4.,
             ),
             (
                 // Hit the center of an offset aabb
                 RayCast2d::new(Vec2::ZERO, Dir2::Y, 90.),
-                Aabb2d::new(Vec2::Y * 3., Vec2::splat(2.)),
+                BoundingRectangle::new(Vec2::Y * 3., Vec2::splat(2.)),
                 1.,
             ),
             (
                 // Just barely hit the aabb before the max distance
                 RayCast2d::new(Vec2::X, Dir2::Y, 1.),
-                Aabb2d::new(Vec2::ONE, Vec2::splat(0.01)),
+                BoundingRectangle::new(Vec2::ONE, Vec2::splat(0.01)),
                 0.99,
             ),
             (
                 // Hit an aabb off-center
                 RayCast2d::new(Vec2::X, Dir2::Y, 90.),
-                Aabb2d::new(Vec2::Y * 5., Vec2::splat(2.)),
+                BoundingRectangle::new(Vec2::Y * 5., Vec2::splat(2.)),
                 3.,
             ),
             (
                 // Barely hit an aabb on corner
                 RayCast2d::new(Vec2::X * -0.001, Dir2::from_xy(1., 1.).unwrap(), 90.),
-                Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 2., Vec2::ONE),
                 1.414,
             ),
         ] {
@@ -361,17 +361,17 @@ mod tests {
             (
                 // The ray doesn't go in the right direction
                 RayCast2d::new(Vec2::ZERO, Dir2::X, 90.),
-                Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // Ray's alignment isn't enough to hit the aabb
                 RayCast2d::new(Vec2::ZERO, Dir2::from_xy(1., 0.99).unwrap(), 90.),
-                Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 2., Vec2::ONE),
             ),
             (
                 // The ray's maximum distance isn't high enough
                 RayCast2d::new(Vec2::ZERO, Dir2::Y, 0.5),
-                Aabb2d::new(Vec2::Y * 2., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 2., Vec2::ONE),
             ),
         ] {
             assert!(
@@ -383,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_ray_intersection_aabb_inside() {
-        let volume = Aabb2d::new(Vec2::splat(0.5), Vec2::ONE);
+        let volume = BoundingRectangle::new(Vec2::splat(0.5), Vec2::ONE);
         for origin in &[Vec2::X, Vec2::Y, Vec2::ONE, Vec2::ZERO] {
             for direction in &[Dir2::X, Dir2::Y, -Dir2::X, -Dir2::Y] {
                 for max in &[0., 1., 900.] {
@@ -410,41 +410,46 @@ mod tests {
         for (test, volume, expected_distance) in &[
             (
                 // Hit the center of the aabb, that a ray would've also hit
-                AabbCast2d::new(Aabb2d::new(Vec2::ZERO, Vec2::ONE), Vec2::ZERO, Dir2::Y, 90.),
-                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                AabbCast2d::new(
+                    BoundingRectangle::new(Vec2::ZERO, Vec2::ONE),
+                    Vec2::ZERO,
+                    Dir2::Y,
+                    90.,
+                ),
+                BoundingRectangle::new(Vec2::Y * 5., Vec2::ONE),
                 3.,
             ),
             (
                 // Hit the center of the aabb, but from the other side
                 AabbCast2d::new(
-                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                    BoundingRectangle::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::Y * 10.,
                     -Dir2::Y,
                     90.,
                 ),
-                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 5., Vec2::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, that a ray would've missed
                 AabbCast2d::new(
-                    Aabb2d::new(Vec2::ZERO, Vec2::ONE),
+                    BoundingRectangle::new(Vec2::ZERO, Vec2::ONE),
                     Vec2::X * 1.5,
                     Dir2::Y,
                     90.,
                 ),
-                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 5., Vec2::ONE),
                 3.,
             ),
             (
                 // Hit the edge of the aabb, by casting an off-center AABB
                 AabbCast2d::new(
-                    Aabb2d::new(Vec2::X * -2., Vec2::ONE),
+                    BoundingRectangle::new(Vec2::X * -2., Vec2::ONE),
                     Vec2::X * 3.,
                     Dir2::Y,
                     90.,
                 ),
-                Aabb2d::new(Vec2::Y * 5., Vec2::ONE),
+                BoundingRectangle::new(Vec2::Y * 5., Vec2::ONE),
                 3.,
             ),
         ] {

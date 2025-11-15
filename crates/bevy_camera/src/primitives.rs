@@ -2,7 +2,7 @@ use core::borrow::Borrow;
 
 use bevy_ecs::{component::Component, entity::EntityHashMap, reflect::ReflectComponent};
 use bevy_math::{
-    bounding::{Aabb3d, BoundingVolume},
+    bounding::{BoundingBox, BoundingVolume},
     Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles,
 };
 use bevy_mesh::{Mesh, VertexAttributeValues};
@@ -135,8 +135,8 @@ impl Aabb {
     }
 }
 
-impl From<Aabb3d> for Aabb {
-    fn from(aabb: Aabb3d) -> Self {
+impl From<BoundingBox> for Aabb {
+    fn from(aabb: BoundingBox) -> Self {
         Self {
             center: aabb.center(),
             half_extents: aabb.half_size(),
@@ -144,7 +144,7 @@ impl From<Aabb3d> for Aabb {
     }
 }
 
-impl From<Aabb> for Aabb3d {
+impl From<Aabb> for BoundingBox {
     fn from(aabb: Aabb) -> Self {
         Self {
             min: aabb.min(),

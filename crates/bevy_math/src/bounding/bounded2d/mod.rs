@@ -29,13 +29,18 @@ fn point_cloud_2d_center(points: &[Vec2]) -> Vec2 {
 /// A trait with methods that return 2D bounding volumes for a shape.
 pub trait Bounded2d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d;
+    fn bounding_rectangle(&self, isometry: impl Into<Isometry2d>) -> BoundingRectangle;
     /// Get a bounding circle for the shape translated and rotated by the given isometry.
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle;
+
+    /// Deprecated: Use [`bounding_rectangle`](Self::bounding_rectangle) instead.
+    #[deprecated(since = "0.18.0", note = "Use `bounding_rectangle` instead")]
+    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> BoundingRectangle {
+        self.bounding_rectangle(isometry)
+    }
 }
 
 /// A 2D axis-aligned bounding box, or bounding rectangle
-#[doc(alias = "BoundingRectangle")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -47,14 +52,18 @@ pub trait Bounded2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Aabb2d {
+pub struct BoundingRectangle {
     /// The minimum, conventionally bottom-left, point of the box
     pub min: Vec2,
     /// The maximum, conventionally top-right, point of the box
     pub max: Vec2,
 }
 
-impl Aabb2d {
+/// Deprecated: Use [`BoundingRectangle`] instead.
+#[deprecated(since = "0.18.0", note = "Use `BoundingRectangle` instead")]
+pub type Aabb2d = BoundingRectangle;
+
+impl BoundingRectangle {
     /// Constructs an AABB from its center and half-size.
     #[inline]
     pub fn new(center: Vec2, half_size: Vec2) -> Self {
@@ -65,14 +74,14 @@ impl Aabb2d {
         }
     }
 
-    /// Computes the smallest [`Aabb2d`] containing the given set of points,
+    /// Computes the smallest [`BoundingRectangle`] containing the given set of points,
     /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
     ///
     /// Panics if the given set of points is empty.
     #[inline]
-    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> Aabb2d {
+    pub fn from_point_cloud(isometry: impl Into<Isometry2d>, points: &[Vec2]) -> BoundingRectangle {
         let isometry = isometry.into();
 
         // Transform all points by rotation
@@ -86,13 +95,13 @@ impl Aabb2d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        Aabb2d {
+        BoundingRectangle {
             min: min + isometry.translation,
             max: max + isometry.translation,
         }
     }
 
-    /// Computes the smallest [`BoundingCircle`] containing this [`Aabb2d`].
+    /// Computes the smallest [`BoundingCircle`] containing this [`BoundingRectangle`].
     #[inline]
     pub fn bounding_circle(&self) -> BoundingCircle {
         let radius = self.min.distance(self.max) / 2.0;
@@ -110,7 +119,7 @@ impl Aabb2d {
     }
 }
 
-impl BoundingVolume for Aabb2d {
+impl BoundingVolume for BoundingRectangle {
     type Translation = Vec2;
     type Rotation = Rot2;
     type HalfSize = Vec2;
@@ -249,7 +258,7 @@ impl BoundingVolume for Aabb2d {
     }
 }
 
-impl IntersectsVolume<Self> for Aabb2d {
+impl IntersectsVolume<Self> for BoundingRectangle {
     #[inline]
     fn intersects(&self, other: &Self) -> bool {
         let x_overlaps = self.min.x <= other.max.x && self.max.x >= other.min.x;
@@ -258,7 +267,7 @@ impl IntersectsVolume<Self> for Aabb2d {
     }
 }
 
-impl IntersectsVolume<BoundingCircle> for Aabb2d {
+impl IntersectsVolume<BoundingCircle> for BoundingRectangle {
     #[inline]
     fn intersects(&self, circle: &BoundingCircle) -> bool {
         let closest_point = self.closest_point(circle.center);
@@ -272,7 +281,7 @@ impl IntersectsVolume<BoundingCircle> for Aabb2d {
 mod aabb2d_tests {
     use approx::assert_relative_eq;
 
-    use super::Aabb2d;
+    use super::BoundingRectangle;
     use crate::{
         bounding::{BoundingCircle, BoundingVolume, IntersectsVolume},
         ops, Vec2,
@@ -280,12 +289,12 @@ mod aabb2d_tests {
 
     #[test]
     fn center() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::new(-0.5, -1.),
             max: Vec2::new(1., 1.),
         };
         assert!((aabb.center() - Vec2::new(0.25, 0.)).length() < f32::EPSILON);
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::new(5., -10.),
             max: Vec2::new(10., -5.),
         };
@@ -294,7 +303,7 @@ mod aabb2d_tests {
 
     #[test]
     fn half_size() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::new(-0.5, -1.),
             max: Vec2::new(1., 1.),
         };
@@ -304,12 +313,12 @@ mod aabb2d_tests {
 
     #[test]
     fn area() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
         assert!(ops::abs(aabb.visible_area() - 4.) < f32::EPSILON);
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::new(0., 0.),
             max: Vec2::new(1., 0.5),
         };
@@ -318,16 +327,16 @@ mod aabb2d_tests {
 
     #[test]
     fn contains() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
-        let b = Aabb2d {
+        let b = BoundingRectangle {
             min: Vec2::new(-2., -1.),
             max: Vec2::new(1., 1.),
         };
         assert!(!a.contains(&b));
-        let b = Aabb2d {
+        let b = BoundingRectangle {
             min: Vec2::new(-0.25, -0.8),
             max: Vec2::new(1., 1.),
         };
@@ -336,11 +345,11 @@ mod aabb2d_tests {
 
     #[test]
     fn merge() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 0.5),
         };
-        let b = Aabb2d {
+        let b = BoundingRectangle {
             min: Vec2::new(-2., -0.5),
             max: Vec2::new(0.75, 1.),
         };
@@ -355,7 +364,7 @@ mod aabb2d_tests {
 
     #[test]
     fn grow() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-1., -1.),
             max: Vec2::new(1., 1.),
         };
@@ -368,7 +377,7 @@ mod aabb2d_tests {
 
     #[test]
     fn shrink() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-2., -2.),
             max: Vec2::new(2., 2.),
         };
@@ -381,7 +390,7 @@ mod aabb2d_tests {
 
     #[test]
     fn scale_around_center() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::NEG_ONE,
             max: Vec2::ONE,
         };
@@ -394,7 +403,7 @@ mod aabb2d_tests {
 
     #[test]
     fn rotate() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(2.0, 2.0),
         };
@@ -405,7 +414,7 @@ mod aabb2d_tests {
 
     #[test]
     fn transform() {
-        let a = Aabb2d {
+        let a = BoundingRectangle {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(2.0, 2.0),
         };
@@ -423,7 +432,7 @@ mod aabb2d_tests {
 
     #[test]
     fn closest_point() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::NEG_ONE,
             max: Vec2::ONE,
         };
@@ -437,20 +446,20 @@ mod aabb2d_tests {
 
     #[test]
     fn intersect_aabb() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::NEG_ONE,
             max: Vec2::ONE,
         };
         assert!(aabb.intersects(&aabb));
-        assert!(aabb.intersects(&Aabb2d {
+        assert!(aabb.intersects(&BoundingRectangle {
             min: Vec2::new(0.5, 0.5),
             max: Vec2::new(2.0, 2.0),
         }));
-        assert!(aabb.intersects(&Aabb2d {
+        assert!(aabb.intersects(&BoundingRectangle {
             min: Vec2::new(-2.0, -2.0),
             max: Vec2::new(-0.5, -0.5),
         }));
-        assert!(!aabb.intersects(&Aabb2d {
+        assert!(!aabb.intersects(&BoundingRectangle {
             min: Vec2::new(1.1, 0.0),
             max: Vec2::new(2.0, 0.5),
         }));
@@ -458,7 +467,7 @@ mod aabb2d_tests {
 
     #[test]
     fn intersect_bounding_circle() {
-        let aabb = Aabb2d {
+        let aabb = BoundingRectangle {
             min: Vec2::NEG_ONE,
             max: Vec2::ONE,
         };
@@ -529,13 +538,20 @@ impl BoundingCircle {
         self.circle.radius
     }
 
-    /// Computes the smallest [`Aabb2d`] containing this [`BoundingCircle`].
+    /// Computes the smallest [`BoundingRectangle`] containing this [`BoundingCircle`].
     #[inline]
-    pub fn aabb_2d(&self) -> Aabb2d {
-        Aabb2d {
+    pub fn bounding_rectangle(&self) -> BoundingRectangle {
+        BoundingRectangle {
             min: self.center - Vec2::splat(self.radius()),
             max: self.center + Vec2::splat(self.radius()),
         }
+    }
+
+    /// Deprecated: Use [`bounding_rectangle`](Self::bounding_rectangle) instead.
+    #[deprecated(since = "0.18.0", note = "Use `bounding_rectangle` instead")]
+    #[inline]
+    pub fn aabb_2d(&self) -> BoundingRectangle {
+        self.bounding_rectangle()
     }
 
     /// Finds the point on the bounding circle that is closest to the given `point`.
@@ -634,9 +650,9 @@ impl IntersectsVolume<Self> for BoundingCircle {
     }
 }
 
-impl IntersectsVolume<Aabb2d> for BoundingCircle {
+impl IntersectsVolume<BoundingRectangle> for BoundingCircle {
     #[inline]
-    fn intersects(&self, aabb: &Aabb2d) -> bool {
+    fn intersects(&self, aabb: &BoundingRectangle) -> bool {
         aabb.intersects(self)
     }
 }

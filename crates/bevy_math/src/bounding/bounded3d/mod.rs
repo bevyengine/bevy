@@ -36,9 +36,15 @@ fn point_cloud_3d_center(points: impl Iterator<Item = impl Into<Vec3A>>) -> Vec3
 /// A trait with methods that return 3D bounding volumes for a shape.
 pub trait Bounded3d {
     /// Get an axis-aligned bounding box for the shape translated and rotated by the given isometry.
-    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d;
+    fn bounding_box(&self, isometry: impl Into<Isometry3d>) -> BoundingBox;
     /// Get a bounding sphere for the shape translated and rotated by the given isometry.
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere;
+
+    /// Deprecated: Use [`bounding_box`](Self::bounding_box) instead.
+    #[deprecated(since = "0.18.0", note = "Use `bounding_box` instead")]
+    fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> BoundingBox {
+        self.bounding_box(isometry)
+    }
 }
 
 /// A 3D axis-aligned bounding box
@@ -53,14 +59,18 @@ pub trait Bounded3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Aabb3d {
+pub struct BoundingBox {
     /// The minimum point of the box
     pub min: Vec3A,
     /// The maximum point of the box
     pub max: Vec3A,
 }
 
-impl Aabb3d {
+/// Deprecated: Use [`BoundingBox`] instead.
+#[deprecated(since = "0.18.0", note = "Use `BoundingBox` instead")]
+pub type Aabb3d = BoundingBox;
+
+impl BoundingBox {
     /// Constructs an AABB from its center and half-size.
     #[inline]
     pub fn new(center: impl Into<Vec3A>, half_size: impl Into<Vec3A>) -> Self {
@@ -72,7 +82,7 @@ impl Aabb3d {
         }
     }
 
-    /// Computes the smallest [`Aabb3d`] containing the given set of points,
+    /// Computes the smallest [`BoundingBox`] containing the given set of points,
     /// transformed by the rotation and translation of the given isometry.
     ///
     /// # Panics
@@ -82,7 +92,7 @@ impl Aabb3d {
     pub fn from_point_cloud(
         isometry: impl Into<Isometry3d>,
         points: impl Iterator<Item = impl Into<Vec3A>>,
-    ) -> Aabb3d {
+    ) -> BoundingBox {
         let isometry = isometry.into();
 
         // Transform all points by rotation
@@ -96,13 +106,13 @@ impl Aabb3d {
             (point.min(prev_min), point.max(prev_max))
         });
 
-        Aabb3d {
+        BoundingBox {
             min: min + isometry.translation,
             max: max + isometry.translation,
         }
     }
 
-    /// Computes the smallest [`BoundingSphere`] containing this [`Aabb3d`].
+    /// Computes the smallest [`BoundingSphere`] containing this [`BoundingBox`].
     #[inline]
     pub fn bounding_sphere(&self) -> BoundingSphere {
         let radius = self.min.distance(self.max) / 2.0;
@@ -120,16 +130,16 @@ impl Aabb3d {
     }
 }
 
-impl From<Cuboid> for Aabb3d {
+impl From<Cuboid> for BoundingBox {
     fn from(value: Cuboid) -> Self {
-        Aabb3d {
+        BoundingBox {
             min: (-value.half_size).into(),
             max: value.half_size.into(),
         }
     }
 }
 
-impl BoundingVolume for Aabb3d {
+impl BoundingVolume for BoundingBox {
     type Translation = Vec3A;
     type Rotation = Quat;
     type HalfSize = Vec3A;
@@ -265,14 +275,14 @@ impl BoundingVolume for Aabb3d {
     }
 }
 
-impl IntersectsVolume<Self> for Aabb3d {
+impl IntersectsVolume<Self> for BoundingBox {
     #[inline]
     fn intersects(&self, other: &Self) -> bool {
         self.min.cmple(other.max).all() && self.max.cmpge(other.min).all()
     }
 }
 
-impl IntersectsVolume<BoundingSphere> for Aabb3d {
+impl IntersectsVolume<BoundingSphere> for BoundingBox {
     #[inline]
     fn intersects(&self, sphere: &BoundingSphere) -> bool {
         let closest_point = self.closest_point(sphere.center);
@@ -286,7 +296,7 @@ impl IntersectsVolume<BoundingSphere> for Aabb3d {
 mod aabb3d_tests {
     use approx::assert_relative_eq;
 
-    use super::Aabb3d;
+    use super::BoundingBox;
     use crate::{
         bounding::{BoundingSphere, BoundingVolume, IntersectsVolume},
         ops, Quat, Vec3, Vec3A,
@@ -294,12 +304,12 @@ mod aabb3d_tests {
 
     #[test]
     fn center() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::new(-0.5, -1., -0.5),
             max: Vec3A::new(1., 1., 2.),
         };
         assert!((aabb.center() - Vec3A::new(0.25, 0., 0.75)).length() < f32::EPSILON);
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::new(5., 5., -10.),
             max: Vec3A::new(10., 10., -5.),
         };
@@ -308,7 +318,7 @@ mod aabb3d_tests {
 
     #[test]
     fn half_size() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::new(-0.5, -1., -0.5),
             max: Vec3A::new(1., 1., 2.),
         };
@@ -317,12 +327,12 @@ mod aabb3d_tests {
 
     #[test]
     fn area() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
         assert!(ops::abs(aabb.visible_area() - 12.) < f32::EPSILON);
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::new(0., 0., 0.),
             max: Vec3A::new(1., 0.5, 0.25),
         };
@@ -331,16 +341,16 @@ mod aabb3d_tests {
 
     #[test]
     fn contains() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
-        let b = Aabb3d {
+        let b = BoundingBox {
             min: Vec3A::new(-2., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
         assert!(!a.contains(&b));
-        let b = Aabb3d {
+        let b = BoundingBox {
             min: Vec3A::new(-0.25, -0.8, -0.9),
             max: Vec3A::new(1., 1., 0.9),
         };
@@ -349,11 +359,11 @@ mod aabb3d_tests {
 
     #[test]
     fn merge() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 0.5, 1.),
         };
-        let b = Aabb3d {
+        let b = BoundingBox {
             min: Vec3A::new(-2., -0.5, -0.),
             max: Vec3A::new(0.75, 1., 2.),
         };
@@ -368,7 +378,7 @@ mod aabb3d_tests {
 
     #[test]
     fn grow() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-1., -1., -1.),
             max: Vec3A::new(1., 1., 1.),
         };
@@ -381,7 +391,7 @@ mod aabb3d_tests {
 
     #[test]
     fn shrink() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-2., -2., -2.),
             max: Vec3A::new(2., 2., 2.),
         };
@@ -394,7 +404,7 @@ mod aabb3d_tests {
 
     #[test]
     fn scale_around_center() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::NEG_ONE,
             max: Vec3A::ONE,
         };
@@ -408,7 +418,7 @@ mod aabb3d_tests {
     #[test]
     fn rotate() {
         use core::f32::consts::PI;
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-2.0, -2.0, -2.0),
             max: Vec3A::new(2.0, 2.0, 2.0),
         };
@@ -420,7 +430,7 @@ mod aabb3d_tests {
 
     #[test]
     fn transform() {
-        let a = Aabb3d {
+        let a = BoundingBox {
             min: Vec3A::new(-2.0, -2.0, -2.0),
             max: Vec3A::new(2.0, 2.0, 2.0),
         };
@@ -441,7 +451,7 @@ mod aabb3d_tests {
 
     #[test]
     fn closest_point() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::NEG_ONE,
             max: Vec3A::ONE,
         };
@@ -455,20 +465,20 @@ mod aabb3d_tests {
 
     #[test]
     fn intersect_aabb() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::NEG_ONE,
             max: Vec3A::ONE,
         };
         assert!(aabb.intersects(&aabb));
-        assert!(aabb.intersects(&Aabb3d {
+        assert!(aabb.intersects(&BoundingBox {
             min: Vec3A::splat(0.5),
             max: Vec3A::splat(2.0),
         }));
-        assert!(aabb.intersects(&Aabb3d {
+        assert!(aabb.intersects(&BoundingBox {
             min: Vec3A::splat(-2.0),
             max: Vec3A::splat(-0.5),
         }));
-        assert!(!aabb.intersects(&Aabb3d {
+        assert!(!aabb.intersects(&BoundingBox {
             min: Vec3A::new(1.1, 0.0, 0.0),
             max: Vec3A::new(2.0, 0.5, 0.25),
         }));
@@ -476,7 +486,7 @@ mod aabb3d_tests {
 
     #[test]
     fn intersect_bounding_sphere() {
-        let aabb = Aabb3d {
+        let aabb = BoundingBox {
             min: Vec3A::NEG_ONE,
             max: Vec3A::ONE,
         };
@@ -549,13 +559,20 @@ impl BoundingSphere {
         self.sphere.radius
     }
 
-    /// Computes the smallest [`Aabb3d`] containing this [`BoundingSphere`].
+    /// Computes the smallest [`BoundingBox`] containing this [`BoundingSphere`].
     #[inline]
-    pub fn aabb_3d(&self) -> Aabb3d {
-        Aabb3d {
+    pub fn bounding_box(&self) -> BoundingBox {
+        BoundingBox {
             min: self.center - self.radius(),
             max: self.center + self.radius(),
         }
+    }
+
+    /// Deprecated: Use [`bounding_box`](Self::bounding_box) instead.
+    #[deprecated(since = "0.18.0", note = "Use `bounding_box` instead")]
+    #[inline]
+    pub fn aabb_3d(&self) -> BoundingBox {
+        self.bounding_box()
     }
 
     /// Finds the point on the bounding sphere that is closest to the given `point`.
@@ -676,9 +693,9 @@ impl IntersectsVolume<Self> for BoundingSphere {
     }
 }
 
-impl IntersectsVolume<Aabb3d> for BoundingSphere {
+impl IntersectsVolume<BoundingBox> for BoundingSphere {
     #[inline]
-    fn intersects(&self, aabb: &Aabb3d) -> bool {
+    fn intersects(&self, aabb: &BoundingBox) -> bool {
         aabb.intersects(self)
     }
 }

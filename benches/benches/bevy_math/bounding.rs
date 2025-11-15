@@ -1,6 +1,6 @@
 use benches::bench;
 use bevy_math::{
-    bounding::{Aabb3d, BoundingSphere, BoundingVolume},
+    bounding::{BoundingBox, BoundingSphere, BoundingVolume},
     prelude::*,
 };
 use core::hint::black_box;
@@ -19,8 +19,8 @@ struct PointCloud {
 }
 
 impl PointCloud {
-    fn aabb(&self) -> Aabb3d {
-        Aabb3d::from_point_cloud(self.isometry, self.points.iter().copied())
+    fn aabb(&self) -> BoundingBox {
+        BoundingBox::from_point_cloud(self.isometry, self.points.iter().copied())
     }
 
     fn sphere(&self) -> BoundingSphere {

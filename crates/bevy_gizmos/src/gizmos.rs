@@ -18,7 +18,7 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
+use bevy_math::{bounding::BoundingBox, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
@@ -612,17 +612,17 @@ where
     /// ```
     /// # use bevy_gizmos::prelude::*;
     /// # use bevy_transform::prelude::*;
-    /// # use bevy_math::{bounding::Aabb3d, Vec3};
+    /// # use bevy_math::{bounding::BoundingBox, Vec3};
     /// # use bevy_color::palettes::basic::GREEN;
     /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.aabb_3d(Aabb3d::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
+    ///     gizmos.aabb_3d(BoundingBox::new(Vec3::ZERO, Vec3::ONE), Transform::IDENTITY, GREEN);
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
     pub fn aabb_3d(
         &mut self,
-        aabb: impl Into<Aabb3d>,
+        aabb: impl Into<BoundingBox>,
         transform: impl TransformPoint,
         color: impl Into<Color>,
     ) {
