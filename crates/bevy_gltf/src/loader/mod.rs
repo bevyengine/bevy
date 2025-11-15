@@ -2,11 +2,7 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use std::{
-    io::Error,
-    iter::Iterator,
-    sync::Mutex,
-};
+use std::{io::Error, iter::Iterator, sync::Mutex};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimatedBy, AnimationTargetId};
