@@ -2,6 +2,7 @@
 
 use bevy_app::{Plugin, Update};
 use bevy_asset::{load_internal_asset, uuid_handle, Asset, Assets, Handle};
+use bevy_color::LinearRgba;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::system::{Res, ResMut};
 use bevy_math::ops::log2;
@@ -52,11 +53,19 @@ pub struct FrameTimeGraphConfigUniform {
     dt_max_log2: f32,
     // controls whether or not the bars width are proportional to their delta time
     proportional_width: u32,
+    min_color: LinearRgba,
+    max_color: LinearRgba,
 }
 
 impl FrameTimeGraphConfigUniform {
     /// `proportional_width`: controls whether or not the bars width are proportional to their delta time
-    pub fn new(target_fps: f32, min_fps: f32, proportional_width: bool) -> Self {
+    pub fn new(
+        target_fps: f32,
+        min_fps: f32,
+        proportional_width: bool,
+        min_color: LinearRgba,
+        max_color: LinearRgba,
+    ) -> Self {
         // we want an upper limit that is above the target otherwise the bars will disappear
         let dt_min = 1. / (target_fps * 1.2);
         let dt_max = 1. / min_fps;
@@ -66,6 +75,8 @@ impl FrameTimeGraphConfigUniform {
             dt_min_log2: log2(dt_min),
             dt_max_log2: log2(dt_max),
             proportional_width: u32::from(proportional_width),
+            min_color,
+            max_color,
         }
     }
 }
@@ -96,7 +107,7 @@ fn update_frame_time_values(
     diagnostics_store: Res<DiagnosticsStore>,
     config: Option<Res<FpsOverlayConfig>>,
 ) {
-    if !config.is_none_or(|c| c.frame_time_graph_config.enabled) {
+    if !config.is_none_or(|c| c.graph_config.enabled) {
         return;
     }
     let Some(frame_time) = diagnostics_store.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME) else {
