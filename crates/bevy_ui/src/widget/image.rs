@@ -1,12 +1,12 @@
-#[cfg(feature = "bevy_ui_contain")]
-use crate::UiContainTarget;
+#[cfg(feature = "bevy_ui_container")]
+use crate::UiContainerChild;
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
@@ -279,10 +279,10 @@ impl Measure for ImageMeasure {
     }
 }
 
-#[cfg(not(feature = "bevy_ui_contain"))]
+#[cfg(not(feature = "bevy_ui_container"))]
 type ExtraFeature = ();
 
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 type ExtraFeature = Entity;
 
 type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
@@ -301,9 +301,9 @@ pub fn update_image_content_size_system(
         ),
         UpdateImageFilter,
     >,
-    #[cfg(feature = "bevy_ui_contain")] mut removed_uicontain: RemovedComponents<UiContainTarget>,
+    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<UiContainerChild>,
 ) {
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     let removed_uicontains = query
         .is_empty()
         .then_some(removed_uicontain.read().collect::<HashSet<Entity>>());
@@ -332,7 +332,7 @@ pub fn update_image_content_size_system(
             let is_update =
                 size != image_size.size || computed_target.is_changed() || content_size.is_added();
 
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let is_update = is_update
                 || removed_uicontains
                     .as_ref()

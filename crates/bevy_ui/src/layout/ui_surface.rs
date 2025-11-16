@@ -274,7 +274,7 @@ impl UiSurface {
         }
     }
 
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     pub fn remove_entities_ref<'a>(&mut self, entities: impl IntoIterator<Item = &'a Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(entity) {

@@ -4,8 +4,8 @@ use crate::{
     BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
-#[cfg(feature = "bevy_ui_contain")]
-use crate::{UiContainSize, UiContainTarget};
+#[cfg(feature = "bevy_ui_container")]
+use crate::{UiContainerSize, UiContainerChild};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -17,12 +17,12 @@ use bevy_ecs::{
 };
 
 use bevy_math::{Affine2, Vec2};
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_platform::collections::HashSet;
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_transform::components::GlobalTransform;
 use thiserror::Error;
 use ui_surface::UiSurface;
@@ -77,11 +77,11 @@ pub enum LayoutError {
     TaffyError(taffy::tree::TaffyError),
 }
 
-#[cfg(not(feature = "bevy_ui_contain"))]
+#[cfg(not(feature = "bevy_ui_container"))]
 type Feature = ();
 
-#[cfg(feature = "bevy_ui_contain")]
-type Feature = Option<&'static UiContainTarget>;
+#[cfg(feature = "bevy_ui_container")]
+type Feature = Option<&'static UiContainerChild>;
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
@@ -112,25 +112,25 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
-    #[cfg(feature = "bevy_ui_contain")] mut ui_surface_query: Query<&mut UiSurface>,
-    #[cfg(feature = "bevy_ui_contain")] contain_target_query: Query<&UiContainTarget>,
-    #[cfg(feature = "bevy_ui_contain")] contain_query: Query<(
+    #[cfg(feature = "bevy_ui_container")] mut ui_surface_query: Query<&mut UiSurface>,
+    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
         &GlobalTransform,
-        &UiContainSize,
+        &UiContainerSize,
         &Anchor,
     )>,
-    #[cfg(feature = "bevy_ui_contain")] mut removed_uicontain: RemovedComponents<UiContainTarget>,
+    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<UiContainerChild>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         for mut ui_surface in &mut ui_surface_query {
             ui_surface.try_remove_node_context(entity);
         }
     }
 
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     let removed_uicontains = removed_uicontain.read().collect::<HashSet<Entity>>();
 
     // Sync Node and ContentSize to Taffy for all nodes
@@ -143,7 +143,7 @@ pub fn ui_layout_system(
                     .as_ref()
                     .is_some_and(|c| c.is_changed() || c.measure.is_some());
 
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let is_update = is_update || removed_uicontains.contains(&entity);
 
             if is_update {
@@ -152,7 +152,7 @@ pub fn ui_layout_system(
                     computed_target.physical_size.as_vec2(),
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
-                #[cfg(feature = "bevy_ui_contain")]
+                #[cfg(feature = "bevy_ui_container")]
                 {
                     if let Ok(target) = contain_target_query.get(entity) {
                         let Ok(mut ui_surface) = ui_surface_query.get_mut(target.0) else {
@@ -166,7 +166,7 @@ pub fn ui_layout_system(
                         ui_surface.upsert_node(&layout_context, entity, &node, measure);
                     }
                 }
-                #[cfg(not(feature = "bevy_ui_contain"))]
+                #[cfg(not(feature = "bevy_ui_container"))]
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
@@ -174,20 +174,20 @@ pub fn ui_layout_system(
     // update and remove children
     for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         for mut ui_surface in &mut ui_surface_query {
             ui_surface.try_remove_children(entity);
         }
     }
 
-    #[cfg(not(feature = "bevy_ui_contain"))]
+    #[cfg(not(feature = "bevy_ui_container"))]
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_nodes
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     {
         let removed_nodes = removed_nodes
             .read()
@@ -207,7 +207,7 @@ pub fn ui_layout_system(
             ui_children: &UiChildren,
             added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
-            #[cfg(feature = "bevy_ui_contain")] removed_uicontains: &HashSet<Entity>,
+            #[cfg(feature = "bevy_ui_container")] removed_uicontains: &HashSet<Entity>,
         ) {
             let is_update = ui_surface.entity_to_taffy.contains_key(&entity)
                 && (added_node_query.contains(entity)
@@ -215,7 +215,7 @@ pub fn ui_layout_system(
                     || ui_children
                         .iter_ui_children(entity)
                         .any(|child| added_node_query.contains(child)));
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let is_update = is_update || removed_uicontains.contains(&entity);
             if is_update {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
@@ -227,13 +227,13 @@ pub fn ui_layout_system(
                     ui_children,
                     added_node_query,
                     child,
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     removed_uicontains,
                 );
             }
         }
 
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         let ui_surface = {
             if let Ok(target) = contain_target_query.get(ui_root_entity) {
                 let Ok(ui_surface) = ui_surface_query.get_mut(target.0) else {
@@ -247,7 +247,7 @@ pub fn ui_layout_system(
             }
         };
 
-        #[cfg(not(feature = "bevy_ui_contain"))]
+        #[cfg(not(feature = "bevy_ui_container"))]
         let ui_surface = &mut ui_surface;
 
         update_children_recursively(
@@ -255,7 +255,7 @@ pub fn ui_layout_system(
             &ui_children,
             &added_node_query,
             ui_root_entity,
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             &removed_uicontains,
         );
 
@@ -279,7 +279,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             &contain_query,
         );
     }
@@ -307,9 +307,9 @@ pub fn ui_layout_system(
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        #[cfg(feature = "bevy_ui_contain")] contain_query: &Query<(
+        #[cfg(feature = "bevy_ui_container")] contain_query: &Query<(
             &GlobalTransform,
-            &UiContainSize,
+            &UiContainerSize,
             &Anchor,
         )>,
     ) {
@@ -378,7 +378,7 @@ pub fn ui_layout_system(
                 target_size,
             );
 
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             if let Some(target) = _is_contain {
                 // Transform the node coordinate system
                 let flip_y = Affine2::from_scale(Vec2::new(1.0, -1.0));
@@ -405,7 +405,7 @@ pub fn ui_layout_system(
                 inherited_transform *= local_transform;
             }
 
-            #[cfg(not(feature = "bevy_ui_contain"))]
+            #[cfg(not(feature = "bevy_ui_container"))]
             {
                 local_transform.translation += local_center;
                 inherited_transform *= local_transform;
@@ -492,7 +492,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     contain_query,
                 );
             }
@@ -1365,19 +1365,19 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     mod ui_contain {
         use crate::layout::tests::*;
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_nodes_with_percent_100_dimensions_should_fill_their_parent() {
             let mut app = setup_ui_test_app();
 
             let world = app.world_mut();
 
             let ui_contain = world
-                .spawn(UiContainSize(Vec2::new(
+                .spawn(UiContainerSize(Vec2::new(
                     WINDOW_WIDTH as f32,
                     WINDOW_HEIGHT as f32,
                 )))
@@ -1391,7 +1391,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -1402,7 +1402,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -1422,14 +1422,14 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_tracks_ui_entities() {
             let mut app = setup_ui_test_app();
 
             let world = app.world_mut();
             // no UI entities in world, none in UiSurface
             let ui_surface_entity = world
-                .spawn((UiSurface::default(), UiContainSize::default()))
+                .spawn((UiSurface::default(), UiContainerSize::default()))
                 .id();
 
             app.finish();
@@ -1441,7 +1441,7 @@ mod tests {
             assert!(ui_surface.entity_to_taffy.is_empty());
 
             let ui_entity = world
-                .spawn((Node::default(), UiContainTarget(ui_surface_entity)))
+                .spawn((Node::default(), UiContainerChild(ui_surface_entity)))
                 .id();
 
             app.update();
@@ -1463,17 +1463,17 @@ mod tests {
 
         #[test]
         #[should_panic]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn despawning_a_ui_entity_should_remove_its_corresponding_ui_node() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
             let ui_surface_entity = world
-                .spawn((UiSurface::default(), UiContainSize::default()))
+                .spawn((UiSurface::default(), UiContainerSize::default()))
                 .id();
 
             let ui_entity = world
-                .spawn((Node::default(), UiContainTarget(ui_surface_entity)))
+                .spawn((Node::default(), UiContainerChild(ui_surface_entity)))
                 .id();
 
             // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
@@ -1498,15 +1498,15 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn changes_to_children_of_a_ui_entity_change_its_corresponding_ui_nodes_children() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_parent_entity = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
 
             // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
@@ -1522,7 +1522,7 @@ mod tests {
             let mut ui_child_entities = (0..10)
                 .map(|_| {
                     let child = world
-                        .spawn((Node::default(), UiContainTarget(ui_contain)))
+                        .spawn((Node::default(), UiContainerChild(ui_contain)))
                         .id();
                     world.entity_mut(ui_parent_entity).add_child(child);
                     child
@@ -1616,7 +1616,7 @@ mod tests {
 
         /// bugfix test, see [#16288](https://github.com/bevyengine/bevy/pull/16288)
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn node_removal_and_reinsert_should_work() {
             let mut app = setup_ui_test_app();
 
@@ -1651,17 +1651,17 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn node_addition_should_sync_children() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             // spawn an invalid UI root node,it have to point to uicontain.
             let root_node = world
-                .spawn(UiContainTarget(ui_contain))
-                .with_child((Node::default(), UiContainTarget(ui_contain)))
+                .spawn(UiContainerChild(ui_contain))
+                .with_child((Node::default(), UiContainerChild(ui_contain)))
                 .id();
 
             app.update();
@@ -1681,22 +1681,22 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn node_addition_should_sync_parent_and_children() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let d = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
-            let c = world.spawn(UiContainTarget(ui_contain)).add_child(d).id();
+            let c = world.spawn(UiContainerChild(ui_contain)).add_child(d).id();
             let b = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
             let a = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .add_children(&[b, c])
                 .id();
 
@@ -1720,14 +1720,14 @@ mod tests {
         /// ensure root nodes act like they are absolutely positioned
         /// without explicitly declaring it.
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_root_node_should_act_like_position_absolute() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
             let mut size = 150.;
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             world.spawn((
                 Node {
@@ -1737,7 +1737,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainTarget(ui_contain),
+                UiContainerChild(ui_contain),
             ));
 
             size -= 50.;
@@ -1749,7 +1749,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainTarget(ui_contain),
+                UiContainerChild(ui_contain),
             ));
 
             size -= 50.;
@@ -1761,7 +1761,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainTarget(ui_contain),
+                UiContainerChild(ui_contain),
             ));
 
             app.update();
@@ -1802,7 +1802,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_node_should_properly_update_when_changing_target_camera() {
             #[derive(Component)]
             struct MovingUiNode;
@@ -1900,7 +1900,7 @@ mod tests {
                 },
             ));
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             world.spawn((
                 Node {
@@ -1910,7 +1910,7 @@ mod tests {
                     ..default()
                 },
                 MovingUiNode,
-                UiContainTarget(ui_contain),
+                UiContainerChild(ui_contain),
             ));
 
             app.update();
@@ -1953,14 +1953,14 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_node_should_be_set_to_its_content_size() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
             let content_size = Vec2::new(50., 25.);
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_entity = world
                 .spawn((
@@ -1969,7 +1969,7 @@ mod tests {
                         ..default()
                     },
                     ContentSize::fixed_size(content_size),
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -1985,12 +1985,12 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn measure_funcs_should_be_removed_on_content_size_removal() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let content_size = Vec2::new(50., 25.);
             let ui_entity = world
@@ -2000,7 +2000,7 @@ mod tests {
                         ..Default::default()
                     },
                     ContentSize::fixed_size(content_size),
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -2032,12 +2032,12 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn ui_rounding_test() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let parent = world
                 .spawn((
@@ -2047,7 +2047,7 @@ mod tests {
                         margin: UiRect::all(Val::Px(4.0)),
                         ..default()
                     },
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .with_children(|commands| {
                     for _ in 0..2 {
@@ -2058,7 +2058,7 @@ mod tests {
                                 height: Val::Px(160.),
                                 ..default()
                             },
-                            UiContainTarget(ui_contain),
+                            UiContainerChild(ui_contain),
                         ));
                     }
                 })
@@ -2091,7 +2091,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn no_camera_ui() {
             let mut app = App::new();
 
@@ -2121,7 +2121,7 @@ mod tests {
 
             world.init_resource::<bevy_text::SwashCache>();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_root = world
                 .spawn((
@@ -2130,7 +2130,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -2141,7 +2141,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainTarget(ui_contain),
+                    UiContainerChild(ui_contain),
                 ))
                 .id();
 
@@ -2151,14 +2151,14 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn test_ui_surface_compute_camera_layout() {
             use bevy_ecs::prelude::ResMut;
 
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let root_node_entity = Entity::from_raw_u32(1).unwrap();
 
@@ -2204,15 +2204,15 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn no_viewport_node_leak_on_root_despawned() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_root_entity = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
 
             // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
@@ -2251,18 +2251,18 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         fn no_viewport_node_leak_on_parented_root() {
             let mut app = setup_ui_test_app();
             let world = app.world_mut();
 
-            let ui_contain = world.spawn(UiContainSize::default()).id();
+            let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_root_entity_1 = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
             let ui_root_entity_2 = world
-                .spawn((Node::default(), UiContainTarget(ui_contain)))
+                .spawn((Node::default(), UiContainerChild(ui_contain)))
                 .id();
 
             app.update();

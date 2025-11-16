@@ -2875,36 +2875,36 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
-/// Pointing to [`UiContainSize`](crate::UiContainSize),layout based on this container size.
-/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainSize` is located in world space.
-/// When the root node and its child nodes point to the same `UiContainSize`, the functionality is work.
+/// Pointing to [`UiContainerSize`],layout based on this container size.
+/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainerSize` is located in world space.
+/// When the root node and its child nodes point to the same `UiContainerSize`, the functionality is work.
 /// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
 ///
-/// If you want to enable this feature, you need to enable the `bevy_ui_contain` feature
+/// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, PartialEq, Clone)]
-#[relationship(relationship_target = UiContains)]
-pub struct UiContainTarget(pub Entity);
+#[relationship(relationship_target = UiContainerOf)]
+pub struct UiContainerChild(pub Entity);
 
 #[derive(Component, Default, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = UiContainTarget, linked_spawn)]
-pub struct UiContains(Vec<Entity>);
+#[relationship_target(relationship = UiContainerChild, linked_spawn)]
+pub struct UiContainerOf(Vec<Entity>);
 
-/// If you want to enable this feature, you need to enable the `bevy_ui_contain` feature
+/// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
 #[require(
     crate::ui_surface::UiSurface,
     bevy_transform::components::Transform,
-    UiContains,
+    UiContainerOf,
     Anchor,
     UiScale
 )]
-pub struct UiContainSize(pub Vec2);
+pub struct UiContainerSize(pub Vec2);
 
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Clone)]
-pub struct UiContainOverflow(pub Overflow);
+pub struct UiContainerOverflow(pub Overflow);
 
 #[cfg(test)]
 mod tests {

@@ -6,8 +6,8 @@ use crate::{
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
-#[cfg(feature = "bevy_ui_contain")]
-use crate::{UiContainOverflow, UiContainSize, UiContainTarget};
+#[cfg(feature = "bevy_ui_container")]
+use crate::{UiContainerChild, UiContainerOverflow, UiContainerSize};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -18,10 +18,10 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
@@ -36,16 +36,16 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
-    #[cfg(feature = "bevy_ui_contain")] contain_target_query: Query<&UiContainTarget>,
-    #[cfg(feature = "bevy_ui_contain")] contain_query: Query<(
-        &UiContainSize,
-        &UiContainOverflow,
+    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
+        &UiContainerSize,
+        &UiContainerOverflow,
         &Anchor,
         &GlobalTransform,
     )>,
 ) {
     for root_node in root_nodes.iter() {
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         let clip = {
             if let Ok(target) = contain_target_query.get(root_node) {
                 use bevy_math::Vec3Swizzles;
@@ -74,7 +74,7 @@ pub fn update_clipping_system(
             }
         };
 
-        #[cfg(not(feature = "bevy_ui_contain"))]
+        #[cfg(not(feature = "bevy_ui_container"))]
         let clip = None;
 
         update_clipping(
@@ -185,8 +185,8 @@ pub fn propagate_ui_target_cameras(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
-    #[cfg(feature = "bevy_ui_contain")] query_ui_scale: Query<(&UiScale, &UiContainSize)>,
-    #[cfg(feature = "bevy_ui_contain")] query_target: Query<&UiContainTarget>,
+    #[cfg(feature = "bevy_ui_container")] query_ui_scale: Query<(&UiScale, &UiContainerSize)>,
+    #[cfg(feature = "bevy_ui_container")] query_target: Query<&UiContainerChild>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -206,7 +206,7 @@ pub fn propagate_ui_target_cameras(
             .get(camera)
             .ok()
             .map(|camera| {
-                #[cfg(feature = "bevy_ui_contain")]
+                #[cfg(feature = "bevy_ui_container")]
                 {
                     if let Ok(target) = query_target.get(root_entity) {
                         let Ok((scale, size)) = query_ui_scale.get(target.0) else {
@@ -220,7 +220,7 @@ pub fn propagate_ui_target_cameras(
                         )
                     }
                 }
-                #[cfg(not(feature = "bevy_ui_contain"))]
+                #[cfg(not(feature = "bevy_ui_container"))]
                 (
                     camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
                     camera.physical_viewport_size().unwrap_or(UVec2::ZERO),

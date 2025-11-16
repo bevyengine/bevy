@@ -1,4 +1,4 @@
-//! Node can choose Camera as the layout or [`UiContainSize`](bevy::prelude::UiContainSize) Component for layout.
+//! Pointing to [`UiContainSize`],layout based on this container size.
 //! Nodes will be laid out according to the size and Transform of `UiContainSize`
 
 use bevy::{
@@ -47,9 +47,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Initialize uicontain
     let ui_contain = commands
         .spawn((
-            UiContainSize(Vec2::new(300.0, 300.0)),
+            UiContainerSize(Vec2::new(300.0, 300.0)),
             Anchor::TOP_LEFT,
-            UiContainOverflow(Overflow::clip()),
+            UiContainerOverflow(Overflow::clip()),
             // Transform::from_xyz(-500.0, 0.0, 0.0),
             // Sprite {
             //     custom_size: Some(Vec2::new(300.0, 300.0)),
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 bottom: Srgba::RED.into(),
                 left: Srgba::WHITE.into(),
             },
-            Propagate(UiContainTarget(ui_contain)),
+            Propagate(UiContainerChild(ui_contain)),
             ContainNode, // Button,
         ))
         .with_children(|parent| {
@@ -162,7 +162,7 @@ GlobalTranfrom Camera: None",
 
 fn update_text(
     info_camera: Single<Entity, With<Camera>>,
-    info_uicontain: Single<(Entity, &Anchor, &UiContainOverflow), With<UiContainInfo>>,
+    info_uicontain: Single<(Entity, &Anchor, &UiContainerOverflow), With<UiContainInfo>>,
     info_text: Single<&mut Text, With<InfoText>>,
     query: Query<&GlobalTransform>,
 ) {
@@ -230,7 +230,7 @@ fn update_contain_pos(
 
 fn switch_node_type(
     mut commands: Commands,
-    query: Single<(Entity, Has<UiContainTarget>), With<ContainNode>>,
+    query: Single<(Entity, Has<UiContainerChild>), With<ContainNode>>,
     contain: Single<Entity, With<UiContainInfo>>,
 ) {
     let (entity_node, is_contain_node) = query.into_inner();
@@ -238,25 +238,25 @@ fn switch_node_type(
     if is_contain_node {
         commands
             .entity(entity_node)
-            .remove::<Propagate<UiContainTarget>>();
+            .remove::<Propagate<UiContainerChild>>();
     } else {
         commands
             .entity(entity_node)
-            .insert(Propagate(UiContainTarget(contain.into_inner())));
+            .insert(Propagate(UiContainerChild(contain.into_inner())));
     }
 }
 
-fn switch_ui_contain_overflow(query: Single<&mut UiContainOverflow, With<UiContainInfo>>) {
+fn switch_ui_contain_overflow(query: Single<&mut UiContainerOverflow, With<UiContainInfo>>) {
     let mut overflow = query.into_inner();
 
     if overflow.0 == Overflow::visible() {
-        overflow.0 = Overflow::clip()
+        overflow.0 = Overflow::clip();
     } else if overflow.0 == Overflow::clip() {
-        overflow.0 = Overflow::clip_x()
+        overflow.0 = Overflow::clip_x();
     } else if overflow.0 == Overflow::clip_x() {
-        overflow.0 = Overflow::clip_y()
+        overflow.0 = Overflow::clip_y();
     } else {
-        overflow.0 = Overflow::visible()
+        overflow.0 = Overflow::visible();
     }
 }
 

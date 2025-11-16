@@ -643,7 +643,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             indexed: false,
         });
 
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         {
             let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
                 continue;

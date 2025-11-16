@@ -23,13 +23,13 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 use bevy_render::view::ColorGrading;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
-#[cfg(feature = "bevy_ui_contain")]
-use bevy_ui::UiContainTarget;
+#[cfg(feature = "bevy_ui_container")]
+use bevy_ui::UiContainerChild;
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -359,7 +359,7 @@ pub struct ExtractedUiNode {
     pub main_entity: MainEntity,
     pub render_entity: Entity,
     pub transform: Affine2,
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     pub is_contain: bool,
 }
 
@@ -433,17 +433,17 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 
         // Run the subgraph on the UI view.
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_contain))?;
         Ok(())
     }
 }
 
-#[cfg(not(feature = "bevy_ui_contain"))]
+#[cfg(not(feature = "bevy_ui_container"))]
 type Feature = ();
 
-#[cfg(feature = "bevy_ui_contain")]
-type Feature = Has<UiContainTarget>;
+#[cfg(feature = "bevy_ui_container")]
+type Feature = Has<UiContainerChild>;
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
@@ -508,7 +508,7 @@ pub fn extract_uinode_background_colors(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             is_contain: _feature,
         });
     }
@@ -597,7 +597,7 @@ pub fn extract_uinode_images(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             is_contain: _feature,
         });
     }
@@ -703,7 +703,7 @@ pub fn extract_uinode_borders(
                     },
                     main_entity: entity.into(),
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -737,7 +737,7 @@ pub fn extract_uinode_borders(
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
-                #[cfg(feature = "bevy_ui_contain")]
+                #[cfg(feature = "bevy_ui_container")]
                 is_contain: _feature,
             });
         }
@@ -771,7 +771,7 @@ const UI_CAMERA_SUBVIEW: u32 = 1;
 /// Entity id of the temporary render entity with the corresponding extracted UI view.
 pub struct UiCameraView {
     pub ui_camera: Entity,
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     pub ui_contain: Entity,
 }
 
@@ -785,10 +785,10 @@ pub struct UiCameraView {
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
 
-#[cfg(not(feature = "bevy_ui_contain"))]
+#[cfg(not(feature = "bevy_ui_container"))]
 type UiContainView = ();
 
-#[cfg(feature = "bevy_ui_contain")]
+#[cfg(feature = "bevy_ui_container")]
 type UiContainView = (&'static GlobalTransform, Option<&'static ColorGrading>);
 
 /// Extracts all UI elements associated with a camera into the render world.
@@ -816,7 +816,7 @@ pub fn extract_ui_camera_view(
     for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples, _contain_view) in
         &query
     {
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         let (transform, color_grading) = _contain_view;
 
         // ignore inactive cameras
@@ -829,7 +829,7 @@ pub fn extract_ui_camera_view(
         }
 
         if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let (Some(viewport_size),) = (camera.physical_viewport_size(),) else {
                 continue;
             };
@@ -872,12 +872,12 @@ pub fn extract_ui_camera_view(
                 ))
                 .id();
 
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
             let retained_view_entity_contain = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             let ui_contain_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -906,7 +906,7 @@ pub fn extract_ui_camera_view(
             // Link from the main 2D/3D camera view to the UI view.
             entity_commands.insert(UiCameraView {
                 ui_camera: ui_camera_view,
-                #[cfg(feature = "bevy_ui_contain")]
+                #[cfg(feature = "bevy_ui_container")]
                 ui_contain: ui_contain_camera_view,
             });
             if let Some(ui_anti_alias) = ui_anti_alias {
@@ -986,7 +986,7 @@ pub fn extract_viewport_nodes(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_contain")]
+            #[cfg(feature = "bevy_ui_container")]
             is_contain: _feature,
         });
     }
@@ -1091,7 +1091,7 @@ pub fn extract_text_sections(
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                     transform,
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
                 start = end;
@@ -1187,7 +1187,7 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
                 start = end;
@@ -1226,7 +1226,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -1253,7 +1253,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -1346,7 +1346,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -1378,7 +1378,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -1410,7 +1410,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_contain")]
+                    #[cfg(feature = "bevy_ui_container")]
                     is_contain: _feature,
                 });
             }
@@ -1505,7 +1505,7 @@ pub fn queue_uinodes(
     let mut current_phase = None;
 
     for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         if extracted_uinode.is_contain {
             continue;
         }
@@ -1553,7 +1553,7 @@ pub fn queue_uinodes(
         });
     }
 
-    #[cfg(feature = "bevy_ui_contain")]
+    #[cfg(feature = "bevy_ui_container")]
     {
         let mut current_camera_entity = Entity::PLACEHOLDER;
 
@@ -1823,14 +1823,14 @@ pub fn prepare_uinodes(
                             }
                         }
                         let uvs = if flags == shader_flags::UNTEXTURED {
-                            #[cfg(feature = "bevy_ui_contain")]
+                            #[cfg(feature = "bevy_ui_container")]
                             if extracted_uinode.is_contain {
                                 [Vec2::Y, Vec2::ONE, Vec2::X, Vec2::ZERO]
                             } else {
                                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                             }
 
-                            #[cfg(not(feature = "bevy_ui_contain"))]
+                            #[cfg(not(feature = "bevy_ui_container"))]
                             [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                         } else {
                             let image = gpu_images
@@ -1855,7 +1855,7 @@ pub fn prepare_uinodes(
                                 positions_diff[3].y *= -1.;
                             }
 
-                            #[cfg(feature = "bevy_ui_contain")]
+                            #[cfg(feature = "bevy_ui_container")]
                             if extracted_uinode.is_contain {
                                 [
                                     Vec2::new(
@@ -1898,7 +1898,7 @@ pub fn prepare_uinodes(
                                 .map(|pos| pos / atlas_extent)
                             }
 
-                            #[cfg(not(feature = "bevy_ui_contain"))]
+                            #[cfg(not(feature = "bevy_ui_container"))]
                             [
                                 Vec2::new(
                                     uinode_rect.min.x + positions_diff[0].x,
@@ -1934,9 +1934,9 @@ pub fn prepare_uinodes(
                                 radius: (*border_radius).into(),
                                 border: [border.left, border.top, border.right, border.bottom],
                                 size: rect_size.into(),
-                                #[cfg(not(feature = "bevy_ui_contain"))]
+                                #[cfg(not(feature = "bevy_ui_container"))]
                                 point: points[i].into(),
-                                #[cfg(feature = "bevy_ui_contain")]
+                                #[cfg(feature = "bevy_ui_container")]
                                 point: if extracted_uinode.is_contain {
                                     Affine2::from_scale(Vec2::new(1.0, -1.0))
                                         .transform_point2(points[i])

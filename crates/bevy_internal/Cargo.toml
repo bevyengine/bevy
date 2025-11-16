@@ -331,9 +331,9 @@ ui_picking = ["bevy_picking", "bevy_ui?/bevy_picking"]
 bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]
 
 # Provides a UI transfrom in world
-bevy_ui_contain = [
-  "bevy_ui?/bevy_ui_contain",
-  "bevy_ui_render?/bevy_ui_contain",
+bevy_ui_container = [
+  "bevy_ui?/bevy_ui_container",
+  "bevy_ui_render?/bevy_ui_container",
 ]
 
 # Enable built in global state machines

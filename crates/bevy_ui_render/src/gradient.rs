@@ -421,7 +421,7 @@ pub fn extract_gradients(
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                        #[cfg(feature = "bevy_ui_contain")]
+                        #[cfg(feature = "bevy_ui_container")]
                         is_contain: _feature,
                     });
                     continue;
@@ -636,7 +636,7 @@ pub fn queue_gradient(
             index,
             indexed: true,
         });
-        #[cfg(feature = "bevy_ui_contain")]
+        #[cfg(feature = "bevy_ui_container")]
         {
             let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
                 continue;
