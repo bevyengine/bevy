@@ -536,7 +536,7 @@ impl<'a> LoadContext<'a> {
                 meta,
                 loader,
                 reader,
-                false,
+                self.should_load_dependencies,
                 self.populate_hashes,
             )
             .await
