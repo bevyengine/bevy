@@ -2112,12 +2112,14 @@ pub struct SerializedMesh {
 #[cfg(feature = "serialize")]
 impl SerializedMesh {
     /// Create a [`SerializedMesh`] from a [`Mesh`]. See the documentation for [`SerializedMesh`] for caveats.
-    pub fn from_mesh(mesh: Mesh) -> Self {
+    pub fn from_mesh(mut mesh: Mesh) -> Self {
         Self {
             primitive_topology: mesh.primitive_topology,
             attributes: mesh
                 .attributes
-                .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+                .replace(None)
+                .expect(MESH_EXTRACTED_ERROR)
+                .unwrap()
                 .into_iter()
                 .map(|(id, data)| {
                     (
@@ -2126,7 +2128,7 @@ impl SerializedMesh {
                     )
                 })
                 .collect(),
-            indices: mesh.indices.expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD"),
+            indices: mesh.indices.replace(None).expect(MESH_EXTRACTED_ERROR),
         }
     }
 
@@ -2190,7 +2192,7 @@ impl MeshDeserializer {
     /// See the documentation for [`SerializedMesh`] for caveats.
     pub fn deserialize(&self, serialized_mesh: SerializedMesh) -> Mesh {
         Mesh {
-            attributes: Some(
+            attributes: MeshExtractableData::Data(
                 serialized_mesh
                 .attributes
                 .into_iter()
@@ -2208,7 +2210,7 @@ impl MeshDeserializer {
                     Some((id, data))
                 })
                 .collect()),
-            indices: Some(serialized_mesh.indices),
+            indices: serialized_mesh.indices.into(),
             ..Mesh::new(serialized_mesh.primitive_topology, RenderAssetUsages::default())
         }
     }
