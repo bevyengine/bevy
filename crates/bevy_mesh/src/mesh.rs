@@ -1094,9 +1094,9 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    pub fn compute_smooth_normals(&mut self) -> Result<(), MeshAccessError> {
+    pub fn compute_smooth_normals(&mut self) {
         self.try_compute_smooth_normals()
-            .expect(MESH_EXTRACTED_ERROR)
+            .expect(MESH_EXTRACTED_ERROR);
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -1251,7 +1251,7 @@ impl Mesh {
     // - [Mesh::with_computed_area_weighted_normals]
     pub fn compute_custom_smooth_normals(
         &mut self,
-        mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
+        per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
     ) {
         self.try_compute_custom_smooth_normals(per_triangle)
             .expect(MESH_EXTRACTED_ERROR)
