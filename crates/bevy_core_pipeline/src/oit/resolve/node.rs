@@ -9,6 +9,8 @@ use bevy_render::{
     view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
 
+use crate::prepass::DepthPrepass;
+
 use super::{OitResolveBindGroup, OitResolvePipeline, OitResolvePipelineId};
 
 /// Render label for the OIT resolve pass.
@@ -26,15 +28,22 @@ impl ViewNode for OitResolveNode {
         &'static OitResolvePipelineId,
         &'static ViewDepthTexture,
         Option<&'static MainPassResolutionOverride>,
+        Has<DepthPrepass>,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, view_target, view_uniform, oit_resolve_pipeline_id, depth, resolution_override): QueryItem<
-            Self::ViewQuery,
-        >,
+        (
+            camera,
+            view_target,
+            view_uniform,
+            oit_resolve_pipeline_id,
+            depth,
+            resolution_override,
+            depth_prepass,
+        ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let Some(resolve_pipeline) = world.get_resource::<OitResolvePipeline>() else {
@@ -53,12 +62,18 @@ impl ViewNode for OitResolveNode {
 
             let diagnostics = render_context.diagnostic_recorder();
 
-            let depth_bind_group = render_context.render_device().create_bind_group(
-                "oit_resolve_depth_bind_group",
-                &pipeline_cache
-                    .get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
-                &BindGroupEntries::single(depth.view()),
-            );
+            let depth_bind_group = if !depth_prepass {
+                Some(
+                    render_context.render_device().create_bind_group(
+                        "oit_resolve_depth_bind_group",
+                        &pipeline_cache
+                            .get_bind_group_layout(&resolve_pipeline.oit_depth_bind_group_layout),
+                        &BindGroupEntries::single(depth.view()),
+                    ),
+                )
+            } else {
+                None
+            };
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("oit_resolve"),
@@ -77,8 +92,9 @@ impl ViewNode for OitResolveNode {
 
             render_pass.set_render_pipeline(pipeline);
             render_pass.set_bind_group(0, bind_group, &[view_uniform.offset]);
-            render_pass.set_bind_group(1, &depth_bind_group, &[]);
-
+            if let Some(depth_bind_group) = &depth_bind_group {
+                render_pass.set_bind_group(1, depth_bind_group, &[]);
+            }
             render_pass.draw(0..3, 0..1);
 
             pass_span.end(&mut render_pass);

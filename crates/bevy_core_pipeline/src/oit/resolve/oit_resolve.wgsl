@@ -6,7 +6,9 @@
 @group(0) @binding(2) var<storage, read_write> headers: array<u32>;
 @group(0) @binding(3) var<storage, read_write> atomic_counter: u32;
 
+#ifndef DEPTH_PREPASS
 @group(1) @binding(0) var depth: texture_depth_2d;
+#endif
 
 struct OitFragment {
     color: vec3<f32>,
@@ -35,11 +37,15 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         }
         return vec4(0.0);
     } else {
-        // Load depth for manual depth testing.
+#ifndef DEPTH_PREPASS
+        // If depth prepass is disabled, load depth for manual depth testing.
         // This is necessary because early z doesn't seem to trigger in the transparent pass.
         // This should be done during the draw pass so those fragments simply don't exist in the list,
         // but this requires a bigger refactor
         let d = textureLoad(depth, vec2<i32>(in.position.xy), 0);
+#else
+        let d = 0.0;
+#endif
         let color = resolve(header, d);
         headers[screen_index] = LINKED_LIST_END_SENTINEL;
         return color;
@@ -62,17 +68,19 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
         let depth_alpha = bevy_core_pipeline::oit::unpack_24bit_depth_8bit_alpha(fragment_node.depth_alpha);
         current_node = fragment_node.next;
 
+#ifndef DEPTH_PREPASS
         // depth testing
         if depth_alpha.x < opaque_depth {
             continue;
         }
+#endif
 
         if sorted_frag_count < SORTED_FRAGMENT_MAX_COUNT {
             // There is still room in the sorted list.
             // Insert the fragment so that the list stay sorted.
             var i = sorted_frag_count;
             for(; i > 0; i -= 1) {
-                // short-circuit can't be used in for-loop, https://github.com/gfx-rs/wgpu/issues/4394
+                // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
                 if depth_alpha.x < fragment_list[i - 1].depth {
                     fragment_list[i] = fragment_list[i - 1];
                 } else {
@@ -91,7 +99,7 @@ fn resolve(header: u32, opaque_depth: f32) -> vec4<f32> {
             final_color = blend(vec4f(fragment_list[0].color * fragment_list[0].alpha, fragment_list[0].alpha), final_color);
             var i = 0u;
             for(; i < SORTED_FRAGMENT_MAX_COUNT - 1; i += 1) {
-                // short-circuit can't be used in for-loop, https://github.com/gfx-rs/wgpu/issues/4394
+                // short-circuit can't be used in for(;;;), https://github.com/gfx-rs/wgpu/issues/4394
                 if fragment_list[i + 1].depth < depth_alpha.x {
                     fragment_list[i] = fragment_list[i + 1];
                 } else {

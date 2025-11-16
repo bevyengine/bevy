@@ -6,7 +6,7 @@
 use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED, YELLOW},
-    core_pipeline::oit::OrderIndependentTransparencySettings,
+    core_pipeline::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass},
     prelude::*,
 };
 
@@ -33,6 +33,8 @@ fn setup(
         RenderLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
+        // Optional: depth prepass can help OIT filter out fragments occluded by opaque objects
+        DepthPrepass,
     ));
 
     // light

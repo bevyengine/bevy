@@ -2,10 +2,16 @@
 
 #import bevy_pbr::mesh_view_bindings::{view, oit_nodes, oit_headers, oit_atomic_counter, oit_settings}
 #import bevy_pbr::mesh_view_types::OitFragmentNode
+#import bevy_pbr::prepass_utils
 
 #ifdef OIT_ENABLED
 // Add the fragment to the oit buffer
 fn oit_draw(position: vec4f, color: vec4f) {
+#ifdef DEPTH_PREPASS
+    if position.z < prepass_utils::prepass_depth(position, 0u) {
+        return;
+    }
+#endif
     // Don't add fully transparent fragments to the list
     // because we don't want to have to sort them in the resolve pass
     if color.a < oit_settings.alpha_threshold {
@@ -13,13 +19,13 @@ fn oit_draw(position: vec4f, color: vec4f) {
     }
     // get the index of the current fragment relative to the screen size
     let screen_index = u32(floor(position.x) + floor(position.y) * view.viewport.z);
-    // get the size of the buffer.
-    // It's always the size of the screen
+    // get the size of oit_nodes. It's screen_size * fragments_per_pixel_average
     let buffer_size = u32(view.viewport.z * view.viewport.w * oit_settings.fragments_per_pixel_average);
 
     var new_node_index = atomicAdd(&oit_atomic_counter, 1);
     // exit early if we've reached the maximum amount of fragments nodes
     if new_node_index >= buffer_size {
+        // TODO for tail blending we should return the color here
         return;
     }
 

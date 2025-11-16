@@ -3,7 +3,7 @@
 use bevy_app::prelude::*;
 use bevy_camera::Camera3d;
 use bevy_ecs::{component::*, prelude::*};
-use bevy_math::{UVec2, UVec3};
+use bevy_math::UVec2;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
@@ -40,7 +40,7 @@ pub struct OrderIndependentTransparencySettings {
     /// If the scene has more fragments than this, they will be merged approximately.
     /// More sorted fragments is more accurate but will be slower.
     pub sorted_fragment_max_count: u32,
-    /// The average fragments per pixel stored in the buffer. This should be bigger enough to make oit succeed.
+    /// The average fragments per pixel stored in the buffer. This should be bigger enough otherwise the fragments will be discarded.
     /// Higher values increase memory usage.
     pub fragments_per_pixel_average: f32,
     /// Threshold for which fragments will be added to the blending layers.
@@ -239,13 +239,15 @@ pub fn prepare_oit_buffers(
     if buffers.headers.capacity() < headers_size {
         let start = Instant::now();
         buffers.headers.clear();
+        buffers.headers.reserve(headers_size, &render_device);
         for _ in 0..headers_size {
             buffers.headers.push(u32::MAX);
         }
         buffers.headers.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT headers buffer updated in {:.01}ms with total size {} MiB",
+            "OIT headers buffer updated in {:.01}ms with capacity {}, total size {} MiB",
             start.elapsed().as_millis(),
+            buffers.headers.capacity(),
             buffers.headers.capacity() * size_of::<u32>() / 1024 / 1024,
         );
     }
@@ -255,14 +257,16 @@ pub fn prepare_oit_buffers(
     if buffers.nodes.capacity() < nodes_size {
         let start = Instant::now();
         buffers.nodes.clear();
+        buffers.nodes.reserve(nodes_size, &render_device);
         for _ in 0..nodes_size {
             buffers.nodes.push(OitFragmentNode::default());
         }
         buffers.nodes.write_buffer(&render_device, &render_queue);
         trace!(
-            "OIT nodes buffer updated in {:.01}ms with total size {} MiB",
+            "OIT nodes buffer updated in {:.01}ms with capacity {}, total size {} MiB",
             start.elapsed().as_millis(),
-            buffers.nodes.capacity() * size_of::<UVec3>() / 1024 / 1024,
+            buffers.nodes.capacity(),
+            buffers.nodes.capacity() * size_of::<OitFragmentNode>() / 1024 / 1024,
         );
     }
 

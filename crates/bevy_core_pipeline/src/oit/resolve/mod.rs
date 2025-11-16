@@ -1,7 +1,7 @@
 use core::num::NonZero;
 
 use super::OitBuffers;
-use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
+use crate::{oit::OrderIndependentTransparencySettings, prepass::DepthPrepass, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
 use bevy_derive::Deref;
@@ -144,6 +144,7 @@ pub struct OitResolvePipelineId(pub CachedRenderPipelineId);
 pub struct OitResolvePipelineKey {
     hdr: bool,
     sorted_fragment_max_count: u32,
+    depth_prepass: bool,
 }
 
 pub fn queue_oit_resolve_pipeline(
@@ -155,6 +156,7 @@ pub fn queue_oit_resolve_pipeline(
             Entity,
             &ExtractedView,
             &OrderIndependentTransparencySettings,
+            Has<DepthPrepass>,
         ),
         With<OrderIndependentTransparencySettings>,
     >,
@@ -165,11 +167,12 @@ pub fn queue_oit_resolve_pipeline(
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
 ) {
     let mut current_view_entities = EntityHashSet::default();
-    for (e, view, oit_settings) in &views {
+    for (e, view, oit_settings, depth_prepass) in &views {
         current_view_entities.insert(e);
         let key = OitResolvePipelineKey {
             hdr: view.hdr,
             sorted_fragment_max_count: oit_settings.sorted_fragment_max_count,
+            depth_prepass,
         };
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
@@ -210,19 +213,23 @@ fn specialize_oit_resolve_pipeline(
     } else {
         TextureFormat::bevy_default()
     };
+    let mut layout = vec![resolve_pipeline.view_bind_group_layout.clone()];
+    let mut shader_defs = vec![ShaderDefVal::UInt(
+        "SORTED_FRAGMENT_MAX_COUNT".into(),
+        key.sorted_fragment_max_count,
+    )];
+    if key.depth_prepass {
+        shader_defs.push(ShaderDefVal::Bool("DEPTH_PREPASS".into(), true));
+    } else {
+        layout.push(resolve_pipeline.oit_depth_bind_group_layout.clone());
+    }
 
     RenderPipelineDescriptor {
         label: Some("oit_resolve_pipeline".into()),
-        layout: vec![
-            resolve_pipeline.view_bind_group_layout.clone(),
-            resolve_pipeline.oit_depth_bind_group_layout.clone(),
-        ],
+        layout,
         fragment: Some(FragmentState {
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
-            shader_defs: vec![ShaderDefVal::UInt(
-                "SORTED_FRAGMENT_MAX_COUNT".into(),
-                key.sorted_fragment_max_count,
-            )],
+            shader_defs,
             targets: vec![Some(ColorTargetState {
                 format,
                 blend: Some(BlendState {
