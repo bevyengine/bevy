@@ -830,7 +830,7 @@ pub fn extract_ui_camera_view(
 
         if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
             #[cfg(feature = "bevy_ui_container")]
-            let (Some(viewport_size),) = (camera.physical_viewport_size(),) else {
+            let Some(viewport_size) = camera.physical_viewport_size() else {
                 continue;
             };
 
