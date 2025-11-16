@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, vec, vec::Vec};
+use alloc::{boxed::Box, string::ToString as _, vec, vec::Vec};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -111,7 +111,7 @@ impl BundleInfo {
                 .into_iter()
                 .map(|id| {
                     // SAFETY: the caller ensures component_id is valid.
-                    unsafe { components.get_info_unchecked(id).name() }
+                    unsafe { components.get_info_unchecked(id).name().to_string() }
                 })
                 .collect::<Vec<_>>();
 
