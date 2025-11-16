@@ -301,7 +301,9 @@ pub fn update_image_content_size_system(
         ),
         UpdateImageFilter,
     >,
-    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<
+        UiContainerChild,
+    >,
 ) {
     #[cfg(feature = "bevy_ui_container")]
     let removed_uicontains = query

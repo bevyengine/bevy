@@ -172,7 +172,9 @@ impl Plugin for UiPlugin {
             PostUpdate,
             PropagateSet::<UiContainerChild>::default().in_set(UiSystems::Propagate),
         )
-        .add_plugins(HierarchyPropagatePlugin::<UiContainerChild>::new(PostUpdate));
+        .add_plugins(HierarchyPropagatePlugin::<UiContainerChild>::new(
+            PostUpdate,
+        ));
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)

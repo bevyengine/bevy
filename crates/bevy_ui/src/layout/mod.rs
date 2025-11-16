@@ -5,7 +5,7 @@ use crate::{
     Node, Outline, OverflowAxis, ScrollPosition,
 };
 #[cfg(feature = "bevy_ui_container")]
-use crate::{UiContainerSize, UiContainerChild};
+use crate::{UiContainerChild, UiContainerSize};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -118,7 +118,9 @@ pub fn ui_layout_system(
         &UiContainerSize,
         &Anchor,
     )>,
-    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<
+        UiContainerChild,
+    >,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
