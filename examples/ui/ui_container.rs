@@ -152,7 +152,6 @@ Digit2 Switching uicontain Anchor",
 Anchor: None
 Overflow: UnKnown
 GlobalTransform: None
-
 GlobalTranfrom Camera: None",
                 ),
                 InfoText,
@@ -196,7 +195,6 @@ fn update_text(
 Anchor: {:?}
 Overflow: {:?}
 GlobalTransform: {:?}
-
 GlobalTranfrom Camera: {:?}",
         anchor, overflow_text, global_uicontain, global_camera,
     );
