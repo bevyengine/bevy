@@ -490,10 +490,8 @@ where
     B: Bundle,
 {
     let mut found = false;
-    B::get_component_ids(components, &mut |maybe_id| {
-        if let Some(id) = maybe_id {
-            found = found || id == query_id;
-        }
-    });
+    for id in B::get_component_ids(components).flatten() {
+        found = found || id == query_id;
+    }
     found
 }
