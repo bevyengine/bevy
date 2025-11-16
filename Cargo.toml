@@ -2403,7 +2403,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
@@ -3804,7 +3803,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
+wasm = false
 
 [[example]]
 name = "viewport_node"

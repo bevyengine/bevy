@@ -199,11 +199,14 @@ use bevy_ptr::OwningPtr;
 )]
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
+    /// This will register the component if it doesn't exist.
     #[doc(hidden)]
-    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId));
+    fn component_ids(
+        components: &mut ComponentsRegistrator,
+    ) -> impl Iterator<Item = ComponentId> + use<Self>;
 
-    /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
-    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+    /// Return a iterator over this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
+    fn get_component_ids(components: &Components) -> impl Iterator<Item = Option<ComponentId>>;
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.
