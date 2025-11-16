@@ -351,7 +351,7 @@ pub fn queue_shadows(
         });
         #[cfg(feature = "bevy_ui_container")]
         {
-            let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
+            let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
                 continue;
             };
 

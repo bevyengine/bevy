@@ -354,7 +354,7 @@ pub fn extract_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -638,7 +638,7 @@ pub fn queue_gradient(
         });
         #[cfg(feature = "bevy_ui_container")]
         {
-            let Ok(view) = camera_views.get(default_camera_view.ui_contain) else {
+            let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
                 continue;
             };
 

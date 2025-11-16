@@ -434,16 +434,16 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         // Run the subgraph on the UI view.
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
         #[cfg(feature = "bevy_ui_container")]
-        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_contain))?;
+        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container))?;
         Ok(())
     }
 }
 
 #[cfg(not(feature = "bevy_ui_container"))]
-type Feature = ();
+type FeatureExtract = ();
 
 #[cfg(feature = "bevy_ui_container")]
-type Feature = Has<UiContainerChild>;
+type FeatureExtract = Has<UiContainerChild>;
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
@@ -457,7 +457,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -527,7 +527,7 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -616,7 +616,7 @@ pub fn extract_uinode_borders(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -772,7 +772,7 @@ const UI_CAMERA_SUBVIEW: u32 = 1;
 pub struct UiCameraView {
     pub ui_camera: Entity,
     #[cfg(feature = "bevy_ui_container")]
-    pub ui_contain: Entity,
+    pub ui_container: Entity,
 }
 
 /// A render-world component that lives on the UI view and specifies the
@@ -786,10 +786,10 @@ pub struct UiCameraView {
 pub struct UiViewTarget(pub Entity);
 
 #[cfg(not(feature = "bevy_ui_container"))]
-type UiContainView = ();
+type UiContainerView = ();
 
 #[cfg(feature = "bevy_ui_container")]
-type UiContainView = (&'static GlobalTransform, Option<&'static ColorGrading>);
+type UiContainerView = (&'static GlobalTransform, Option<&'static ColorGrading>);
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
@@ -804,7 +804,7 @@ pub fn extract_ui_camera_view(
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
-                UiContainView,
+                UiContainerView,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -907,7 +907,7 @@ pub fn extract_ui_camera_view(
             entity_commands.insert(UiCameraView {
                 ui_camera: ui_camera_view,
                 #[cfg(feature = "bevy_ui_container")]
-                ui_contain: ui_contain_camera_view,
+                ui_container: ui_contain_camera_view,
             });
             if let Some(ui_anti_alias) = ui_anti_alias {
                 entity_commands.insert(*ui_anti_alias);
@@ -939,7 +939,7 @@ pub fn extract_viewport_nodes(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ViewportNode,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -1007,7 +1007,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -1117,7 +1117,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1274,7 +1274,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1555,9 +1555,9 @@ pub fn queue_uinodes(
 
     #[cfg(feature = "bevy_ui_container")]
     {
-        let mut current_camera_entity = Entity::PLACEHOLDER;
+        current_camera_entity = Entity::PLACEHOLDER;
 
-        let mut current_phase = None;
+        current_phase = None;
 
         for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
             if !extracted_uinode.is_contain {
@@ -1569,7 +1569,7 @@ pub fn queue_uinodes(
                     render_views.get(extracted_uinode.extracted_camera_entity)
                 {
                     current_phase = camera_views
-                        .get(default_camera_view.ui_contain)
+                        .get(default_camera_view.ui_container)
                         .ok()
                         .and_then(|view| {
                             transparent_render_phases

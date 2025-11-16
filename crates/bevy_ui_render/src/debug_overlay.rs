@@ -4,7 +4,7 @@ use super::ExtractedUiNodes;
 use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
-use crate::Feature;
+use crate::FeatureExtract;
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
@@ -70,7 +70,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
-            Feature,
+            FeatureExtract,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
