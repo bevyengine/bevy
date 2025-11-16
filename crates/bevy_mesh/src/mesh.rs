@@ -1094,6 +1094,27 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    pub fn compute_smooth_normals(&mut self) -> Result<(), MeshAccessError> {
+        self.try_compute_smooth_normals()
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// This method weights normals by the angles of the corners of connected triangles, thus
+    /// eliminating triangle area and count as factors in the final normal. This does make it
+    /// somewhat slower than [`Mesh::compute_area_weighted_normals`] which does not need to
+    /// greedily normalize each triangle's normal or calculate corner angles.
+    ///
+    /// If you would rather have the computed normals be weighted by triangle area, see
+    /// [`Mesh::compute_area_weighted_normals`] instead. If you need to weight them in some other
+    /// way, see [`Mesh::compute_custom_smooth_normals`].
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
     pub fn try_compute_smooth_normals(&mut self) -> Result<(), MeshAccessError> {
         self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let pa = Vec3::from(positions[a]);
@@ -1150,6 +1171,29 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
+    pub fn compute_area_weighted_normals(&mut self) {
+        self.try_compute_area_weighted_normals()
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// This method weights normals by the area of each triangle containing the vertex. Thus,
+    /// larger triangles will skew the normals of their vertices towards their own normal more
+    /// than smaller triangles will.
+    ///
+    /// This method is actually somewhat faster than [`Mesh::compute_smooth_normals`] because an
+    /// intermediate result of triangle normal calculation is already scaled by the triangle's area.
+    ///
+    /// If you would rather have the computed normals be influenced only by the angles of connected
+    /// edges, see [`Mesh::compute_smooth_normals`] instead. If you need to weight them in some
+    /// other way, see [`Mesh::compute_custom_smooth_normals`].
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
     pub fn try_compute_area_weighted_normals(&mut self) -> Result<(), MeshAccessError> {
         self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let normal = Vec3::from(triangle_area_normal(
@@ -1161,6 +1205,56 @@ impl Mesh {
                 normals[pos] += normal;
             });
         })
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
+    /// vertices.
+    ///
+    /// This method allows you to customize how normals are weighted via the `per_triangle` parameter,
+    /// which must be a function or closure that accepts 3 parameters:
+    /// - The indices of the three vertices of the triangle as a `[usize; 3]`.
+    /// - A reference to the values of the [`Mesh::ATTRIBUTE_POSITION`] of the mesh (`&[[f32; 3]]`).
+    /// - A mutable reference to the sums of all normals so far.
+    ///
+    /// See also the standard methods included in Bevy for calculating smooth normals:
+    /// - [`Mesh::compute_smooth_normals`]
+    /// - [`Mesh::compute_area_weighted_normals`]
+    ///
+    /// An example that would weight each connected triangle's normal equally, thus skewing normals
+    /// towards the planes divided into the most triangles:
+    /// ```
+    /// # use bevy_asset::RenderAssetUsages;
+    /// # use bevy_mesh::{Mesh, PrimitiveTopology, Meshable, MeshBuilder};
+    /// # use bevy_math::{Vec3, primitives::Cuboid};
+    /// # let mut mesh = Cuboid::default().mesh().build();
+    /// mesh.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+    ///     let normal = Vec3::from(bevy_mesh::triangle_normal(positions[a], positions[b], positions[c]));
+    ///     for idx in [a, b, c] {
+    ///         normals[idx] += normal;
+    ///     }
+    /// });
+    /// ```
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    /// Panics if the mesh does not have indices defined.
+    //
+    // FIXME: This should handle more cases since this is called as a part of gltf
+    // mesh loading where we can't really blame users for loading meshes that might
+    // not conform to the limitations here!
+    //
+    // When fixed, also update "Panics" sections of
+    // - [Mesh::compute_smooth_normals]
+    // - [Mesh::with_computed_smooth_normals]
+    // - [Mesh::compute_area_weighted_normals]
+    // - [Mesh::with_computed_area_weighted_normals]
+    pub fn compute_custom_smooth_normals(
+        &mut self,
+        mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
+    ) {
+        self.try_compute_custom_smooth_normals(per_triangle)
+            .expect(MESH_EXTRACTED_ERROR)
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
