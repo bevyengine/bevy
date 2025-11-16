@@ -2918,18 +2918,29 @@ impl ComputedUiRenderTargetInfo {
 /// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainerSize` is located in world space.
 /// When the root node and its child nodes point to the same `UiContainerSize`, the functionality is work.
 /// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
-///
-/// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, PartialEq, Clone)]
 #[relationship(relationship_target = UiContainerOf)]
-pub struct UiContainerChild(pub Entity);
+pub struct UiContainerTarget(pub Entity);
 
 #[derive(Component, Default, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = UiContainerChild, linked_spawn)]
+#[relationship_target(relationship = UiContainerTarget, linked_spawn)]
 pub struct UiContainerOf(Vec<Entity>);
 
 /// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
+///
+/// ```
+/// use bevy_ecs::prelude::World;
+/// use bevy_ui::UiContainerSize;
+/// use bevy_ui::Node;
+/// use bevy_ui::UiContainerTarget;
+/// 
+/// let mut world = World::new();
+/// let ui_container = world.spawn(UiContainerSize::default()).id();
+///
+/// world.spawn((Node::default(), UiContainerTarget(ui_container)));
+///
+/// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
 #[require(
@@ -2939,7 +2950,7 @@ pub struct UiContainerOf(Vec<Entity>);
     Anchor,
     UiScale
 )]
-pub struct UiContainerSize(pub Vec2);
+pub struct UiContainerSize(pub UVec2);
 
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Clone)]

@@ -5,7 +5,7 @@ use crate::{
     Node, Outline, OverflowAxis, ScrollPosition,
 };
 #[cfg(feature = "bevy_ui_container")]
-use crate::{UiContainerChild, UiContainerSize};
+use crate::{UiContainerSize, UiContainerTarget};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -81,7 +81,7 @@ pub enum LayoutError {
 type Feature = ();
 
 #[cfg(feature = "bevy_ui_container")]
-type Feature = Option<&'static UiContainerChild>;
+type Feature = Option<&'static UiContainerTarget>;
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
@@ -112,14 +112,14 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
     #[cfg(feature = "bevy_ui_container")] mut ui_surface_query: Query<&mut UiSurface>,
-    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerTarget>,
     #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
         &GlobalTransform,
         &UiContainerSize,
         &Anchor,
     )>,
     #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<
-        UiContainerChild,
+        UiContainerTarget,
     >,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
@@ -390,11 +390,11 @@ pub fn ui_layout_system(
                     local_transform.translation += global.translation().xy();
 
                     // Root node center offset
-                    let offset = flip_y.transform_vector2(contain.0);
+                    let offset = flip_y.transform_vector2(contain.0.as_vec2());
                     local_transform.translation -= offset / 2.0;
 
                     // Anchor offset
-                    let offset_anchor = anchor.as_vec() * contain.0;
+                    let offset_anchor = anchor.as_vec() * contain.0.as_vec2();
                     local_transform.translation -= offset_anchor;
                 }
                 local_transform.translation += flip_y.transform_vector2(local_center);
@@ -1374,10 +1374,7 @@ mod tests {
             let world = app.world_mut();
 
             let ui_contain = world
-                .spawn(UiContainerSize(Vec2::new(
-                    WINDOW_WIDTH as f32,
-                    WINDOW_HEIGHT as f32,
-                )))
+                .spawn(UiContainerSize(UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)))
                 .id();
 
             // spawn a root entity with width and height set to fill 100% of its parent
@@ -1388,7 +1385,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -1399,7 +1396,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -1438,7 +1435,7 @@ mod tests {
             assert!(ui_surface.entity_to_taffy.is_empty());
 
             let ui_entity = world
-                .spawn((Node::default(), UiContainerChild(ui_surface_entity)))
+                .spawn((Node::default(), UiContainerTarget(ui_surface_entity)))
                 .id();
 
             app.update();
@@ -1470,7 +1467,7 @@ mod tests {
                 .id();
 
             let ui_entity = world
-                .spawn((Node::default(), UiContainerChild(ui_surface_entity)))
+                .spawn((Node::default(), UiContainerTarget(ui_surface_entity)))
                 .id();
 
             // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
@@ -1503,7 +1500,7 @@ mod tests {
             let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_parent_entity = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
 
             // `ui_layout_system` will insert a ui node into the internal layout tree corresponding to `ui_entity`
@@ -1519,7 +1516,7 @@ mod tests {
             let mut ui_child_entities = (0..10)
                 .map(|_| {
                     let child = world
-                        .spawn((Node::default(), UiContainerChild(ui_contain)))
+                        .spawn((Node::default(), UiContainerTarget(ui_contain)))
                         .id();
                     world.entity_mut(ui_parent_entity).add_child(child);
                     child
@@ -1657,8 +1654,8 @@ mod tests {
 
             // spawn an invalid UI root node,it have to point to uicontain.
             let root_node = world
-                .spawn(UiContainerChild(ui_contain))
-                .with_child((Node::default(), UiContainerChild(ui_contain)))
+                .spawn(UiContainerTarget(ui_contain))
+                .with_child((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
 
             app.update();
@@ -1686,14 +1683,14 @@ mod tests {
             let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let d = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
-            let c = world.spawn(UiContainerChild(ui_contain)).add_child(d).id();
+            let c = world.spawn(UiContainerTarget(ui_contain)).add_child(d).id();
             let b = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
             let a = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .add_children(&[b, c])
                 .id();
 
@@ -1734,7 +1731,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainerChild(ui_contain),
+                UiContainerTarget(ui_contain),
             ));
 
             size -= 50.;
@@ -1746,7 +1743,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainerChild(ui_contain),
+                UiContainerTarget(ui_contain),
             ));
 
             size -= 50.;
@@ -1758,7 +1755,7 @@ mod tests {
                     height: Val::Px(size),
                     ..default()
                 },
-                UiContainerChild(ui_contain),
+                UiContainerTarget(ui_contain),
             ));
 
             app.update();
@@ -1907,7 +1904,7 @@ mod tests {
                     ..default()
                 },
                 MovingUiNode,
-                UiContainerChild(ui_contain),
+                UiContainerTarget(ui_contain),
             ));
 
             app.update();
@@ -1966,7 +1963,7 @@ mod tests {
                         ..default()
                     },
                     ContentSize::fixed_size(content_size),
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -1997,7 +1994,7 @@ mod tests {
                         ..Default::default()
                     },
                     ContentSize::fixed_size(content_size),
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -2044,7 +2041,7 @@ mod tests {
                         margin: UiRect::all(Val::Px(4.0)),
                         ..default()
                     },
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .with_children(|commands| {
                     for _ in 0..2 {
@@ -2055,7 +2052,7 @@ mod tests {
                                 height: Val::Px(160.),
                                 ..default()
                             },
-                            UiContainerChild(ui_contain),
+                            UiContainerTarget(ui_contain),
                         ));
                     }
                 })
@@ -2127,7 +2124,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -2138,7 +2135,7 @@ mod tests {
                         height: Val::Percent(100.),
                         ..default()
                     },
-                    UiContainerChild(ui_contain),
+                    UiContainerTarget(ui_contain),
                 ))
                 .id();
 
@@ -2209,7 +2206,7 @@ mod tests {
             let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_root_entity = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
 
             // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
@@ -2256,10 +2253,10 @@ mod tests {
             let ui_contain = world.spawn(UiContainerSize::default()).id();
 
             let ui_root_entity_1 = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
             let ui_root_entity_2 = world
-                .spawn((Node::default(), UiContainerChild(ui_contain)))
+                .spawn((Node::default(), UiContainerTarget(ui_contain)))
                 .id();
 
             app.update();

@@ -29,7 +29,7 @@ use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 #[cfg(feature = "bevy_ui_container")]
-use bevy_ui::UiContainerChild;
+use bevy_ui::UiContainerTarget;
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -443,7 +443,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 type FeatureExtract = ();
 
 #[cfg(feature = "bevy_ui_container")]
-type FeatureExtract = Has<UiContainerChild>;
+type FeatureExtract = Has<UiContainerTarget>;
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,

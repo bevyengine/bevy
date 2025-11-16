@@ -7,7 +7,7 @@ use crate::{
     Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 #[cfg(feature = "bevy_ui_container")]
-use crate::{UiContainerChild, UiContainerOverflow, UiContainerSize};
+use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};
 
 use super::ComputedNode;
 use bevy_app::Propagate;
@@ -36,7 +36,7 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
-    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerTarget>,
     #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
         &UiContainerSize,
         &UiContainerOverflow,
@@ -55,8 +55,8 @@ pub fn update_clipping_system(
                 };
                 // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
                 let mut clip_rect = Rect::from_center_size(
-                    global.translation().xy() - anchor.as_vec() * size.0,
-                    size.0,
+                    global.translation().xy() - anchor.as_vec() * size.0.as_vec2(),
+                    size.0.as_vec2(),
                 );
 
                 if overflow.0.x == OverflowAxis::Visible {
@@ -186,7 +186,7 @@ pub fn propagate_ui_target_cameras(
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
     #[cfg(feature = "bevy_ui_container")] query_ui_scale: Query<(&UiScale, &UiContainerSize)>,
-    #[cfg(feature = "bevy_ui_container")] query_target: Query<&UiContainerChild>,
+    #[cfg(feature = "bevy_ui_container")] query_target: Query<&UiContainerTarget>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -212,7 +212,7 @@ pub fn propagate_ui_target_cameras(
                         let Ok((scale, size)) = query_ui_scale.get(target.0) else {
                             return (1.0, UVec2::ZERO);
                         };
-                        (scale.0, size.0.as_uvec2())
+                        (scale.0, size.0)
                     } else {
                         (
                             camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,

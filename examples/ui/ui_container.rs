@@ -1,5 +1,6 @@
-//! Pointing to [`UiContainSize`],layout based on this container size.
-//! Nodes will be laid out according to the size and Transform of `UiContainSize`
+//! Pointing to [`UiContainerSize`],layout based on this container size.
+//! Nodes will be laid out according to the size and Transform of `UiContainerSize`
+//! This example requires enabling the `bevy_ui_container` feature
 
 use bevy::{
     app::Propagate, input::common_conditions::input_just_released, prelude::*, sprite::Anchor,
@@ -44,17 +45,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..Default::default()
     });
 
-    // Initialize uicontain
+    // Initialize uicontainer
     let ui_contain = commands
         .spawn((
-            UiContainerSize(Vec2::new(300.0, 300.0)),
+            UiContainerSize(UVec2::new(300, 300)),
             Anchor::TOP_LEFT,
             UiContainerOverflow(Overflow::clip()),
-            // Transform::from_xyz(-500.0, 0.0, 0.0),
-            // Sprite {
-            //     custom_size: Some(Vec2::new(300.0, 300.0)),
-            //     ..Default::default()
-            // },
             UiContainInfo,
         ))
         .id();
@@ -66,7 +62,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: px(300.0),
                 height: px(300.0),
                 border: px(4.0).all(),
-                // overflow:Overflow::clip(),
                 ..Default::default()
             },
             BorderColor {
@@ -75,8 +70,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 bottom: Srgba::RED.into(),
                 left: Srgba::WHITE.into(),
             },
-            Propagate(UiContainerChild(ui_contain)),
-            ContainNode, // Button,
+            Propagate(UiContainerTarget(ui_contain)),
+            ContainNode,
         ))
         .with_children(|parent| {
             parent
@@ -228,7 +223,7 @@ fn update_contain_pos(
 
 fn switch_node_type(
     mut commands: Commands,
-    query: Single<(Entity, Has<UiContainerChild>), With<ContainNode>>,
+    query: Single<(Entity, Has<UiContainerTarget>), With<ContainNode>>,
     contain: Single<Entity, With<UiContainInfo>>,
 ) {
     let (entity_node, is_contain_node) = query.into_inner();
@@ -236,11 +231,11 @@ fn switch_node_type(
     if is_contain_node {
         commands
             .entity(entity_node)
-            .remove::<Propagate<UiContainerChild>>();
+            .remove::<Propagate<UiContainerTarget>>();
     } else {
         commands
             .entity(entity_node)
-            .insert(Propagate(UiContainerChild(contain.into_inner())));
+            .insert(Propagate(UiContainerTarget(contain.into_inner())));
     }
 }
 

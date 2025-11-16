@@ -170,9 +170,9 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_ui_container")]
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<UiContainerChild>::default().in_set(UiSystems::Propagate),
+            PropagateSet::<UiContainerTarget>::default().in_set(UiSystems::Propagate),
         )
-        .add_plugins(HierarchyPropagatePlugin::<UiContainerChild>::new(
+        .add_plugins(HierarchyPropagatePlugin::<UiContainerTarget>::new(
             PostUpdate,
         ));
 

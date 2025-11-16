@@ -1,5 +1,5 @@
 #[cfg(feature = "bevy_ui_container")]
-use crate::UiContainerChild;
+use crate::UiContainerTarget;
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
@@ -302,7 +302,7 @@ pub fn update_image_content_size_system(
         UpdateImageFilter,
     >,
     #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<
-        UiContainerChild,
+        UiContainerTarget,
     >,
 ) {
     #[cfg(feature = "bevy_ui_container")]
