@@ -1,4 +1,5 @@
 use alloc::{format, string::String, vec::Vec};
+use bevy_platform::collections::HashSet;
 use core::fmt::Write as _;
 
 use thiserror::Error;
@@ -148,7 +149,7 @@ impl ScheduleBuildError {
     }
 
     fn hierarchy_redundancy_to_string(
-        transitive_edges: &[(NodeId, NodeId)],
+        transitive_edges: &HashSet<(NodeId, NodeId)>,
         graph: &ScheduleGraph,
     ) -> String {
         let mut message = String::from("hierarchy contains redundant edge(s)");
