@@ -17,9 +17,11 @@ use crate::{
     view::{ExtractedWindows, ViewTarget},
 };
 use alloc::sync::Arc;
+use bevy_camera::NormalizedRenderTarget;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
+use bevy_render::camera::ExtractedCamera;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
@@ -29,7 +31,10 @@ use wgpu::{
 };
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, With<ViewTarget>>>) {
+pub fn render_system(
+    world: &mut World,
+    state: &mut SystemState<Query<(&ViewTarget, &ExtractedCamera)>>,
+) {
     world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
         graph.update(world);
     });
@@ -77,23 +82,17 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     {
         let _span = info_span!("present_frames").entered();
 
-        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = state.get(world).iter().collect::<Vec<_>>();
-        for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
-        }
-
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(surface_texture) = window.swap_chain_texture.take() {
-                // TODO(clean): winit docs recommends calling pre_present_notify before this.
-                // though `present()` doesn't present the frame, it schedules it to be presented
-                // by wgpu.
-                // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                surface_texture.present();
+        world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
+            let views = state.get(world);
+            for (view_target, camera) in views.iter() {
+                if let Some(NormalizedRenderTarget::Window(window)) = camera.target {
+                    if view_target.needs_present() {
+                        let window = windows.get_mut(&window.entity()).unwrap();
+                        window.present();
+                    }
+                }
             }
-        }
+        });
 
         #[cfg(feature = "tracing-tracy")]
         tracing::event!(
@@ -110,7 +109,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
             bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.", );
             }
             bevy_time::TrySendError::Disconnected(_) => {
                 // ignore disconnected errors, the main world probably just got dropped during shutdown
