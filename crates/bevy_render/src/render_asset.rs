@@ -28,6 +28,15 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct AssetExtractionSystems;
 
+/// Error returned when an asset due for extraction has already been extracted
+#[derive(Debug, Error)]
+pub enum AssetExtractionError {
+    #[error("The asset has already been extracted")]
+    Extracted,
+    #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
+    NoExtractionImplementation
+}
+
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred
@@ -85,14 +94,14 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 
     /// Make a copy of the asset to be moved to the `RenderWorld` / gpu. Heavy internal data (pixels, vertex attributes)
     /// should be moved into the copy, leaving this asset with only metadata.
-    /// A null return value can be used to indicate that the asset has already been extracted, and should not
+    /// An error may be returned to indicate that the asset has already been extracted, and should not
     /// have been modified on the CPU side (as it cannot be transferred to GPU again).
     /// The previous GPU asset is also provided, which can be used to check if the modification is valid.
     fn take_gpu_data(
-        source: &mut Self::SourceAsset,
+        _source: &mut Self::SourceAsset,
         _previous_gpu_asset: Option<&Self>,
-    ) -> Option<Self::SourceAsset> {
-        Some(source.clone())
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
+        Err(AssetExtractionError::NoExtractionImplementation)
     }
 }
 
@@ -295,8 +304,9 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.get_mut_untracked(id) {
                                 let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
-                                let Some(gpu_data_asset) = A::take_gpu_data(asset, previous_asset) else {
-                                    panic!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", core::any::type_name::<A>())
+                                let Ok(gpu_data_asset) = A::take_gpu_data(asset, previous_asset) else {
+                                    error!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", core::any::type_name::<A>());
+                                    continue;
                                 };
                                 extracted_assets.push((id, gpu_data_asset));
                                 added.insert(id);

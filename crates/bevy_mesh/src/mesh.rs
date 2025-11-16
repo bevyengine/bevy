@@ -29,6 +29,106 @@ use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 
+/// Error from accessing mesh vertex attributes or indices
+#[derive(Error, Debug, Clone)]
+pub enum MeshAccessError {
+    #[error("The mesh vertex/index data has been extracted to the RenderWorld (via `Mesh::asset_usage`)")]
+    ExtractedToRenderWorld,
+    #[error("The requested mesh data wasn't found in this mesh")]
+    NotFound,
+}
+
+const MESH_EXTRACTED_ERROR: &str = "Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh `asset_usage` must include `MAIN_WORLD`";
+
+#[derive(Debug, Clone, PartialEq, Reflect, Default)]
+enum MeshExtractableData<T> {
+    Data(T),
+    #[default]
+    NoData,
+    ExtractedToRenderWorld,
+}
+
+impl<T> MeshExtractableData<T> {
+    fn as_ref(&self) -> Result<&T, MeshAccessError> {
+        match self {
+            MeshExtractableData::Data(data) => Ok(data),
+            MeshExtractableData::NoData => Err(MeshAccessError::NotFound),
+            MeshExtractableData::ExtractedToRenderWorld => {
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+        }
+    }
+
+    fn as_ref_option(&self) -> Result<Option<&T>, MeshAccessError> {
+        match self {
+            MeshExtractableData::Data(data) => Ok(Some(data)),
+            MeshExtractableData::NoData => Ok(None),
+            MeshExtractableData::ExtractedToRenderWorld => {
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+        }
+    }
+
+    fn as_mut(&mut self) -> Result<&mut T, MeshAccessError> {
+        match self {
+            MeshExtractableData::Data(data) => Ok(data),
+            MeshExtractableData::NoData => Err(MeshAccessError::NotFound),
+            MeshExtractableData::ExtractedToRenderWorld => {
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+        }
+    }
+
+    fn as_mut_option(&mut self) -> Result<Option<&mut T>, MeshAccessError> {
+        match self {
+            MeshExtractableData::Data(data) => Ok(Some(data)),
+            MeshExtractableData::NoData => Ok(None),
+            MeshExtractableData::ExtractedToRenderWorld => {
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+        }
+    }
+
+    pub fn as_deref_option(&self) -> Result<Option<&T::Target>, MeshAccessError>
+    where
+        T: std::ops::Deref,
+    {
+        self.as_ref_option().map(|t| t.map(std::ops::Deref::deref))
+    }
+
+    fn extract(&mut self) -> Result<MeshExtractableData<T>, MeshAccessError> {
+        match core::mem::replace(self, MeshExtractableData::ExtractedToRenderWorld) {
+            MeshExtractableData::ExtractedToRenderWorld => {
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+            not_extracted => Ok(not_extracted),
+        }
+    }
+
+    fn replace(
+        &mut self,
+        data: impl Into<MeshExtractableData<T>>,
+    ) -> Result<Option<T>, MeshAccessError> {
+        match std::mem::replace(self, data.into()) {
+            MeshExtractableData::ExtractedToRenderWorld => {
+                *self = MeshExtractableData::ExtractedToRenderWorld;
+                Err(MeshAccessError::ExtractedToRenderWorld)
+            }
+            MeshExtractableData::Data(t) => Ok(Some(t)),
+            MeshExtractableData::NoData => Ok(None),
+        }
+    }
+}
+
+impl<T> From<Option<T>> for MeshExtractableData<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(data) => MeshExtractableData::Data(data),
+            None => MeshExtractableData::NoData,
+        }
+    }
+}
+
 /// A 3D object made out of vertices representing triangles, lines, or points,
 /// with "attribute" values for each vertex.
 ///
@@ -128,12 +228,12 @@ pub struct Mesh {
     /// Uses a [`BTreeMap`] because, unlike `HashMap`, it has a defined iteration order,
     /// which allows easy stable `VertexBuffers` (i.e. same buffer order)
     #[reflect(ignore, clone)]
-    attributes: Option<BTreeMap<MeshVertexAttributeId, MeshAttributeData>>,
-    indices: Option<Option<Indices>>,
+    attributes: MeshExtractableData<BTreeMap<MeshVertexAttributeId, MeshAttributeData>>,
+    indices: MeshExtractableData<Indices>,
     #[cfg(feature = "morph")]
-    morph_targets: Option<Handle<Image>>,
+    morph_targets: MeshExtractableData<Handle<Image>>,
     #[cfg(feature = "morph")]
-    morph_target_names: Option<Vec<String>>,
+    morph_target_names: MeshExtractableData<Vec<String>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether or not to build a BLAS for use with `bevy_solari` raytracing.
     ///
@@ -236,12 +336,12 @@ impl Mesh {
     pub fn new(primitive_topology: PrimitiveTopology, asset_usage: RenderAssetUsages) -> Self {
         Mesh {
             primitive_topology,
-            attributes: Some(Default::default()),
-            indices: Some(None),
+            attributes: MeshExtractableData::Data(Default::default()),
+            indices: MeshExtractableData::NoData,
             #[cfg(feature = "morph")]
-            morph_targets: None,
+            morph_targets: MeshExtractableData::NoData,
             #[cfg(feature = "morph")]
-            morph_target_names: None,
+            morph_target_names: MeshExtractableData::NoData,
             asset_usage,
             enable_raytracing: true,
             final_aabb_extents: None,
@@ -277,8 +377,36 @@ impl Mesh {
 
         self.attributes
             .as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+            .expect(MESH_EXTRACTED_ERROR)
             .insert(attribute.id, MeshAttributeData { attribute, values });
+    }
+
+    /// Sets the data for a vertex attribute (position, normal, etc.). The name will
+    /// often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[inline]
+    pub fn try_insert_attribute(
+        &mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Result<(), MeshAccessError> {
+        let values = values.into();
+        let values_format = VertexFormat::from(&values);
+        if values_format != attribute.format {
+            panic!(
+                "Failed to insert attribute. Invalid attribute format for {}. Given format is {values_format:?} but expected {:?}",
+                attribute.name, attribute.format
+            );
+        }
+
+        self.attributes
+            .as_mut()?
+            .insert(attribute.id, MeshAttributeData { attribute, values });
+        Ok(())
     }
 
     /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
@@ -301,6 +429,26 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh with data set for a vertex attribute (position, normal, etc.).
+    /// The name will often be one of the associated constants such as [`Mesh::ATTRIBUTE_POSITION`].
+    ///
+    /// (Alternatively, you can use [`Mesh::insert_attribute`] to mutate an existing mesh in-place)
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    ///
+    /// # Panics
+    /// Panics when the format of the values does not match the attribute's format.
+    #[must_use]
+    #[inline]
+    pub fn try_with_inserted_attribute(
+        mut self,
+        attribute: MeshVertexAttribute,
+        values: impl Into<VertexAttributeValues>,
+    ) -> Result<Self, MeshAccessError> {
+        self.try_insert_attribute(attribute, values)?;
+        Ok(self)
+    }
+
     /// Removes the data for a vertex attribute
     pub fn remove_attribute(
         &mut self,
@@ -308,9 +456,22 @@ impl Mesh {
     ) -> Option<VertexAttributeValues> {
         self.attributes
             .as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+            .expect(MESH_EXTRACTED_ERROR)
             .remove(&attribute.into())
             .map(|data| data.values)
+    }
+
+    /// Removes the data for a vertex attribute
+    pub fn try_remove_attribute(
+        &mut self,
+        attribute: impl Into<MeshVertexAttributeId>,
+    ) -> Result<VertexAttributeValues, MeshAccessError> {
+        Ok(self
+            .attributes
+            .as_mut()?
+            .remove(&attribute.into())
+            .ok_or(MeshAccessError::NotFound)?
+            .values)
     }
 
     /// Consumes the mesh and returns a mesh without the data for a vertex attribute
@@ -322,11 +483,32 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh without the data for a vertex attribute
+    ///
+    /// (Alternatively, you can use [`Mesh::remove_attribute`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn try_with_removed_attribute(
+        mut self,
+        attribute: impl Into<MeshVertexAttributeId>,
+    ) -> Result<Self, MeshAccessError> {
+        self.try_remove_attribute(attribute)?;
+        Ok(self)
+    }
+
     #[inline]
     pub fn contains_attribute(&self, id: impl Into<MeshVertexAttributeId>) -> bool {
-        self.attributes.            as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
-.contains_key(&id.into())
+        self.attributes
+            .as_ref()
+            .expect(MESH_EXTRACTED_ERROR)
+            .contains_key(&id.into())
+    }
+
+    #[inline]
+    pub fn try_contains_attribute(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Result<bool, MeshAccessError> {
+        Ok(self.attributes.as_ref()?.contains_key(&id.into()))
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
@@ -335,21 +517,39 @@ impl Mesh {
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
-        self.attributes
-            .as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
-.get(&id.into()).map(|data| &data.values)
+        self.try_attribute_option(id).expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
+    #[inline]
+    pub fn try_attribute(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Result<&VertexAttributeValues, MeshAccessError> {
+        self.try_attribute_option(id)?
+            .ok_or(MeshAccessError::NotFound)
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
+    #[inline]
+    pub fn try_attribute_option(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Result<Option<&VertexAttributeValues>, MeshAccessError> {
+        Ok(self
+            .attributes
+            .as_ref()?
+            .get(&id.into())
+            .map(|data| &data.values))
     }
 
     /// Retrieves the full data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
     #[inline]
-    pub(crate) fn attribute_data(
+    pub(crate) fn try_attribute_data(
         &self,
         id: impl Into<MeshVertexAttributeId>,
-    ) -> Option<&MeshAttributeData> {
-        self.attributes.as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
-.get(&id.into())
+    ) -> Result<Option<&MeshAttributeData>, MeshAccessError> {
+        Ok(self.attributes.as_ref()?.get(&id.into()))
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
@@ -358,33 +558,72 @@ impl Mesh {
         &mut self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&mut VertexAttributeValues> {
-        self.attributes
-            .as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+        self.try_attribute_mut_option(id)
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
+    #[inline]
+    pub fn try_attribute_mut(
+        &mut self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Result<&mut VertexAttributeValues, MeshAccessError> {
+        Ok(self
+            .try_attribute_mut_option(id)?
+            .ok_or(MeshAccessError::NotFound)?)
+    }
+
+    /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
+    #[inline]
+    pub fn try_attribute_mut_option(
+        &mut self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Result<Option<&mut VertexAttributeValues>, MeshAccessError> {
+        Ok(self
+            .attributes
+            .as_mut()?
             .get_mut(&id.into())
-            .map(|data| &mut data.values)
+            .map(|data| &mut data.values))
     }
 
     /// Returns an iterator that yields references to the data of each vertex attribute.
     pub fn attributes(
         &self,
     ) -> impl Iterator<Item = (&MeshVertexAttribute, &VertexAttributeValues)> {
-        self.attributes
-            .as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+        self.try_attributes().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Returns an iterator that yields references to the data of each vertex attribute.
+    pub fn try_attributes(
+        &self,
+    ) -> Result<impl Iterator<Item = (&MeshVertexAttribute, &VertexAttributeValues)>, MeshAccessError>
+    {
+        Ok(self
+            .attributes
+            .as_ref()?
             .values()
-            .map(|data| (&data.attribute, &data.values))
+            .map(|data| (&data.attribute, &data.values)))
     }
 
     /// Returns an iterator that yields mutable references to the data of each vertex attribute.
     pub fn attributes_mut(
         &mut self,
     ) -> impl Iterator<Item = (&MeshVertexAttribute, &mut VertexAttributeValues)> {
-        self.attributes
-            .as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+        self.try_attributes_mut().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Returns an iterator that yields mutable references to the data of each vertex attribute.
+    pub fn try_attributes_mut(
+        &mut self,
+    ) -> Result<
+        impl Iterator<Item = (&MeshVertexAttribute, &mut VertexAttributeValues)>,
+        MeshAccessError,
+    > {
+        Ok(self
+            .attributes
+            .as_mut()?
             .values_mut()
-            .map(|data| (&data.attribute, &mut data.values))
+            .map(|data| (&data.attribute, &mut data.values)))
     }
 
     /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
@@ -392,9 +631,18 @@ impl Mesh {
     /// that use triangles.
     #[inline]
     pub fn insert_indices(&mut self, indices: Indices) {
-        let mesh_indices = self.indices.as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
-        *mesh_indices = Some(indices);
+        self.indices
+            .replace(Some(indices))
+            .expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Sets the vertex indices of the mesh. They describe how triangles are constructed out of the
+    /// vertex attributes and are therefore only useful for the [`PrimitiveTopology`] variants
+    /// that use triangles.
+    #[inline]
+    pub fn try_insert_indices(&mut self, indices: Indices) -> Result<(), MeshAccessError> {
+        self.indices.replace(Some(indices))?;
+        Ok(())
     }
 
     /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
@@ -409,24 +657,64 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh with the given vertex indices. They describe how triangles
+    /// are constructed out of the vertex attributes and are therefore only useful for the
+    /// [`PrimitiveTopology`] variants that use triangles.
+    ///
+    /// (Alternatively, you can use [`Mesh::try_insert_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    #[inline]
+    pub fn try_with_inserted_indices(mut self, indices: Indices) -> Result<Self, MeshAccessError> {
+        self.try_insert_indices(indices)?;
+        Ok(self)
+    }
+
     /// Retrieves the vertex `indices` of the mesh.
     #[inline]
     pub fn indices(&self) -> Option<&Indices> {
-        self.indices.as_ref().expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD").as_ref()
+        self.indices.as_ref_option().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Retrieves the vertex `indices` of the mesh, returns None if not found.
+    #[inline]
+    pub fn try_indices(&self) -> Result<&Indices, MeshAccessError> {
+        self.indices.as_ref()
+    }
+
+    /// Retrieves the vertex `indices` of the mesh, returns None if not found.
+    #[inline]
+    pub fn try_indices_option(&self) -> Result<Option<&Indices>, MeshAccessError> {
+        self.indices.as_ref_option()
     }
 
     /// Retrieves the vertex `indices` of the mesh mutably.
     #[inline]
     pub fn indices_mut(&mut self) -> Option<&mut Indices> {
-        self.indices.as_mut().expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD").as_mut()
+        self.try_indices_mut_option().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Retrieves the vertex `indices` of the mesh mutably.
+    #[inline]
+    pub fn try_indices_mut(&mut self) -> Result<&mut Indices, MeshAccessError> {
+        self.indices.as_mut()
+    }
+
+    /// Retrieves the vertex `indices` of the mesh mutably.
+    #[inline]
+    pub fn try_indices_mut_option(&mut self) -> Result<Option<&mut Indices>, MeshAccessError> {
+        self.indices.as_mut_option()
     }
 
     /// Removes the vertex `indices` from the mesh and returns them.
     #[inline]
     pub fn remove_indices(&mut self) -> Option<Indices> {
-        let mesh_indices = self.indices.as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
-        core::mem::take(mesh_indices)
+        self.try_remove_indices().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Removes the vertex `indices` from the mesh and returns them.
+    #[inline]
+    pub fn try_remove_indices(&mut self) -> Result<Option<Indices>, MeshAccessError> {
+        self.indices.replace(None)
     }
 
     /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
@@ -438,11 +726,20 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh without the vertex `indices` of the mesh.
+    ///
+    /// (Alternatively, you can use [`Mesh::try_remove_indices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn try_with_removed_indices(mut self) -> Result<Self, MeshAccessError> {
+        self.try_remove_indices()?;
+        Ok(self)
+    }
+
     /// Returns the size of a vertex in bytes.
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
             .as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD")
+            .expect(MESH_EXTRACTED_ERROR)
             .values()
             .map(|data| data.attribute.format.size())
             .sum()
@@ -458,8 +755,7 @@ impl Mesh {
     /// Computes and returns the index data of the mesh as bytes.
     /// This is used to transform the index data into a GPU friendly format.
     pub fn get_index_buffer_bytes(&self) -> Option<&[u8]> {
-        let mesh_indices = self.indices.as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_indices = self.indices.as_ref_option().expect(MESH_EXTRACTED_ERROR);
 
         mesh_indices.as_ref().map(|indices| match &indices {
             Indices::U16(indices) => cast_slice(&indices[..]),
@@ -472,8 +768,7 @@ impl Mesh {
         &self,
         mesh_vertex_buffer_layouts: &mut MeshVertexBufferLayouts,
     ) -> MeshVertexBufferLayoutRef {
-        let mesh_attributes = self.attributes.as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
         let mut attributes = Vec::with_capacity(mesh_attributes.len());
         let mut attribute_ids = Vec::with_capacity(mesh_attributes.len());
@@ -504,8 +799,7 @@ impl Mesh {
     /// If the attributes have different vertex counts, the smallest is returned.
     pub fn count_vertices(&self) -> usize {
         let mut vertex_count: Option<usize> = None;
-        let mesh_attributes = self.attributes.as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
         for (attribute_id, attribute_data) in mesh_attributes {
             let attribute_len = attribute_data.values.len();
@@ -550,8 +844,7 @@ impl Mesh {
     /// If the vertex attributes have different lengths, they are all truncated to
     /// the length of the smallest.
     pub fn write_packed_vertex_buffer_data(&self, slice: &mut [u8]) {
-        let mesh_attributes = self.attributes.as_ref()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_attributes = self.attributes.as_ref().expect(MESH_EXTRACTED_ERROR);
 
         let vertex_size = self.get_vertex_size() as usize;
         let vertex_count = self.count_vertices();
@@ -573,24 +866,24 @@ impl Mesh {
         }
     }
 
+    pub fn duplicate_vertices(&mut self) {
+        self.try_duplicate_vertices().expect(MESH_EXTRACTED_ERROR)
+    }
+
     /// Duplicates the vertex attributes so that no vertices are shared.
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    pub fn duplicate_vertices(&mut self) {
+    pub fn try_duplicate_vertices(&mut self) -> Result<(), MeshAccessError> {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
         }
 
-        let mesh_indices = self.indices.as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
-
-        let Some(indices) = mesh_indices.take() else {
-            return;
+        let Some(indices) = self.indices.replace(None)? else {
+            return Ok(());
         };
 
-        let mesh_attributes = self.attributes.as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_attributes = self.attributes.as_mut()?;
 
         for attributes in mesh_attributes.values_mut() {
             let indices = indices.iter();
@@ -629,6 +922,8 @@ impl Mesh {
                 VertexAttributeValues::Unorm8x4(vec) => *vec = duplicate(vec, indices),
             }
         }
+
+        Ok(())
     }
 
     /// Consumes the mesh and returns a mesh with no shared vertices.
@@ -641,6 +936,18 @@ impl Mesh {
     pub fn with_duplicated_vertices(mut self) -> Self {
         self.duplicate_vertices();
         self
+    }
+
+    /// Consumes the mesh and returns a mesh with no shared vertices.
+    ///
+    /// This can dramatically increase the vertex count, so make sure this is what you want.
+    /// Does nothing if no [`Indices`] are set.
+    ///
+    /// (Alternatively, you can use [`Mesh::try_duplicate_vertices`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn try_with_duplicated_vertices(mut self) -> Result<Self, MeshAccessError> {
+        self.try_duplicate_vertices()?;
+        Ok(self)
     }
 
     /// Inverts the winding of the indices such that all counter-clockwise triangles are now
@@ -685,8 +992,7 @@ impl Mesh {
             }
         }
 
-        let mesh_indices = self.indices.as_mut()
-            .expect("Mesh has been extracted to RenderWorld. To access vertex attributes, the mesh must have RenderAssetUsages::MAIN_WORLD");
+        let mesh_indices = self.indices.as_mut_option()?;
 
         match mesh_indices {
             Some(Indices::U16(vec)) => invert(vec, self.primitive_topology),
@@ -711,15 +1017,30 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].=
     pub fn compute_normals(&mut self) {
+        self.try_compute_normals().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].=
+    pub fn try_compute_normals(&mut self) -> Result<(), MeshAccessError> {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "`compute_normals` can only work on `TriangleList`s"
         );
-        if self.indices().is_none() {
-            self.compute_flat_normals();
+        if self.try_indices_option()?.is_none() {
+            self.try_compute_flat_normals()
         } else {
-            self.compute_smooth_normals();
+            self.try_compute_smooth_normals()
         }
+    }
+
+    pub fn compute_flat_normals(&mut self) {
+        self.try_compute_flat_normals().expect(MESH_EXTRACTED_ERROR)
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of a mesh.
@@ -733,9 +1054,9 @@ impl Mesh {
     /// FIXME: This should handle more cases since this is called as a part of gltf
     /// mesh loading where we can't really blame users for loading meshes that might
     /// not conform to the limitations here!
-    pub fn compute_flat_normals(&mut self) {
+    pub fn try_compute_flat_normals(&mut self) -> Result<(), MeshAccessError> {
         assert!(
-            self.indices().is_none(),
+            self.try_indices_option()?.is_none(),
             "`compute_flat_normals` can't work on indexed geometry. Consider calling either `Mesh::compute_smooth_normals` or `Mesh::duplicate_vertices` followed by `Mesh::compute_flat_normals`."
         );
         assert!(
@@ -744,8 +1065,7 @@ impl Mesh {
         );
 
         let positions = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
-            .unwrap()
+            .try_attribute(Mesh::ATTRIBUTE_POSITION)?
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
@@ -755,7 +1075,7 @@ impl Mesh {
             .flat_map(|normal| [normal; 3])
             .collect();
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -774,8 +1094,8 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    pub fn compute_smooth_normals(&mut self) {
-        self.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+    pub fn try_compute_smooth_normals(&mut self) -> Result<(), MeshAccessError> {
+        self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let pa = Vec3::from(positions[a]);
             let pb = Vec3::from(positions[b]);
             let pc = Vec3::from(positions[c]);
@@ -809,7 +1129,7 @@ impl Mesh {
             normals[a] += normal * weight_a;
             normals[b] += normal * weight_b;
             normals[c] += normal * weight_c;
-        });
+        })
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -830,8 +1150,8 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
-    pub fn compute_area_weighted_normals(&mut self) {
-        self.compute_custom_smooth_normals(|[a, b, c], positions, normals| {
+    pub fn try_compute_area_weighted_normals(&mut self) -> Result<(), MeshAccessError> {
+        self.try_compute_custom_smooth_normals(|[a, b, c], positions, normals| {
             let normal = Vec3::from(triangle_area_normal(
                 positions[a],
                 positions[b],
@@ -840,7 +1160,7 @@ impl Mesh {
             [a, b, c].into_iter().for_each(|pos| {
                 normals[pos] += normal;
             });
-        });
+        })
     }
 
     /// Calculates the [`Mesh::ATTRIBUTE_NORMAL`] of an indexed mesh, smoothing normals for shared
@@ -885,29 +1205,27 @@ impl Mesh {
     // - [Mesh::with_computed_smooth_normals]
     // - [Mesh::compute_area_weighted_normals]
     // - [Mesh::with_computed_area_weighted_normals]
-    pub fn compute_custom_smooth_normals(
+    pub fn try_compute_custom_smooth_normals(
         &mut self,
         mut per_triangle: impl FnMut([usize; 3], &[[f32; 3]], &mut [Vec3]),
-    ) {
+    ) -> Result<(), MeshAccessError> {
         assert!(
             matches!(self.primitive_topology, PrimitiveTopology::TriangleList),
             "smooth normals can only be computed on `TriangleList`s"
         );
         assert!(
-            self.indices().is_some(),
+            self.try_indices_option()?.is_some(),
             "smooth normals can only be computed on indexed meshes"
         );
 
         let positions = self
-            .attribute(Mesh::ATTRIBUTE_POSITION)
-            .unwrap()
+            .try_attribute(Mesh::ATTRIBUTE_POSITION)?
             .as_float3()
             .expect("`Mesh::ATTRIBUTE_POSITION` vertex attributes should be of type `float3`");
 
         let mut normals = vec![Vec3::ZERO; positions.len()];
 
-        self.indices()
-            .unwrap()
+        self.try_indices()?
             .iter()
             .collect::<Vec<usize>>()
             .chunks_exact(3)
@@ -917,7 +1235,7 @@ impl Mesh {
             *normal = normal.try_normalize().unwrap_or(Vec3::ZERO);
         }
 
-        self.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        self.try_insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
@@ -930,9 +1248,24 @@ impl Mesh {
     /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     #[must_use]
-    pub fn with_computed_normals(mut self) -> Self {
-        self.compute_normals();
-        self
+    pub fn with_computed_normals(self) -> Self {
+        self.try_with_computed_normals()
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
+    /// If the mesh is indexed, this defaults to smooth normals. Otherwise, it defaults to flat
+    /// normals.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_normals`] to mutate an existing mesh in-place)
+    ///
+    /// # Panics
+    /// Panics if [`Mesh::ATTRIBUTE_POSITION`] is not of type `float3`.
+    /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
+    #[must_use]
+    pub fn try_with_computed_normals(mut self) -> Result<Self, MeshAccessError> {
+        self.try_compute_normals()?;
+        Ok(self)
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
@@ -944,9 +1277,9 @@ impl Mesh {
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh has indices defined
     #[must_use]
-    pub fn with_computed_flat_normals(mut self) -> Self {
-        self.compute_flat_normals();
-        self
+    pub fn try_with_computed_flat_normals(mut self) -> Result<Self, MeshAccessError> {
+        self.try_compute_flat_normals()?;
+        Ok(self)
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
@@ -962,9 +1295,9 @@ impl Mesh {
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
     #[must_use]
-    pub fn with_computed_smooth_normals(mut self) -> Self {
-        self.compute_smooth_normals();
-        self
+    pub fn try_with_computed_smooth_normals(mut self) -> Result<Self, MeshAccessError> {
+        self.try_compute_smooth_normals()?;
+        Ok(self)
     }
 
     /// Consumes the mesh and returns a mesh with calculated [`Mesh::ATTRIBUTE_NORMAL`].
@@ -981,9 +1314,9 @@ impl Mesh {
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
     #[must_use]
-    pub fn with_computed_area_weighted_normals(mut self) -> Self {
-        self.compute_area_weighted_normals();
-        self
+    pub fn try_with_computed_area_weighted_normals(mut self) -> Result<Self, MeshAccessError> {
+        self.try_compute_area_weighted_normals()?;
+        Ok(self)
     }
 
     /// Generate tangents for the mesh using the `mikktspace` algorithm.
@@ -993,7 +1326,7 @@ impl Mesh {
     #[cfg(feature = "bevy_mikktspace")]
     pub fn generate_tangents(&mut self) -> Result<(), super::GenerateTangentsError> {
         let tangents = super::generate_tangents_for_mesh(self)?;
-        self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
+        self.try_insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents)?;
         Ok(())
     }
 
@@ -1042,8 +1375,8 @@ impl Mesh {
         let index_offset = self.count_vertices();
 
         // Extend attributes of `self` with attributes of `other`.
-        for (attribute, values) in self.attributes_mut() {
-            if let Some(other_values) = other.attribute(attribute.id) {
+        for (attribute, values) in self.try_attributes_mut()? {
+            if let Some(other_values) = other.try_attribute_option(attribute.id)? {
                 #[expect(
                     clippy::match_same_arms,
                     reason = "Although the bindings on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
@@ -1081,7 +1414,7 @@ impl Mesh {
                         return Err(MeshMergeError::IncompatibleVertexAttributes {
                             self_attribute: *attribute,
                             other_attribute: other
-                                .attribute_data(attribute.id)
+                                .try_attribute_data(attribute.id)?
                                 .map(|data| data.attribute),
                         })
                     }
@@ -1090,7 +1423,9 @@ impl Mesh {
         }
 
         // Extend indices of `self` with indices of `other`.
-        if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
+        if let (Some(indices), Some(other_indices)) =
+            (self.try_indices_mut_option()?, other.try_indices_option()?)
+        {
             indices.extend(other_indices.iter().map(|i| (i + index_offset) as u32));
         }
         Ok(())
@@ -1104,10 +1439,26 @@ impl Mesh {
         self
     }
 
+    /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_transformed_by(mut self, transform: Transform) -> Result<Self, MeshAccessError> {
+        self.try_transform_by(transform)?;
+        Ok(self)
+    }
+
     /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn transform_by(&mut self, transform: Transform) {
+        self.try_transform_by(transform)
+            .expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Transforms the vertex positions, normals, and tangents of the mesh in place by the given [`Transform`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_transform_by(&mut self, transform: Transform) -> Result<(), MeshAccessError> {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / transform.scale;
         debug_assert!(
@@ -1116,7 +1467,7 @@ impl Mesh {
         );
 
         if let Some(VertexAttributeValues::Float32x3(positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_POSITION)?
         {
             // Apply scale, rotation, and translation to vertex positions
             positions
@@ -1129,11 +1480,11 @@ impl Mesh {
             && transform.scale.x == transform.scale.y
             && transform.scale.y == transform.scale.z
         {
-            return;
+            return Ok(());
         }
 
         if let Some(VertexAttributeValues::Float32x3(normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_NORMAL)?
         {
             // Transform normals, taking into account non-uniform scaling and rotation
             normals.iter_mut().for_each(|normal| {
@@ -1144,7 +1495,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x4(tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_TANGENT)?
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
             tangents.iter_mut().for_each(|tangent| {
@@ -1155,6 +1506,8 @@ impl Mesh {
                     .to_array();
             });
         }
+
+        Ok(())
     }
 
     /// Translates the vertex positions of the mesh by the given [`Vec3`].
@@ -1165,38 +1518,71 @@ impl Mesh {
         self
     }
 
+    /// Translates the vertex positions of the mesh by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_translated_by(mut self, translation: Vec3) -> Result<Self, MeshAccessError> {
+        self.try_translate_by(translation)?;
+        Ok(self)
+    }
+
     /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn translate_by(&mut self, translation: Vec3) {
+        self.try_translate_by(translation)
+            .expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Translates the vertex positions of the mesh in place by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_translate_by(&mut self, translation: Vec3) -> Result<(), MeshAccessError> {
         if translation == Vec3::ZERO {
-            return;
+            return Ok(());
         }
 
         if let Some(VertexAttributeValues::Float32x3(positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_POSITION)?
         {
             // Apply translation to vertex positions
             positions
                 .iter_mut()
                 .for_each(|pos| *pos = (Vec3::from_slice(pos) + translation).to_array());
         }
+
+        Ok(())
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotated_by(mut self, rotation: Quat) -> Self {
-        self.rotate_by(rotation);
+        self.try_rotate_by(rotation).expect(MESH_EXTRACTED_ERROR);
         self
+    }
+
+    /// Rotates the vertex positions, normals, and tangents of the mesh by the given [`Quat`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_rotated_by(mut self, rotation: Quat) -> Result<Self, MeshAccessError> {
+        self.try_rotate_by(rotation)?;
+        Ok(self)
     }
 
     /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
+        self.try_rotate_by(rotation).expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Rotates the vertex positions, normals, and tangents of the mesh in place by the given [`Quat`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_rotate_by(&mut self, rotation: Quat) -> Result<(), MeshAccessError> {
         if let Some(VertexAttributeValues::Float32x3(positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_POSITION)?
         {
             // Apply rotation to vertex positions
             positions
@@ -1206,11 +1592,11 @@ impl Mesh {
 
         // No need to transform normals or tangents if rotation is near identity
         if rotation.is_near_identity() {
-            return;
+            return Ok(());
         }
 
         if let Some(VertexAttributeValues::Float32x3(normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_NORMAL)?
         {
             // Transform normals
             normals.iter_mut().for_each(|normal| {
@@ -1219,7 +1605,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x4(tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_TANGENT)?
         {
             // Transform tangents
             tangents.iter_mut().for_each(|tangent| {
@@ -1229,6 +1615,8 @@ impl Mesh {
                     .to_array();
             });
         }
+
+        Ok(())
     }
 
     /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
@@ -1239,10 +1627,25 @@ impl Mesh {
         self
     }
 
+    /// Scales the vertex positions, normals, and tangents of the mesh by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_scaled_by(mut self, scale: Vec3) -> Result<Self, MeshAccessError> {
+        self.try_scale_by(scale)?;
+        Ok(self)
+    }
+
     /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn scale_by(&mut self, scale: Vec3) {
+        self.try_scale_by(scale).expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Scales the vertex positions, normals, and tangents of the mesh in place by the given [`Vec3`].
+    ///
+    /// `Aabb` of entities with modified mesh are not updated automatically.
+    pub fn try_scale_by(&mut self, scale: Vec3) -> Result<(), MeshAccessError> {
         // Needed when transforming normals and tangents
         let scale_recip = 1. / scale;
         debug_assert!(
@@ -1251,7 +1654,7 @@ impl Mesh {
         );
 
         if let Some(VertexAttributeValues::Float32x3(positions)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_POSITION)?
         {
             // Apply scale to vertex positions
             positions
@@ -1261,11 +1664,11 @@ impl Mesh {
 
         // No need to transform normals or tangents if scale is uniform
         if scale.x == scale.y && scale.y == scale.z {
-            return;
+            return Ok(());
         }
 
         if let Some(VertexAttributeValues::Float32x3(normals)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_NORMAL)?
         {
             // Transform normals, taking into account non-uniform scaling
             normals.iter_mut().for_each(|normal| {
@@ -1274,7 +1677,7 @@ impl Mesh {
         }
 
         if let Some(VertexAttributeValues::Float32x4(tangents)) =
-            self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
+            self.try_attribute_mut_option(Mesh::ATTRIBUTE_TANGENT)?
         {
             // Transform tangents, taking into account non-uniform scaling
             tangents.iter_mut().for_each(|tangent| {
@@ -1286,15 +1689,21 @@ impl Mesh {
                     .to_array();
             });
         }
+
+        Ok(())
     }
 
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
-        if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
-            let VertexAttributeValues::Float32x4(joints) = joints else {
-                panic!("unexpected joint weight format");
-            };
+        self.try_normalize_joint_weights()
+            .expect(MESH_EXTRACTED_ERROR);
+    }
 
+    /// Normalize joint weights so they sum to 1.
+    pub fn try_normalize_joint_weights(&mut self) -> Result<(), MeshAccessError> {
+        if let Some(VertexAttributeValues::Float32x4(joints)) =
+            self.try_attribute_mut_option(Self::ATTRIBUTE_JOINT_WEIGHT)?
+        {
             for weights in joints.iter_mut() {
                 // force negative weights to zero
                 weights.iter_mut().for_each(|w| *w = w.max(0.0));
@@ -1311,6 +1720,8 @@ impl Mesh {
                 }
             }
         }
+
+        Ok(())
     }
 
     /// Get a list of this Mesh's [triangles] as an iterator if possible.
@@ -1323,17 +1734,13 @@ impl Mesh {
     /// [primitive topology]: PrimitiveTopology
     /// [triangles]: Triangle3d
     pub fn triangles(&self) -> Result<impl Iterator<Item = Triangle3d> + '_, MeshTrianglesError> {
-        let Some(position_data) = self.attribute(Mesh::ATTRIBUTE_POSITION) else {
-            return Err(MeshTrianglesError::MissingPositions);
-        };
+        let position_data = self.try_attribute(Mesh::ATTRIBUTE_POSITION)?;
 
         let Some(vertices) = position_data.as_float3() else {
             return Err(MeshTrianglesError::PositionsFormat);
         };
 
-        let Some(indices) = self.indices() else {
-            return Err(MeshTrianglesError::MissingIndices);
-        };
+        let indices = self.try_indices()?;
 
         match self.primitive_topology {
             PrimitiveTopology::TriangleList => {
@@ -1411,15 +1818,17 @@ impl Mesh {
         }
     }
 
-    pub fn take_gpu_data(&mut self) -> Option<Self> {
-        let attributes = self.attributes.take()?;
-        let indices = self.indices.take()?;
+    pub fn take_gpu_data(&mut self) -> Result<Self, MeshAccessError> {
+        let attributes = self.attributes.extract()?;
+        let indices = self.indices.extract()?;
+        let morph_targets = self.morph_targets.extract()?;
+        let morph_target_names = self.morph_target_names.extract()?;
 
         // store the aabb extents as they cannot be computed after extraction
         if let Some(MeshAttributeData {
             values: VertexAttributeValues::Float32x3(position_values),
             ..
-        }) = attributes.get(&Self::ATTRIBUTE_POSITION.id)
+        }) = attributes.as_ref()?.get(&Self::ATTRIBUTE_POSITION.id)
         {
             let mut iter = position_values.iter().map(|p| Vec3::from_slice(p));
             let mut min = iter.next().unwrap();
@@ -1431,9 +1840,11 @@ impl Mesh {
             self.final_aabb_extents = Some((min, max));
         }
 
-        Some(Self {
-            attributes: Some(attributes),
-            indices: Some(indices),
+        Ok(Self {
+            attributes,
+            indices,
+            morph_targets,
+            morph_target_names,
             ..self.clone()
         })
     }
@@ -1443,17 +1854,40 @@ impl Mesh {
 impl Mesh {
     /// Whether this mesh has morph targets.
     pub fn has_morph_targets(&self) -> bool {
-        self.morph_targets.is_some()
+        self.try_has_morph_targets().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Whether this mesh has morph targets.
+    pub fn try_has_morph_targets(&self) -> Result<bool, MeshAccessError> {
+        Ok(self.morph_targets.as_ref_option()?.is_some())
     }
 
     /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
     ///
     /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
     pub fn set_morph_targets(&mut self, morph_targets: Handle<Image>) {
-        self.morph_targets = Some(morph_targets);
+        self.try_set_morph_targets(morph_targets)
+            .expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Set [morph targets] image for this mesh. This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    pub fn try_set_morph_targets(
+        &mut self,
+        morph_targets: Handle<Image>,
+    ) -> Result<(), MeshAccessError> {
+        self.morph_targets.replace(Some(morph_targets))?;
+        Ok(())
     }
 
     pub fn morph_targets(&self) -> Option<&Handle<Image>> {
+        self.morph_targets
+            .as_ref_option()
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    pub fn try_morph_targets(&self) -> Result<&Handle<Image>, MeshAccessError> {
         self.morph_targets.as_ref()
     }
 
@@ -1470,9 +1904,35 @@ impl Mesh {
         self
     }
 
+    /// Consumes the mesh and returns a mesh with the given [morph targets].
+    ///
+    /// This requires a "morph target image". See [`MorphTargetImage`](crate::morph::MorphTargetImage) for info.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_targets`] to mutate an existing mesh in-place)
+    ///
+    /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+    #[must_use]
+    pub fn try_with_morph_targets(
+        mut self,
+        morph_targets: Handle<Image>,
+    ) -> Result<Self, MeshAccessError> {
+        self.try_set_morph_targets(morph_targets)?;
+        Ok(self)
+    }
+
     /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
     pub fn set_morph_target_names(&mut self, names: Vec<String>) {
-        self.morph_target_names = Some(names);
+        self.try_set_morph_target_names(names)
+            .expect(MESH_EXTRACTED_ERROR);
+    }
+
+    /// Sets the names of each morph target. This should correspond to the order of the morph targets in `set_morph_targets`.
+    pub fn try_set_morph_target_names(
+        &mut self,
+        names: Vec<String>,
+    ) -> Result<(), MeshAccessError> {
+        self.morph_target_names.replace(Some(names))?;
+        Ok(())
     }
 
     /// Consumes the mesh and returns a mesh with morph target names.
@@ -1480,14 +1940,32 @@ impl Mesh {
     ///
     /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
     #[must_use]
-    pub fn with_morph_target_names(mut self, names: Vec<String>) -> Self {
-        self.set_morph_target_names(names);
-        self
+    pub fn with_morph_target_names(self, names: Vec<String>) -> Self {
+        self.try_with_morph_target_names(names)
+            .expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Consumes the mesh and returns a mesh with morph target names.
+    /// Names should correspond to the order of the morph targets in `set_morph_targets`.
+    ///
+    /// (Alternatively, you can use [`Mesh::set_morph_target_names`] to mutate an existing mesh in-place)
+    #[must_use]
+    pub fn try_with_morph_target_names(
+        mut self,
+        names: Vec<String>,
+    ) -> Result<Self, MeshAccessError> {
+        self.try_set_morph_target_names(names)?;
+        Ok(self)
     }
 
     /// Gets a list of all morph target names, if they exist.
     pub fn morph_target_names(&self) -> Option<&[String]> {
-        self.morph_target_names.as_deref()
+        self.try_morph_target_names().expect(MESH_EXTRACTED_ERROR)
+    }
+
+    /// Gets a list of all morph target names, if they exist.
+    pub fn try_morph_target_names(&self) -> Result<Option<&[String]>, MeshAccessError> {
+        self.morph_target_names.as_deref_option()
     }
 }
 
@@ -1659,6 +2137,8 @@ pub enum MeshMergeError {
         self_primitive_topology: PrimitiveTopology,
         other_primitive_topology: PrimitiveTopology,
     },
+    #[error("Mesh access error: {0}")]
+    MeshAccessError(#[from] MeshAccessError),
 }
 
 #[cfg(test)]

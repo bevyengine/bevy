@@ -1,5 +1,5 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset},
+    render_asset::{AssetExtractionError, PrepareAssetError, RenderAsset},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
@@ -39,15 +39,17 @@ impl RenderAsset for GpuImage {
     fn take_gpu_data(
         source: &mut Self::SourceAsset,
         previous_gpu_asset: Option<&Self>,
-    ) -> Option<Self::SourceAsset> {
+    ) -> Result<Self::SourceAsset, AssetExtractionError> {
         let data = source.data.take();
 
         let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
 
-        valid_upload.then(|| Self::SourceAsset {
-            data,
-            ..source.clone()
-        })
+        valid_upload
+            .then(|| Self::SourceAsset {
+                data,
+                ..source.clone()
+            })
+            .ok_or(AssetExtractionError::Extracted)
     }
 
     #[inline]
