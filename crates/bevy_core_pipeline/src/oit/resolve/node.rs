@@ -46,9 +46,10 @@ impl ViewNode for OitResolveNode {
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let Some(resolve_pipeline) = world.get_resource::<OitResolvePipeline>() else {
-            return Ok(());
-        };
+        // This *must* run after main_transparent_pass_3d to reset the `oit_atomic_counter` and `oit_headers` buffer
+        // Otherwise transparent pass will construct a corrupted linked list(can have circular references which causes infinite loop and device lost) on the next pass
+
+        let resolve_pipeline = world.get_resource::<OitResolvePipeline>().unwrap();
 
         // resolve oit
         // sorts the layers and renders the final blended color to the screen

@@ -3,8 +3,8 @@
 
 @group(0) @binding(0) var<uniform> view: View;
 @group(0) @binding(1) var<storage, read> nodes: array<OitFragmentNode>;
-@group(0) @binding(2) var<storage, read_write> headers: array<u32>;
-@group(0) @binding(3) var<storage, read_write> atomic_counter: u32;
+@group(0) @binding(2) var<storage, read_write> headers: array<u32>; // No need to be atomic
+@group(0) @binding(3) var<storage, read_write> atomic_counter: u32; // No need to be atomic
 
 #ifndef DEPTH_PREPASS
 @group(1) @binding(0) var depth: texture_depth_2d;

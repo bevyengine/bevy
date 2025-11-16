@@ -138,19 +138,9 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
 
 #[derive(Clone, Copy, ShaderType)]
 pub struct OitFragmentNode {
-    color: u32,
-    depth_alpha: u32,
-    next: u32,
-}
-
-impl Default for OitFragmentNode {
-    fn default() -> Self {
-        Self {
-            color: 0,
-            depth_alpha: 0,
-            next: u32::MAX,
-        }
-    }
+    pub color: u32,
+    pub depth_alpha: u32,
+    pub next: u32,
 }
 
 /// Holds the buffers that contain the data of all OIT layers.
@@ -176,8 +166,7 @@ pub fn init_oit_buffers(
 
     let mut nodes = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     nodes.set_label(Some("oit_nodes"));
-    nodes.push(OitFragmentNode::default());
-    nodes.write_buffer(&render_device, &render_queue);
+    nodes.reserve(1, &render_device);
 
     let mut headers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
     headers.set_label(Some("oit_headers"));
@@ -256,12 +245,7 @@ pub fn prepare_oit_buffers(
     let nodes_size = ((max_size.x * max_size.y) as f32 * fragments_per_pixel_average) as usize;
     if buffers.nodes.capacity() < nodes_size {
         let start = Instant::now();
-        buffers.nodes.clear();
         buffers.nodes.reserve(nodes_size, &render_device);
-        for _ in 0..nodes_size {
-            buffers.nodes.push(OitFragmentNode::default());
-        }
-        buffers.nodes.write_buffer(&render_device, &render_queue);
         trace!(
             "OIT nodes buffer updated in {:.01}ms with capacity {}, total size {} MiB",
             start.elapsed().as_millis(),
