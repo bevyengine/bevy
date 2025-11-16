@@ -574,11 +574,11 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
         let mut flattening = dag;
         let mut temp = Vec::new();
 
-        for (&key, systems) in self.iter() {
+        for (&key, values) in self.iter() {
             // Call the user-provided function to handle collapsing the group.
-            collapse_group(key, systems, &flattening, &mut temp);
+            collapse_group(key, values, &flattening, &mut temp);
 
-            if systems.is_empty() {
+            if values.is_empty() {
                 // Replace connections to the key node with connections between its neighbors.
                 for a in flattening.neighbors_directed(N::from(key), Incoming) {
                     for b in flattening.neighbors_directed(N::from(key), Outgoing) {
@@ -588,13 +588,13 @@ impl<K: GraphNodeId, V: GraphNodeId, S: BuildHasher> DagGroups<K, V, S> {
             } else {
                 // Redirect edges to/from the key node to connect to its value nodes.
                 for a in flattening.neighbors_directed(N::from(key), Incoming) {
-                    for &sys in systems {
-                        temp.push((a, N::from(sys)));
+                    for &value in values {
+                        temp.push((a, N::from(value)));
                     }
                 }
                 for b in flattening.neighbors_directed(N::from(key), Outgoing) {
-                    for &sys in systems {
-                        temp.push((N::from(sys), b));
+                    for &value in values {
+                        temp.push((N::from(value), b));
                     }
                 }
             }
@@ -918,7 +918,7 @@ mod tests {
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(40)));
 
         let groups = dag.group_by::<Key, Value>(2).unwrap();
-        let flattened = groups.flatten(dag, |_key, _systems, _dag, _temp| {});
+        let flattened = groups.flatten(dag, |_key, _values, _dag, _temp| {});
 
         assert!(flattened.contains_node(Value(10)));
         assert!(flattened.contains_node(Value(11)));
