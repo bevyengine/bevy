@@ -2574,31 +2574,32 @@ mod tests {
         assert_eq!(get_started_load_count(app.world()), 2);
     }
 
+    /// A loader that immediately returns a [`TestAsset`].
+    struct TrivialLoader;
+
+    impl AssetLoader for TrivialLoader {
+        type Asset = TestAsset;
+        type Settings = ();
+        type Error = std::io::Error;
+
+        async fn load(
+            &self,
+            _reader: &mut dyn Reader,
+            _settings: &Self::Settings,
+            _load_context: &mut LoadContext<'_>,
+        ) -> Result<Self::Asset, Self::Error> {
+            Ok(TestAsset)
+        }
+
+        fn extensions(&self) -> &[&str] {
+            &["txt"]
+        }
+    }
+
     #[test]
     fn get_strong_handle_prevents_reload_when_asset_still_alive() {
         let (mut app, dir) = create_app();
         dir.insert_asset(Path::new("test.txt"), &[]);
-
-        struct TrivialLoader;
-
-        impl AssetLoader for TrivialLoader {
-            type Asset = TestAsset;
-            type Settings = ();
-            type Error = std::io::Error;
-
-            async fn load(
-                &self,
-                _reader: &mut dyn Reader,
-                _settings: &Self::Settings,
-                _load_context: &mut LoadContext<'_>,
-            ) -> Result<Self::Asset, Self::Error> {
-                Ok(TestAsset)
-            }
-
-            fn extensions(&self) -> &[&str] {
-                &["txt"]
-            }
-        }
 
         app.init_asset::<TestAsset>()
             .register_asset_loader(TrivialLoader);
