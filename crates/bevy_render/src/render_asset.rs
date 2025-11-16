@@ -34,7 +34,7 @@ pub enum AssetExtractionError {
     #[error("The asset has already been extracted")]
     Extracted,
     #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
-    NoExtractionImplementation
+    NoExtractionImplementation,
 }
 
 /// Describes how an asset gets extracted and prepared for rendering.
