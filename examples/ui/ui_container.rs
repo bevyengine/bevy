@@ -3,7 +3,10 @@
 //! This example requires enabling the `bevy_ui_container` feature
 
 use bevy::{
-    app::Propagate, input::common_conditions::input_just_released, prelude::*, sprite::Anchor,
+    app::Propagate,
+    input::common_conditions::{input_just_pressed, input_just_released},
+    prelude::*,
+    sprite::Anchor,
 };
 
 fn main() {
@@ -19,6 +22,7 @@ fn main() {
                 switch_ui_contain_overflow.run_if(input_just_released(KeyCode::Digit1)),
                 switch_ui_contain_anchor.run_if(input_just_released(KeyCode::Digit2)),
                 update_text,
+                click_button.run_if(input_just_pressed(MouseButton::Left)),
             ),
         )
         .run();
@@ -50,7 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             UiContainerSize(UVec2::new(300, 300)),
             Anchor::TOP_LEFT,
-            UiContainerOverflow(Overflow::clip()),
+            UiContainerOverflow::default(),
             UiContainInfo,
         ))
         .id();
@@ -72,6 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             Propagate(UiContainerTarget(ui_contain)),
             ContainNode,
+            Button,
         ))
         .with_children(|parent| {
             parent
@@ -126,20 +131,24 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 ArrowKey move camera
 Space Switching node type
 Digit1 Switching uicontain Overflow
-Digit2 Switching uicontain Anchor",
+Digit2 Switching uicontain Anchor
+Click RootNode to change backgroundcolor",
         ),
         GlobalZIndex(10),
         TextColor(Srgba::rgb(0.0, 1.0, 1.0).into()),
     ));
 
     commands
-        .spawn((Node {
-            position_type: PositionType::Absolute,
-            bottom: px(0.0),
-            right: px(0.0),
-            flex_direction: FlexDirection::Column,
-            ..Default::default()
-        },))
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                bottom: px(0.0),
+                right: px(0.0),
+                flex_direction: FlexDirection::Column,
+                ..Default::default()
+            },
+            GlobalZIndex(10),
+        ))
         .with_children(|parent| {
             parent.spawn((
                 Text::new(
@@ -267,5 +276,21 @@ fn switch_ui_contain_anchor(query: Single<&mut Anchor, With<UiContainInfo>>) {
         anchor if *anchor == Anchor::TOP_CENTER => *anchor = Anchor::TOP_RIGHT,
         anchor if *anchor == Anchor::TOP_RIGHT => *anchor = Anchor::BOTTOM_LEFT,
         _ => *anchor = Anchor::CENTER,
+    }
+}
+
+fn click_button(button: Single<(&Interaction, &mut BackgroundColor), With<ContainNode>>) {
+    let (button, mut backgroud) = button.into_inner();
+    if Interaction::Pressed == *button {
+        let color = backgroud.0.to_srgba();
+        if color == Srgba::NONE {
+            backgroud.0 = Srgba::RED.into();
+        } else if color == Srgba::RED {
+            backgroud.0 = Srgba::BLUE.into();
+        } else if color == Srgba::BLUE {
+            backgroud.0 = Srgba::GREEN.into();
+        } else {
+            backgroud.0 = Srgba::NONE.into();
+        }
     }
 }

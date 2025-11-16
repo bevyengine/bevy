@@ -1,8 +1,12 @@
+#[cfg(feature = "bevy_ui_container")]
+use crate::UiContainerTarget;
 use crate::{
     ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
     UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
+#[cfg(feature = "bevy_ui_container")]
+use bevy_ecs::query::Has;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -16,6 +20,8 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "bevy_ui_container")]
+use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -158,6 +164,8 @@ pub fn ui_focus_system(
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
+    #[cfg(feature = "bevy_ui_container")] global_transform_query: Query<&GlobalTransform>,
+    #[cfg(feature = "bevy_ui_container")] target_query: Query<Has<UiContainerTarget>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -213,6 +221,30 @@ pub fn ui_focus_system(
         })
         .collect();
 
+    #[cfg(feature = "bevy_ui_container")]
+    let camera_cursor_positions_container: HashMap<Entity, Vec2> = camera_query
+        .iter()
+        .filter_map(|(entity, camera)| {
+            let Ok(position) = global_transform_query.get(entity) else {
+                return None;
+            };
+
+            // Interactions are only supported for cameras rendering to a window.
+            let Some(NormalizedRenderTarget::Window(window_ref)) =
+                camera.target.normalize(primary_window)
+            else {
+                return None;
+            };
+            let window = windows.get(window_ref.entity()).ok()?;
+
+            window
+                .cursor_position()
+                .map(|cursor| camera.viewport_to_world(position, cursor))
+                .map(|ray| ray.unwrap().origin.truncate())
+                .map(|world_position| (entity, world_position))
+        })
+        .collect();
+
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -237,6 +269,9 @@ pub fn ui_focus_system(
 
         let cursor_position = camera_cursor_positions.get(&camera_entity);
 
+        #[cfg(feature = "bevy_ui_container")]
+        let cursor_position_container = camera_cursor_positions_container.get(&camera_entity);
+
         for entity in uinodes.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
                 continue;
@@ -256,10 +291,25 @@ pub fn ui_focus_system(
                 continue;
             }
 
+            #[cfg(not(feature = "bevy_ui_container"))]
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
                     && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
             });
+
+            #[cfg(feature = "bevy_ui_container")]
+            let contains_cursor = if target_query.get(entity).unwrap() {
+                cursor_position_container.is_some_and(|point| {
+                    // tracing::info!("node.transform:{:?}", node.transform.translation);
+                    node.node.contains_point(*node.transform, *point)
+                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                })
+            } else {
+                cursor_position.is_some_and(|point| {
+                    node.node.contains_point(*node.transform, *point)
+                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                })
+            };
 
             // The mouse position relative to the node
             // (-0.5, -0.5) is the top-left corner, (0.5, 0.5) is the bottom-right corner

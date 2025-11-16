@@ -2930,16 +2930,15 @@ pub struct UiContainerOf(Vec<Entity>);
 /// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
 ///
 /// ```
-/// use bevy_ecs::prelude::World;
+/// # use bevy_ecs::prelude::*;
 /// use bevy_ui::UiContainerSize;
 /// use bevy_ui::Node;
 /// use bevy_ui::UiContainerTarget;
-/// 
-/// let mut world = World::new();
-/// let ui_container = world.spawn(UiContainerSize::default()).id();
+/// fn setup(mut commands: Commands) {
+///     let ui_container = commands.spawn(UiContainerSize::default()).id();
 ///
-/// world.spawn((Node::default(), UiContainerTarget(ui_container)));
-///
+///     commands.spawn((Node::default(), UiContainerTarget(ui_container)));
+/// }
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
