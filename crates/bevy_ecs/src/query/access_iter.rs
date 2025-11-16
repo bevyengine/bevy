@@ -10,6 +10,7 @@ pub enum EcsAccessType {
     Component(EcsAccessLevel),
     /// Accesses [`Resource`](crate::prelude::Resource) data
     Resource(ResourceAccessLevel),
+    Empty,
 }
 
 /// The way the data will be accessed and whether we take access on all the components on
@@ -135,7 +136,9 @@ impl EcsAccessType {
             | (Component(FilteredReadAll), _)
             | (_, Component(FilteredReadAll))
             | (Component(FilteredWriteAll), _)
-            | (_, Component(FilteredWriteAll)) => {
+            | (_, Component(FilteredWriteAll)) 
+            | (Empty, _) 
+            | (_, Empty) => {
                 AccessCompatible::Compatible
             }
 
@@ -323,21 +326,21 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
         // we can make a faster algorithm by putting some fixed size arrays on the stack
         let mut compatibles = [false; MAX_SIZE * MAX_SIZE];
         let mut conflicts = [false; MAX_SIZE * MAX_SIZE];
+        let mut inner_array = [EcsAccessType::Empty; MAX_SIZE];
+        let mut inner_array_length = 0;
         let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
+
         for (i, access) in iter {
-            let mut index_inner = 0;
-            for (j, access_other) in Q::iter_access(components, &mut index_inner)
-                .enumerate()
-                .take(i)
+            let Some(access) = access else {
+                return Err(QueryAccessError::ComponentNotRegistered);
+            };
+
+            for (j, access_other) in inner_array.iter().enumerate().take(inner_array_length)
             {
                 if i == j {
                     continue;
                 }
-                let (Some(access), Some(access_other)) = (access, access_other) else {
-                    return Err(QueryAccessError::ComponentNotRegistered);
-                };
-
-                match access.is_compatible(access_other) {
+                match access.is_compatible(*access_other) {
                     AccessCompatible::Compatible => continue,
                     AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
                     AccessCompatible::CompatibleExcept(index) => {
@@ -350,6 +353,9 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
                     }
                 }
             }
+
+            inner_array[i] = access;
+            inner_array_length += 1;
         }
 
         for (compatible, conflict) in compatibles.iter().zip(conflicts.iter()).take(size * size) {
