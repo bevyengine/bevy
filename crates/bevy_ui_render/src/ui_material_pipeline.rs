@@ -657,68 +657,62 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        if let Ok(view) = camera_views.get(default_camera_view.ui_camera) {
-            if let Some(transparent_phase) =
+        if let Ok(view) = camera_views.get(default_camera_view.ui_camera)
+            && let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
-            {
-                let pipeline = pipelines.specialize(
-                    &pipeline_cache,
-                    &ui_material_pipeline,
-                    UiMaterialKey {
-                        hdr: view.hdr,
-                        bind_group_data: material.key.clone(),
-                    },
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_material_pipeline,
+                UiMaterialKey {
+                    hdr: view.hdr,
+                    bind_group_data: material.key.clone(),
+                },
+            );
+            if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+                transparent_phase.items.reserve_exact(
+                    extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
                 );
-                if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
-                    transparent_phase.items.reserve_exact(
-                        extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
-                    );
-                }
-                transparent_phase.add(TransparentUi {
-                    draw_function,
-                    pipeline,
-                    entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                    sort_key: FloatOrd(
-                        extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL,
-                    ),
-                    batch_range: 0..0,
-                    extra_index: PhaseItemExtraIndex::None,
-                    index,
-                    indexed: false,
-                });
             }
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: false,
+            });
         }
 
-        if let Ok(view) = camera_views.get(default_camera_view.ui_container) {
-            if let Some(transparent_phase) =
+        if let Ok(view) = camera_views.get(default_camera_view.ui_container)
+            && let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
-            {
-                let pipeline = pipelines.specialize(
-                    &pipeline_cache,
-                    &ui_material_pipeline,
-                    UiMaterialKey {
-                        hdr: view.hdr,
-                        bind_group_data: material.key.clone(),
-                    },
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_material_pipeline,
+                UiMaterialKey {
+                    hdr: view.hdr,
+                    bind_group_data: material.key.clone(),
+                },
+            );
+            if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+                transparent_phase.items.reserve_exact(
+                    extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
                 );
-                if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
-                    transparent_phase.items.reserve_exact(
-                        extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
-                    );
-                }
-                transparent_phase.add(TransparentUi {
-                    draw_function,
-                    pipeline,
-                    entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                    sort_key: FloatOrd(
-                        extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL,
-                    ),
-                    batch_range: 0..0,
-                    extra_index: PhaseItemExtraIndex::None,
-                    index,
-                    indexed: false,
-                });
             }
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: false,
+            });
         }
     }
 }

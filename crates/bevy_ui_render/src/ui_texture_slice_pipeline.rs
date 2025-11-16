@@ -360,54 +360,48 @@ pub fn queue_ui_slices(
             continue;
         };
 
-        if let Ok(view) = camera_views.get(default_camera_view.ui_camera) {
-            if let Some(transparent_phase) =
+        if let Ok(view) = camera_views.get(default_camera_view.ui_camera)
+            && let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
-            {
-                let pipeline = pipelines.specialize(
-                    &pipeline_cache,
-                    &ui_slicer_pipeline,
-                    UiTextureSlicePipelineKey { hdr: view.hdr },
-                );
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_slicer_pipeline,
+                UiTextureSlicePipelineKey { hdr: view.hdr },
+            );
 
-                transparent_phase.add(TransparentUi {
-                    draw_function,
-                    pipeline,
-                    entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-                    sort_key: FloatOrd(
-                        extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE,
-                    ),
-                    batch_range: 0..0,
-                    extra_index: PhaseItemExtraIndex::None,
-                    index,
-                    indexed: true,
-                });
-            }
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
+                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: true,
+            });
         }
 
-        if let Ok(view) = camera_views.get(default_camera_view.ui_container) {
-            if let Some(transparent_phase) =
+        if let Ok(view) = camera_views.get(default_camera_view.ui_container)
+            && let Some(transparent_phase) =
                 transparent_render_phases.get_mut(&view.retained_view_entity)
-            {
-                let pipeline = pipelines.specialize(
-                    &pipeline_cache,
-                    &ui_slicer_pipeline,
-                    UiTextureSlicePipelineKey { hdr: view.hdr },
-                );
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_slicer_pipeline,
+                UiTextureSlicePipelineKey { hdr: view.hdr },
+            );
 
-                transparent_phase.add(TransparentUi {
-                    draw_function,
-                    pipeline,
-                    entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-                    sort_key: FloatOrd(
-                        extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE,
-                    ),
-                    batch_range: 0..0,
-                    extra_index: PhaseItemExtraIndex::None,
-                    index,
-                    indexed: true,
-                });
-            }
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
+                sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                index,
+                indexed: true,
+            });
         }
     }
 }
