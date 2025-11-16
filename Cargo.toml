@@ -125,7 +125,7 @@ unsafe_op_in_unsafe_fn = "warn"
 unused_qualifications = "warn"
 
 [features]
-default = ["2d", "3d", "ui","bevy_ui_container","bevy_ui_debug"]
+default = ["2d", "3d", "ui"]
 
 # PROFILE: The default 2D Bevy experience. This includes the core Bevy framework, 2D functionality, Bevy UI, scenes, audio, and picking.
 2d = [
