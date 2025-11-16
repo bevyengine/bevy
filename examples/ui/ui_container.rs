@@ -280,17 +280,17 @@ fn switch_ui_contain_anchor(query: Single<&mut Anchor, With<UiContainInfo>>) {
 }
 
 fn click_button(button: Single<(&Interaction, &mut BackgroundColor), With<ContainNode>>) {
-    let (button, mut backgroud) = button.into_inner();
+    let (button, mut background) = button.into_inner();
     if Interaction::Pressed == *button {
-        let color = backgroud.0.to_srgba();
+        let color = background.0.to_srgba();
         if color == Srgba::NONE {
-            backgroud.0 = Srgba::RED.into();
+            background.0 = Srgba::RED.into();
         } else if color == Srgba::RED {
-            backgroud.0 = Srgba::BLUE.into();
+            background.0 = Srgba::BLUE.into();
         } else if color == Srgba::BLUE {
-            backgroud.0 = Srgba::GREEN.into();
+            background.0 = Srgba::GREEN.into();
         } else {
-            backgroud.0 = Srgba::NONE.into();
+            background.0 = Srgba::NONE.into();
         }
     }
 }
