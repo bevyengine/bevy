@@ -718,8 +718,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
-        UntypedHandle,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, LoadedAsset,
+        UnapprovedPathMode, UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -743,6 +743,7 @@ mod tests {
     };
     use bevy_reflect::TypePath;
     use core::time::Duration;
+    use futures_lite::AsyncReadExt;
     use serde::{Deserialize, Serialize};
     use std::path::{Path, PathBuf};
     use thiserror::Error;
@@ -762,7 +763,7 @@ mod tests {
         pub text: String,
     }
 
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize, Deserialize, Default)]
     pub struct CoolTextRon {
         pub text: String,
         pub dependencies: Vec<String>,
@@ -2643,5 +2644,98 @@ mod tests {
         //
         // assert_eq!(get_started_load_count(app.world()), 1);
         assert_eq!(get_started_load_count(app.world()), 2);
+    }
+
+    #[test]
+    fn immediate_nested_asset_loads_dependency() {
+        let (mut app, dir) = create_app();
+
+        /// This asset holds a handle to its dependency.
+        #[derive(Asset, TypePath)]
+        struct DeferredNested(Handle<TestAsset>);
+
+        struct DeferredNestedLoader;
+
+        impl AssetLoader for DeferredNestedLoader {
+            type Asset = DeferredNested;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                reader: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let mut nested_path = String::new();
+                reader.read_to_string(&mut nested_path).await?;
+                Ok(DeferredNested(load_context.load(nested_path)))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["defer"]
+            }
+        }
+
+        /// This asset holds a handle a dependency of one of its dependencies.
+        #[derive(Asset, TypePath)]
+        struct ImmediateNested(Handle<TestAsset>);
+
+        struct ImmediateNestedLoader;
+
+        impl AssetLoader for ImmediateNestedLoader {
+            type Asset = ImmediateNested;
+            type Settings = ();
+            type Error = std::io::Error;
+
+            async fn load(
+                &self,
+                reader: &mut dyn Reader,
+                _: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> Result<Self::Asset, Self::Error> {
+                let mut nested_path = String::new();
+                reader.read_to_string(&mut nested_path).await?;
+                let deferred_nested: LoadedAsset<DeferredNested> = load_context
+                    .loader()
+                    .immediate()
+                    .load(nested_path)
+                    .await
+                    .unwrap();
+                Ok(ImmediateNested(deferred_nested.get().0.clone()))
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["immediate"]
+            }
+        }
+
+        app.init_asset::<TestAsset>()
+            .init_asset::<DeferredNested>()
+            .init_asset::<ImmediateNested>()
+            .register_asset_loader(TrivialLoader)
+            .register_asset_loader(DeferredNestedLoader)
+            .register_asset_loader(ImmediateNestedLoader);
+
+        dir.insert_asset_text(Path::new("a.immediate"), "b.defer");
+        dir.insert_asset_text(Path::new("b.defer"), "c.txt");
+        dir.insert_asset_text(Path::new("c.txt"), "hiya");
+
+        let server = app.world().resource::<AssetServer>().clone();
+        let immediate_handle: Handle<ImmediateNested> = server.load("a.immediate");
+
+        run_app_until(&mut app, |world| {
+            let immediate_assets = world.resource::<Assets<ImmediateNested>>();
+            let immediate = immediate_assets.get(&immediate_handle)?;
+
+            let test_asset_handle = immediate.0.clone();
+            world
+                .resource::<Assets<TestAsset>>()
+                .get(&test_asset_handle)?;
+
+            // The immediate asset is loaded, and the asset it got from its immediate load is also
+            // loaded.
+            Some(())
+        });
     }
 }
