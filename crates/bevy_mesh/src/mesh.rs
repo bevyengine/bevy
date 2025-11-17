@@ -1577,7 +1577,7 @@ impl Mesh {
     /// Panics if the mesh has any other topology than [`PrimitiveTopology::TriangleList`].
     /// Panics if the mesh does not have indices defined.
     /// Panics when the mesh data has already been extracted to `RenderWorld`. To handle
-    /// this as an error use [`Mesh::try_`]
+    /// this as an error use [`Mesh::try_with_computed_area_weighted_normals`]
     pub fn with_computed_area_weighted_normals(mut self) -> Self {
         self.compute_area_weighted_normals();
         self
