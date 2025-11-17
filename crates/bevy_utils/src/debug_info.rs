@@ -23,23 +23,15 @@ pub struct DebugName {
 cfg::alloc! {
     impl fmt::Display for DebugName {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            #[cfg(feature = "debug")]
-            f.write_str(self.name.as_ref())?;
-            #[cfg(not(feature = "debug"))]
-            f.write_str(FEATURE_DISABLED)?;
-
-            Ok(())
+            // Deref to `str`, which will use `FEATURE_DISABLED` if necessary
+            write!(f, "{}", &**self)
         }
     }
 
     impl fmt::Debug for DebugName {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-            #[cfg(feature = "debug")]
-            write!(f, "{:?}", self.name.as_ref())?;
-            #[cfg(not(feature = "debug"))]
-            f.debug_struct("DebugName").finish()?;
-
-            Ok(())
+            // Deref to `str`, which will use `FEATURE_DISABLED` if necessary
+            write!(f, "{:?}", &**self)
         }
     }
 }
