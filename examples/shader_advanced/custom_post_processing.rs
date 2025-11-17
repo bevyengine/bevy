@@ -267,6 +267,7 @@ fn init_post_process_pipeline(
                 shader,
                 // Make sure this matches the entry point of your shader.
                 // It can be anything as long as it matches here and in the shader.
+                // Use `format: ViewTarget::TEXTURE_FORMAT_HDR` for HDR cameras.
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
@@ -299,6 +300,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
+    // Make sure you change the TextureFormat of the ColorTargetState
+    // if you enable Hdr directly or through features like Bloom.
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
