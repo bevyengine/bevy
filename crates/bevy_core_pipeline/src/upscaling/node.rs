@@ -1,7 +1,7 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
 use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig, NormalizedRenderTarget};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::view::{ExtractedWindow, ExtractedWindows};
+use bevy_render::view::ExtractedWindows;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
