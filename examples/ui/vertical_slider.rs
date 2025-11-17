@@ -1,4 +1,4 @@
-//! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels.
+//! Simple example showing vertical and horizontal slider widgets with snap behavior and value labels
 
 use bevy::{
     input_focus::{
@@ -164,10 +164,10 @@ fn vertical_slider() -> impl Bundle {
             Spawn((
                 Node {
                     width: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK),
-                BorderRadius::all(px(3)),
             )),
             Spawn((
                 Node {
@@ -188,9 +188,9 @@ fn vertical_slider() -> impl Bundle {
                         height: px(12),
                         position_type: PositionType::Absolute,
                         bottom: percent(0),
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),
@@ -222,10 +222,10 @@ fn horizontal_slider() -> impl Bundle {
             Spawn((
                 Node {
                     height: px(6),
+                    border_radius: BorderRadius::all(px(3)),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK),
-                BorderRadius::all(px(3)),
             )),
             Spawn((
                 Node {
@@ -246,9 +246,9 @@ fn horizontal_slider() -> impl Bundle {
                         height: px(12),
                         position_type: PositionType::Absolute,
                         left: percent(0),
+                        border_radius: BorderRadius::MAX,
                         ..default()
                     },
-                    BorderRadius::MAX,
                     BackgroundColor(SLIDER_THUMB),
                 )],
             )),

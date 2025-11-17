@@ -3488,7 +3488,7 @@ required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.vertical_slider]
 name = "Vertical Slider"
-description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels."
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels"
 category = "UI (User Interface)"
 wasm = true
 
