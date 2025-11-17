@@ -1518,7 +1518,7 @@ unsafe impl WorldQuery for &Archetype {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a> QueryData for &'a Archetype {
+unsafe impl QueryData for &Archetype {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
@@ -1677,7 +1677,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<'a, T: Component> QueryData for &'a T {
+unsafe impl<T: Component> QueryData for &T {
     const IS_READ_ONLY: bool = true;
     const IS_ARCHETYPAL: bool = true;
     type ReadOnly = Self;
