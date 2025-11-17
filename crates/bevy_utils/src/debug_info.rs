@@ -14,7 +14,7 @@ const FEATURE_DISABLED: &str = "Enable the debug feature to see the name";
 ///
 /// * If the `debug` feature is enabled, the actual name will be used
 /// * If it is disabled, a string mentioning the disabled feature will be used
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct DebugName {
     #[cfg(feature = "debug")]
     name: Cow<'static, str>,
@@ -27,6 +27,17 @@ cfg::alloc! {
             f.write_str(self.name.as_ref())?;
             #[cfg(not(feature = "debug"))]
             f.write_str(FEATURE_DISABLED)?;
+
+            Ok(())
+        }
+    }
+
+    impl fmt::Debug for DebugName {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            #[cfg(feature = "debug")]
+            write!(f, "{:?}", self.name.as_ref())?;
+            #[cfg(not(feature = "debug"))]
+            f.debug_struct("DebugName").finish()?;
 
             Ok(())
         }
