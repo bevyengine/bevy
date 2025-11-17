@@ -230,7 +230,7 @@ impl Display for AccessConflictError<'_> {
                 write!(f, "Component write all conflicts with component write all.")
             }
 
-            // Component + Component conflics
+            // Component + Component conflicts
             (Component(Read(id)), Component(Write(id_other)))
             | (Component(Write(id_other)), Component(Read(id))) => write!(
                 f,
