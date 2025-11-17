@@ -386,11 +386,10 @@ mod render_entities_world_query_impls {
             component.map(RenderEntity::id)
         }
 
-        fn iter_access<'c>(
-            components: &'c Components,
-            index: &mut usize,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
-            <&RenderEntity as QueryData>::iter_access(components, index)
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&RenderEntity as QueryData>::iter_access(state)
         }
     }
 
@@ -502,11 +501,10 @@ mod render_entities_world_query_impls {
             component.map(MainEntity::id)
         }
 
-        fn iter_access<'c>(
-            components: &'c Components,
-            index: &mut usize,
-        ) -> impl Iterator<Item = Option<bevy_ecs::query::EcsAccessType>> + use<'c> {
-            <&MainEntity as QueryData>::iter_access(components, index)
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = bevy_ecs::query::EcsAccessType<'_>> {
+            <&MainEntity as QueryData>::iter_access(state)
         }
     }
 

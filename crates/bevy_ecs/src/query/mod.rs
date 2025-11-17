@@ -900,15 +900,12 @@ mod tests {
             Some(())
         }
 
-        fn iter_access<'c>(
-            components: &'c Components,
-            _index: &mut usize,
-        ) -> impl Iterator<Item = Option<super::access_iter::EcsAccessType>> + use<'c> {
-            core::iter::once(components.resource_id::<R>().map(|id| {
-                super::access_iter::EcsAccessType::Resource(
-                    super::access_iter::ResourceAccessLevel::Read(id),
-                )
-            }))
+        fn iter_access(
+            state: &Self::State,
+        ) -> impl Iterator<Item = super::access_iter::EcsAccessType<'_>> {
+            core::iter::once(super::access_iter::EcsAccessType::Resource(
+                super::access_iter::ResourceAccessLevel::Read(*state),
+            ))
         }
     }
 
