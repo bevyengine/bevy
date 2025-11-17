@@ -3481,6 +3481,18 @@ category = "UI (User Interface)"
 wasm = false
 
 [[example]]
+name = "vertical_slider"
+path = "examples/ui/vertical_slider.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
+
+[package.metadata.example.vertical_slider]
+name = "Vertical Slider"
+description = "Simple example showing vertical and horizontal slider widgets with snap behavior and value labels."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 doc-scrape-examples = true

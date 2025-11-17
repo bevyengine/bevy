@@ -294,14 +294,11 @@ pub(crate) fn slider_on_pointer_down(
         // Avoid division by zero
         let click_val = if track_size > 0. {
             if is_vertical {
-                // For vertical sliders: convert from center-origin to top-origin coordinates
-                // local_pos.y ranges from -height/2 to +height/2
-                // Convert to: 0 at top, height at bottom
-                let y_from_top = local_pos.y + node.size().y / 2.0;
-                // Offset by half thumb size to center the calculation
-                let adjusted_y = y_from_top - thumb_size / 2.0;
-                // Invert because Y increases downward
-                range.end() - (adjusted_y * range.span() / track_size)
+                // For vertical sliders: bottom-to-top (0 at bottom, max at top)
+                // local_pos.y ranges from -height/2 (top) to +height/2 (bottom)
+                let y_from_bottom = (node.size().y / 2.0) - local_pos.y;
+                let adjusted_y = y_from_bottom - thumb_size / 2.0;
+                adjusted_y * range.span() / track_size + range.start()
             } else {
                 // For horizontal sliders: convert from center-origin to left-origin
                 let x_from_left = local_pos.x + node.size().x / 2.0;
