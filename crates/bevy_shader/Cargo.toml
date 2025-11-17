@@ -25,7 +25,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.19", default-features = false, features = [
+naga_oil = { version = "0.20", default-features = false, features = [
   "test_shader",
 ] }
 
