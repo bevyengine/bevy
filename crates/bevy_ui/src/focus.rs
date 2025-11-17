@@ -300,7 +300,6 @@ pub fn ui_focus_system(
             #[cfg(feature = "bevy_ui_container")]
             let contains_cursor = if target_query.get(entity).unwrap() {
                 cursor_position_container.is_some_and(|point| {
-                    // tracing::info!("node.transform:{:?}", node.transform.translation);
                     node.node.contains_point(*node.transform, *point)
                         && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
                 })
