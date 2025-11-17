@@ -6,7 +6,6 @@ use crate::{
 };
 
 /// Check if `Q` has any internal conflicts.
-#[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     // increasing this too much may slow down smaller queries
     const MAX_SIZE: usize = 16;
