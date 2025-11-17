@@ -67,7 +67,8 @@ where
 
 /// Despawns entities marked with [`DespawnOnExit<S>`] when their state no
 /// longer matches the world state.
-/// If the entity has already been despawned no warning will be emitted
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_exit_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
@@ -134,7 +135,8 @@ pub struct DespawnOnEnter<S: States>(pub S);
 
 /// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// matches the world state.
-/// If the entity has already been despawned no warning will be emitted
+///
+/// If the entity has already been despawned no warning will be emitted.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: MessageReader<StateTransitionEvent<S>>,
