@@ -6,6 +6,7 @@ use crate::{
 };
 
 /// Check if `Q` has any internal conflicts.
+#[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     // increasing this too much may slow down smaller queries
     const MAX_SIZE: usize = 16;
@@ -14,8 +15,9 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
     };
     let iter = Q::iter_access(&state).enumerate();
     let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
+
     if size > MAX_SIZE {
-        for (i, access) in Q::iter_access(&state).enumerate() {
+        for (i, access) in iter {
             for access_other in Q::iter_access(&state).take(i) {
                 if let Err(err) = access.is_compatible(access_other) {
                     panic!("{}", err);
@@ -25,7 +27,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
     } else {
         // we can optimize small sizes by caching the iteration result in an array on the stack
         let mut inner_access = [EcsAccessType::Empty; MAX_SIZE];
-        for (i, access) in Q::iter_access(&state).enumerate() {
+        for (i, access) in iter {
             for access_other in inner_access.iter().take(i) {
                 if let Err(err) = access.is_compatible(*access_other) {
                     panic!("{}", err);
