@@ -10,7 +10,7 @@ pub enum EcsAccessType {
     Component(EcsAccessLevel),
     /// Accesses [`Resource`](crate::prelude::Resource) data
     Resource(ResourceAccessLevel),
-    /// Does not access any data that can conflict. This includes things like [`Entity`] query data.
+    /// Does not access any data that can conflict.
     Empty,
 }
 
@@ -137,8 +137,8 @@ impl EcsAccessType {
             | (Component(FilteredReadAll), _)
             | (_, Component(FilteredReadAll))
             | (Component(FilteredWriteAll), _)
-            | (_, Component(FilteredWriteAll)) 
-            | (Empty, _) 
+            | (_, Component(FilteredWriteAll))
+            | (Empty, _)
             | (_, Empty) => {
                 AccessCompatible::Compatible
             }
@@ -336,8 +336,7 @@ pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryA
                 return Err(QueryAccessError::ComponentNotRegistered);
             };
 
-            for (j, access_other) in inner_array.iter().enumerate().take(inner_array_length)
-            {
+            for (j, access_other) in inner_array.iter().enumerate().take(inner_array_length) {
                 if i == j {
                     continue;
                 }

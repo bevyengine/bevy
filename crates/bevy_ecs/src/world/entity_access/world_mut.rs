@@ -352,9 +352,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn get_components_mut<Q: ReleaseStateQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
-        has_conflicts::<Q>(self.world.components())?;
-        // SAFETY: we checked that there were not conflicting components above
-        unsafe { self.get_components_mut_unchecked::<Q>() }
+        self.as_mutable().into_components_mut::<Q>()
     }
 
     /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
