@@ -85,13 +85,13 @@ pub fn render_system(
         world.resource_scope(|world, mut windows: Mut<ExtractedWindows>| {
             let views = state.get(world);
             for (view_target, camera) in views.iter() {
-                if let Some(NormalizedRenderTarget::Window(window)) = camera.target {
-                    if view_target.needs_present() {
-                        let Some(window) = windows.get_mut(&window.entity()) else {
-                            continue;
-                        };
-                        window.present();
-                    }
+                if let Some(NormalizedRenderTarget::Window(window)) = camera.target
+                    && view_target.needs_present()
+                {
+                    let Some(window) = windows.get_mut(&window.entity()) else {
+                        continue;
+                    };
+                    window.present();
                 }
             }
         });
