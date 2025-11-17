@@ -29,8 +29,12 @@ use wgpu_types::{BlendState, TextureUsages};
 /// You should use the scaling factor reported by the window, which on some OS's defaults to a value other than 1.
 /// Please see the example code (which assumes a single camera and window)
 /// 
-/// ```
-/// use bevy::{camera::{Viewport}, prelude::*};
+/// ```no_run
+/// # use bevy_camera::{Projection, Viewport};
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_math::Vec2;
+/// # use bevy_window::Window;
+/// # use bevy_utils::default;
 /// 
 /// fn update_viewport(
 ///    mut camera_query: Query<(&mut Camera, &mut Transform, &mut Projection)>, 
