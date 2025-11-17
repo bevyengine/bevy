@@ -304,12 +304,15 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.get_mut_untracked(id) {
                                 let previous_asset = maybe_render_assets.as_ref().and_then(|render_assets| render_assets.get(id));
-                                let Ok(gpu_data_asset) = A::take_gpu_data(asset, previous_asset) else {
-                                    error!("{} with RenderAssetUsages == RENDER_WORLD was modified after extraction", core::any::type_name::<A>());
-                                    continue;
+                                match A::take_gpu_data(asset, previous_asset) {
+                                    Ok(gpu_data_asset) => {
+                                        extracted_assets.push((id, gpu_data_asset));
+                                        added.insert(id);
+                                    }
+                                    Err(e) => {
+                                        error!("{} with RenderAssetUsages == RENDER_WORLD cannot be extracted: {e}", core::any::type_name::<A>());
+                                    }
                                 };
-                                extracted_assets.push((id, gpu_data_asset));
-                                added.insert(id);
                             }
                         } else {
                             extracted_assets.push((id, asset.clone()));
