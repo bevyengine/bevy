@@ -3,17 +3,10 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::gpixel_resolve
+#import bevy_solari::realtime_bindings::{view_output, gi_reservoirs_a, gbuffer, depth_buffer, view, constants}
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache
-
-@group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
-@group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
-@group(1) @binding(7) var gbuffer: texture_2d<u32>;
-@group(1) @binding(8) var depth_buffer: texture_depth_2d;
-@group(1) @binding(12) var<uniform> view: View;
-struct PushConstants { frame_index: u32, reset: u32 }
-var<push_constant> constants: PushConstants;
+#import bevy_solari::world_cache::query_world_cache_radiance
 
 @compute @workgroup_size(8, 8, 1)
 fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -61,7 +54,7 @@ fn specular_gi(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, pixel_color);
 
 #ifdef VISUALIZE_WORLD_CACHE
-    textureStore(view_output, global_id.xy, vec4(query_world_cache(surface.world_position, surface.world_normal, view.world_position, &rng) * view.exposure, 1.0));
+    textureStore(view_output, global_id.xy, vec4(query_world_cache_radiance(surface.world_position, surface.world_normal, view.world_position, &rng) * view.exposure, 1.0));
 #endif
 }
 
@@ -80,7 +73,7 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
 
         // Add world cache contribution
         let diffuse_brdf = ray_hit.material.base_color / PI;
-        radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
+        radiance += throughput * diffuse_brdf * query_world_cache_radiance(rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
 
         // Surface is very rough, terminate path in the world cache
         if ray_hit.material.roughness > 0.1 && i != 0u { break; }
@@ -104,14 +97,4 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
     }
 
     return radiance;
-}
-
-// Don't adjust the size of this struct without also adjusting GI_RESERVOIR_STRUCT_SIZE.
-struct Reservoir {
-    sample_point_world_position: vec3<f32>,
-    weight_sum: f32,
-    radiance: vec3<f32>,
-    confidence_weight: f32,
-    sample_point_world_normal: vec3<f32>,
-    unbiased_contribution_weight: f32,
 }
