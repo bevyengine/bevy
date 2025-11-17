@@ -1,7 +1,6 @@
 use crate::{blit::BlitPipeline, upscaling::ViewUpscalingPipeline};
-use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig, NormalizedRenderTarget};
+use bevy_camera::{CameraOutputMode, ClearColor, ClearColorConfig};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::view::ExtractedWindows;
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -37,31 +36,10 @@ impl ViewNode for UpscalingNode {
 
         let diagnostics = render_context.diagnostic_recorder();
 
-        // check if the window size or present mode has changed for this camera
-        // if so, we need to write to the upscaling target to make sure it's updated
-        // otherwise it'll be stretched from the previous size (ugly)
-        let mut needs_present = false;
-        if let Some(camera) = camera {
-            if let Some(NormalizedRenderTarget::Window(window)) = camera.target {
-                let extracted_windows = world.resource::<ExtractedWindows>();
-                let Some(extracted_window) = extracted_windows.get(&window.entity()) else {
-                    return Ok(());
-                };
-                if extracted_window.present_mode_changed || extracted_window.size_changed {
-                    needs_present = true
-                }
-            }
-        }
-
         let clear_color = if let Some(camera) = camera {
-            match (camera.output_mode, needs_present) {
-                (CameraOutputMode::Write { clear_color, .. }, _) => clear_color,
-                // this may not be totally correct as the user could have configured a non-default
-                // color the last time they wrote, but we need to clear with something, especially
-                // if we are changing sizes. if you care about this case, enable write when resizing
-                // with your custom clear color
-                (CameraOutputMode::Skip, true) => ClearColorConfig::Default,
-                (CameraOutputMode::Skip, false) => return Ok(()),
+            match camera.output_mode {
+                CameraOutputMode::Write { clear_color, .. } => clear_color,
+                CameraOutputMode::Skip => return Ok(()),
             }
         } else {
             ClearColorConfig::Default
