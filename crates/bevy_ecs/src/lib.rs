@@ -68,10 +68,6 @@ use message::Message;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    #[expect(
-        deprecated,
-        reason = "`Trigger` was deprecated in favor of `On`, and `OnX` lifecycle events were deprecated in favor of `X` events."
-    )]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
@@ -79,15 +75,12 @@ pub mod prelude {
         component::Component,
         entity::{ContainsEntity, Entity, EntityMapper},
         error::{BevyError, Result},
-        event::{EntityEvent, Event, EventReader, EventWriter, Events},
+        event::{EntityEvent, Event},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
-        lifecycle::{
-            Add, Despawn, Insert, OnAdd, OnDespawn, OnInsert, OnRemove, OnReplace, Remove,
-            RemovedComponents, Replace,
-        },
+        lifecycle::{Add, Despawn, Insert, Remove, RemovedComponents, Replace},
         message::{Message, MessageMutator, MessageReader, MessageWriter, Messages},
         name::{Name, NameOrEntity},
-        observer::{Observer, On, Trigger},
+        observer::{Observer, On},
         query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
@@ -161,12 +154,12 @@ mod tests {
         bundle::Bundle,
         change_detection::Ref,
         component::Component,
-        entity::{Entity, EntityMapper},
+        entity::{Entity, EntityMapper, EntityNotSpawnedError},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
-        world::{EntityMut, EntityRef, Mut, World},
+        world::{error::EntityDespawnError, EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use bevy_platform::collections::HashSet;
@@ -251,10 +244,8 @@ mod tests {
             x: TableStored,
             y: SparseStored,
         }
-        let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <FooBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -301,10 +292,8 @@ mod tests {
             b: B,
         }
 
-        let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(&mut world.components_registrator(), &mut |id| {
-            ids.push(id);
-        });
+        let ids: Vec<_> =
+            <NestedBundle as Bundle>::component_ids(&mut world.components_registrator()).collect();
 
         assert_eq!(
             ids,
@@ -353,13 +342,9 @@ mod tests {
             ignored: Ignored,
         }
 
-        let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components_registrator(),
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        let ids: Vec<_> =
+            <BundleWithIgnored as Bundle>::component_ids(&mut world.components_registrator())
+                .collect();
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -380,6 +365,38 @@ mod tests {
                 ignored: Ignored,
             }
         );
+    }
+
+    #[test]
+    fn spawning_with_manual_entity_allocation() {
+        let mut world = World::new();
+        let e1 = world.entities_allocator_mut().alloc();
+        world.spawn_at(e1, (TableStored("abc"), A(123))).unwrap();
+
+        let e2 = world.entities_allocator_mut().alloc();
+        assert!(matches!(
+            world.try_despawn_no_free(e2),
+            Err(EntityDespawnError(
+                EntityNotSpawnedError::ValidButNotSpawned(_)
+            ))
+        ));
+        assert!(!world.despawn(e2));
+        world.entities_allocator_mut().free(e2);
+
+        let e3 = world.entities_allocator_mut().alloc();
+        let e3 = world
+            .spawn_at(e3, (TableStored("junk"), A(0)))
+            .unwrap()
+            .despawn_no_free();
+        world.spawn_at(e3, (TableStored("def"), A(456))).unwrap();
+
+        assert_eq!(world.entities.count_spawned(), 2);
+        assert!(world.despawn(e1));
+        assert_eq!(world.entities.count_spawned(), 1);
+        assert!(world.get::<TableStored>(e1).is_none());
+        assert!(world.get::<A>(e1).is_none());
+        assert_eq!(world.get::<TableStored>(e3).unwrap().0, "def");
+        assert_eq!(world.get::<A>(e3).unwrap().0, 456);
     }
 
     #[test]
@@ -1203,16 +1220,6 @@ mod tests {
     fn empty_spawn() {
         let mut world = World::default();
         let e = world.spawn_empty().id();
-        let mut e_mut = world.entity_mut(e);
-        e_mut.insert(A(0));
-        assert_eq!(e_mut.get::<A>().unwrap(), &A(0));
-    }
-
-    #[test]
-    fn reserve_and_spawn() {
-        let mut world = World::default();
-        let e = world.entities().reserve_entity();
-        world.flush_entities();
         let mut e_mut = world.entity_mut(e);
         e_mut.insert(A(0));
         assert_eq!(e_mut.get::<A>().unwrap(), &A(0));

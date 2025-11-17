@@ -1187,17 +1187,6 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "manual_material"
-path = "examples/3d/manual_material.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.manual_material]
-name = "Manual Material Implementation"
-description = "Demonstrates how to implement a material manually using the mid-level render APIs"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
@@ -2411,7 +2400,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
@@ -3092,6 +3080,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "manual_material"
+path = "examples/shader_advanced/manual_material.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.manual_material]
+name = "Manual Material Implementation"
+description = "Demonstrates how to implement a material manually using the mid-level render APIs"
+category = "Shader Advanced"
+wasm = true
+
+[[example]]
 name = "texture_binding_array"
 path = "examples/shader_advanced/texture_binding_array.rs"
 doc-scrape-examples = true
@@ -3101,7 +3100,6 @@ name = "Texture Binding Array (Bindless Textures)"
 description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
 category = "Shaders"
 wasm = false
-
 
 [[example]]
 name = "specialized_mesh_pipeline"
@@ -3802,7 +3800,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
+wasm = false
 
 [[example]]
 name = "viewport_node"
@@ -4702,6 +4700,17 @@ doc-scrape-examples = true
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "auto_directional_navigation"
+path = "examples/ui/auto_directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_directional_navigation]
+name = "Automatic Directional Navigation"
+description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 

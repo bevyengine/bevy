@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -347,6 +347,21 @@ impl From<Vec2> for ScrollPosition {
     }
 }
 
+/// Controls whether a UI element ignores its parent's [`ScrollPosition`] along specific axes.
+///
+/// When an axis is set to `true`, the node will not have the parent’s scroll position applied
+/// on that axis. This can be used to keep an element visually fixed along one or both axes
+/// even when its parent UI element is scrolled.
+#[derive(Component, Debug, Clone, Default, Deref, DerefMut, Reflect)]
+#[reflect(Component, Default, Clone)]
+pub struct IgnoreScroll(pub BVec2);
+
+impl From<BVec2> for IgnoreScroll {
+    fn from(value: BVec2) -> Self {
+        Self(value)
+    }
+}
+
 /// The base component for UI entities. It describes UI layout and style properties.
 ///
 /// When defining new types of UI entities, require [`Node`] to make them behave like UI nodes.
@@ -380,7 +395,6 @@ impl From<Vec2> for ScrollPosition {
     UiTransform,
     BackgroundColor,
     BorderColor,
-    BorderRadius,
     FocusPolicy,
     ScrollPosition,
     Visibility,
@@ -596,6 +610,45 @@ pub struct Node {
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-width>
     pub border: UiRect,
 
+    /// Used to add rounded corners to a UI node. You can set a UI node to have uniformly
+    /// rounded corners or specify different radii for each corner. If a given radius exceeds half
+    /// the length of the smallest dimension between the node's height or width, the radius will
+    /// calculated as half the smallest dimension.
+    ///
+    /// Elliptical nodes are not supported yet. Percentage values are based on the node's smallest
+    /// dimension, either width or height.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_ui::prelude::*;
+    /// # use bevy_color::palettes::basic::{BLUE};
+    /// fn setup_ui(mut commands: Commands) {
+    ///     commands.spawn((
+    ///         Node {
+    ///             width: Val::Px(100.),
+    ///             height: Val::Px(100.),
+    ///             border: UiRect::all(Val::Px(2.)),
+    ///             border_radius: BorderRadius::new(
+    ///                 // top left
+    ///                 Val::Px(10.),
+    ///                 // top right
+    ///                 Val::Px(20.),
+    ///                 // bottom right
+    ///                 Val::Px(30.),
+    ///                 // bottom left
+    ///                 Val::Px(40.),
+    ///             ),
+    ///             ..Default::default()
+    ///         },
+    ///         BackgroundColor(BLUE.into()),
+    ///     ));
+    /// }
+    /// ```
+    ///
+    /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
+    pub border_radius: BorderRadius,
+
     /// Whether a Flexbox container should be a row or a column. This property has no effect on Grid nodes.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-direction>
@@ -697,6 +750,7 @@ impl Node {
         margin: UiRect::DEFAULT,
         padding: UiRect::DEFAULT,
         border: UiRect::DEFAULT,
+        border_radius: BorderRadius::DEFAULT,
         flex_grow: 0.0,
         flex_shrink: 1.0,
         flex_basis: Val::Auto,
@@ -2298,26 +2352,26 @@ pub struct GlobalZIndex(pub i32);
 ///             width: Val::Px(100.),
 ///             height: Val::Px(100.),
 ///             border: UiRect::all(Val::Px(2.)),
+///             border_radius: BorderRadius::new(
+///                 // top left
+///                 Val::Px(10.),
+///                 // top right
+///                 Val::Px(20.),
+///                 // bottom right
+///                 Val::Px(30.),
+///                 // bottom left
+///                 Val::Px(40.),
+///             ),
 ///             ..Default::default()
 ///         },
 ///         BackgroundColor(BLUE.into()),
-///         BorderRadius::new(
-///             // top left
-///             Val::Px(10.),
-///             // top right
-///             Val::Px(20.),
-///             // bottom right
-///             Val::Px(30.),
-///             // bottom left
-///             Val::Px(40.),
-///         ),
 ///     ));
 /// }
 /// ```
 ///
 /// <https://developer.mozilla.org/en-US/docs/Web/CSS/border-radius>
-#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
-#[reflect(Component, PartialEq, Default, Debug, Clone)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(PartialEq, Default, Debug, Clone)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
