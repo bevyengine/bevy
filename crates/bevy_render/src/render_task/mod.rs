@@ -6,7 +6,6 @@
 pub mod bind;
 
 mod compute_builder;
-mod extract;
 mod node;
 mod plugin;
 mod resource_cache;
@@ -16,6 +15,7 @@ pub use node::RenderTaskContext;
 pub use plugin::RenderTaskPlugin;
 
 use crate::{
+    extract_component::ExtractComponent,
     render_graph::{IntoRenderNodeArray, RenderLabel, RenderSubGraph},
     settings::{WgpuFeatures, WgpuLimits},
 };
@@ -56,7 +56,7 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// To add a new rendering task to your app, write a new component for a camera:
 ///
 /// ```rust
-/// #[derive(Component, Clone)]
+/// #[derive(Component, ExtractComponent)]
 /// struct MyRenderingFeature { /* ... */ }
 ///
 /// impl RenderTask for MyRenderingFeature {
@@ -71,7 +71,7 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 ///
 /// ```rust
 /// const REQUIRED_FEATURES: WgpuFeatures = WgpuFeatures::SHADER_F64;
-/// const REQUIRED_LIMITS: WgpuLimits = WgpuLimits { max_sampled_textures_per_shader_stage: 32, ..Default::default() };
+/// const REQUIRED_LIMITS: WgpuLimits = WgpuLimits { max_sampled_textures_per_shader_stage: 32, ..WgpuLimits::downlevel_webgl2_defaults() };
 /// ```
 ///
 /// ## 3) Setup a render node
@@ -81,12 +81,16 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// #[derive(RenderLabel, Default)]
 /// struct MyRenderingFeatureNode;
 ///
-/// type RenderNodeLabel = MyRenderingFeatureNode;
 /// type RenderNodeSubGraph = Core3d; // Run as part of the Core3d render graph
+///
+/// fn render_node_label() -> impl RenderLabel {
+///    MyRenderingFeatureNode
+/// }
+///
 /// fn render_node_ordering() -> impl IntoRenderNodeArray {
 ///     (
 ///        Node3d::EndPrepasses,
-///        MyRenderingFeatureNode, // Run sometime after the end of the prepass rendering, and before the end of the main pass rendering
+///        Self::render_node_label(), // Run sometime after the end of the prepass rendering, and before the end of the main pass rendering
 ///        Node3d::EndMainPass,
 ///     )
 /// }
@@ -149,11 +153,13 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 ///     MyRenderingFeature::new(),
 /// ));
 /// ```
-pub trait RenderTask: Component + Clone {
-    /// Render node label for the task.
-    type RenderNodeLabel: RenderLabel + Default;
+pub trait RenderTask: Component + ExtractComponent {
     /// What render graph the task should run it.
     type RenderNodeSubGraph: RenderSubGraph + Default;
+
+    /// Render node label for the task.
+    fn render_node_label() -> impl RenderLabel;
+
     /// Ordering to run render nodes in.
     fn render_node_ordering() -> impl IntoRenderNodeArray;
 
@@ -161,6 +167,7 @@ pub trait RenderTask: Component + Clone {
     ///
     /// Defaults to [`WgpuFeatures::empty()`].
     const REQUIRED_FEATURES: WgpuFeatures = WgpuFeatures::empty();
+
     /// Required GPU limits for the task.
     ///
     /// Defaults to [`WgpuLimits::downlevel_webgl2_defaults()`].

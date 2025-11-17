@@ -1,8 +1,9 @@
-use super::{extract::extract_render_task, node::RenderTaskNode, RenderTask};
+use super::{node::RenderTaskNode, RenderTask};
 use crate::{
+    extract_component::ExtractComponentPlugin,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
-    ExtractSchedule, RenderApp,
+    RenderApp,
 };
 use bevy_app::{App, Plugin};
 use std::marker::PhantomData;
@@ -52,6 +53,7 @@ impl<T: RenderTask> Plugin for RenderTaskPlugin<T> {
         }
 
         // Setup app
+        app.add_plugins(ExtractComponentPlugin::<T>::default());
         T::plugin_app_build(app);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -60,10 +62,9 @@ impl<T: RenderTask> Plugin for RenderTaskPlugin<T> {
 
         // Setup render app
         render_app
-            .add_systems(ExtractSchedule, extract_render_task::<T>)
             .add_render_graph_node::<ViewNodeRunner<RenderTaskNode<T>>>(
                 T::RenderNodeSubGraph::default(),
-                T::RenderNodeLabel::default(),
+                T::render_node_label(),
             )
             .add_render_graph_edges(T::RenderNodeSubGraph::default(), T::render_node_ordering());
 
