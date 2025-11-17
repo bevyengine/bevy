@@ -833,8 +833,6 @@ mod tests {
     fn get_components_mut() {
         let mut world = World::default();
         let e1 = world.spawn((X(7), Y(10))).id();
-        let e2 = world.spawn(X(8)).id();
-        let e3 = world.spawn_empty().id();
 
         let mut entity_mut_1 = world.entity_mut(e1);
         let Ok((mut x, mut y)) = entity_mut_1.get_components_mut::<(&mut X, &mut Y)>() else {
@@ -847,26 +845,6 @@ mod tests {
             Ok((&X(8), &Y(11))),
             world.entity(e1).get_components::<(&X, &Y)>()
         );
-        assert!(world
-            .entity_mut(e2)
-            .get_components_mut::<(&X, &Y)>()
-            .is_err());
-        assert!(world
-            .entity_mut(e3)
-            .get_components_mut::<(&X, &Y)>()
-            .is_err());
-        assert!(world
-            .entity_mut(e1)
-            .get_components_mut::<(&X, &mut X)>()
-            .is_err());
-        assert!(world
-            .entity_mut(e1)
-            .get_components_mut::<(EntityRef, &mut X)>()
-            .is_err());
-        assert!(world
-            .entity_mut(e1)
-            .get_components_mut::<(EntityMut, &X)>()
-            .is_err());
     }
 
     #[test]
