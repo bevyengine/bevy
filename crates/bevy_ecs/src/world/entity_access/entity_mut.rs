@@ -184,6 +184,10 @@ impl<'w> EntityMut<'w> {
     /// # Safety
     /// It is the caller's responsibility to ensure that
     /// the `QueryData` does not provide aliasing mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`Self::get_components_mut`] for the safe version that performs aliasing checks
     pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
         &mut self,
     ) -> Result<Q::Item<'_, 'static>, QueryAccessError> {
