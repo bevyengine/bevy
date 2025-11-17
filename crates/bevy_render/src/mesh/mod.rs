@@ -139,7 +139,7 @@ impl RenderAsset for RenderMesh {
     ) -> Result<Self::SourceAsset, AssetExtractionError> {
         source
             .take_gpu_data()
-            .map_err(|_| AssetExtractionError::Extracted)
+            .map_err(|_| AssetExtractionError::AlreadyExtracted)
     }
 
     fn byte_len(mesh: &Self::SourceAsset) -> Option<usize> {

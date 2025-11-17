@@ -49,7 +49,7 @@ impl RenderAsset for GpuImage {
                 data,
                 ..source.clone()
             })
-            .ok_or(AssetExtractionError::Extracted)
+            .ok_or(AssetExtractionError::AlreadyExtracted)
     }
 
     #[inline]

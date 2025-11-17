@@ -32,7 +32,7 @@ pub struct AssetExtractionSystems;
 #[derive(Debug, Error)]
 pub enum AssetExtractionError {
     #[error("The asset has already been extracted")]
-    Extracted,
+    AlreadyExtracted,
     #[error("The asset type does not support extraction. To clone the asset to the renderworld, use `RenderAssetUsages::default()`")]
     NoExtractionImplementation,
 }
