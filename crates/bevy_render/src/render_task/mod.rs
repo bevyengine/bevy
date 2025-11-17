@@ -115,15 +115,12 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// Create resources and encode render commands as follows:
 ///
 /// ```rust
-/// fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World) {
-///     let Some((component_a, component_b)) = world
+/// fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World) -> Option<(); {
+///     let (component_a, component_b) = world
 ///         .entity(entity)
-///         .get_components::<(&ComponentA, &ComponentB)>()
-///     else {
-///         return;
-///     };
+///         .get_components::<(&ComponentA, &ComponentB)>()?;
 ///
-///     let resource = world.resource::<ResourceC>();
+///     let resource = world.get_resource::<ResourceC>()?;
 ///
 ///     if self.foo {
 ///         // ...
@@ -138,7 +135,9 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 ///             SampledTexture(&texture),
 ///             StorageTextureReadWrite(&buffer),
 ///         ))
-///         .dispatch_2d(10, 20);
+///         .dispatch_2d(10, 20)?;
+///
+///     Some(())
 /// }
 /// ```
 ///
@@ -184,5 +183,10 @@ pub trait RenderTask: Component + ExtractComponent {
     /// Function to encode render commands for the task.
     ///
     /// This is where you create textures, run shaders, etc.
-    fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World);
+    fn encode_commands(
+        &self,
+        ctx: RenderTaskContext,
+        camera_entity: Entity,
+        world: &World,
+    ) -> Option<()>;
 }
