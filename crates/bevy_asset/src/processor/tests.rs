@@ -41,8 +41,7 @@ use crate::{
     },
     transformer::{AssetTransformer, TransformedAsset},
     Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, AssetServer, Assets,
-    LoadContext,
-    WriteDefaultMetaError,
+    LoadContext, WriteDefaultMetaError,
 };
 
 #[derive(TypePath)]
@@ -1553,6 +1552,8 @@ fn only_reprocesses_wrong_hash_on_startup() {
     let source_changed_asset = Path::new("source_changed.cool.ron");
     let dep_unchanged_asset = Path::new("dep_unchanged.cool.ron");
     let dep_changed_asset = Path::new("dep_changed.cool.ron");
+    let multi_unchanged_asset = Path::new("multi_unchanged.gltf");
+    let multi_changed_asset = Path::new("multi_changed.gltf");
     let default_source_dir;
     let default_processed_dir;
 
@@ -1571,21 +1572,40 @@ fn only_reprocesses_wrong_hash_on_startup() {
     }
 
     #[derive(TypePath, Clone)]
-    struct Count<T>(Arc<Mutex<u32>>, T);
+    struct Count<P>(Arc<Mutex<u32>>, P);
 
-    impl<A: Asset, T: MutateAsset<A>> MutateAsset<A> for Count<T> {
-        fn mutate(&self, asset: &mut A) {
+    impl<P: Process> Process for Count<P> {
+        type Settings = P::Settings;
+
+        async fn process(
+            &self,
+            context: &mut ProcessContext<'_>,
+            settings: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
             *self.0.lock().unwrap_or_else(PoisonError::into_inner) += 1;
-            self.1.mutate(asset);
+            self.1.process(context, settings, writer_context).await
         }
     }
 
-    let transformer = Count(Arc::new(Mutex::new(0)), MergeEmbeddedAndAddText);
+    let counter = Arc::new(Mutex::new(0));
     type CoolTextProcessor = LoadTransformAndSave<
         CoolTextLoader,
-        RootAssetTransformer<Count<MergeEmbeddedAndAddText>, CoolText>,
+        RootAssetTransformer<MergeEmbeddedAndAddText, CoolText>,
         CoolTextSaver,
     >;
+
+    /// Assert that the `unsplit_path` gets split with `subpath` to contain a [`FakeGltf`] with just
+    /// one mesh.
+    fn assert_split_gltf(dir: &Dir, unsplit_path: &Path, subpath: &str, data: &str) {
+        assert_eq!(
+            read_asset_as_string(dir, &unsplit_path.join(subpath)),
+            serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec![data.into()]
+            })
+        );
+    }
 
     // Create a scope so that the app is completely gone afterwards (and we can see what happens
     // after reinitializing).
@@ -1601,12 +1621,19 @@ fn only_reprocesses_wrong_hash_on_startup() {
 
         app.init_asset::<CoolText>()
             .init_asset::<SubText>()
+            .init_asset::<FakeGltf>()
             .register_asset_loader(CoolTextLoader)
-            .register_asset_processor(CoolTextProcessor::new(
-                RootAssetTransformer::new(transformer.clone()),
-                CoolTextSaver,
+            .register_asset_processor(Count(
+                counter.clone(),
+                CoolTextProcessor::new(
+                    RootAssetTransformer::new(MergeEmbeddedAndAddText),
+                    CoolTextSaver,
+                ),
             ))
-            .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+            .set_default_asset_processor::<Count<CoolTextProcessor>>("cool.ron")
+            .register_asset_loader(FakeGltfLoader)
+            .register_asset_processor(Count(counter.clone(), FakeGltfSplitProcessor))
+            .set_default_asset_processor::<Count<FakeGltfSplitProcessor>>("gltf");
 
         let guard = source_gate.write_blocking();
 
@@ -1634,6 +1661,21 @@ fn only_reprocesses_wrong_hash_on_startup() {
             &cool_text_with_embedded("dep_changed", source_changed_asset),
         );
 
+        default_source_dir.insert_asset_text(
+            multi_unchanged_asset,
+            &serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec!["a1".into(), "a2".into(), "a3".into()],
+            }),
+        );
+        default_source_dir.insert_asset_text(
+            multi_changed_asset,
+            &serialize_gltf_to_string(&FakeGltf {
+                gltf_nodes: Default::default(),
+                gltf_meshes: vec!["b1".into(), "b2".into()],
+            }),
+        );
+
         run_app_until_finished_processing(&mut app, guard);
 
         assert_eq!(
@@ -1652,12 +1694,44 @@ fn only_reprocesses_wrong_hash_on_startup() {
             read_asset_as_string(&default_processed_dir, dep_changed_asset),
             serialize_as_cool_text("dep_changed processed source_changed processed")
         );
+
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh0.gltf",
+            "a1",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh1.gltf",
+            "a2",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_unchanged_asset,
+            "Mesh2.gltf",
+            "a3",
+        );
+
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_changed_asset,
+            "Mesh0.gltf",
+            "b1",
+        );
+        assert_split_gltf(
+            &default_processed_dir,
+            multi_changed_asset,
+            "Mesh1.gltf",
+            "b2",
+        );
     }
 
     // Assert and reset the processing count.
     assert_eq!(
-        core::mem::take(&mut *transformer.0.lock().unwrap_or_else(PoisonError::into_inner)),
-        4
+        core::mem::take(&mut *counter.lock().unwrap_or_else(PoisonError::into_inner)),
+        6
     );
 
     // Hand-make the app, since we need to pass in our already existing Dirs from the last app.
@@ -1699,26 +1773,39 @@ fn only_reprocesses_wrong_hash_on_startup() {
     app.init_asset::<CoolText>()
         .init_asset::<SubText>()
         .register_asset_loader(CoolTextLoader)
-        .register_asset_processor(CoolTextProcessor::new(
-            RootAssetTransformer::new(transformer.clone()),
-            CoolTextSaver,
+        .register_asset_processor(Count(
+            counter.clone(),
+            CoolTextProcessor::new(
+                RootAssetTransformer::new(MergeEmbeddedAndAddText),
+                CoolTextSaver,
+            ),
         ))
-        .set_default_asset_processor::<CoolTextProcessor>("cool.ron");
+        .set_default_asset_processor::<Count<CoolTextProcessor>>("cool.ron")
+        .register_asset_loader(FakeGltfLoader)
+        .register_asset_processor(Count(counter.clone(), FakeGltfSplitProcessor))
+        .set_default_asset_processor::<Count<FakeGltfSplitProcessor>>("gltf");
 
     let guard = source_gate.write_blocking();
 
     default_source_dir
         .insert_asset_text(source_changed_asset, &serialize_as_cool_text("DIFFERENT"));
+    default_source_dir.insert_asset_text(
+        multi_changed_asset,
+        &serialize_gltf_to_string(&FakeGltf {
+            gltf_nodes: Default::default(),
+            gltf_meshes: vec!["c1".into()],
+        }),
+    );
 
     run_app_until_finished_processing(&mut app, guard);
 
     // Only source_changed and dep_changed assets were reprocessed - all others still have the same
     // hashes.
-    let num_processes = *transformer.0.lock().unwrap_or_else(PoisonError::into_inner);
-    // TODO: assert_eq! (num_processes == 2) only after we prevent double processing assets
-    // == 3 happens when the initial processing of an asset and the re-processing that its dependency
+    let num_processes = *counter.lock().unwrap_or_else(PoisonError::into_inner);
+    // TODO: assert_eq! (num_processes == 3) only after we prevent double processing assets
+    // == 4 happens when the initial processing of an asset and the re-processing that its dependency
     // triggers are both able to proceed. (dep_changed_asset in this case is processed twice)
-    assert!(num_processes == 2 || num_processes == 3);
+    assert!(num_processes == 3 || num_processes == 4);
 
     assert_eq!(
         read_asset_as_string(&default_processed_dir, no_deps_asset),
@@ -1736,6 +1823,42 @@ fn only_reprocesses_wrong_hash_on_startup() {
         read_asset_as_string(&default_processed_dir, dep_changed_asset),
         serialize_as_cool_text("dep_changed processed DIFFERENT processed")
     );
+
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh0.gltf",
+        "a1",
+    );
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh1.gltf",
+        "a2",
+    );
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_unchanged_asset,
+        "Mesh2.gltf",
+        "a3",
+    );
+
+    assert_split_gltf(
+        &default_processed_dir,
+        multi_changed_asset,
+        "Mesh0.gltf",
+        "c1",
+    );
+    // The multi-processing should have deleted the previous files.
+    assert!(default_processed_dir
+        .get_asset(&multi_changed_asset.join("Mesh1.gltf"))
+        .is_none());
+}
+
+/// Serializes the provided `gltf` into a string (pretty-ly).
+fn serialize_gltf_to_string(gltf: &FakeGltf) -> String {
+    ron::ser::to_string_pretty(gltf, PrettyConfig::new().new_line("\n"))
+        .expect("Conversion is safe")
 }
 
 #[test]
@@ -1944,19 +2067,14 @@ impl Process for FakeGltfSplitProcessor {
         let root_path = context.path().clone_owned();
 
         let gltf = gltf.take();
-        let pretty_config = PrettyConfig::new().new_line("\n");
         for (index, buffer) in gltf.gltf_meshes.into_iter().enumerate() {
             let mut writer = writer_context
-                .write_multiple(Path::new(&format!("Mesh{index}.mesh")))
+                .write_multiple(Path::new(&format!("Mesh{index}.gltf")))
                 .await?;
-            let mesh_data = ron::ser::to_string_pretty(
-                &FakeGltf {
-                    gltf_meshes: vec![buffer],
-                    gltf_nodes: Default::default(),
-                },
-                pretty_config.clone(),
-            )
-            .expect("Conversion is safe");
+            let mesh_data = serialize_gltf_to_string(&FakeGltf {
+                gltf_meshes: vec![buffer],
+                gltf_nodes: Default::default(),
+            });
             writer
                 .write_all(mesh_data.as_bytes())
                 .await
@@ -1975,7 +2093,7 @@ impl Process for FakeGltfSplitProcessor {
                 parent_bsn: None,
                 nodes: gltf.gltf_nodes,
             },
-            pretty_config.clone(),
+            PrettyConfig::new().new_line("\n"),
         )
         .expect("Conversion is safe");
         writer
@@ -2033,7 +2151,7 @@ fn asset_processor_can_write_multiple_files() {
 
     // All the meshes were decomposed into separate asset files.
     assert_eq!(
-        path_to_data("abc.gltf/Mesh0.mesh"),
+        path_to_data("abc.gltf/Mesh0.gltf"),
         r#"(
     gltf_nodes: {},
     gltf_meshes: [
@@ -2042,7 +2160,7 @@ fn asset_processor_can_write_multiple_files() {
 )"#
     );
     assert_eq!(
-        path_to_data("abc.gltf/Mesh1.mesh"),
+        path_to_data("abc.gltf/Mesh1.gltf"),
         r#"(
     gltf_nodes: {},
     gltf_meshes: [
@@ -2051,7 +2169,7 @@ fn asset_processor_can_write_multiple_files() {
 )"#
     );
     assert_eq!(
-        path_to_data("abc.gltf/Mesh2.mesh"),
+        path_to_data("abc.gltf/Mesh2.gltf"),
         r#"(
     gltf_nodes: {},
     gltf_meshes: [
