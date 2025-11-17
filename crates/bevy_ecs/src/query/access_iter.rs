@@ -10,6 +10,7 @@ pub enum EcsAccessType {
     Component(EcsAccessLevel),
     /// Accesses [`Resource`](crate::prelude::Resource) data
     Resource(ResourceAccessLevel),
+    /// Does not access any data that can conflict. This includes things like [`Entity`] query data.
     Empty,
 }
 
