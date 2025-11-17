@@ -2091,7 +2091,9 @@ impl Mesh {
     pub fn take_gpu_data(&mut self) -> Result<Self, MeshAccessError> {
         let attributes = self.attributes.extract()?;
         let indices = self.indices.extract()?;
+        #[cfg(feature = "morph")]
         let morph_targets = self.morph_targets.extract()?;
+        #[cfg(feature = "morph")]
         let morph_target_names = self.morph_target_names.extract()?;
 
         // store the aabb extents as they cannot be computed after extraction
@@ -2113,7 +2115,9 @@ impl Mesh {
         Ok(Self {
             attributes,
             indices,
+            #[cfg(feature = "morph")]
             morph_targets,
+            #[cfg(feature = "morph")]
             morph_target_names,
             ..self.clone()
         })
