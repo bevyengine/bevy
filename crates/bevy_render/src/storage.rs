@@ -125,7 +125,7 @@ impl RenderAsset for GpuShaderStorageBuffer {
                 data,
                 ..source.clone()
             })
-            .ok_or(AssetExtractionError::Extracted)
+            .ok_or(AssetExtractionError::AlreadyExtracted)
     }
 
     fn prepare_asset(
