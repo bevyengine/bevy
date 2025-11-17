@@ -87,7 +87,9 @@ pub fn render_system(
             for (view_target, camera) in views.iter() {
                 if let Some(NormalizedRenderTarget::Window(window)) = camera.target {
                     if view_target.needs_present() {
-                        let window = windows.get_mut(&window.entity()).unwrap();
+                        let Some(window) = windows.get_mut(&window.entity()) else {
+                            continue;
+                        };
                         window.present();
                     }
                 }
