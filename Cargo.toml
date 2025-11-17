@@ -2400,7 +2400,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
@@ -3801,7 +3800,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
+wasm = false
 
 [[example]]
 name = "viewport_node"
@@ -4701,6 +4700,17 @@ doc-scrape-examples = true
 [package.metadata.example.directional_navigation]
 name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "auto_directional_navigation"
+path = "examples/ui/auto_directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_directional_navigation]
+name = "Automatic Directional Navigation"
+description = "Demonstration of automatic directional navigation graph generation based on UI element positions"
 category = "UI (User Interface)"
 wasm = true
 

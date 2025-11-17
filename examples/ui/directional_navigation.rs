@@ -4,6 +4,9 @@
 //! When compared to tab navigation, directional navigation is generally more direct, and less aware of the structure of the UI.
 //!
 //! In this example, we will set up a simple UI with a grid of buttons that can be navigated using the arrow keys or gamepad input.
+//!
+//! **Note:** This example shows manual graph construction for full control. For automatic graph generation
+//! based on node positions, see the `auto_directional_navigation` example.
 
 use std::time::Duration;
 
@@ -174,10 +177,10 @@ fn setup_ui(
                         // Center the button within the grid cell
                         align_self: AlignSelf::Center,
                         justify_self: JustifySelf::Center,
+                        border_radius: BorderRadius::all(px(16)),
                         ..default()
                     },
                     ResetTimer::default(),
-                    BorderRadius::all(px(16)),
                     BackgroundColor::from(NORMAL_BUTTON),
                     Name::new(button_name.clone()),
                 ))
