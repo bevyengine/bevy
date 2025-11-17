@@ -12,6 +12,8 @@ pub enum EcsAccessType<'a> {
     Resource(ResourceAccessLevel),
     /// borrowed access from [`WorldQuery::State`]
     Access(&'a Access),
+    /// Does not access any data that can conflict.
+    Empty,
 }
 
 /// The way the data will be accessed and whether we take access on all the components on
@@ -68,7 +70,9 @@ impl<'a> EcsAccessType<'a> {
             | (Component(_), Component(WriteAll))
             | (Component(WriteAll), Component(_)) => AccessCompatible::Conflicts,
 
-            (Component(_), Resource(_))
+            (Empty, _)
+            | (_, Empty)
+            | (Component(_), Resource(_))
             | (Resource(_), Component(_))
             // read only access doesn't conflict
             | (Component(Read(_)), Component(Read(_)))
@@ -158,17 +162,36 @@ impl core::fmt::Display for QueryAccessError {
 #[inline(never)]
 pub fn has_conflicts<Q: QueryData>(components: &Components) -> Result<(), QueryAccessError> {
     // increasing this too much may slow down smaller queries
+    const MAX_SIZE: usize = 16;
     let Some(state) = Q::get_state(components) else {
         return Err(QueryAccessError::ComponentNotRegistered);
     };
-    for (i, access) in Q::iter_access(&state).enumerate() {
-        for access_other in Q::iter_access(&state).take(i) {
-            match access.is_compatible(access_other) {
-                AccessCompatible::Compatible => continue,
-                AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
+    let iter = Q::iter_access(&state).enumerate();
+    let size = iter.size_hint().1.unwrap_or(MAX_SIZE);
+    if size > MAX_SIZE {
+        for (i, access) in Q::iter_access(&state).enumerate() {
+            for access_other in Q::iter_access(&state).take(i) {
+                match access.is_compatible(access_other) {
+                    AccessCompatible::Compatible => continue,
+                    AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
+                }
             }
         }
+    } else {
+        let mut inner_access = [EcsAccessType::Empty; MAX_SIZE];
+        let mut inner_length = 0;
+        for (i, access) in Q::iter_access(&state).enumerate() {
+            for access_other in inner_access.iter().take(inner_length) {
+                match access.is_compatible(*access_other) {
+                    AccessCompatible::Compatible => continue,
+                    AccessCompatible::Conflicts => return Err(QueryAccessError::Conflict),
+                }
+            }
+            inner_access[i] = access;
+            inner_length += 1;
+        }
     }
+
     Ok(())
 }
 
