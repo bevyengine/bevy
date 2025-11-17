@@ -42,6 +42,8 @@ impl RenderAsset for GpuImage {
     ) -> Result<Self::SourceAsset, AssetExtractionError> {
         let data = source.data.take();
 
+        // check if this image originally had data and no longer does, that implies it
+        // has already been extracted
         let valid_upload = data.is_some() || previous_gpu_asset.is_none_or(|prev| !prev.had_data);
 
         valid_upload
