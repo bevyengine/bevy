@@ -14,7 +14,7 @@ pub struct StorageBufferReadOnly<'a>(pub &'a Buffer);
 #[derive(Clone, Deref)]
 pub struct StorageBufferReadWrite<'a>(pub &'a Buffer);
 
-/// Corresponds to `var my_texture: texture_2d<T>` in a WGSL shader.
+/// Corresponds to `var my_texture: texture_2d<T>` or `var my_texture: texture_depth_2d` in a WGSL shader.
 #[derive(Clone, Deref)]
 pub struct SampledTexture<'a>(pub &'a TextureView);
 
