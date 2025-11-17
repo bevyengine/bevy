@@ -347,7 +347,7 @@ pub unsafe trait QueryData: WorldQuery {
     ) -> Option<Self::Item<'w, 's>>;
 
     /// Returns an iterator over the access needed by [`QueryData::fetch`]. Access conflicts are usually
-    /// checked in [`WorldQuery::init_fetch`], but in certain cases this method can be useful to implement
+    /// checked in [`WorldQuery::update_component_access`], but in certain cases this method can be useful to implement
     /// a way of checking for access conflicts in a non-allocating way.
     fn iter_access(state: &Self::State) -> impl Iterator<Item = EcsAccessType<'_>>;
 }
