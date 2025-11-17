@@ -7,9 +7,11 @@ use bevy_transform::components::Transform;
 
 mod commands;
 mod storage;
+mod entity_tiles;
 
 pub use commands::*;
 pub use storage::*;
+pub use entity_tiles::*;
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.
@@ -17,7 +19,7 @@ pub struct TilemapPlugin;
 
 impl Plugin for TilemapPlugin {
     fn build(&self, app: &mut App) {
-        //app.add_plugins(TilemapChunkPlugin).add_plugins(TilePlugin);
+        app.add_plugins(EntityTilePlugin);
     }
 }
 
