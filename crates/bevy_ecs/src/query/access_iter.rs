@@ -45,7 +45,7 @@ pub enum EcsAccessType<'a> {
     Component(EcsAccessLevel),
     /// Accesses [`Resource`](crate::prelude::Resource) data
     Resource(ResourceAccessLevel),
-    /// borrowed access from [`WorldQuery::State`]
+    /// borrowed access from [`WorldQuery::State`](crate::query::WorldQuery)
     Access(&'a Access),
     /// Does not access any data that can conflict.
     Empty,
