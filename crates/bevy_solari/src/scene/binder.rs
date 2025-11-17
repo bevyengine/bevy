@@ -258,7 +258,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
-        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
+        pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
         &BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),

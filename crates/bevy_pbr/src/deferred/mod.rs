@@ -185,7 +185,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
 
         let bind_group_2 = render_context.render_device().create_bind_group(
             "deferred_lighting_layout_group_2",
-            &pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
+            pipeline_cache.get_bind_group_layout(&deferred_lighting_layout.bind_group_layout_2),
             &BindGroupEntries::single(deferred_lighting_pass_id_binding),
         );
 
