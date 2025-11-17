@@ -1,7 +1,7 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
-    color::palettes::tailwind::RED_400, image::{ImageArrayLayout, ImageLoaderSettings}, prelude::*, sprite::{TileStorage, Tilemap, CommandsTilemapExt}, sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData}
+    color::palettes::tailwind::RED_400, image::{ImageArrayLayout, ImageLoaderSettings}, prelude::*, sprite::{CommandsTilemapExt, InMap, TileCoord, TileStorage, Tilemap}, sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData}
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, update_tilemap)
+        .add_systems(Update, (spin_tilemap, update_tilemap))
         .run();
 }
 
@@ -60,6 +60,13 @@ fn update_tilemap(
         let x = rng.random_range(-64..=64);
         let y = rng.random_range(-64..=64);
 
-        commands.set_tile(map, IVec2::new(x, y), Some(TileRenderData { tileset_index: rng.random_range(0..4), ..Default::default()}));
+        commands.spawn((InMap(map), TileCoord(IVec2::new(x, y)), TileRenderData { tileset_index: rng.random_range(0..4), ..Default::default()}));
     }
+}
+
+fn spin_tilemap(
+    time: Res<Time>,
+    mut map: Single<&mut Transform, With<Tilemap>>
+) {
+    map.rotate_z(time.delta_secs() * 0.1);
 }

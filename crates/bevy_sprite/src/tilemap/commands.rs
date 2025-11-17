@@ -1,5 +1,5 @@
 use crate::tilemap::{TileData, TileStorage, Tilemap};
-use bevy_ecs::{entity::Entity, hierarchy::ChildOf, system::Commands, world::World};
+use bevy_ecs::{entity::Entity, error::HandleError, hierarchy::ChildOf, system::{Command, Commands}, world::World};
 use bevy_math::{IVec2, UVec2, Vec2, Vec3};
 use bevy_transform::components::Transform;
 
@@ -21,25 +21,51 @@ impl CommandsTilemapExt for Commands<'_, '_> {
         tile_position: IVec2,
         maybe_tile: Option<T>,
     ) {
-        self.queue(move |w: &mut World| {
-            let Ok(mut tilemap_entity) = w.get_entity_mut(tilemap_id) else {
-                tracing::warn!("Could not find Tilemap Entity {:?}", tilemap_id);
-                return;
+        self.queue(move |world: &mut World| {SetTile {tilemap_id, tile_position, maybe_tile }.apply(world);});
+    }
+
+    fn remove_tile(&mut self, tilemap: Entity, tile_position: IVec2) {
+        todo!()
+    }
+}
+
+pub struct SetTile<T: TileData> {
+    pub tilemap_id: Entity,
+    pub tile_position: IVec2,
+    pub maybe_tile: Option<T>,
+}
+
+pub struct SetTileResult<T: TileData> {
+    pub replaced_tile: Option<T>,
+    pub chunk_id: Option<Entity>,
+}
+
+impl<T: TileData> Default for SetTileResult<T> {
+    fn default() -> Self {
+        Self { replaced_tile: Default::default(), chunk_id: Default::default() }
+    }
+}
+
+impl<T: TileData> Command<SetTileResult<T>> for SetTile<T> {
+    fn apply(self, world: &mut World) -> SetTileResult<T> {
+            let Ok(mut tilemap_entity) = world.get_entity_mut(self.tilemap_id) else {
+                tracing::warn!("Could not find Tilemap Entity {:?}", self.tilemap_id);
+                return Default::default();
             };
 
             let Some(tilemap) = tilemap_entity.get::<Tilemap>() else {
-                tracing::warn!("Could not find Tilemap on Entity {:?}", tilemap_id);
-                return;
+                tracing::warn!("Could not find Tilemap on Entity {:?}", self.tilemap_id);
+                return Default::default();
             };
 
-            let chunk_position = tilemap.tile_chunk_position(tile_position);
-            let tile_position = tilemap.tile_chunk_local_position(tile_position);
+            let chunk_position = tilemap.tile_chunk_position(self.tile_position);
+            let tile_position = tilemap.tile_chunk_local_position(self.tile_position);
 
             if let Some(tile_storage_id) = tilemap.chunks.get(&chunk_position).cloned() {
-                tilemap_entity.world_scope(move |w| {
+                let replaced_tile = tilemap_entity.world_scope(move |w| {
                     let Ok(mut tilestorage_entity) = w.get_entity_mut(tile_storage_id) else {
                         tracing::warn!("Could not find TileStorage Entity {:?}", tile_storage_id);
-                        return;
+                        return None;
                     };
 
                     let Some(mut tile_storage) = tilestorage_entity.get_mut::<TileStorage<T>>()
@@ -48,32 +74,29 @@ impl CommandsTilemapExt for Commands<'_, '_> {
                             "Could not find TileStorage on Entity {:?}",
                             tile_storage_id
                         );
-                        return;
+                        return None;
                     };
 
-                    tile_storage.set(tile_position, maybe_tile);
+                    tile_storage.set(tile_position, self.maybe_tile)
                 });
+                SetTileResult { chunk_id: Some(tile_storage_id), replaced_tile }
             } else {
                 let chunk_size = tilemap.chunk_size;
                 let tile_size = tilemap.tile_display_size;
                 let tile_storage_id = tilemap_entity.world_scope(move |w| {
                     let mut tile_storage = TileStorage::<T>::new(chunk_size);
-                    tile_storage.set(tile_position, maybe_tile);
+                    tile_storage.set(tile_position, self.maybe_tile);
                     let translation = Vec2::new(chunk_size.x as f32, chunk_size.y as f32) * Vec2::new(tile_size.x as f32, tile_size.y as f32) * Vec2::new(chunk_position.x as f32, chunk_position.y as f32);
                     let translation = Vec3::new(translation.x, translation.y, 0.0);
                     let transform = Transform::from_translation(translation);
-                    w.spawn((ChildOf(tilemap_id), tile_storage, transform)).id()
+                    w.spawn((ChildOf(self.tilemap_id), tile_storage, transform)).id()
                 });
                 let Some(mut tilemap) = tilemap_entity.get_mut::<Tilemap>() else {
-                    tracing::warn!("Could not find Tilemap on Entity {:?}", tilemap_id);
-                    return;
+                    tracing::warn!("Could not find Tilemap on Entity {:?}", self.tilemap_id);
+                    return Default::default();
                 };
                 tilemap.chunks.insert(chunk_position, tile_storage_id);
-            };
-        });
-    }
-
-    fn remove_tile(&mut self, tilemap: Entity, tile_position: IVec2) {
-        todo!()
+                SetTileResult { chunk_id: Some(tile_storage_id), replaced_tile: None }
+            }
     }
 }
