@@ -8,6 +8,7 @@
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
     prepass_io::{VertexOutput, FragmentOutput},
+    pbr_functions,
     pbr_deferred_functions::deferred_output,
 }
 #else
