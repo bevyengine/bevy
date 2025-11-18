@@ -5,16 +5,18 @@
     decal::clustered::apply_decal_base_color,
 }
 
+#ifdef VISIBILITY_RANGE_DITHER
+#import bevy_pbr::pbr_functions::visibility_range_dither;
+#endif
+
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
     prepass_io::{VertexOutput, FragmentOutput},
-    pbr_functions,
     pbr_deferred_functions::deferred_output,
 }
 #else
 #import bevy_pbr::{
     forward_io::{VertexOutput, FragmentOutput},
-    pbr_functions,
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 }
@@ -51,7 +53,7 @@ fn fragment(
     // If we're in the crossfade section of a visibility range, conditionally
     // discard the fragment according to the visibility pattern.
 #ifdef VISIBILITY_RANGE_DITHER
-    pbr_functions::visibility_range_dither(in.position, in.visibility_range_dither);
+    visibility_range_dither(in.position, in.visibility_range_dither);
 #endif
 
 #ifdef FORWARD_DECAL
