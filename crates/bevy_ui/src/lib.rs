@@ -89,8 +89,6 @@ type FeatureFilter = Without<UiContainerTarget>;
 #[cfg(not(feature = "bevy_ui_container"))]
 type FeatureFilter = ();
 
-type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's, FeatureFilter>;
-
 /// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;

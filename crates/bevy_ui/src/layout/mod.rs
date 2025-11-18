@@ -1,10 +1,10 @@
 #[cfg(feature = "bevy_ui_container")]
 use crate::UiContainerTarget;
 use crate::{
-    experimental::UiChildren,
+    experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFilter, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, UiRootNodes,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 
 use bevy_ecs::{
@@ -75,7 +75,7 @@ pub enum LayoutError {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
-    ui_root_node_query: UiRootNodes,
+    ui_root_node_query: UiRootNodes<FeatureFilter>,
     ui_children: UiChildren,
     mut node_query: Query<
         (

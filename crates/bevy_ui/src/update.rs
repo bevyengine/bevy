@@ -1,9 +1,10 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::UiChildren, ui_transform::UiGlobalTransform, CalculatedClip,
-    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display, Node,
-    OverflowAxis, OverrideClip, UiRootNodes, UiScale, UiTargetCamera,
+    experimental::{UiChildren, UiRootNodes},
+    ui_transform::UiGlobalTransform,
+    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
+    FeatureFilter, Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 #[cfg(feature = "bevy_ui_container")]
 use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};
@@ -26,7 +27,7 @@ use bevy_transform::components::GlobalTransform;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: UiRootNodes,
+    root_nodes: UiRootNodes<FeatureFilter>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -183,7 +184,7 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
+    ui_root_nodes: UiRootNodes<FeatureFilter>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
