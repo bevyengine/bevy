@@ -1,5 +1,3 @@
-#[cfg(feature = "bevy_ui_container")]
-use crate::UiContainerTarget;
 use crate::{
     ComputedUiRenderTargetInfo, ContentSize, FeatureFillter, Measure, MeasureArgs, Node,
     NodeMeasure,
@@ -9,8 +7,6 @@ use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Rect, UVec2, Vec2};
-#[cfg(feature = "bevy_ui_container")]
-use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_sprite::TextureSlicer;
 use taffy::{MaybeMath, MaybeResolve};

@@ -1,11 +1,12 @@
+#[cfg(feature = "bevy_ui_container")]
+use crate::UiContainerTarget;
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFillter, IgnoreScroll,
     LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
-#[cfg(feature = "bevy_ui_container")]
-use crate::{UiContainerSize, UiContainerTarget};
+
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
@@ -19,17 +20,11 @@ use bevy_ecs::{
 use bevy_math::{Affine2, Vec2};
 #[cfg(feature = "bevy_ui_container")]
 use bevy_platform::collections::HashSet;
-#[cfg(feature = "bevy_ui_container")]
-use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_container")]
-use bevy_transform::components::GlobalTransform;
+use bevy_text::ComputedTextBlock;
+use bevy_text::CosmicFontSystem;
 use thiserror::Error;
 use ui_surface::UiSurface;
-
-use bevy_text::ComputedTextBlock;
-
-use bevy_text::CosmicFontSystem;
 
 mod convert;
 pub mod debug;
@@ -402,7 +397,6 @@ pub fn ui_layout_system(
 }
 
 #[cfg(test)]
-#[cfg(feature = "bevy_ui_container")]
 mod tests {
     use crate::update::update_cameras_test_system;
     use crate::{

@@ -1,12 +1,9 @@
-#[cfg(feature = "bevy_ui_container")]
-use crate::UiContainerTarget;
 use crate::{
     ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, FeatureFillter, Node,
     OverrideClip, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
-#[cfg(feature = "bevy_ui_container")]
-use bevy_ecs::query::Has;
+
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -20,8 +17,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-#[cfg(feature = "bevy_ui_container")]
-use bevy_transform::components::GlobalTransform;
+
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
