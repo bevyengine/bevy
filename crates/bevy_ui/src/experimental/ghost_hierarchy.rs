@@ -39,7 +39,8 @@ pub struct UiRootNodes<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's, F = ()> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>, F)>;
+pub type UiRootNodes<'w, 's, F: QueryFilter> =
+    Query<'w, 's, Entity, (With<Node>, Without<ChildOf>, F)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {

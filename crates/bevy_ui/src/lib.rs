@@ -87,19 +87,19 @@ use crate::container::UiContainerPlugin;
 type FeatureFilter = Without<UiContainerTarget>;
 
 #[cfg(feature = "bevy_ui_container")]
-type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's, FeatureFilter>;
+type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's, Without<UiContainerTarget>>;
 
 #[cfg(feature = "bevy_ui_container")]
-type UiChildren<'w, 's> = experimental::UiChildren<'w, 's, FeatureFilter>;
+type UiChildren<'w, 's> = experimental::UiChildren<'w, 's, Without<UiContainerTarget>>;
 
 #[cfg(not(feature = "bevy_ui_container"))]
 type FeatureFilter = ();
 
 #[cfg(not(feature = "bevy_ui_container"))]
-type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's>;
+type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's, ()>;
 
 #[cfg(not(feature = "bevy_ui_container"))]
-type UiChildren<'w, 's> = experimental::UiChildren<'w, 's>;
+type UiChildren<'w, 's> = experimental::UiChildren<'w, 's, ()>;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
