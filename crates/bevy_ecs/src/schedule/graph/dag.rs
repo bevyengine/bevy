@@ -255,9 +255,9 @@ pub struct DagAnalysis<N: GraphNodeId, S: BuildHasher = FixedHasher> {
     /// Pairs of nodes that have a path connecting them.
     connected: HashSet<(N, N), S>,
     /// Pairs of nodes that don't have a path connecting them.
-    disconnected: HashSet<(N, N), S>,
+    disconnected: Vec<(N, N)>,
     /// Edges that are redundant because a longer path exists.
-    transitive_edges: HashSet<(N, N), S>,
+    transitive_edges: Vec<(N, N)>,
     /// Variant of the graph with no transitive edges.
     transitive_reduction: DiGraph<N, S>,
     /// Variant of the graph with all possible transitive edges.
@@ -300,8 +300,8 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
 
         let mut reachable = FixedBitSet::with_capacity(n * n);
         let mut connected = HashSet::default();
-        let mut disconnected = HashSet::default();
-        let mut transitive_edges = HashSet::default();
+        let mut disconnected = Vec::default();
+        let mut transitive_edges = Vec::default();
         let mut transitive_reduction = DiGraph::default();
         let mut transitive_closure = DiGraph::default();
 
@@ -340,7 +340,7 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
                     }
                 } else {
                     // edge <a, b> is redundant
-                    transitive_edges.insert((a, b));
+                    transitive_edges.push((a, b));
                 }
             }
 
@@ -356,7 +356,7 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
                 if reachable[index] {
                     connected.insert(pair);
                 } else {
-                    disconnected.insert(pair);
+                    disconnected.push(pair);
                 }
             }
         }
@@ -387,12 +387,12 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
     }
 
     /// Returns the list of node pairs that are not connected by a path.
-    pub fn disconnected(&self) -> &HashSet<(N, N), S> {
+    pub fn disconnected(&self) -> &[(N, N)] {
         &self.disconnected
     }
 
     /// Returns the list of redundant edges because a longer path exists.
-    pub fn transitive_edges(&self) -> &HashSet<(N, N), S> {
+    pub fn transitive_edges(&self) -> &[(N, N)] {
         &self.transitive_edges
     }
 
@@ -412,7 +412,7 @@ impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
     ///
     /// If there are redundant edges, returns a [`DagRedundancyError`]
     /// containing the list of redundant edges.
-    pub fn check_for_redundant_edges(&self) -> Result<(), DagRedundancyError<N, S>>
+    pub fn check_for_redundant_edges(&self) -> Result<(), DagRedundancyError<N>>
     where
         S: Clone,
     {
@@ -693,7 +693,7 @@ impl<K: Debug, V: Debug, S> Debug for DagGroups<K, V, S> {
 /// Error indicating that the graph has redundant edges.
 #[derive(Error, Debug)]
 #[error("DAG has redundant edges: {0:?}")]
-pub struct DagRedundancyError<N: GraphNodeId, S = FixedHasher>(pub HashSet<(N, N), S>);
+pub struct DagRedundancyError<N: GraphNodeId>(pub Vec<(N, N)>);
 
 /// Error indicating that two graphs both have a dependency between the same nodes.
 #[derive(Error, Debug)]
