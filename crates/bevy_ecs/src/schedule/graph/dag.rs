@@ -124,15 +124,9 @@ impl<N: GraphNodeId, S: BuildHasher> Dag<N, S> {
         Ok((&self.toposort, &self.graph))
     }
 
-    /// Processes a DAG and computes its:
-    /// - transitive reduction (along with the set of removed edges)
-    /// - transitive closure
-    /// - reachability matrix (as a bitset)
-    /// - pairs of nodes connected by a path
-    /// - pairs of nodes not connected by a path
+    /// Processes a DAG and computes various properties about it.
     ///
-    /// The algorithm implemented comes from
-    /// ["On the calculation of transitive reduction-closure of orders"][1] by Habib, Morvan and Rampon.
+    /// See [`DagAnalysis::new`] for details on what is computed.
     ///
     /// # Note
     ///
@@ -143,7 +137,6 @@ impl<N: GraphNodeId, S: BuildHasher> Dag<N, S> {
     /// Returns [`DiGraphToposortError`] if the DAG is dirty and cannot be
     /// topologically sorted.
     ///
-    /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
     pub fn analyze(&mut self) -> Result<DagAnalysis<N, S>, DiGraphToposortError<N>>
     where
         S: Default,
@@ -178,7 +171,7 @@ impl<N: GraphNodeId, S: BuildHasher> Dag<N, S> {
     ///
     /// Returns [`DiGraphToposortError`] if the DAG is dirty and cannot be
     /// topologically sorted.
-    pub fn group_by<K, V>(
+    pub fn group_by_key<K, V>(
         &mut self,
         num_groups: usize,
     ) -> Result<DagGroups<K, V, S>, DiGraphToposortError<N>>
@@ -272,7 +265,17 @@ pub struct DagAnalysis<N: GraphNodeId, S: BuildHasher = FixedHasher> {
 }
 
 impl<N: GraphNodeId, S: BuildHasher> DagAnalysis<N, S> {
-    /// Analyzes the given DAG and computes various properties about it.
+    /// Processes a DAG and computes its:
+    /// - transitive reduction (along with the set of removed edges)
+    /// - transitive closure
+    /// - reachability matrix (as a bitset)
+    /// - pairs of nodes connected by a path
+    /// - pairs of nodes not connected by a path
+    ///
+    /// The algorithm implemented comes from
+    /// ["On the calculation of transitive reduction-closure of orders"][1] by Habib, Morvan and Rampon.
+    ///
+    /// [1]: https://doi.org/10.1016/0012-365X(93)90164-O
     pub fn new(graph: &DiGraph<N, S>, topological_order: &[N]) -> Self
     where
         S: Default,
@@ -721,7 +724,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dirty_on_deref_mut() {
+    fn mark_dirty() {
         {
             let mut dag = Dag::<TestNode>::new();
             dag.add_node(TestNode(1));
@@ -745,7 +748,7 @@ mod tests {
     }
 
     #[test]
-    fn test_toposort() {
+    fn toposort() {
         let mut dag = Dag::<TestNode>::new();
         dag.add_edge(TestNode(1), TestNode(2));
         dag.add_edge(TestNode(2), TestNode(3));
@@ -762,7 +765,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze() {
+    fn analyze() {
         let mut dag1 = Dag::<TestNode>::new();
         dag1.add_edge(TestNode(1), TestNode(2));
         dag1.add_edge(TestNode(2), TestNode(3));
@@ -886,7 +889,7 @@ mod tests {
     }
 
     #[test]
-    fn test_group_by() {
+    fn group_by_key() {
         let mut dag = Dag::<Node>::new();
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(10)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(11)));
@@ -894,7 +897,7 @@ mod tests {
         dag.add_edge(Node::Key(Key(2)), Node::Key(Key(1)));
         dag.add_edge(Node::Value(Value(10)), Node::Value(Value(11)));
 
-        let groups = dag.group_by::<Key, Value>(2).unwrap();
+        let groups = dag.group_by_key::<Key, Value>(2).unwrap();
         assert_eq!(groups.len(), 2);
 
         let group_key1 = groups.get(&Key(1)).unwrap();
@@ -908,7 +911,7 @@ mod tests {
     }
 
     #[test]
-    fn test_flatten() {
+    fn flatten() {
         let mut dag = Dag::<Node>::new();
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(10)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(11)));
@@ -917,7 +920,7 @@ mod tests {
         dag.add_edge(Node::Value(Value(30)), Node::Key(Key(1)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(40)));
 
-        let groups = dag.group_by::<Key, Value>(2).unwrap();
+        let groups = dag.group_by_key::<Key, Value>(2).unwrap();
         let flattened = groups.flatten(dag, |_key, _values, _dag, _temp| {});
 
         assert!(flattened.contains_node(Value(10)));
@@ -934,14 +937,14 @@ mod tests {
     }
 
     #[test]
-    fn test_flatten_undirected() {
+    fn flatten_undirected() {
         let mut dag = Dag::<Node>::new();
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(10)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(11)));
         dag.add_edge(Node::Key(Key(2)), Node::Value(Value(20)));
         dag.add_edge(Node::Key(Key(2)), Node::Value(Value(21)));
 
-        let groups = dag.group_by::<Key, Value>(2).unwrap();
+        let groups = dag.group_by_key::<Key, Value>(2).unwrap();
 
         let mut ungraph = UnGraph::<Node>::default();
         ungraph.add_edge(Node::Value(Value(10)), Node::Value(Value(11)));
@@ -963,7 +966,7 @@ mod tests {
     }
 
     #[test]
-    fn test_overlapping_groups() {
+    fn overlapping_groups() {
         let mut dag = Dag::<Node>::new();
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(10)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(11)));
@@ -971,7 +974,7 @@ mod tests {
         dag.add_edge(Node::Key(Key(2)), Node::Value(Value(20)));
         dag.add_edge(Node::Key(Key(1)), Node::Key(Key(2)));
 
-        let groups = dag.group_by::<Key, Value>(2).unwrap();
+        let groups = dag.group_by_key::<Key, Value>(2).unwrap();
         let analysis = dag.analyze().unwrap();
 
         let result = analysis.check_for_overlapping_groups(&groups);
@@ -979,14 +982,14 @@ mod tests {
     }
 
     #[test]
-    fn test_disjoint_groups() {
+    fn disjoint_groups() {
         let mut dag = Dag::<Node>::new();
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(10)));
         dag.add_edge(Node::Key(Key(1)), Node::Value(Value(11)));
         dag.add_edge(Node::Key(Key(2)), Node::Value(Value(20)));
         dag.add_edge(Node::Key(Key(2)), Node::Value(Value(21)));
 
-        let groups = dag.group_by::<Key, Value>(2).unwrap();
+        let groups = dag.group_by_key::<Key, Value>(2).unwrap();
         let analysis = dag.analyze().unwrap();
 
         let result = analysis.check_for_overlapping_groups(&groups);

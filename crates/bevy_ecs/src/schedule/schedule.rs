@@ -1135,18 +1135,18 @@ impl ScheduleGraph {
             .analyze()
             .map_err(ScheduleBuildError::DependencySort)?;
 
-        // Check for systems or system sets with ordering dependencies on sets they belong to.
+        // System sets that share systems and have an ordering dependency cannot be ordered.
         dependency_analysis.check_for_cross_dependencies(&hierarchy_analysis)?;
 
         // Group all systems by the system sets they belong to.
         self.set_systems = self
             .hierarchy
-            .group_by(self.system_sets.len())
+            .group_by_key(self.system_sets.len())
             .map_err(ScheduleBuildError::HierarchySort)?;
         // Check for system sets that share systems but have an ordering dependency.
         dependency_analysis.check_for_overlapping_groups(&self.set_systems)?;
 
-        // Check that there are no edges to system-type sets that have multiple instances.
+        // There can be no edges to system-type sets that have multiple instances.
         self.system_sets.check_type_set_ambiguity(
             &self.set_systems,
             &self.ambiguous_with,
@@ -1176,8 +1176,6 @@ impl ScheduleGraph {
         let flat_dependency_analysis = flat_dependency
             .analyze()
             .map_err(ScheduleBuildError::FlatDependencySort)?;
-
-        // Remove redundant system ordering dependencies.
         flat_dependency.remove_redundant_edges(&flat_dependency_analysis);
 
         // Flatten accepted system ordering ambiguities by collapsing system sets.
