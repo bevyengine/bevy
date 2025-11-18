@@ -1,5 +1,5 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, FeatureFillter, Node,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, FeatureFilter, Node,
     OverrideClip, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
@@ -157,8 +157,8 @@ pub fn ui_focus_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery, FeatureFillter>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node), FeatureFillter>,
+    mut node_query: Query<NodeQuery, FeatureFilter>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node), FeatureFilter>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     let primary_window = primary_window.iter().next();
@@ -348,7 +348,7 @@ pub fn ui_focus_system(
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node), FeatureFillter>,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node), FeatureFilter>,
     child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {

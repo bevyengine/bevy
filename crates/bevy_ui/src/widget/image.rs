@@ -1,6 +1,5 @@
 use crate::{
-    ComputedUiRenderTargetInfo, ContentSize, FeatureFillter, Measure, MeasureArgs, Node,
-    NodeMeasure,
+    ComputedUiRenderTargetInfo, ContentSize, FeatureFilter, Measure, MeasureArgs, Node, NodeMeasure,
 };
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
@@ -291,7 +290,7 @@ pub fn update_image_content_size_system(
             &mut ImageNodeSize,
             Ref<ComputedUiRenderTargetInfo>,
         ),
-        (UpdateImageFilter, FeatureFillter),
+        (UpdateImageFilter, FeatureFilter),
     >,
 ) {
     for (mut content_size, image, mut image_size, computed_target) in &mut query {

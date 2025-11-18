@@ -1,10 +1,9 @@
 #[cfg(feature = "bevy_ui_container")]
 use crate::UiContainerTarget;
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFillter, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFilter, IgnoreScroll,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, UiChildren, UiRootNodes,
 };
 
 use bevy_ecs::{
@@ -75,8 +74,8 @@ pub enum LayoutError {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
-    ui_root_node_query: UiRootNodes<FeatureFillter>,
-    ui_children: UiChildren<FeatureFillter>,
+    ui_root_node_query: UiRootNodes,
+    ui_children: UiChildren,
     mut node_query: Query<
         (
             Entity,
@@ -84,9 +83,9 @@ pub fn ui_layout_system(
             Option<&mut ContentSize>,
             Ref<ComputedUiRenderTargetInfo>,
         ),
-        FeatureFillter,
+        FeatureFilter,
     >,
-    added_node_query: Query<(), (Added<Node>, FeatureFillter)>,
+    added_node_query: Query<(), (Added<Node>, FeatureFilter)>,
     mut node_update_query: Query<
         (
             &mut ComputedNode,
@@ -98,7 +97,7 @@ pub fn ui_layout_system(
             Option<&ScrollPosition>,
             Option<&IgnoreScroll>,
         ),
-        FeatureFillter,
+        FeatureFilter,
     >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -157,8 +156,8 @@ pub fn ui_layout_system(
     for ui_root_entity in ui_root_node_query.iter() {
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
-            ui_children: &UiChildren<FeatureFillter>,
-            added_node_query: &Query<(), (Added<Node>, FeatureFillter)>,
+            ui_children: &UiChildren,
+            added_node_query: &Query<(), (Added<Node>, FeatureFilter)>,
             entity: Entity,
             #[cfg(feature = "bevy_ui_container")] removed_container_target: &HashSet<Entity>,
         ) {
@@ -238,9 +237,9 @@ pub fn ui_layout_system(
                 Option<&ScrollPosition>,
                 Option<&IgnoreScroll>,
             ),
-            FeatureFillter,
+            FeatureFilter,
         >,
-        ui_children: &UiChildren<FeatureFillter>,
+        ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,

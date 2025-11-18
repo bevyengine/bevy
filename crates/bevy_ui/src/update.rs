@@ -1,10 +1,9 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    FeatureFillter, Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
+    ui_transform::UiGlobalTransform, CalculatedClip, ComputedUiRenderTargetInfo,
+    ComputedUiTargetCamera, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip, UiChildren,
+    UiRootNodes, UiScale, UiTargetCamera,
 };
 #[cfg(feature = "bevy_ui_container")]
 use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};
@@ -184,7 +183,7 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes<FeatureFillter>,
+    ui_root_nodes: UiRootNodes,
 ) {
     let default_camera_entity = default_ui_camera.get();
 

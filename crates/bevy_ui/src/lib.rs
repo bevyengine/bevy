@@ -84,10 +84,22 @@ use update::{propagate_ui_target_cameras, update_clipping_system};
 use crate::container::UiContainerPlugin;
 
 #[cfg(feature = "bevy_ui_container")]
-type FeatureFillter = Without<UiContainerTarget>;
+type FeatureFilter = Without<UiContainerTarget>;
+
+#[cfg(feature = "bevy_ui_container")]
+type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's, FeatureFilter>;
+
+#[cfg(feature = "bevy_ui_container")]
+type UiChildren<'w, 's> = experimental::UiChildren<'w, 's, FeatureFilter>;
 
 #[cfg(not(feature = "bevy_ui_container"))]
-type FeatureFillter = ();
+type FeatureFilter = ();
+
+#[cfg(not(feature = "bevy_ui_container"))]
+type UiRootNodes<'w, 's> = experimental::UiRootNodes<'w, 's>;
+
+#[cfg(not(feature = "bevy_ui_container"))]
+type UiChildren<'w, 's> = experimental::UiChildren<'w, 's>;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
