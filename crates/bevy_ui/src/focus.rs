@@ -1,8 +1,8 @@
 #[cfg(feature = "bevy_ui_container")]
 use crate::UiContainerTarget;
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
-    UiStack,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, FeatureFillter, Node,
+    OverrideClip, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
 #[cfg(feature = "bevy_ui_container")]
@@ -132,21 +132,21 @@ impl Default for FocusPolicy {
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
-    entities_to_reset: SmallVec<[Entity; 1]>,
+    pub(super) entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
 /// Main query for [`ui_focus_system`]
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct NodeQuery {
-    entity: Entity,
-    node: &'static ComputedNode,
-    transform: &'static UiGlobalTransform,
-    interaction: Option<&'static mut Interaction>,
-    relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
-    focus_policy: Option<&'static FocusPolicy>,
-    inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedUiTargetCamera,
+    pub(super) entity: Entity,
+    pub(super) node: &'static ComputedNode,
+    pub(super) transform: &'static UiGlobalTransform,
+    pub(super) interaction: Option<&'static mut Interaction>,
+    pub(super) relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
+    pub(super) focus_policy: Option<&'static FocusPolicy>,
+    pub(super) inherited_visibility: Option<&'static InheritedVisibility>,
+    pub(super) target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -161,11 +161,9 @@ pub fn ui_focus_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
+    mut node_query: Query<NodeQuery, FeatureFillter>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node), FeatureFillter>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
-    #[cfg(feature = "bevy_ui_container")] global_transform_query: Query<&GlobalTransform>,
-    #[cfg(feature = "bevy_ui_container")] target_query: Query<Has<UiContainerTarget>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -221,30 +219,6 @@ pub fn ui_focus_system(
         })
         .collect();
 
-    #[cfg(feature = "bevy_ui_container")]
-    let camera_cursor_positions_container: HashMap<Entity, Vec2> = camera_query
-        .iter()
-        .filter_map(|(entity, camera)| {
-            let Ok(position) = global_transform_query.get(entity) else {
-                return None;
-            };
-
-            // Interactions are only supported for cameras rendering to a window.
-            let Some(NormalizedRenderTarget::Window(window_ref)) =
-                camera.target.normalize(primary_window)
-            else {
-                return None;
-            };
-            let window = windows.get(window_ref.entity()).ok()?;
-
-            window
-                .cursor_position()
-                .map(|cursor| camera.viewport_to_world(position, cursor))
-                .map(|ray| ray.unwrap().origin.truncate())
-                .map(|world_position| (entity, world_position))
-        })
-        .collect();
-
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -269,9 +243,6 @@ pub fn ui_focus_system(
 
         let cursor_position = camera_cursor_positions.get(&camera_entity);
 
-        #[cfg(feature = "bevy_ui_container")]
-        let cursor_position_container = camera_cursor_positions_container.get(&camera_entity);
-
         for entity in uinodes.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
                 continue;
@@ -291,24 +262,10 @@ pub fn ui_focus_system(
                 continue;
             }
 
-            #[cfg(not(feature = "bevy_ui_container"))]
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
                     && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
             });
-
-            #[cfg(feature = "bevy_ui_container")]
-            let contains_cursor = if target_query.get(entity).unwrap() {
-                cursor_position_container.is_some_and(|point| {
-                    node.node.contains_point(*node.transform, *point)
-                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
-                })
-            } else {
-                cursor_position.is_some_and(|point| {
-                    node.node.contains_point(*node.transform, *point)
-                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
-                })
-            };
 
             // The mouse position relative to the node
             // (-0.5, -0.5) is the top-left corner, (0.5, 0.5) is the bottom-right corner
@@ -395,7 +352,7 @@ pub fn ui_focus_system(
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node), FeatureFillter>,
     child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {

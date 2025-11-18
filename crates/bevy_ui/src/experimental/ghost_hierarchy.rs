@@ -5,6 +5,8 @@ use crate::ui_node::ComputedUiTargetCamera;
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use bevy_camera::visibility::Visibility;
+#[cfg(not(feature = "ghost_nodes"))]
+use bevy_ecs::query::QueryFilter;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
@@ -37,7 +39,7 @@ pub struct UiRootNodes<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
+pub type UiRootNodes<'w, 's, F = ()> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>, F)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -70,8 +72,8 @@ pub struct UiChildren<'w, 's> {
 #[cfg(not(feature = "ghost_nodes"))]
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
+pub struct UiChildren<'w, 's, F: QueryFilter + 'static = ()> {
+    ui_children_query: Query<'w, 's, Option<&'static Children>, (With<Node>, F)>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
@@ -135,7 +137,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-impl<'w, 's> UiChildren<'w, 's> {
+impl<'w, 's, F: QueryFilter> UiChildren<'w, 's, F> {
     /// Iterates the children of `entity`.
     pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.ui_children_query

@@ -58,7 +58,7 @@ impl<T> DerefMut for UiTree<T> {
 #[derive(Resource, Component)]
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
-    pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
+    pub(crate) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
 }
@@ -274,7 +274,6 @@ impl UiSurface {
         }
     }
 
-    #[cfg(feature = "bevy_ui_container")]
     pub fn remove_entities_ref<'a>(&mut self, entities: impl IntoIterator<Item = &'a Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(entity) {

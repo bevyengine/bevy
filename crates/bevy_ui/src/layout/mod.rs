@@ -1,8 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, IgnoreScroll, LayoutConfig,
-    Node, Outline, OverflowAxis, ScrollPosition,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFillter, IgnoreScroll,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 #[cfg(feature = "bevy_ui_container")]
 use crate::{UiContainerSize, UiContainerTarget};
@@ -47,7 +47,7 @@ impl LayoutContext {
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
-    const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    pub(super) const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -77,62 +77,51 @@ pub enum LayoutError {
     TaffyError(taffy::tree::TaffyError),
 }
 
-#[cfg(not(feature = "bevy_ui_container"))]
-type Feature = ();
-
-#[cfg(feature = "bevy_ui_container")]
-type Feature = Option<&'static UiContainerTarget>;
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut ui_surface: ResMut<UiSurface>,
-    ui_root_node_query: UiRootNodes,
-    ui_children: UiChildren,
-    mut node_query: Query<(
-        Entity,
-        Ref<Node>,
-        Option<&mut ContentSize>,
-        Ref<ComputedUiRenderTargetInfo>,
-    )>,
-    added_node_query: Query<(), Added<Node>>,
-    mut node_update_query: Query<(
-        &mut ComputedNode,
-        &UiTransform,
-        &mut UiGlobalTransform,
-        &Node,
-        Option<&LayoutConfig>,
-        Option<&Outline>,
-        Option<&ScrollPosition>,
-        Option<&IgnoreScroll>,
-        Feature,
-    )>,
+    ui_root_node_query: UiRootNodes<FeatureFillter>,
+    ui_children: UiChildren<FeatureFillter>,
+    mut node_query: Query<
+        (
+            Entity,
+            Ref<Node>,
+            Option<&mut ContentSize>,
+            Ref<ComputedUiRenderTargetInfo>,
+        ),
+        FeatureFillter,
+    >,
+    added_node_query: Query<(), (Added<Node>, FeatureFillter)>,
+    mut node_update_query: Query<
+        (
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            &Node,
+            Option<&LayoutConfig>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+            Option<&IgnoreScroll>,
+        ),
+        FeatureFillter,
+    >,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
-    #[cfg(feature = "bevy_ui_container")] mut ui_surface_query: Query<&mut UiSurface>,
-    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerTarget>,
-    #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
-        &GlobalTransform,
-        &UiContainerSize,
-        &Anchor,
-    )>,
-    #[cfg(feature = "bevy_ui_container")] mut removed_uicontain: RemovedComponents<
+
+    #[cfg(feature = "bevy_ui_container")] mut removed_container_target: RemovedComponents<
         UiContainerTarget,
     >,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
-        #[cfg(feature = "bevy_ui_container")]
-        for mut ui_surface in &mut ui_surface_query {
-            ui_surface.try_remove_node_context(entity);
-        }
     }
 
     #[cfg(feature = "bevy_ui_container")]
-    let removed_uicontains = removed_uicontain.read().collect::<HashSet<Entity>>();
+    let removes = removed_container_target.read().collect::<HashSet<Entity>>();
 
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
@@ -145,7 +134,7 @@ pub fn ui_layout_system(
                     .is_some_and(|c| c.is_changed() || c.measure.is_some());
 
             #[cfg(feature = "bevy_ui_container")]
-            let is_update = is_update || removed_uicontains.contains(&entity);
+            let is_update = is_update || removes.contains(&entity);
 
             if is_update {
                 let layout_context = LayoutContext::new(
@@ -153,21 +142,7 @@ pub fn ui_layout_system(
                     computed_target.physical_size.as_vec2(),
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
-                #[cfg(feature = "bevy_ui_container")]
-                {
-                    if let Ok(target) = contain_target_query.get(entity) {
-                        let Ok(mut ui_surface) = ui_surface_query.get_mut(target.0) else {
-                            tracing::error!(
-                                "UiContainTarget pointing to an invalid UiContainSet Entity"
-                            );
-                            return;
-                        };
-                        ui_surface.upsert_node(&layout_context, entity, &node, measure);
-                    } else {
-                        ui_surface.upsert_node(&layout_context, entity, &node, measure);
-                    }
-                }
-                #[cfg(not(feature = "bevy_ui_container"))]
+
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
@@ -175,40 +150,22 @@ pub fn ui_layout_system(
     // update and remove children
     for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
-        #[cfg(feature = "bevy_ui_container")]
-        for mut ui_surface in &mut ui_surface_query {
-            ui_surface.try_remove_children(entity);
-        }
     }
 
-    #[cfg(not(feature = "bevy_ui_container"))]
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_nodes
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
-    #[cfg(feature = "bevy_ui_container")]
-    {
-        let removed_nodes = removed_nodes
-            .read()
-            .filter(|entity| !node_query.contains(*entity))
-            .collect::<Vec<_>>();
-
-        ui_surface.remove_entities_ref(removed_nodes.iter());
-
-        for mut ui_surface in &mut ui_surface_query {
-            ui_surface.remove_entities_ref(removed_nodes.iter());
-        }
-    }
 
     for ui_root_entity in ui_root_node_query.iter() {
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
-            ui_children: &UiChildren,
-            added_node_query: &Query<(), Added<Node>>,
+            ui_children: &UiChildren<FeatureFillter>,
+            added_node_query: &Query<(), (Added<Node>, FeatureFillter)>,
             entity: Entity,
-            #[cfg(feature = "bevy_ui_container")] removed_uicontains: &HashSet<Entity>,
+            #[cfg(feature = "bevy_ui_container")] removed_container_target: &HashSet<Entity>,
         ) {
             let is_update = ui_surface.entity_to_taffy.contains_key(&entity)
                 && (added_node_query.contains(entity)
@@ -216,8 +173,10 @@ pub fn ui_layout_system(
                     || ui_children
                         .iter_ui_children(entity)
                         .any(|child| added_node_query.contains(child)));
+
             #[cfg(feature = "bevy_ui_container")]
-            let is_update = is_update || removed_uicontains.contains(&entity);
+            let is_update = is_update || removed_container_target.contains(&entity);
+
             if is_update {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
@@ -229,35 +188,18 @@ pub fn ui_layout_system(
                     added_node_query,
                     child,
                     #[cfg(feature = "bevy_ui_container")]
-                    removed_uicontains,
+                    removed_container_target,
                 );
             }
         }
 
-        #[cfg(feature = "bevy_ui_container")]
-        let ui_surface = {
-            if let Ok(target) = contain_target_query.get(ui_root_entity) {
-                let Ok(ui_surface) = ui_surface_query.get_mut(target.0) else {
-                    tracing::error!("UiContainTarget pointing to an invalid UiContainSet Entity");
-                    continue;
-                };
-
-                ui_surface.into_inner()
-            } else {
-                &mut ui_surface
-            }
-        };
-
-        #[cfg(not(feature = "bevy_ui_container"))]
-        let ui_surface = &mut ui_surface;
-
         update_children_recursively(
-            ui_surface,
+            &mut ui_surface,
             &ui_children,
             &added_node_query,
             ui_root_entity,
             #[cfg(feature = "bevy_ui_container")]
-            &removed_uicontains,
+            &removes,
         );
 
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
@@ -271,7 +213,7 @@ pub fn ui_layout_system(
 
         update_uinode_geometry_recursive(
             ui_root_entity,
-            ui_surface,
+            &mut ui_surface,
             true,
             computed_target.physical_size().as_vec2(),
             Affine2::IDENTITY,
@@ -280,8 +222,6 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
-            #[cfg(feature = "bevy_ui_container")]
-            &contain_query,
         );
     }
 
@@ -292,26 +232,23 @@ pub fn ui_layout_system(
         inherited_use_rounding: bool,
         target_size: Vec2,
         mut inherited_transform: Affine2,
-        node_update_query: &mut Query<(
-            &mut ComputedNode,
-            &UiTransform,
-            &mut UiGlobalTransform,
-            &Node,
-            Option<&LayoutConfig>,
-            Option<&Outline>,
-            Option<&ScrollPosition>,
-            Option<&IgnoreScroll>,
-            Feature,
-        )>,
-        ui_children: &UiChildren,
+        node_update_query: &mut Query<
+            (
+                &mut ComputedNode,
+                &UiTransform,
+                &mut UiGlobalTransform,
+                &Node,
+                Option<&LayoutConfig>,
+                Option<&Outline>,
+                Option<&ScrollPosition>,
+                Option<&IgnoreScroll>,
+            ),
+            FeatureFillter,
+        >,
+        ui_children: &UiChildren<FeatureFillter>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        #[cfg(feature = "bevy_ui_container")] contain_query: &Query<(
-            &GlobalTransform,
-            &UiContainerSize,
-            &Anchor,
-        )>,
     ) {
         if let Ok((
             mut node,
@@ -322,7 +259,6 @@ pub fn ui_layout_system(
             maybe_outline,
             maybe_scroll_position,
             maybe_scroll_sticky,
-            _is_contain,
         )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
@@ -377,38 +313,8 @@ pub fn ui_layout_system(
                 target_size,
             );
 
-            #[cfg(feature = "bevy_ui_container")]
-            if let Some(target) = _is_contain {
-                // Transform the node coordinate system
-                let flip_y = Affine2::from_scale(Vec2::new(1.0, -1.0));
-                // Coordinate correction for root node
-                if ui_children.get_parent(entity).is_none()
-                    && let Ok((global, contain, anchor)) = contain_query.get(target.0)
-                {
-                    use bevy_math::Vec3Swizzles;
-
-                    local_transform.translation += global.translation().xy();
-
-                    // Root node center offset
-                    let offset = flip_y.transform_vector2(contain.0.as_vec2());
-                    local_transform.translation -= offset / 2.0;
-
-                    // Anchor offset
-                    let offset_anchor = anchor.as_vec() * contain.0.as_vec2();
-                    local_transform.translation -= offset_anchor;
-                }
-                local_transform.translation += flip_y.transform_vector2(local_center);
-                inherited_transform *= local_transform;
-            } else {
-                local_transform.translation += local_center;
-                inherited_transform *= local_transform;
-            }
-
-            #[cfg(not(feature = "bevy_ui_container"))]
-            {
-                local_transform.translation += local_center;
-                inherited_transform *= local_transform;
-            }
+            local_transform.translation += local_center;
+            inherited_transform *= local_transform;
 
             if inherited_transform != **global_transform {
                 *global_transform = inherited_transform.into();
@@ -489,8 +395,6 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
-                    #[cfg(feature = "bevy_ui_container")]
-                    contain_query,
                 );
             }
         }
@@ -498,6 +402,7 @@ pub fn ui_layout_system(
 }
 
 #[cfg(test)]
+#[cfg(feature = "bevy_ui_container")]
 mod tests {
     use crate::update::update_cameras_test_system;
     use crate::{
@@ -539,8 +444,12 @@ mod tests {
             (
                 update_cameras_test_system,
                 propagate_ui_target_cameras,
+                #[cfg(feature = "bevy_ui_container")]
+                crate::container::propagate_ui_target_cameras,
                 ApplyDeferred,
                 ui_layout_system,
+                #[cfg(feature = "bevy_ui_container")]
+                crate::container::ui_layout_system,
                 mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
@@ -561,6 +470,22 @@ mod tests {
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
+
+        #[cfg(feature = "bevy_ui_container")]
+        {
+            app.configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiTargetCamera>::default()
+                    .after(crate::container::propagate_ui_target_cameras)
+                    .before(crate::container::ui_layout_system),
+            );
+            app.configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiRenderTargetInfo>::default()
+                    .after(crate::container::propagate_ui_target_cameras)
+                    .before(crate::container::ui_layout_system),
+            );
+        }
 
         let world = app.world_mut();
         // spawn a dummy primary window and camera
@@ -1617,29 +1542,34 @@ mod tests {
             app.update();
             let world = app.world_mut();
 
+            let ui_container = world.spawn(UiContainerSize::default()).id();
+
             // no UI entities in world, none in UiSurface
-            let ui_surface = world.resource::<UiSurface>();
+            let ui_surface = world.get::<UiSurface>(ui_container).unwrap();
             assert!(ui_surface.entity_to_taffy.is_empty());
 
-            let ui_entity = world.spawn(Node::default()).id();
+            let ui_entity = world
+                .spawn((Node::default(), UiContainerTarget(ui_container)))
+                .id();
 
             // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
             app.update();
             let world = app.world_mut();
-
-            let ui_surface = world.resource::<UiSurface>();
+            let ui_surface = world.get::<UiSurface>(ui_container).unwrap();
             assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
             assert_eq!(ui_surface.entity_to_taffy.len(), 1);
 
             // remove and re-insert Node to trigger removal code in `ui_layout_system`
             world.entity_mut(ui_entity).remove::<Node>();
-            world.entity_mut(ui_entity).insert(Node::default());
+            world
+                .entity_mut(ui_entity)
+                .insert((Node::default(), UiContainerTarget(ui_container)));
 
             // `ui_layout_system` should still have `ui_entity`
             app.update();
             let world = app.world_mut();
 
-            let ui_surface = world.resource::<UiSurface>();
+            let ui_surface = world.get::<UiSurface>(ui_container).unwrap();
             assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
             assert_eq!(ui_surface.entity_to_taffy.len(), 1);
         }
