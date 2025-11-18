@@ -199,7 +199,7 @@ fn update_text(
 Anchor: {:?}
 Overflow: {:?}
 GlobalTransform: {:?}
-GlobalTranfrom Camera: {:?}",
+GlobalTransform Camera: {:?}",
         anchor, overflow_text, global_uicontain, global_camera,
     );
 }
