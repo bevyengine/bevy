@@ -115,7 +115,7 @@ use bevy_ecs::{component::Component, entity::Entity, world::World};
 /// Create resources and encode render commands as follows:
 ///
 /// ```rust
-/// fn encode_commands(&self, ctx: RenderTaskContext, camera_entity: Entity, world: &World) -> Option<(); {
+/// fn encode_commands(&self, mut ctx: RenderTaskContext, camera_entity: Entity, world: &World) -> Option<(); {
 ///     let (component_a, component_b) = world
 ///         .entity(entity)
 ///         .get_components::<(&ComponentA, &ComponentB)>()?;

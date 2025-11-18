@@ -11,7 +11,7 @@ use bevy_asset::Handle;
 use bevy_shader::{Shader, ShaderDefVal};
 use bytemuck::NoUninit;
 use std::borrow::Cow;
-use wgpu::{BindGroupDescriptor, ComputePass, PushConstantRange, ShaderStages};
+use wgpu::{BindGroupDescriptor, ComputePass, DynamicOffset, PushConstantRange, ShaderStages};
 
 pub struct ComputeCommandBuilder<'a> {
     pass: &'a mut ComputePass<'static>,
@@ -20,7 +20,7 @@ pub struct ComputeCommandBuilder<'a> {
     entry_point: Option<&'static str>,
     shader_defs: Vec<ShaderDefVal>,
     push_constants: Option<&'a [u8]>,
-    bind_groups: Vec<Option<BindGroup>>,
+    bind_groups: Vec<(Option<BindGroup>, &'a [DynamicOffset])>,
     bind_group_layouts: Vec<BindGroupLayoutDescriptor>,
     resource_cache: &'a mut ResourceCache,
     pipeline_compiler: &'a PipelineCompiler,
@@ -78,8 +78,18 @@ impl<'a> ComputeCommandBuilder<'a> {
     }
 
     pub fn bind_resources<'b, const N: usize>(
-        mut self,
+        self,
         resources: impl IntoBindingArray<'b, N> + IntoBindGroupLayoutEntryBuilderArray<N> + Clone,
+    ) -> Self {
+        self.bind_resources_with_dynamic_offsets((resources, &[]))
+    }
+
+    pub fn bind_resources_with_dynamic_offsets<'b, const N: usize>(
+        mut self,
+        (resources, dynamic_offsets): (
+            impl IntoBindingArray<'b, N> + IntoBindGroupLayoutEntryBuilderArray<N> + Clone,
+            &'a [DynamicOffset],
+        ),
     ) -> Self {
         let layout_descriptor = BindGroupLayoutDescriptor::new(
             self.pass_name.to_owned(),
@@ -99,11 +109,14 @@ impl<'a> ComputeCommandBuilder<'a> {
         //     self.resource_cache
         //         .get_or_create_bind_group(descriptor, self.render_device),
         // ));
-        self.bind_groups.push(Some(
-            self.render_device
-                .wgpu_device()
-                .create_bind_group(&descriptor)
-                .into(),
+        self.bind_groups.push((
+            Some(
+                self.render_device
+                    .wgpu_device()
+                    .create_bind_group(&descriptor)
+                    .into(),
+            ),
+            dynamic_offsets,
         ));
 
         self.bind_group_layouts.push(layout_descriptor);
@@ -116,35 +129,51 @@ impl<'a> ComputeCommandBuilder<'a> {
         bind_group: impl Into<Option<BindGroup>>,
         layout: BindGroupLayoutDescriptor,
     ) -> Self {
-        self.bind_groups.push(bind_group.into());
+        self.bind_groups.push((bind_group.into(), &[]));
         self.bind_group_layouts.push(layout);
         self
     }
 
+    pub fn bind_group_with_dynamic_offsets(
+        mut self,
+        bind_group: BindGroup,
+        dynamic_offsets: &'a [DynamicOffset],
+        layout: BindGroupLayoutDescriptor,
+    ) -> Self {
+        self.bind_groups.push((Some(bind_group), dynamic_offsets));
+        self.bind_group_layouts.push(layout);
+        self
+    }
+
+    #[must_use]
     pub fn dispatch_1d(mut self, x: u32) -> Option<Self> {
         self.setup_state()?;
         self.pass.dispatch_workgroups(x, 1, 1);
         Some(self)
     }
 
+    #[must_use]
     pub fn dispatch_2d(mut self, x: u32, y: u32) -> Option<Self> {
         self.setup_state()?;
         self.pass.dispatch_workgroups(x, y, 1);
         Some(self)
     }
 
+    #[must_use]
     pub fn dispatch_3d(mut self, x: u32, y: u32, z: u32) -> Option<Self> {
         self.setup_state()?;
         self.pass.dispatch_workgroups(x, y, z);
         Some(self)
     }
 
+    #[must_use]
     pub fn dispatch_indirect(mut self, buffer: &Buffer) -> Option<Self> {
         self.setup_state()?;
         self.pass.dispatch_workgroups_indirect(buffer, 0);
         Some(self)
     }
 
+    #[must_use]
     fn setup_state(&mut self) -> Option<()> {
         let push_constant_ranges = self
             .push_constants
@@ -175,9 +204,10 @@ impl<'a> ComputeCommandBuilder<'a> {
             self.pass.set_push_constants(0, push_constants); // TODO: Only set if pipeline changed
         }
 
-        for (i, bind_group) in self.bind_groups.iter().enumerate() {
+        for (i, (bind_group, dynamic_offsets)) in self.bind_groups.iter().enumerate() {
+            // TODO: Only set if changed
             self.pass
-                .set_bind_group(i as u32, bind_group.as_deref(), &[]); // TODO: Only set if changed
+                .set_bind_group(i as u32, bind_group.as_deref(), dynamic_offsets);
         }
 
         Some(())
