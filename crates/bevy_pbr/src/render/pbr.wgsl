@@ -5,8 +5,6 @@
     decal::clustered::apply_decal_base_color,
 }
 
-
-
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
     prepass_io::{VertexOutput, FragmentOutput},
