@@ -1029,6 +1029,48 @@ impl AssetProcessor {
             .await;
     }
 
+    /// Removes the processed version of an asset, if it exists.
+    ///
+    /// This does not delete its meta file, or any parent directories. This intends for the asset to
+    /// be overwritten afterwards.
+    async fn remove_processed_asset_for_overwrite(
+        &self,
+        source: &AssetSource,
+        path: &Path,
+    ) -> Result<(), ProcessError> {
+        let reader = source.ungated_processed_reader().unwrap();
+        let writer = source.processed_writer().unwrap();
+
+        let make_path = || {
+            AssetPath::from_path(path)
+                .with_source(source.id())
+                .into_owned()
+        };
+        let is_directory = match reader.is_directory(path).await {
+            Ok(is_directory) => is_directory,
+            // Ignore NotFound errors, since all we care about is that the processed asset isn't
+            // there anymore.
+            Err(AssetReaderError::NotFound(_)) => return Ok(()),
+            Err(err) => {
+                return Err(ProcessError::AssetReaderError {
+                    path: make_path(),
+                    err,
+                });
+            }
+        };
+        let err = if is_directory {
+            writer.remove_directory(path).await
+        } else {
+            writer.remove(path).await
+        };
+        // The is_directory call succeeded, so we should have something to delete, but it's possible
+        // the file gets deleted before we get to it here, so be lenient with the error.
+        if let Err(err) = err {
+            warn!("Failed to remove existing processed asset: {err}");
+        }
+        Ok(())
+    }
+
     async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
@@ -1205,6 +1247,11 @@ impl AssetProcessor {
         // Directly writing to the asset destination in the processor necessitates this behavior
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
+
+        // First try to delete the asset if it already exists, so we don't fail to write the asset
+        // or merge the assets somehow.
+        self.remove_processed_asset_for_overwrite(source, asset_path.path())
+            .await?;
         if let Some(processor) = processor {
             // Unwrap is ok since we have a processor, so the `AssetAction` must have been
             // `AssetAction::Process` (which includes its settings).
