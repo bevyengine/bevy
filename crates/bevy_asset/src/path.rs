@@ -997,6 +997,24 @@ mod tests {
     }
 
     #[test]
+    fn resolve_embed_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve_embed("c.bin").unwrap(),
+            AssetPath::from("../../a/c.bin")
+        );
+    }
+
+    #[test]
+    fn resolve_relative_to_external_path() {
+        let base = AssetPath::from("../../a/b.gltf");
+        assert_eq!(
+            base.resolve("c.bin").unwrap(),
+            AssetPath::from("../../a/b.gltf/c.bin")
+        );
+    }
+
+    #[test]
     fn test_get_extension() {
         let result = AssetPath::from("http://a.tar.gz#Foo");
         assert_eq!(result.get_full_extension(), Some("tar.gz".to_string()));
