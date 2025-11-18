@@ -648,7 +648,12 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if !result_path.pop() {
+            if let Some(file_name) = result_path.file_name()
+                // Don't collapse .. with another ..
+                && file_name != ".."
+            {
+                assert!(result_path.pop());
+            } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
                 result_path.push(elt);
             }
