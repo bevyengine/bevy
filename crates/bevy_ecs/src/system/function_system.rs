@@ -6,8 +6,8 @@ use crate::{
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
-        SystemParamItem,
+        check_system_change_tick, FromInput, ReadOnlySystemParam, System, SystemIn, SystemInput,
+        SystemParam, SystemParamItem,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -234,15 +234,15 @@ macro_rules! impl_build_system {
             /// You can use [`SystemState::build_system_with_input()`] if you have input, or [`SystemState::build_any_system()`] if you don't need type inference.
             pub fn build_system<
                 InnerOut: IntoResult<Out>,
-                Out: 'static,
+                Out,
                 Marker,
                 F: FnMut($(SystemParamItem<$param>),*) -> InnerOut
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = (), Out = InnerOut>
+                    + SystemParamFunction<Marker, In = (), Out = InnerOut, Param = ($($param,)*)>
             >
             (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, Out, F>
+            ) -> FunctionSystem<Marker, (), Out, F>
             {
                 self.build_any_system(func)
             }
@@ -250,17 +250,20 @@ macro_rules! impl_build_system {
             /// Create a [`FunctionSystem`] from a [`SystemState`].
             /// This method signature allows type inference of closure parameters for a system with input.
             /// You can use [`SystemState::build_system()`] if you have no input, or [`SystemState::build_any_system()`] if you don't need type inference.
+            #[inline]
             pub fn build_system_with_input<
-                Input: SystemInput,
+                InnerIn: SystemInput + FromInput<In>,
+                In: SystemInput,
                 InnerOut: IntoResult<Out>,
-                Out: 'static,
+                Out,
                 Marker,
-                F: FnMut(Input, $(SystemParamItem<$param>),*) -> InnerOut
-                    + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = InnerOut>,
-            >(
+                F: FnMut(InnerIn, $(SystemParamItem<$param>),*) -> InnerOut
+                    + SystemParamFunction<Marker, In = InnerIn, Out = InnerOut, Param = ($($param,)*)>
+            >
+            (
                 self,
                 func: F,
-            ) -> FunctionSystem<Marker, Out, F> {
+            ) -> FunctionSystem<Marker, In, Out, F> {
                 self.build_any_system(func)
             }
         }
@@ -311,22 +314,20 @@ impl<Param: SystemParam> SystemState<Param> {
     /// Create a [`FunctionSystem`] from a [`SystemState`].
     /// This method signature allows any system function, but the compiler will not perform type inference on closure parameters.
     /// You can use [`SystemState::build_system()`] or [`SystemState::build_system_with_input()`] to get type inference on parameters.
-    pub fn build_any_system<Marker, Out, F>(self, func: F) -> FunctionSystem<Marker, Out, F>
+    #[inline]
+    pub fn build_any_system<Marker, In, Out, F>(self, func: F) -> FunctionSystem<Marker, In, Out, F>
     where
-        F: SystemParamFunction<Marker, Param = Param, Out: IntoResult<Out>>,
+        In: SystemInput,
+        F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>, Param = Param>,
     {
-        FunctionSystem {
+        FunctionSystem::new(
             func,
-            #[cfg(feature = "hotpatching")]
-            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
-                .ptr_address(),
-            state: Some(FunctionSystemState {
+            self.meta,
+            Some(FunctionSystemState {
                 param: self.param_state,
                 world_id: self.world_id,
             }),
-            system_meta: self.meta,
-            marker: PhantomData,
-        }
+        )
     }
 
     /// Gets the metadata for this instance.
@@ -475,7 +476,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// The [`Clone`] implementation for [`FunctionSystem`] returns a new instance which
 /// is NOT initialized. The cloned system must also be `.initialized` before it can be run.
-pub struct FunctionSystem<Marker, Out, F>
+pub struct FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -484,8 +485,8 @@ where
     current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
-    // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (Marker, Out)>,
+    // NOTE: PhantomData<fn(In)-> T> gives this safe Send/Sync impls
+    marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
 
 /// The state of a [`FunctionSystem`], which must be initialized with
@@ -500,10 +501,23 @@ struct FunctionSystemState<P: SystemParam> {
     world_id: WorldId,
 }
 
-impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
+    #[inline]
+    fn new(func: F, system_meta: SystemMeta, state: Option<FunctionSystemState<F::Param>>) -> Self {
+        Self {
+            func,
+            #[cfg(feature = "hotpatching")]
+            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
+                .ptr_address(),
+            state,
+            system_meta,
+            marker: PhantomData,
+        }
+    }
+
     /// Return this system with a new name.
     ///
     /// Useful to give closure systems more readable and unique names for debugging and tracing.
@@ -514,7 +528,7 @@ where
 }
 
 // De-initializes the cloned system.
-impl<Marker, Out, F> Clone for FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> Clone for FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker> + Clone,
 {
@@ -535,23 +549,16 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<Marker, Out, F> IntoSystem<F::In, Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, In, Out, F> IntoSystem<In, Out, (IsFunctionSystem, Marker)> for F
 where
-    Out: 'static,
     Marker: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
+    In: SystemInput + 'static,
+    Out: 'static,
+    F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
 {
-    type System = FunctionSystem<Marker, Out, F>;
+    type System = FunctionSystem<Marker, In, Out, F>;
     fn into_system(func: Self) -> Self::System {
-        FunctionSystem {
-            func,
-            #[cfg(feature = "hotpatching")]
-            current_ptr: subsecond::HotFn::current(<F as SystemParamFunction<Marker>>::run)
-                .ptr_address(),
-            state: None,
-            system_meta: SystemMeta::new::<F>(),
-            marker: PhantomData,
-        }
+        FunctionSystem::new(func, SystemMeta::new::<F>(), None)
     }
 }
 
@@ -596,7 +603,7 @@ impl IntoResult<bool> for Never {
     }
 }
 
-impl<Marker, Out, F> FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> FunctionSystem<Marker, In, Out, F>
 where
     F: SystemParamFunction<Marker>,
 {
@@ -607,13 +614,14 @@ where
         "System's state was not found. Did you forget to initialize this system before running it?";
 }
 
-impl<Marker, Out, F> System for FunctionSystem<Marker, Out, F>
+impl<Marker, In, Out, F> System for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,
+    In: SystemInput + 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
+    F: SystemParamFunction<Marker, In: FromInput<In>, Out: IntoResult<Out>>,
 {
-    type In = F::In;
+    type In = In;
     type Out = Out;
 
     #[inline]
@@ -636,6 +644,8 @@ where
         let _span_guard = self.system_meta.system_span.enter();
 
         let change_tick = world.increment_change_tick();
+
+        let input = F::In::from_inner(input);
 
         let state = self.state.as_mut().expect(Self::ERROR_UNINITIALIZED);
         assert_eq!(state.world_id, world.id(), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
@@ -748,12 +758,17 @@ where
 }
 
 /// SAFETY: `F`'s param is [`ReadOnlySystemParam`], so this system will only read from the world.
-unsafe impl<Marker, Out, F> ReadOnlySystem for FunctionSystem<Marker, Out, F>
+unsafe impl<Marker, In, Out, F> ReadOnlySystem for FunctionSystem<Marker, In, Out, F>
 where
     Marker: 'static,
+    In: SystemInput + 'static,
     Out: 'static,
-    F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
-    F::Param: ReadOnlySystemParam,
+    F: SystemParamFunction<
+        Marker,
+        In: FromInput<In>,
+        Out: IntoResult<Out>,
+        Param: ReadOnlySystemParam,
+    >,
 {
 }
 
@@ -935,7 +950,7 @@ mod tests {
 
             use core::any::TypeId;
 
-            let system = IntoSystem::into_system(function);
+            let system = IntoSystem::<In, Out, _>::into_system(function);
 
             assert_eq!(
                 system.type_id(),
@@ -951,13 +966,13 @@ mod tests {
 
             assert_ne!(
                 system.type_id(),
-                IntoSystem::into_system(reference_system).type_id(),
+                IntoSystem::<(), (), _>::into_system(reference_system).type_id(),
                 "Different systems should have different TypeIds"
             );
         }
 
         fn function_system() {}
 
-        test(function_system);
+        test::<_, (), (), _>(function_system);
     }
 }
