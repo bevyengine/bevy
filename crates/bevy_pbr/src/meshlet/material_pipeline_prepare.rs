@@ -166,6 +166,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass(
             let material_pipeline_specializer = MaterialPipelineSpecializer {
                 pipeline: material_pipeline.clone(),
                 properties: material.properties.clone(),
+                pass_id: MainPass::id(),
             };
             let Ok(material_pipeline_descriptor) =
                 material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)
@@ -338,6 +339,7 @@ pub fn prepare_material_meshlet_meshes_prepass(
             let material_pipeline_specializer = PrepassPipelineSpecializer {
                 pipeline: prepass_pipeline.clone(),
                 properties: material.properties.clone(),
+                _pass_id: Prepass::id(),
             };
             let Ok(material_pipeline_descriptor) =
                 material_pipeline_specializer.specialize(erased_key, fake_vertex_buffer_layout)

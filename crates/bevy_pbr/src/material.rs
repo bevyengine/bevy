@@ -1,24 +1,14 @@
-use crate::material_bind_groups::{
-    FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
-};
-use crate::*;
 use alloc::sync::Arc;
+
+use crate::*;
 use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetEventSystems, AssetId, AssetServer, UntypedAssetId};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_camera::ScreenSpaceTransmissionQuality;
-use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
-use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
-use bevy_core_pipeline::{
-    core_3d::{
-        AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, Transmissive3d, Transparent3d,
-    },
-    prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
-    tonemapping::Tonemapping,
-};
+use bevy_core_pipeline::tonemapping::Tonemapping;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::change_detection::Tick;
-use bevy_ecs::system::SystemChangeTick;
+use bevy_ecs::system::{ReadOnlySystemParam, SystemChangeTick};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -27,17 +17,20 @@ use bevy_ecs::{
     },
 };
 use bevy_mesh::{
-    mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
+    mark_3d_meshes_as_changed_if_their_assets_changed, BaseMeshPipelineKey, Mesh3d,
+    MeshVertexBufferLayoutRef,
 };
 use bevy_platform::collections::hash_map::Entry;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_platform::hash::FixedHasher;
+use bevy_platform::hash::{FixedHasher, NoOpHash};
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::batching::GetFullBatchData;
 use bevy_render::camera::extract_cameras;
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
@@ -55,7 +48,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_shader::{Shader, ShaderDefVal};
+use bevy_shader::Shader;
 use bevy_utils::Parallel;
 use core::any::{Any, TypeId};
 use core::hash::{BuildHasher, Hasher};
@@ -64,6 +57,8 @@ use smallvec::SmallVec;
 use tracing::error;
 
 pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
+
+pub const PASS_MAX_PHASES: usize = 4;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -136,6 +131,18 @@ pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
 /// @group(#{MATERIAL_BIND_GROUP}) @binding(2) var color_sampler: sampler;
 /// ```
 pub trait Material: Asset + AsBindGroup + Clone + Sized {
+    /// Returns this material's shaders for supported passes.
+    ///
+    /// When the traditional shader method is used, the corresponding pass's shader in the [`PassShaders`] will be ignored.
+    /// Currently, only [`MainPass`], [`DeferredPass`] and [`Prepass`] are supported out of the box.
+    fn shaders() -> PassShaders {
+        let mut pass_shaders = PassShaders::default();
+        pass_shaders.insert(Prepass::id(), ShaderSet::default());
+        pass_shaders.insert(DeferredPass::id(), ShaderSet::default());
+        pass_shaders.insert(MainPass::id(), ShaderSet::default());
+        pass_shaders
+    }
+
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -173,8 +180,8 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     #[inline]
     /// Returns whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
     ///
-    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
-    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    /// This allows taking color output from the [`bevy_core_pipeline::core_3d::Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`bevy_core_pipeline::core_3d::Transmissive3d`] pass.
     fn reads_view_transmission_texture(&self) -> bool {
         false
     }
@@ -267,72 +274,244 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
+        // pass_id: PassId,
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
 }
 
-#[derive(Default)]
-pub struct MaterialsPlugin {
-    /// Debugging flags that can optionally be set when constructing the renderer.
-    pub debug_flags: RenderDebugFlags,
+/// A set of shaders for a rasterization pass,
+/// containing a vertex shader and fragment shader.
+#[derive(Default, Clone)]
+pub struct ShaderSet {
+    pub vertex: ShaderRef,
+    pub fragment: ShaderRef,
 }
 
-impl Plugin for MaterialsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((PrepassPipelinePlugin, PrepassPlugin::new(self.debug_flags)));
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<EntitySpecializationTicks>()
-                .init_resource::<SpecializedMaterialPipelineCache>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipelineSpecializer>>()
-                .init_resource::<LightKeyCache>()
-                .init_resource::<LightSpecializationTicks>()
-                .init_resource::<SpecializedShadowMaterialPipelineCache>()
-                .init_resource::<DrawFunctions<Shadow>>()
-                .init_resource::<RenderMaterialInstances>()
-                .init_resource::<MaterialBindGroupAllocators>()
-                .add_render_command::<Shadow, DrawPrepass>()
-                .add_render_command::<Transmissive3d, DrawMaterial>()
-                .add_render_command::<Transparent3d, DrawMaterial>()
-                .add_render_command::<Opaque3d, DrawMaterial>()
-                .add_render_command::<AlphaMask3d, DrawMaterial>()
-                .add_systems(RenderStartup, init_material_pipeline)
-                .add_systems(
-                    Render,
-                    (
-                        specialize_material_meshes
-                            .in_set(RenderSystems::PrepareMeshes)
-                            .after(prepare_assets::<RenderMesh>)
-                            .after(collect_meshes_for_gpu_building)
-                            .after(set_mesh_motion_vector_flags),
-                        queue_material_meshes.in_set(RenderSystems::QueueMeshes),
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        prepare_material_bind_groups,
-                        write_material_bind_group_buffers,
-                    )
-                        .chain()
-                        .in_set(RenderSystems::PrepareBindGroups),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        check_views_lights_need_specialization.in_set(RenderSystems::PrepareAssets),
-                        // specialize_shadows also needs to run after prepare_assets::<PreparedMaterial>,
-                        // which is fine since ManageViews is after PrepareAssets
-                        specialize_shadows
-                            .in_set(RenderSystems::ManageViews)
-                            .after(prepare_lights),
-                        queue_shadows.in_set(RenderSystems::QueueMeshes),
-                    ),
-                );
+/// A map for storing the shaders for each pass used by a [`Material`].
+pub type PassShaders = HashMap<PassId, ShaderSet, NoOpHash>;
+
+/// A unique identifier for a [`MeshPass`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deref)]
+pub struct PassId(TypeId);
+
+impl PassId {
+    /// Creates a new [`PassId`] from a [`MeshPass`].
+    pub fn of<P: MeshPass>() -> Self {
+        PassId(TypeId::of::<P>())
+    }
+}
+
+/// A trait for defining a render pass that can be used by [`Material`].
+///
+/// Add the pass to [`bevy_camera::Camera3d`]s to mark views for [`MeshPassPlugin`] rendering.
+pub trait MeshPass
+where
+    Self: ExtractComponent + Default,
+    <Self::Specializer as SpecializedMeshPipeline>::Key: Sync + Send,
+    <Self::RenderCommand as RenderCommand<Phase1<Self>>>::Param: ReadOnlySystemParam,
+    <Self::RenderCommand as RenderCommand<Phase2<Self>>>::Param: ReadOnlySystemParam,
+    <Self::RenderCommand as RenderCommand<Phase3<Self>>>::Param: ReadOnlySystemParam,
+    <Self::RenderCommand as RenderCommand<Phase4<Self>>>::Param: ReadOnlySystemParam,
+{
+    /// The pass responsible for checking view specialization.
+    ///
+    /// You can reuse existing pass implementations. If you want to create your own,
+    /// this would be `Self`. Check out [`MainPass`] for more details.
+    type ViewKeySource: MeshPass;
+
+    /// The specializer for creating [`RenderPipelineDescriptor`].
+    type Specializer: PipelineSpecializer;
+
+    /// The [`PhaseItem`]s processed by this pass.
+    ///
+    /// Each `PhaseItem` must implement [`PhaseItemExt`].
+    /// Currently, the maximum number of `PhaseItem`s in a pass is 4.
+    ///
+    /// If the desired effect does not rely on a specific pass order, such as Hull Outline,
+    /// you can reuse existing `PhaseItem`s, as they will ultimately be processed by the same
+    /// render graph node. If your effect depends on a specific pass order, such as a custom
+    /// prepass, then you will need to create a newtype or completely rebuild your own `PhaseItem`,
+    /// and implement the corresponding render graph node along with other necessary systems.
+    ///
+    /// ## Example
+    /// ```ignore
+    /// type PhaseItems = (Opaque3d, AlphaMask3d, Transmissive3d, Transparent3d);
+    /// ```
+    type PhaseItems: PhaseItems<Self>;
+
+    // NOTE AFTER #21021: Maybe we can move this to `PhaseItemExt`.
+    //
+    // NOTE BEFORE #21021: Theoretically, the relationship between PhaseItem and RenderCommand
+    // is many-to-many, but I haven't seen many use cases of this. For simplicity
+    // of implementation, I’m keeping it this way for now.
+    //
+    /// The `RenderCommand`s used for rendering [`PhaseItem`]s.
+    /// See [`RenderCommand`] for more details.
+    type RenderCommand: Send
+        + Sync
+        + RenderCommand<Phase1<Self>>
+        + RenderCommand<Phase2<Self>>
+        + RenderCommand<Phase3<Self>>
+        + RenderCommand<Phase4<Self>>;
+
+    /// The identifier for this pass.
+    fn id() -> PassId {
+        PassId::of::<Self>()
+    }
+}
+
+/// A trait for converting a tuple of [`PhaseItem`]s into associated types.
+pub trait PhaseItems<P> {
+    type Phase1: PhaseItemExt;
+    type Phase2: PhaseItemExt;
+    type Phase3: PhaseItemExt;
+    type Phase4: PhaseItemExt;
+
+    fn count() -> usize;
+}
+
+// Fake singleton for [`MeshPassPlugin`]
+#[derive(Resource, Default)]
+struct MeshPassPluginLoaded;
+
+/// A plugin for adding a [`MeshPass`] that can be used by [`Material`].
+///
+/// Currently handles the specialization and queuing stages.
+#[derive(Default)]
+pub struct MeshPassPlugin<P> {
+    pub debug_flags: RenderDebugFlags,
+    _marker: PhantomData<P>,
+}
+
+impl<P: MeshPass> MeshPassPlugin<P> {
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        Self {
+            debug_flags,
+            _marker: PhantomData,
         }
     }
 }
+
+impl<P: MeshPass> Plugin for MeshPassPlugin<P> {
+    fn build(&self, app: &mut App) {
+        add_pass_phase_plugins::<P>(app, self.debug_flags);
+        app.add_plugins(ExtractComponentPlugin::<P>::default());
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        // For all instances of PassPlugin
+        render_app
+            .init_resource::<EntitySpecializationTicks>()
+            .init_resource::<SpecializedMaterialPipelineCache<P>>()
+            .init_resource::<MeshPassSpecializedMeshPipelines<P, P::Specializer>>()
+            .init_resource::<ViewKeyCache<P>>() // Double check
+            .init_resource::<ViewSpecializationTicks<P>>() // Double check
+            .init_resource::<RenderMaterialInstances>()
+            .init_resource::<MaterialBindGroupAllocators>()
+            .init_resource::<EntitiesNeedingSweep>()
+            .add_systems(
+                ExtractSchedule,
+                late_sweep_entities_needing_specialization::<P>
+                    .after(MaterialEarlySweepEntitiesNeedingSpecializationSystems)
+                    .before(late_sweep_material_instances),
+            )
+            .add_systems(
+                Render,
+                (
+                    specialize_material_meshes::<P>
+                        .in_set(RenderSystems::PrepareMeshes)
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building)
+                        .after(set_mesh_motion_vector_flags),
+                    queue_material_meshes::<P>.in_set(RenderSystems::QueueMeshes),
+                ),
+            );
+
+        // Fake singleton start
+        if render_app
+            .world()
+            .contains_resource::<MeshPassPluginLoaded>()
+        {
+            return;
+        }
+        render_app
+            .init_resource::<MeshPassPluginLoaded>()
+            .add_systems(
+                Render,
+                (
+                    prepare_material_bind_groups,
+                    write_material_bind_group_buffers,
+                )
+                    .chain()
+                    .in_set(RenderSystems::PrepareBindGroups),
+            );
+    }
+}
+
+pub fn add_pass_phase_plugins<P: MeshPass>(app: &mut App, debug_flags: RenderDebugFlags) {
+    let valid_phase_count = P::PhaseItems::count();
+
+    if valid_phase_count > 0 {
+        app.add_plugins(MeshPassPhasePlugin::<P, Phase1<P>>::new(0, debug_flags));
+    }
+    if valid_phase_count > 1 {
+        app.add_plugins(MeshPassPhasePlugin::<P, Phase2<P>>::new(1, debug_flags));
+    }
+    if valid_phase_count > 2 {
+        app.add_plugins(MeshPassPhasePlugin::<P, Phase3<P>>::new(2, debug_flags));
+    }
+    if valid_phase_count > 3 {
+        app.add_plugins(MeshPassPhasePlugin::<P, Phase4<P>>::new(3, debug_flags));
+    }
+}
+
+pub struct MeshPassPhasePlugin<P, PIE> {
+    phase_index: usize,
+    debug_flags: RenderDebugFlags,
+    _marker: PhantomData<(P, PIE)>,
+}
+
+impl<P, PIE> MeshPassPhasePlugin<P, PIE> {
+    pub fn new(phase_index: usize, debug_flags: RenderDebugFlags) -> Self {
+        Self {
+            phase_index,
+            debug_flags,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<P, PIE> Plugin for MeshPassPhasePlugin<P, PIE>
+where
+    P: MeshPass,
+    PIE: PhaseItemExt,
+    P::RenderCommand: RenderCommand<PIE>,
+    <P::RenderCommand as RenderCommand<PIE>>::Param: ReadOnlySystemParam,
+{
+    fn build(&self, app: &mut App) {
+        // NOTE: The resource `PIE::RenderPhases` is indirectly initialized `by PIE::PhasePlugin`.
+        app.add_plugins(PIE::PhasePlugin::new(self.debug_flags));
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<PassPhaseDrawFunctions>()
+            .init_resource::<DrawFunctions<PIE>>()
+            .add_render_command::<PIE, P::RenderCommand>()
+            .add_systems(
+                RenderStartup,
+                insert_pass_phase_draw_functions::<P, PIE>.with_input(self.phase_index),
+            );
+    }
+}
+
+#[derive(Resource, Default)]
+struct MaterialPluginLoaded;
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
@@ -359,6 +538,7 @@ where
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
+            .init_resource::<EntitiesNeedingSweep>()
             .add_plugins((ErasedRenderAssetPlugin::<MeshMaterial3d<M>>::default(),))
             .add_systems(
                 PostUpdate,
@@ -377,29 +557,41 @@ where
             );
         }
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
-                        early_sweep_material_instances::<M>
-                            .after(MaterialExtractionSystems)
-                            .before(late_sweep_material_instances),
-                        // See the comments in
-                        // `sweep_entities_needing_specialization` for an
-                        // explanation of why the systems are ordered this way.
-                        extract_entities_needs_specialization::<M>
-                            .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
-                        sweep_entities_needing_specialization::<M>
-                            .after(MaterialExtractEntitiesNeedingSpecializationSystems)
-                            .after(MaterialExtractionSystems)
-                            .after(extract_cameras)
-                            .before(late_sweep_material_instances),
-                    ),
-                );
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+        render_app
+            .add_systems(RenderStartup, add_material_bind_group_allocator::<M>)
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_mesh_materials::<M>.in_set(MaterialExtractionSystems),
+                    early_sweep_material_instances::<M>
+                        .after(MaterialExtractionSystems)
+                        .before(late_sweep_material_instances),
+                    // See the comments in
+                    // `early_sweep_entities_needing_specialization` for an
+                    // explanation of why the systems are ordered this way.
+                    extract_entities_needs_specialization::<M>
+                        .in_set(MaterialExtractEntitiesNeedingSpecializationSystems),
+                    early_sweep_entities_needing_specialization::<M>
+                        .in_set(MaterialEarlySweepEntitiesNeedingSpecializationSystems)
+                        .after(MaterialExtractEntitiesNeedingSpecializationSystems)
+                        .after(MaterialExtractionSystems)
+                        .after(extract_cameras)
+                        .before(late_sweep_material_instances),
+                ),
+            );
+
+        if render_app
+            .world()
+            .contains_resource::<MaterialPluginLoaded>()
+        {
+            return;
         }
+        render_app
+            .init_resource::<MaterialPluginLoaded>()
+            .add_systems(ExtractSchedule, late_sweep_material_instances);
     }
 }
 
@@ -448,67 +640,29 @@ pub struct MaterialPipeline {
     pub mesh_pipeline: MeshPipeline,
 }
 
-pub struct MaterialPipelineSpecializer {
-    pub(crate) pipeline: MaterialPipeline,
-    pub(crate) properties: Arc<MaterialProperties>,
-}
+/// Inserts `PhaseItem`'s `DrawFunction`s into [`PassPhaseDrawFunctions`] by their index in [`PhaseItems`].
+///
+/// This should be called per `PhaseItem`, and the corresponding `RenderCommand` should be registered before calling this.
+pub fn insert_pass_phase_draw_functions<P: MeshPass, PIE: PhaseItemExt>(
+    InMut(phase_index): InMut<usize>,
+    mut pass_phase_draw_functions: ResMut<PassPhaseDrawFunctions>,
+    draw_functions: Res<DrawFunctions<PIE>>,
+) {
+    let draw_function_id = draw_functions
+        .read()
+        .get_id::<P::RenderCommand>()
+        .expect("DrawFunctionId not found for the pass's RenderCommand. Call `add_draw_function` to register it first.");
 
-impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
-    type Key = ErasedMaterialPipelineKey;
-
-    fn specialize(
-        &self,
-        key: Self::Key,
-        layout: &MeshVertexBufferLayoutRef,
-    ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
-        let mut descriptor = self
-            .pipeline
-            .mesh_pipeline
-            .specialize(key.mesh_key, layout)?;
-        descriptor.vertex.shader_defs.push(ShaderDefVal::UInt(
-            "MATERIAL_BIND_GROUP".into(),
-            MATERIAL_BIND_GROUP_INDEX as u32,
-        ));
-        if let Some(ref mut fragment) = descriptor.fragment {
-            fragment.shader_defs.push(ShaderDefVal::UInt(
-                "MATERIAL_BIND_GROUP".into(),
-                MATERIAL_BIND_GROUP_INDEX as u32,
-            ));
-        };
-        if let Some(vertex_shader) = self.properties.get_shader(MaterialVertexShader) {
-            descriptor.vertex.shader = vertex_shader.clone();
-        }
-
-        if let Some(fragment_shader) = self.properties.get_shader(MaterialFragmentShader) {
-            descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
-        }
-
-        descriptor
-            .layout
-            .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
-
-        if let Some(specialize) = self.properties.specialize {
-            specialize(&self.pipeline, &mut descriptor, layout, key)?;
-        }
-
-        // If bindless mode is on, add a `BINDLESS` define.
-        if self.properties.bindless {
-            descriptor.vertex.shader_defs.push("BINDLESS".into());
-            if let Some(ref mut fragment) = descriptor.fragment {
-                fragment.shader_defs.push("BINDLESS".into());
-            }
-        }
-
-        Ok(descriptor)
+    if let Some(draw) = pass_phase_draw_functions
+        .entry(P::id())
+        .or_default()
+        .get_mut(*phase_index)
+    {
+        *draw = Some(draw_function_id);
     }
 }
 
-pub fn init_material_pipeline(mut commands: Commands, mesh_pipeline: Res<MeshPipeline>) {
-    commands.insert_resource(MaterialPipeline {
-        mesh_pipeline: mesh_pipeline.clone(),
-    });
-}
-
+/// A [`RenderCommand`] for [`MainPass`].
 pub type DrawMaterial = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
@@ -616,6 +770,20 @@ pub struct MaterialExtractionSystems;
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct MaterialExtractEntitiesNeedingSpecializationSystems;
 
+// NOTE: This is for configuring the order between
+// `early_sweep_entities_needs_specialization` and
+// `late_sweep_entities_needs_specialization`, which
+// have different generic types.
+//
+/// A [`SystemSet`] that contains all `early_sweep_entities_needs_specialization`
+/// systems.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct MaterialEarlySweepEntitiesNeedingSpecializationSystems;
+
+/// Deprecated alias for [`MaterialExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `MaterialExtractionSystems`.")]
+pub type ExtractMaterialsSet = MaterialExtractionSystems;
+
 pub const fn alpha_mode_pipeline_key(alpha_mode: AlphaMode, msaa: &Msaa) -> MeshPipelineKey {
     match alpha_mode {
         // Premultiplied and Add share the same pipeline key
@@ -663,6 +831,20 @@ pub const fn screen_space_specular_transmission_pipeline_key(
         ScreenSpaceTransmissionQuality::Ultra => {
             MeshPipelineKey::SCREEN_SPACE_SPECULAR_TRANSMISSION_ULTRA
         }
+    }
+}
+
+pub const fn alpha_mode_render_phase_type(
+    alpha_mode: AlphaMode,
+    reads_view_transmission_texture: bool,
+) -> RenderPhaseType {
+    match alpha_mode {
+        AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
+            RenderPhaseType::Transparent
+        }
+        _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
+        AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
+        AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
     }
 }
 
@@ -814,21 +996,14 @@ pub fn extract_entities_needs_specialization<M>(
 /// removed, and an entity changed material types, we might end up adding a new
 /// set of [`EntitySpecializationTickPair`] for the new material and then
 /// deleting it upon detecting the removed component for the old material.
-/// Deferring [`sweep_entities_needing_specialization`] to the end allows us to
+/// Deferring [`early_sweep_entities_needing_specialization`] to the end allows us to
 /// detect the case in which another material type updated the entity
 /// specialization ticks this frame and avoid deleting it if so.
-pub fn sweep_entities_needing_specialization<M>(
+pub fn early_sweep_entities_needing_specialization<M>(
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks>,
     mut removed_mesh_material_components: Extract<RemovedComponents<MeshMaterial3d<M>>>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    mut specialized_prepass_material_pipeline_cache: Option<
-        ResMut<SpecializedPrepassMaterialPipelineCache>,
-    >,
-    mut specialized_shadow_material_pipeline_cache: Option<
-        ResMut<SpecializedShadowMaterialPipelineCache>,
-    >,
+    mut entities_needing_sweep: ResMut<EntitiesNeedingSweep>,
     render_material_instances: Res<RenderMaterialInstances>,
-    views: Query<&ExtractedView>,
 ) where
     M: Material,
 {
@@ -857,26 +1032,48 @@ pub fn sweep_entities_needing_specialization<M>(
         }
 
         entity_specialization_ticks.remove(&MainEntity::from(entity));
-        for view in views {
-            if let Some(cache) =
-                specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-            if let Some(cache) = specialized_prepass_material_pipeline_cache
-                .as_mut()
-                .and_then(|c| c.get_mut(&view.retained_view_entity))
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
-            if let Some(cache) = specialized_shadow_material_pipeline_cache
-                .as_mut()
-                .and_then(|c| c.get_mut(&view.retained_view_entity))
-            {
-                cache.remove(&MainEntity::from(entity));
-            }
+
+        // Because `SpecializedMaterialPipelineCache<P>` is per-pass now,
+        // defer cleanup to the per-pass system `execute_sweep_entities_needing_specialization`.
+        for pass_id in M::shaders().keys() {
+            entities_needing_sweep
+                .entry(*pass_id)
+                .or_default()
+                .push(entity);
         }
     }
+}
+
+/// Entities needing to be removed from [`SpecializedMaterialPipelineCache`].
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct EntitiesNeedingSweep {
+    pub entities: HashMap<PassId, Vec<Entity>, NoOpHash>,
+}
+
+/// Removes entities from [`SpecializedMaterialPipelineCache`] for the pass based on
+/// [`EntitiesNeedingSweep`].
+///
+/// This runs after all invocations of `early_sweep_entities_needing_specialization`.
+/// Because `early_sweep_entities_needing_specialization` is a per-material system and
+/// the `SpecializedMaterialPipelineCache` is per-pass, we have to sweep this way.
+pub fn late_sweep_entities_needing_specialization<P: MeshPass>(
+    views: Query<&ExtractedView, With<P>>,
+    mut entities_needing_sweep: ResMut<EntitiesNeedingSweep>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<P>>,
+) {
+    let Some(entities) = entities_needing_sweep.get_mut(&P::id()) else {
+        return;
+    };
+    for view in views {
+        let Some(cache) = specialized_material_pipeline_cache.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
+        for &entity in entities.iter() {
+            cache.remove(&MainEntity::from(entity));
+        }
+    }
+    entities.clear();
 }
 
 #[derive(Resource, Deref, DerefMut, Clone, Debug)]
@@ -928,7 +1125,7 @@ pub struct EntitySpecializationTicks {
 /// 2. [`extract_entities_needs_specialization`] runs for material B and marks
 ///    the mesh as up to date by recording the current tick.
 ///
-/// 3. [`sweep_entities_needing_specialization`] runs for material A and checks
+/// 3. [`early_sweep_entities_needing_specialization`] runs for material A and checks
 ///    to ensure it's safe to remove the [`EntitySpecializationTickPair`] for the mesh
 ///    from the [`EntitySpecializationTicks`]. To do this, it needs to know
 ///    whether [`extract_entities_needs_specialization`] for some *different*
@@ -937,9 +1134,9 @@ pub struct EntitySpecializationTicks {
 ///    It can't reliably use the [`Self::system_tick`] to determine this because
 ///    the [`SystemChangeTick`] can be updated multiple times in the same frame.
 ///    Instead, it needs a type of tick that's updated only once per frame, after
-///    all materials' versions of [`sweep_entities_needing_specialization`] have
+///    all materials' versions of [`early_sweep_entities_needing_specialization`] have
 ///    run. The [`RenderMaterialInstances`] tick satisfies this criterion, and so
-///    that's what [`sweep_entities_needing_specialization`] uses.
+///    that's what [`early_sweep_entities_needing_specialization`] uses.
 #[derive(Clone, Copy, Debug)]
 pub struct EntitySpecializationTickPair {
     /// The standard Bevy system tick.
@@ -950,11 +1147,21 @@ pub struct EntitySpecializationTickPair {
 }
 
 /// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct SpecializedMaterialPipelineCache {
+#[derive(Resource, Deref, DerefMut)]
+pub struct SpecializedMaterialPipelineCache<P> {
     // view entity -> view pipeline cache
     #[deref]
     map: HashMap<RetainedViewEntity, SpecializedMaterialViewPipelineCache>,
+    _marker: PhantomData<P>,
+}
+
+impl<P> Default for SpecializedMaterialPipelineCache<P> {
+    fn default() -> Self {
+        Self {
+            map: Default::default(),
+            _marker: PhantomData,
+        }
+    }
 }
 
 /// Stores the cached render pipeline ID for each entity in a single view, as
@@ -993,46 +1200,111 @@ pub fn check_entities_needing_specialization<M>(
     par_local.drain_into(&mut entities_needing_specialization);
 }
 
-pub fn specialize_material_meshes(
+pub struct SpecializerKeyContext<'a> {
+    pub view_key: MeshPipelineKey,
+    pub mesh_pipeline_key: BaseMeshPipelineKey,
+    pub mesh_instance_flags: RenderMeshInstanceFlags,
+    pub material: &'a PreparedMaterial,
+    pub material_asset_id: TypeId,
+    pub lightmap: Option<&'a RenderLightmap>,
+    pub has_crossfade: bool,
+}
+
+/// A trait for creating specializer used by [`specialize_material_meshes`].
+pub trait PipelineSpecializer: SpecializedMeshPipeline {
+    /// The render pipeline data type used by the corresponding material.
+    type Pipeline: Resource;
+
+    /// Creates the key for [`SpecializedMeshPipeline::Key`].
+    fn create_key(context: &SpecializerKeyContext) -> Self::Key;
+
+    /// Creates the [`SpecializedMeshPipeline`] for [`SpecializedMeshPipeline::specialize`].
+    fn new(pipeline: &Self::Pipeline, material: &PreparedMaterial, pass_id: PassId) -> Self;
+}
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache<P>(
+    #[deref] HashMap<RetainedViewEntity, MeshPipelineKey>,
+    PhantomData<P>,
+);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks<P>(#[deref] HashMap<RetainedViewEntity, Tick>, PhantomData<P>);
+
+#[derive(Resource, Deref, DerefMut, FromWorld)]
+pub struct MeshPassSpecializedMeshPipelines<P, S: SpecializedMeshPipeline>(
+    #[deref] SpecializedMeshPipelines<S>,
+    PhantomData<P>,
+);
+
+type Phase1<P> = <<P as MeshPass>::PhaseItems as PhaseItems<P>>::Phase1;
+type Phase2<P> = <<P as MeshPass>::PhaseItems as PhaseItems<P>>::Phase2;
+type Phase3<P> = <<P as MeshPass>::PhaseItems as PhaseItems<P>>::Phase3;
+type Phase4<P> = <<P as MeshPass>::PhaseItems as PhaseItems<P>>::Phase4;
+
+type RenderPhase1<P> = <Phase1<P> as PhaseItemExt>::RenderPhase;
+type RenderPhase2<P> = <Phase2<P> as PhaseItemExt>::RenderPhase;
+type RenderPhase3<P> = <Phase3<P> as PhaseItemExt>::RenderPhase;
+type RenderPhase4<P> = <Phase4<P> as PhaseItemExt>::RenderPhase;
+
+type RenderPhases1<P> = <Phase1<P> as PhaseItemExt>::RenderPhases;
+type RenderPhases2<P> = <Phase2<P> as PhaseItemExt>::RenderPhases;
+type RenderPhases3<P> = <Phase3<P> as PhaseItemExt>::RenderPhases;
+type RenderPhases4<P> = <Phase4<P> as PhaseItemExt>::RenderPhases;
+
+pub fn specialize_material_meshes<P: MeshPass>(
+    (view_render_phases_1, view_render_phases_2, view_render_phases_3, view_render_phases_4): (
+        Option<Res<RenderPhases1<P>>>,
+        Option<Res<RenderPhases2<P>>>,
+        Option<Res<RenderPhases3<P>>>,
+        Option<Res<RenderPhases4<P>>>,
+    ),
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    (
-        opaque_render_phases,
-        alpha_mask_render_phases,
-        transmissive_render_phases,
-        transparent_render_phases,
-    ): (
-        Res<ViewBinnedRenderPhases<Opaque3d>>,
-        Res<ViewBinnedRenderPhases<AlphaMask3d>>,
-        Res<ViewSortedRenderPhases<Transmissive3d>>,
-        Res<ViewSortedRenderPhases<Transparent3d>>,
-    ),
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities), With<P>>,
+    view_key_cache: Res<ViewKeyCache<P::ViewKeySource>>,
     entity_specialization_ticks: Res<EntitySpecializationTicks>,
-    view_specialization_ticks: Res<ViewSpecializationTicks>,
-    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipelineSpecializer>>,
-    pipeline: Res<MaterialPipeline>,
+    view_specialization_ticks: Res<ViewSpecializationTicks<P::ViewKeySource>>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<P>>,
+    mut pipelines: ResMut<MeshPassSpecializedMeshPipelines<P, P::Specializer>>,
+    pipeline: Res<<P::Specializer as PipelineSpecializer>::Pipeline>,
     pipeline_cache: Res<PipelineCache>,
     ticks: SystemChangeTick,
-) {
+) where
+    <P::Specializer as SpecializedMeshPipeline>::Key: Send + Sync,
+{
     // Record the retained IDs of all shadow views so that we can expire old
     // pipeline IDs.
     let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
+    // All the valid render phase types this pass supports, Dummy phase types are none.
+    let valid_render_phase_types = Phase1::<P>::PHASE_TYPES
+        | Phase2::<P>::PHASE_TYPES
+        | Phase3::<P>::PHASE_TYPES
+        | Phase4::<P>::PHASE_TYPES;
+
     for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);
 
-        if !transparent_render_phases.contains_key(&view.retained_view_entity)
-            && !opaque_render_phases.contains_key(&view.retained_view_entity)
-            && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
-            && !transmissive_render_phases.contains_key(&view.retained_view_entity)
-        {
+        // TODO: Move this part to a separate system
+        let mut all_invalid = true;
+        if let Some(view_render_phases_1) = view_render_phases_1.as_ref() {
+            all_invalid &= !view_render_phases_1.contains_key(&view.retained_view_entity);
+        }
+        if let Some(view_render_phases_2) = view_render_phases_2.as_ref() {
+            all_invalid &= !view_render_phases_2.contains_key(&view.retained_view_entity);
+        }
+        if let Some(view_render_phases_3) = view_render_phases_3.as_ref() {
+            all_invalid &= !view_render_phases_3.contains_key(&view.retained_view_entity);
+        }
+        if let Some(view_render_phases_4) = view_render_phases_4.as_ref() {
+            all_invalid &= !view_render_phases_4.contains_key(&view.retained_view_entity);
+        }
+        if all_invalid {
             continue;
         }
 
@@ -1077,56 +1349,55 @@ pub fn specialize_material_meshes(
                 continue;
             };
 
-            let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
-            mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
-                material.properties.alpha_mode,
-                &Msaa::from_samples(view_key.msaa_samples()),
-            ));
-            let mut mesh_key = *view_key
-                | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
-                | mesh_pipeline_key_bits;
+            // Current status:
+            // - We iterate over all entities even if they are not valid for this pass, which wastes performance.
+            // - If an entity's material was valid for this pass previously but becomes invalid in this frame,
+            //   we should remove it from `SpecializedMaterialViewPipelineCache`. However we currently lack a way to
+            //   detect whether a material is valid for this pass.
+            //
+            // Two Solutions:
+            // - Add pass markers to entities so we can filter them here using `visible_entities.iter::<PassMarker<P>>()`.
+            // - Add `material.is_pass_enabled(P::id())` for checking whether the material is valid for this pass.
 
-            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
-                mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+            // if material
+            //     .properties
+            //     .get_draw_function(PhaseDrawFunction(P::id()))
+            //     .is_none()
+            // {
+            //     // Prevent cases where the material was valid previously but switched pass during this frame.
+            //     view_specialized_material_pipeline_cache.remove(visible_entity);
+            //     continue;
+            // }
 
-                if lightmap.bicubic_sampling {
-                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
-                }
+            if !valid_render_phase_types.contains(material.properties.render_phase_type) {
+                // Prevent cases where the material was valid previously but switched phase during this frame.
+                view_specialized_material_pipeline_cache.remove(visible_entity);
+                continue;
             }
 
-            if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
-                mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
-            }
+            let lightmap = render_lightmaps.render_lightmaps.get(visible_entity);
 
-            if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                // If the previous frame have skins or morph targets, note that.
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-                {
-                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
-                }
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
-                {
-                    mesh_key |= MeshPipelineKey::HAS_PREVIOUS_MORPH;
-                }
-            }
+            let has_crossfade =
+                render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity);
 
-            let erased_key = ErasedMaterialPipelineKey {
-                type_id: material_instance.asset_id.type_id(),
-                mesh_key,
-                material_key: material.properties.material_key.clone(),
+            let key_context = SpecializerKeyContext {
+                view_key: *view_key,
+                mesh_pipeline_key: mesh.key_bits,
+                mesh_instance_flags: mesh_instance.flags,
+                material,
+                lightmap,
+                has_crossfade,
+                material_asset_id: material_instance.asset_id.type_id(),
             };
-            let material_pipeline_specializer = MaterialPipelineSpecializer {
-                pipeline: pipeline.clone(),
-                properties: material.properties.clone(),
-            };
+
+            let key = P::Specializer::create_key(&key_context);
+
+            let material_pipeline_specializer = P::Specializer::new(&pipeline, material, P::id());
+
             let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &material_pipeline_specializer,
-                erased_key,
+                key,
                 &mesh.layout,
             );
             let pipeline_id = match pipeline_id {
@@ -1147,36 +1418,181 @@ pub fn specialize_material_meshes(
         .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
 }
 
+pub trait RenderPhasePlugin {
+    fn new(debug_flags: RenderDebugFlags) -> Self;
+}
+
+impl<BPI, GFBD> RenderPhasePlugin for BinnedRenderPhasePlugin<BPI, GFBD>
+where
+    BPI: BinnedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    fn new(debug_flags: RenderDebugFlags) -> Self {
+        BinnedRenderPhasePlugin::new(debug_flags)
+    }
+}
+
+impl<SPI, GFBD> RenderPhasePlugin for SortedRenderPhasePlugin<SPI, GFBD>
+where
+    SPI: SortedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    fn new(debug_flags: RenderDebugFlags) -> Self {
+        SortedRenderPhasePlugin::new(debug_flags)
+    }
+}
+
+// pub trait PhaseFamily<P: Pass> {
+//     type Phase: RenderPhase;
+//     type Phases: ViewRenderPhases + Resource;
+//     type Plugin: RenderPhasePlugin + Plugin;
+// }
+
+pub struct PhaseContext<'a> {
+    pub mesh_instance: &'a RenderMeshQueueData<'a>,
+    pub material: &'a PreparedMaterial,
+    pub mesh_allocator: &'a MeshAllocator,
+    pub entity: Entity,
+    pub main_entity: MainEntity,
+    pub draw_function: DrawFunctionId,
+    pub pipeline_id: CachedRenderPipelineId,
+    pub current_change_tick: Tick,
+    pub gpu_preprocessing_support: GpuPreprocessingSupport,
+    pub rangefinder: &'a ViewRangefinder3d,
+}
+
+pub trait PhaseItemExt: PhaseItem {
+    type RenderPhase: RenderPhase;
+    type RenderPhases: ViewRenderPhases<Phase = Self::RenderPhase> + Resource;
+    type PhasePlugin: RenderPhasePlugin + Plugin;
+
+    const PHASE_TYPES: RenderPhaseType;
+
+    fn queue(render_phase: &mut Self::RenderPhase, context: &PhaseContext);
+}
+
+pub trait RenderPhase {
+    fn add(&mut self, context: &PhaseContext);
+
+    fn validate_cached_entity(
+        &mut self,
+        visible_entity: MainEntity,
+        current_change_tick: Tick,
+    ) -> bool;
+}
+
+pub trait ViewRenderPhases {
+    type Phase: RenderPhase;
+
+    fn contains_key(&self, view_entity: &RetainedViewEntity) -> bool;
+
+    fn get_mut(&mut self, view_entity: &RetainedViewEntity) -> Option<&mut Self::Phase>;
+}
+
+impl<BPI> RenderPhase for BinnedRenderPhase<BPI>
+where
+    BPI: BinnedPhaseItem + PhaseItemExt<RenderPhase = BinnedRenderPhase<BPI>>,
+{
+    #[inline]
+    fn add(&mut self, context: &PhaseContext) {
+        BPI::queue(self, context);
+    }
+
+    #[inline]
+    fn validate_cached_entity(
+        &mut self,
+        visible_entity: MainEntity,
+        current_change_tick: Tick,
+    ) -> bool {
+        self.validate_cached_entity(visible_entity, current_change_tick)
+    }
+}
+
+impl<SPI> RenderPhase for SortedRenderPhase<SPI>
+where
+    SPI: SortedPhaseItem + PhaseItemExt<RenderPhase = SortedRenderPhase<SPI>>,
+{
+    #[inline]
+    fn add(&mut self, context: &PhaseContext) {
+        SPI::queue(self, context);
+    }
+
+    #[inline]
+    fn validate_cached_entity(
+        &mut self,
+        _visible_entity: MainEntity,
+        _current_change_tick: Tick,
+    ) -> bool {
+        false
+    }
+}
+
+impl<BPI> ViewRenderPhases for ViewBinnedRenderPhases<BPI>
+where
+    BPI: BinnedPhaseItem + PhaseItemExt<RenderPhase = BinnedRenderPhase<BPI>>,
+{
+    type Phase = BinnedRenderPhase<BPI>;
+
+    #[inline]
+    fn contains_key(&self, view_entity: &RetainedViewEntity) -> bool {
+        self.0.contains_key(view_entity)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, view_entity: &RetainedViewEntity) -> Option<&mut Self::Phase> {
+        self.0.get_mut(view_entity)
+    }
+}
+
+impl<SPI> ViewRenderPhases for ViewSortedRenderPhases<SPI>
+where
+    SPI: SortedPhaseItem + PhaseItemExt<RenderPhase = SortedRenderPhase<SPI>>,
+{
+    type Phase = SortedRenderPhase<SPI>;
+
+    #[inline]
+    fn contains_key(&self, view_entity: &RetainedViewEntity) -> bool {
+        self.0.contains_key(view_entity)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, view_entity: &RetainedViewEntity) -> Option<&mut Self::Phase> {
+        self.0.get_mut(view_entity)
+    }
+}
+
 /// For each view, iterates over all the meshes visible from that view and adds
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
-pub fn queue_material_meshes(
+pub fn queue_material_meshes<P: MeshPass>(
+    mut view_render_phases_1: Option<ResMut<RenderPhases1<P>>>,
+    mut view_render_phases_2: Option<ResMut<RenderPhases2<P>>>,
+    mut view_render_phases_3: Option<ResMut<RenderPhases3<P>>>,
+    mut view_render_phases_4: Option<ResMut<RenderPhases4<P>>>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     mesh_allocator: Res<MeshAllocator>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
-    mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
-    specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities), With<P>>,
+    specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<P>>,
 ) {
     for (view, visible_entities) in &views {
-        let (
-            Some(opaque_phase),
-            Some(alpha_mask_phase),
-            Some(transmissive_phase),
-            Some(transparent_phase),
-        ) = (
-            opaque_render_phases.get_mut(&view.retained_view_entity),
-            alpha_mask_render_phases.get_mut(&view.retained_view_entity),
-            transmissive_render_phases.get_mut(&view.retained_view_entity),
-            transparent_render_phases.get_mut(&view.retained_view_entity),
-        )
-        else {
+        let mut phase1: Option<&mut RenderPhase1<P>> = view_render_phases_1
+            .as_mut()
+            .and_then(|view_render_phases| view_render_phases.get_mut(&view.retained_view_entity));
+        let mut phase2: Option<&mut RenderPhase2<P>> = view_render_phases_2
+            .as_mut()
+            .and_then(|view_render_phases| view_render_phases.get_mut(&view.retained_view_entity));
+        let mut phase3: Option<&mut RenderPhase3<P>> = view_render_phases_3
+            .as_mut()
+            .and_then(|view_render_phases| view_render_phases.get_mut(&view.retained_view_entity));
+        let mut phase4: Option<&mut RenderPhase4<P>> = view_render_phases_4
+            .as_mut()
+            .and_then(|view_render_phases| view_render_phases.get_mut(&view.retained_view_entity));
+
+        if phase1.is_none() && phase2.is_none() && phase3.is_none() && phase4.is_none() {
             continue;
-        };
+        }
 
         let Some(view_specialized_material_pipeline_cache) =
             specialized_material_pipeline_cache.get(&view.retained_view_entity)
@@ -1185,6 +1601,7 @@ pub fn queue_material_meshes(
         };
 
         let rangefinder = view.rangefinder3d();
+
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
             let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -1194,9 +1611,21 @@ pub fn queue_material_meshes(
             };
 
             // Skip the entity if it's cached in a bin and up to date.
-            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
-                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
-            {
+            // NOTE: SortedRenderPhase will always return false.
+            let mut any_cached = false;
+            if let Some(phase1) = phase1.as_mut() {
+                any_cached |= phase1.validate_cached_entity(*visible_entity, current_change_tick);
+            }
+            if let Some(phase2) = phase2.as_mut() {
+                any_cached |= phase2.validate_cached_entity(*visible_entity, current_change_tick);
+            }
+            if let Some(phase3) = phase3.as_mut() {
+                any_cached |= phase3.validate_cached_entity(*visible_entity, current_change_tick);
+            }
+            if let Some(phase4) = phase4.as_mut() {
+                any_cached |= phase4.validate_cached_entity(*visible_entity, current_change_tick);
+            }
+            if any_cached {
                 continue;
             }
 
@@ -1212,117 +1641,89 @@ pub fn queue_material_meshes(
                 continue;
             };
 
-            // Fetch the slabs that this mesh resides in.
-            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
-
-            match material.properties.render_phase_type {
-                RenderPhaseType::Transmissive => {
-                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
-                        + material.properties.depth_bias;
-                    let Some(draw_function) = material
-                        .properties
-                        .get_draw_function(MainPassTransmissiveDrawFunction)
-                    else {
-                        continue;
-                    };
-                    transmissive_phase.add(Transmissive3d {
-                        entity: (*render_entity, *visible_entity),
-                        draw_function,
-                        pipeline: pipeline_id,
-                        distance,
-                        batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
-                    });
-                }
-                RenderPhaseType::Opaque => {
-                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
-                        // Even though we aren't going to insert the entity into
-                        // a bin, we still want to update its cache entry. That
-                        // way, we know we don't need to re-examine it in future
-                        // frames.
-                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
-                        continue;
-                    }
-                    let Some(draw_function) = material
-                        .properties
-                        .get_draw_function(MainPassOpaqueDrawFunction)
-                    else {
-                        continue;
-                    };
-                    let batch_set_key = Opaque3dBatchSetKey {
-                        pipeline: pipeline_id,
-                        draw_function,
-                        material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
-                        index_slab,
-                        lightmap_slab: mesh_instance.shared.lightmap_slab_index.map(|index| *index),
-                    };
-                    let bin_key = Opaque3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
-                    };
-                    opaque_phase.add(
-                        batch_set_key,
-                        bin_key,
-                        (*render_entity, *visible_entity),
-                        mesh_instance.current_uniform_index,
-                        BinnedRenderPhaseType::mesh(
-                            mesh_instance.should_batch(),
-                            &gpu_preprocessing_support,
-                        ),
-                        current_change_tick,
-                    );
-                }
-                // Alpha mask
-                RenderPhaseType::AlphaMask => {
-                    let Some(draw_function) = material
-                        .properties
-                        .get_draw_function(MainPassAlphaMaskDrawFunction)
-                    else {
-                        continue;
-                    };
-                    let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                        draw_function,
-                        pipeline: pipeline_id,
-                        material_bind_group_index: Some(material.binding.group.0),
-                        vertex_slab: vertex_slab.unwrap_or_default(),
-                        index_slab,
-                    };
-                    let bin_key = OpaqueNoLightmap3dBinKey {
-                        asset_id: mesh_instance.mesh_asset_id.into(),
-                    };
-                    alpha_mask_phase.add(
-                        batch_set_key,
-                        bin_key,
-                        (*render_entity, *visible_entity),
-                        mesh_instance.current_uniform_index,
-                        BinnedRenderPhaseType::mesh(
-                            mesh_instance.should_batch(),
-                            &gpu_preprocessing_support,
-                        ),
-                        current_change_tick,
-                    );
-                }
-                RenderPhaseType::Transparent => {
-                    let distance = rangefinder.distance_translation(&mesh_instance.translation)
-                        + material.properties.depth_bias;
-                    let Some(draw_function) = material
-                        .properties
-                        .get_draw_function(MainPassTransparentDrawFunction)
-                    else {
-                        continue;
-                    };
-                    transparent_phase.add(Transparent3d {
-                        entity: (*render_entity, *visible_entity),
-                        draw_function,
-                        pipeline: pipeline_id,
-                        distance,
-                        batch_range: 0..1,
-                        extra_index: PhaseItemExtraIndex::None,
-                        indexed: index_slab.is_some(),
-                    });
-                }
+            // NOTE: Because one pass could have phases with same phase types,
+            // we don't use mutual exclusion conditions here.
+            let phase_type = material.properties.render_phase_type;
+            if Phase1::<P>::PHASE_TYPES.contains(phase_type)
+                && let Some(phase1) = phase1.as_mut()
+                && let Some(draw_function) = material
+                    .properties
+                    .get_draw_function(Phase1DrawFunction(P::id()))
+            {
+                let context = PhaseContext {
+                    mesh_instance: &mesh_instance,
+                    material,
+                    mesh_allocator: &mesh_allocator,
+                    entity: *render_entity,
+                    main_entity: *visible_entity,
+                    draw_function,
+                    pipeline_id,
+                    current_change_tick,
+                    gpu_preprocessing_support: *gpu_preprocessing_support,
+                    rangefinder: &rangefinder,
+                };
+                phase1.add(&context);
             }
+            if Phase2::<P>::PHASE_TYPES.contains(phase_type)
+                && let Some(phase2) = phase2.as_mut()
+                && let Some(draw_function) = material
+                    .properties
+                    .get_draw_function(Phase2DrawFunction(P::id()))
+            {
+                let context = PhaseContext {
+                    mesh_instance: &mesh_instance,
+                    material,
+                    mesh_allocator: &mesh_allocator,
+                    entity: *render_entity,
+                    main_entity: *visible_entity,
+                    draw_function,
+                    pipeline_id,
+                    current_change_tick,
+                    gpu_preprocessing_support: *gpu_preprocessing_support,
+                    rangefinder: &rangefinder,
+                };
+                phase2.add(&context);
+            }
+            if Phase3::<P>::PHASE_TYPES.contains(phase_type)
+                && let Some(phase3) = phase3.as_mut()
+                && let Some(draw_function) = material
+                    .properties
+                    .get_draw_function(Phase3DrawFunction(P::id()))
+            {
+                let context = PhaseContext {
+                    mesh_instance: &mesh_instance,
+                    material,
+                    mesh_allocator: &mesh_allocator,
+                    entity: *render_entity,
+                    main_entity: *visible_entity,
+                    draw_function,
+                    pipeline_id,
+                    current_change_tick,
+                    gpu_preprocessing_support: *gpu_preprocessing_support,
+                    rangefinder: &rangefinder,
+                };
+                phase3.add(&context);
+            }
+            if Phase4::<P>::PHASE_TYPES.contains(phase_type)
+                && let Some(phase4) = phase4.as_mut()
+                && let Some(draw_function) = material
+                    .properties
+                    .get_draw_function(Phase4DrawFunction(P::id()))
+            {
+                let context = PhaseContext {
+                    mesh_instance: &mesh_instance,
+                    material,
+                    mesh_allocator: &mesh_allocator,
+                    entity: *render_entity,
+                    main_entity: *visible_entity,
+                    draw_function,
+                    pipeline_id,
+                    current_change_tick,
+                    gpu_preprocessing_support: *gpu_preprocessing_support,
+                    rangefinder: &rangefinder,
+                };
+                phase4.add(&context);
+            };
         }
     }
 }
@@ -1377,23 +1778,11 @@ pub enum OpaqueRendererMethod {
     Auto,
 }
 
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MaterialVertexShader;
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct MaterialVertexShader(pub PassId);
 
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MaterialFragmentShader;
-
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PrepassVertexShader;
-
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PrepassFragmentShader;
-
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct DeferredVertexShader;
-
-#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct DeferredFragmentShader;
+#[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct MaterialFragmentShader(pub PassId);
 
 #[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct MeshletFragmentShader;
@@ -1404,24 +1793,17 @@ pub struct MeshletPrepassFragmentShader;
 #[derive(ShaderLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct MeshletDeferredFragmentShader;
 
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MainPassOpaqueDrawFunction;
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MainPassAlphaMaskDrawFunction;
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MainPassTransmissiveDrawFunction;
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct MainPassTransparentDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Phase1DrawFunction(pub PassId);
 
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PrepassOpaqueDrawFunction;
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct PrepassAlphaMaskDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Phase2DrawFunction(pub PassId);
 
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct DeferredOpaqueDrawFunction;
-#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
-pub struct DeferredAlphaMaskDrawFunction;
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Phase3DrawFunction(pub PassId);
+
+#[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone)]
+pub struct Phase4DrawFunction(pub PassId);
 
 #[derive(DrawFunctionLabel, Debug, Hash, PartialEq, Eq, Clone, Default)]
 pub struct ShadowsDrawFunction;
@@ -1524,8 +1906,8 @@ pub struct MaterialProperties {
     pub depth_bias: f32,
     /// Whether the material would like to read from [`ViewTransmissionTexture`](bevy_core_pipeline::core_3d::ViewTransmissionTexture).
     ///
-    /// This allows taking color output from the [`Opaque3d`] pass as an input, (for screen-space transmission) but requires
-    /// rendering to take place in a separate [`Transmissive3d`] pass.
+    /// This allows taking color output from the [`bevy_core_pipeline::core_3d::Opaque3d`] pass as an input, (for screen-space transmission) but requires
+    /// rendering to take place in a separate [`bevy_core_pipeline::core_3d::Transmissive3d`] pass.
     pub reads_view_transmission_texture: bool,
     pub render_phase_type: RenderPhaseType,
     pub material_layout: Option<BindGroupLayoutDescriptor>,
@@ -1543,6 +1925,7 @@ pub struct MaterialProperties {
             &mut RenderPipelineDescriptor,
             &MeshVertexBufferLayoutRef,
             ErasedMaterialPipelineKey,
+            // PassId,
         ) -> Result<(), SpecializedMeshPipelineError>,
     >,
     /// The key for this material, typically a bitfield of flags that are used to modify
@@ -1584,14 +1967,33 @@ impl MaterialProperties {
     }
 }
 
-#[derive(Clone, Copy, Default)]
-pub enum RenderPhaseType {
-    #[default]
-    Opaque,
-    AlphaMask,
-    Transmissive,
-    Transparent,
+bitflags::bitflags! {
+    // NOTE: To handle the case like `Shadow` where a single phase works for materials
+    // with different render phase types, we use bitflags instead of enum.
+
+    /// Defines all the possible render phase types for a material.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct RenderPhaseType: u8 {
+        const Opaque =       1 << 0;
+        const AlphaMask =    1 << 1;
+        const Transmissive = 1 << 2;
+        const Transparent =  1 << 3;
+    }
 }
+
+impl Default for RenderPhaseType {
+    fn default() -> Self {
+        RenderPhaseType::Opaque
+    }
+}
+
+/// Stores draw functions for each `MeshPass`.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct PassPhaseDrawFunctions(HashMap<PassId, PhaseDrawFunctions, NoOpHash>);
+
+/// Stores the draw functions for each `PhaseItem` of a `MeshPass`.
+#[derive(Default, Deref, DerefMut)]
+pub struct PhaseDrawFunctions([Option<DrawFunctionId>; PASS_MAX_PHASES]);
 
 /// A resource that maps each untyped material ID to its binding.
 ///
@@ -1621,15 +2023,8 @@ where
         SRes<DefaultOpaqueRendererMethod>,
         SResMut<MaterialBindGroupAllocators>,
         SResMut<RenderMaterialBindings>,
-        SRes<DrawFunctions<Opaque3d>>,
-        SRes<DrawFunctions<AlphaMask3d>>,
-        SRes<DrawFunctions<Transmissive3d>>,
-        SRes<DrawFunctions<Transparent3d>>,
-        SRes<DrawFunctions<Opaque3dPrepass>>,
-        SRes<DrawFunctions<AlphaMask3dPrepass>>,
-        SRes<DrawFunctions<Opaque3dDeferred>>,
-        SRes<DrawFunctions<AlphaMask3dDeferred>>,
         SRes<DrawFunctions<Shadow>>,
+        SRes<PassPhaseDrawFunctions>,
         SRes<AssetServer>,
         M::Param,
     );
@@ -1643,15 +2038,8 @@ where
             default_opaque_render_method,
             bind_group_allocators,
             render_material_bindings,
-            opaque_draw_functions,
-            alpha_mask_draw_functions,
-            transmissive_draw_functions,
-            transparent_draw_functions,
-            opaque_prepass_draw_functions,
-            alpha_mask_prepass_draw_functions,
-            opaque_deferred_draw_functions,
-            alpha_mask_deferred_draw_functions,
             shadow_draw_functions,
+            pass_phase_draw_functions,
             asset_server,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
@@ -1659,41 +2047,10 @@ where
         let shadows_enabled = M::enable_shadows();
         let prepass_enabled = M::enable_prepass();
 
-        let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial>();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial>();
-        let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial>();
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial>();
-        let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass>();
-        let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions.read().id::<DrawPrepass>();
-        let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass>();
-        let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
-            .read()
-            .id::<DrawPrepass>();
         let draw_shadows = shadow_draw_functions.read().id::<DrawPrepass>();
 
-        let draw_functions = SmallVec::from_iter([
-            (MainPassOpaqueDrawFunction.intern(), draw_opaque_pbr),
-            (MainPassAlphaMaskDrawFunction.intern(), draw_alpha_mask_pbr),
-            (
-                MainPassTransmissiveDrawFunction.intern(),
-                draw_transmissive_pbr,
-            ),
-            (
-                MainPassTransparentDrawFunction.intern(),
-                draw_transparent_pbr,
-            ),
-            (PrepassOpaqueDrawFunction.intern(), draw_opaque_prepass),
-            (
-                PrepassAlphaMaskDrawFunction.intern(),
-                draw_alpha_mask_prepass,
-            ),
-            (DeferredOpaqueDrawFunction.intern(), draw_opaque_deferred),
-            (
-                DeferredAlphaMaskDrawFunction.intern(),
-                draw_alpha_mask_deferred,
-            ),
-            (ShadowsDrawFunction.intern(), draw_shadows),
-        ]);
+        let mut draw_functions =
+            SmallVec::from_iter([(ShadowsDrawFunction.intern(), draw_shadows)]);
 
         let render_method = match material.opaque_render_method() {
             OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -1710,14 +2067,8 @@ where
         let reads_view_transmission_texture =
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
-        let render_phase_type = match material.alpha_mode() {
-            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
-                RenderPhaseType::Transparent
-            }
-            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
-            AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
-            AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
-        };
+        let render_phase_type =
+            alpha_mode_render_phase_type(material.alpha_mode(), reads_view_transmission_texture);
 
         let mut shaders = SmallVec::new();
         let mut add_shader = |label: InternedShaderLabel, shader_ref: ShaderRef| {
@@ -1730,15 +2081,89 @@ where
                 shaders.push((label, shader));
             }
         };
-        add_shader(MaterialVertexShader.intern(), M::vertex_shader());
-        add_shader(MaterialFragmentShader.intern(), M::fragment_shader());
-        add_shader(PrepassVertexShader.intern(), M::prepass_vertex_shader());
-        add_shader(PrepassFragmentShader.intern(), M::prepass_fragment_shader());
-        add_shader(DeferredVertexShader.intern(), M::deferred_vertex_shader());
-        add_shader(
-            DeferredFragmentShader.intern(),
-            M::deferred_fragment_shader(),
-        );
+
+        for (
+            pass_id,
+            ShaderSet {
+                mut vertex,
+                mut fragment,
+            },
+        ) in M::shaders()
+        {
+            let Some(phase_draw_functions) = pass_phase_draw_functions.get(&pass_id) else {
+                continue;
+            };
+
+            const PHASE_DRAW_FUNCTIONS_ERROR: &str = "The index here should never be out of bounds";
+
+            if let Some(draw_function) = phase_draw_functions
+                .first()
+                .expect(PHASE_DRAW_FUNCTIONS_ERROR)
+            {
+                draw_functions.push((Phase1DrawFunction(pass_id).intern(), *draw_function));
+            };
+
+            if let Some(draw_function) = phase_draw_functions
+                .get(1)
+                .expect(PHASE_DRAW_FUNCTIONS_ERROR)
+            {
+                draw_functions.push((Phase2DrawFunction(pass_id).intern(), *draw_function));
+            };
+
+            if let Some(draw_function) = phase_draw_functions
+                .get(2)
+                .expect(PHASE_DRAW_FUNCTIONS_ERROR)
+            {
+                draw_functions.push((Phase3DrawFunction(pass_id).intern(), *draw_function));
+            };
+
+            if let Some(draw_function) = phase_draw_functions
+                .get(3)
+                .expect(PHASE_DRAW_FUNCTIONS_ERROR)
+            {
+                draw_functions.push((Phase4DrawFunction(pass_id).intern(), *draw_function));
+            };
+
+            // If users are still using the traditional method, it continues to be used until they migrate.
+            if pass_id == Prepass::id() {
+                let prepass_vertex = M::prepass_vertex_shader();
+                if !matches!(prepass_vertex, ShaderRef::Default) {
+                    vertex = prepass_vertex;
+                }
+
+                let prepass_fragment = M::prepass_fragment_shader();
+                if !matches!(prepass_fragment, ShaderRef::Default) {
+                    fragment = prepass_fragment;
+                }
+            }
+
+            if pass_id == DeferredPass::id() {
+                let deferred_vertex = M::deferred_vertex_shader();
+                if !matches!(deferred_vertex, ShaderRef::Default) {
+                    vertex = deferred_vertex;
+                }
+
+                let deferred_fragment = M::deferred_fragment_shader();
+                if !matches!(deferred_fragment, ShaderRef::Default) {
+                    fragment = deferred_fragment;
+                }
+            }
+
+            if pass_id == MainPass::id() {
+                let main_pass_vertex = M::vertex_shader();
+                if !matches!(main_pass_vertex, ShaderRef::Default) {
+                    vertex = main_pass_vertex;
+                }
+
+                let main_pass_fragment = M::fragment_shader();
+                if !matches!(main_pass_fragment, ShaderRef::Default) {
+                    fragment = main_pass_fragment;
+                }
+            }
+
+            add_shader(MaterialVertexShader(pass_id).intern(), vertex);
+            add_shader(MaterialFragmentShader(pass_id).intern(), fragment);
+        }
 
         #[cfg(feature = "meshlet")]
         {
@@ -1764,6 +2189,7 @@ where
             descriptor: &mut RenderPipelineDescriptor,
             mesh_layout: &MeshVertexBufferLayoutRef,
             erased_key: ErasedMaterialPipelineKey,
+            // pass_id: PassId,
         ) -> Result<(), SpecializedMeshPipelineError>
         where
             M::Data: Hash + Clone,
@@ -1777,6 +2203,7 @@ where
                     mesh_key: erased_key.mesh_key,
                     bind_group_data: material_key,
                 },
+                // pass_id,
             )
         }
 
