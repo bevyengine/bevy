@@ -5,15 +5,10 @@
 //!
 //! Same as [`component`](`super::component`), but for events.
 
-use crate::{
-    event::{EntityEvent, Event},
-    reflect::from_reflect_with_fallback,
-    world::World,
-};
+use crate::{event::Event, reflect::from_reflect_with_fallback, world::World};
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on reflected [`Event`] trait of a type.
-/// Also works for [`EntityEvent`].
 ///
 /// A [`ReflectEvent`] for type `T` can be obtained via
 /// [`bevy_reflect::TypeRegistration::data`].
