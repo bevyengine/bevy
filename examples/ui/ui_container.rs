@@ -156,7 +156,7 @@ Click RootNode to change backgroundcolor",
 Anchor: None
 Overflow: UnKnown
 GlobalTransform: None
-GlobalTranfrom Camera: None",
+GlobalTransform Camera: None",
                 ),
                 InfoText,
             ));
