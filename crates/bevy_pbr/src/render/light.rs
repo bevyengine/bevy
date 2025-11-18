@@ -1765,7 +1765,7 @@ pub fn specialize_shadows(
         Res<RenderMaterialInstances>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>,
+    mut pipelines: ResMut<MeshPassSpecializedMeshPipelines<Prepass, PrepassPipelineSpecializer>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
@@ -1911,6 +1911,7 @@ pub fn specialize_shadows(
                 let material_pipeline_specializer = PrepassPipelineSpecializer {
                     pipeline: prepass_pipeline.clone(),
                     properties: material.properties.clone(),
+                    _pass_id: Prepass::id(),
                 };
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,

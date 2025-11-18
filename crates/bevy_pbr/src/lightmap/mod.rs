@@ -111,7 +111,7 @@ pub struct Lightmap {
 ///
 /// There is one of these per visible lightmapped mesh instance.
 #[derive(Debug)]
-pub(crate) struct RenderLightmap {
+pub struct RenderLightmap {
     /// The rectangle within the lightmap texture that the UVs are relative to.
     ///
     /// The top left coordinate is the `min` part of the rect, and the bottom
@@ -130,7 +130,7 @@ pub(crate) struct RenderLightmap {
     pub(crate) slot_index: LightmapSlotIndex,
 
     // Whether or not bicubic sampling should be used for this lightmap.
-    pub(crate) bicubic_sampling: bool,
+    pub bicubic_sampling: bool,
 }
 
 /// Stores data for all lightmaps in the render world.
