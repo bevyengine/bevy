@@ -1545,7 +1545,7 @@ impl ProcessingState {
         let lock = {
             let infos = self.asset_infos.read().await;
             let info = infos
-                .get(path)
+                .get_recursive(path)
                 .ok_or_else(|| AssetReaderError::NotFound(path.path().to_owned()))?;
             // Clone out the transaction lock first and then lock after we've dropped the
             // asset_infos. Otherwise, trying to lock a single path can block all other paths to
@@ -1560,7 +1560,7 @@ impl ProcessingState {
         self.wait_until_initialized().await;
         let mut receiver = {
             let infos = self.asset_infos.write().await;
-            let info = infos.get(&path);
+            let info = infos.get_recursive(&path);
             match info {
                 Some(info) => match info.status {
                     Some(result) => return result,
@@ -1704,6 +1704,33 @@ impl ProcessorAssetInfos {
 
     pub(crate) fn get(&self, asset_path: &AssetPath<'static>) -> Option<&ProcessorAssetInfo> {
         self.infos.get(asset_path)
+    }
+
+    /// Gets the [`ProcessorAssetInfo`] associated with `asset_path`, but also looks for directories
+    /// above that are considered processed assets.
+    pub(crate) fn get_recursive(
+        &self,
+        asset_path: &AssetPath<'static>,
+    ) -> Option<&ProcessorAssetInfo> {
+        if let Some(info) = self.infos.get(asset_path) {
+            // Avoid cloning if the path we get has info.
+            return Some(info);
+        }
+
+        // Either the path isn't present at all, or the path is actually a subdirectory of a "multi"
+        // processed asset. So keep exploring up until we're sure there isn't a directory being
+        // processed.
+        let mut path_current = asset_path.clone_owned();
+
+        // PERF: This traverse up is expensive due to needing many allocations. We could use a more
+        // appropriate data structure like a trie instead.
+        while let Some(path_parent) = path_current.parent() {
+            path_current = path_parent;
+            if let Some(info) = self.infos.get(&path_current) {
+                return Some(info);
+            }
+        }
+        None
     }
 
     fn get_mut(&mut self, asset_path: &AssetPath<'static>) -> Option<&mut ProcessorAssetInfo> {
