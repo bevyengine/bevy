@@ -1309,6 +1309,40 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     }
 }
 
+/// A dummy type to run a system exclusively. i.e. No other systems will run at the same time.
+pub struct ExclusiveMarker(PhantomData<()>);
+
+// SAFETY: No world access.
+unsafe impl SystemParam for ExclusiveMarker {
+    type State = ();
+    type Item<'w, 's> = Self;
+
+    #[inline]
+    fn init_state(_world: &mut World) -> Self::State {}
+
+    fn init_access(
+        _state: &Self::State,
+        system_meta: &mut SystemMeta,
+        _component_access_set: &mut FilteredAccessSet,
+        _world: &mut World,
+    ) {
+        system_meta.set_exclusive();
+    }
+
+    #[inline]
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        Self(PhantomData)
+    }
+}
+
+// SAFETY: Does not read any world state
+unsafe impl ReadOnlySystemParam for ExclusiveMarker {}
+
 /// A dummy type that is [`!Send`](Send), to force systems to run on the main thread.
 pub struct NonSendMarker(PhantomData<*mut ()>);
 
