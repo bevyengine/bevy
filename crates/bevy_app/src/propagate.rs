@@ -265,14 +265,14 @@ pub fn propagate_inherited<C: Component + Clone + PartialEq, F: QueryFilter, R: 
         }
 
         // update children if required
-        if maybe_stop.is_none() {
-            if let Some(targets) = maybe_targets {
-                to_process.extend(
-                    targets
-                        .iter()
-                        .map(|target| (target, maybe_inherited.clone())),
-                );
-            }
+        if maybe_stop.is_none()
+            && let Some(targets) = maybe_targets
+        {
+            to_process.extend(
+                targets
+                    .iter()
+                    .map(|target| (target, maybe_inherited.clone())),
+            );
         }
 
         // update this node's `Inherited<C>`
