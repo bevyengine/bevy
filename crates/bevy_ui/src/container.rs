@@ -489,7 +489,7 @@ pub fn ui_layout_system(
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
-/// Entities with a hidden [`InheritedVisibility`] are always treated as released.
+/// Entities with a hidden [`InheritedVisibility`](`bevy_camera::visibility::InheritedVisibility`) are always treated as released.
 pub fn ui_focus_system(
     mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
