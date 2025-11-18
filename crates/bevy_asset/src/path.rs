@@ -648,10 +648,11 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
         if elt == "." {
             // Skip
         } else if elt == ".." {
-            if let Some(file_name) = result_path.file_name()
-                // Don't collapse .. with another ..
-                && file_name != ".."
-            {
+            // Note: If the result_path ends in `..`, Path::file_name returns None, so we'll end up
+            // preserving it.
+            if result_path.file_name().is_some() {
+                // This assert is just a sanity check - we already know the path has a file_name, so
+                // we know there is something to pop.
                 assert!(result_path.pop());
             } else {
                 // Preserve ".." if insufficient matches (per RFC 1808).
