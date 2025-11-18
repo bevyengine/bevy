@@ -5,9 +5,7 @@
     decal::clustered::apply_decal_base_color,
 }
 
-#ifdef VISIBILITY_RANGE_DITHER
-#import bevy_pbr::pbr_functions::visibility_range_dither;
-#endif
+
 
 #ifdef PREPASS_PIPELINE
 #import bevy_pbr::{
@@ -20,6 +18,10 @@
     pbr_functions::{apply_pbr_lighting, main_pass_post_lighting_processing},
     pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT,
 }
+#endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+#import bevy_pbr::pbr_functions::visibility_range_dither;
 #endif
 
 #ifdef MESHLET_MESH_MATERIAL_PASS
