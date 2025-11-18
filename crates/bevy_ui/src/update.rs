@@ -1,9 +1,9 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    ui_transform::UiGlobalTransform, CalculatedClip, ComputedUiRenderTargetInfo,
-    ComputedUiTargetCamera, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip, UiChildren,
-    UiRootNodes, UiScale, UiTargetCamera,
+    experimental::UiChildren, ui_transform::UiGlobalTransform, CalculatedClip,
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display, Node,
+    OverflowAxis, OverrideClip, UiRootNodes, UiScale, UiTargetCamera,
 };
 #[cfg(feature = "bevy_ui_container")]
 use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};

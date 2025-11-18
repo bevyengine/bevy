@@ -45,7 +45,7 @@ pub fn ui_stack_system(
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: UiRootNodes<()>,
+    ui_root_nodes: UiRootNodes,
     root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
     zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
     ui_children: UiChildren,

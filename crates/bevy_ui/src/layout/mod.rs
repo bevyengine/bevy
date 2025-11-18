@@ -1,9 +1,10 @@
 #[cfg(feature = "bevy_ui_container")]
 use crate::UiContainerTarget;
 use crate::{
+    experimental::UiChildren,
     ui_transform::{UiGlobalTransform, UiTransform},
     ComputedNode, ComputedUiRenderTargetInfo, ContentSize, Display, FeatureFilter, IgnoreScroll,
-    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, UiChildren, UiRootNodes,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, UiRootNodes,
 };
 
 use bevy_ecs::{

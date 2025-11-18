@@ -5,7 +5,7 @@ use crate::ui_node::ComputedUiTargetCamera;
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use bevy_camera::visibility::Visibility;
-#[cfg(not(feature = "ghost_nodes"))]
+#[cfg(feature = "ghost_nodes")]
 use bevy_ecs::query::QueryFilter;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
@@ -31,19 +31,18 @@ pub struct GhostNode;
 ///
 /// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
-pub struct UiRootNodes<'w, 's> {
+pub struct UiRootNodes<'w, 's, F: QueryFilter + 'static = ()> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
-    all_nodes_query: Query<'w, 's, Entity, With<Node>>,
+    all_nodes_query: Query<'w, 's, Entity, (With<Node>, F)>,
     ui_children: UiChildren<'w, 's>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's, F: QueryFilter> =
-    Query<'w, 's, Entity, (With<Node>, Without<ChildOf>, F)>;
+pub type UiRootNodes<'w, 's, F = ()> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>, F)>;
 
 #[cfg(feature = "ghost_nodes")]
-impl<'w, 's> UiRootNodes<'w, 's> {
+impl<'w, 's, F: QueryFilter> UiRootNodes<'w, 's, F> {
     pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
         self.root_node_query
             .iter()
@@ -73,8 +72,8 @@ pub struct UiChildren<'w, 's> {
 #[cfg(not(feature = "ghost_nodes"))]
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
-pub struct UiChildren<'w, 's, F: QueryFilter + 'static = ()> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, (With<Node>, F)>,
+pub struct UiChildren<'w, 's> {
+    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
@@ -138,7 +137,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-impl<'w, 's, F: QueryFilter> UiChildren<'w, 's, F> {
+impl<'w, 's> UiChildren<'w, 's> {
     /// Iterates the children of `entity`.
     pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.ui_children_query

@@ -153,7 +153,7 @@ pub fn propagate_ui_target_cameras(
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     ui_root_node_query: UiRootNodes<With<UiContainerTarget>>,
-    ui_children: UiChildren<With<UiContainerTarget>>,
+    ui_children: UiChildren,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
@@ -236,7 +236,7 @@ pub fn ui_layout_system(
     for ui_root_entity in ui_root_node_query.iter() {
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
-            ui_children: &UiChildren<With<UiContainerTarget>>,
+            ui_children: &UiChildren,
             added_node_query: &Query<(), Or<(Added<Node>, With<UiContainerTarget>)>>,
             entity: Entity,
         ) {
@@ -310,7 +310,7 @@ pub fn ui_layout_system(
             Option<&IgnoreScroll>,
             &UiContainerTarget,
         )>,
-        ui_children: &UiChildren<With<UiContainerTarget>>,
+        ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
