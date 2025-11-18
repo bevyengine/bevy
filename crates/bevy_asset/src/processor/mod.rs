@@ -842,15 +842,31 @@ impl AssetProcessor {
         self.validate_transaction_log_and_recover().await;
         let mut asset_infos = self.data.processing_state.asset_infos.write().await;
 
-        /// Retrieves asset paths recursively. If `clean_empty_folders_writer` is Some, it will be used to clean up empty
-        /// folders when they are discovered.
+        /// Retrieves asset paths recursively. If `empty_dirs` is Some, it will be used to clean up
+        /// empty folders when they are discovered. If `check_directory_meta` is true, directories
+        /// with a meta file next their file path will be treated as an asset path (instead of its
+        /// contents).
         async fn get_asset_paths(
             reader: &dyn ErasedAssetReader,
             path: PathBuf,
+            check_directory_meta: bool,
             paths: &mut Vec<PathBuf>,
             mut empty_dirs: Option<&mut Vec<PathBuf>>,
         ) -> Result<bool, AssetReaderError> {
             if reader.is_directory(&path).await? {
+                if check_directory_meta
+                    && match reader.read_meta(&path).await {
+                        Ok(_) => true,
+                        Err(AssetReaderError::NotFound(_)) => false,
+                        Err(err) => return Err(err),
+                    }
+                {
+                    // If this directory has a meta file, then it is likely a processed asset using
+                    // `ProcessContext::write_multiple`, so count the whole thing as an asset path.
+                    paths.push(path);
+                    return Ok(true);
+                }
+
                 let mut path_stream = reader.read_directory(&path).await?;
                 let mut contains_files = false;
 
@@ -858,6 +874,7 @@ impl AssetProcessor {
                     contains_files |= Box::pin(get_asset_paths(
                         reader,
                         child_path,
+                        check_directory_meta,
                         paths,
                         empty_dirs.as_deref_mut(),
                     ))
@@ -889,6 +906,7 @@ impl AssetProcessor {
             get_asset_paths(
                 source.reader(),
                 PathBuf::from(""),
+                /*check_directory_meta=*/ false,
                 &mut unprocessed_paths,
                 None,
             )
@@ -900,6 +918,7 @@ impl AssetProcessor {
             get_asset_paths(
                 processed_reader,
                 PathBuf::from(""),
+                /*check_directory_meta=*/ true,
                 &mut processed_paths,
                 Some(&mut empty_dirs),
             )
@@ -979,11 +998,30 @@ impl AssetProcessor {
     /// Removes the processed version of an asset and its metadata, if it exists. This _is not_ transactional like `remove_processed_asset_transactional`, nor
     /// does it remove existing in-memory metadata.
     async fn remove_processed_asset_and_meta(&self, source: &AssetSource, path: &Path) {
-        if let Err(err) = source.processed_writer().unwrap().remove(path).await {
-            warn!("Failed to remove non-existent asset {path:?}: {err}");
+        let reader = source.ungated_processed_reader().unwrap();
+        let writer = source.processed_writer().unwrap();
+
+        // Even if we fail to delete the asset, we may still succeed at deleting its meta and
+        // ancestors.
+        'delete_asset: {
+            let is_directory = match reader.is_directory(path).await {
+                Ok(is_directory) => is_directory,
+                Err(err) => {
+                    warn!("Failed to determine whether asset {path:?} was processed into a directory or an asset: {err}");
+                    break 'delete_asset;
+                }
+            };
+            let asset_remove_result = if is_directory {
+                writer.remove_directory(path).await
+            } else {
+                writer.remove(path).await
+            };
+            if let Err(err) = asset_remove_result {
+                warn!("Failed to remove non-existent asset {path:?}: {err}");
+            }
         }
 
-        if let Err(err) = source.processed_writer().unwrap().remove_meta(path).await {
+        if let Err(err) = writer.remove_meta(path).await {
             warn!("Failed to remove non-existent meta {path:?}: {err}");
         }
 
