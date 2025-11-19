@@ -34,6 +34,7 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
+pub mod text;
 
 #[cfg(feature = "bevy_light")]
 pub mod light;
@@ -287,6 +288,9 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
                     list_colors: mem::take(&mut storage.list_colors),
                     strip_positions: mem::take(&mut storage.strip_positions),
                     strip_colors: mem::take(&mut storage.strip_colors),
+                    glyph_vertices: mem::take(&mut storage.glyph_vertices),
+                    glyph_uvs: mem::take(&mut storage.glyph_uvs),
+                    glyph_colors: mem::take(&mut storage.glyph_colors),
                     marker: PhantomData,
                 },
             };

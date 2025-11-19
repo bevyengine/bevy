@@ -7,7 +7,9 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
+use bevy_asset::Assets;
 use bevy_color::{Color, LinearRgba};
+use bevy_ecs::system::ResMut;
 use bevy_ecs::{
     change_detection::Tick,
     query::FilteredAccessSet,
@@ -18,8 +20,11 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+use bevy_image::TextureAtlasLayout;
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
+use bevy_text::{CosmicFontSystem, FontAtlasSet, SwashCache};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
@@ -35,6 +40,9 @@ pub struct GizmoStorage<Config, Clear> {
     pub(crate) list_colors: Vec<LinearRgba>,
     pub(crate) strip_positions: Vec<Vec3>,
     pub(crate) strip_colors: Vec<LinearRgba>,
+    pub(crate) glyph_vertices: Vec<Vec3>,
+    pub(crate) glyph_uvs: Vec<Vec2>,
+    pub(crate) glyph_colors: Vec<LinearRgba>,
     marker: PhantomData<(Config, Clear)>,
 }
 
@@ -45,6 +53,9 @@ impl<Config, Clear> Default for GizmoStorage<Config, Clear> {
             list_colors: default(),
             strip_positions: default(),
             strip_colors: default(),
+            glyph_vertices: default(),
+            glyph_uvs: default(),
+            glyph_colors: default(),
             marker: PhantomData,
         }
     }
@@ -64,6 +75,12 @@ where
         self.list_colors.extend(other.list_colors.iter());
         self.strip_positions.extend(other.strip_positions.iter());
         self.strip_colors.extend(other.strip_colors.iter());
+
+        {
+            self.glyph_vertices.extend(other.glyph_vertices.iter());
+            self.glyph_uvs.extend(other.glyph_uvs.iter());
+            self.glyph_colors.extend(other.glyph_colors.iter());
+        }
     }
 
     pub(crate) fn swap<OtherConfig, OtherClear>(
@@ -74,6 +91,12 @@ where
         mem::swap(&mut self.list_colors, &mut other.list_colors);
         mem::swap(&mut self.strip_positions, &mut other.strip_positions);
         mem::swap(&mut self.strip_colors, &mut other.strip_colors);
+
+        {
+            mem::swap(&mut self.glyph_vertices, &mut other.glyph_vertices);
+            mem::swap(&mut self.glyph_uvs, &mut other.glyph_uvs);
+            mem::swap(&mut self.glyph_colors, &mut other.glyph_colors);
+        }
     }
 
     /// Clear this gizmo storage of any requested gizmos.
@@ -82,6 +105,12 @@ where
         self.list_colors.clear();
         self.strip_positions.clear();
         self.strip_colors.clear();
+
+        {
+            self.glyph_vertices.clear();
+            self.glyph_uvs.clear();
+            self.glyph_colors.clear()
+        }
     }
 }
 
@@ -150,6 +179,13 @@ where
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
     pub config_ext: &'w Config,
+    pub font_system: ResMut<'w, CosmicFontSystem>,
+    /// fonts
+    pub swash_cache: ResMut<'w, SwashCache>,
+    /// fonts
+    pub font_atlas_set: ResMut<'w, FontAtlasSet>,
+    /// fonts
+    pub texture_atlas_layout: ResMut<'w, Assets<TextureAtlasLayout>>,
 }
 
 impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
@@ -177,7 +213,12 @@ where
 type GizmosState<Config, Clear> = (
     Deferred<'static, GizmoBuffer<Config, Clear>>,
     Res<'static, GizmoConfigStore>,
+    ResMut<'static, CosmicFontSystem>,
+    ResMut<'static, SwashCache>,
+    ResMut<'static, FontAtlasSet>,
+    ResMut<'static, Assets<TextureAtlasLayout>>,
 );
+
 #[doc(hidden)]
 pub struct GizmosFetchState<Config, Clear>
 where
@@ -237,6 +278,7 @@ where
     }
 
     #[inline]
+
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,
@@ -244,7 +286,7 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        let (mut f0, f1) = unsafe {
+        let (mut f0, f1, font_system, swash_cache, font_atlas_set, texture_atlas_layout) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -263,6 +305,10 @@ where
             buffer: f0,
             config,
             config_ext,
+            font_system,
+            swash_cache,
+            font_atlas_set,
+            texture_atlas_layout,
         }
     }
 }
@@ -298,6 +344,12 @@ where
     pub strip_positions: Vec<Vec3>,
     /// The colors of line strip vertices.
     pub strip_colors: Vec<LinearRgba>,
+    /// The positions the glyph vertices.
+    pub glyph_vertices: Vec<Vec3>,
+    /// The UV coords for the glyph vertices.
+    pub glyph_uvs: Vec<Vec2>,
+    /// The colors for each glyph vertex.    
+    pub glyph_colors: Vec<LinearRgba>,
     #[reflect(ignore, clone)]
     pub(crate) marker: PhantomData<(Config, Clear)>,
 }
@@ -314,6 +366,12 @@ where
             list_colors: Vec::new(),
             strip_positions: Vec::new(),
             strip_colors: Vec::new(),
+
+            glyph_vertices: Vec::new(),
+
+            glyph_uvs: Vec::new(),
+
+            glyph_colors: Vec::new(),
             marker: PhantomData,
         }
     }
@@ -329,6 +387,15 @@ pub struct GizmoBufferView<'a> {
     pub strip_positions: &'a Vec<Vec3>,
     /// Vertex colors for line-strip topology.
     pub strip_colors: &'a Vec<LinearRgba>,
+
+    /// Vertex positions for glyphs.
+    pub glyph_vertices: &'a Vec<Vec3>,
+
+    /// Vertex UVs for glyphs.
+    pub glyph_uvs: &'a Vec<Vec2>,
+
+    /// Vertex colors for glyphs.
+    pub glyph_colors: &'a Vec<LinearRgba>,
 }
 
 impl<Config, Clear> SystemBuffer for GizmoBuffer<Config, Clear>
@@ -365,6 +432,12 @@ where
             list_colors,
             strip_positions,
             strip_colors,
+
+            glyph_vertices,
+
+            glyph_uvs,
+
+            glyph_colors,
             ..
         } = self;
         GizmoBufferView {
@@ -372,6 +445,12 @@ where
             list_colors,
             strip_positions,
             strip_colors,
+
+            glyph_vertices,
+
+            glyph_uvs,
+
+            glyph_colors,
         }
     }
     /// Draw a line in 3D from `start` to `end`.
@@ -834,6 +913,37 @@ where
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
+    }
+
+    /// Draw text in 2D with the given `isometry` applied.
+    ///
+    /// If `isometry == Isometry2d::IDENTITY` then
+    ///
+    /// - the bottom left of the text block is at `Vec2::ZERO`
+    ///
+    /// # Example
+    /// ```
+    /// # use bevy_gizmos::prelude::*;
+    /// # use bevy_math::prelude::*;
+    /// # use bevy_color::palettes::basic::GREEN;
+    /// fn system(mut gizmos: Gizmos) {
+    ///     gizmos.rect_2d(Isometry2d::IDENTITY, "Hello world".to_string(), 20., GREEN);
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+
+    pub fn text_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        text: String,
+        size: f32,
+        color: impl Into<Color>,
+    ) {
+        if !self.enabled {
+            return;
+        }
+        let isometry = isometry.into();
     }
 
     #[inline]

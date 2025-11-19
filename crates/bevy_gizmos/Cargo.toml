@@ -22,6 +22,8 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 bevy_gizmos_macros = { path = "macros", version = "0.18.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.18.0-dev" }
+bevy_text = { path = "../bevy_text", version = "0.18.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.18.0-dev" }
 
 [lints]
 workspace = true
