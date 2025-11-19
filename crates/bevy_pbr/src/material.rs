@@ -328,12 +328,6 @@ where
     /// Each `PhaseItem` must implement [`PhaseItemExt`].
     /// Currently, the maximum number of `PhaseItem`s in a pass is 4.
     ///
-    /// If the desired effect does not rely on a specific pass order, such as Hull Outline,
-    /// you can reuse existing `PhaseItem`s, as they will ultimately be processed by the same
-    /// render graph node. If your effect depends on a specific pass order, such as a custom
-    /// prepass, then you will need to create a newtype or completely rebuild your own `PhaseItem`,
-    /// and implement the corresponding render graph node along with other necessary systems.
-    ///
     /// ## Example
     /// ```ignore
     /// type PhaseItems = (Opaque3d, AlphaMask3d, Transmissive3d, Transparent3d);
@@ -468,7 +462,7 @@ pub fn add_pass_phase_plugins<P: MeshPass>(app: &mut App, debug_flags: RenderDeb
     }
 }
 
-pub struct MeshPassPhasePlugin<P, PIE> {
+struct MeshPassPhasePlugin<P, PIE> {
     phase_index: usize,
     debug_flags: RenderDebugFlags,
     _marker: PhantomData<(P, PIE)>,
@@ -493,7 +487,9 @@ where
 {
     fn build(&self, app: &mut App) {
         // NOTE: The resource `PIE::RenderPhases` is indirectly initialized `by PIE::PhasePlugin`.
-        app.add_plugins(PIE::PhasePlugin::new(self.debug_flags));
+        if !app.is_plugin_added::<PIE::PhasePlugin>() {
+            app.add_plugins(PIE::PhasePlugin::new(self.debug_flags));
+        }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

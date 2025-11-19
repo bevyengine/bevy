@@ -4877,3 +4877,14 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[[example]]
+name = "custom_mesh_pass"
+path = "examples/shader_advanced/custom_mesh_pass.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_mesh_pass]
+name = "Custom Mesh Pass"
+description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
+category = "Shaders"
+wasm = true
