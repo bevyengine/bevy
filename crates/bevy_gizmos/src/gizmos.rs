@@ -24,13 +24,14 @@ use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_text::{CosmicFontSystem, FontAtlasSet, SwashCache};
+use bevy_text::{CosmicFontSystem, Font, FontAtlasSet, SwashCache, TextLayoutInfo};
 use bevy_transform::TransformPoint;
 use bevy_utils::default;
 
 use crate::{
     config::{DefaultGizmoConfigGroup, GizmoConfigGroup, GizmoConfigStore},
     prelude::GizmoConfig,
+    text::{GizmoText, GizmoTextBuffer},
 };
 
 /// Storage of gizmo primitives.
@@ -179,16 +180,30 @@ where
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
     pub config_ext: &'w Config,
-    /// Font system
-    pub font_system: ResMut<'w, CosmicFontSystem>,
-    /// fonts
-    pub swash_cache: ResMut<'w, SwashCache>,
-    /// fonts
-    pub font_atlas_set: ResMut<'w, FontAtlasSet>,
-    /// fonts
-    pub texture_atlas_layout: ResMut<'w, Assets<TextureAtlasLayout>>,
-    /// textures
-    pub textures: ResMut<'w, Assets<Image>>,
+    /// text buffer
+    pub text_buffer: ResMut<'w, GizmoTextBuffer<Config, Clear>>,
+}
+
+impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    /// Draw text
+    pub fn text_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        text: impl Into<String>,
+        size: f32,
+        color: impl Into<Color>,
+    ) {
+        self.text_buffer.text.push(GizmoText {
+            isometry: isometry.into(),
+            text: text.into(),
+            size,
+            color: color.into(),
+        });
+    }
 }
 
 impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
@@ -216,11 +231,7 @@ where
 type GizmosState<Config, Clear> = (
     Deferred<'static, GizmoBuffer<Config, Clear>>,
     Res<'static, GizmoConfigStore>,
-    ResMut<'static, CosmicFontSystem>,
-    ResMut<'static, SwashCache>,
-    ResMut<'static, FontAtlasSet>,
-    ResMut<'static, Assets<TextureAtlasLayout>>,
-    ResMut<'static, Assets<Image>>,
+    ResMut<'static, GizmoTextBuffer<Config, Clear>>,
 );
 
 #[doc(hidden)]
@@ -290,7 +301,7 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        let (mut f0, f1, font_system, swash_cache, font_atlas_set, texture_atlas_layout, textures) = unsafe {
+        let (mut f0, f1, text_buffer) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -309,11 +320,7 @@ where
             buffer: f0,
             config,
             config_ext,
-            font_system,
-            swash_cache,
-            font_atlas_set,
-            texture_atlas_layout,
-            textures,
+            text_buffer,
         }
     }
 }
@@ -918,37 +925,6 @@ where
         let isometry = isometry.into();
         let [tl, tr, br, bl] = rect_inner(size).map(|vec2| isometry * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
-    }
-
-    /// Draw text in 2D with the given `isometry` applied.
-    ///
-    /// If `isometry == Isometry2d::IDENTITY` then
-    ///
-    /// - the bottom left of the text block is at `Vec2::ZERO`
-    ///
-    /// # Example
-    /// ```
-    /// # use bevy_gizmos::prelude::*;
-    /// # use bevy_math::prelude::*;
-    /// # use bevy_color::palettes::basic::GREEN;
-    /// fn system(mut gizmos: Gizmos) {
-    ///     gizmos.rect_2d(Isometry2d::IDENTITY, "Hello world".to_string(), 20., GREEN);
-    /// }
-    /// # bevy_ecs::system::assert_is_system(system);
-    /// ```
-    #[inline]
-
-    pub fn text_2d(
-        &mut self,
-        isometry: impl Into<Isometry2d>,
-        text: String,
-        size: f32,
-        color: impl Into<Color>,
-    ) {
-        if !self.enabled {
-            return;
-        }
-        let isometry = isometry.into();
     }
 
     #[inline]
