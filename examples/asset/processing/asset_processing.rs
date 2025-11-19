@@ -4,7 +4,7 @@ use bevy::{
     asset::{
         embedded_asset,
         io::{Reader, Writer},
-        processor::LoadTransformAndSave,
+        processor::{LoadTransformAndSave, Process, ProcessContext, ProcessError, WriterContext},
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
         AssetLoader, AsyncWriteExt, LoadContext,
@@ -13,7 +13,7 @@ use bevy::{
     reflect::TypePath,
 };
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
+use std::{convert::Infallible, io::BufRead, path::Path};
 use thiserror::Error;
 
 fn main() {
@@ -62,7 +62,9 @@ impl Plugin for TextPlugin {
             .register_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>(
                 LoadTransformAndSave::new(CoolTextTransformer, CoolTextSaver),
             )
-            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron");
+            .set_default_asset_processor::<LoadTransformAndSave<CoolTextLoader, CoolTextTransformer, CoolTextSaver>>("cool.ron")
+            .register_asset_processor(LineSplitterProcess)
+            .set_default_asset_processor::<LineSplitterProcess>("lines");
     }
 }
 
@@ -226,6 +228,46 @@ impl AssetSaver for CoolTextSaver {
     }
 }
 
+#[derive(TypePath)]
+struct LineSplitterProcess;
+
+impl Process for LineSplitterProcess {
+    type Settings = ();
+
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
+        _settings: &Self::Settings,
+        writer_context: WriterContext<'_>,
+    ) -> Result<(), ProcessError> {
+        let mut bytes = vec![];
+        context
+            .asset_reader()
+            .read_to_end(&mut bytes)
+            .await
+            .map_err(|err| ProcessError::AssetReaderError {
+                path: context.path().clone(),
+                err: err.into(),
+            })?;
+        if bytes.is_empty() {
+            return Err(ProcessError::AssetTransformError("empty asset".into()));
+        }
+        for (i, line) in bytes.lines().map(Result::unwrap).enumerate() {
+            let mut writer = writer_context
+                .write_multiple(Path::new(&format!("Line{i}.line")))
+                .await?;
+            writer.write_all(line.as_bytes()).await.map_err(|err| {
+                ProcessError::AssetWriterError {
+                    path: context.path().clone_owned(),
+                    err: err.into(),
+                }
+            })?;
+            writer.finish::<TextLoader>(TextSettings::default()).await?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Resource)]
 struct TextAssets {
     a: Handle<Text>,
@@ -233,6 +275,10 @@ struct TextAssets {
     c: Handle<Text>,
     d: Handle<Text>,
     e: Handle<Text>,
+    multi_0: Handle<Text>,
+    multi_1: Handle<Text>,
+    multi_2: Handle<Text>,
+    multi_3: Handle<Text>,
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
@@ -244,6 +290,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         c: assets.load("foo/c.cool.ron"),
         d: assets.load("d.cool.ron"),
         e: assets.load("embedded://asset_processing/e.txt"),
+        multi_0: assets.load("multi.lines/Line0.line"),
+        multi_1: assets.load("multi.lines/Line1.line"),
+        multi_2: assets.load("multi.lines/Line2.line"),
+        multi_3: assets.load("multi.lines/Line3.line"),
     });
 }
 
@@ -261,6 +311,10 @@ fn print_text(
         println!("  c: {:?}", texts.get(&handles.c));
         println!("  d: {:?}", texts.get(&handles.d));
         println!("  e: {:?}", texts.get(&handles.e));
+        println!("  multi_0: {:?}", texts.get(&handles.multi_0));
+        println!("  multi_1: {:?}", texts.get(&handles.multi_1));
+        println!("  multi_2: {:?}", texts.get(&handles.multi_2));
+        println!("  multi_3: {:?}", texts.get(&handles.multi_3));
         println!("(You can modify source assets and their .meta files to hot-reload changes!)");
         println!();
         asset_events.clear();
