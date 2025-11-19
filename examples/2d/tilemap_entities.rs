@@ -1,7 +1,13 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
+use std::time::Duration;
+
 use bevy::{
-    color::palettes::tailwind::RED_400, image::{ImageArrayLayout, ImageLoaderSettings}, prelude::*, sprite::{CommandsTilemapExt, InMap, TileCoord, TileStorage, Tilemap}, sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData}
+    color::palettes::tailwind::RED_400,
+    image::{ImageArrayLayout, ImageLoaderSettings},
+    prelude::*,
+    sprite::{CommandsTilemapExt, DespawnOnRemove, InMap, TileCoord, TileStorage, Tilemap},
+    sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -10,12 +16,12 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (spin_tilemap, update_tilemap))
+        .add_systems(Update, (spin_tilemap, update_tilemap, remove_dead_tiles))
         .run();
 }
 
 #[derive(Component, Deref, DerefMut)]
-struct UpdateTimer(Timer);
+struct DeathTimer(Timer);
 
 #[derive(Resource, Deref, DerefMut)]
 struct SeededRng(ChaCha8Rng);
@@ -42,7 +48,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 },
             ),
             ..default()
-        }
+        },
     ));
 
     commands.spawn(Camera2d);
@@ -60,13 +66,31 @@ fn update_tilemap(
         let x = rng.random_range(-64..=64);
         let y = rng.random_range(-64..=64);
 
-        commands.spawn((InMap(map), TileCoord(IVec2::new(x, y)), TileRenderData { tileset_index: rng.random_range(0..4), ..Default::default()}));
+        commands.spawn((
+            InMap(map),
+            TileCoord(IVec2::new(x, y)),
+            TileRenderData {
+                tileset_index: rng.random_range(0..4),
+                ..Default::default()
+            },
+            DeathTimer(Timer::new(Duration::from_secs(3), TimerMode::Once)),
+            DespawnOnRemove,
+        ));
     }
 }
 
-fn spin_tilemap(
-    time: Res<Time>,
-    mut map: Single<&mut Transform, With<Tilemap>>
-) {
+fn spin_tilemap(time: Res<Time>, mut map: Single<&mut Transform, With<Tilemap>>) {
     map.rotate_z(time.delta_secs() * 0.1);
+}
+
+fn remove_dead_tiles(
+    mut map: Query<(Entity, &mut DeathTimer)>,
+    time: Res<Time>,
+    mut commands: Commands,
+) {
+    for (id, mut timer) in map.iter_mut() {
+        if timer.tick(time.delta()).is_finished() {
+            commands.entity(id).despawn();
+        }
+    }
 }
