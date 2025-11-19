@@ -20,7 +20,7 @@ use bevy_ecs::{
     },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_image::TextureAtlasLayout;
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{bounding::Aabb3d, Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
@@ -179,6 +179,7 @@ where
     pub config: &'w GizmoConfig,
     /// The currently used [`GizmoConfigGroup`]
     pub config_ext: &'w Config,
+    /// Font system
     pub font_system: ResMut<'w, CosmicFontSystem>,
     /// fonts
     pub swash_cache: ResMut<'w, SwashCache>,
@@ -186,6 +187,8 @@ where
     pub font_atlas_set: ResMut<'w, FontAtlasSet>,
     /// fonts
     pub texture_atlas_layout: ResMut<'w, Assets<TextureAtlasLayout>>,
+    /// textures
+    pub textures: ResMut<'w, Assets<Image>>,
 }
 
 impl<'w, 's, Config, Clear> Deref for Gizmos<'w, 's, Config, Clear>
@@ -217,6 +220,7 @@ type GizmosState<Config, Clear> = (
     ResMut<'static, SwashCache>,
     ResMut<'static, FontAtlasSet>,
     ResMut<'static, Assets<TextureAtlasLayout>>,
+    ResMut<'static, Assets<Image>>,
 );
 
 #[doc(hidden)]
@@ -286,7 +290,7 @@ where
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        let (mut f0, f1, font_system, swash_cache, font_atlas_set, texture_atlas_layout) = unsafe {
+        let (mut f0, f1, font_system, swash_cache, font_atlas_set, texture_atlas_layout, textures) = unsafe {
             GizmosState::<Config, Clear>::get_param(
                 &mut state.state,
                 system_meta,
@@ -309,6 +313,7 @@ where
             swash_cache,
             font_atlas_set,
             texture_atlas_layout,
+            textures,
         }
     }
 }
