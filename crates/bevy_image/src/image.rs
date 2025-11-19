@@ -1251,6 +1251,9 @@ impl Image {
             .contains(Features::TEXTURE_COMPRESSION_ASTC)
             || format_description
                 .required_features()
+                .contains(Features::TEXTURE_COMPRESSION_ASTC_HDR)
+            || format_description
+                .required_features()
                 .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features()
@@ -1899,8 +1902,9 @@ bitflags::bitflags! {
     pub struct CompressedImageFormats: u32 {
         const NONE     = 0;
         const ASTC_LDR = 1 << 0;
-        const BC       = 1 << 1;
-        const ETC2     = 1 << 2;
+        const ASTC_HDR = 1 << 1;
+        const BC       = 1 << 2;
+        const ETC2     = 1 << 3;
     }
 }
 
@@ -1909,6 +1913,9 @@ impl CompressedImageFormats {
         let mut supported_compressed_formats = Self::default();
         if features.contains(Features::TEXTURE_COMPRESSION_ASTC) {
             supported_compressed_formats |= Self::ASTC_LDR;
+        }
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC_HDR) {
+            supported_compressed_formats |= Self::ASTC_HDR;
         }
         if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
@@ -1945,6 +1952,11 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
+            TextureFormat::Astc { channel, .. }
+                if matches!(channel, wgpu_types::AstcChannel::Hdr) =>
+            {
+                self.contains(CompressedImageFormats::ASTC_HDR)
+            }
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
