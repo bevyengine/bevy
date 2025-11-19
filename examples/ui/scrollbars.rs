@@ -58,7 +58,7 @@ fn setup_view_root(mut commands: Commands) {
                     ..Default::default()
                 },
                 Children::spawn((
-                    Spawn(Text::new("Scrollarea inside grid")),
+                    Spawn(Text::new("Scroll area inside grid")),
                     Spawn(scroll_area_inside_grid_demo()),
                 )),
             )),
@@ -70,7 +70,7 @@ fn setup_view_root(mut commands: Commands) {
                     ..Default::default()
                 },
                 Children::spawn((
-                    Spawn(Text::new("Scrollarea with overlay")),
+                    Spawn(Text::new("Scroll area with overlay")),
                     Spawn(scroll_area_with_overlay_demo()),
                 )),
             )),
@@ -193,8 +193,8 @@ fn scroll_area_inside_grid_demo() -> impl Bundle {
 /// - The scroll area is a flex container that contains the scrollable content. This
 ///   is the element that has the `overflow: scroll` property.
 /// - The scrollable content consists of the elements actually displayed in the scrolling area.
-/// - The scroll area overlay is inserted as child element inside scrollarea and is positioned
-///   in a way so that it is drawn on top of the scrollarea. Scrollbars are inserted inside
+/// - The scroll area overlay is inserted as child element inside scroll area and is positioned
+///   in a way so that it is drawn on top of the scroll area. Scrollbars are inserted inside
 ///   overlay.
 ///
 /// Scrollbars can be positioned on top of the content or explicit space can be allocated using
@@ -235,7 +235,7 @@ fn scroll_area_with_overlay_demo() -> impl Bundle {
     )
 }
 
-/// Function inserts scrollarea overlay with scrollbars
+/// Function inserts scroll area overlay with scrollbars
 fn scroll_area_overlay_for_overlay_demo() -> impl SpawnableList<ChildOf> {
     SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
         // Note that we're using `SpawnWith` here because we need to get the entity id of the
@@ -249,14 +249,15 @@ fn scroll_area_overlay_for_overlay_demo() -> impl SpawnableList<ChildOf> {
                 top: px(0),
                 width: percent(100.),
                 height: percent(100.),
+                overflow: Overflow::visible(),
                 ..Default::default()
             },
-            // Ignore scrollarea clip to position scrollbars outside scrollarea
+            // Ignore scroll area clip to position scrollbars outside scroll area
             // at the space provided by `Node::scrollbar_width`
             IgnoreParentClip,
-            // Keep scrollarea overlay static while scrollarea is scrolled
+            // Keep scroll area overlay static while scroll area is scrolled
             IgnoreScroll(BVec2::TRUE),
-            // Draw scrollarea overlay on top of ui
+            // Draw scroll area overlay on top of ui
             ZIndex(1),
             Children::spawn((
                 Spawn((
