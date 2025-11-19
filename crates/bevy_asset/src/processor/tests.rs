@@ -38,7 +38,8 @@ use crate::{
         CoolTextRon, SubText,
     },
     transformer::{AssetTransformer, TransformedAsset},
-    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, LoadContext,
+    Asset, AssetApp, AssetLoader, AssetMode, AssetPath, AssetPlugin, AssetServer, Assets,
+    LoadContext,
     WriteDefaultMetaError,
 };
 
@@ -1808,5 +1809,107 @@ fn write_default_meta_does_not_overwrite() {
     assert_eq!(
         read_meta_as_string(&source, Path::new(ASSET_PATH)),
         META_TEXT
+    );
+}
+
+#[test]
+fn gates_asset_path_on_process() {
+    let AppWithProcessor {
+        mut app,
+        default_source_dirs:
+            ProcessingDirs {
+                source: default_source_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    /// Gates processing on acquiring the provided lock.
+    ///
+    /// This has different behavior from [`LockGatedReader`]: [`LockGatedReader`] blocks the
+    /// processor from even initializing, and asset loads block on initialization before asset. By
+    /// blocking during processing, we ensure that the loader is actually blocking on the processing
+    /// of the particular path.
+    #[derive(TypePath)]
+    struct GatedProcess<P>(Arc<async_lock::Mutex<()>>, P);
+
+    impl<P: Process> Process for GatedProcess<P> {
+        type Settings = P::Settings;
+        type OutputLoader = P::OutputLoader;
+
+        async fn process(
+            &self,
+            context: &mut ProcessContext<'_>,
+            settings: &Self::Settings,
+            writer: &mut crate::io::Writer,
+        ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
+            let _guard = self.0.lock().await;
+            self.1.process(context, settings, writer).await
+        }
+    }
+
+    type CoolTextProcessor = LoadTransformAndSave<
+        CoolTextLoader,
+        RootAssetTransformer<AddText, CoolText>,
+        CoolTextSaver,
+    >;
+
+    let process_gate = Arc::new(async_lock::Mutex::new(()));
+    app.init_asset::<CoolText>()
+        .init_asset::<SubText>()
+        .register_asset_loader(CoolTextLoader)
+        .register_asset_processor::<GatedProcess<CoolTextProcessor>>(GatedProcess(
+            process_gate.clone(),
+            CoolTextProcessor::new(
+                RootAssetTransformer::new(AddText(" processed".into())),
+                CoolTextSaver,
+            ),
+        ))
+        .set_default_asset_processor::<GatedProcess<CoolTextProcessor>>("cool.ron");
+
+    // Lock the process gate so that we can't complete processing.
+    let guard = process_gate.lock_blocking();
+
+    default_source_dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("abc"));
+
+    let processor = app.world().resource::<AssetProcessor>().clone();
+    run_app_until(&mut app, |_| {
+        (bevy_tasks::block_on(processor.get_state()) == ProcessorState::Processing).then_some(())
+    });
+
+    let handle = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<CoolText>("abc.cool.ron");
+    // Update an arbitrary number of times. If at any point, the asset loads, we know we're not
+    // blocked on processing the asset! Note: If we're not blocking on the processed asset (this
+    // feature is broken), this test would be flaky on multi_threaded (though it should still
+    // deterministically fail on single-threaded).
+    for _ in 0..100 {
+        app.update();
+        assert!(app
+            .world()
+            .resource::<Assets<CoolText>>()
+            .get(&handle)
+            .is_none());
+    }
+
+    // Now processing can finish!
+    drop(guard);
+    // Wait until the asset finishes loading, now that we're not blocked on the processor.
+    run_app_until(&mut app, |world| {
+        world
+            .resource::<Assets<CoolText>>()
+            .get(&handle)
+            .map(|_| ())
+    });
+
+    assert_eq!(
+        app.world()
+            .resource::<Assets<CoolText>>()
+            .get(&handle)
+            .unwrap()
+            .text,
+        "abc processed"
     );
 }
