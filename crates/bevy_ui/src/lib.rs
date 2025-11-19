@@ -27,8 +27,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
 // This is intended to discourage accidental use of the experimental API.
-#[cfg(feature = "bevy_ui_container")]
-pub mod container;
 pub mod experimental;
 mod focus;
 mod geometry;
@@ -79,15 +77,6 @@ use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{propagate_ui_target_cameras, update_clipping_system};
-
-#[cfg(feature = "bevy_ui_container")]
-use crate::container::UiContainerPlugin;
-
-#[cfg(feature = "bevy_ui_container")]
-type FeatureFilter = Without<UiContainerTarget>;
-
-#[cfg(not(feature = "bevy_ui_container"))]
-type FeatureFilter = ();
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -177,9 +166,6 @@ impl Plugin for UiPlugin {
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
             );
-
-        #[cfg(feature = "bevy_ui_container")]
-        app.add_plugins(UiContainerPlugin);
 
         #[cfg(feature = "bevy_picking")]
         app.add_plugins(picking_backend::UiPickingPlugin)

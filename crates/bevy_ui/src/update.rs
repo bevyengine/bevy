@@ -4,9 +4,8 @@ use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
     CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
-    FeatureFilter, Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
+    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
-#[cfg(feature = "bevy_ui_container")]
 use crate::{UiContainerOverflow, UiContainerSize, UiContainerTarget};
 
 use super::ComputedNode;
@@ -17,17 +16,15 @@ use bevy_ecs::{
     query::Has,
     system::{Commands, Query, Res},
 };
-use bevy_math::{Rect, UVec2};
-#[cfg(feature = "bevy_ui_container")]
+use bevy_math::{Rect, UVec2, Vec3Swizzles};
 use bevy_sprite::Anchor;
 use bevy_sprite::BorderRect;
-#[cfg(feature = "bevy_ui_container")]
 use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: UiRootNodes<FeatureFilter>,
+    root_nodes: UiRootNodes,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
@@ -36,8 +33,8 @@ pub fn update_clipping_system(
         Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
-    #[cfg(feature = "bevy_ui_container")] contain_target_query: Query<&UiContainerTarget>,
-    #[cfg(feature = "bevy_ui_container")] contain_query: Query<(
+    contain_target_query: Query<&UiContainerTarget>,
+    contain_query: Query<(
         &UiContainerSize,
         &UiContainerOverflow,
         &Anchor,
@@ -45,14 +42,10 @@ pub fn update_clipping_system(
     )>,
 ) {
     for root_node in root_nodes.iter() {
-        #[cfg(feature = "bevy_ui_container")]
         let clip = {
-            if let Ok(target) = contain_target_query.get(root_node) {
-                use bevy_math::Vec3Swizzles;
-
-                let Ok((size, overflow, anchor, global)) = contain_query.get(target.0) else {
-                    continue;
-                };
+            if let Ok(target) = contain_target_query.get(root_node)
+                && let Ok((size, overflow, anchor, global)) = contain_query.get(target.0)
+            {
                 // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
                 let mut clip_rect = Rect::from_center_size(
                     global.translation().xy() - anchor.as_vec() * size.0.as_vec2(),
@@ -73,9 +66,6 @@ pub fn update_clipping_system(
                 None
             }
         };
-
-        #[cfg(not(feature = "bevy_ui_container"))]
-        let clip = None;
 
         update_clipping(
             &mut commands,
@@ -184,7 +174,9 @@ pub fn propagate_ui_target_cameras(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes<FeatureFilter>,
+    ui_root_nodes: UiRootNodes,
+    query_ui_scale: Query<(&UiScale, &UiContainerSize)>,
+    query_target: Query<&UiContainerTarget>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -200,16 +192,23 @@ pub fn propagate_ui_target_cameras(
             .entity(root_entity)
             .try_insert(Propagate(ComputedUiTargetCamera { camera }));
 
-        let (scale_factor, physical_size) = camera_query
-            .get(camera)
-            .ok()
-            .map(|camera| {
-                (
-                    camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
-                    camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
-                )
-            })
-            .unwrap_or((1., UVec2::ZERO));
+        let (scale_factor, physical_size) = if let Ok(container_target) =
+            query_target.get(root_entity)
+            && let Ok((scale, size)) = query_ui_scale.get(container_target.0)
+        {
+            (scale.0, size.0)
+        } else {
+            camera_query
+                .get(camera)
+                .ok()
+                .map(|camera| {
+                    (
+                        camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                        camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                    )
+                })
+                .unwrap_or((1., UVec2::ZERO))
+        };
 
         commands
             .entity(root_entity)

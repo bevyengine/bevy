@@ -107,7 +107,6 @@ impl Node for UiPassNode {
             error!("Error encountered while rendering the ui phase {err:?}");
         }
 
-        #[cfg(feature = "bevy_ui_container")]
         {
             let container_view_entity = if let Ok(ui_camera_view) = self
                 .ui_camera_view_query

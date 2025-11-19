@@ -23,9 +23,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{
-    clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, FeatureFilter, UiStack,
-};
+use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_camera::{visibility::InheritedVisibility, Camera};
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -108,7 +106,7 @@ pub fn ui_picking(
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
     mut output: MessageWriter<PointerHits>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node), FeatureFilter>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     // Map from each camera to its active pointers and their positions in viewport space

@@ -1,6 +1,6 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, FeatureFilter, Node,
-    OverrideClip, UiStack,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
+    UiContainerTarget, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
 
@@ -18,6 +18,7 @@ use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
+use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -157,9 +158,11 @@ pub fn ui_focus_system(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     touches_input: Res<Touches>,
     ui_stack: Res<UiStack>,
-    mut node_query: Query<NodeQuery, FeatureFilter>,
-    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node), FeatureFilter>,
+    mut node_query: Query<NodeQuery>,
+    clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
+    global_transform_query: Query<&GlobalTransform>,
+    container_target_query: Query<(), With<UiContainerTarget>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -189,7 +192,7 @@ pub fn ui_focus_system(
     let mouse_clicked =
         mouse_button_input.just_pressed(MouseButton::Left) || touches_input.any_just_pressed();
 
-    let camera_cursor_positions: HashMap<Entity, Vec2> = camera_query
+    let (camera_cursor_positions, world_cursor_positions) = camera_query
         .iter()
         .filter_map(|(entity, camera)| {
             // Interactions are only supported for cameras rendering to a window.
@@ -204,16 +207,32 @@ pub fn ui_focus_system(
                 .physical_viewport_rect()
                 .map(|rect| rect.min.as_vec2())
                 .unwrap_or_default();
-            window
+
+            let camera_cursor_position = window
                 .physical_cursor_position()
                 .or_else(|| {
                     touches_input
                         .first_pressed_position()
                         .map(|pos| pos * window.scale_factor())
                 })
-                .map(|cursor_position| (entity, cursor_position - viewport_position))
+                .map(|cursor_position| (entity, cursor_position - viewport_position));
+
+            let world_cursor_position =
+                global_transform_query
+                    .get(entity)
+                    .ok()
+                    .and_then(|position| {
+                        window
+                            .cursor_position()
+                            .map(|cursor| camera.viewport_to_world(position, cursor))
+                            .map(|ray| ray.unwrap().origin.truncate())
+                            .map(|world_position| (entity, world_position))
+                    });
+
+            camera_cursor_position
+                .map(|camera_cursor| (camera_cursor, world_cursor_position.unwrap()))
         })
-        .collect();
+        .collect::<(HashMap<Entity, Vec2>, HashMap<Entity, Vec2>)>();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -237,7 +256,8 @@ pub fn ui_focus_system(
             continue;
         };
 
-        let cursor_position = camera_cursor_positions.get(&camera_entity);
+        let camera_cursor_position = camera_cursor_positions.get(&camera_entity);
+        let world_cursor_position = world_cursor_positions.get(&camera_entity);
 
         for entity in uinodes.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
@@ -258,15 +278,22 @@ pub fn ui_focus_system(
                 continue;
             }
 
-            let contains_cursor = cursor_position.is_some_and(|point| {
-                node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
-            });
+            let contains_cursor = if container_target_query.contains(entity) {
+                world_cursor_position.is_some_and(|point| {
+                    node.node.contains_point(*node.transform, *point)
+                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                })
+            } else {
+                camera_cursor_position.is_some_and(|point| {
+                    node.node.contains_point(*node.transform, *point)
+                        && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
+                })
+            };
 
             // The mouse position relative to the node
             // (-0.5, -0.5) is the top-left corner, (0.5, 0.5) is the bottom-right corner
             // Coordinates are relative to the entire node, not just the visible region.
-            let normalized_cursor_position = cursor_position.and_then(|cursor_position| {
+            let normalized_cursor_position = camera_cursor_position.and_then(|cursor_position| {
                 // ensure node size is non-zero in all dimensions, otherwise relative position will be
                 // +/-inf. if the node is hidden, the visible rect min/max will also be -inf leading to
                 // false positives for mouse_over (#12395)
@@ -348,7 +375,7 @@ pub fn ui_focus_system(
 pub fn clip_check_recursive(
     point: Vec2,
     entity: Entity,
-    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node), FeatureFilter>,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {

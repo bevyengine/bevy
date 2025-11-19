@@ -284,9 +284,6 @@ ui_picking = ["bevy_internal/ui_picking"]
 # Provides a debug overlay for bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
 
-# Provides transform in world for bevy UI
-bevy_ui_container = ["bevy_internal/bevy_ui_container"]
-
 # Force dynamic linking, which improves iterative compile times
 dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
@@ -4018,7 +4015,6 @@ wasm = true
 name = "ui_container"
 path = "examples/ui/ui_container.rs"
 doc-scrape-examples = true
-required-features = ["bevy_ui_container"]
 
 [package.metadata.example.ui_container]
 name = "UI Container"

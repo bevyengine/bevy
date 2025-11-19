@@ -2927,8 +2927,6 @@ pub struct UiContainerTarget(pub Entity);
 #[relationship_target(relationship = UiContainerTarget, linked_spawn)]
 pub struct UiContainerOf(Vec<Entity>);
 
-/// If you want to enable this feature, you need to enable the `bevy_ui_container` feature
-///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// use bevy_ui::UiContainerSize;

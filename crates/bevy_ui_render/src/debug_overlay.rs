@@ -4,12 +4,12 @@ use super::ExtractedUiNodes;
 use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
-use crate::FeatureExtract;
 use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::prelude::ReflectResource;
+use bevy_ecs::query::Has;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -25,6 +25,7 @@ use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
 use bevy_ui::ComputedUiTargetCamera;
+use bevy_ui::UiContainerTarget;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
@@ -70,7 +71,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
@@ -82,7 +83,7 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, maybe_clip, computed_target, _feature) in
+    for (entity, uinode, transform, visibility, maybe_clip, computed_target, is_container) in
         &uinode_query
     {
         if !debug_options.show_hidden && !visibility.get() {
@@ -118,7 +119,7 @@ pub fn extract_debug_overlay(
                 node_type: NodeType::Border(shader_flags::BORDER_ALL),
             },
             main_entity: entity.into(),
-            is_contain: _feature,
+            is_container,
         });
     }
 }

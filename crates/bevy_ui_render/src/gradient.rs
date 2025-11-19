@@ -354,7 +354,7 @@ pub fn extract_gradients(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             AnyOf<(&BackgroundGradient, &BorderGradient)>,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -371,7 +371,7 @@ pub fn extract_gradients(
         inherited_visibility,
         clip,
         (gradient, gradient_border),
-        _feature,
+        is_container,
     ) in &gradients_query
     {
         // Skip invisible images
@@ -421,8 +421,7 @@ pub fn extract_gradients(
                         },
                         main_entity: entity.into(),
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                        #[cfg(feature = "bevy_ui_container")]
-                        is_contain: _feature,
+                        is_container,
                     });
                     continue;
                 }
@@ -636,45 +635,42 @@ pub fn queue_gradient(
             index,
             indexed: true,
         });
-        #[cfg(feature = "bevy_ui_container")]
-        {
-            let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
-                continue;
-            };
+        
+        let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
+            continue;
+        };
 
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &gradients_pipeline,
-                UiGradientPipelineKey {
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                    color_space: gradient.color_space,
-                    hdr: view.hdr,
-                },
-            );
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &gradients_pipeline,
+            UiGradientPipelineKey {
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                color_space: gradient.color_space,
+                hdr: view.hdr,
+            },
+        );
 
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (gradient.render_entity, gradient.main_entity),
-                sort_key: FloatOrd(
-                    gradient.stack_index as f32
-                        + match gradient.node_type {
-                            NodeType::Rect => stack_z_offsets::GRADIENT,
-                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                        },
-                ),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                index,
-                indexed: true,
-            });
-        }
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (gradient.render_entity, gradient.main_entity),
+            sort_key: FloatOrd(
+                gradient.stack_index as f32
+                    + match gradient.node_type {
+                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                    },
+            ),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: true,
+        });
     }
 }
 

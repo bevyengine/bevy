@@ -23,12 +23,10 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-#[cfg(feature = "bevy_ui_container")]
 use bevy_render::view::ColorGrading;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
-#[cfg(feature = "bevy_ui_container")]
 use bevy_ui::UiContainerTarget;
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -359,8 +357,7 @@ pub struct ExtractedUiNode {
     pub main_entity: MainEntity,
     pub render_entity: Entity,
     pub transform: Affine2,
-    #[cfg(feature = "bevy_ui_container")]
-    pub is_contain: bool,
+    pub is_container: bool,
 }
 
 /// The type of UI node.
@@ -433,17 +430,10 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 
         // Run the subgraph on the UI view.
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
-        #[cfg(feature = "bevy_ui_container")]
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container))?;
         Ok(())
     }
 }
-
-#[cfg(not(feature = "bevy_ui_container"))]
-type FeatureExtract = ();
-
-#[cfg(feature = "bevy_ui_container")]
-type FeatureExtract = Has<UiContainerTarget>;
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
@@ -457,7 +447,7 @@ pub fn extract_uinode_background_colors(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &BackgroundColor,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -472,7 +462,7 @@ pub fn extract_uinode_background_colors(
         clip,
         camera,
         background_color,
-        _feature,
+        is_container,
     ) in &uinode_query
     {
         // Skip invisible backgrounds
@@ -508,8 +498,7 @@ pub fn extract_uinode_background_colors(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_container")]
-            is_contain: _feature,
+            is_container,
         });
     }
 }
@@ -527,13 +516,13 @@ pub fn extract_uinode_images(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ImageNode,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image, _feature) in
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image, is_container) in
         &uinode_query
     {
         // Skip invisible images
@@ -597,8 +586,7 @@ pub fn extract_uinode_images(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_container")]
-            is_contain: _feature,
+            is_container,
         });
     }
 }
@@ -616,7 +604,7 @@ pub fn extract_uinode_borders(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -633,7 +621,7 @@ pub fn extract_uinode_borders(
         maybe_clip,
         camera,
         (maybe_border_color, maybe_outline),
-        _feature,
+        is_container,
     ) in &uinode_query
     {
         // Skip invisible borders and removed nodes
@@ -703,8 +691,7 @@ pub fn extract_uinode_borders(
                     },
                     main_entity: entity.into(),
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
         }
@@ -737,8 +724,7 @@ pub fn extract_uinode_borders(
                     node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
                 main_entity: entity.into(),
-                #[cfg(feature = "bevy_ui_container")]
-                is_contain: _feature,
+                is_container,
             });
         }
     }
@@ -771,7 +757,6 @@ const UI_CAMERA_SUBVIEW: u32 = 1;
 /// Entity id of the temporary render entity with the corresponding extracted UI view.
 pub struct UiCameraView {
     pub ui_camera: Entity,
-    #[cfg(feature = "bevy_ui_container")]
     pub ui_container: Entity,
 }
 
@@ -784,12 +769,6 @@ pub struct UiCameraView {
 /// This is the inverse of [`UiCameraView`].
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
-
-#[cfg(not(feature = "bevy_ui_container"))]
-type UiContainerView = ();
-
-#[cfg(feature = "bevy_ui_container")]
-type UiContainerView = (&'static GlobalTransform, Option<&'static ColorGrading>);
 
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
@@ -804,7 +783,8 @@ pub fn extract_ui_camera_view(
                 Has<Hdr>,
                 Option<&UiAntiAlias>,
                 Option<&BoxShadowSamples>,
-                UiContainerView,
+                &'static GlobalTransform,
+                Option<&'static ColorGrading>,
             ),
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
@@ -813,12 +793,17 @@ pub fn extract_ui_camera_view(
 ) {
     live_entities.clear();
 
-    for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples, _contain_view) in
-        &query
+    for (
+        main_entity,
+        render_entity,
+        camera,
+        hdr,
+        ui_anti_alias,
+        shadow_samples,
+        transform,
+        color_grading,
+    ) in &query
     {
-        #[cfg(feature = "bevy_ui_container")]
-        let (transform, color_grading) = _contain_view;
-
         // ignore inactive cameras
         if !camera.is_active {
             commands
@@ -829,7 +814,6 @@ pub fn extract_ui_camera_view(
         }
 
         if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
-            #[cfg(feature = "bevy_ui_container")]
             let Some(viewport_size) = camera.physical_viewport_size() else {
                 continue;
             };
@@ -872,12 +856,10 @@ pub fn extract_ui_camera_view(
                 ))
                 .id();
 
-            #[cfg(feature = "bevy_ui_container")]
             let color_grading = color_grading.unwrap_or(&ColorGrading::default()).clone();
 
             let retained_view_entity_contain = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-            #[cfg(feature = "bevy_ui_container")]
             let ui_contain_camera_view = commands
                 .spawn((
                     ExtractedView {
@@ -906,7 +888,6 @@ pub fn extract_ui_camera_view(
             // Link from the main 2D/3D camera view to the UI view.
             entity_commands.insert(UiCameraView {
                 ui_camera: ui_camera_view,
-                #[cfg(feature = "bevy_ui_container")]
                 ui_container: ui_contain_camera_view,
             });
             if let Some(ui_anti_alias) = ui_anti_alias {
@@ -939,14 +920,22 @@ pub fn extract_viewport_nodes(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ViewportNode,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node, _feature) in
-        &uinode_query
+    for (
+        entity,
+        uinode,
+        transform,
+        inherited_visibility,
+        clip,
+        camera,
+        viewport_node,
+        is_container,
+    ) in &uinode_query
     {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
@@ -986,8 +975,7 @@ pub fn extract_viewport_nodes(
                 node_type: NodeType::Rect,
             },
             main_entity: entity.into(),
-            #[cfg(feature = "bevy_ui_container")]
-            is_contain: _feature,
+            is_container,
         });
     }
 }
@@ -1007,7 +995,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -1027,7 +1015,7 @@ pub fn extract_text_sections(
         computed_block,
         text_color,
         text_layout_info,
-        _feature,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1091,8 +1079,7 @@ pub fn extract_text_sections(
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
                     transform,
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
                 start = end;
             }
@@ -1117,7 +1104,7 @@ pub fn extract_text_shadows(
             &TextLayoutInfo,
             &TextShadow,
             &ComputedTextBlock,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_decoration_query: Extract<Query<(Has<Strikethrough>, Has<Underline>)>>,
@@ -1137,7 +1124,7 @@ pub fn extract_text_shadows(
         text_layout_info,
         shadow,
         computed_block,
-        _feature,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1187,8 +1174,7 @@ pub fn extract_text_shadows(
                     extracted_camera_entity,
                     item: ExtractedUiItem::Glyphs { range: start..end },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
                 start = end;
             }
@@ -1226,8 +1212,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
 
@@ -1253,8 +1238,7 @@ pub fn extract_text_shadows(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
         }
@@ -1274,7 +1258,7 @@ pub fn extract_text_decorations(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &TextLayoutInfo,
-            FeatureExtract,
+            Has<UiContainerTarget>,
         )>,
     >,
     text_background_colors_query: Extract<
@@ -1297,7 +1281,7 @@ pub fn extract_text_decorations(
         clip,
         camera,
         text_layout_info,
-        _feature,
+        is_container,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1346,8 +1330,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
 
@@ -1378,8 +1361,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
 
@@ -1410,8 +1392,7 @@ pub fn extract_text_decorations(
                         node_type: NodeType::Rect,
                     },
                     main_entity: entity.into(),
-                    #[cfg(feature = "bevy_ui_container")]
-                    is_contain: _feature,
+                    is_container,
                 });
             }
         }
@@ -1505,8 +1486,7 @@ pub fn queue_uinodes(
     let mut current_phase = None;
 
     for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-        #[cfg(feature = "bevy_ui_container")]
-        if extracted_uinode.is_contain {
+        if extracted_uinode.is_container {
             continue;
         }
 
@@ -1553,14 +1533,13 @@ pub fn queue_uinodes(
         });
     }
 
-    #[cfg(feature = "bevy_ui_container")]
     {
         current_camera_entity = Entity::PLACEHOLDER;
 
         current_phase = None;
 
         for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-            if !extracted_uinode.is_contain {
+            if !extracted_uinode.is_container {
                 continue;
             }
 
@@ -1823,15 +1802,11 @@ pub fn prepare_uinodes(
                             }
                         }
                         let uvs = if flags == shader_flags::UNTEXTURED {
-                            #[cfg(feature = "bevy_ui_container")]
-                            if extracted_uinode.is_contain {
+                            if extracted_uinode.is_container {
                                 [Vec2::Y, Vec2::ONE, Vec2::X, Vec2::ZERO]
                             } else {
                                 [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                             }
-
-                            #[cfg(not(feature = "bevy_ui_container"))]
-                            [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
                         } else {
                             let image = gpu_images
                                 .get(extracted_uinode.image)
@@ -1855,8 +1830,7 @@ pub fn prepare_uinodes(
                                 positions_diff[3].y *= -1.;
                             }
 
-                            #[cfg(feature = "bevy_ui_container")]
-                            if extracted_uinode.is_contain {
+                            if extracted_uinode.is_container {
                                 [
                                     Vec2::new(
                                         uinode_rect.min.x + positions_diff[3].x,
@@ -1897,27 +1871,6 @@ pub fn prepare_uinodes(
                                 ]
                                 .map(|pos| pos / atlas_extent)
                             }
-
-                            #[cfg(not(feature = "bevy_ui_container"))]
-                            [
-                                Vec2::new(
-                                    uinode_rect.min.x + positions_diff[0].x,
-                                    uinode_rect.min.y + positions_diff[0].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.max.x + positions_diff[1].x,
-                                    uinode_rect.min.y + positions_diff[1].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.max.x + positions_diff[2].x,
-                                    uinode_rect.max.y + positions_diff[2].y,
-                                ),
-                                Vec2::new(
-                                    uinode_rect.min.x + positions_diff[3].x,
-                                    uinode_rect.max.y + positions_diff[3].y,
-                                ),
-                            ]
-                            .map(|pos| pos / atlas_extent)
                         };
 
                         let color = color.to_f32_array();
@@ -1934,10 +1887,7 @@ pub fn prepare_uinodes(
                                 radius: (*border_radius).into(),
                                 border: [border.left, border.top, border.right, border.bottom],
                                 size: rect_size.into(),
-                                #[cfg(not(feature = "bevy_ui_container"))]
-                                point: points[i].into(),
-                                #[cfg(feature = "bevy_ui_container")]
-                                point: if extracted_uinode.is_contain {
+                                point: if extracted_uinode.is_container {
                                     Affine2::from_scale(Vec2::new(1.0, -1.0))
                                         .transform_point2(points[i])
                                         .into()

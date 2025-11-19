@@ -1,6 +1,5 @@
 //! Pointing to [`UiContainerSize`],layout based on this container size.
 //! Nodes will be laid out according to the size and Transform of `UiContainerSize`
-//! This example requires enabling the `bevy_ui_container` feature
 
 use bevy::{
     app::Propagate,

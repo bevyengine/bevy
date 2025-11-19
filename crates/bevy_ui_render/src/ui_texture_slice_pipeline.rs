@@ -317,42 +317,7 @@ pub fn queue_ui_slices(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
-    #[cfg(not(feature = "bevy_ui_container"))]
-    for (index, extracted_slicer) in extracted_ui_slicers.slices.iter().enumerate() {
-        let Ok(default_camera_view) =
-            render_views.get_mut(extracted_slicer.extracted_camera_entity)
-        else {
-            continue;
-        };
 
-        let Ok(view) = camera_views.get(default_camera_view.ui_camera) else {
-            continue;
-        };
-
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_slicer_pipeline,
-            UiTextureSlicePipelineKey { hdr: view.hdr },
-        );
-
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
-            sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            index,
-            indexed: true,
-        });
-    }
-
-    #[cfg(feature = "bevy_ui_container")]
     for (index, extracted_slicer) in extracted_ui_slicers.slices.iter().enumerate() {
         let Ok(default_camera_view) =
             render_views.get_mut(extracted_slicer.extracted_camera_entity)
