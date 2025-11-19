@@ -31,8 +31,8 @@ use crate::{
     },
     processor::{
         AssetProcessor, GetProcessorError, LoadTransformAndSave, LogEntry, Process, ProcessContext,
-        ProcessError, ProcessorState, ProcessorTransactionLog, ProcessorTransactionLogFactory,
-        WriterContext,
+        ProcessError, ProcessStatus, ProcessorState, ProcessorTransactionLog,
+        ProcessorTransactionLogFactory, WriterContext,
     },
     saver::AssetSaver,
     tests::{
@@ -2218,4 +2218,274 @@ fn asset_processor_can_write_multiple_files() {
     },
 )"#
     );
+}
+
+#[test]
+fn error_on_no_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct NoWriterProcess;
+
+    impl Process for NoWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            _: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Don't start a writer!
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(NoWriterProcess)
+        .set_default_asset_processor::<NoWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to not having a writer.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn error_on_unfinished_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct UnfinishedWriterProcess;
+
+    impl Process for UnfinishedWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            let _writer = writer_context.write_single().await?;
+            // Don't call finish on the writer!
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(UnfinishedWriterProcess)
+        .set_default_asset_processor::<UnfinishedWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to having a writer that we didn't await finish on.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn error_on_single_writer_after_multiple_writer() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct SingleAfterMultipleWriterProcess;
+
+    impl Process for SingleAfterMultipleWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Properly write a "multiple".
+            let writer = writer_context
+                .write_multiple(Path::new("multi.txt"))
+                .await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            // Now trying writing "single", which conflicts!
+            let writer = writer_context.write_single().await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(SingleAfterMultipleWriterProcess)
+        .set_default_asset_processor::<SingleAfterMultipleWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to having a single writer after a multiple writer.
+    assert_eq!(process_status, ProcessStatus::Failed);
+}
+
+#[test]
+fn processor_can_parallelize_multiple_writes() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs:
+            ProcessingDirs {
+                source: source_dir,
+                processed: processed_dir,
+                ..
+            },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct ParallelizedWriterProcess;
+
+    impl Process for ParallelizedWriterProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            let mut writer_1 = writer_context.write_multiple(Path::new("a.txt")).await?;
+            let mut writer_2 = writer_context.write_multiple(Path::new("b.txt")).await?;
+
+            // Note: this call is blocking, so it's undesirable in production code using
+            // single-threaded mode (e.g., platforms like Wasm). For this test though, it's not a
+            // big deal.
+            bevy_tasks::IoTaskPool::get().scope(|scope| {
+                scope.spawn(async {
+                    writer_1.write_all(b"abc123").await.unwrap();
+                    writer_1.finish::<CoolTextLoader>(()).await.unwrap();
+                });
+                scope.spawn(async {
+                    writer_2.write_all(b"def456").await.unwrap();
+                    writer_2.finish::<CoolTextLoader>(()).await.unwrap();
+                });
+            });
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(ParallelizedWriterProcess)
+        .set_default_asset_processor::<ParallelizedWriterProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    assert_eq!(
+        &read_asset_as_string(&processed_dir, Path::new("whatever.txt/a.txt")),
+        "abc123"
+    );
+    assert_eq!(
+        &read_asset_as_string(&processed_dir, Path::new("whatever.txt/b.txt")),
+        "def456"
+    );
+}
+
+#[test]
+fn error_on_two_multiple_writes_for_same_path() {
+    let AppWithProcessor {
+        mut app,
+        source_gate,
+        default_source_dirs: ProcessingDirs {
+            source: source_dir, ..
+        },
+        ..
+    } = create_app_with_asset_processor(&[]);
+
+    #[derive(TypePath)]
+    struct TwoMultipleWritesForSamePathProcess;
+
+    impl Process for TwoMultipleWritesForSamePathProcess {
+        type Settings = ();
+
+        async fn process(
+            &self,
+            _: &mut ProcessContext<'_>,
+            _: &Self::Settings,
+            writer_context: WriterContext<'_>,
+        ) -> Result<(), ProcessError> {
+            // Properly write a "multiple".
+            let writer = writer_context
+                .write_multiple(Path::new("multi.txt"))
+                .await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            // Properly write to the same "multiple".
+            let writer = writer_context
+                .write_multiple(Path::new("multi.txt"))
+                .await?;
+            writer.finish::<CoolTextLoader>(()).await?;
+
+            Ok(())
+        }
+    }
+
+    app.register_asset_processor(TwoMultipleWritesForSamePathProcess)
+        .set_default_asset_processor::<TwoMultipleWritesForSamePathProcess>("txt");
+
+    let guard = source_gate.write_blocking();
+    source_dir.insert_asset_text(Path::new("whatever.txt"), "");
+
+    run_app_until_finished_processing(&mut app, guard);
+
+    let process_status = bevy_tasks::block_on(
+        app.world()
+            .resource::<AssetProcessor>()
+            .data()
+            .wait_until_processed("whatever.txt".into()),
+    );
+    // The process failed due to writing "multiple" to the same path twice.
+    assert_eq!(process_status, ProcessStatus::Failed);
 }
