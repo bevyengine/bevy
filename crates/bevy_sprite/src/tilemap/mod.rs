@@ -52,8 +52,7 @@ impl Tilemap {
     }
 
     /// Get the coordinates with in a chunk from a tiles global coordinates.
-    // TODO: NAME THIS BETTER
-    pub fn tile_chunk_local_position(&self, tile_position: IVec2) -> UVec2 {
+    pub fn tile_relative_position(&self, tile_position: IVec2) -> UVec2 {
         let chunk_size = self
             .chunk_size
             .try_into()

@@ -1,4 +1,4 @@
-use std::any::type_name;
+use std::{any::type_name, marker::PhantomData};
 
 use crate::{AlphaMode2d, MeshMaterial2d};
 use bevy_app::{App, Plugin, Update};
@@ -14,7 +14,7 @@ use bevy_math::{primitives::Rectangle, UVec2};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_sprite::{InMap, SetTile, TileCoord, TileData, TileStorage, Tilemap};
+use bevy_sprite::{InMap, RemoveTile, SetTile, TileCoord, TileData, TileStorage, Tilemap};
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use tracing::{trace, warn};
@@ -32,7 +32,7 @@ impl Plugin for TilemapChunkPlugin {
         app.init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
         app.world_mut().register_component_hooks::<TileStorage<TileRenderData>>().on_insert(on_insert_chunk_tile_render_data);
-        app.world_mut().register_component_hooks::<TileRenderData>().on_insert(on_insert_tile_render_data);
+        app.world_mut().register_component_hooks::<TileRenderData>().on_insert(on_insert_tile_render_data).on_remove(on_remove_tile_render_data);
     }
 }
 
@@ -139,6 +139,7 @@ fn on_insert_chunk_tile_render_data(mut world: DeferredWorld, HookContext { enti
 /// Data for a single tile in the tilemap chunk.
 #[derive(Component, Clone, Copy, Debug, Reflect)]
 #[reflect(Clone, Debug, Default)]
+#[component(immutable)]
 pub struct TileRenderData {
     /// The index of the tile in the corresponding tileset array texture.
     pub tileset_index: u16,
@@ -293,7 +294,6 @@ pub fn update_tilemap_chunk_indices(
     }
 }
 
-
 fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
     let Ok(tile) = world.get_entity(entity) else {
         warn!("Tile {} not found", entity);
@@ -319,6 +319,35 @@ fn on_insert_tile_render_data(mut world: DeferredWorld, HookContext { entity, ..
                 tilemap_id: in_map.0,
                 tile_position: tile_position.0,
                 maybe_tile: Some(tile_render_data),
+            }.apply(world);
+        });
+}
+
+fn on_remove_tile_render_data(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+    let Ok(tile) = world.get_entity(entity) else {
+        warn!("Tile {} not found", entity);
+        return;
+    };
+    let Some(in_map) = tile.get::<InMap>().cloned() else {
+        warn!("Tile {} is not in a TileMap", entity);
+        return;
+    };
+    let Some(tile_position) = tile.get::<TileCoord>().cloned() else {
+        warn!("Tile {} has no tile coord.", entity);
+        return;
+    };
+    let Some(tile_render_data) = tile.get::<TileRenderData>().cloned()  else {
+        warn!("Tile {} does not have TileRenderData", entity);
+        return;
+    };
+
+    world
+        .commands()
+        .queue(move |world: &mut World| {
+            SetTile::<TileRenderData> {
+                tilemap_id: in_map.0,
+                tile_position: tile_position.0,
+                maybe_tile: None,
             }.apply(world);
         });
 }

@@ -1,19 +1,40 @@
 use std::ops::Deref;
 
-use bevy_ecs::{component::Component, entity::Entity, name::Name, reflect::ReflectComponent};
+use bevy_ecs::{
+    change_detection::{DetectChangesMut, MutUntyped},
+    component::{Component, ComponentId},
+    entity::Entity,
+    lifecycle::HookContext,
+    name::Name,
+    ptr::PtrMut,
+    reflect::ReflectComponent,
+    world::{DeferredWorld, World},
+};
 use bevy_math::{URect, UVec2};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
+use tracing::error;
+
+use crate::TileData;
+
+#[derive(Component, Clone, Debug, Default)]
+#[require(Name::new("TileStorage"), Transform)]
+pub struct TileStorages {
+    // Stores removal operations
+    pub(crate) removals: HashMap<ComponentId, fn(MutUntyped<'_>, UVec2)>,
+}
 
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
-#[require(Name::new("TileStorage"), Transform)]
-pub struct TileStorage<T> {
+#[require(Name::new("TileStorage"), TileStorages, Transform)]
+#[component(on_add = on_add_tile_storage::<T>)]
+pub struct TileStorage<T: TileData> {
     pub tiles: Vec<Option<T>>,
     size: UVec2,
 }
 
-impl<T> TileStorage<T> {
+impl<T: TileData> TileStorage<T> {
     pub fn new(size: UVec2) -> Self {
         let mut tiles = Vec::new();
         tiles.resize_with(size.element_product() as usize, Default::default);
@@ -78,5 +99,45 @@ impl<T> TileStorage<T> {
 
     pub fn size(&self) -> UVec2 {
         self.size
+    }
+}
+
+fn on_add_tile_storage<T: TileData>(
+    mut world: DeferredWorld<'_>,
+    HookContext {
+        component_id,
+        entity,
+        ..
+    }: HookContext,
+) {
+    world.commands().queue(move |world: &mut World| {
+        let Ok(mut tile_storage_entity) = world.get_entity_mut(entity) else {
+            error!("Could not fine Tile Storage {}", entity);
+            return;
+        };
+
+        if let Some(mut storages) = tile_storage_entity.get_mut::<TileStorages>() {
+            storages.removals.insert(component_id, remove_tile::<T>);
+        } else {
+            let mut tile_storages = TileStorages {
+                removals: HashMap::with_capacity(1),
+            };
+            tile_storages
+                .removals
+                .insert(component_id, remove_tile::<T>);
+            tile_storage_entity.insert(tile_storages);
+        }
+    })
+}
+
+fn remove_tile<T: TileData>(mut raw: MutUntyped<'_>, tile_coord: UVec2) {
+    #[expect(unsafe_code, reason = "testing")]
+    let storage = unsafe {
+        raw.bypass_change_detection()
+            .reborrow()
+            .deref_mut::<TileStorage<T>>()
+    };
+    if storage.remove(tile_coord).is_some() {
+        raw.set_changed();
     }
 }
