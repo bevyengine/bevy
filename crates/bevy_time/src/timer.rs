@@ -5,13 +5,25 @@ use core::time::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
-/// Non repeating timers will stop tracking and stay in the finished state until reset.
-/// Repeating timers will only be in the finished state on each tick `duration` is reached or
-/// exceeded, and can still be reset at any given point.
-///
-/// Paused timers will not have elapsed time increased.
-///
 /// Note that in order to advance the timer [`tick`](Timer::tick) **MUST** be called.
+///
+/// # Timer modes
+///
+/// There are two timer modes ([`TimerMode`]):
+///
+/// - Non repeating timers will stop tracking and stay in the finished state until reset.
+/// - Repeating timers will only be in the finished state on each tick `duration` is reached or
+///   exceeded, and can still be reset at any given point.
+///
+/// # Pausing timers
+///
+/// You can pause a timer using [`Timer::pause`]. Paused timers will not have elapsed time increased.
+///
+/// # Elapsing multiple times a frame
+///
+/// Repeating timers might elapse multiple times per frame if the time is advanced by more than the timer duration.
+/// You can check how many times a timer elapsed each tick with [`Timer::times_finished_this_tick`].
+/// For non-repeating timers, this will always be 0 or 1.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(
@@ -79,35 +91,6 @@ impl Timer {
     /// ```
     #[inline]
     pub fn is_finished(&self) -> bool {
-        self.finished
-    }
-
-    /// Returns `true` if the timer has reached its duration.
-    ///
-    /// For repeating timers, this method behaves identically to [`Timer::just_finished`].
-    ///
-    /// # Examples
-    /// ```
-    /// # use bevy_time::*;
-    /// use std::time::Duration;
-    ///
-    /// let mut timer_once = Timer::from_seconds(1.0, TimerMode::Once);
-    /// timer_once.tick(Duration::from_secs_f32(1.5));
-    /// assert!(timer_once.finished());
-    /// timer_once.tick(Duration::from_secs_f32(0.5));
-    /// assert!(timer_once.finished());
-    ///
-    /// let mut timer_repeating = Timer::from_seconds(1.0, TimerMode::Repeating);
-    /// timer_repeating.tick(Duration::from_secs_f32(1.1));
-    /// assert!(timer_repeating.finished());
-    /// timer_repeating.tick(Duration::from_secs_f32(0.8));
-    /// assert!(!timer_repeating.finished());
-    /// timer_repeating.tick(Duration::from_secs_f32(0.6));
-    /// assert!(timer_repeating.finished());
-    /// ```
-    #[deprecated(since = "0.17.0", note = "Use `is_finished` instead")]
-    #[inline]
-    pub fn finished(&self) -> bool {
         self.finished
     }
 
@@ -206,6 +189,21 @@ impl Timer {
     #[inline]
     pub fn set_duration(&mut self, duration: Duration) {
         self.duration = duration;
+    }
+
+    /// Finishes the timer.
+    ///
+    /// # Examples
+    /// ```
+    /// # use bevy_time::*;
+    /// let mut timer = Timer::from_seconds(1.5, TimerMode::Once);
+    /// timer.finish();
+    /// assert!(timer.is_finished());
+    /// ```
+    #[inline]
+    pub fn finish(&mut self) {
+        let remaining = self.remaining();
+        self.tick(remaining);
     }
 
     /// Returns the mode of the timer.
@@ -353,26 +351,6 @@ impl Timer {
     /// ```
     #[inline]
     pub fn is_paused(&self) -> bool {
-        self.stopwatch.is_paused()
-    }
-
-    /// Returns `true` if the timer is paused.
-    ///
-    /// See also [`Stopwatch::is_paused`](Stopwatch::is_paused).
-    ///
-    /// # Examples
-    /// ```
-    /// # use bevy_time::*;
-    /// let mut timer = Timer::from_seconds(1.0, TimerMode::Once);
-    /// assert!(!timer.paused());
-    /// timer.pause();
-    /// assert!(timer.paused());
-    /// timer.unpause();
-    /// assert!(!timer.paused());
-    /// ```
-    #[deprecated(since = "0.17.0", note = "Use `is_paused` instead")]
-    #[inline]
-    pub fn paused(&self) -> bool {
         self.stopwatch.is_paused()
     }
 

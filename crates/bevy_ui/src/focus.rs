@@ -1,13 +1,14 @@
 use crate::{
-    picking_backend::clip_check_recursive, ui_transform::UiGlobalTransform, ComputedNode,
-    ComputedNodeTarget, Node, UiStack,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
+    UiStack,
 };
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
     hierarchy::ChildOf,
     prelude::{Component, With},
-    query::QueryData,
+    query::{QueryData, Without},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -15,7 +16,6 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -140,13 +140,14 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
 pub fn ui_focus_system(
+    mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -156,7 +157,7 @@ pub fn ui_focus_system(
     ui_stack: Res<UiStack>,
     mut node_query: Query<NodeQuery>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
-    child_of_query: Query<&ChildOf>,
+    child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -175,10 +176,10 @@ pub fn ui_focus_system(
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in &mut node_query {
-            if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Pressed {
-                    *interaction = Interaction::None;
-                }
+            if let Some(mut interaction) = node.interaction
+                && *interaction == Interaction::Pressed
+            {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -215,17 +216,36 @@ pub fn ui_focus_system(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    let mut hovered_nodes = ui_stack
-        .uinodes
+
+    hovered_nodes.clear();
+    // reverse the iterator to traverse the tree from closest slice to furthest
+    for uinodes in ui_stack
+        .partition
         .iter()
-        // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
-        .filter_map(|entity| {
-            let Ok(node) = node_query.get_mut(*entity) else {
-                return None;
+        .map(|range| &ui_stack.uinodes[range.clone()])
+    {
+        // Retrieve the first node and resolve its camera target.
+        // Only need to do this once per slice, as all the nodes in the slice share the same camera.
+        let Ok(root_node) = node_query.get_mut(uinodes[0]) else {
+            continue;
+        };
+
+        let Some(camera_entity) = root_node.target_camera.get() else {
+            continue;
+        };
+
+        let cursor_position = camera_cursor_positions.get(&camera_entity);
+
+        for entity in uinodes.iter().rev().cloned() {
+            let Ok(node) = node_query.get_mut(entity) else {
+                continue;
             };
 
-            let inherited_visibility = node.inherited_visibility?;
+            let Some(inherited_visibility) = node.inherited_visibility else {
+                continue;
+            };
+
             // Nodes that are not rendered should not be interactable
             if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
@@ -233,15 +253,12 @@ pub fn ui_focus_system(
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                     interaction.set_if_neq(Interaction::None);
                 }
-                return None;
+                continue;
             }
-            let camera_entity = node.target_camera.camera()?;
-
-            let cursor_position = camera_cursor_positions.get(&camera_entity);
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
+                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
             });
 
             // The mouse position relative to the node
@@ -264,27 +281,28 @@ pub fn ui_focus_system(
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
             {
-                *node_relative_cursor_position_component = relative_cursor_position_component;
+                // Avoid triggering change detection when not necessary.
+                node_relative_cursor_position_component
+                    .set_if_neq(relative_cursor_position_component);
             }
 
             if contains_cursor {
-                Some(*entity)
+                hovered_nodes.push(entity);
             } else {
-                if let Some(mut interaction) = node.interaction {
-                    if *interaction == Interaction::Hovered
-                        || (normalized_cursor_position.is_none())
-                    {
-                        interaction.set_if_neq(Interaction::None);
-                    }
+                if let Some(mut interaction) = node.interaction
+                    && (*interaction == Interaction::Hovered
+                        || (normalized_cursor_position.is_none()))
+                {
+                    interaction.set_if_neq(Interaction::None);
                 }
-                None
+                continue;
             }
-        })
-        .collect::<Vec<Entity>>()
-        .into_iter();
+        }
+    }
 
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
+    let mut hovered_nodes = hovered_nodes.iter();
     let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
@@ -321,4 +339,28 @@ pub fn ui_focus_system(
             }
         }
     }
+}
+
+/// Walk up the tree child-to-parent checking that `point` is not clipped by any ancestor node.
+/// If `entity` has an [`OverrideClip`] component it ignores any inherited clipping and returns true.
+pub fn clip_check_recursive(
+    point: Vec2,
+    entity: Entity,
+    clipping_query: &Query<'_, '_, (&ComputedNode, &UiGlobalTransform, &Node)>,
+    child_of_query: &Query<&ChildOf, Without<OverrideClip>>,
+) -> bool {
+    if let Ok(child_of) = child_of_query.get(entity) {
+        let parent = child_of.0;
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent)
+            && !computed_node
+                .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
+                .contains(transform.inverse().transform_point2(point))
+        {
+            // The point is clipped and should be ignored by picking
+            return false;
+        }
+        return clip_check_recursive(point, parent, clipping_query, child_of_query);
+    }
+    // Reached root, point unclipped by all ancestors
+    true
 }

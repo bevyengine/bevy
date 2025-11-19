@@ -244,6 +244,12 @@ pub struct DynamicBindGroupEntries<'b> {
     entries: Vec<BindGroupEntry<'b>>,
 }
 
+impl<'b> Default for DynamicBindGroupEntries<'b> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<'b> DynamicBindGroupEntries<'b> {
     pub fn sequential<const N: usize>(entries: impl IntoBindingArray<'b, N>) -> Self {
         Self {
@@ -284,6 +290,12 @@ impl<'b> DynamicBindGroupEntries<'b> {
                 .into_iter()
                 .map(|(binding, resource)| BindGroupEntry { binding, resource })
                 .collect(),
+        }
+    }
+
+    pub fn new() -> Self {
+        Self {
+            entries: Vec::new(),
         }
     }
 

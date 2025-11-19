@@ -30,7 +30,7 @@ mod rangefinder;
 
 use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Tick;
+use bevy_ecs::change_detection::Tick;
 use bevy_ecs::entity::EntityHash;
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
@@ -61,13 +61,42 @@ use crate::{
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
     Render, RenderApp, RenderSystems,
 };
+use bevy_ecs::intern::Interned;
 use bevy_ecs::{
+    define_label,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_render::renderer::RenderAdapterInfo;
+pub use bevy_render_macros::ShaderLabel;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
+
+define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(ShaderLabel)]`"
+    )]
+    /// Labels used to uniquely identify types of material shaders
+    ShaderLabel,
+    SHADER_LABEL_INTERNER
+);
+
+/// A shorthand for `Interned<dyn RenderSubGraph>`.
+pub type InternedShaderLabel = Interned<dyn ShaderLabel>;
+
+pub use bevy_render_macros::DrawFunctionLabel;
+
+define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(DrawFunctionLabel)]`"
+    )]
+    /// Labels used to uniquely identify types of material shaders
+    DrawFunctionLabel,
+    DRAW_FUNCTION_LABEL_INTERNER
+);
+
+pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -583,13 +612,13 @@ where
 
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
-        if let Some(old_cached_binned_entity) = old_cached_binned_entity {
-            if old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key {
-                self.entities_that_changed_bins.push(EntityThatChangedBins {
-                    main_entity,
-                    old_cached_binned_entity,
-                });
-            }
+        if let Some(old_cached_binned_entity) = old_cached_binned_entity
+            && old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key
+        {
+            self.entities_that_changed_bins.push(EntityThatChangedBins {
+                main_entity,
+                old_cached_binned_entity,
+            });
         }
 
         // Mark the entity as valid.
@@ -629,9 +658,12 @@ where
         let mut draw_functions = draw_functions.write();
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter_info = world.resource::<RenderAdapterInfo>();
         let multi_draw_indirect_count_supported = render_device
             .features()
-            .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+            .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+            // TODO: https://github.com/gfx-rs/wgpu/issues/7974
+            && !matches!(render_adapter_info.backend, wgpu::Backend::Dx12);
 
         match self.batch_sets {
             BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
@@ -872,11 +904,10 @@ where
     ) -> bool {
         if let indexmap::map::Entry::Occupied(entry) =
             self.cached_entity_bin_keys.entry(visible_entity)
+            && entry.get().change_tick == current_change_tick
         {
-            if entry.get().change_tick == current_change_tick {
-                self.valid_cached_entity_bin_keys.insert(entry.index());
-                return true;
-            }
+            self.valid_cached_entity_bin_keys.insert(entry.index());
+            return true;
         }
 
         false

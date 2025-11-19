@@ -55,6 +55,12 @@ enum Action {
         /// This defaults to frame 250. Set it to 0 to not stop the example automatically.
         stop_frame: u32,
 
+        #[arg(long, default_value = "false")]
+        /// Automatically ends after taking a screenshot
+        ///
+        /// Only works if `screenshot-frame` is set to non-0, and overrides `stop-frame`.
+        auto_stop_frame: bool,
+
         #[arg(long)]
         /// Which frame to take a screenshot at. Set to 0 for no screenshot.
         screenshot_frame: u32,
@@ -150,6 +156,7 @@ fn main() {
         Action::Run {
             wgpu_backend,
             stop_frame,
+            auto_stop_frame,
             screenshot_frame,
             fixed_frame_time,
             in_ci,
@@ -183,11 +190,21 @@ fn main() {
 
             let mut extra_parameters = vec![];
 
-            match (stop_frame, screenshot_frame) {
+            match (stop_frame, screenshot_frame, auto_stop_frame) {
                 // When the example does not automatically stop nor take a screenshot.
-                (0, 0) => (),
+                (0, 0, _) => (),
+                // When the example automatically stops at an automatic frame.
+                (0, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example does not automatically stop.
-                (0, _) => {
+                (0, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot)])").as_bytes(),
@@ -197,15 +214,25 @@ fn main() {
                     extra_parameters.push("bevy_ci_testing");
                 }
                 // When the example does not take a screenshot.
-                (_, 0) => {
+                (_, 0, _) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(format!("(events: [({stop_frame}, AppExit)])").as_bytes())
                         .unwrap();
                     extra_parameters.push("--features");
                     extra_parameters.push("bevy_ci_testing");
                 }
+                // When the example both automatically stops at an automatic frame and takes a screenshot.
+                (_, _, true) => {
+                    let mut file = File::create("example_showcase_config.ron").unwrap();
+                    file.write_all(
+                        format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, ScreenshotAndExit)])").as_bytes(),
+                    )
+                    .unwrap();
+                    extra_parameters.push("--features");
+                    extra_parameters.push("bevy_ci_testing");
+                }
                 // When the example both automatically stops and takes a screenshot.
-                (_, _) => {
+                (_, _, false) => {
                     let mut file = File::create("example_showcase_config.ron").unwrap();
                     file.write_all(
                         format!("(setup: (fixed_frame_time: Some({fixed_frame_time})), events: [({screenshot_frame}, Screenshot), ({stop_frame}, AppExit)])").as_bytes(),
@@ -307,12 +334,6 @@ fn main() {
                     .map(ToString::to_string)
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
-
-                for command in &to_run.setup {
-                    let exe = &command[0];
-                    let args = &command[1..];
-                    cmd!(sh, "{exe} {args...}").run().unwrap();
-                }
 
                 let _ = cmd!(
                     sh,
@@ -465,7 +486,8 @@ fn main() {
             content_folder,
             api,
         } => {
-            let examples_to_run = parse_examples();
+            let mut examples_to_run = parse_examples();
+            examples_to_run.sort_by_key(|e| format!("{}-{}", e.category, e.name));
 
             let root_path = Path::new(&content_folder);
 
@@ -814,23 +836,6 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
-                setup: metadata
-                    .get("setup")
-                    .map(|setup| {
-                        setup
-                            .as_array()
-                            .unwrap()
-                            .into_iter()
-                            .map(|v| {
-                                v.as_array()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|v| v.as_str().unwrap().to_string())
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
                 example_type: match val.get("crate-type") {
                     Some(crate_type) => {
                         match crate_type
@@ -874,8 +879,6 @@ struct Example {
     /// Does this example work in Wasm?
     // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
     wasm: bool,
-    /// List of commands to run before the example. Can be used for example to specify data to download
-    setup: Vec<Vec<String>>,
     /// Type of example
     example_type: ExampleType,
 }

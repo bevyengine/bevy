@@ -18,8 +18,21 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
         debug!("Handling event: {:?}", event);
         match event {
             CiTestingEvent::AppExit => {
-                world.send_event(AppExit::Success);
+                world.write_message(AppExit::Success);
                 info!("Exiting after {} frames. Test successful!", *current_frame);
+            }
+            CiTestingEvent::ScreenshotAndExit => {
+                let this_frame = *current_frame;
+                world.spawn(Screenshot::primary_window()).observe(
+                    move |captured: On<bevy_render::view::screenshot::ScreenshotCaptured>,
+                          mut app_exit_writer: MessageWriter<AppExit>| {
+                        let path = format!("./screenshot-{this_frame}.png");
+                        save_to_disk(path)(captured);
+                        info!("Exiting. Test successful!");
+                        app_exit_writer.write(AppExit::Success);
+                    },
+                );
+                info!("Took a screenshot at frame {}.", *current_frame);
             }
             CiTestingEvent::Screenshot => {
                 let path = format!("./screenshot-{}.png", *current_frame);
@@ -29,7 +42,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                 info!("Took a screenshot at frame {}.", *current_frame);
             }
             CiTestingEvent::NamedScreenshot(name) => {
-                let path = format!("./screenshot-{}.png", name);
+                let path = format!("./screenshot-{name}.png");
                 world
                     .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(path));
@@ -40,7 +53,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
             }
             // Custom events are forwarded to the world.
             CiTestingEvent::Custom(event_string) => {
-                world.send_event(CiTestingCustomEvent(event_string));
+                world.write_message(CiTestingCustomEvent(event_string));
             }
         }
     }

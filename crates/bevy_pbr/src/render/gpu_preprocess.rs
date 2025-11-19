@@ -26,24 +26,23 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::{
-    GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
-};
 use bevy_render::{
     batching::gpu_preprocessing::{
-        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
-        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
-        IndirectParametersIndexed, IndirectParametersNonIndexed,
-        LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
-        UntypedPhaseBatchedInstanceBuffers,
+        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
+        GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
+        IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, IndirectParametersIndexed,
+        IndirectParametersNonIndexed, LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem,
+        PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
+        UntypedPhaseIndirectParametersBuffers,
     },
+    diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
-    render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
-        BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
-        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
+        BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindingResource, Buffer,
+        BufferBinding, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
+        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec,
         ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
         TextureSampleType, UninitBufferVec,
     },
@@ -52,7 +51,8 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
-use bevy_utils::TypeIdMap;
+use bevy_shader::Shader;
+use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};
 use tracing::warn;
@@ -244,7 +244,7 @@ pub struct PreprocessPhasePipelines {
 /// The pipeline for the GPU mesh preprocessing shader.
 pub struct PreprocessPipeline {
     /// The bind group layout for the compute shader.
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     /// The shader asset handle.
     pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
@@ -260,7 +260,7 @@ pub struct PreprocessPipeline {
 #[derive(Clone)]
 pub struct ResetIndirectBatchSetsPipeline {
     /// The bind group layout for the compute shader.
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     /// The shader asset handle.
     pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
@@ -273,7 +273,7 @@ pub struct ResetIndirectBatchSetsPipeline {
 #[derive(Clone)]
 pub struct BuildIndirectParametersPipeline {
     /// The bind group layout for the compute shader.
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
     /// The shader asset handle.
     pub shader: Handle<Shader>,
     /// The pipeline ID for the compute shader.
@@ -582,6 +582,8 @@ impl Node for EarlyGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Grab the [`BatchedInstanceBuffers`].
         let batched_instance_buffers =
             world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
@@ -593,9 +595,10 @@ impl Node for EarlyGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("early mesh preprocessing"),
+                    label: Some("early_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
+        let pass_span = diagnostics.pass_span(&mut compute_pass, "early_mesh_preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
         all_views.push(graph.view_entity());
@@ -771,6 +774,8 @@ impl Node for EarlyGpuPreprocessNode {
             }
         }
 
+        pass_span.end(&mut compute_pass);
+
         Ok(())
     }
 }
@@ -818,6 +823,8 @@ impl Node for LateGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Grab the [`BatchedInstanceBuffers`].
         let batched_instance_buffers =
             world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
@@ -829,9 +836,10 @@ impl Node for LateGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("late mesh preprocessing"),
+                    label: Some("late_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
+        let pass_span = diagnostics.pass_span(&mut compute_pass, "late_mesh_preprocessing");
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
@@ -940,6 +948,8 @@ impl Node for LateGpuPreprocessNode {
             }
         }
 
+        pass_span.end(&mut compute_pass);
+
         Ok(())
     }
 }
@@ -967,7 +977,7 @@ impl Node for EarlyPrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.early_phase,
-            "early prepass indirect parameters building",
+            "early_prepass_indirect_parameters_building",
         )
     }
 }
@@ -995,7 +1005,7 @@ impl Node for LatePrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.late_phase,
-            "late prepass indirect parameters building",
+            "late_prepass_indirect_parameters_building",
         )
     }
 }
@@ -1017,7 +1027,7 @@ impl Node for MainBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.main_phase,
-            "main indirect parameters building",
+            "main_indirect_parameters_building",
         )
     }
 }
@@ -1034,6 +1044,8 @@ fn run_build_indirect_parameters_node(
         return Ok(());
     };
 
+    let diagnostics = render_context.diagnostic_recorder();
+
     let pipeline_cache = world.resource::<PipelineCache>();
     let indirect_parameters_buffers = world.resource::<IndirectParametersBuffers>();
 
@@ -1044,6 +1056,7 @@ fn run_build_indirect_parameters_node(
                 label: Some(label),
                 timestamp_writes: None,
             });
+    let pass_span = diagnostics.pass_span(&mut compute_pass, label);
 
     // Fetch the pipeline.
     let (
@@ -1063,6 +1076,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         warn!("The build indirect parameters pipelines weren't ready");
+        pass_span.end(&mut compute_pass);
         return Ok(());
     };
 
@@ -1077,6 +1091,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         // This will happen while the pipeline is being compiled and is fine.
+        pass_span.end(&mut compute_pass);
         return Ok(());
     };
 
@@ -1147,6 +1162,8 @@ fn run_build_indirect_parameters_node(
             }
         }
     }
+
+    pass_span.end(&mut compute_pass);
 
     Ok(())
 }
@@ -1275,16 +1292,13 @@ impl SpecializedComputePipeline for PreprocessPipeline {
             },
             shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
 
 impl FromWorld for PreprocessPipelines {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
         // GPU culling bind group parameters are a superset of those in the CPU
         // culling (direct) shader.
         let direct_bind_group_layout_entries = preprocess_direct_bind_group_layout_entries();
@@ -1313,36 +1327,34 @@ impl FromWorld for PreprocessPipelines {
                 .extend_sequential((storage_buffer::<IndirectParametersNonIndexed>(false),));
 
         // Create the bind group layouts.
-        let direct_bind_group_layout = render_device.create_bind_group_layout(
+        let direct_bind_group_layout = BindGroupLayoutDescriptor::new(
             "build mesh uniforms direct bind group layout",
             &direct_bind_group_layout_entries,
         );
-        let gpu_frustum_culling_bind_group_layout = render_device.create_bind_group_layout(
+        let gpu_frustum_culling_bind_group_layout = BindGroupLayoutDescriptor::new(
             "build mesh uniforms GPU frustum culling bind group layout",
             &gpu_frustum_culling_bind_group_layout_entries,
         );
-        let gpu_early_occlusion_culling_bind_group_layout = render_device.create_bind_group_layout(
+        let gpu_early_occlusion_culling_bind_group_layout = BindGroupLayoutDescriptor::new(
             "build mesh uniforms GPU early occlusion culling bind group layout",
             &gpu_early_occlusion_culling_bind_group_layout_entries,
         );
-        let gpu_late_occlusion_culling_bind_group_layout = render_device.create_bind_group_layout(
+        let gpu_late_occlusion_culling_bind_group_layout = BindGroupLayoutDescriptor::new(
             "build mesh uniforms GPU late occlusion culling bind group layout",
             &gpu_late_occlusion_culling_bind_group_layout_entries,
         );
-        let reset_indirect_batch_sets_bind_group_layout = render_device.create_bind_group_layout(
+        let reset_indirect_batch_sets_bind_group_layout = BindGroupLayoutDescriptor::new(
             "reset indirect batch sets bind group layout",
             &reset_indirect_batch_sets_bind_group_layout_entries,
         );
-        let build_indexed_indirect_params_bind_group_layout = render_device
-            .create_bind_group_layout(
-                "build indexed indirect parameters bind group layout",
-                &build_indexed_indirect_params_bind_group_layout_entries,
-            );
-        let build_non_indexed_indirect_params_bind_group_layout = render_device
-            .create_bind_group_layout(
-                "build non-indexed indirect parameters bind group layout",
-                &build_non_indexed_indirect_params_bind_group_layout_entries,
-            );
+        let build_indexed_indirect_params_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "build indexed indirect parameters bind group layout",
+            &build_indexed_indirect_params_bind_group_layout_entries,
+        );
+        let build_non_indexed_indirect_params_bind_group_layout = BindGroupLayoutDescriptor::new(
+            "build non-indexed indirect parameters bind group layout",
+            &build_non_indexed_indirect_params_bind_group_layout_entries,
+        );
 
         let preprocess_shader = load_embedded_asset!(world, "mesh_preprocess.wgsl");
         let reset_indirect_batch_sets_shader =
@@ -1637,11 +1649,8 @@ impl SpecializedComputePipeline for ResetIndirectBatchSetsPipeline {
         ComputePipelineDescriptor {
             label: Some("reset indirect batch sets".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
             shader: self.shader.clone(),
-            shader_defs: vec![],
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1691,11 +1700,9 @@ impl SpecializedComputePipeline for BuildIndirectParametersPipeline {
         ComputePipelineDescriptor {
             label: Some(label.into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
             shader: self.shader.clone(),
             shader_defs,
-            entry_point: "main".into(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -1742,6 +1749,7 @@ pub fn prepare_preprocess_bind_groups(
     views: Query<(Entity, &ExtractedView)>,
     view_depth_pyramids: Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
     mesh_culling_data_buffer: Res<MeshCullingDataBuffer>,
@@ -1801,6 +1809,7 @@ pub fn prepare_preprocess_bind_groups(
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
                 render_device: &render_device,
+                pipeline_cache: &pipeline_cache,
                 phase_indirect_parameters_buffers,
                 mesh_culling_data_buffer: &mesh_culling_data_buffer,
                 view_uniforms: &view_uniforms,
@@ -1868,6 +1877,7 @@ pub fn prepare_preprocess_bind_groups(
         create_build_indirect_parameters_bind_groups(
             &mut commands,
             &render_device,
+            &pipeline_cache,
             &pipelines,
             current_input_buffer,
             &indirect_parameters_buffers,
@@ -1890,6 +1900,8 @@ struct PreprocessBindGroupBuilder<'a> {
         &'a RawBufferVec<LatePreprocessWorkItemIndirectParameters>,
     /// The device.
     render_device: &'a RenderDevice,
+    /// The pipeline cache
+    pipeline_cache: &'a PipelineCache,
     /// The buffers that store indirect draw parameters.
     phase_indirect_parameters_buffers: &'a UntypedPhaseIndirectParametersBuffers,
     /// The GPU buffer that stores the information needed to cull each mesh.
@@ -1932,7 +1944,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         Some(PhasePreprocessBindGroups::Direct(
             self.render_device.create_bind_group(
                 "preprocess_direct_bind_group",
-                &self.pipelines.direct_preprocess.bind_group_layout,
+                &self
+                    .pipeline_cache
+                    .get_bind_group_layout(&self.pipelines.direct_preprocess.bind_group_layout),
                 &BindGroupEntries::with_indices((
                     (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
@@ -2041,10 +2055,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_early_indexed_gpu_occlusion_culling_bind_group",
-                        &self
-                            .pipelines
-                            .early_gpu_occlusion_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .early_gpu_occlusion_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2139,10 +2155,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_early_non_indexed_gpu_occlusion_culling_bind_group",
-                        &self
-                            .pipelines
-                            .early_gpu_occlusion_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .early_gpu_occlusion_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2234,10 +2252,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_late_indexed_gpu_occlusion_culling_bind_group",
-                        &self
-                            .pipelines
-                            .late_gpu_occlusion_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .late_gpu_occlusion_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2321,10 +2341,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_late_non_indexed_gpu_occlusion_culling_bind_group",
-                        &self
-                            .pipelines
-                            .late_gpu_occlusion_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .late_gpu_occlusion_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2419,10 +2441,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_gpu_indexed_frustum_culling_bind_group",
-                        &self
-                            .pipelines
-                            .gpu_frustum_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .gpu_frustum_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2482,10 +2506,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 Some(
                     self.render_device.create_bind_group(
                         "preprocess_gpu_non_indexed_frustum_culling_bind_group",
-                        &self
-                            .pipelines
-                            .gpu_frustum_culling_preprocess
-                            .bind_group_layout,
+                        &self.pipeline_cache.get_bind_group_layout(
+                            &self
+                                .pipelines
+                                .gpu_frustum_culling_preprocess
+                                .bind_group_layout,
+                        ),
                         &BindGroupEntries::with_indices((
                             (3, self.current_input_buffer.as_entire_binding()),
                             (4, self.previous_input_buffer.as_entire_binding()),
@@ -2517,6 +2543,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 fn create_build_indirect_parameters_bind_groups(
     commands: &mut Commands,
     render_device: &RenderDevice,
+    pipeline_cache: &PipelineCache,
     pipelines: &PreprocessPipelines,
     current_input_buffer: &Buffer,
     indirect_parameters_buffers: &IndirectParametersBuffers,
@@ -2536,10 +2563,12 @@ fn create_build_indirect_parameters_bind_groups(
                             "reset_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
                             // phase too. They bind the same buffers.
-                            &pipelines
-                                .early_phase
-                                .reset_indirect_batch_sets
-                                .bind_group_layout,
+                            &pipeline_cache.get_bind_group_layout(
+                                &pipelines
+                                    .early_phase
+                                    .reset_indirect_batch_sets
+                                    .bind_group_layout,
+                            ),
                             &BindGroupEntries::sequential((
                                 indexed_batch_sets_buffer.as_entire_binding(),
                             )),
@@ -2557,10 +2586,12 @@ fn create_build_indirect_parameters_bind_groups(
                             "reset_non_indexed_indirect_batch_sets_bind_group",
                             // The early bind group is good for the main phase and late
                             // phase too. They bind the same buffers.
-                            &pipelines
-                                .early_phase
-                                .reset_indirect_batch_sets
-                                .bind_group_layout,
+                            &pipeline_cache.get_bind_group_layout(
+                                &pipelines
+                                    .early_phase
+                                    .reset_indirect_batch_sets
+                                    .bind_group_layout,
+                            ),
                             &BindGroupEntries::sequential((
                                 non_indexed_batch_sets_buffer.as_entire_binding(),
                             )),
@@ -2589,9 +2620,11 @@ fn create_build_indirect_parameters_bind_groups(
                             "build_indexed_indirect_parameters_bind_group",
                             // The frustum culling bind group is good for occlusion culling
                             // too. They bind the same buffers.
-                            &pipelines
-                                .gpu_frustum_culling_build_indexed_indirect_params
-                                .bind_group_layout,
+                            &pipeline_cache.get_bind_group_layout(
+                                &pipelines
+                                    .gpu_frustum_culling_build_indexed_indirect_params
+                                    .bind_group_layout,
+                            ),
                             &BindGroupEntries::sequential((
                                 current_input_buffer.as_entire_binding(),
                                 // Don't use `as_entire_binding` here; the shader reads
@@ -2644,9 +2677,11 @@ fn create_build_indirect_parameters_bind_groups(
                             "build_non_indexed_indirect_parameters_bind_group",
                             // The frustum culling bind group is good for occlusion culling
                             // too. They bind the same buffers.
-                            &pipelines
-                                .gpu_frustum_culling_build_non_indexed_indirect_params
-                                .bind_group_layout,
+                            &pipeline_cache.get_bind_group_layout(
+                                &pipelines
+                                    .gpu_frustum_culling_build_non_indexed_indirect_params
+                                    .bind_group_layout,
+                            ),
                             &BindGroupEntries::sequential((
                                 current_input_buffer.as_entire_binding(),
                                 // Don't use `as_entire_binding` here; the shader reads

@@ -1,16 +1,15 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    change_detection::{CheckChangeTicks, ComponentTicks, MaybeLocation, Tick},
+    component::{ComponentId, ComponentInfo, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
-    alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
@@ -132,9 +131,14 @@ impl TableRow {
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
-    columns: SparseSet<ComponentId, ThinColumn>,
-    capacity: usize,
+    columns: SparseSet<ComponentId, Column>,
+    entities: Vec<Entity>,
 }
 
 impl TableBuilder {
@@ -142,16 +146,16 @@ impl TableBuilder {
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            capacity,
+            entities: Vec::with_capacity(capacity),
         }
     }
 
-    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](ThinColumn) using its [`ComponentId`]
+    /// Add a new column to the [`Table`]. Specify the component which will be stored in the [`column`](Column) using its [`ComponentId`]
     #[must_use]
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
+            Column::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
@@ -161,7 +165,7 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
-            entities: Vec::with_capacity(self.capacity),
+            entities: self.entities,
         }
     }
 }
@@ -170,7 +174,7 @@ impl TableBuilder {
 /// in a [`World`].
 ///
 /// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
-/// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// each [`Column`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
 /// component type (via its [`ComponentId`]), then fetching the entity's row within that column.
@@ -178,18 +182,14 @@ impl TableBuilder {
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
-    columns: ImmutableSparseSet<ComponentId, ThinColumn>,
+    columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
-}
-
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
 }
 
 impl Table {
@@ -242,7 +242,7 @@ impl Table {
         if is_last {
             None
         } else {
-            // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+            // SAFETY: This was swap removed and was not last, so it must be in bounds.
             unsafe { Some(*self.entities.get_unchecked(row.index())) }
         }
     }
@@ -252,6 +252,10 @@ impl Table {
     /// to replace it (if an entity was swapped in). missing columns will be "forgotten". It is
     /// the caller's responsibility to drop them.  Failure to do so may result in resources not
     /// being released (i.e. files handles not being released, memory leaks, etc.)
+    ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// - `row` must be in-bounds
@@ -282,7 +286,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -291,6 +295,10 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in).
+    ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// row must be in-bounds
@@ -320,7 +328,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -329,6 +337,10 @@ impl Table {
     /// Moves the `row` column values to `new_table`, for the columns shared between both tables.
     /// Returns the index of the new row in `new_table` and the entity in this table swapped in
     /// to replace it (if an entity was swapped in).
+    ///
+    /// # Panics
+    /// - Panics if the move forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the move forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// - `row` must be in-bounds
@@ -353,7 +365,7 @@ impl Table {
             swapped_entity: if is_last {
                 None
             } else {
-                // SAFETY: This was sawp removed and was not last, so it must be in bounds.
+                // SAFETY: This was swap removed and was not last, so it must be in bounds.
                 unsafe { Some(*self.entities.get_unchecked(row.index())) }
             },
         }
@@ -470,28 +482,28 @@ impl Table {
         })
     }
 
-    /// Fetches a read-only reference to the [`ThinColumn`] for a given [`Component`] within the table.
+    /// Fetches a read-only reference to the [`Column`] for a given [`Component`] within the table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub fn get_column(&self, component_id: ComponentId) -> Option<&ThinColumn> {
+    pub fn get_column(&self, component_id: ComponentId) -> Option<&Column> {
         self.columns.get(component_id)
     }
 
-    /// Fetches a mutable reference to the [`ThinColumn`] for a given [`Component`] within the
+    /// Fetches a mutable reference to the [`Column`] for a given [`Component`] within the
     /// table.
     ///
     /// Returns `None` if the corresponding component does not belong to the table.
     ///
     /// [`Component`]: crate::component::Component
     #[inline]
-    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut ThinColumn> {
+    pub(crate) fn get_column_mut(&mut self, component_id: ComponentId) -> Option<&mut Column> {
         self.columns.get_mut(component_id)
     }
 
-    /// Checks if the table contains a [`ThinColumn`] for a given [`Component`].
+    /// Checks if the table contains a [`Column`] for a given [`Component`].
     ///
     /// Returns `true` if the column is present, `false` otherwise.
     ///
@@ -528,7 +540,16 @@ impl Table {
 
     /// Allocate memory for the columns in the [`Table`]
     ///
+    /// # Panics
+    /// - Panics if any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if any of the new allocations causes an out-of-memory error.
+    ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
+    ///
+    /// # Safety
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
@@ -542,8 +563,16 @@ impl Table {
 
     /// Reallocate memory for the columns in the [`Table`]
     ///
+    /// # Panics
+    /// - Panics if any of the new capacities overflows `isize::MAX` bytes.
+    /// - Panics if any of the new reallocations causes an out-of-memory error.
+    ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
+    ///
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     unsafe fn realloc_columns(
         &mut self,
         current_column_capacity: NonZeroUsize,
@@ -566,14 +595,18 @@ impl Table {
 
     /// Allocates space for a new entity
     ///
+    /// # Panics
+    /// - Panics if the allocation forces a reallocation and the new capacities overflows `isize::MAX` bytes.
+    /// - Panics if the allocation forces a reallocation and causes an out-of-memory error.
+    ///
     /// # Safety
     ///
     /// The allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
         let len = self.entity_count();
-        // SAFETY: No entity row may be in more than one table row at once, so there are no duplicates,
-        // and there can not be an entity row of u32::MAX. Therefore, this can not be max either.
+        // SAFETY: No entity index may be in more than one table row at once, so there are no duplicates,
+        // and there can not be an entity index of u32::MAX. Therefore, this can not be max either.
         let row = unsafe { TableRow::new(NonMaxU32::new_unchecked(len)) };
         let len = len as usize;
         self.entities.push(entity);
@@ -597,7 +630,7 @@ impl Table {
     #[inline]
     pub fn entity_count(&self) -> u32 {
         // No entity may have more than one table row, so there are no duplicates,
-        // and there may only ever be u32::MAX entities, so the length never exceeds u32's cappacity.
+        // and there may only ever be u32::MAX entities, so the length never exceeds u32's capacity.
         self.entities.len() as u32
     }
 
@@ -637,12 +670,15 @@ impl Table {
         }
     }
 
-    /// Iterates over the [`ThinColumn`]s of the [`Table`].
-    pub fn iter_columns(&self) -> impl Iterator<Item = &ThinColumn> {
+    /// Iterates over the [`Column`]s of the [`Table`].
+    pub fn iter_columns(&self) -> impl Iterator<Item = &Column> {
         self.columns.values()
     }
 
     /// Clears all of the stored components in the [`Table`].
+    ///
+    /// # Panics
+    /// - Panics if any of the components in any of the columns panics while being dropped.
     pub(crate) fn clear(&mut self) {
         let len = self.entity_count() as usize;
         // We must clear the entities first, because in the drop function causes a panic, it will result in a double free of the columns.
@@ -822,7 +858,7 @@ impl Drop for Table {
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
+            // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
                 col.drop(cap, len);
             }
@@ -833,14 +869,13 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate::{
-        change_detection::MaybeLocation,
-        component::{Component, ComponentIds, Components, ComponentsRegistrator, Tick},
-        entity::{Entity, EntityRow},
+        change_detection::{MaybeLocation, Tick},
+        component::{Component, ComponentIds, Components, ComponentsRegistrator},
+        entity::{Entity, EntityIndex},
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
-    use nonmax::NonMaxU32;
 
     #[derive(Component)]
     struct W<T>(T);
@@ -870,7 +905,7 @@ mod tests {
             .add_column(components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200)
-            .map(|index| Entity::from_raw(EntityRow::new(NonMaxU32::new(index).unwrap())))
+            .map(|index| Entity::from_index(EntityIndex::from_raw_u32(index).unwrap()))
             .collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards

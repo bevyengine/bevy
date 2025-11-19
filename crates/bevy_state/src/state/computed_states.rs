@@ -13,7 +13,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum AppState {
@@ -21,7 +21,6 @@ use super::{state_set::StateSet, states::States};
 ///     Menu,
 ///     InGame { paused: bool }
 /// }
-///
 ///
 /// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 /// struct InGame;
@@ -52,7 +51,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// # struct App;
 /// # impl App {
 /// #   fn new() -> Self { App }
@@ -61,10 +60,10 @@ use super::{state_set::StateSet, states::States};
 /// # }
 /// # struct AppState;
 /// # struct InGame;
-///
-///     App::new()
-///         .init_state::<AppState>()
-///         .add_computed_state::<InGame>();
+/// #
+/// App::new()
+///     .init_state::<AppState>()
+///     .add_computed_state::<InGame>();
 /// ```
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.
@@ -92,4 +91,49 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
 
 impl<S: ComputedStates> States for S {
     const DEPENDENCY_DEPTH: usize = S::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        prelude::DespawnOnEnter,
+        state::{ComputedStates, StateTransition},
+    };
+    use bevy_app::App;
+    use bevy_ecs::component::Component;
+    use bevy_state_macros::States;
+
+    #[derive(Component)]
+    struct TestComponent;
+
+    #[derive(States, Default, PartialEq, Eq, Hash, Debug, Clone)]
+    struct TestState;
+
+    #[derive(PartialEq, Eq, Hash, Debug, Clone)]
+    struct TestComputedState;
+
+    impl ComputedStates for TestComputedState {
+        type SourceStates = TestState;
+
+        fn compute(_: Self::SourceStates) -> Option<Self> {
+            Some(TestComputedState)
+        }
+    }
+
+    #[test]
+    fn computed_states_are_state_scoped_by_default() {
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+        app.insert_state(TestState);
+        app.add_computed_state::<TestComputedState>();
+
+        let world = app.world_mut();
+
+        world.spawn((DespawnOnEnter(TestComputedState), TestComponent));
+
+        assert!(world.query::<&TestComponent>().single(world).is_ok());
+        world.run_schedule(StateTransition);
+        assert_eq!(world.query::<&TestComponent>().iter(world).len(), 0);
+    }
 }

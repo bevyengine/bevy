@@ -2,9 +2,9 @@ use super::{blas::BlasManager, extract::StandardMaterialAssets, RaytracingMesh3d
 use bevy_asset::{AssetId, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
+    entity::{Entity, EntityHashMap},
     resource::Resource,
     system::{Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
@@ -22,33 +22,41 @@ use core::{f32::consts::TAU, hash::Hash, num::NonZeroU32, ops::Deref};
 const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
 const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 
-/// Average angular diameter of the sun as seen from earth.
-/// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
-const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
+const TEXTURE_MAP_NONE: u32 = u32::MAX;
+const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 
 #[derive(Resource)]
 pub struct RaytracingSceneBindings {
     pub bind_group: Option<BindGroup>,
-    pub bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayoutDescriptor,
+    previous_frame_light_entities: Vec<Entity>,
 }
 
 pub fn prepare_raytracing_scene_bindings(
     instances_query: Query<(
+        Entity,
         &RaytracingMesh3d,
         &MeshMaterial3d<StandardMaterial>,
         &GlobalTransform,
     )>,
-    directional_lights_query: Query<&ExtractedDirectionalLight>,
+    directional_lights_query: Query<(Entity, &ExtractedDirectionalLight)>,
     mesh_allocator: Res<MeshAllocator>,
     blas_manager: Res<BlasManager>,
     material_assets: Res<StandardMaterialAssets>,
     texture_assets: Res<RenderAssets<GpuImage>>,
     fallback_texture: Res<FallbackImage>,
     render_device: Res<RenderDevice>,
+    pipeline_cache: Res<PipelineCache>,
     render_queue: Res<RenderQueue>,
     mut raytracing_scene_bindings: ResMut<RaytracingSceneBindings>,
 ) {
     raytracing_scene_bindings.bind_group = None;
+
+    let mut this_frame_entity_to_light_id = EntityHashMap::<u32>::default();
+    let previous_frame_light_entities: Vec<_> = raytracing_scene_bindings
+        .previous_frame_light_entities
+        .drain(..)
+        .collect();
 
     if instances_query.iter().len() == 0 {
         return;
@@ -59,19 +67,20 @@ pub fn prepare_raytracing_scene_bindings(
     let mut textures = CachedBindingArray::new();
     let mut samplers = Vec::new();
     let mut materials = StorageBufferList::<GpuMaterial>::default();
-    let mut tlas = TlasPackage::new(render_device.wgpu_device().create_tlas(
-        &CreateTlasDescriptor {
+    let mut tlas = render_device
+        .wgpu_device()
+        .create_tlas(&CreateTlasDescriptor {
             label: Some("tlas"),
             flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
-        },
-    ));
+        });
     let mut transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
     let mut light_sources = StorageBufferList::<GpuLightSource>::default();
     let mut directional_lights = StorageBufferList::<GpuDirectionalLight>::default();
+    let mut previous_frame_light_id_translations = StorageBufferList::<u32>::default();
 
     let mut material_id_map: HashMap<AssetId<StandardMaterial>, u32, FixedHasher> =
         HashMap::default();
@@ -89,7 +98,7 @@ pub fn prepare_raytracing_scene_bindings(
                 }
                 None => None,
             },
-            None => Some(u32::MAX),
+            None => Some(TEXTURE_MAP_NONE),
         }
     };
     for (asset_id, material) in material_assets.iter() {
@@ -102,13 +111,23 @@ pub fn prepare_raytracing_scene_bindings(
         let Some(emissive_texture_id) = process_texture(&material.emissive_texture) else {
             continue;
         };
+        let Some(metallic_roughness_texture_id) =
+            process_texture(&material.metallic_roughness_texture)
+        else {
+            continue;
+        };
 
         materials.get_mut().push(GpuMaterial {
-            base_color: material.base_color.to_linear(),
-            emissive: material.emissive,
-            base_color_texture_id,
             normal_map_texture_id,
+            base_color_texture_id,
             emissive_texture_id,
+            metallic_roughness_texture_id,
+
+            base_color: LinearRgba::from(material.base_color).to_vec3(),
+            perceptual_roughness: material.perceptual_roughness,
+            emissive: material.emissive.to_vec3(),
+            metallic: material.metallic,
+            reflectance: LinearRgba::from(material.specular_tint).to_vec3() * material.reflectance,
             _padding: Default::default(),
         });
 
@@ -126,7 +145,7 @@ pub fn prepare_raytracing_scene_bindings(
     }
 
     let mut instance_id = 0;
-    for (mesh, material, transform) in &instances_query {
+    for (entity, mesh, material, transform) in &instances_query {
         let Some(blas) = blas_manager.get(&mesh.id()) else {
             continue;
         };
@@ -167,17 +186,23 @@ pub fn prepare_raytracing_scene_bindings(
             vertex_buffer_offset: vertex_slice.range.start,
             index_buffer_id,
             index_buffer_offset: index_slice.range.start,
+            triangle_count: (index_slice.range.len() / 3) as u32,
         });
 
         material_ids.get_mut().push(material_id);
 
-        if material.emissive != LinearRgba::BLACK {
+        if material.emissive != Vec3::ZERO {
             light_sources
                 .get_mut()
                 .push(GpuLightSource::new_emissive_mesh_light(
                     instance_id as u32,
                     (index_slice.range.len() / 3) as u32,
                 ));
+
+            this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
+            raytracing_scene_bindings
+                .previous_frame_light_entities
+                .push(entity);
         }
 
         instance_id += 1;
@@ -187,7 +212,7 @@ pub fn prepare_raytracing_scene_bindings(
         return;
     }
 
-    for directional_light in &directional_lights_query {
+    for (entity, directional_light) in &directional_lights_query {
         let directional_lights = directional_lights.get_mut();
         let directional_light_id = directional_lights.len() as u32;
 
@@ -196,6 +221,25 @@ pub fn prepare_raytracing_scene_bindings(
         light_sources
             .get_mut()
             .push(GpuLightSource::new_directional_light(directional_light_id));
+
+        this_frame_entity_to_light_id.insert(entity, light_sources.get().len() as u32 - 1);
+        raytracing_scene_bindings
+            .previous_frame_light_entities
+            .push(entity);
+    }
+
+    for previous_frame_light_entity in previous_frame_light_entities {
+        let current_frame_index = this_frame_entity_to_light_id
+            .get(&previous_frame_light_entity)
+            .copied()
+            .unwrap_or(LIGHT_NOT_PRESENT_THIS_FRAME);
+        previous_frame_light_id_translations
+            .get_mut()
+            .push(current_frame_index);
+    }
+
+    if light_sources.get().len() > u16::MAX as usize {
+        panic!("Too many light sources in the scene, maximum is 65536.");
     }
 
     materials.write_buffer(&render_device, &render_queue);
@@ -204,6 +248,7 @@ pub fn prepare_raytracing_scene_bindings(
     material_ids.write_buffer(&render_device, &render_queue);
     light_sources.write_buffer(&render_device, &render_queue);
     directional_lights.write_buffer(&render_device, &render_queue);
+    previous_frame_light_id_translations.write_buffer(&render_device, &render_queue);
 
     let mut command_encoder = render_device.create_command_encoder(&CommandEncoderDescriptor {
         label: Some("build_tlas_command_encoder"),
@@ -213,7 +258,7 @@ pub fn prepare_raytracing_scene_bindings(
 
     raytracing_scene_bindings.bind_group = Some(render_device.create_bind_group(
         "raytracing_scene_bind_group",
-        &raytracing_scene_bindings.bind_group_layout,
+        &pipeline_cache.get_bind_group_layout(&raytracing_scene_bindings.bind_group_layout),
         &BindGroupEntries::sequential((
             vertex_buffers.as_slice(),
             index_buffers.as_slice(),
@@ -226,17 +271,16 @@ pub fn prepare_raytracing_scene_bindings(
             material_ids.binding().unwrap(),
             light_sources.binding().unwrap(),
             directional_lights.binding().unwrap(),
+            previous_frame_light_id_translations.binding().unwrap(),
         )),
     ));
 }
 
-impl FromWorld for RaytracingSceneBindings {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
+impl RaytracingSceneBindings {
+    pub fn new() -> Self {
         Self {
             bind_group: None,
-            bind_group_layout: render_device.create_bind_group_layout(
+            bind_group_layout: BindGroupLayoutDescriptor::new(
                 "raytracing_scene_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
                     ShaderStages::COMPUTE,
@@ -253,10 +297,18 @@ impl FromWorld for RaytracingSceneBindings {
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
                         storage_buffer_read_only_sized(false, None),
+                        storage_buffer_read_only_sized(false, None),
                     ),
                 ),
             ),
+            previous_frame_light_entities: Vec::new(),
         }
+    }
+}
+
+impl Default for RaytracingSceneBindings {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -301,16 +353,22 @@ struct GpuInstanceGeometryIds {
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
+    triangle_count: u32,
 }
 
 #[derive(ShaderType)]
 struct GpuMaterial {
-    base_color: LinearRgba,
-    emissive: LinearRgba,
-    base_color_texture_id: u32,
     normal_map_texture_id: u32,
+    base_color_texture_id: u32,
     emissive_texture_id: u32,
-    _padding: u32,
+    metallic_roughness_texture_id: u32,
+
+    base_color: Vec3,
+    perceptual_roughness: f32,
+    emissive: Vec3,
+    metallic: f32,
+    reflectance: Vec3,
+    _padding: f32,
 }
 
 #[derive(ShaderType)]
@@ -321,6 +379,10 @@ struct GpuLightSource {
 
 impl GpuLightSource {
     fn new_emissive_mesh_light(instance_id: u32, triangle_count: u32) -> GpuLightSource {
+        if triangle_count > u16::MAX as u32 {
+            panic!("Too many triangles ({triangle_count}) in an emissive mesh, maximum is 65535.");
+        }
+
         Self {
             kind: triangle_count << 1,
             id: instance_id,
@@ -345,7 +407,7 @@ struct GpuDirectionalLight {
 
 impl GpuDirectionalLight {
     fn new(directional_light: &ExtractedDirectionalLight) -> Self {
-        let cos_theta_max = cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0);
+        let cos_theta_max = cos(directional_light.sun_disk_angular_size / 2.0);
         let solid_angle = TAU * (1.0 - cos_theta_max);
         let luminance =
             (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;

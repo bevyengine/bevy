@@ -4,18 +4,18 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
-use core::{cmp::Ordering, iter, marker::PhantomData, mem, ops::Range};
-
+use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    world::{FromWorld, World},
+    system::{Commands, Res},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_render::render_resource::{BindlessSlabResourceLimit, PipelineCache};
 use bevy_render::{
     render_resource::{
-        BindGroup, BindGroupEntry, BindGroupLayout, BindingNumber, BindingResource,
+        BindGroup, BindGroupEntry, BindGroupLayoutDescriptor, BindingNumber, BindingResource,
         BindingResources, BindlessDescriptor, BindlessIndex, BindlessIndexTableDescriptor,
         BindlessResourceType, Buffer, BufferBinding, BufferDescriptor, BufferId,
         BufferInitDescriptor, BufferUsages, CompareFunction, FilterMode, OwnedBindingResource,
@@ -26,11 +26,14 @@ use bevy_render::{
     settings::WgpuFeatures,
     texture::FallbackImage,
 };
-use bevy_utils::default;
+use bevy_utils::{default, TypeIdMap};
 use bytemuck::Pod;
+use core::hash::Hash;
+use core::{cmp::Ordering, iter, mem, ops::Range};
 use tracing::{error, trace};
 
-use crate::Material;
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct MaterialBindGroupAllocators(TypeIdMap<MaterialBindGroupAllocator>);
 
 /// A resource that places materials into bind groups and tracks their
 /// resources.
@@ -38,27 +41,22 @@ use crate::Material;
 /// Internally, Bevy has separate allocators for bindless and non-bindless
 /// materials. This resource provides a common interface to the specific
 /// allocator in use.
-#[derive(Resource)]
-pub enum MaterialBindGroupAllocator<M>
-where
-    M: Material,
-{
+pub enum MaterialBindGroupAllocator {
     /// The allocator used when the material is bindless.
-    Bindless(Box<MaterialBindGroupBindlessAllocator<M>>),
+    Bindless(Box<MaterialBindGroupBindlessAllocator>),
     /// The allocator used when the material is non-bindless.
-    NonBindless(Box<MaterialBindGroupNonBindlessAllocator<M>>),
+    NonBindless(Box<MaterialBindGroupNonBindlessAllocator>),
 }
 
 /// The allocator that places bindless materials into bind groups and tracks
 /// their resources.
-pub struct MaterialBindGroupBindlessAllocator<M>
-where
-    M: Material,
-{
+pub struct MaterialBindGroupBindlessAllocator {
+    /// The label of the bind group allocator to use for allocated buffers.
+    label: &'static str,
     /// The slabs, each of which contains a bind group.
-    slabs: Vec<MaterialBindlessSlab<M>>,
+    slabs: Vec<MaterialBindlessSlab>,
     /// The layout of the bind groups that we produce.
-    bind_group_layout: BindGroupLayout,
+    bind_group_layout: BindGroupLayoutDescriptor,
     /// Information about the bindless resources in the material.
     ///
     /// We use this information to create and maintain bind groups.
@@ -79,10 +77,7 @@ where
 }
 
 /// A single bind group and the bookkeeping necessary to allocate into it.
-pub struct MaterialBindlessSlab<M>
-where
-    M: Material,
-{
+pub struct MaterialBindlessSlab {
     /// The current bind group, if it's up to date.
     ///
     /// If this is `None`, then the bind group is dirty and needs to be
@@ -98,7 +93,7 @@ where
     ///
     /// Because the slab binary searches this table, the entries within must be
     /// sorted by bindless index.
-    bindless_index_tables: Vec<MaterialBindlessIndexTable<M>>,
+    bindless_index_tables: Vec<MaterialBindlessIndexTable>,
 
     /// The binding arrays containing samplers.
     samplers: HashMap<BindlessResourceType, MaterialBindlessBindingArray<Sampler>>,
@@ -109,12 +104,6 @@ where
     /// The buffers that contain plain old data (i.e. the structure-level
     /// `#[data]` attribute of `AsBindGroup`).
     data_buffers: HashMap<BindlessIndex, MaterialDataBuffer>,
-
-    /// Holds extra CPU-accessible data that the material provides.
-    ///
-    /// Typically, this data is used for constructing the material key, for
-    /// pipeline specialization purposes.
-    extra_data: Vec<Option<M::Data>>,
 
     /// A list of free slot IDs.
     free_slots: Vec<MaterialBindGroupSlot>,
@@ -130,10 +119,7 @@ where
 /// This is conventionally assigned to bind group binding 0, but it can be
 /// changed by altering the [`Self::binding_number`], which corresponds to the
 /// `#[bindless(index_table(binding(B)))]` attribute in `AsBindGroup`.
-struct MaterialBindlessIndexTable<M>
-where
-    M: Material,
-{
+struct MaterialBindlessIndexTable {
     /// The buffer containing the mappings.
     buffer: RetainedRawBufferVec<u32>,
     /// The range of bindless indices that this bindless index table covers.
@@ -146,7 +132,6 @@ where
     index_range: Range<BindlessIndex>,
     /// The binding number that this index table is assigned to in the shader.
     binding_number: BindingNumber,
-    phantom: PhantomData<M>,
 }
 
 /// A single binding array for storing bindless resources and the bookkeeping
@@ -189,13 +174,12 @@ where
 }
 
 /// The allocator that stores bind groups for non-bindless materials.
-pub struct MaterialBindGroupNonBindlessAllocator<M>
-where
-    M: Material,
-{
+pub struct MaterialBindGroupNonBindlessAllocator {
+    /// The label of the bind group allocator to use for allocated buffers.
+    label: &'static str,
     /// A mapping from [`MaterialBindGroupIndex`] to the bind group allocated in
     /// each slot.
-    bind_groups: Vec<Option<MaterialNonBindlessAllocatedBindGroup<M>>>,
+    bind_groups: Vec<Option<MaterialNonBindlessAllocatedBindGroup>>,
     /// The bind groups that are dirty and need to be prepared.
     ///
     /// To prepare the bind groups, call
@@ -203,15 +187,11 @@ where
     to_prepare: HashSet<MaterialBindGroupIndex>,
     /// A list of free bind group indices.
     free_indices: Vec<MaterialBindGroupIndex>,
-    phantom: PhantomData<M>,
 }
 
 /// A single bind group that a [`MaterialBindGroupNonBindlessAllocator`] is
 /// currently managing.
-enum MaterialNonBindlessAllocatedBindGroup<M>
-where
-    M: Material,
-{
+enum MaterialNonBindlessAllocatedBindGroup {
     /// An unprepared bind group.
     ///
     /// The allocator prepares all outstanding unprepared bind groups when
@@ -219,13 +199,13 @@ where
     /// called.
     Unprepared {
         /// The unprepared bind group, including extra data.
-        bind_group: UnpreparedBindGroup<M::Data>,
+        bind_group: UnpreparedBindGroup,
         /// The layout of that bind group.
-        layout: BindGroupLayout,
+        layout: BindGroupLayoutDescriptor,
     },
     /// A bind group that's already been prepared.
     Prepared {
-        bind_group: PreparedBindGroup<M::Data>,
+        bind_group: PreparedBindGroup,
         #[expect(dead_code, reason = "These buffers are only referenced by bind groups")]
         uniform_buffers: Vec<Buffer>,
     },
@@ -351,35 +331,27 @@ trait GetBindingResourceId {
 }
 
 /// The public interface to a slab, which represents a single bind group.
-pub struct MaterialSlab<'a, M>(MaterialSlabImpl<'a, M>)
-where
-    M: Material;
+pub struct MaterialSlab<'a>(MaterialSlabImpl<'a>);
 
 /// The actual implementation of a material slab.
 ///
 /// This has bindless and non-bindless variants.
-enum MaterialSlabImpl<'a, M>
-where
-    M: Material,
-{
+enum MaterialSlabImpl<'a> {
     /// The implementation of the slab interface we use when the slab
     /// is bindless.
-    Bindless(&'a MaterialBindlessSlab<M>),
+    Bindless(&'a MaterialBindlessSlab),
     /// The implementation of the slab interface we use when the slab
     /// is non-bindless.
-    NonBindless(MaterialNonBindlessSlab<'a, M>),
+    NonBindless(MaterialNonBindlessSlab<'a>),
 }
 
 /// A single bind group that the [`MaterialBindGroupNonBindlessAllocator`]
 /// manages.
-enum MaterialNonBindlessSlab<'a, M>
-where
-    M: Material,
-{
+enum MaterialNonBindlessSlab<'a> {
     /// A slab that has a bind group.
-    Prepared(&'a PreparedBindGroup<M::Data>),
+    Prepared(&'a PreparedBindGroup),
     /// A slab that doesn't yet have a bind group.
-    Unprepared(&'a UnpreparedBindGroup<M::Data>),
+    Unprepared,
 }
 
 /// Manages an array of untyped plain old data on GPU and allocates individual
@@ -480,26 +452,33 @@ impl GetBindingResourceId for TextureView {
     }
 }
 
-impl<M> MaterialBindGroupAllocator<M>
-where
-    M: Material,
-{
+impl MaterialBindGroupAllocator {
     /// Creates a new [`MaterialBindGroupAllocator`] managing the data for a
     /// single material.
-    fn new(render_device: &RenderDevice) -> MaterialBindGroupAllocator<M> {
-        if material_uses_bindless_resources::<M>(render_device) {
+    pub fn new(
+        render_device: &RenderDevice,
+        label: &'static str,
+        bindless_descriptor: Option<BindlessDescriptor>,
+        bind_group_layout: BindGroupLayoutDescriptor,
+        slab_capacity: Option<BindlessSlabResourceLimit>,
+    ) -> MaterialBindGroupAllocator {
+        if let Some(bindless_descriptor) = bindless_descriptor {
             MaterialBindGroupAllocator::Bindless(Box::new(MaterialBindGroupBindlessAllocator::new(
                 render_device,
+                label,
+                bindless_descriptor,
+                bind_group_layout,
+                slab_capacity,
             )))
         } else {
             MaterialBindGroupAllocator::NonBindless(Box::new(
-                MaterialBindGroupNonBindlessAllocator::new(),
+                MaterialBindGroupNonBindlessAllocator::new(label),
             ))
         }
     }
 
     /// Returns the slab with the given index, if one exists.
-    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab<M>> {
+    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab<'_>> {
         match *self {
             MaterialBindGroupAllocator::Bindless(ref bindless_allocator) => bindless_allocator
                 .get(group)
@@ -520,8 +499,8 @@ where
     /// you need to prepare the bind group yourself.
     pub fn allocate_unprepared(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup<M::Data>,
-        bind_group_layout: &BindGroupLayout,
+        unprepared_bind_group: UnpreparedBindGroup,
+        bind_group_layout: &BindGroupLayoutDescriptor,
     ) -> MaterialBindingId {
         match *self {
             MaterialBindGroupAllocator::Bindless(
@@ -545,7 +524,7 @@ where
     /// this method if you need to prepare the bind group yourself.
     pub fn allocate_prepared(
         &mut self,
-        prepared_bind_group: PreparedBindGroup<M::Data>,
+        prepared_bind_group: PreparedBindGroup,
     ) -> MaterialBindingId {
         match *self {
             MaterialBindGroupAllocator::Bindless(_) => {
@@ -579,6 +558,7 @@ where
     pub fn prepare_bind_groups(
         &mut self,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_image: &FallbackImage,
     ) {
@@ -587,12 +567,14 @@ where
                 ref mut material_bind_group_bindless_allocator,
             ) => material_bind_group_bindless_allocator.prepare_bind_groups(
                 render_device,
+                pipeline_cache,
                 fallback_bindless_resources,
                 fallback_image,
             ),
             MaterialBindGroupAllocator::NonBindless(
                 ref mut material_bind_group_non_bindless_allocator,
-            ) => material_bind_group_non_bindless_allocator.prepare_bind_groups(render_device),
+            ) => material_bind_group_non_bindless_allocator
+                .prepare_bind_groups(render_device, pipeline_cache),
         }
     }
 
@@ -611,16 +593,52 @@ where
             }
         }
     }
+
+    /// Get number of allocated slabs for bindless material, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn slab_count(&self) -> usize {
+        match self {
+            Self::Bindless(bless) => bless.slabs.len(),
+            Self::NonBindless(_) => 0,
+        }
+    }
+
+    /// Get total size of slabs allocated for bindless material, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn slabs_size(&self) -> usize {
+        match self {
+            Self::Bindless(bless) => bless
+                .slabs
+                .iter()
+                .flat_map(|slab| {
+                    slab.data_buffers
+                        .iter()
+                        .map(|(_, buffer)| buffer.buffer.len())
+                })
+                .sum(),
+            Self::NonBindless(_) => 0,
+        }
+    }
+
+    /// Get number of bindless material allocations in slabs, returns 0 if it is
+    /// [`Self::NonBindless`].
+    pub fn allocations(&self) -> u64 {
+        match self {
+            Self::Bindless(bless) => bless
+                .slabs
+                .iter()
+                .map(|slab| u64::from(slab.allocated_resource_count))
+                .sum(),
+            Self::NonBindless(_) => 0,
+        }
+    }
 }
 
-impl<M> MaterialBindlessIndexTable<M>
-where
-    M: Material,
-{
+impl MaterialBindlessIndexTable {
     /// Creates a new [`MaterialBindlessIndexTable`] for a single slab.
     fn new(
         bindless_index_table_descriptor: &BindlessIndexTableDescriptor,
-    ) -> MaterialBindlessIndexTable<M> {
+    ) -> MaterialBindlessIndexTable {
         // Preallocate space for one bindings table, so that there will always be a buffer.
         let mut buffer = RetainedRawBufferVec::new(BufferUsages::STORAGE);
         for _ in *bindless_index_table_descriptor.indices.start
@@ -633,7 +651,6 @@ where
             buffer,
             index_range: bindless_index_table_descriptor.indices.clone(),
             binding_number: bindless_index_table_descriptor.binding_number,
-            phantom: PhantomData,
         }
     }
 
@@ -698,7 +715,7 @@ where
     }
 
     /// Returns the [`BindGroupEntry`] for the index table itself.
-    fn bind_group_entry(&self) -> BindGroupEntry {
+    fn bind_group_entry(&self) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding: *self.binding_number,
             resource: self
@@ -747,15 +764,16 @@ where
     }
 }
 
-impl<M> MaterialBindGroupBindlessAllocator<M>
-where
-    M: Material,
-{
+impl MaterialBindGroupBindlessAllocator {
     /// Creates a new [`MaterialBindGroupBindlessAllocator`] managing the data
     /// for a single bindless material.
-    fn new(render_device: &RenderDevice) -> MaterialBindGroupBindlessAllocator<M> {
-        let bindless_descriptor = M::bindless_descriptor()
-            .expect("Non-bindless materials should use the non-bindless allocator");
+    fn new(
+        render_device: &RenderDevice,
+        label: &'static str,
+        bindless_descriptor: BindlessDescriptor,
+        bind_group_layout: BindGroupLayoutDescriptor,
+        slab_capacity: Option<BindlessSlabResourceLimit>,
+    ) -> MaterialBindGroupBindlessAllocator {
         let fallback_buffers = bindless_descriptor
             .buffers
             .iter()
@@ -776,11 +794,12 @@ where
             .collect();
 
         MaterialBindGroupBindlessAllocator {
+            label,
             slabs: vec![],
-            bind_group_layout: M::bind_group_layout(render_device),
+            bind_group_layout,
             bindless_descriptor,
             fallback_buffers,
-            slab_capacity: M::bindless_slot_count()
+            slab_capacity: slab_capacity
                 .expect("Non-bindless materials should use the non-bindless allocator")
                 .resolve(),
         }
@@ -796,7 +815,7 @@ where
     /// created, and the material is allocated into it.
     fn allocate_unprepared(
         &mut self,
-        mut unprepared_bind_group: UnpreparedBindGroup<M::Data>,
+        mut unprepared_bind_group: UnpreparedBindGroup,
     ) -> MaterialBindingId {
         for (slab_index, slab) in self.slabs.iter_mut().enumerate() {
             trace!("Trying to allocate in slab {}", slab_index);
@@ -842,7 +861,7 @@ where
     ///
     /// A [`MaterialBindGroupIndex`] can be fetched from a
     /// [`MaterialBindingId`].
-    fn get(&self, group: MaterialBindGroupIndex) -> Option<&MaterialBindlessSlab<M>> {
+    fn get(&self, group: MaterialBindGroupIndex) -> Option<&MaterialBindlessSlab> {
         self.slabs.get(group.0 as usize)
     }
 
@@ -852,12 +871,15 @@ where
     fn prepare_bind_groups(
         &mut self,
         render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_image: &FallbackImage,
     ) {
         for slab in &mut self.slabs {
             slab.prepare(
                 render_device,
+                pipeline_cache,
+                self.label,
                 &self.bind_group_layout,
                 fallback_bindless_resources,
                 &self.fallback_buffers,
@@ -878,20 +900,7 @@ where
     }
 }
 
-impl<M> FromWorld for MaterialBindGroupAllocator<M>
-where
-    M: Material,
-{
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        MaterialBindGroupAllocator::new(render_device)
-    }
-}
-
-impl<M> MaterialBindlessSlab<M>
-where
-    M: Material,
-{
+impl MaterialBindlessSlab {
     /// Attempts to allocate the given unprepared bind group in this slab.
     ///
     /// If the allocation succeeds, this method returns the slot that the
@@ -900,9 +909,9 @@ where
     /// so that it can try to allocate again.
     fn try_allocate(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup<M::Data>,
+        unprepared_bind_group: UnpreparedBindGroup,
         slot_capacity: u32,
-    ) -> Result<MaterialBindGroupSlot, UnpreparedBindGroup<M::Data>> {
+    ) -> Result<MaterialBindGroupSlot, UnpreparedBindGroup> {
         // Locate pre-existing resources, and determine how many free slots we need.
         let Some(allocation_candidate) = self.check_allocation(&unprepared_bind_group) else {
             return Err(unprepared_bind_group);
@@ -942,12 +951,6 @@ where
             bindless_index_table.set(slot, &allocated_resource_slots);
         }
 
-        // Insert extra data.
-        if self.extra_data.len() < (*slot as usize + 1) {
-            self.extra_data.resize_with(*slot as usize + 1, || None);
-        }
-        self.extra_data[*slot as usize] = Some(unprepared_bind_group.data);
-
         // Invalidate the cached bind group.
         self.bind_group = None;
 
@@ -958,7 +961,7 @@ where
     /// bind group can be allocated in this slab.
     fn check_allocation(
         &self,
-        unprepared_bind_group: &UnpreparedBindGroup<M::Data>,
+        unprepared_bind_group: &UnpreparedBindGroup,
     ) -> Option<BindlessAllocationCandidate> {
         let mut allocation_candidate = BindlessAllocationCandidate {
             pre_existing_resources: HashMap::default(),
@@ -1189,9 +1192,6 @@ where
             }
         }
 
-        // Clear out the extra data.
-        self.extra_data[slot.0 as usize] = None;
-
         // Invalidate the cached bind group.
         self.bind_group = None;
 
@@ -1204,7 +1204,9 @@ where
     fn prepare(
         &mut self,
         render_device: &RenderDevice,
-        bind_group_layout: &BindGroupLayout,
+        pipeline_cache: &PipelineCache,
+        label: &'static str,
+        bind_group_layout: &BindGroupLayoutDescriptor,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
@@ -1224,6 +1226,8 @@ where
         // Create the bind group if needed.
         self.prepare_bind_group(
             render_device,
+            pipeline_cache,
+            label,
             bind_group_layout,
             fallback_bindless_resources,
             fallback_buffers,
@@ -1238,7 +1242,9 @@ where
     fn prepare_bind_group(
         &mut self,
         render_device: &RenderDevice,
-        bind_group_layout: &BindGroupLayout,
+        pipeline_cache: &PipelineCache,
+        label: &'static str,
+        bind_group_layout: &BindGroupLayoutDescriptor,
         fallback_bindless_resources: &FallbackBindlessResources,
         fallback_buffers: &HashMap<BindlessIndex, Buffer>,
         fallback_image: &FallbackImage,
@@ -1305,8 +1311,8 @@ where
         }
 
         self.bind_group = Some(render_device.create_bind_group(
-            M::label(),
-            bind_group_layout,
+            Some(label),
+            &pipeline_cache.get_bind_group_layout(bind_group_layout),
             &bind_group_entries,
         ));
     }
@@ -1548,19 +1554,11 @@ where
         self.bind_group.as_ref()
     }
 
-    /// Returns the extra data associated with this material.
-    fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
-        self.extra_data
-            .get(slot.0 as usize)
-            .and_then(|data| data.as_ref())
-            .expect("Extra data not present")
-    }
-
     /// Returns the bindless index table containing the given bindless index.
     fn get_bindless_index_table(
         &self,
         bindless_index: BindlessIndex,
-    ) -> Option<&MaterialBindlessIndexTable<M>> {
+    ) -> Option<&MaterialBindlessIndexTable> {
         let table_index = self
             .bindless_index_tables
             .binary_search_by(|bindless_index_table| {
@@ -1689,15 +1687,12 @@ where
     })
 }
 
-impl<M> MaterialBindlessSlab<M>
-where
-    M: Material,
-{
+impl MaterialBindlessSlab {
     /// Creates a new [`MaterialBindlessSlab`] for a material with the given
     /// bindless descriptor.
     ///
     /// We use this when no existing slab could hold a material to be allocated.
-    fn new(bindless_descriptor: &BindlessDescriptor) -> MaterialBindlessSlab<M> {
+    fn new(bindless_descriptor: &BindlessDescriptor) -> MaterialBindlessSlab {
         let mut buffers = HashMap::default();
         let mut samplers = HashMap::default();
         let mut textures = HashMap::default();
@@ -1780,7 +1775,7 @@ where
         let bindless_index_tables = bindless_descriptor
             .index_tables
             .iter()
-            .map(|bindless_index_table| MaterialBindlessIndexTable::new(bindless_index_table))
+            .map(MaterialBindlessIndexTable::new)
             .collect();
 
         MaterialBindlessSlab {
@@ -1790,7 +1785,6 @@ where
             textures,
             buffers,
             data_buffers,
-            extra_data: vec![],
             free_slots: vec![],
             live_allocation_count: 0,
             allocated_resource_count: 0,
@@ -1798,42 +1792,36 @@ where
     }
 }
 
-impl FromWorld for FallbackBindlessResources {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        FallbackBindlessResources {
-            filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback filtering sampler"),
-                ..default()
-            }),
-            non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback non-filtering sampler"),
-                mag_filter: FilterMode::Nearest,
-                min_filter: FilterMode::Nearest,
-                mipmap_filter: FilterMode::Nearest,
-                ..default()
-            }),
-            comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback comparison sampler"),
-                compare: Some(CompareFunction::Always),
-                ..default()
-            }),
-        }
-    }
+pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(FallbackBindlessResources {
+        filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback filtering sampler"),
+            ..default()
+        }),
+        non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback non-filtering sampler"),
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
+            ..default()
+        }),
+        comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback comparison sampler"),
+            compare: Some(CompareFunction::Always),
+            ..default()
+        }),
+    });
 }
 
-impl<M> MaterialBindGroupNonBindlessAllocator<M>
-where
-    M: Material,
-{
+impl MaterialBindGroupNonBindlessAllocator {
     /// Creates a new [`MaterialBindGroupNonBindlessAllocator`] managing the
     /// bind groups for a single non-bindless material.
-    fn new() -> MaterialBindGroupNonBindlessAllocator<M> {
+    fn new(label: &'static str) -> MaterialBindGroupNonBindlessAllocator {
         MaterialBindGroupNonBindlessAllocator {
+            label,
             bind_groups: vec![],
             to_prepare: HashSet::default(),
             free_indices: vec![],
-            phantom: PhantomData,
         }
     }
 
@@ -1842,10 +1830,7 @@ where
     ///
     /// The returned [`MaterialBindingId`] can later be used to fetch the bind
     /// group.
-    fn allocate(
-        &mut self,
-        bind_group: MaterialNonBindlessAllocatedBindGroup<M>,
-    ) -> MaterialBindingId {
+    fn allocate(&mut self, bind_group: MaterialNonBindlessAllocatedBindGroup) -> MaterialBindingId {
         let group_id = self
             .free_indices
             .pop()
@@ -1874,8 +1859,8 @@ where
     /// [`MaterialBindingId`].
     fn allocate_unprepared(
         &mut self,
-        unprepared_bind_group: UnpreparedBindGroup<M::Data>,
-        bind_group_layout: BindGroupLayout,
+        unprepared_bind_group: UnpreparedBindGroup,
+        bind_group_layout: BindGroupLayoutDescriptor,
     ) -> MaterialBindingId {
         self.allocate(MaterialNonBindlessAllocatedBindGroup::Unprepared {
             bind_group: unprepared_bind_group,
@@ -1885,10 +1870,7 @@ where
 
     /// Inserts an prepared bind group into this allocator and returns a
     /// [`MaterialBindingId`].
-    fn allocate_prepared(
-        &mut self,
-        prepared_bind_group: PreparedBindGroup<M::Data>,
-    ) -> MaterialBindingId {
+    fn allocate_prepared(&mut self, prepared_bind_group: PreparedBindGroup) -> MaterialBindingId {
         self.allocate(MaterialNonBindlessAllocatedBindGroup::Prepared {
             bind_group: prepared_bind_group,
             uniform_buffers: vec![],
@@ -1905,15 +1887,15 @@ where
     }
 
     /// Returns a wrapper around the bind group with the given index.
-    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab<M>> {
+    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab<'_>> {
         self.bind_groups[group.0 as usize]
             .as_ref()
             .map(|bind_group| match bind_group {
                 MaterialNonBindlessAllocatedBindGroup::Prepared { bind_group, .. } => {
                     MaterialNonBindlessSlab::Prepared(bind_group)
                 }
-                MaterialNonBindlessAllocatedBindGroup::Unprepared { bind_group, .. } => {
-                    MaterialNonBindlessSlab::Unprepared(bind_group)
+                MaterialNonBindlessAllocatedBindGroup::Unprepared { .. } => {
+                    MaterialNonBindlessSlab::Unprepared
                 }
             })
     }
@@ -1924,7 +1906,11 @@ where
     /// Unprepared bind groups can be added to this allocator with
     /// [`Self::allocate_unprepared`]. Such bind groups will defer being
     /// prepared until the next time this method is called.
-    fn prepare_bind_groups(&mut self, render_device: &RenderDevice) {
+    fn prepare_bind_groups(
+        &mut self,
+        render_device: &RenderDevice,
+        pipeline_cache: &PipelineCache,
+    ) {
         for bind_group_index in mem::take(&mut self.to_prepare) {
             let Some(MaterialNonBindlessAllocatedBindGroup::Unprepared {
                 bind_group: unprepared_bind_group,
@@ -1972,8 +1958,8 @@ where
 
             // Create the bind group.
             let bind_group = render_device.create_bind_group(
-                M::label(),
-                &bind_group_layout,
+                self.label,
+                &pipeline_cache.get_bind_group_layout(&bind_group_layout),
                 &bind_group_entries,
             );
 
@@ -1982,7 +1968,6 @@ where
                     bind_group: PreparedBindGroup {
                         bindings: unprepared_bind_group.bindings,
                         bind_group,
-                        data: unprepared_bind_group.data,
                     },
                     uniform_buffers,
                 });
@@ -1990,28 +1975,7 @@ where
     }
 }
 
-impl<'a, M> MaterialSlab<'a, M>
-where
-    M: Material,
-{
-    /// Returns the extra data associated with this material.
-    ///
-    /// When deriving `AsBindGroup`, this data is given by the
-    /// `#[bind_group_data(DataType)]` attribute on the material structure.
-    pub fn get_extra_data(&self, slot: MaterialBindGroupSlot) -> &M::Data {
-        match self.0 {
-            MaterialSlabImpl::Bindless(material_bindless_slab) => {
-                material_bindless_slab.get_extra_data(slot)
-            }
-            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Prepared(
-                prepared_bind_group,
-            )) => &prepared_bind_group.data,
-            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared(
-                unprepared_bind_group,
-            )) => &unprepared_bind_group.data,
-        }
-    }
-
+impl<'a> MaterialSlab<'a> {
     /// Returns the [`BindGroup`] corresponding to this slab, if it's been
     /// prepared.
     ///
@@ -2026,7 +1990,7 @@ where
             MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Prepared(
                 prepared_bind_group,
             )) => Some(&prepared_bind_group.bind_group),
-            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared(_)) => None,
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared) => None,
         }
     }
 }
@@ -2051,7 +2015,7 @@ impl MaterialDataBuffer {
     /// The size of the piece of data supplied to this method must equal the
     /// [`Self::aligned_element_size`] provided to [`MaterialDataBuffer::new`].
     fn insert(&mut self, data: &[u8]) -> u32 {
-        // Make the the data is of the right length.
+        // Make sure the data is of the right length.
         debug_assert_eq!(data.len(), self.aligned_element_size as usize);
 
         // Grab a slot.

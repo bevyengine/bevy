@@ -115,7 +115,7 @@ pub trait Enum: PartialReflect {
     /// For non-[`VariantType::Struct`] variants, this should return `None`.
     fn name_at(&self, index: usize) -> Option<&str>;
     /// Returns an iterator over the values of the current variant's fields.
-    fn iter_fields(&self) -> VariantFieldIter;
+    fn iter_fields(&self) -> VariantFieldIter<'_>;
     /// Returns the number of fields in the current variant.
     fn field_len(&self) -> usize;
     /// The name of the current variant.
@@ -154,7 +154,7 @@ pub struct EnumInfo {
     variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
     custom_attributes: Arc<CustomAttributes>,
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     docs: Option<&'static str>,
 }
 
@@ -180,13 +180,13 @@ impl EnumInfo {
             variant_names,
             variant_indices,
             custom_attributes: Arc::new(CustomAttributes::default()),
-            #[cfg(feature = "documentation")]
+            #[cfg(feature = "reflect_documentation")]
             docs: None,
         }
     }
 
     /// Sets the docstring for this enum.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
     }
@@ -246,7 +246,7 @@ impl EnumInfo {
     impl_type_methods!(ty);
 
     /// The docstring of this enum, if any.
-    #[cfg(feature = "documentation")]
+    #[cfg(feature = "reflect_documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
     }

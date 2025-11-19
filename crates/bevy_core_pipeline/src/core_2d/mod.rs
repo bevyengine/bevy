@@ -1,4 +1,3 @@
-mod camera_2d;
 mod main_opaque_pass_2d_node;
 mod main_transparent_pass_2d_node;
 
@@ -20,6 +19,7 @@ pub mod graph {
         MainTransparentPass,
         EndMainPass,
         Wireframe,
+        StartMainPassPostProcessing,
         Bloom,
         PostProcessing,
         Tonemapping,
@@ -34,32 +34,37 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+use bevy_camera::{Camera, Camera2d};
+use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
+    camera::CameraRenderGraph,
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
-pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
-use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+use crate::{
+    tonemapping::{DebandDither, Tonemapping, TonemappingNode},
+    upscaling::UpscalingNode,
+};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
-    render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
+    render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{
         sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
         DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
         ViewSortedRenderPhases,
     },
     render_resource::{
-        BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages,
+        BindGroupId, CachedRenderPipelineId, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
     },
     renderer::RenderDevice,
     sync_world::MainEntity,
@@ -76,7 +81,11 @@ pub struct Core2dPlugin;
 
 impl Plugin for Core2dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera2d>()
+        app.register_required_components::<Camera2d, DebandDither>()
+            .register_required_components_with::<Camera2d, CameraRenderGraph>(|| {
+                CameraRenderGraph::new(Core2d)
+            })
+            .register_required_components_with::<Camera2d, Tonemapping>(|| Tonemapping::None)
             .add_plugins(ExtractComponentPlugin::<Camera2d>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -110,6 +119,7 @@ impl Plugin for Core2dPlugin {
                 Node2d::MainTransparentPass,
             )
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPass)
+            .add_render_graph_node::<EmptyNode>(Core2d, Node2d::StartMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<TonemappingNode>>(Core2d, Node2d::Tonemapping)
             .add_render_graph_node::<EmptyNode>(Core2d, Node2d::EndMainPassPostProcessing)
             .add_render_graph_node::<ViewNodeRunner<UpscalingNode>>(Core2d, Node2d::Upscaling)
@@ -120,6 +130,7 @@ impl Plugin for Core2dPlugin {
                     Node2d::MainOpaquePass,
                     Node2d::MainTransparentPass,
                     Node2d::EndMainPass,
+                    Node2d::StartMainPassPostProcessing,
                     Node2d::Tonemapping,
                     Node2d::EndMainPassPostProcessing,
                     Node2d::Upscaling,
@@ -474,16 +485,10 @@ pub fn prepare_core_2d_depth_textures(
         let cached_texture = textures
             .entry(camera.target.clone())
             .or_insert_with(|| {
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    // The size of the depth texture
+                    size: physical_target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: msaa.samples(),
                     dimension: TextureDimension::D2,

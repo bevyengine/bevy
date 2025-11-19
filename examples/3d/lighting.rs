@@ -4,10 +4,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, PhysicalCameraParameters},
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -120,7 +120,7 @@ fn setup(
 
     // ambient light
     // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
-    commands.insert_resource(AmbientLight {
+    commands.insert_resource(GlobalAmbientLight {
         color: ORANGE_RED.into(),
         brightness: 200.0,
         ..default()
@@ -215,8 +215,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         children![
@@ -290,7 +290,7 @@ fn update_exposure(
 
 fn toggle_ambient_light(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: ResMut<GlobalAmbientLight>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {
@@ -306,7 +306,7 @@ fn toggle_ambient_light(
             0. => "off",
             _ => "on",
         };
-        *writer.text(entity, 1) = format!("Ambient light is {}\n", ambient_light_state_text);
+        *writer.text(entity, 1) = format!("Ambient light is {ambient_light_state_text}\n");
     }
 }
 

@@ -1,6 +1,6 @@
 //! This module exports types related to rendering glyphs.
 
-use bevy_asset::Handle;
+use bevy_asset::AssetId;
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
@@ -9,7 +9,7 @@ use bevy_reflect::Reflect;
 ///
 /// Contains information about how and where to render a glyph.
 ///
-/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`crate::TextLayoutInfo`] for rendering glyphs.
+/// Used in [`TextPipeline::queue_text`](crate::TextPipeline::queue_text) and [`TextLayoutInfo`](`crate::TextLayoutInfo`) for rendering glyphs.
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PositionedGlyph {
@@ -38,14 +38,15 @@ pub struct PositionedGlyph {
 #[derive(Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct GlyphAtlasInfo {
-    /// A handle to the [`Image`] data for the texture atlas this glyph was placed in.
+    /// An asset ID to the [`Image`] data for the texture atlas this glyph was placed in.
     ///
-    /// A (weak) clone of the handle held by the [`FontAtlas`](crate::FontAtlas).
-    pub texture: Handle<Image>,
-    /// A handle to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed in.
+    /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
+    pub texture: AssetId<Image>,
+    /// An asset ID to the [`TextureAtlasLayout`] map for the texture atlas this glyph was placed
+    /// in.
     ///
-    /// A (weak) clone of the handle held by the [`FontAtlas`](crate::FontAtlas).
-    pub texture_atlas: Handle<TextureAtlasLayout>,
+    /// An asset ID of the handle held by the [`FontAtlas`](crate::FontAtlas).
+    pub texture_atlas: AssetId<TextureAtlasLayout>,
     /// Location and offset of a glyph within the texture atlas.
     pub location: GlyphAtlasLocation,
 }

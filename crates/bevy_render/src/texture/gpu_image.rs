@@ -1,12 +1,13 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
+    render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{AspectRatio, UVec2};
+use tracing::warn;
 use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
@@ -44,17 +45,48 @@ impl RenderAsset for GpuImage {
         image: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = if let Some(ref data) = image.data {
             render_device.create_texture_with_data(
                 render_queue,
                 &image.texture_descriptor,
-                // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-                wgpu::util::TextureDataOrder::default(),
+                image.data_order,
                 data,
             )
         } else {
-            render_device.create_texture(&image.texture_descriptor)
+            let new_texture = render_device.create_texture(&image.texture_descriptor);
+            if image.copy_on_resize {
+                if let Some(previous) = previous_asset {
+                    let mut command_encoder =
+                        render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                            label: Some("copy_image_on_resize"),
+                        });
+                    let copy_size = Extent3d {
+                        width: image.texture_descriptor.size.width.min(previous.size.width),
+                        height: image
+                            .texture_descriptor
+                            .size
+                            .height
+                            .min(previous.size.height),
+                        depth_or_array_layers: image
+                            .texture_descriptor
+                            .size
+                            .depth_or_array_layers
+                            .min(previous.size.depth_or_array_layers),
+                    };
+
+                    command_encoder.copy_texture_to_texture(
+                        previous.texture.as_image_copy(),
+                        new_texture.as_image_copy(),
+                        copy_size,
+                    );
+                    render_queue.submit([command_encoder.finish()]);
+                } else {
+                    warn!("No previous asset to copy from for image: {:?}", image);
+                }
+            }
+            new_texture
         };
 
         let texture_view = texture.create_view(

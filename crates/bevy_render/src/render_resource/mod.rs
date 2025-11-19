@@ -11,7 +11,7 @@ mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
 pub mod resource_macros;
-mod shader;
+mod specializer;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
@@ -27,7 +27,7 @@ pub use gpu_array_buffer::*;
 pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
-pub use shader::*;
+pub use specializer::*;
 pub use storage_buffer::*;
 pub use texture::*;
 pub use uniform_buffer::*;
@@ -40,32 +40,29 @@ pub use wgpu::{
     },
     AccelerationStructureFlags, AccelerationStructureGeometryFlags,
     AccelerationStructureUpdateMode, AdapterInfo as WgpuAdapterInfo, AddressMode, AstcBlock,
-    AstcChannel, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingResource, BindingType, Blas, BlasBuildEntry, BlasGeometries,
-    BlasGeometrySizeDescriptors, BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor,
-    BlendComponent, BlendFactor, BlendOperation, BlendState, BufferAddress, BufferAsyncError,
-    BufferBinding, BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState,
-    ColorWrites, CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass,
-    ComputePassDescriptor, ComputePipelineDescriptor as RawComputePipelineDescriptor,
-    CreateBlasDescriptor, CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags,
-    Extent3d, Face, Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState,
-    FrontFace, ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, Maintain, MapMode,
-    MultisampleState, Operations, Origin3d, PipelineCompilationOptions, PipelineLayout,
-    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
+    AstcChannel, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutEntry, BindingResource,
+    BindingType, Blas, BlasBuildEntry, BlasGeometries, BlasGeometrySizeDescriptors,
+    BlasTriangleGeometry, BlasTriangleGeometrySizeDescriptor, BlendComponent, BlendFactor,
+    BlendOperation, BlendState, BufferAddress, BufferAsyncError, BufferBinding, BufferBindingType,
+    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder,
+    CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor,
+    ComputePipelineDescriptor as RawComputePipelineDescriptor, CreateBlasDescriptor,
+    CreateTlasDescriptor, DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face,
+    Features as WgpuFeatures, FilterMode, FragmentState as RawFragmentState, FrontFace,
+    ImageSubresourceRange, IndexFormat, Limits as WgpuLimits, LoadOp, MapMode, MultisampleState,
+    Operations, Origin3d, PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor,
+    PollType, PolygonMode, PrimitiveState, PrimitiveTopology, PushConstantRange,
     RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
-    SamplerBindingType, SamplerBindingType as WgpuSamplerBindingType, SamplerDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
-    StencilOperation, StencilState, StorageTextureAccess, StoreOp, TexelCopyBufferInfo,
-    TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect, TextureDescriptor,
-    TextureDimension, TextureFormat, TextureFormatFeatureFlags, TextureFormatFeatures,
-    TextureSampleType, TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor,
-    TextureViewDimension, Tlas, TlasInstance, TlasPackage, VertexAttribute,
+    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
+    TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
+    TextureFormatFeatures, TextureSampleType, TextureUsages, TextureView as WgpuTextureView,
+    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
-
-pub use crate::mesh::VertexBufferLayout;
 
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;

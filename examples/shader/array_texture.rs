@@ -2,9 +2,11 @@
 //! uniform variable.
 
 use bevy::{
+    image::{ImageArrayLayout, ImageLoaderSettings},
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -17,22 +19,22 @@ fn main() {
             MaterialPlugin::<ArrayTextureMaterial>::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, create_array_texture)
         .run();
 }
 
-#[derive(Resource)]
-struct LoadingTexture {
-    is_loaded: bool,
-    handle: Handle<Image>,
-}
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Start loading the texture.
-    commands.insert_resource(LoadingTexture {
-        is_loaded: false,
-        handle: asset_server.load("textures/array_texture.png"),
-    });
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ArrayTextureMaterial>>,
+    asset_server: Res<AssetServer>,
+) {
+    // Load the texture.
+    let array_texture = asset_server.load_with_settings(
+        "textures/array_texture.png",
+        |settings: &mut ImageLoaderSettings| {
+            settings.array_layout = Some(ImageArrayLayout::RowCount { rows: 4 });
+        },
+    );
 
     // light
     commands.spawn((
@@ -45,35 +47,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera3d::default(),
         Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
     ));
-}
-
-fn create_array_texture(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut loading_texture: ResMut<LoadingTexture>,
-    mut images: ResMut<Assets<Image>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ArrayTextureMaterial>>,
-) {
-    if loading_texture.is_loaded
-        || !asset_server
-            .load_state(loading_texture.handle.id())
-            .is_loaded()
-    {
-        return;
-    }
-    loading_texture.is_loaded = true;
-    let image = images.get_mut(&loading_texture.handle).unwrap();
-
-    // Create a new array texture asset from the loaded texture.
-    let array_layers = 4;
-    image.reinterpret_stacked_2d_as_array(array_layers);
 
     // Spawn some cubes using the array texture
     let mesh_handle = meshes.add(Cuboid::default());
-    let material_handle = materials.add(ArrayTextureMaterial {
-        array_texture: loading_texture.handle.clone(),
-    });
+    let material_handle = materials.add(ArrayTextureMaterial { array_texture });
     for x in -5..=5 {
         commands.spawn((
             Mesh3d(mesh_handle.clone()),

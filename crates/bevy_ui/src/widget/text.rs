@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
+    Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -18,7 +18,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineBreak, LineHeight, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
@@ -95,7 +95,15 @@ impl Default for TextNodeFlags {
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
-#[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
+#[require(
+    Node,
+    TextLayout,
+    TextFont,
+    TextColor,
+    LineHeight,
+    TextNodeFlags,
+    ContentSize
+)]
 pub struct Text(pub String);
 
 impl Text {
@@ -128,6 +136,28 @@ impl From<String> for Text {
     }
 }
 
+/// Adds a shadow behind text
+///
+/// Use the `Text2dShadow` component for `Text2d` shadows
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
+    }
+}
+
 /// UI alias for [`TextReader`].
 pub type TextUiReader<'w, 's> = TextReader<'w, 's, Text>;
 
@@ -141,7 +171,8 @@ pub struct TextMeasure {
 
 impl TextMeasure {
     /// Checks if the cosmic text buffer is needed for measuring the text.
-    pub fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+    #[inline]
+    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
     }
 }
@@ -197,7 +228,7 @@ fn create_text_measure<'a>(
     entity: Entity,
     fonts: &Assets<Font>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, LineHeight)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -229,7 +260,13 @@ fn create_text_measure<'a>(
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -240,7 +277,7 @@ fn create_text_measure<'a>(
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
+/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedUiRenderTargetInfo`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
@@ -254,7 +291,8 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedNodeTarget>,
+            Ref<ComputedUiRenderTargetInfo>,
+            &ComputedNode,
         ),
         With<Node>,
     >,
@@ -262,9 +300,13 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
+    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
+        &mut text_query
+    {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if computed_target.is_changed()
+        // 1e-5 epsilon to ignore tiny scale factor float errors
+        if 1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -290,7 +332,7 @@ fn queue_text(
     entity: Entity,
     fonts: &Assets<Font>,
     text_pipeline: &mut TextPipeline,
-    font_atlas_sets: &mut FontAtlasSets,
+    font_atlas_set: &mut FontAtlasSet,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
     textures: &mut Assets<Image>,
     scale_factor: f32,
@@ -325,7 +367,7 @@ fn queue_text(
         scale_factor.into(),
         block,
         physical_node_size,
-        font_atlas_sets,
+        font_atlas_set,
         texture_atlases,
         textures,
         computed,
@@ -336,12 +378,18 @@ fn queue_text(
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
-            text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
-            text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
+            text_layout_info.scale_factor = scale_factor;
+            text_layout_info.size *= inverse_scale_factor;
             text_flags.needs_recompute = false;
         }
     }
@@ -359,7 +407,7 @@ pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
-    mut font_atlas_sets: ResMut<FontAtlasSets>,
+    mut font_atlas_set: ResMut<FontAtlasSet>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
@@ -379,7 +427,7 @@ pub fn text_system(
                 entity,
                 &fonts,
                 &mut text_pipeline,
-                &mut font_atlas_sets,
+                &mut font_atlas_set,
                 &mut texture_atlases,
                 &mut textures,
                 node.inverse_scale_factor.recip(),

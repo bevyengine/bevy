@@ -1,4 +1,4 @@
-# [![Bevy](assets/branding/bevy_logo_light_dark_and_dimmed.svg)](https://bevy.org)
+# [![Bevy](https://bevy.org/assets/bevy_logo_light_dark_and_dimmed.svg)](https://bevy.org)
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy.svg)](https://crates.io/crates/bevy)
@@ -76,9 +76,9 @@ To draw a window with standard functionality enabled, use:
 use bevy::prelude::*;
 
 fn main() {
-  App::new()
-    .add_plugins(DefaultPlugins)
-    .run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .run();
 }
 ```
 
@@ -118,7 +118,6 @@ These are generally BSD-like, but exact details vary by crate:
 If the README of a crate contains a 'License' header (or similar), the additional copyright notices and license terms applicable to that crate will be listed.
 The above licensing requirement still applies to contributions to those crates, and sections of those crates will carry those license terms.
 The [license](https://doc.rust-lang.org/cargo/reference/manifest.html#the-license-and-license-file-fields) field of each crate will also reflect this.
-For example, [`bevy_mikktspace`](./crates/bevy_mikktspace/README.md#license-agreement) has code under the Zlib license (as well as a copyright notice when choosing the MIT license).
 
 The [assets](assets) included in this repository (for our [examples](./examples/README.md)) typically fall under different open licenses.
 These will not be included in your game (unless copied in by you), and they are not distributed in the published bevy crates.
