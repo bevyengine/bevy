@@ -12,7 +12,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::CompactNodeIdAndDirection;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_image::{Image, TextureAtlasLayout};
-use bevy_math::Isometry2d;
+use bevy_math::{Isometry2d, Vec2};
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSet, LineHeight, SwashCache, TextBounds,
     TextFont, TextLayout, TextLayoutInfo, TextPipeline,
@@ -30,7 +30,7 @@ where
 }
 
 pub struct GizmoText {
-    pub isometry: Isometry2d,
+    pub position: Vec2,
     pub text: String,
     pub size: f32,
     pub color: Color,
@@ -83,5 +83,21 @@ pub fn gizmo_text_system<Config, Clear>(
         };
 
         println!("result: {}", info.glyphs.len());
+
+        for glyph in info.glyphs.iter() {
+            let rect = texture_atlases
+                .get(glyph.atlas_info.texture_atlas)
+                .unwrap()
+                .textures[glyph.atlas_info.location.glyph_index]
+                .as_rect();
+            let position = glyph.position + text.position;
+            gizmos.draw_glyph_2d(
+                position,
+                position + glyph.size,
+                rect.min,
+                rect.max,
+                text.color,
+            );
+        }
     }
 }

@@ -192,13 +192,13 @@ where
     /// Draw text
     pub fn text_2d(
         &mut self,
-        isometry: impl Into<Isometry2d>,
+        position: Vec2,
         text: impl Into<String>,
         size: f32,
         color: impl Into<Color>,
     ) {
         self.text_buffer.text.push(GizmoText {
-            isometry: isometry.into(),
+            position,
             text: text.into(),
             size,
             color: color.into(),
@@ -893,6 +893,37 @@ where
             return;
         }
         self.line_gradient_2d(start, start + vector, start_color, end_color);
+    }
+
+    /// Draw a glyph
+    #[inline]
+    pub fn draw_glyph_2d(
+        &mut self,
+        min: Vec2,
+        max: Vec2,
+        uv_min: Vec2,
+        uv_max: Vec2,
+        color: impl Into<Color>,
+    ) {
+        let linear_color = LinearRgba::from(color.into());
+
+        self.glyph_vertices.extend([
+            min.extend(0.),
+            max.extend(0.),
+            Vec3::new(min.x, max.y, 0.),
+            min.extend(0.),
+            Vec3::new(max.x, min.y, 0.),
+            max.extend(0.),
+        ]);
+        self.glyph_uvs.extend([
+            uv_min,
+            uv_max,
+            Vec2::new(uv_min.x, uv_max.y),
+            uv_min,
+            Vec2::new(uv_max.x, uv_min.y),
+            uv_max,
+        ]);
+        self.glyph_colors.extend(iter::repeat(linear_color).take(6));
     }
 
     /// Draw a wireframe rectangle in 2D with the given `isometry` applied.

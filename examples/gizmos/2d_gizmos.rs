@@ -123,7 +123,7 @@ fn draw_example_collection(
         .with_double_end()
         .with_tip_length(10.);
 
-    gizmos.text_2d(Isometry2d::default(), "Text Gizmo".to_string(), 20., RED);
+    gizmos.text_2d(Vec2::ZERO, "Text Gizmo".to_string(), 20., RED);
 }
 
 fn update_config(
