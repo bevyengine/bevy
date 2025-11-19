@@ -1992,12 +1992,23 @@ fn gates_asset_path_on_process() {
                 CoolTextSaver,
             ),
         ))
-        .set_default_asset_processor::<GatedProcess<CoolTextProcessor>>("cool.ron");
+        .set_default_asset_processor::<GatedProcess<CoolTextProcessor>>("cool.ron")
+        .init_asset::<FakeGltf>()
+        .register_asset_loader(FakeGltfLoader)
+        .register_asset_processor(GatedProcess(process_gate.clone(), FakeGltfSplitProcessor))
+        .set_default_asset_processor::<GatedProcess<FakeGltfSplitProcessor>>("gltf");
 
     // Lock the process gate so that we can't complete processing.
     let guard = process_gate.lock_blocking();
 
     default_source_dir.insert_asset_text(Path::new("abc.cool.ron"), &serialize_as_cool_text("abc"));
+    default_source_dir.insert_asset_text(
+        Path::new("def.gltf"),
+        &serialize_gltf_to_string(&FakeGltf {
+            gltf_nodes: Default::default(),
+            gltf_meshes: vec!["a".into(), "b".into()],
+        }),
+    );
 
     let processor = app.world().resource::<AssetProcessor>().clone();
     run_app_until(&mut app, |_| {
@@ -2008,6 +2019,14 @@ fn gates_asset_path_on_process() {
         .world()
         .resource::<AssetServer>()
         .load::<CoolText>("abc.cool.ron");
+    let handle_multi_a = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<FakeGltf>("def.gltf/Mesh0.gltf");
+    let handle_multi_b = app
+        .world()
+        .resource::<AssetServer>()
+        .load::<FakeGltf>("def.gltf/Mesh1.gltf");
     // Update an arbitrary number of times. If at any point, the asset loads, we know we're not
     // blocked on processing the asset! Note: If we're not blocking on the processed asset (this
     // feature is broken), this test would be flaky on multi_threaded (though it should still
@@ -2025,10 +2044,11 @@ fn gates_asset_path_on_process() {
     drop(guard);
     // Wait until the asset finishes loading, now that we're not blocked on the processor.
     run_app_until(&mut app, |world| {
-        world
-            .resource::<Assets<CoolText>>()
-            .get(&handle)
-            .map(|_| ())
+        // Return None if any of these assets are still missing.
+        world.resource::<Assets<CoolText>>().get(&handle)?;
+        world.resource::<Assets<FakeGltf>>().get(&handle_multi_a)?;
+        world.resource::<Assets<FakeGltf>>().get(&handle_multi_b)?;
+        Some(())
     });
 
     assert_eq!(
@@ -2038,6 +2058,15 @@ fn gates_asset_path_on_process() {
             .unwrap()
             .text,
         "abc processed"
+    );
+    let gltfs = app.world().resource::<Assets<FakeGltf>>();
+    assert_eq!(
+        gltfs.get(&handle_multi_a).unwrap().gltf_meshes,
+        ["a".to_string()]
+    );
+    assert_eq!(
+        gltfs.get(&handle_multi_b).unwrap().gltf_meshes,
+        ["b".to_string()]
     );
 }
 
