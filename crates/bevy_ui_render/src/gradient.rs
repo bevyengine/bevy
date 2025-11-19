@@ -635,7 +635,7 @@ pub fn queue_gradient(
             index,
             indexed: true,
         });
-        
+
         let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
             continue;
         };

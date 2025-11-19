@@ -99,7 +99,6 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_container|Provides transform in world for bevy UI|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
