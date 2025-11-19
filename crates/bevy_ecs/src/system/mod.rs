@@ -419,7 +419,7 @@ mod tests {
         },
         system::{
             Commands, ExclusiveMarker, In, InMut, IntoSystem, Local, NonSend, NonSendMut, ParamSet,
-            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState, SystemStateFlags,
+            Query, Res, ResMut, Single, StaticSystemParam, System, SystemState,
         },
         world::{DeferredWorld, EntityMut, FromWorld, World},
     };
@@ -1061,7 +1061,7 @@ mod tests {
 
         let mut sys = IntoSystem::into_system(sys);
         sys.initialize(&mut world);
-        assert!(sys.flags().intersects(SystemStateFlags::EXCLUSIVE));
+        assert!(sys.is_exclusive());
 
         run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
