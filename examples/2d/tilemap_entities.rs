@@ -1,7 +1,7 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
-    color::palettes::tailwind::RED_400, image::{ImageArrayLayout, ImageLoaderSettings}, prelude::*, sprite::{CommandsTilemapExt, InMap, TileCoord, TileStorage, Tilemap}, sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData}
+    color::palettes::tailwind::RED_400, image::{ImageArrayLayout, ImageLoaderSettings}, prelude::*, sprite::{CommandsTilemapExt, DespawnOnRemove, InMap, TileCoord, TileStorage, Tilemap}, sprite_render::{TileRenderData, TilemapChunkRenderData, TilemapRenderData}
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -60,7 +60,7 @@ fn update_tilemap(
         let x = rng.random_range(-64..=64);
         let y = rng.random_range(-64..=64);
 
-        commands.spawn((InMap(map), TileCoord(IVec2::new(x, y)), TileRenderData { tileset_index: rng.random_range(0..4), ..Default::default()}));
+        commands.spawn((InMap(map), TileCoord(IVec2::new(x, y)), TileRenderData { tileset_index: rng.random_range(0..4), ..Default::default()}, DespawnOnRemove));
     }
 }
 

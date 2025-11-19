@@ -1,10 +1,12 @@
+use std::marker::PhantomData;
+
 use bevy_app::{App, Plugin};
 use bevy_derive::Deref;
 use bevy_ecs::{component::Component, entity::Entity, hierarchy::ChildOf, lifecycle::HookContext, system::Command, world::{DeferredWorld, World}};
 use bevy_math::IVec2;
 use tracing::warn;
 
-use crate::{SetTile, SetTileResult, TileData};
+use crate::{RemoveTile, SetTile, SetTileResult, TileData};
 
 /// Plugin that handles the initialization and updating of tilemap chunks.
 /// Adds systems for processing newly added tilemap chunks.
@@ -12,7 +14,8 @@ pub struct EntityTilePlugin;
 
 impl Plugin for EntityTilePlugin {
     fn build(&self, app: &mut App) {
-        app.world_mut().register_component_hooks::<TileCoord>().on_insert(on_insert_entity_tile);
+        app.world_mut().register_component_hooks::<TileCoord>().on_insert(on_insert_entity_tile).on_remove(on_remove_entity_tile);
+        app.world_mut().register_component_hooks::<InMap>().on_remove(on_remove_entity_tile);
     }
 }
 
@@ -24,10 +27,15 @@ impl TileData for EntityTile {
 }
 
 #[derive(Component, Clone, Debug, Deref)]
+#[component(immutable)]
 pub struct InMap(pub Entity);
 
 #[derive(Component, Clone, Debug, Deref)]
+#[component(immutable)]
 pub struct TileCoord(pub IVec2);
+
+#[derive(Component, Clone, Debug)]
+pub struct DespawnOnRemove;
 
 fn on_insert_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
     let Ok(tile) = world.get_entity(entity) else {
@@ -58,7 +66,47 @@ fn on_insert_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: H
             world.entity_mut(entity).insert(ChildOf(chunk_id));
 
             if let Some(replaced_tile) = replaced_tile {
-                world.despawn(replaced_tile.0);
+                let mut replaced_tile = world.entity_mut(replaced_tile.0);
+                if replaced_tile.contains::<DespawnOnRemove>() {
+                    replaced_tile.despawn();
+                } else {
+                    replaced_tile.remove::<(InMap, TileCoord)>();
+                }
+            }
+        });
+}
+
+fn on_remove_entity_tile(mut world: DeferredWorld, HookContext { entity, .. }: HookContext){
+    let Ok(tile) = world.get_entity(entity) else {
+        warn!("Tile {} not found", entity);
+        return;
+    };
+    let Some(in_map) = tile.get::<InMap>().cloned() else {
+        warn!("Tile {} is not in a TileMap", entity);
+        return;
+    };
+    let Some(tile_position) = tile.get::<TileCoord>().cloned() else {
+        warn!("Tile {} has no tile coord.", entity);
+        return;
+    };
+
+    world
+        .commands()
+        .queue(move |world: &mut World| {
+            let Some(removed) = RemoveTile::<EntityTile> {
+                tilemap_id: in_map.0,
+                tile_position: tile_position.0,
+                _t: PhantomData,
+            }.apply(world) else {
+                warn!("Tile {} could not be removed from map or was already removed.", entity);
+                return;
+            };
+            
+            let mut removed = world.entity_mut(removed.0);
+            if removed.contains::<DespawnOnRemove>() {
+                removed.despawn();
+            } else {
+                removed.remove::<InMap>();
             }
         });
 }
