@@ -3800,7 +3800,6 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = false
 
 [[example]]
 name = "viewport_node"
@@ -4017,7 +4016,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.ui_container]
 name = "UI Container"
-description = "Demonstrates creating and using UiContainer"
+description = "Demonstrates using UiContainer"
 category = "UI (User Interface)"
 wasm = true
 
