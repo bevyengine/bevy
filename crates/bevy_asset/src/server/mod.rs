@@ -69,7 +69,7 @@ pub(crate) struct AssetServerData {
     pub(crate) loaders: Arc<RwLock<AssetLoaders>>,
     asset_event_sender: Sender<InternalAssetEvent>,
     asset_event_receiver: Receiver<InternalAssetEvent>,
-    sources: AssetSources,
+    sources: Arc<AssetSources>,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
     unapproved_path_mode: UnapprovedPathMode,
@@ -91,7 +91,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         mode: AssetServerMode,
         watching_for_changes: bool,
         unapproved_path_mode: UnapprovedPathMode,
@@ -109,7 +109,7 @@ impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
     pub fn new_with_meta_check(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
@@ -126,7 +126,7 @@ impl AssetServer {
     }
 
     pub(crate) fn new_with_loaders(
-        sources: AssetSources,
+        sources: Arc<AssetSources>,
         loaders: Arc<RwLock<AssetLoaders>>,
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
@@ -1773,6 +1773,12 @@ pub fn handle_internal_asset_events(world: &mut World) {
 
         if !untyped_failures.is_empty() {
             world.write_message_batch(untyped_failures);
+        }
+
+        // The following code all deals with hot-reloading, which we can skip if the server isn't
+        // watching for changes.
+        if !infos.watching_for_changes {
+            return;
         }
 
         fn queue_ancestors(
