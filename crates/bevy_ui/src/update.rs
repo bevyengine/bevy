@@ -196,6 +196,7 @@ pub fn propagate_ui_target_cameras(
             query_target.get(root_entity)
             && let Ok((scale, size)) = query_ui_scale.get(container_target.0)
         {
+            tracing::info!("此处运行");
             (scale.0, size.0)
         } else {
             camera_query

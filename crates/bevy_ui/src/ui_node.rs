@@ -2940,13 +2940,7 @@ pub struct UiContainerOf(Vec<Entity>);
 /// ```
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Clone)]
-#[require(
-    crate::ui_surface::UiSurface,
-    bevy_transform::components::Transform,
-    UiContainerOf,
-    Anchor,
-    UiScale
-)]
+#[require(bevy_transform::components::Transform, UiContainerOf, Anchor, UiScale)]
 pub struct UiContainerSize(pub UVec2);
 
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]

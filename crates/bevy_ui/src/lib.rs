@@ -162,6 +162,13 @@ impl Plugin for UiPlugin {
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
                 PostUpdate,
             ))
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<UiContainerTarget>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<UiContainerTarget>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),

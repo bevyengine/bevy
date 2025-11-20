@@ -1,7 +1,6 @@
 use core::fmt;
 use core::ops::{Deref, DerefMut};
 
-use bevy_ecs::component::Component;
 use bevy_platform::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
@@ -55,10 +54,10 @@ impl<T> DerefMut for UiTree<T> {
     }
 }
 
-#[derive(Resource, Component)]
+#[derive(Resource)]
 pub struct UiSurface {
     pub root_entity_to_viewport_node: EntityHashMap<taffy::NodeId>,
-    pub(crate) entity_to_taffy: EntityHashMap<LayoutNode>,
+    pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) taffy: UiTree<NodeMeasure>,
     taffy_children_scratch: Vec<taffy::NodeId>,
 }
