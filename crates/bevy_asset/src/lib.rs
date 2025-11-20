@@ -950,6 +950,35 @@ mod tests {
     }
 
     #[test]
+    fn load_relative_path() {
+        let dir = Dir::default();
+        let d_path = "a/b/c/d.cool.ron";
+        let d_ron = r#"
+(
+    text: "hello",
+    dependencies: [],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+        dir.insert_asset_text(Path::new(d_path), d_ron);
+
+        let (mut app, gate_opener) = test_app(dir);
+        gate_opener.open(d_path);
+        app.init_asset::<CoolText>()
+            .register_asset_loader(CoolTextLoader);
+        let asset_server = app.world().resource::<AssetServer>().clone();
+        let handle: Handle<CoolText> = asset_server.load("a/b/c/../c/d.cool.ron");
+        let d_id = handle.id();
+        app.update();
+
+        let handle2: Handle<CoolText> = asset_server.load("a/b/../b/c/d.cool.ron");
+        let handle3: Handle<CoolText> = asset_server.load("a/b/c/./d.cool.ron");
+
+        assert_eq!(handle2.id(), d_id);
+        assert_eq!(handle3.id(), d_id);
+    }
+
+    #[test]
     fn load_dependencies() {
         let dir = Dir::default();
 
