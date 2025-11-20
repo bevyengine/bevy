@@ -47,8 +47,7 @@ pub use process::*;
 use crate::{
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
-        AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
-        MissingAssetSourceError,
+        AssetSources, AssetWriterError, ErasedAssetReader, MissingAssetSourceError,
     },
     meta::{
         get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
@@ -761,9 +760,9 @@ impl AssetProcessor {
         /// folders when they are discovered.
         async fn get_asset_paths(
             reader: &dyn ErasedAssetReader,
-            clean_empty_folders_writer: Option<&dyn ErasedAssetWriter>,
             path: PathBuf,
             paths: &mut Vec<PathBuf>,
+            mut empty_dirs: Option<&mut Vec<PathBuf>>,
         ) -> Result<bool, AssetReaderError> {
             if reader.is_directory(&path).await? {
                 let mut path_stream = reader.read_directory(&path).await?;
@@ -772,18 +771,19 @@ impl AssetProcessor {
                 while let Some(child_path) = path_stream.next().await {
                     contains_files |= Box::pin(get_asset_paths(
                         reader,
-                        clean_empty_folders_writer,
                         child_path,
                         paths,
+                        empty_dirs.as_deref_mut(),
                     ))
                     .await?;
                 }
+                // Add the current directory after all its subdirectories so we delete any empty
+                // subdirectories before the current directory.
                 if !contains_files
                     && path.parent().is_some()
-                    && let Some(writer) = clean_empty_folders_writer
+                    && let Some(empty_dirs) = empty_dirs
                 {
-                    // it is ok for this to fail as it is just a cleanup job.
-                    let _ = writer.remove_empty_directory(&path).await;
+                    empty_dirs.push(path);
                 }
                 Ok(contains_files)
             } else {
@@ -802,22 +802,31 @@ impl AssetProcessor {
             let mut unprocessed_paths = Vec::new();
             get_asset_paths(
                 source.reader(),
-                None,
                 PathBuf::from(""),
                 &mut unprocessed_paths,
+                None,
             )
             .await
             .map_err(InitializeError::FailedToReadSourcePaths)?;
 
             let mut processed_paths = Vec::new();
+            let mut empty_dirs = Vec::new();
             get_asset_paths(
                 processed_reader,
-                Some(processed_writer),
                 PathBuf::from(""),
                 &mut processed_paths,
+                Some(&mut empty_dirs),
             )
             .await
             .map_err(InitializeError::FailedToReadDestinationPaths)?;
+
+            // Remove any empty directories from the processed path. Note: this has to happen after
+            // we fetch all the paths, otherwise the path stream can skip over paths
+            // (we're modifying a collection while iterating through it).
+            for empty_dir in empty_dirs {
+                // We don't care if this succeeds, since it's just a cleanup task. It is best-effort
+                let _ = processed_writer.remove_empty_directory(&empty_dir).await;
+            }
 
             for path in unprocessed_paths {
                 asset_infos.get_or_insert(AssetPath::from(path).with_source(source.id()));
