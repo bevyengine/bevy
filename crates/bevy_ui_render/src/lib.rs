@@ -28,7 +28,7 @@ use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
-    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
+    Node, Outline, ResolvedBorderRadius, ScrollbarStyle, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -122,6 +122,7 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
+    pub const SCROLLBARS: f32 = 0.1;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -138,6 +139,7 @@ pub enum RenderUiSystems {
     ExtractText,
     ExtractDebug,
     ExtractGradient,
+    ExtractScrollbars,
 }
 
 /// Marker for controlling whether UI is rendered with or without anti-aliasing
@@ -232,6 +234,7 @@ impl Plugin for UiRenderPlugin {
                     RenderUiSystems::ExtractTextBackgrounds,
                     RenderUiSystems::ExtractTextShadows,
                     RenderUiSystems::ExtractText,
+                    RenderUiSystems::ExtractScrollbars,
                     RenderUiSystems::ExtractDebug,
                 )
                     .chain(),
@@ -248,6 +251,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_decorations.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_scrollbars.in_set(RenderUiSystems::ExtractScrollbars),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -1300,6 +1304,132 @@ pub fn extract_text_decorations(
                     main_entity: entity.into(),
                 });
             }
+        }
+    }
+}
+
+pub fn extract_scrollbars(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            Option<&ScrollbarStyle>,
+        )>,
+    >,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut camera_mapper = camera_map.get_mapper();
+
+    for (entity, uinode, transform, inherited_visibility, clip, camera, colors) in &uinode_query {
+        // Skip invisible backgrounds
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        if uinode.scrollbar_size.cmple(Vec2::ZERO).all() {
+            continue;
+        }
+
+        let colors = colors.copied().unwrap_or_default();
+
+        let top_left = transform.affine() * Affine2::from_translation(-0.5 * uinode.size);
+
+        let h_bar = uinode.horizontal_scrollbar_gutter();
+        let v_bar = uinode.vertical_scrollbar_gutter();
+
+        let corner = Rect::from_corners(
+            Vec2::new(v_bar.min.x, h_bar.min.y),
+            Vec2::new(v_bar.max.x, h_bar.max.y),
+        );
+        if !corner.is_empty() {
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::SCROLLBARS,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: top_left * Affine2::from_translation(corner.center()),
+                item: ExtractedUiItem::Node {
+                    color: colors.corner.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: corner.size(),
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+        }
+
+        for (gutter, thumb) in [
+            (h_bar, uinode.horizontal_scrollbar_thumb()),
+            (v_bar, uinode.vertical_scrollbar_thumb()),
+        ] {
+            if gutter.is_empty() {
+                continue;
+            }
+            let transform = top_left * Affine2::from_translation(gutter.center());
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::SCROLLBARS,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform,
+                item: ExtractedUiItem::Node {
+                    color: colors.gutter.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: gutter.size(),
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
+
+            let transform = top_left * Affine2::from_translation(thumb.center());
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::SCROLLBARS,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform,
+                item: ExtractedUiItem::Node {
+                    color: colors.thumb.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: thumb.size(),
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: BorderRect::ZERO,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
         }
     }
 }
