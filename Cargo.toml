@@ -3800,6 +3800,7 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
+wasm = false
 
 [[example]]
 name = "viewport_node"
@@ -4886,4 +4887,3 @@ required-features = ["pan_camera"]
 name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
-wasm = true
