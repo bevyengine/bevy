@@ -2400,7 +2400,6 @@ wasm = false
 name = "states"
 path = "examples/state/states.rs"
 doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.states]
 name = "States"
@@ -3801,7 +3800,6 @@ doc-scrape-examples = true
 name = "Viewport Debug"
 description = "An example for debugging viewport coordinates"
 category = "UI (User Interface)"
-wasm = true
 
 [[example]]
 name = "viewport_node"
@@ -4018,7 +4016,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.ui_container]
 name = "UI Container"
-description = "Demonstrates creating and using UiContainer"
+description = "Demonstrates using UiContainer"
 category = "UI (User Interface)"
 wasm = true
 
