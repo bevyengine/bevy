@@ -1,14 +1,9 @@
 #import bevy_pbr::{
-    mesh_view_types::{Lights, DirectionalLight},
     atmosphere::{
-        types::{Atmosphere, AtmosphereSettings},
-        bindings::{atmosphere, settings, view, lights, aerial_view_lut_out},
+        bindings::settings,
         functions::{
-            sample_transmittance_lut, sample_density_lut, rayleigh, henyey_greenstein,
-            sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            uv_to_ndc, max_atmosphere_distance, uv_to_ray_direction, 
-            MIDPOINT_RATIO, get_view_position, MIN_EXTINCTION, ABSORPTION_DENSITY,
-            SCATTERING_DENSITY,
+            sample_density_lut, sample_local_inscattering, uv_to_ray_direction, get_view_position,
+            MIDPOINT_RATIO, MIN_EXTINCTION, ABSORPTION_DENSITY, SCATTERING_DENSITY,
         },
     }
 }
