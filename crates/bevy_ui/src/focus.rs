@@ -3,7 +3,6 @@ use crate::{
     UiContainerTarget, UiStack,
 };
 use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
-
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -17,7 +16,6 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -129,21 +127,21 @@ impl Default for FocusPolicy {
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
-    pub(super) entities_to_reset: SmallVec<[Entity; 1]>,
+    entities_to_reset: SmallVec<[Entity; 1]>,
 }
 
 /// Main query for [`ui_focus_system`]
 #[derive(QueryData)]
 #[query_data(mutable)]
 pub struct NodeQuery {
-    pub(super) entity: Entity,
-    pub(super) node: &'static ComputedNode,
-    pub(super) transform: &'static UiGlobalTransform,
-    pub(super) interaction: Option<&'static mut Interaction>,
-    pub(super) relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
-    pub(super) focus_policy: Option<&'static FocusPolicy>,
-    pub(super) inherited_visibility: Option<&'static InheritedVisibility>,
-    pub(super) target_camera: &'static ComputedUiTargetCamera,
+    entity: Entity,
+    node: &'static ComputedNode,
+    transform: &'static UiGlobalTransform,
+    interaction: Option<&'static mut Interaction>,
+    relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
+    focus_policy: Option<&'static FocusPolicy>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity

@@ -330,7 +330,6 @@ ui_picking = ["bevy_picking", "bevy_ui?/bevy_picking"]
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui_render?/bevy_ui_debug"]
 
-
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
 

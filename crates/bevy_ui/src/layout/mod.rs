@@ -40,7 +40,7 @@ impl LayoutContext {
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     #[inline]
-    pub(super) const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
+    const fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
@@ -98,7 +98,7 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
-    contain_query: Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
+    container_query: Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
@@ -120,7 +120,6 @@ pub fn ui_layout_system(
                     computed_target.physical_size.as_vec2(),
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
-
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
@@ -130,13 +129,11 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
-    let removed_nodes = removed_nodes
-        .read()
-        .filter(|entity| !node_query.contains(*entity))
-        .collect::<Vec<_>>();
-
-    ui_surface.remove_entities_ref(removed_nodes.iter());
+    ui_surface.remove_entities(
+        removed_nodes
+            .read()
+            .filter(|entity| !node_query.contains(*entity)),
+    );
 
     for ui_root_entity in ui_root_node_query.iter() {
         fn update_children_recursively(
@@ -162,10 +159,8 @@ pub fn ui_layout_system(
 
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
-        let ui_surface = ui_surface.as_mut();
-
         update_children_recursively(
-            ui_surface,
+            &mut ui_surface,
             &ui_children,
             &added_node_query,
             ui_root_entity,
@@ -181,7 +176,7 @@ pub fn ui_layout_system(
 
         update_uinode_geometry_recursive(
             ui_root_entity,
-            ui_surface,
+            &mut ui_surface,
             true,
             computed_target.physical_size().as_vec2(),
             Affine2::IDENTITY,
@@ -190,7 +185,7 @@ pub fn ui_layout_system(
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
-            &contain_query,
+            &container_query,
         );
     }
 
@@ -1257,5 +1252,61 @@ mod tests {
             world.resource_mut::<UiSurface>().taffy.total_node_count(),
             3
         );
+    }
+
+    mod container {
+        use super::*;
+
+        #[test]
+        fn node_switches_between_ui_container_and_camera() {
+            let mut app = setup_ui_test_app();
+            let world = app.world_mut();
+
+            let ui_container = world
+                .spawn(UiContainerSize(UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT)))
+                .id();
+
+            let ui_root = world
+                .spawn((
+                    Node {
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiContainerTarget(ui_container),
+                ))
+                .id();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.entity_to_taffy.contains_key(&ui_root));
+            assert!(ui_surface
+                .root_entity_to_viewport_node
+                .contains_key(&ui_root));
+
+            world.entity_mut(ui_root).remove::<UiContainerTarget>();
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(!ui_surface.entity_to_taffy.is_empty());
+            assert!(!ui_surface.root_entity_to_viewport_node.is_empty());
+
+            world
+                .entity_mut(ui_root)
+                .insert(UiContainerTarget(ui_container));
+
+            app.update();
+            let world = app.world_mut();
+
+            let ui_surface = world.resource::<UiSurface>();
+
+            assert!(ui_surface.entity_to_taffy.contains_key(&ui_root));
+        }
     }
 }

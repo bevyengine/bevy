@@ -46,7 +46,7 @@ pub fn update_clipping_system(
             if let Ok(target) = contain_target_query.get(root_node)
                 && let Ok((size, overflow, anchor, global)) = contain_query.get(target.0)
             {
-                // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
+                // Computes the clipping region for the current UI container.
                 let mut clip_rect = Rect::from_center_size(
                     global.translation().xy() - anchor.as_vec() * size.0.as_vec2(),
                     size.0.as_vec2(),
@@ -196,7 +196,6 @@ pub fn propagate_ui_target_cameras(
             query_target.get(root_entity)
             && let Ok((scale, size)) = query_ui_scale.get(container_target.0)
         {
-            tracing::info!("此处运行");
             (scale.0, size.0)
         } else {
             camera_query

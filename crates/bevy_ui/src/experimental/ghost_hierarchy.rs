@@ -5,8 +5,6 @@ use crate::ui_node::ComputedUiTargetCamera;
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use bevy_camera::visibility::Visibility;
-#[cfg(feature = "ghost_nodes")]
-use bevy_ecs::query::QueryFilter;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
@@ -31,10 +29,10 @@ pub struct GhostNode;
 ///
 /// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
-pub struct UiRootNodes<'w, 's, F: QueryFilter + 'static = ()> {
+pub struct UiRootNodes<'w, 's> {
     root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
     root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
-    all_nodes_query: Query<'w, 's, Entity, (With<Node>, F)>,
+    all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
 }
 
@@ -42,7 +40,7 @@ pub struct UiRootNodes<'w, 's, F: QueryFilter + 'static = ()> {
 pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
 
 #[cfg(feature = "ghost_nodes")]
-impl<'w, 's, F: QueryFilter> UiRootNodes<'w, 's, F> {
+impl<'w, 's> UiRootNodes<'w, 's> {
     pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
         self.root_node_query
             .iter()

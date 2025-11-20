@@ -2914,10 +2914,10 @@ impl ComputedUiRenderTargetInfo {
     }
 }
 
-/// Pointing to [`UiContainerSize`],layout based on this container size.
-/// This will determine whether the Ui is based on the camera's layout or the layout where `UiContainerSize` is located in world space.
-/// When the root node and its child nodes point to the same `UiContainerSize`, the functionality is work.
-/// You can use [`Propagate`](bevy_app::Propagate) to pass it to all child nodes.
+/// Specifies the UI container for the Node.
+/// The node will be laid out within this container.
+/// For proper functionality, both the root node and its children must have this component and point to the same container entity.
+/// You can use [`Propagate`](bevy_app::Propagate) to pass the container reference to all child nodes.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, PartialEq, Clone)]
 #[relationship(relationship_target = UiContainerOf)]
@@ -2927,11 +2927,14 @@ pub struct UiContainerTarget(pub Entity);
 #[relationship_target(relationship = UiContainerTarget, linked_spawn)]
 pub struct UiContainerOf(Vec<Entity>);
 
+/// To use this component's functionality, you must enable the bevy_ui_container feature.
+/// Sets the size of the UI container. The root node will calculate its layout based on this container size.
+/// Use the Anchor component to change the container's origin point.
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ui::UiContainerSize;
-/// use bevy_ui::Node;
-/// use bevy_ui::UiContainerTarget;
+/// # use bevy_ui::UiContainerSize;
+/// # use bevy_ui::Node;
+/// # use bevy_ui::UiContainerTarget;
 /// fn setup(mut commands: Commands) {
 ///     let ui_container = commands.spawn(UiContainerSize::default()).id();
 ///
@@ -2943,6 +2946,7 @@ pub struct UiContainerOf(Vec<Entity>);
 #[require(bevy_transform::components::Transform, UiContainerOf, Anchor, UiScale)]
 pub struct UiContainerSize(pub UVec2);
 
+/// It performs clipping on all root nodes in the container and propagates the clipping bounds to the root nodes.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Clone)]
 pub struct UiContainerOverflow(pub Overflow);

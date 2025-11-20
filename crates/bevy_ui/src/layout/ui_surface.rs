@@ -273,17 +273,6 @@ impl UiSurface {
         }
     }
 
-    pub fn remove_entities_ref<'a>(&mut self, entities: impl IntoIterator<Item = &'a Entity>) {
-        for entity in entities {
-            if let Some(node) = self.entity_to_taffy.remove(entity) {
-                self.taffy.remove(node.id).unwrap();
-                if let Some(viewport_node) = node.viewport_id {
-                    self.taffy.remove(viewport_node).ok();
-                }
-            }
-        }
-    }
-
     /// Get the layout geometry for the taffy node corresponding to the ui node [`Entity`].
     /// Does not compute the layout geometry, `compute_window_layouts` should be run before using this function.
     /// On success returns a pair consisting of the final resolved layout values after rounding

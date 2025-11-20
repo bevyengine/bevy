@@ -191,7 +191,7 @@ pub struct ImageNodeSize {
     /// The size of the image's texture
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
-    pub(crate) size: UVec2,
+    size: UVec2,
 }
 
 impl ImageNodeSize {
