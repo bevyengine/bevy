@@ -4,14 +4,17 @@ use bevy_core_pipeline::core_3d::{Opaque3dBatchSetKey, Opaque3dBinKey};
 use bevy_ecs::entity::Entity;
 use bevy_render::{
     render_phase::{
-        BinnedPhaseItem, BinnedRenderPhase, BinnedRenderPhasePlugin, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, PhaseItem, PhaseItemExtraIndex, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem,
+        PhaseItemExtraIndex,
     },
     render_resource::CachedRenderPipelineId,
     sync_world::MainEntity,
 };
 
-use crate::{MeshPass, MeshPipeline, PhaseContext, PhaseItemExt, PhaseItems, RenderPhaseType};
+use crate::{
+    BinnedPhaseFamily, MeshPass, NoExtractCondition, PIEPhase, PhaseContext, PhaseItemExt,
+    PhaseItems, RenderPhaseType,
+};
 
 const DUMMY_PHASE_ERROR: &str = "Dummy phase should never be instantiated.";
 
@@ -23,11 +26,10 @@ macro_rules! define_dummy_phase {
             // Important: It must be empty to ensure it does not match any material.
             const PHASE_TYPES: RenderPhaseType = RenderPhaseType::empty();
 
-            type RenderPhase = BinnedRenderPhase<Self>;
-            type RenderPhases = ViewBinnedRenderPhases<Self>;
-            type PhasePlugin = BinnedRenderPhasePlugin<Self, MeshPipeline>;
+            type PhaseFamily = BinnedPhaseFamily<Self>;
+            type ExtractCondition = NoExtractCondition;
 
-            fn queue(_render_phase: &mut Self::RenderPhase, _context: &PhaseContext) {
+            fn queue(_render_phase: &mut PIEPhase<Self>, _context: &PhaseContext) {
                 panic!("{}", DUMMY_PHASE_ERROR)
             }
         }
@@ -96,10 +98,10 @@ where
     P: MeshPass,
     PIE: PhaseItemExt,
 {
-    type Phase1 = PIE;
-    type Phase2 = DummyPhase2<P>;
-    type Phase3 = DummyPhase3<P>;
-    type Phase4 = DummyPhase4<P>;
+    type PIE1 = PIE;
+    type PIE2 = DummyPhase2<P>;
+    type PIE3 = DummyPhase3<P>;
+    type PIE4 = DummyPhase4<P>;
 
     fn count() -> usize {
         1
@@ -111,10 +113,10 @@ where
     P: MeshPass,
     PIE1: PhaseItemExt,
 {
-    type Phase1 = PIE1;
-    type Phase2 = DummyPhase2<P>;
-    type Phase3 = DummyPhase3<P>;
-    type Phase4 = DummyPhase4<P>;
+    type PIE1 = PIE1;
+    type PIE2 = DummyPhase2<P>;
+    type PIE3 = DummyPhase3<P>;
+    type PIE4 = DummyPhase4<P>;
 
     fn count() -> usize {
         1
@@ -127,10 +129,10 @@ where
     PIE1: PhaseItemExt,
     PIE2: PhaseItemExt,
 {
-    type Phase1 = PIE1;
-    type Phase2 = PIE2;
-    type Phase3 = DummyPhase3<P>;
-    type Phase4 = DummyPhase4<P>;
+    type PIE1 = PIE1;
+    type PIE2 = PIE2;
+    type PIE3 = DummyPhase3<P>;
+    type PIE4 = DummyPhase4<P>;
 
     fn count() -> usize {
         2
@@ -144,10 +146,10 @@ where
     PIE2: PhaseItemExt,
     PIE3: PhaseItemExt,
 {
-    type Phase1 = PIE1;
-    type Phase2 = PIE2;
-    type Phase3 = PIE3;
-    type Phase4 = DummyPhase4<P>;
+    type PIE1 = PIE1;
+    type PIE2 = PIE2;
+    type PIE3 = PIE3;
+    type PIE4 = DummyPhase4<P>;
 
     fn count() -> usize {
         3
@@ -162,10 +164,10 @@ where
     PIE3: PhaseItemExt,
     PIE4: PhaseItemExt,
 {
-    type Phase1 = PIE1;
-    type Phase2 = PIE2;
-    type Phase3 = PIE3;
-    type Phase4 = PIE4;
+    type PIE1 = PIE1;
+    type PIE2 = PIE2;
+    type PIE3 = PIE3;
+    type PIE4 = PIE4;
 
     fn count() -> usize {
         4
