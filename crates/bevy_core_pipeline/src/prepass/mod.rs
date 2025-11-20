@@ -34,6 +34,7 @@ use bevy_asset::UntypedAssetId;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_render::extract_component::ExtractComponent;
 use bevy_render::mesh::allocator::SlabId;
 use bevy_render::render_phase::PhaseItemBatchSetKey;
 use bevy_render::sync_world::MainEntity;
@@ -53,13 +54,13 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 pub const MOTION_VECTOR_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg16Float;
 
 /// If added to a [`bevy_camera::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
 pub struct DepthPrepass;
 
 /// If added to a [`bevy_camera::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 /// Normals will have normal map textures already applied.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
 pub struct NormalPrepass;
 
@@ -67,13 +68,13 @@ pub struct NormalPrepass;
 ///
 /// Motion vectors are stored in the range -1,1, with +x right and +y down.
 /// A value of (1.0,1.0) indicates a pixel moved from the top left corner to the bottom right corner of the screen.
-#[derive(Component, Default, Reflect, Clone)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
 pub struct MotionVectorPrepass;
 
 /// If added to a [`bevy_camera::Camera3d`] then deferred materials will be rendered to the deferred gbuffer texture and will be available to subsequent passes.
 /// Note the default deferred lighting plugin also requires `DepthPrepass` to work correctly.
-#[derive(Component, Default, Reflect)]
+#[derive(Component, Default, Reflect, Clone, ExtractComponent)]
 #[reflect(Component, Default)]
 pub struct DeferredPrepass;
 

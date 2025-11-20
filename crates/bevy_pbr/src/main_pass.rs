@@ -17,7 +17,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     component::Component,
     prelude::*,
-    query::Has,
+    query::{Has, QueryItem},
     system::{Query, ResMut, SystemChangeTick},
 };
 use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
@@ -26,9 +26,8 @@ use bevy_render::{
     camera::TemporalJitter,
     extract_component::ExtractComponent,
     render_phase::{
-        AddRenderCommand, BinnedRenderPhase, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
-        DrawFunctions, PhaseItemExtraIndex, SortedRenderPhase, SortedRenderPhasePlugin,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        AddRenderCommand, BinnedRenderPhasePlugin, BinnedRenderPhaseType, DrawFunctions,
+        PhaseItemExtraIndex,
     },
     render_resource::{
         RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
@@ -243,7 +242,6 @@ pub fn init_material_pipeline(mut commands: Commands, mesh_pipeline: Res<MeshPip
 pub struct MaterialPipelineSpecializer {
     pub(crate) pipeline: MaterialPipeline,
     pub(crate) properties: Arc<MaterialProperties>,
-    pub(crate) pass_id: PassId,
 }
 
 impl PipelineSpecializer for MaterialPipelineSpecializer {
@@ -296,14 +294,14 @@ impl PipelineSpecializer for MaterialPipelineSpecializer {
             mesh_key,
             material_key,
             type_id: context.material_asset_id,
+            pass_id: context.pass_id,
         }
     }
 
-    fn new(pipeline: &Self::Pipeline, material: &PreparedMaterial, pass_id: PassId) -> Self {
+    fn new(pipeline: &Self::Pipeline, material: &PreparedMaterial) -> Self {
         MaterialPipelineSpecializer {
             pipeline: pipeline.clone(),
             properties: material.properties.clone(),
-            pass_id,
         }
     }
 }
@@ -332,14 +330,14 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
         };
         if let Some(vertex_shader) = self
             .properties
-            .get_shader(MaterialVertexShader(self.pass_id))
+            .get_shader(MaterialVertexShader(key.pass_id))
         {
             descriptor.vertex.shader = vertex_shader.clone();
         }
 
         if let Some(fragment_shader) = self
             .properties
-            .get_shader(MaterialFragmentShader(self.pass_id))
+            .get_shader(MaterialFragmentShader(key.pass_id))
         {
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
@@ -349,7 +347,7 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
             .insert(3, self.properties.material_layout.as_ref().unwrap().clone());
 
         if let Some(specialize) = self.properties.specialize {
-            specialize(&self.pipeline, &mut descriptor, layout, key)?; // , self.pass_id)?;
+            specialize(&self.pipeline, &mut descriptor, layout, key)?;
         }
 
         // If bindless mode is on, add a `BINDLESS` define.
@@ -364,13 +362,23 @@ impl SpecializedMeshPipeline for MaterialPipelineSpecializer {
     }
 }
 
+pub struct NoExtractCondition;
+
+impl ExtractCondition for NoExtractCondition {
+    type QueryData = ();
+
+    #[inline]
+    fn should_extract(_item: QueryItem<'_, '_, Self::QueryData>) -> bool {
+        true
+    }
+}
+
 impl PhaseItemExt for Opaque3d {
-    type RenderPhase = BinnedRenderPhase<Self>;
-    type RenderPhases = ViewBinnedRenderPhases<Self>;
-    type PhasePlugin = BinnedRenderPhasePlugin<Self, MeshPipeline>;
+    type PhaseFamily = BinnedPhaseFamily<Self>;
+    type ExtractCondition = NoExtractCondition;
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Opaque;
 
-    fn queue(render_phase: &mut Self::RenderPhase, context: &PhaseContext) {
+    fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
         if context.material.properties.render_method == OpaqueRendererMethod::Deferred {
             // Even though we aren't going to insert the entity into
             // a bin, we still want to update its cache entry. That
@@ -411,12 +419,11 @@ impl PhaseItemExt for Opaque3d {
 }
 
 impl PhaseItemExt for AlphaMask3d {
-    type RenderPhase = BinnedRenderPhase<Self>;
-    type RenderPhases = ViewBinnedRenderPhases<Self>;
-    type PhasePlugin = BinnedRenderPhasePlugin<Self, MeshPipeline>;
+    type PhaseFamily = BinnedPhaseFamily<Self>;
+    type ExtractCondition = NoExtractCondition;
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::AlphaMask;
 
-    fn queue(render_phase: &mut Self::RenderPhase, context: &PhaseContext) {
+    fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
         let (vertex_slab, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);
@@ -444,12 +451,11 @@ impl PhaseItemExt for AlphaMask3d {
 }
 
 impl PhaseItemExt for Transmissive3d {
-    type RenderPhase = SortedRenderPhase<Self>;
-    type RenderPhases = ViewSortedRenderPhases<Self>;
-    type PhasePlugin = SortedRenderPhasePlugin<Self, MeshPipeline>;
+    type PhaseFamily = SortedPhaseFamily<Self>;
+    type ExtractCondition = NoExtractCondition;
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Transmissive;
 
-    fn queue(render_phase: &mut Self::RenderPhase, context: &PhaseContext) {
+    fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
         let (_, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);
@@ -471,12 +477,11 @@ impl PhaseItemExt for Transmissive3d {
 }
 
 impl PhaseItemExt for Transparent3d {
-    type RenderPhase = SortedRenderPhase<Self>;
-    type RenderPhases = ViewSortedRenderPhases<Self>;
-    type PhasePlugin = SortedRenderPhasePlugin<Self, MeshPipeline>;
+    type PhaseFamily = SortedPhaseFamily<Self>;
+    type ExtractCondition = NoExtractCondition;
     const PHASE_TYPES: RenderPhaseType = RenderPhaseType::Transparent;
 
-    fn queue(render_phase: &mut Self::RenderPhase, context: &PhaseContext) {
+    fn queue(render_phase: &mut PIEPhase<Self>, context: &PhaseContext) {
         let (_, index_slab) = context
             .mesh_allocator
             .mesh_slabs(&context.mesh_instance.mesh_asset_id);

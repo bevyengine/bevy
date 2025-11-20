@@ -1907,11 +1907,11 @@ pub fn specialize_shadows(
                     mesh_key,
                     material_key: material.properties.material_key.clone(),
                     type_id: material_instance.asset_id.type_id(),
+                    pass_id: PassId::of::<Prepass>(),
                 };
                 let material_pipeline_specializer = PrepassPipelineSpecializer {
                     pipeline: prepass_pipeline.clone(),
                     properties: material.properties.clone(),
-                    _pass_id: Prepass::id(),
                 };
                 let pipeline_id = pipelines.specialize(
                     &pipeline_cache,

@@ -68,7 +68,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_render::renderer::RenderAdapterInfo;
-pub use bevy_render_macros::ShaderLabel;
+pub use bevy_render_macros::{BinnedPhaseItem, ShaderLabel, SortedPhaseItem};
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;

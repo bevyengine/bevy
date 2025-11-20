@@ -8,8 +8,8 @@ mod specializer;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
-use quote::format_ident;
-use syn::{parse_macro_input, DeriveInput};
+use quote::{format_ident, quote};
+use syn::{parse_macro_input, Data, DeriveInput, Fields};
 
 pub(crate) fn bevy_render_path() -> syn::Path {
     BevyManifest::shared(|manifest| manifest.get_path("bevy_render"))
@@ -145,4 +145,272 @@ pub fn derive_draw_function_label(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("DrawFunctionLabel").into());
     derive_label(input, "DrawFunctionLabel", &trait_path)
+}
+
+/// Implement `BinnedPhaseItem` and other related traits for a newtype.
+#[proc_macro_derive(BinnedPhaseItem)]
+pub fn derive_binned_phase_item(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let inner_ty = match extract_newtype_inner(&ast) {
+        Ok(ty) => ty,
+        Err(err) => return err.to_compile_error().into(),
+    };
+
+    let bevy_render = bevy_render_path();
+    let bevy_ecs = bevy_ecs_path();
+
+    let struct_name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
+    let phase_item_impl = impl_phase_item(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        &bevy_render,
+        &bevy_ecs,
+    );
+
+    let binned_phase_item_impl = impl_binned_phase_item(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        inner_ty,
+        &bevy_render,
+        &bevy_ecs,
+    );
+
+    let cached_pipeline_impl = impl_cached_pipeline(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        &bevy_render,
+    );
+
+    TokenStream::from(quote! {
+        #phase_item_impl
+        #binned_phase_item_impl
+        #cached_pipeline_impl
+    })
+}
+
+/// Implement `SortedPhaseItem` and other related traits for a newtype.
+///
+/// NOTE: Currently, we are using the default implementation of `sort` for `SortedPhaseItem`.
+#[proc_macro_derive(SortedPhaseItem)]
+pub fn derive_sorted_phase_item(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+
+    let inner_ty = match extract_newtype_inner(&ast) {
+        Ok(ty) => ty,
+        Err(err) => return err.to_compile_error().into(),
+    };
+
+    let bevy_render = bevy_render_path();
+    let bevy_ecs = bevy_ecs_path();
+
+    let struct_name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, type_generics, where_clause) = generics.split_for_impl();
+
+    let phase_item_impl = impl_phase_item(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        &bevy_render,
+        &bevy_ecs,
+    );
+
+    let sorted_phase_item_impl = impl_sorted_phase_item(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        inner_ty,
+        &bevy_render,
+    );
+
+    let cached_pipeline_impl = impl_cached_pipeline(
+        struct_name,
+        &impl_generics,
+        &type_generics,
+        where_clause,
+        &bevy_render,
+    );
+
+    TokenStream::from(quote! {
+        #phase_item_impl
+        #sorted_phase_item_impl
+        #cached_pipeline_impl
+    })
+}
+
+fn extract_newtype_inner(ast: &DeriveInput) -> syn::Result<&syn::Type> {
+    match &ast.data {
+        Data::Struct(s) => match &s.fields {
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                Ok(&fields.unnamed.first().unwrap().ty)
+            }
+            _ => Err(syn::Error::new_spanned(
+                ast.ident.clone(),
+                "#[derive(Binned)] requires a single-field tuple struct",
+            )),
+        },
+        _ => Err(syn::Error::new_spanned(
+            ast.ident.clone(),
+            "#[derive(Binned)] can only be used on structs",
+        )),
+    }
+}
+
+fn impl_phase_item(
+    struct_name: &syn::Ident,
+    impl_generics: &impl quote::ToTokens,
+    type_generics: &impl quote::ToTokens,
+    where_clause: Option<&syn::WhereClause>,
+    bevy_render: &syn::Path,
+    bevy_ecs: &syn::Path,
+) -> proc_macro2::TokenStream {
+    quote! {
+        impl #impl_generics #bevy_render::render_phase::PhaseItem
+            for #struct_name #type_generics #where_clause
+        {
+            #[inline]
+            fn entity(&self) -> #bevy_ecs::entity::Entity {
+                self.0.entity()
+            }
+
+            #[inline]
+            fn main_entity(&self) -> #bevy_render::sync_world::MainEntity {
+                self.0.main_entity()
+            }
+
+            #[inline]
+            fn draw_function(&self) -> #bevy_render::render_phase::DrawFunctionId {
+                self.0.draw_function()
+            }
+
+            #[inline]
+            fn batch_range(&self) -> &::core::ops::Range<u32> {
+                self.0.batch_range()
+            }
+
+            #[inline]
+            fn batch_range_mut(&mut self) -> &mut ::core::ops::Range<u32> {
+                self.0.batch_range_mut()
+            }
+
+            #[inline]
+            fn extra_index(&self) -> #bevy_render::render_phase::PhaseItemExtraIndex {
+                self.0.extra_index()
+            }
+
+            #[inline]
+            fn batch_range_and_extra_index_mut(
+                &mut self,
+            ) -> (
+                &mut ::core::ops::Range<u32>,
+                &mut #bevy_render::render_phase::PhaseItemExtraIndex
+            ) {
+                self.0.batch_range_and_extra_index_mut()
+            }
+        }
+    }
+}
+
+fn impl_binned_phase_item(
+    struct_name: &syn::Ident,
+    impl_generics: &impl quote::ToTokens,
+    type_generics: &impl quote::ToTokens,
+    where_clause: Option<&syn::WhereClause>,
+    inner_ty: &syn::Type,
+    bevy_render: &syn::Path,
+    bevy_ecs: &syn::Path,
+) -> proc_macro2::TokenStream {
+    quote! {
+        impl #impl_generics #bevy_render::render_phase::BinnedPhaseItem
+            for #struct_name #type_generics #where_clause
+        {
+            type BatchSetKey =
+                <#inner_ty as #bevy_render::render_phase::BinnedPhaseItem>::BatchSetKey;
+            type BinKey =
+                <#inner_ty as #bevy_render::render_phase::BinnedPhaseItem>::BinKey;
+
+            #[inline]
+            fn new(
+                batch_set_key: Self::BatchSetKey,
+                bin_key: Self::BinKey,
+                representative_entity: (#bevy_ecs::entity::Entity, #bevy_render::sync_world::MainEntity),
+                batch_range: ::core::ops::Range<u32>,
+                extra_index: #bevy_render::render_phase::PhaseItemExtraIndex,
+            ) -> Self {
+                Self(<#inner_ty as #bevy_render::render_phase::BinnedPhaseItem>::new(
+                    batch_set_key,
+                    bin_key,
+                    representative_entity,
+                    batch_range,
+                    extra_index,
+                ))
+            }
+        }
+    }
+}
+
+fn impl_sorted_phase_item(
+    struct_name: &syn::Ident,
+    impl_generics: &impl quote::ToTokens,
+    type_generics: &impl quote::ToTokens,
+    where_clause: Option<&syn::WhereClause>,
+    inner_ty: &syn::Type,
+    bevy_render: &syn::Path,
+) -> proc_macro2::TokenStream {
+    quote! {
+        impl #impl_generics #bevy_render::render_phase::SortedPhaseItem
+            for #struct_name #type_generics #where_clause
+        {
+            type SortKey =
+                <#inner_ty as #bevy_render::render_phase::SortedPhaseItem>::SortKey;
+
+            #[inline]
+            fn sort_key(&self) -> Self::SortKey {
+                <#inner_ty as #bevy_render::render_phase::SortedPhaseItem>::sort_key(&self.0)
+            }
+
+            // NOTE: Currently, we are using the default implementation of `sort`. To address this,
+            // a new associated type `SortItem` needs to be added for `SortedPhaseItem`.
+            // #[inline]
+            // fn sort(items: &mut [Self]) {
+            //     <#inner_ty as #bevy_render::render_phase::SortedPhaseItem>::sort(items)
+            // }
+
+            #[inline]
+            fn indexed(&self) -> bool {
+                self.0.indexed()
+            }
+        }
+    }
+}
+
+fn impl_cached_pipeline(
+    struct_name: &syn::Ident,
+    impl_generics: &impl quote::ToTokens,
+    type_generics: &impl quote::ToTokens,
+    where_clause: Option<&syn::WhereClause>,
+    bevy_render: &syn::Path,
+) -> proc_macro2::TokenStream {
+    quote! {
+        impl #impl_generics #bevy_render::render_phase::CachedRenderPipelinePhaseItem
+            for #struct_name #type_generics #where_clause
+        {
+            #[inline]
+            fn cached_pipeline(&self) -> #bevy_render::render_resource::CachedRenderPipelineId {
+                self.0.cached_pipeline()
+            }
+        }
+    }
 }
