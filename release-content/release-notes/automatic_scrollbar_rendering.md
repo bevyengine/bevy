@@ -1,7 +1,7 @@
 ---
 title: Automatic scrollbar rendering
 authors: ["@ickshonpe"]
-pull_requests: []
+pull_requests: [21897]
 ---
 
 Scrollbars are now drawn automatically for nodes with scrolled content and a `scrollbar_width` greater than 0.
