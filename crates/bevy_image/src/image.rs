@@ -1952,11 +1952,10 @@ impl CompressedImageFormats {
             | TextureFormat::EacR11Snorm
             | TextureFormat::EacRg11Unorm
             | TextureFormat::EacRg11Snorm => self.contains(CompressedImageFormats::ETC2),
-            TextureFormat::Astc { channel, .. }
-                if matches!(channel, wgpu_types::AstcChannel::Hdr) =>
-            {
-                self.contains(CompressedImageFormats::ASTC_HDR)
-            }
+            TextureFormat::Astc {
+                channel: wgpu_types::AstcChannel::Hdr,
+                ..
+            } => self.contains(CompressedImageFormats::ASTC_HDR),
             TextureFormat::Astc { .. } => self.contains(CompressedImageFormats::ASTC_LDR),
             _ => true,
         }
