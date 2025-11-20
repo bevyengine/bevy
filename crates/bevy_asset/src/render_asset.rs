@@ -5,7 +5,7 @@ bitflags::bitflags! {
     /// Defines where the asset will be used.
     ///
     /// If an asset is set to the `RENDER_WORLD` but not the `MAIN_WORLD`, the asset data (pixel data,
-    /// mersh vertex data, etc) will be removed from the cpu-side asset once it's been extracted and prepared
+    /// mesh vertex data, etc) will be removed from the cpu-side asset once it's been extracted and prepared
     /// in the render world. The asset will remain in the assets collection, but with only metadata.
     ///
     /// Unloading the asset data saves on memory, as for most cases it is no longer necessary to keep
