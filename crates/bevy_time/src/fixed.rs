@@ -249,12 +249,12 @@ pub fn run_fixed_main_schedule(world: &mut World) {
     // Run the schedule until we run out of accumulated time
     let _ = world.try_schedule_scope(FixedMain, |world, schedule| {
         while world.resource_mut::<Time<Fixed>>().expend() {
-            *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_generic();
+            *world.resource_mut::<Time>() = world.resource::<Time<Fixed>>().as_other();
             schedule.run(world);
         }
     });
 
-    *world.resource_mut::<Time>() = world.resource::<Time<Virtual>>().as_generic();
+    *world.resource_mut::<Time>() = world.resource::<Time<Virtual>>().as_other();
 }
 
 #[cfg(test)]
