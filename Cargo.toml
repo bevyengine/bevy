@@ -4887,3 +4887,4 @@ required-features = ["pan_camera"]
 name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
+wasm = true
