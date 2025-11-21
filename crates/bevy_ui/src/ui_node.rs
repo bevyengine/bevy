@@ -2950,6 +2950,8 @@ impl ComputedUiRenderTargetInfo {
 mod tests {
     use crate::ComputedNode;
     use crate::GridPlacement;
+    use bevy_math::Vec2;
+    use bevy_sprite::BorderRect;
 
     #[test]
     fn invalid_grid_placement_values() {
