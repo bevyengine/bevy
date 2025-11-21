@@ -298,6 +298,35 @@ impl ComputedNode {
 
         clip_rect
     }
+
+    /// Returns the node's border-box in object-centered physical coordinates.
+    /// This is the full rectangle enclosing the node.
+    pub const fn border_box(&self) -> Rect {
+        Rect::from_center_size(Vec2::ZERO, self.size)
+    }
+
+    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// This is the region inside the border containing the node's padding and content areas.
+    pub const fn padding_box(&self) -> Rect {
+        let mut out = self.border_box();
+        out.min.x += self.border.left;
+        out.min.x -= self.border.right;
+        out.min.y += self.border.top;
+        out.max.y -= self.border.bottom;
+        out
+    }
+
+    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// This is the innermost region of the node, where its content is placed.
+    pub const fn content_box(&self) -> Rect {
+        let mut out = self.border_box();
+        let content_inset = self.content_inset();
+        out.min.x += content_inset.left;
+        out.min.x -= content_inset.right;
+        out.min.y += content_inset.top;
+        out.max.y -= content_inset.bottom;
+        out
+    }
 }
 
 impl ComputedNode {
@@ -2916,6 +2945,7 @@ impl ComputedUiRenderTargetInfo {
 
 #[cfg(test)]
 mod tests {
+    use crate::ComputedNode;
     use crate::GridPlacement;
 
     #[test]
@@ -2942,5 +2972,49 @@ mod tests {
         assert_eq!(GridPlacement::start_end(11, 21).get_span(), None);
         assert_eq!(GridPlacement::start_span(3, 5).get_end(), None);
         assert_eq!(GridPlacement::end_span(-4, 12).get_start(), None);
+    }
+
+    #[test]
+    fn border_box_is_centered_rect_of_node_size() {
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 50.0),
+            ..Default::default()
+        };
+        let border_box = node.border_box();
+
+        assert_eq!(border_box.min, Vec2::new(-50.0, -25.0));
+        assert_eq!(border_box.max, Vec2::new(50.0, 25.0));
+    }
+
+    #[test]
+    fn padding_box_subtracts_border_thickness() {
+        let mut node = ComputedNode::default();
+        node.size = Vec2::new(100.0, 60.0);
+        node.border = BorderRect {
+            left: 5.0,
+            right: 7.0,
+            top: 3.0,
+            bottom: 9.0,
+        };
+        let padding_box = node.padding_box();
+
+        assert_eq!(padding_box.min, Vec2::new(-50.0 + 5.0, -30.0 + 3.0));
+        assert_eq!(padding_box.max, Vec2::new(50.0 - 7.0, 30.0 - 9.0));
+    }
+
+    #[test]
+    fn content_box_uses_content_inset() {
+        let mut node = ComputedNode::default();
+        node.size = Vec2::new(80.0, 40.0);
+        node.padding = BorderRect {
+            left: 4.0,
+            right: 6.0,
+            top: 2.0,
+            bottom: 8.0,
+        };
+        let content_box = node.content_box();
+
+        assert_eq!(content_box.min, Vec2::new(-40.0 + 4.0, -20.0 + 2.0));
+        assert_eq!(content_box.max, Vec2::new(40.0 - 6.0, 20.0 - 8.0));
     }
 }
