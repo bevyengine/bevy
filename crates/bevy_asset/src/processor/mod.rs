@@ -862,7 +862,7 @@ impl AssetProcessor {
                     }
                 {
                     // If this directory has a meta file, then it is likely a processed asset using
-                    // `ProcessContext::write_multiple`, so count the whole thing as an asset path.
+                    // `ProcessContext::write_partial`, so count the whole thing as an asset path.
                     paths.push(path);
                     return Ok(true);
                 }
@@ -1274,7 +1274,7 @@ impl AssetProcessor {
 
             let mut started_writes = 0;
             let mut finished_writes = AtomicU32::new(0);
-            let mut single_meta = None;
+            let mut full_meta = None;
             {
                 let mut context = ProcessContext::new(
                     self,
@@ -1289,7 +1289,7 @@ impl AssetProcessor {
                         processed_writer,
                         &mut started_writes,
                         &mut finished_writes,
-                        &mut single_meta,
+                        &mut full_meta,
                         asset_path,
                     ),
                 );
@@ -1318,7 +1318,7 @@ impl AssetProcessor {
                     .iter()
                     .map(|i| i.full_hash),
             );
-            let mut processed_meta = single_meta
+            let mut processed_meta = full_meta
                 .unwrap_or_else(|| Box::new(AssetMeta::<(), ()>::new(AssetAction::Decomposed)));
 
             new_processed_info.full_hash = full_hash;

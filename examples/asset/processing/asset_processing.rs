@@ -254,7 +254,7 @@ impl Process for LineSplitterProcess {
         }
         for (i, line) in bytes.lines().map(Result::unwrap).enumerate() {
             let mut writer = writer_context
-                .write_multiple(Path::new(&format!("Line{i}.line")))
+                .write_partial(Path::new(&format!("Line{i}.line")))
                 .await?;
             writer.write_all(line.as_bytes()).await.map_err(|err| {
                 ProcessError::AssetWriterError {

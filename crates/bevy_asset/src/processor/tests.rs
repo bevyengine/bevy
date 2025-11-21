@@ -2098,7 +2098,7 @@ impl Process for FakeGltfSplitProcessor {
         let gltf = gltf.take();
         for (index, buffer) in gltf.gltf_meshes.into_iter().enumerate() {
             let mut writer = writer_context
-                .write_multiple(Path::new(&format!("Mesh{index}.gltf")))
+                .write_partial(Path::new(&format!("Mesh{index}.gltf")))
                 .await?;
             let mesh_data = serialize_gltf_to_string(&FakeGltf {
                 gltf_meshes: vec![buffer],
@@ -2115,7 +2115,7 @@ impl Process for FakeGltfSplitProcessor {
         }
 
         let mut writer = writer_context
-            .write_multiple(Path::new("Scene0.bsn"))
+            .write_partial(Path::new("Scene0.bsn"))
             .await?;
         let scene_data = ron::ser::to_string_pretty(
             &FakeBsn {
@@ -2289,7 +2289,7 @@ fn error_on_unfinished_writer() {
             _: &Self::Settings,
             writer_context: WriterContext<'_>,
         ) -> Result<(), ProcessError> {
-            let _writer = writer_context.write_single().await?;
+            let _writer = writer_context.write_full().await?;
             // Don't call finish on the writer!
             Ok(())
         }
@@ -2314,7 +2314,7 @@ fn error_on_unfinished_writer() {
 }
 
 #[test]
-fn error_on_single_writer_after_multiple_writer() {
+fn error_on_full_writer_after_partial_writer() {
     let AppWithProcessor {
         mut app,
         source_gate,
@@ -2325,9 +2325,9 @@ fn error_on_single_writer_after_multiple_writer() {
     } = create_app_with_asset_processor(&[]);
 
     #[derive(TypePath)]
-    struct SingleAfterMultipleWriterProcess;
+    struct FullAfterPartialWriterProcess;
 
-    impl Process for SingleAfterMultipleWriterProcess {
+    impl Process for FullAfterPartialWriterProcess {
         type Settings = ();
 
         async fn process(
@@ -2336,22 +2336,20 @@ fn error_on_single_writer_after_multiple_writer() {
             _: &Self::Settings,
             writer_context: WriterContext<'_>,
         ) -> Result<(), ProcessError> {
-            // Properly write a "multiple".
-            let writer = writer_context
-                .write_multiple(Path::new("multi.txt"))
-                .await?;
+            // Properly write a "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
             writer.finish::<CoolTextLoader>(()).await?;
 
-            // Now trying writing "single", which conflicts!
-            let writer = writer_context.write_single().await?;
+            // Now trying writing "full", which conflicts!
+            let writer = writer_context.write_full().await?;
             writer.finish::<CoolTextLoader>(()).await?;
 
             Ok(())
         }
     }
 
-    app.register_asset_processor(SingleAfterMultipleWriterProcess)
-        .set_default_asset_processor::<SingleAfterMultipleWriterProcess>("txt");
+    app.register_asset_processor(FullAfterPartialWriterProcess)
+        .set_default_asset_processor::<FullAfterPartialWriterProcess>("txt");
 
     let guard = source_gate.write_blocking();
     source_dir.insert_asset_text(Path::new("whatever.txt"), "");
@@ -2364,12 +2362,12 @@ fn error_on_single_writer_after_multiple_writer() {
             .data()
             .wait_until_processed("whatever.txt".into()),
     );
-    // The process failed due to having a single writer after a multiple writer.
+    // The process failed due to having a full writer after a partial writer.
     assert_eq!(process_status, ProcessStatus::Failed);
 }
 
 #[test]
-fn processor_can_parallelize_multiple_writes() {
+fn processor_can_parallelize_partial_writes() {
     let AppWithProcessor {
         mut app,
         source_gate,
@@ -2394,8 +2392,8 @@ fn processor_can_parallelize_multiple_writes() {
             _: &Self::Settings,
             writer_context: WriterContext<'_>,
         ) -> Result<(), ProcessError> {
-            let mut writer_1 = writer_context.write_multiple(Path::new("a.txt")).await?;
-            let mut writer_2 = writer_context.write_multiple(Path::new("b.txt")).await?;
+            let mut writer_1 = writer_context.write_partial(Path::new("a.txt")).await?;
+            let mut writer_2 = writer_context.write_partial(Path::new("b.txt")).await?;
 
             // Note: this call is blocking, so it's undesirable in production code using
             // single-threaded mode (e.g., platforms like Wasm). For this test though, it's not a
@@ -2434,7 +2432,7 @@ fn processor_can_parallelize_multiple_writes() {
 }
 
 #[test]
-fn error_on_two_multiple_writes_for_same_path() {
+fn error_on_two_partial_writes_for_same_path() {
     let AppWithProcessor {
         mut app,
         source_gate,
@@ -2445,9 +2443,9 @@ fn error_on_two_multiple_writes_for_same_path() {
     } = create_app_with_asset_processor(&[]);
 
     #[derive(TypePath)]
-    struct TwoMultipleWritesForSamePathProcess;
+    struct TwoPartialWritesForSamePathProcess;
 
-    impl Process for TwoMultipleWritesForSamePathProcess {
+    impl Process for TwoPartialWritesForSamePathProcess {
         type Settings = ();
 
         async fn process(
@@ -2456,24 +2454,20 @@ fn error_on_two_multiple_writes_for_same_path() {
             _: &Self::Settings,
             writer_context: WriterContext<'_>,
         ) -> Result<(), ProcessError> {
-            // Properly write a "multiple".
-            let writer = writer_context
-                .write_multiple(Path::new("multi.txt"))
-                .await?;
+            // Properly write a "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
             writer.finish::<CoolTextLoader>(()).await?;
 
-            // Properly write to the same "multiple".
-            let writer = writer_context
-                .write_multiple(Path::new("multi.txt"))
-                .await?;
+            // Properly write to the same "partial".
+            let writer = writer_context.write_partial(Path::new("multi.txt")).await?;
             writer.finish::<CoolTextLoader>(()).await?;
 
             Ok(())
         }
     }
 
-    app.register_asset_processor(TwoMultipleWritesForSamePathProcess)
-        .set_default_asset_processor::<TwoMultipleWritesForSamePathProcess>("txt");
+    app.register_asset_processor(TwoPartialWritesForSamePathProcess)
+        .set_default_asset_processor::<TwoPartialWritesForSamePathProcess>("txt");
 
     let guard = source_gate.write_blocking();
     source_dir.insert_asset_text(Path::new("whatever.txt"), "");
@@ -2486,6 +2480,6 @@ fn error_on_two_multiple_writes_for_same_path() {
             .data()
             .wait_until_processed("whatever.txt".into()),
     );
-    // The process failed due to writing "multiple" to the same path twice.
+    // The process failed due to writing "partial" to the same path twice.
     assert_eq!(process_status, ProcessStatus::Failed);
 }

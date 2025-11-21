@@ -215,7 +215,7 @@ where
 
         let saver = &self.saver;
         let saver_settings = &settings.saver_settings;
-        let mut writer = writer_context.write_single().await?;
+        let mut writer = writer_context.write_full().await?;
 
         let output_settings = saver
             .save(&mut *writer, saved_asset, saver_settings)
@@ -391,18 +391,18 @@ pub struct WriterContext<'a> {
     /// The underlying writer of all writes for the [`Process`].
     writer: &'a dyn ErasedAssetWriter,
     /// The context for initializing a write.
-    // We use a Mutex to avoid requiring a mutable borrow for `write_multiple`. See `write_multiple`
+    // We use a Mutex to avoid requiring a mutable borrow for `write_partial`. See `write_partial`
     // for more details.
     init_context: Mutex<WriteInitContext<'a>>,
     /// The number of writes that have been fully finished.
     ///
     /// Note we use an `AtomicU32` instead of a u32 so that writes (and therefore finish's) don't
-    /// need to be synchronous. We use a mutable borrow so that single-writes can just update the
+    /// need to be synchronous. We use a mutable borrow so that full-writes can just update the
     /// value without atomics.
     finished_writes: &'a mut AtomicU32,
     /// The meta object to write when writing a single file. Must be set to [`Some`] when writing a
-    /// single file.
-    single_meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
+    /// "full" file.
+    full_meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
     /// The path of the asset being processed.
     path: &'a AssetPath<'static>,
 }
@@ -411,7 +411,7 @@ pub struct WriterContext<'a> {
 struct WriteInitContext<'a> {
     /// The number of writes that have been started.
     started_writes: &'a mut u32,
-    /// The set of currently started `write_multiple` instances.
+    /// The set of currently started [`WriterContext::write_partial`] instances.
     ///
     /// This protects us from starting writes for the same path multiple times.
     started_paths: HashSet<PathBuf>,
@@ -422,7 +422,7 @@ impl<'a> WriterContext<'a> {
         writer: &'a dyn ErasedAssetWriter,
         started_writes: &'a mut u32,
         finished_writes: &'a mut AtomicU32,
-        single_meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
+        full_meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
         path: &'a AssetPath<'static>,
     ) -> Self {
         Self {
@@ -432,15 +432,15 @@ impl<'a> WriterContext<'a> {
                 started_paths: HashSet::new(),
             }),
             finished_writes,
-            single_meta,
+            full_meta,
             path,
         }
     }
 
     /// Start writing a single output file, which can be loaded with the `load_settings`.
     ///
-    /// Returns an error if you have previously called [`Self::write_multiple`].
-    pub async fn write_single(self) -> Result<SingleWriter<'a>, ProcessError> {
+    /// Returns an error if you have previously called [`Self::write_partial`].
+    pub async fn write_full(self) -> Result<FullWriter<'a>, ProcessError> {
         let started_writes = self
             .init_context
             .into_inner()
@@ -448,7 +448,7 @@ impl<'a> WriterContext<'a> {
             .started_writes;
         if *started_writes != 0 {
             return Err(ProcessError::InvalidProcessOutput(
-                InvalidProcessOutput::SingleFileAfterMultipleFile,
+                InvalidProcessOutput::FullFileAfterPartialFile,
             ));
         }
         *started_writes = 1;
@@ -459,21 +459,19 @@ impl<'a> WriterContext<'a> {
                 err,
             }
         })?;
-        Ok(SingleWriter {
+        Ok(FullWriter {
             writer,
             finished_writes: self.finished_writes.get_mut(),
             path: self.path,
-            single_meta: self.single_meta,
+            meta: self.full_meta,
         })
     }
 
-    /// Start writing one of multiple output file, which can be loaded with the `load_settings`.
-    ///
-    /// Returns an error if you have previously started writing a single file.
+    /// Start writing one of multiple output files, which can be loaded with the `load_settings`.
     // Note: It would be nice to take this by a mutable reference instead. However, doing so would
     // mean that the returned value would be tied to a "mutable reference lifetime", meaning we
-    // could not use more than one `MultipleWriter` instance concurrently.
-    pub async fn write_multiple(&self, file: &Path) -> Result<MultipleWriter<'_>, ProcessError> {
+    // could not use more than one `PartialWriter` instance concurrently.
+    pub async fn write_partial(&self, file: &Path) -> Result<PartialWriter<'_>, ProcessError> {
         // Do all the validation in a scope so we don't hold the init_context for too long.
         {
             let mut init_context = self
@@ -483,7 +481,7 @@ impl<'a> WriterContext<'a> {
             // Check whether this path is valid first so that we don't mark the write as started
             // when it hasn't.
             if !init_context.started_paths.insert(file.to_path_buf()) {
-                return Err(InvalidProcessOutput::RepeatedMultipleWriteToSamePath(
+                return Err(InvalidProcessOutput::RepeatedPartialWriteToSamePath(
                     file.to_path_buf(),
                 )
                 .into());
@@ -507,7 +505,7 @@ impl<'a> WriterContext<'a> {
                 path: path.clone_owned(),
                 err,
             })?;
-        Ok(MultipleWriter {
+        Ok(PartialWriter {
             meta_writer: self.writer,
             writer,
             finished_writes: &*self.finished_writes,
@@ -520,32 +518,34 @@ impl<'a> WriterContext<'a> {
 #[derive(Error, Debug)]
 pub enum InvalidProcessOutput {
     /// The processor didn't start a write at all.
-    #[error("The processor never started writing a file (never called `write_single` or `write_multiple`)")]
+    #[error(
+        "The processor never started writing a file (never called `write_full` or `write_partial`)"
+    )]
     NoWriter,
     /// The processor started a write but never finished it.
     #[error("The processor started writing a file, but never called `finish`")]
     UnfinishedWriter,
-    /// The processor started at least one multiple write, then continued with a single write.
-    #[error("The processor called `write_single` after already calling `write_multiple`")]
-    SingleFileAfterMultipleFile,
-    /// The processor started a multiple write with the same path multiple times.
-    #[error("The processor called `write_multiple` more than once with the same path")]
-    RepeatedMultipleWriteToSamePath(PathBuf),
+    /// The processor started at least one partial write, then continued with a full write.
+    #[error("The processor called `write_full` after already calling `write_partial`")]
+    FullFileAfterPartialFile,
+    /// The processor started a partial write with the same path multiple times.
+    #[error("The processor called `write_partial` more than once with the same path")]
+    RepeatedPartialWriteToSamePath(PathBuf),
 }
 
 /// The writer for a [`Process`] writing a single file (at the same path as the unprocessed asset).
-pub struct SingleWriter<'a> {
+pub struct FullWriter<'a> {
     /// The writer to write to.
     writer: Box<Writer>,
     /// The counter for finished writes that will be incremented when the write completes.
     finished_writes: &'a mut u32,
     /// The meta object that will be assigned on [`Self::finish`].
-    single_meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
+    meta: &'a mut Option<Box<dyn AssetMetaDyn>>,
     /// The path of the asset being written.
     path: &'a AssetPath<'static>,
 }
 
-impl SingleWriter<'_> {
+impl FullWriter<'_> {
     /// Finishes a write and indicates that the written asset should be loaded with the provided
     /// loader and the provided settings for that loader.
     ///
@@ -569,8 +569,8 @@ impl SingleWriter<'_> {
 
         // This should always be none, since we consumed the WriterContext, and we consume the
         // only borrow here.
-        assert!(self.single_meta.is_none());
-        *self.single_meta = Some(Box::new(output_meta));
+        assert!(self.meta.is_none());
+        *self.meta = Some(Box::new(output_meta));
 
         // Make sure to increment finished writes at the very end, so that we only count it, once
         // the future is finished anyway.
@@ -579,8 +579,9 @@ impl SingleWriter<'_> {
     }
 }
 
-/// A writer for a [`Process`] writing multiple files (as children of the unprocessed asset path).
-pub struct MultipleWriter<'a> {
+/// A writer for a [`Process`] writing multiple partial files (as children of the unprocessed asset
+/// path).
+pub struct PartialWriter<'a> {
     /// The writer to use when writing the meta file for this file.
     meta_writer: &'a dyn ErasedAssetWriter,
     /// The writer to write to.
@@ -593,7 +594,7 @@ pub struct MultipleWriter<'a> {
     path: AssetPath<'static>,
 }
 
-impl MultipleWriter<'_> {
+impl PartialWriter<'_> {
     /// Finishes a write and indicates that the written asset should be loaded with the provided
     /// loader and the provided settings for that loader.
     ///
@@ -636,7 +637,7 @@ impl MultipleWriter<'_> {
     }
 }
 
-impl Deref for SingleWriter<'_> {
+impl Deref for FullWriter<'_> {
     type Target = Writer;
 
     fn deref(&self) -> &Self::Target {
@@ -644,13 +645,13 @@ impl Deref for SingleWriter<'_> {
     }
 }
 
-impl DerefMut for SingleWriter<'_> {
+impl DerefMut for FullWriter<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.writer.as_mut()
     }
 }
 
-impl Deref for MultipleWriter<'_> {
+impl Deref for PartialWriter<'_> {
     type Target = Writer;
 
     fn deref(&self) -> &Self::Target {
@@ -658,7 +659,7 @@ impl Deref for MultipleWriter<'_> {
     }
 }
 
-impl DerefMut for MultipleWriter<'_> {
+impl DerefMut for PartialWriter<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.writer.as_mut()
     }
