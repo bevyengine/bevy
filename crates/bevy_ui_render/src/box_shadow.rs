@@ -29,7 +29,7 @@ use bevy_render::{RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
-    ResolvedBorderRadius, UiGlobalTransform, Val,
+    ResolvedBorderRadius, UiContainerTarget, UiGlobalTransform, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -200,6 +200,7 @@ pub struct ExtractedBoxShadow {
     pub size: Vec2,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub is_container: bool,
 }
 
 /// List of extracted shadows to be sorted and queued for rendering
@@ -221,14 +222,24 @@ pub fn extract_shadows(
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
             &ComputedUiRenderTargetInfo,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target) in
-        &box_shadow_query
+    for (
+        entity,
+        uinode,
+        transform,
+        visibility,
+        box_shadow,
+        clip,
+        camera,
+        target,
+        has_container_target,
+    ) in &box_shadow_query
     {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
@@ -292,6 +303,7 @@ pub fn extract_shadows(
                 blur_radius,
                 size: shadow_size,
                 main_entity: entity.into(),
+                is_container: has_container_target,
             });
         }
     }
@@ -320,36 +332,13 @@ pub fn queue_shadows(
             continue;
         };
 
-        let Ok(view) = camera_views.get(default_camera_view.ui_camera) else {
-            continue;
+        let view = if extracted_shadow.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &box_shadow_pipeline,
-            BoxShadowPipelineKey {
-                hdr: view.hdr,
-                samples: shadow_samples.copied().unwrap_or_default().0,
-            },
-        );
-
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (entity, extracted_shadow.main_entity),
-            sort_key: FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
-
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            index,
-            indexed: true,
-        });
-        let Ok(view) = camera_views.get(default_camera_view.ui_container) else {
+        let Ok(view) = view else {
             continue;
         };
 

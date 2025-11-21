@@ -2927,7 +2927,6 @@ pub struct UiContainerTarget(pub Entity);
 #[relationship_target(relationship = UiContainerTarget, linked_spawn)]
 pub struct UiContainerOf(Vec<Entity>);
 
-/// To use this component's functionality, you must enable the bevy_ui_container feature.
 /// Sets the size of the UI container. The root node will calculate its layout based on this container size.
 /// Use the Anchor component to change the container's origin point.
 /// ```

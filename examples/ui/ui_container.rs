@@ -1,5 +1,5 @@
-//! Pointing to [`UiContainerSize`],layout based on this container size.
-//! Nodes will be laid out according to the size and Transform of `UiContainerSize`
+//! Nodes will be laid out based on the container's size [`UiContainerSize`](UiContainerSize)
+//! and their position in world space (affected by the container's Transform).
 
 use bevy::{
     app::Propagate,

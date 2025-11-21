@@ -813,11 +813,9 @@ pub fn extract_ui_camera_view(
             continue;
         }
 
-        if let Some(physical_viewport_rect) = camera.physical_viewport_rect() {
-            let Some(viewport_size) = camera.physical_viewport_size() else {
-                continue;
-            };
-
+        if let Some(physical_viewport_rect) = camera.physical_viewport_rect()
+            && let Some(viewport_size) = camera.physical_viewport_size()
+        {
             // use a projection matrix with the origin in the top left instead of the bottom left that comes with OrthographicProjection
             let projection_matrix = Mat4::orthographic_rh(
                 0.0,
@@ -1483,87 +1481,36 @@ pub fn queue_uinodes(
 ) {
     let draw_function = draw_functions.read().id::<DrawUi>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
-    let mut current_phase = None;
+    let mut current_phase_camera = None;
+    let mut current_phase_container = None;
 
     for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-        if extracted_uinode.is_container {
-            continue;
-        }
-
         if current_camera_entity != extracted_uinode.extracted_camera_entity {
-            current_phase = render_views
-                .get(extracted_uinode.extracted_camera_entity)
-                .ok()
-                .and_then(|(default_camera_view, ui_anti_alias)| {
-                    camera_views
-                        .get(default_camera_view.ui_camera)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
-                        })
-                });
+            if let Ok((default_camera_view, ui_anti_alias)) =
+                render_views.get(extracted_uinode.extracted_camera_entity)
+                && let Ok([camera_view, container_view]) = camera_views.get_many([
+                    default_camera_view.ui_camera,
+                    default_camera_view.ui_container,
+                ])
+            {
+                let [camera_transparent_phase, container_transparent_phase] =
+                    transparent_render_phases.get_many_mut([
+                        &camera_view.retained_view_entity,
+                        &container_view.retained_view_entity,
+                    ]);
+                current_phase_camera = camera_transparent_phase
+                    .map(|transparent_phase| (camera_view, ui_anti_alias, transparent_phase));
+
+                current_phase_container = container_transparent_phase
+                    .map(|transparent_phase| (container_view, ui_anti_alias, transparent_phase));
+            };
+
             current_camera_entity = extracted_uinode.extracted_camera_entity;
         }
 
-        let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-            continue;
-        };
-
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey {
-                hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-            },
-        );
-
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.z_order),
-            index,
-            // batch_range will be calculated in prepare_uinodes
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            indexed: true,
-        });
-    }
-
-    {
-        current_camera_entity = Entity::PLACEHOLDER;
-
-        current_phase = None;
-
-        for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
-            if !extracted_uinode.is_container {
-                continue;
-            }
-
-            if current_camera_entity != extracted_uinode.extracted_camera_entity {
-                if let Ok((default_camera_view, ui_anti_alias)) =
-                    render_views.get(extracted_uinode.extracted_camera_entity)
-                {
-                    current_phase = camera_views
-                        .get(default_camera_view.ui_container)
-                        .ok()
-                        .and_then(|view| {
-                            transparent_render_phases
-                                .get_mut(&view.retained_view_entity)
-                                .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
-                        });
-                };
-
-                current_camera_entity = extracted_uinode.extracted_camera_entity;
-            }
-
-            let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {
-                continue;
-            };
-
+        if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_camera.as_mut()
+            && !extracted_uinode.is_container
+        {
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
                 &ui_pipeline,
@@ -1584,7 +1531,32 @@ pub fn queue_uinodes(
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
             });
-        }
+        };
+
+        if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
+            && extracted_uinode.is_container
+        {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                },
+            );
+
+            transparent_phase.add(TransparentUi {
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.z_order),
+                index,
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
+            });
+        };
     }
 }
 
