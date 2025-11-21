@@ -70,9 +70,8 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
         processor: String,
         settings: ProcessSettings,
     },
-    /// This asset should fail to load, since the original unprocessed asset was decomposed into
-    /// multiple files. This provides a better error message rather than just saying the file is
-    /// missing.
+    /// This asset has been decomposed into multiple files. The original asset path can no longer be
+    /// loaded.
     Decomposed,
     /// Do nothing with the asset
     Ignore,
