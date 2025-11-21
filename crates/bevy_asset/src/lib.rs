@@ -652,7 +652,7 @@ impl AssetApp for App {
     ) -> &mut Self {
         let name = name.into();
         let Some(asset_server) = self.world().get_resource::<AssetServer>() else {
-            error!("{} must be registered after `AssetPlugin` (typically added as part of `DefaultPlugins`)", name);
+            error!("`register_asset_source` was called, but `AssetPlugin` has not been added. `AssetPlugin` should be added first (typically as part of `DefaultPlugins`). Source was \"{name}\".");
             return self;
         };
 
