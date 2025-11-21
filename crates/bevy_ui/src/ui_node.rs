@@ -318,7 +318,7 @@ impl ComputedNode {
         out
     }
 
-    /// Returns the node's padding-box in object-centered physical coordinates.
+    /// Returns the node's content-box in object-centered physical coordinates.
     /// This is the innermost region of the node, where its content is placed.
     #[inline]
     pub fn content_box(&self) -> Rect {
