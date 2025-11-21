@@ -58,21 +58,21 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
-        if existing_checksum == checksum {
-            // Cache entry already exists - get radiance and reset cell lifetime
+
+        // Cell already exists or is empty - reset lifetime
+        if existing_checksum == checksum || existing_checksum == WORLD_CACHE_EMPTY_CELL {
 #ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
             atomicStore(&world_cache_life[key], cell_lifetime);
-#elseif
+#else
             atomicMax(&world_cache_life[key], cell_lifetime);
 #endif
+        }
+
+        if existing_checksum == checksum {
+            // Cache entry already exists - get radiance
             return world_cache_radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            // Cell is empty - reset cell lifetime so that it starts getting updated next frame
-#ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
-            atomicStore(&world_cache_life[key], cell_lifetime);
-#elseif
-            atomicMax(&world_cache_life[key], cell_lifetime);
-#endif
+            // Cell is empty - initialize it 
             world_cache_geometry_data[key].world_position = jittered_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
