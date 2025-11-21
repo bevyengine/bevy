@@ -229,17 +229,8 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (
-        entity,
-        uinode,
-        transform,
-        visibility,
-        box_shadow,
-        clip,
-        camera,
-        target,
-        is_container,
-    ) in &box_shadow_query
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target, is_container) in
+        &box_shadow_query
     {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
