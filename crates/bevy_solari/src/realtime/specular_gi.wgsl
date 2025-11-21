@@ -3,7 +3,7 @@
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
 #import bevy_solari::gbuffer_utils::gpixel_resolve
-#import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
+#import bevy_solari::sampling::{sample_random_light, sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::query_world_cache
 
@@ -77,20 +77,25 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
+        let wo = -wi;
 
-        // Add world cache contribution
-        let diffuse_brdf = ray_hit.material.base_color / PI;
-        radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
-
-        // Surface is very rough, terminate path in the world cache
-        if ray_hit.material.roughness > 0.1 && i != 0u { break; }
+        if ray_hit.material.roughness > 0.1 && i != 0u { 
+            // Surface is very rough, terminate path in the world cache
+            let diffuse_brdf = ray_hit.material.base_color / PI;
+            radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
+            break;
+        } else {
+            // Sample direct lighting
+            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, rng);
+            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+            radiance += throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+        }
 
         // Sample new ray direction from the GGX BRDF for next bounce
         let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
         let T = TBN[0];
         let B = TBN[1];
         let N = TBN[2];
-        let wo = -wi;
         let wo_tangent = vec3(dot(wo, T), dot(wo, B), dot(wo, N));
         let wi_tangent = sample_ggx_vndf(wo_tangent, ray_hit.material.roughness, rng);
         wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
