@@ -439,7 +439,7 @@ impl<'a> WriterContext<'a> {
 
     /// Start writing a single output file, which can be loaded with the `load_settings`.
     ///
-    /// Returns an error if you have previously started writing.
+    /// Returns an error if you have previously called [`Self::write_multiple`].
     pub async fn write_single(self) -> Result<SingleWriter<'a>, ProcessError> {
         let started_writes = self
             .init_context
