@@ -73,7 +73,7 @@ pub type BoxedCondition<In = ()> = Box<dyn ReadOnlySystem<In = In, Out = bool>>;
 /// # app.run(&mut world);
 /// # assert!(world.resource::<DidRun>().0);
 pub trait SystemCondition<Marker, In: SystemInput = ()>:
-    sealed::SystemCondition<Marker, In>
+    IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
     /// Returns a new run condition that only returns `true`
     /// if both this one and the passed `and` return `true`.
@@ -373,28 +373,8 @@ pub trait SystemCondition<Marker, In: SystemInput = ()>:
 }
 
 impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F where
-    F: sealed::SystemCondition<Marker, In>
+    F: IntoSystem<In, bool, Marker, System: ReadOnlySystem>
 {
-}
-
-mod sealed {
-    use crate::system::{IntoSystem, ReadOnlySystem, SystemInput};
-
-    pub trait SystemCondition<Marker, In: SystemInput>:
-        IntoSystem<In, bool, Marker, System = Self::ReadOnlySystem>
-    {
-        // This associated type is necessary to let the compiler
-        // know that `Self::System` is `ReadOnlySystem`.
-        type ReadOnlySystem: ReadOnlySystem<In = In, Out = bool>;
-    }
-
-    impl<Marker, In: SystemInput, F> SystemCondition<Marker, In> for F
-    where
-        F: IntoSystem<In, bool, Marker>,
-        F::System: ReadOnlySystem,
-    {
-        type ReadOnlySystem = F::System;
-    }
 }
 
 /// A collection of [run conditions](SystemCondition) that may be useful in any bevy app.
