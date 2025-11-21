@@ -335,7 +335,7 @@ pub enum AssetMetaCheck {
 /// Type to define how to create the default asset source.
 pub enum DefaultAssetSource {
     /// Create the default asset source given these file paths.
-    FromPaths {
+    Paths {
         /// The path to the unprocessed assets.
         file_path: String,
         /// The path to the processed assets.
@@ -347,14 +347,33 @@ pub enum DefaultAssetSource {
     ///
     /// Note: The Mutex is just an implementation detail for applying the
     /// plugin.
-    FromBuilder(Mutex<AssetSourceBuilder>),
+    Builder(Mutex<AssetSourceBuilder>),
+}
+
+impl DefaultAssetSource {
+    /// Creates an instance that will build the default source for the platform given the file
+    /// paths.
+    ///
+    /// If `processed_file_path` is [`None`], the default file path is used when in
+    /// [`AssetMode::Processed`].
+    pub fn from_paths(file_path: String, processed_file_path: Option<String>) -> Self {
+        Self::Paths {
+            file_path,
+            processed_file_path,
+        }
+    }
+
+    /// Creates an instance that will build the source from the provided builder.
+    pub fn from_builder(builder: AssetSourceBuilder) -> Self {
+        Self::Builder(Mutex::new(builder))
+    }
 }
 
 impl Default for AssetPlugin {
     fn default() -> Self {
         Self {
             mode: AssetMode::Unprocessed,
-            default_source: DefaultAssetSource::FromPaths {
+            default_source: DefaultAssetSource::Paths {
                 file_path: Self::DEFAULT_UNPROCESSED_FILE_PATH.to_string(),
                 processed_file_path: None,
             },
@@ -379,7 +398,7 @@ impl Plugin for AssetPlugin {
         let mut default_source_builder;
         let default_source_builder_ref;
         match &self.default_source {
-            DefaultAssetSource::FromPaths {
+            DefaultAssetSource::Paths {
                 file_path,
                 processed_file_path,
             } => {
@@ -393,7 +412,7 @@ impl Plugin for AssetPlugin {
                     AssetSourceBuilder::platform_default(file_path, processed_file_path);
                 default_source_builder_ref = &mut default_source_builder;
             }
-            DefaultAssetSource::FromBuilder(builder) => {
+            DefaultAssetSource::Builder(builder) => {
                 lock = builder.lock().unwrap_or_else(PoisonError::into_inner);
                 default_source_builder_ref = &mut *lock;
             }
@@ -946,8 +965,8 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || Box::new(gated_memory_reader.clone())),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(gated_memory_reader.clone()),
                 )),
                 ..Default::default()
             },
@@ -1956,10 +1975,8 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || {
-                        Box::new(MemoryAssetReader { root: dir.clone() })
-                    }),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(MemoryAssetReader { root: dir.clone() }),
                 )),
                 ..Default::default()
             },
@@ -2085,8 +2102,8 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || Box::new(memory_reader.clone())),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(memory_reader.clone()),
                 )),
                 unapproved_path_mode: mode,
                 ..Default::default()
@@ -2222,8 +2239,8 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(reader.clone()),
                 )),
                 ..Default::default()
             },
@@ -2282,8 +2299,8 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(reader.clone()),
                 )),
                 ..Default::default()
             },
@@ -2352,14 +2369,14 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+                default_source: DefaultAssetSource::from_builder(
                     AssetSourceBuilder::new(move || Box::new(memory_reader.clone())).with_watcher(
                         move |sender| {
                             sender_sender.send(sender).unwrap();
                             Some(Box::new(FakeWatcher))
                         },
                     ),
-                )),
+                ),
                 watch_for_changes_override: Some(true),
                 ..Default::default()
             },
@@ -2548,7 +2565,7 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                default_source: DefaultAssetSource::from_builder(asset_source),
                 ..Default::default()
             },
         ))
@@ -2613,7 +2630,7 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                default_source: DefaultAssetSource::from_builder(asset_source),
                 ..Default::default()
             },
         ))
@@ -2692,7 +2709,7 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(asset_source)),
+                default_source: DefaultAssetSource::from_builder(asset_source),
                 ..Default::default()
             },
         ))
@@ -2762,7 +2779,7 @@ mod tests {
         app.add_plugins((
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(default_source)),
+                default_source: DefaultAssetSource::from_builder(default_source),
                 ..Default::default()
             },
             DiagnosticsPlugin,
