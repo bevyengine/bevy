@@ -6,7 +6,7 @@
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
 const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// Maximum amount of frames a cell can live for without being queried
-const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
+const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
@@ -14,6 +14,9 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.25;
 /// How fast the world cache transitions between LODs as a function of distance to the camera
 const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
+
+/// How many direct light samples each cell takes when updating each frame
+const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
@@ -40,7 +43,7 @@ struct WorldCacheGeometryData {
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
+fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, cell_lifetime: u32, rng: ptr<function, u32>) -> vec3<f32> {
     let cell_size = get_cell_size(world_position, view_position);
 
     // https://tomclabault.github.io/blog/2025/regir, jitter_world_position_tangent_plane
@@ -57,11 +60,19 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
         let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
         if existing_checksum == checksum {
             // Cache entry already exists - get radiance and reset cell lifetime
-            atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
+#ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
+            atomicStore(&world_cache_life[key], cell_lifetime);
+#elseif
+            atomicMax(&world_cache_life[key], cell_lifetime);
+#endif
             return world_cache_radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - reset cell lifetime so that it starts getting updated next frame
-            atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
+#ifndef WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME
+            atomicStore(&world_cache_life[key], cell_lifetime);
+#elseif
+            atomicMax(&world_cache_life[key], cell_lifetime);
+#endif
             world_cache_geometry_data[key].world_position = jittered_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
