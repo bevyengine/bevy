@@ -312,7 +312,7 @@ impl ComputedNode {
     pub fn padding_box(&self) -> Rect {
         let mut out = self.border_box();
         out.min.x += self.border.left;
-        out.min.x -= self.border.right;
+        out.max.x -= self.border.right;
         out.min.y += self.border.top;
         out.max.y -= self.border.bottom;
         out
@@ -325,7 +325,7 @@ impl ComputedNode {
         let mut out = self.border_box();
         let content_inset = self.content_inset();
         out.min.x += content_inset.left;
-        out.min.x -= content_inset.right;
+        out.max.x -= content_inset.right;
         out.min.y += content_inset.top;
         out.max.y -= content_inset.bottom;
         out
