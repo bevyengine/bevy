@@ -47,6 +47,11 @@ pub trait SystemInput: Sized {
     ///
     /// [`System::run`]: crate::system::System::run
     type Inner<'i>;
+    /// The input type after any [`StaticSystemInput`] wrappers are removed.
+    /// This is normally the same as `Self`,
+    /// but allows a function taking a `StaticSystemInput` parameter to be used
+    /// as a system taking the underlying input parameter.
+    type Underlying: 'static + for<'i> SystemInput<Inner<'i> = Self::Inner<'i>>;
 
     /// Converts a [`SystemInput::Inner`] into a [`SystemInput::Param`].
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_>;
@@ -91,6 +96,7 @@ pub struct In<T>(pub T);
 impl<T: 'static> SystemInput for In<T> {
     type Param<'i> = In<T>;
     type Inner<'i> = T;
+    type Underlying = In<T>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         In(this)
@@ -150,6 +156,7 @@ pub struct InRef<'i, T: ?Sized>(pub &'i T);
 impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     type Param<'i> = InRef<'i, T>;
     type Inner<'i> = &'i T;
+    type Underlying = InRef<'static, T>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InRef(this)
@@ -199,6 +206,7 @@ pub struct InMut<'a, T: ?Sized>(pub &'a mut T);
 impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
     type Param<'i> = InMut<'i, T>;
     type Inner<'i> = &'i mut T;
+    type Underlying = InMut<'static, T>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InMut(this)
@@ -229,6 +237,7 @@ impl<E: Event, B: Bundle> SystemInput for On<'_, '_, E, B> {
     // the `On` implementation.
     type Param<'i> = On<'i, 'i, E, B>;
     type Inner<'i> = On<'i, 'i, E, B>;
+    type Underlying = On<'static, 'static, E, B>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
@@ -250,6 +259,7 @@ pub struct StaticSystemInput<'a, I: SystemInput>(pub I::Inner<'a>);
 impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
     type Param<'i> = StaticSystemInput<'i, I>;
     type Inner<'i> = I::Inner<'i>;
+    type Underlying = I::Underlying;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         StaticSystemInput(this)
@@ -262,6 +272,7 @@ macro_rules! impl_system_input_tuple {
         impl<$($name: SystemInput),*> SystemInput for ($($name,)*) {
             type Param<'i> = ($($name::Param<'i>,)*);
             type Inner<'i> = ($($name::Inner<'i>,)*);
+            type Underlying = ($($name::Underlying,)*);
 
             #[expect(
                 clippy::allow_attributes,
@@ -294,7 +305,8 @@ all_tuples!(
 #[cfg(test)]
 mod tests {
     use crate::{
-        system::{In, InMut, InRef, IntoSystem, System},
+        prelude::Schedule,
+        system::{In, InMut, InRef, IntoSystem, StaticSystemInput, System, SystemInput},
         world::World,
     };
 
@@ -326,5 +338,24 @@ mod tests {
         assert_eq!(by_ref.run((&a, &b), &mut world).unwrap(), 36);
         by_mut.run((&mut a, b), &mut world).unwrap();
         assert_eq!(a, 36);
+    }
+
+    #[test]
+    fn static_system_input_usable_as_underlying_input() {
+        fn generic_system<I: SystemInput>(_: StaticSystemInput<I>) {}
+
+        fn takes_system<M>(system: impl IntoSystem<In<usize>, (), M> + 'static) {
+            let mut world = World::new();
+            world.run_system_cached_with(system, 0).unwrap();
+        }
+
+        // `run_system_cached` and `add_systems` require `In = ()`, not `In = StaticSystemInput<()>`
+        let mut world = World::new();
+        world.run_system_cached(generic_system::<()>).unwrap();
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(generic_system::<()>);
+
+        takes_system(generic_system::<In<usize>>);
     }
 }

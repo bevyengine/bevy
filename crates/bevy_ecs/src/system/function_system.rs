@@ -535,7 +535,8 @@ where
 #[doc(hidden)]
 pub struct IsFunctionSystem;
 
-impl<Marker, Out, F> IntoSystem<F::In, Out, (IsFunctionSystem, Marker)> for F
+impl<Marker, Out, F> IntoSystem<<F::In as SystemInput>::Underlying, Out, (IsFunctionSystem, Marker)>
+    for F
 where
     Out: 'static,
     Marker: 'static,
@@ -613,7 +614,7 @@ where
     Out: 'static,
     F: SystemParamFunction<Marker, Out: IntoResult<Out>>,
 {
-    type In = F::In;
+    type In = <F::In as SystemInput>::Underlying;
     type Out = Out;
 
     #[inline]
@@ -800,9 +801,9 @@ where
 ///     world.insert_resource(Message("42".to_string()));
 ///
 ///     // pipe the `parse_message_system`'s output into the `filter_system`s input
-///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
-///     piped_system.initialize(&mut world);
-///     assert_eq!(piped_system.run((), &mut world).unwrap(), Some(42));
+///     let mut piped_system = pipe(parse_message, filter);
+///     let result = world.run_system_cached(piped_system).unwrap();
+///     assert_eq!(result, Some(42));
 /// }
 ///
 /// #[derive(Resource)]
