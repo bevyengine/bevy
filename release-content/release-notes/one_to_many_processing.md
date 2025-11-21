@@ -8,7 +8,7 @@ In previous versions, asset processing was always one-to-one: a processor would 
 asset to process and write to a single file.
 
 Now, an asset processor can write to multiple files! When implementing the `Process` trait, you can
-call `writer_context.write_multiple` and provide the path relative to the original asset. So for
+call `writer_context.write_partial` and provide the path relative to the original asset. So for
 example, here we have a processor that reads all the lines in a file and writes them each to their
 own file:
 
@@ -30,7 +30,7 @@ impl Process for LineSplitterProcess {
         }
         for (i, line) in bytes.lines().map(Result::unwrap).enumerate() {
             let mut writer = writer_context
-                .write_multiple(Path::new(&format!("Line{i}.line")))
+                .write_partial(Path::new(&format!("Line{i}.line")))
                 .await?;
             writer.write_all(line.as_bytes()).await.map_err(|err| {
                 ProcessError::AssetWriterError {
