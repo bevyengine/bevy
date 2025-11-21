@@ -46,6 +46,6 @@ need to be registered after `AssetPlugin` (and so, `DefaultPlugins`).
 
 ## Limitations
 
-A limitation is that asset sources added after `Startup` **cannot be processed**. Attempting to add
+A limitation is that asset sources added after `Startup` cannot be **processed** asset sources. Attempting to add
 such a source will return an error. Similarly, removing a processed source returns an error. In the
 future, we hope to lift this limitation and allow runtime asset sources to be processed.
