@@ -12,7 +12,7 @@ use bevy::{
     },
     prelude::*,
 };
-use std::{path::Path, sync::Mutex};
+use std::path::Path;
 
 /// A custom asset reader implementation that wraps a given asset reader implementation
 struct CustomAssetReader(Box<dyn ErasedAssetReader>);
@@ -46,14 +46,12 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(AssetPlugin {
             // The default source must be registered in the `AssetPlugin`.
-            default_source: DefaultAssetSource::FromBuilder(Mutex::new(AssetSourceBuilder::new(
-                || {
-                    Box::new(CustomAssetReader(
-                        // This is the default reader for the current platform
-                        AssetSource::get_default_reader("assets".to_string())(),
-                    ))
-                },
-            ))),
+            default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(|| {
+                Box::new(CustomAssetReader(
+                    // This is the default reader for the current platform
+                    AssetSource::get_default_reader("assets".to_string())(),
+                ))
+            })),
             ..Default::default()
         }))
         .add_systems(Startup, setup)

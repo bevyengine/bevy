@@ -1971,7 +1971,7 @@ struct MorphTargetNames {
 
 #[cfg(test)]
 mod test {
-    use std::{path::Path, sync::Mutex};
+    use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
@@ -1999,8 +1999,8 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || Box::new(reader.clone())),
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || Box::new(reader.clone()),
                 )),
                 ..Default::default()
             },
@@ -2418,12 +2418,12 @@ mod test {
             LogPlugin::default(),
             TaskPoolPlugin::default(),
             AssetPlugin {
-                default_source: DefaultAssetSource::FromBuilder(Mutex::new(
-                    AssetSourceBuilder::new(move || {
+                default_source: DefaultAssetSource::from_builder(AssetSourceBuilder::new(
+                    move || {
                         Box::new(MemoryAssetReader {
                             root: Dir::default(),
                         })
-                    }),
+                    },
                 )),
                 ..Default::default()
             },

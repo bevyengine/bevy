@@ -89,11 +89,10 @@ fn main() {
                 ..default()
             })
             .set(AssetPlugin {
-                default_source: DefaultAssetSource::FromPaths {
-                    file_path: std::env::var("CARGO_MANIFEST_DIR")
-                        .unwrap_or_else(|_| ".".to_string()),
-                    processed_file_path: None,
-                },
+                default_source: DefaultAssetSource::from_paths(
+                    std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
+                    None,
+                ),
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
                 ..default()

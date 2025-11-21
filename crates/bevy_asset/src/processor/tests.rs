@@ -366,7 +366,7 @@ fn create_app_with_asset_processor() -> AppWithProcessor {
     app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
-            default_source: DefaultAssetSource::FromBuilder(Mutex::new(default_source_builder)),
+            default_source: DefaultAssetSource::from_builder(default_source_builder),
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
             watch_for_changes_override: Some(true),
@@ -1661,13 +1661,13 @@ fn only_reprocesses_wrong_hash_on_startup() {
     app.add_plugins((
         TaskPoolPlugin::default(),
         AssetPlugin {
-            default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+            default_source: DefaultAssetSource::from_builder(
                 AssetSourceBuilder::new(move || Box::new(source_memory_reader.clone()))
                     .with_processed_reader(move || Box::new(processed_memory_reader.clone()))
                     .with_processed_writer(move |_| {
                         Some(Box::new(processed_memory_writer.clone()))
                     }),
-            )),
+            ),
             mode: AssetMode::Processed,
             use_asset_processor_override: Some(true),
             watch_for_changes_override: Some(true),

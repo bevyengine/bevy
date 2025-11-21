@@ -55,11 +55,11 @@ Now, this is written as:
 App::new()
     .add_plugins(DefaultPlugins.set(
         AssetPlugin {
-            default_source: DefaultAssetSource::FromPaths {
-                file_path: "some/path".to_string(),
-                // Note: Setting this to None will just use the default path.
-                processed_file_path: Some("some/processed_path".to_string()),
-            },
+            default_source: DefaultAssetSource::from_paths(
+                "some/path".to_string(),
+                // Note: Setting this to None will just use the default processed path.
+                Some("some/processed_path".to_string()),
+            ),
             ..Default::default()
         }
     ));
@@ -86,9 +86,9 @@ Now, this is written as:
 App::new()
     .add_plugins(DefaultPlugins.set(
         AssetPlugin {
-            default_source: DefaultAssetSource::FromBuilder(Mutex::new(
+            default_source: DefaultAssetSource::from_builder(
                 AssetSourceBuilder::new(move || Box::new(todo!()))
-            )),
+            ),
             ..Default::default()
         }
     ));
