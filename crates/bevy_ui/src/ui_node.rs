@@ -2993,13 +2993,15 @@ mod tests {
 
     #[test]
     fn padding_box_subtracts_border_thickness() {
-        let mut node = ComputedNode::default();
-        node.size = Vec2::new(100.0, 60.0);
-        node.border = BorderRect {
-            left: 5.0,
-            right: 7.0,
-            top: 3.0,
-            bottom: 9.0,
+        let node = ComputedNode {
+            size: Vec2::new(100.0, 60.0),
+            border: BorderRect {
+                left: 5.0,
+                right: 7.0,
+                top: 3.0,
+                bottom: 9.0,
+            },
+            ..Default::default()
         };
         let padding_box = node.padding_box();
 
@@ -3009,13 +3011,15 @@ mod tests {
 
     #[test]
     fn content_box_uses_content_inset() {
-        let mut node = ComputedNode::default();
-        node.size = Vec2::new(80.0, 40.0);
-        node.padding = BorderRect {
-            left: 4.0,
-            right: 6.0,
-            top: 2.0,
-            bottom: 8.0,
+        let node = ComputedNode {
+            size: Vec2::new(80.0, 40.0),
+            padding: BorderRect {
+                left: 4.0,
+                right: 6.0,
+                top: 2.0,
+                bottom: 8.0,
+            },
+            ..Default::default()
         };
         let content_box = node.content_box();
 
