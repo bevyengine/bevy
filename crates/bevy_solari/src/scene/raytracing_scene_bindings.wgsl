@@ -144,7 +144,7 @@ fn resolve_material(material: Material, uv: vec2<f32>) -> ResolvedMaterial {
     }
 
     // Clamp roughness to prevent NaNs
-    m.perceptual_roughness = clamp(m.perceptual_roughness, 0.0316227766, 1.0);
+    m.perceptual_roughness = clamp(m.perceptual_roughness, 0.0316227766, 1.0); // Clamp roughness to 0.001
     m.roughness = m.perceptual_roughness * m.perceptual_roughness;
 
     return m;
