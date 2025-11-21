@@ -136,12 +136,12 @@ pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
             min_height: px(100.0),
             align_self: AlignSelf::Stretch,
             padding: UiRect::all(px(4)),
+            border_radius: BorderRadius::all(px(5)),
             ..Default::default()
         },
         plane,
         ColorPlaneValue::default(),
         ThemeBackgroundColor(tokens::COLOR_PLANE_BG),
-        BorderRadius::all(px(5)),
         EntityCursor::System(bevy_window::SystemCursorIcon::Crosshair),
         overrides,
         children![(
@@ -159,10 +159,10 @@ pub fn color_plane<B: Bundle>(plane: ColorPlane, overrides: B) -> impl Bundle {
                     width: px(10),
                     height: px(10),
                     border: UiRect::all(Val::Px(1.0)),
+                    border_radius: BorderRadius::MAX,
                     ..Default::default()
                 },
                 ColorPlaneThumb,
-                BorderRadius::MAX,
                 BorderColor::all(palette::WHITE),
                 Outline {
                     width: Val::Px(1.),
