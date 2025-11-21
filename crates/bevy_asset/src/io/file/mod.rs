@@ -52,7 +52,7 @@ impl FileAssetReader {
     /// Returns the base path of the assets directory, which is normally the executable's parent
     /// directory.
     ///
-    /// To change this, set [`DefaultAssetSource::FromPaths::file_path`][crate::DefaultAssetSource::FromPaths::file_path].
+    /// To change this, set [`DefaultAssetSource::Paths::file_path`][crate::DefaultAssetSource::Paths::file_path].
     pub fn get_base_path() -> PathBuf {
         get_base_path()
     }

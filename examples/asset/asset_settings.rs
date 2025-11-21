@@ -11,10 +11,10 @@ fn main() {
         .add_plugins(
             // This just tells the asset server to look in the right examples folder
             DefaultPlugins.set(AssetPlugin {
-                default_source: DefaultAssetSource::FromPaths {
-                    file_path: "examples/asset/files".to_string(),
-                    processed_file_path: None,
-                },
+                default_source: DefaultAssetSource::from_paths(
+                    "examples/asset/files".to_string(),
+                    None,
+                ),
                 ..Default::default()
             }),
         )
