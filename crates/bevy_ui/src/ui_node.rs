@@ -301,13 +301,15 @@ impl ComputedNode {
 
     /// Returns the node's border-box in object-centered physical coordinates.
     /// This is the full rectangle enclosing the node.
-    pub const fn border_box(&self) -> Rect {
+    #[inline]
+    pub fn border_box(&self) -> Rect {
         Rect::from_center_size(Vec2::ZERO, self.size)
     }
 
     /// Returns the node's padding-box in object-centered physical coordinates.
     /// This is the region inside the border containing the node's padding and content areas.
-    pub const fn padding_box(&self) -> Rect {
+    #[inline]
+    pub fn padding_box(&self) -> Rect {
         let mut out = self.border_box();
         out.min.x += self.border.left;
         out.min.x -= self.border.right;
@@ -318,7 +320,8 @@ impl ComputedNode {
 
     /// Returns the node's padding-box in object-centered physical coordinates.
     /// This is the innermost region of the node, where its content is placed.
-    pub const fn content_box(&self) -> Rect {
+    #[inline]
+    pub fn content_box(&self) -> Rect {
         let mut out = self.border_box();
         let content_inset = self.content_inset();
         out.min.x += content_inset.left;
