@@ -123,7 +123,7 @@ pub(crate) struct ProcessingState {
     /// A bool indicating whether the processor has started or not.
     ///
     /// This is different from `state` since `state` is async, and we only assign to it once, so we
-    /// should ~never block on it.
+    /// should almost never block on it (and only for a few cycles).
     // TODO: Remove this once the processor can process new asset sources.
     pub(crate) started: RwLock<bool>,
     /// The overall state of processing.
