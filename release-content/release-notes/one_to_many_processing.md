@@ -48,7 +48,9 @@ impl Process for LineSplitterProcess {
 Then if you have an asset like `shakespeare.txt`, you can load these separate files as
 `shakespeare.txt/Line0.line`, `shakespeare.txt/Line1.line`, etc. These separate files can have
 different file extensions, be loaded as completely separate asset types, or be entirely produced
-from scratch within the asset processor!
+from scratch within the asset processor! These files are treated as completely distinct assets, so
+loading them looks like a regular asset load (e.g.,
+`asset_server.load("shakespeare.txt/Line1.line")`).
 
 We plan to use this to break apart large glTF files into smaller, easier-to-load pieces -
-particularly for producing meshlets.
+particularly for producing virtual geometry meshes.
