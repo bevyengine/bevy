@@ -238,7 +238,7 @@ pub fn extract_shadows(
         clip,
         camera,
         target,
-        has_container_target,
+        is_container,
     ) in &box_shadow_query
     {
         // Skip if no visible shadows
@@ -303,7 +303,7 @@ pub fn extract_shadows(
                 blur_radius,
                 size: shadow_size,
                 main_entity: entity.into(),
-                is_container: has_container_target,
+                is_container,
             });
         }
     }

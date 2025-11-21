@@ -1494,7 +1494,7 @@ pub fn queue_uinodes(
                 ])
             {
                 let [camera_transparent_phase, container_transparent_phase] =
-                    transparent_render_phases.get_many_mut([
+                    transparent_render_phases.get_disjoint_mut([
                         &camera_view.retained_view_entity,
                         &container_view.retained_view_entity,
                     ]);
