@@ -298,6 +298,50 @@ impl ComputedNode {
 
         clip_rect
     }
+
+    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn horizontal_scrollbar(&self) -> Option<(Rect, f32, f32)> {
+        if self.scrollbar_size.y <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let min_x = -half_size.x + content_inset.left;
+        let max_x = half_size.x - content_inset.right - self.scrollbar_size.x;
+        let max_y = half_size.y - content_inset.bottom;
+        let min_y = max_y - self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        let gutter_length = gutter.size().x;
+        let thumb_min = gutter.min.x + gutter_length * self.scroll_position.x / self.content_size.x;
+        let thumb_max = thumb_min + gutter_length * gutter_length / self.content_size.x;
+        (gutter, thumb_min, thumb_max)
+    }
+
+    /// Compute the bounds of the horizontal scrollbar and the thumb
+    /// in object-centered coordinates.
+    pub fn vertical_scrollbar(&self) -> Option<Rect, f32, f32> {
+        if self.scrollbar_size.x <= 0. {
+            return None;
+        }
+        let content_inset = self.content_inset();
+        let half_size = 0.5 * self.size;
+        let max_x = half_size.x - content_inset.right;
+        let min_x = max_x - self.scrollbar_size.x;
+        let min_y = -half_size.y + content_inset.top;
+        let max_y = half_size.y - content_inset.bottom - self.scrollbar_size.y;
+        let gutter = Rect {
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
+        };
+        let gutter_length = gutter.size().y;
+        let thumb_min = gutter.min.y + gutter_length * self.scroll_position.y / self.content_size.y;
+        let thumb_max = thumb_min + gutter_length * gutter_length / self.content_size.y;
+        (gutter, thumb_min, thumb_max)
+    }
 }
 
 impl ComputedNode {
