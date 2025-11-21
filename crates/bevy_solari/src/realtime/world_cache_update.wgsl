@@ -6,11 +6,12 @@
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN}
 #import bevy_solari::world_cache::{
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
-WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
+    WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
+    WORLD_CACHE_MAX_GI_RAY_DISTANCE,
     query_world_cache,
     world_cache_active_cells_count,
     world_cache_active_cell_indices,
-world_cache_life,
+    world_cache_life,
     world_cache_geometry_data,
     world_cache_radiance,
     world_cache_active_cells_new_radiance,
@@ -34,7 +35,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
 
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
+        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, WORLD_CACHE_MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
 let cell_life = atomicLoad(&world_cache_life[cell_index]);

@@ -5,18 +5,20 @@
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
 const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
+/// How many direct light samples each cell takes when updating each frame
+const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
+/// Maximum amount of distance to trace GI rays between two cache cells 
+const WORLD_CACHE_MAX_GI_RAY_DISTANCE: f32 = 4.0;
+
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
-/// The size of a cache cell at the lowest LOD in meters
+/// Size of a cache cell at the lowest LOD in meters
 const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.25;
 /// How fast the world cache transitions between LODs as a function of distance to the camera
 const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 8.0;
-
-/// How many direct light samples each cell takes when updating each frame
-const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
