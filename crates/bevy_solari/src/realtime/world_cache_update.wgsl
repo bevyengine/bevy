@@ -3,7 +3,7 @@
 #import bevy_render::view::View
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
 #import bevy_solari::sampling::{calculate_resolved_light_contribution, trace_light_visibility}
-#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN}
 #import bevy_solari::world_cache::{
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
 WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT,
@@ -21,7 +21,7 @@ world_cache_life,
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
-@compute @workgroup_size(1024, 1, 1)
+@compute @workgroup_size(64, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
@@ -34,7 +34,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
 
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
 let cell_life = atomicLoad(&world_cache_life[cell_index]);
@@ -46,7 +46,7 @@ let cell_life = atomicLoad(&world_cache_life[cell_index]);
     }
 }
 
-@compute @workgroup_size(1024, 1, 1)
+@compute @workgroup_size(64, 1, 1)
 fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];

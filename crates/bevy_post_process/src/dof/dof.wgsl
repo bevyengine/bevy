@@ -98,6 +98,8 @@ struct DualOutput {
 // The sampler that's used to fetch texels from the source color buffer.
 @group(1) @binding(1) var color_texture_sampler: sampler;
 
+// used to ensure `depth * (focus - f)` is always a positive number,
+const EPSILON: f32 = 1.19209290e-07;
 // cos(-30°), used for the bokeh blur.
 const COS_NEG_FRAC_PI_6: f32 = 0.8660254037844387;
 // sin(-30°), used for the bokeh blur.
@@ -128,7 +130,7 @@ fn calculate_circle_of_confusion(in_frag_coord: vec4<f32>) -> f32 {
     // This is just the formula from Wikipedia [1].
     //
     // [1]: https://en.wikipedia.org/wiki/Circle_of_confusion#Determining_a_circle_of_confusion_diameter_from_the_object_field
-    let candidate_coc = scale * abs(depth - focus) / (depth * (focus - f));
+    let candidate_coc = scale * abs(depth - focus) / (depth * max(focus - f, EPSILON));
 
     let framebuffer_size = vec2<f32>(textureDimensions(color_texture_a));
     return clamp(candidate_coc * framebuffer_size.y, 0.0, max_coc_diameter);

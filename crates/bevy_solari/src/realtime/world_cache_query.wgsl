@@ -13,7 +13,7 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 /// The size of a cache cell at the lowest LOD in meters
 const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.25;
 /// How fast the world cache transitions between LODs as a function of distance to the camera
-const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
+const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 8.0;
 
 /// How many direct light samples each cell takes when updating each frame
 const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;

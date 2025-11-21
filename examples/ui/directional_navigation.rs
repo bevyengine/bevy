@@ -177,10 +177,10 @@ fn setup_ui(
                         // Center the button within the grid cell
                         align_self: AlignSelf::Center,
                         justify_self: JustifySelf::Center,
+                        border_radius: BorderRadius::all(px(16)),
                         ..default()
                     },
                     ResetTimer::default(),
-                    BorderRadius::all(px(16)),
                     BackgroundColor::from(NORMAL_BUTTON),
                     Name::new(button_name.clone()),
                 ))
