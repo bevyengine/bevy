@@ -5,8 +5,8 @@ pull_requests: [21925, 21889]
 
 In previous versions, the `Process` trait had an associated type for the output loader, and took a
 `writer` argument. This is no longer the case (in order to support one-to-many asset processing).
-This change requires that users indicate whether they are using the "single" writer mode or the
-"multiple" writer mode.
+This change requires that users indicate whether they are using the "full" writer mode or the
+"partial" writer mode.
 
 If your previous trait implementation of `Process` looked like this:
 
@@ -40,7 +40,7 @@ impl Process for MyThing {
         meta: AssetMeta<(), Self>,
         writer_context: WriteContext<'_>,
     ) -> Result<(), ProcessError> {
-        let writer = writer_context.write_single().await?;
+        let writer = writer_context.write_full().await?;
         // Write to `writer`, then return the meta file you want.
         let meta = todo!();
         writer.finish(meta).await
