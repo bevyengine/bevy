@@ -1538,30 +1538,30 @@ pub fn queue_uinodes(
         };
 
         // maybe render error
-        if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
-            && extracted_uinode.is_container
-        {
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey {
-                    hdr: view.hdr,
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                },
-            );
+        // if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
+        //     && extracted_uinode.is_container
+        // {
+        //     let pipeline = pipelines.specialize(
+        //         &pipeline_cache,
+        //         &ui_pipeline,
+        //         UiPipelineKey {
+        //             hdr: view.hdr,
+        //             anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+        //         },
+        //     );
 
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                sort_key: FloatOrd(extracted_uinode.z_order),
-                index,
-                // batch_range will be calculated in prepare_uinodes
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                indexed: true,
-            });
-        };
+        //     transparent_phase.add(TransparentUi {
+        //         draw_function,
+        //         pipeline,
+        //         entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+        //         sort_key: FloatOrd(extracted_uinode.z_order),
+        //         index,
+        //         // batch_range will be calculated in prepare_uinodes
+        //         batch_range: 0..0,
+        //         extra_index: PhaseItemExtraIndex::None,
+        //         indexed: true,
+        //     });
+        // };
     }
 }
 
