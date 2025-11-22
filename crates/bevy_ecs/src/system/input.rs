@@ -50,6 +50,9 @@ pub trait SystemInput: Sized {
 
     /// Converts a [`SystemInput::Inner`] into a [`SystemInput::Param`].
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_>;
+
+    /// Converts a [`SystemInput::Param`] into a [`SystemInput::Inner`].
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_>;
 }
 
 /// Shorthand way to get the [`System::In`] for a [`System`] as a [`SystemInput::Inner`].
@@ -94,6 +97,10 @@ impl<T: 'static> SystemInput for In<T> {
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         In(this)
+    }
+
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this.0
     }
 }
 
@@ -154,6 +161,10 @@ impl<T: ?Sized + 'static> SystemInput for InRef<'_, T> {
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InRef(this)
     }
+
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this.0
+    }
 }
 
 impl<'i, T: ?Sized> Deref for InRef<'i, T> {
@@ -203,6 +214,10 @@ impl<T: ?Sized + 'static> SystemInput for InMut<'_, T> {
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         InMut(this)
     }
+
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this.0
+    }
 }
 
 impl<'i, T: ?Sized> Deref for InMut<'i, T> {
@@ -233,6 +248,10 @@ impl<E: Event, B: Bundle> SystemInput for On<'_, '_, E, B> {
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
     }
+
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this
+    }
 }
 
 /// A helper for using [`SystemInput`]s in generic contexts.
@@ -254,30 +273,39 @@ impl<'a, I: SystemInput> SystemInput for StaticSystemInput<'a, I> {
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         StaticSystemInput(this)
     }
+
+    fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+        this.0
+    }
 }
 
 macro_rules! impl_system_input_tuple {
     ($(#[$meta:meta])* $($name:ident),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is in a macro; as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples won't have anything to wrap."
+        )]
         $(#[$meta])*
         impl<$($name: SystemInput),*> SystemInput for ($($name,)*) {
             type Param<'i> = ($($name::Param<'i>,)*);
             type Inner<'i> = ($($name::Inner<'i>,)*);
 
-            #[expect(
-                clippy::allow_attributes,
-                reason = "This is in a macro; as such, the below lints may not always apply."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "Certain variable names are provided by the caller, not by us."
-            )]
-            #[allow(
-                clippy::unused_unit,
-                reason = "Zero-length tuples won't have anything to wrap."
-            )]
             fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
                 let ($($name,)*) = this;
                 ($($name::wrap($name),)*)
+            }
+
+            fn unwrap(this: Self::Param<'_>) -> Self::Inner<'_> {
+                let ($($name,)*) = this;
+                ($($name::unwrap($name),)*)
             }
         }
     };
