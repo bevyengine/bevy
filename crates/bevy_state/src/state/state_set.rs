@@ -112,7 +112,13 @@ impl<S: InnerStateSet> StateSet for S {
                         None
                     };
 
-                internal_apply_state_transition(event, commands, current_state, new_state, false);
+                internal_apply_state_transition(
+                    event,
+                    commands,
+                    current_state,
+                    new_state,
+                    T::ALLOW_SAME_STATE_TRANSITIONS,
+                );
             };
 
         schedule.configure_sets((
