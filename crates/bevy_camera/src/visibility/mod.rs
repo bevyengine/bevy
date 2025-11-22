@@ -6,6 +6,10 @@ use core::any::TypeId;
 use bevy_ecs::entity::{EntityHashMap, EntityHashSet};
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::world::DeferredWorld;
+use bevy_mesh::skinning::{
+    entity_aabb_from_skinned_mesh_bounds, SkinnedMesh, SkinnedMeshBounds, SkinnedMeshBoundsAsset,
+    SkinnedMeshInverseBindposes,
+};
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
 pub use render_layers::*;
@@ -368,7 +372,9 @@ impl Plugin for VisibilityPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    calculate_bounds.in_set(CalculateBounds),
+                    (calculate_bounds, update_skinned_mesh_bounds)
+                        .chain()
+                        .in_set(CalculateBounds),
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
@@ -400,6 +406,50 @@ pub fn calculate_bounds(
             commands.entity(entity).try_insert(aabb);
         }
     }
+}
+
+// XXX TODO: Document.
+fn update_skinned_mesh_bounds(
+    inverse_bindposes_assets: Res<Assets<SkinnedMeshInverseBindposes>>,
+    bounds_assets: Res<Assets<SkinnedMeshBoundsAsset>>,
+    mut mesh_entities: Query<
+        (
+            &SkinnedMesh,
+            &SkinnedMeshBounds,
+            Option<&GlobalTransform>,
+            &mut Aabb,
+        ),
+        // XXX TODO: This is debatable - frustum culling is not the only
+        // system that might want skinned bounds.
+        Without<NoFrustumCulling>,
+    >,
+    joint_entities: Query<&GlobalTransform>,
+) {
+    mesh_entities
+        .par_iter_mut()
+        .for_each(|(mesh, bounds, world_from_entity, mut aabb)| {
+            let Some(inverse_bindposes_asset) =
+                inverse_bindposes_assets.get(&mesh.inverse_bindposes)
+            else {
+                return;
+            };
+
+            let Some(bounds_asset) = bounds_assets.get(bounds) else {
+                return;
+            };
+
+            let Some(skinned_aabb) = entity_aabb_from_skinned_mesh_bounds(
+                &joint_entities,
+                mesh,
+                inverse_bindposes_asset,
+                bounds_asset,
+                world_from_entity,
+            ) else {
+                return;
+            };
+
+            *aabb = skinned_aabb.into();
+        });
 }
 
 /// Updates [`Frustum`].
