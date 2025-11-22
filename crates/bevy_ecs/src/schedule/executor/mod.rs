@@ -3,6 +3,7 @@ mod multi_threaded;
 mod single_threaded;
 
 use alloc::{vec, vec::Vec};
+use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::DebugName;
 use core::any::TypeId;
 
@@ -34,6 +35,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
+        subgraph: Option<SystemSetKey>,
         skip_systems: Option<&FixedBitSet>,
         error_handler: fn(BevyError, ErrorContext),
     );
@@ -105,11 +107,14 @@ pub struct SystemSchedule {
     ///
     /// If a set doesn't run because of its conditions, this is used to skip all systems in it.
     pub(super) systems_in_sets_with_conditions: Vec<FixedBitSet>,
+    /// Sparse mapping of system set node id to systems in the set, used for running
+    /// subgraphs. This is filled lazily when a subgraph is run for the first time.
+    pub(super) systems_in_sets: HashMap<SystemSetKey, FixedBitSet>,
 }
 
 impl SystemSchedule {
     /// Creates an empty [`SystemSchedule`].
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             systems: Vec::new(),
             system_conditions: Vec::new(),
@@ -120,6 +125,7 @@ impl SystemSchedule {
             system_dependents: Vec::new(),
             sets_with_conditions_of_systems: Vec::new(),
             systems_in_sets_with_conditions: Vec::new(),
+            systems_in_sets: HashMap::default(),
         }
     }
 }

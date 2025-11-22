@@ -138,3 +138,123 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
 
     group.finish();
 }
+
+pub fn run_schedule(criterion: &mut Criterion) {
+    #[derive(Component)]
+    struct A(f32);
+    #[derive(Component)]
+    struct B(f32);
+    #[derive(Component)]
+    struct C(f32);
+
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct SetA;
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct SetB;
+    #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    struct SetC;
+
+    fn system_a(mut query: Query<&mut A>) {
+        query.iter_mut().for_each(|mut a| {
+            a.0 += 1.0;
+        });
+    }
+
+    fn system_b(mut query: Query<&mut B>) {
+        query.iter_mut().for_each(|mut b| {
+            b.0 += 1.0;
+        });
+    }
+
+    fn system_c(mut query: Query<&mut C>) {
+        query.iter_mut().for_each(|mut c| {
+            c.0 += 1.0;
+        });
+    }
+
+    let mut group = criterion.benchmark_group("run_schedule");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
+
+    group.bench_function("full/single_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+        schedule.add_systems(system_a.in_set(SetA));
+        schedule.add_systems(system_b.in_set(SetB));
+        schedule.add_systems(system_c.in_set(SetC));
+        schedule.run(&mut world);
+
+        bencher.iter(|| schedule.run(&mut world));
+    });
+
+    group.bench_function("full/multi_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+        schedule.add_systems(system_a.in_set(SetA));
+        schedule.add_systems(system_b.in_set(SetB));
+        schedule.add_systems(system_c.in_set(SetC));
+        schedule.run(&mut world);
+
+        bencher.iter(|| schedule.run(&mut world));
+    });
+
+    group.bench_function("single_system_in_set/single_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+        schedule.add_systems(system_a.in_set(SetA));
+        schedule.add_systems(system_b.in_set(SetB));
+        schedule.add_systems(system_c.in_set(SetC));
+        schedule.run_system_set(&mut world, SetB);
+
+        bencher.iter(|| schedule.run_system_set(&mut world, SetB));
+    });
+
+    group.bench_function("single_system_in_set/multi_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+        schedule.add_systems(system_a.in_set(SetA));
+        schedule.add_systems(system_b.in_set(SetB));
+        schedule.add_systems(system_c.in_set(SetC));
+        schedule.run_system_set(&mut world, SetB);
+
+        bencher.iter(|| schedule.run_system_set(&mut world, SetB));
+    });
+
+    group.bench_function("multiple_systems_in_set/single_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+        schedule.add_systems((system_a, system_b, system_c).in_set(SetA));
+        schedule.run_system_set(&mut world, SetA);
+
+        bencher.iter(|| schedule.run_system_set(&mut world, SetA));
+    });
+
+    group.bench_function("multiple_systems_in_set/multi_threaded", |bencher| {
+        let mut world = World::default();
+        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
+
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+        schedule.add_systems((system_a, system_b, system_c).in_set(SetA));
+        schedule.run_system_set(&mut world, SetA);
+
+        bencher.iter(|| schedule.run_system_set(&mut world, SetA));
+    });
+
+    group.finish();
+}
