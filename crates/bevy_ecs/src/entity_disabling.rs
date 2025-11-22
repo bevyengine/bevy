@@ -96,10 +96,15 @@
 //! [`World`]: crate::prelude::World
 //! [`Query` performance]: crate::prelude::Query#performance
 
+use alloc::vec::Vec;
+use log::warn;
+
 use crate::{
-    component::{ComponentId, Components, StorageType},
+    component::{ComponentId, Components, HookContext, StorageType},
+    entity::Entity,
+    prelude::DetectChangesMut,
     query::FilteredAccess,
-    world::{FromWorld, World},
+    world::{DeferredWorld, FromWorld, World},
 };
 use bevy_ecs_macros::{Component, Resource};
 use smallvec::SmallVec;
@@ -131,8 +136,28 @@ use {
     reflect(Component),
     reflect(Debug, Clone, Default)
 )]
+#[component(on_remove = Disabled::on_remove)]
 // This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;
+
+impl Disabled {
+    fn on_remove<'w>(mut world: DeferredWorld<'w>, hook_context: HookContext) {
+        Self::set_all_components_as_changed(hook_context.entity, &mut world);
+    }
+
+    fn set_all_components_as_changed(entity: Entity, world: &mut DeferredWorld) {
+        let mut entity = world.entity_mut(entity);
+        let archetype = entity.archetype();
+        let archetype_id = archetype.id();
+        for comp_id in archetype.components().collect::<Vec<_>>() {
+            if let Ok(mut comp) = entity.get_mut_by_id(comp_id) {
+                comp.set_changed();
+            } else {
+                warn!("Entity {} was part of archetype {:?}. It reported that component {:?} is part of the archetype but entity did not have it. Maybe this is a bug.", entity.id(), archetype_id, comp_id);
+            }
+        }
+    }
+}
 
 /// Default query filters work by excluding entities with certain components from most queries.
 ///
