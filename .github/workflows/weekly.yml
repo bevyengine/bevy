@@ -52,6 +52,25 @@ jobs:
         env:
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
+  integration-tests:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@beta
+      - name: Install Linux dependencies
+        uses: ./.github/actions/install-linux-deps
+      - name: Build & run integration tests
+        # See tools/ci/src/main.rs for the commands this runs
+        run: cargo run -p ci -- integration-test
+        env:
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"
+
   lint:
     runs-on: ubuntu-latest
     # Disable this job when running on a fork.
