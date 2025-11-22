@@ -42,7 +42,7 @@ fn setup(
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(0.5, 0.0, -0.5)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(1.0, 0.0, -1.0)),
     ));
 
     commands.spawn((
@@ -61,7 +61,7 @@ fn setup(
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(-0.5, 0.0, -0.5)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(-1.0, 0.0, -1.0)),
     ));
 
     commands.spawn((
@@ -80,7 +80,7 @@ fn setup(
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(0.0, 0.0, 0.5)),
+        Transform::from_scale(Vec3::splat(4.0)).with_translation(Vec3::new(0.0, 0.0, 1.0)),
     ));
 
     commands.spawn((
