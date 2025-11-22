@@ -79,7 +79,9 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
         let ray_hit = resolve_ray_hit_full(ray);
         let wo = -wi;
 
-        if ray_hit.material.roughness > 0.1 && i != 0u { 
+        // TODO: Account for ray_hit.material.emissive with MIS
+
+        if ray_hit.material.roughness > 0.1 && i != 0u {
             // Surface is very rough, terminate path in the world cache
             let diffuse_brdf = ray_hit.material.base_color / PI;
             radiance += throughput * diffuse_brdf * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position, rng);
