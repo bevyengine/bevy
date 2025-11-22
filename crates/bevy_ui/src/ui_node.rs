@@ -1,6 +1,6 @@
 use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
-    FocusPolicy, UiRect, Val,
+    FocusPolicy, UiRect, UiScale, Val,
 };
 use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
@@ -8,7 +8,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_sprite::BorderRect;
+use bevy_sprite::{Anchor, BorderRect};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
@@ -2913,6 +2913,42 @@ impl ComputedUiRenderTargetInfo {
         self.physical_size.as_vec2() / self.scale_factor
     }
 }
+
+/// Specifies the UI container for the Node.
+/// The node will be laid out within this container.
+/// For proper functionality, both the root node and its children must have this component and point to the same container entity.
+/// You can use [`Propagate`](bevy_app::Propagate) to pass the container reference to all child nodes.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, PartialEq, Clone)]
+#[relationship(relationship_target = UiContainerOf)]
+pub struct UiContainerTarget(pub Entity);
+
+#[derive(Component, Default, Debug, PartialEq, Eq)]
+#[relationship_target(relationship = UiContainerTarget, linked_spawn)]
+pub struct UiContainerOf(Vec<Entity>);
+
+/// Sets the size of the UI container. The root node will calculate its layout based on this container size.
+/// Use the Anchor component to change the container's origin point.
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ui::UiContainerSize;
+/// # use bevy_ui::Node;
+/// # use bevy_ui::UiContainerTarget;
+/// fn setup(mut commands: Commands) {
+///     let ui_container = commands.spawn(UiContainerSize::default()).id();
+///
+///     commands.spawn((Node::default(), UiContainerTarget(ui_container)));
+/// }
+/// ```
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
+#[reflect(Component, Default, PartialEq, Clone)]
+#[require(bevy_transform::components::Transform, UiContainerOf, Anchor, UiScale)]
+pub struct UiContainerSize(pub UVec2);
+
+/// It performs clipping on all root nodes in the container and propagates the clipping bounds to the root nodes.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
+#[reflect(Component, PartialEq, Clone)]
+pub struct UiContainerOverflow(pub Overflow);
 
 #[cfg(test)]
 mod tests {
