@@ -4,7 +4,7 @@
 #import bevy_render::maths::orthonormalize
 
 /// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 32.0;
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 4u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
@@ -33,11 +33,12 @@ struct WorldCacheGeometryData {
 #endif
 @group(1) @binding(16) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(17) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(18) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(19) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(20) var<storage, read_write> world_cache_b: array<u32, 1024u>;
-@group(1) @binding(21) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
+@group(1) @binding(18) var<storage, read_write> world_cache_luminance_deltas: array<f32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(19) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(20) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(21) var<storage, read_write> world_cache_b: array<u32, 1024u>;
+@group(1) @binding(22) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(23) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>, rng: ptr<function, u32>) -> vec3<f32> {
