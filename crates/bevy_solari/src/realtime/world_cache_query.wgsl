@@ -46,7 +46,7 @@ const WORLD_CACHE_CELL_CONFIDENCE_LUM_MAX: f32 = 0.1;
 /// The size of a cache cell at the lowest LOD in meters
 const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.1;
 /// How fast the world cache transitions between LODs as a function of distance to the camera
-const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
+const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 8.0;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;

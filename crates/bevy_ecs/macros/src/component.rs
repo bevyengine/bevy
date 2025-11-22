@@ -407,6 +407,18 @@ enum HookAttributeKind {
 }
 
 impl HookAttributeKind {
+    fn parse(
+        input: syn::parse::ParseStream,
+        default_hook_path: impl FnOnce() -> ExprPath,
+    ) -> Result<Self> {
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            input.parse::<Expr>().and_then(Self::from_expr)
+        } else {
+            Ok(Self::Path(default_hook_path()))
+        }
+    }
+
     fn from_expr(value: Expr) -> Result<Self> {
         match value {
             Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
@@ -436,12 +448,6 @@ impl HookAttributeKind {
                 })
             }
         }
-    }
-}
-
-impl Parse for HookAttributeKind {
-    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        input.parse::<Expr>().and_then(Self::from_expr)
     }
 }
 
@@ -566,19 +572,29 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_add = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_add }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_insert = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_insert }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_replace = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_replace }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_remove = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_remove }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                    attrs.on_despawn = Some(HookAttributeKind::parse(nested.input, || {
+                        parse_quote! { Self::on_despawn }
+                    })?);
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;

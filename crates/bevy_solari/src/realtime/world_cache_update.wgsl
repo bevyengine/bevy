@@ -19,7 +19,9 @@
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
 }
 
-@compute @workgroup_size(1024, 1, 1)
+const MAX_GI_RAY_DISTANCE: f32 = 4.0;
+
+@compute @workgroup_size(64, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
@@ -42,7 +44,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
 
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
-        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+        let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, MAX_GI_RAY_DISTANCE, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
             new_radiance += ray_hit.material.base_color * query_world_cache_radiance(&rng, ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
@@ -53,7 +55,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
     }
 }
 
-@compute @workgroup_size(1024, 1, 1)
+@compute @workgroup_size(64, 1, 1)
 fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];

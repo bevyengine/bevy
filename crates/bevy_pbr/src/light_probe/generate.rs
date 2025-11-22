@@ -678,12 +678,16 @@ pub fn prepare_generated_environment_map_bind_groups(
                 (bind_group.clone(), bind_group)
             } else {
                 // Split path requires a separate view for mip6 input
-                let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
-                    dimension: Some(TextureViewDimension::D2Array),
-                    base_mip_level: min(6, last_mip),
-                    mip_level_count: Some(1),
-                    ..Default::default()
-                });
+                let input_env_map_second =
+                    textures
+                        .environment_map
+                        .texture
+                        .create_view(&TextureViewDescriptor {
+                            dimension: Some(TextureViewDimension::D2Array),
+                            base_mip_level: min(6, last_mip),
+                            mip_level_count: Some(1),
+                            ..Default::default()
+                        });
 
                 // Split layout (current behavior)
                 let first = render_device.create_bind_group(

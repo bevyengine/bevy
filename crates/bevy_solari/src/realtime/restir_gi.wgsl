@@ -252,7 +252,7 @@ fn merge_reservoirs(
     );
 
     // Don't merge samples with huge jacobians, as it explodes the variance
-    if canonical_target_function_other_sample_jacobian > 2.0 {
+    if canonical_target_function_other_sample_jacobian > 1.2 {
         return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance);
     }
 

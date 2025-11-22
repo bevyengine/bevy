@@ -260,7 +260,13 @@ fn create_text_measure<'a>(
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
     };
@@ -372,7 +378,13 @@ fn queue_text(
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
-        Err(e @ (TextError::FailedToAddGlyph(_) | TextError::FailedToGetGlyphImage(_))) => {
+        Err(
+            e @ (TextError::FailedToAddGlyph(_)
+            | TextError::FailedToGetGlyphImage(_)
+            | TextError::MissingAtlasLayout
+            | TextError::MissingAtlasTexture
+            | TextError::InconsistentAtlasState),
+        ) => {
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
