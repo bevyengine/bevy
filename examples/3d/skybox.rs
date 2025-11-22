@@ -1,7 +1,9 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::anti_alias::taa::TemporalAntiAliasing;
+
 use bevy::{
-    anti_alias::taa::TemporalAntiAliasing,
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
@@ -71,6 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Msaa::Off,
+        #[cfg(not(target_arch = "wasm32"))]
         TemporalAntiAliasing::default(),
         ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
