@@ -1,3 +1,4 @@
+use benches::bench;
 use core::hint::black_box;
 
 use bevy_ecs::{
@@ -5,11 +6,12 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     system::{Query, SystemState},
-    world::World,
+    world::{EntityMut, World},
 };
 use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
+use seq_macro::seq;
 
 #[derive(Component, Default)]
 #[component(storage = "Table")]
@@ -357,3 +359,64 @@ pub fn query_get_many<const N: usize>(criterion: &mut Criterion) {
         });
     }
 }
+
+macro_rules! query_get_components_mut {
+    ($function_name:ident, $val:literal) => {
+        pub fn $function_name(criterion: &mut Criterion) {
+            let mut group = criterion.benchmark_group(bench!("world_query_get_components_mut"));
+            group.warm_up_time(core::time::Duration::from_millis(500));
+            group.measurement_time(core::time::Duration::from_secs(4));
+
+            for entity_count in RANGE.map(|i| i * 10_000) {
+                seq!(N in 0..$val {
+                    let (mut world, entities) = setup_wide::<(
+                        #(WideTable<N>,)*
+                    )>(entity_count);
+                });
+                let mut query = world.query::<EntityMut>();
+                group.bench_function(format!("{}_components_{entity_count}_entities", $val), |bencher| {
+                    bencher.iter(|| {
+                        for entity in &entities {
+                            seq!(N in 0..$val {
+                                assert!(query
+                                    .get_mut(&mut world, *entity)
+                                    .unwrap()
+                                    .get_components_mut::<(
+                                            #(&mut WideTable<N>,)*
+                                        )>()
+                                        .is_ok());
+                            });
+                        }
+                    });
+                });
+                group.bench_function(
+                    format!("unchecked_{}_components_{entity_count}_entities", $val),
+                    |bencher| {
+                        bencher.iter(|| {
+                            for entity in &entities {
+                                // SAFETY: no duplicate components are listed
+                                unsafe {
+                                    seq!(N in 0..$val {
+                                        assert!(query
+                                            .get_mut(&mut world, *entity)
+                                            .unwrap()
+                                            .get_components_mut_unchecked::<(
+                                                    #(&mut WideTable<N>,)*
+                                                )>()
+                                                .is_ok());
+                                    });
+                                }
+                            }
+                        });
+                    },
+                );
+            }
+
+            group.finish();
+        }
+    };
+}
+
+query_get_components_mut!(query_get_components_mut_2, 2);
+query_get_components_mut!(query_get_components_mut_5, 5);
+query_get_components_mut!(query_get_components_mut_10, 10);
