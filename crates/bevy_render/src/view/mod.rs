@@ -830,6 +830,11 @@ impl ViewTarget {
         self.out_texture.get_attachment(clear_color)
     }
 
+    /// Whether the final texture this view will render to needs to be presented.
+    pub fn needs_present(&self) -> bool {
+        self.out_texture.needs_present()
+    }
+
     /// The format of the final texture this view will render to
     #[inline]
     pub fn out_texture_format(&self) -> TextureFormat {
