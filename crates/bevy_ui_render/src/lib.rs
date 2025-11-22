@@ -899,10 +899,10 @@ pub fn extract_ui_camera_view(
 
             // maybe render error
             transparent_render_phases.insert_or_clear(retained_view_entity);
-            transparent_render_phases.insert_or_clear(retained_view_entity_contain);
+            // transparent_render_phases.insert_or_clear(retained_view_entity_contain);
 
             live_entities.insert(retained_view_entity);
-            live_entities.insert(retained_view_entity_contain);
+            // live_entities.insert(retained_view_entity_contain);
         }
     }
 
@@ -1537,7 +1537,6 @@ pub fn queue_uinodes(
             });
         };
 
-
         // maybe render error
         // if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
         //     && extracted_uinode.is_container
@@ -1618,6 +1617,7 @@ pub fn prepare_uinodes(
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 
+            tracing::info!("ui_phase.items.len():{:?}", ui_phase.items.len());
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let Some(extracted_uinode) = extracted_uinodes
