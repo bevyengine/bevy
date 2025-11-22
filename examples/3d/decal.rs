@@ -27,18 +27,60 @@ fn setup(
 ) {
     // Spawn the forward decal
     commands.spawn((
-        Name::new("Decal"),
+        Name::new("Decal Red"),
         ForwardDecal,
         MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(1.0, 0.0, 0.0, 0.5),
+                // Use alpha blending for decals
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 0.0,
                 ..default()
             },
             extension: ForwardDecalMaterialExt {
                 depth_fade_factor: 1.0,
             },
         })),
-        Transform::from_scale(Vec3::splat(4.0)),
+        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(0.5, 0.0, -0.5)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Green"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(0.0, 1.0, 0.0, 0.5),
+                // Use alpha blending for decals
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 1.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(-0.5, 0.0, -0.5)),
+    ));
+
+    commands.spawn((
+        Name::new("Decal Blue"),
+        ForwardDecal,
+        MeshMaterial3d(decal_standard_materials.add(ForwardDecalMaterial {
+            base: StandardMaterial {
+                base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
+                base_color: Color::srgba(0.0, 0.0, 1.0, 0.5),
+                // Use alpha blending for decals
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 2.0,
+                ..default()
+            },
+            extension: ForwardDecalMaterialExt {
+                depth_fade_factor: 1.0,
+            },
+        })),
+        Transform::from_scale(Vec3::splat(2.0)).with_translation(Vec3::new(0.0, 0.0, 0.5)),
     ));
 
     commands.spawn((
