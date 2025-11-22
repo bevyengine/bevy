@@ -217,7 +217,7 @@ mod tests {
                 parent.spawn((A(2), Node::default()));
                 parent
                     .spawn((A(3), GhostNode))
-                    .with_child((A(4), Node::default()));
+                    .spawn_child((A(4), Node::default()));
             });
 
         // Ghost root
@@ -225,8 +225,8 @@ mod tests {
             parent.spawn((A(6), Node::default()));
             parent
                 .spawn((A(7), GhostNode))
-                .with_child((A(8), Node::default()))
-                .with_child(A(9));
+                .spawn_child((A(8), Node::default()))
+                .spawn_child(A(9));
         });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
