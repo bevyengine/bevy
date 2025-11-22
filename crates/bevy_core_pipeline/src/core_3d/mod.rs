@@ -167,8 +167,8 @@ impl Plugin for Core3dPlugin {
             .init_resource::<ViewBinnedRenderPhases<AlphaMask3dDeferred>>()
             .init_resource::<ViewSortedRenderPhases<Transmissive3d>>()
             .init_resource::<ViewSortedRenderPhases<Transparent3d>>()
-            .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
-            .add_systems(ExtractSchedule, extract_camera_prepass_phase)
+            // .add_systems(ExtractSchedule, extract_core_3d_camera_phases)
+            // .add_systems(ExtractSchedule, extract_camera_prepass_phase)
             .add_systems(
                 Render,
                 (
