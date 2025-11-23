@@ -5374,3 +5374,6 @@ name = "Light Probe Blending"
 description = "Demonstrates blending between multiple reflection probes"
 category = "3D Rendering"
 wasm = false
+
+[patch.crates-io]
+cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "de5f48fb8f80580014e11402c6aae483e0cb578c" }
