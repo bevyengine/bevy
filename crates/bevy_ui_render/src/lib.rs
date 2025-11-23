@@ -124,7 +124,6 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
-    pub const UI_CONTAINER: f32 = 0.1;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -1551,7 +1550,7 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                sort_key: FloatOrd(extracted_uinode.z_order + stack_z_offsets::UI_CONTAINER),
+                sort_key: FloatOrd(extracted_uinode.z_order + 0.1),
                 index,
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
