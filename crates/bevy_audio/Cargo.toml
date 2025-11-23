@@ -56,8 +56,6 @@ audio-all = [
   "rodio/vorbis",
   "rodio/wav",
 ]
-# Enable using a shared stdlib for cxx on Android.
-android_shared_stdcxx = ["cpal/oboe-shared-stdcxx"]
 
 [lints]
 workspace = true
