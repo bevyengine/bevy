@@ -1613,7 +1613,6 @@ pub fn prepare_uinodes(
             let mut batch_item_index = 0;
             let mut batch_image_handle = AssetId::invalid();
 
-            tracing::info!("ui_phase.items.len():{:?}", ui_phase.items.len());
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 let Some(extracted_uinode) = extracted_uinodes
