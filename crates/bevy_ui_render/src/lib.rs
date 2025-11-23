@@ -124,6 +124,7 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.05;
     pub const TEXT: f32 = 0.06;
     pub const TEXT_STRIKETHROUGH: f32 = 0.07;
+    pub const UI_CONTAINER: f32 = 0.1;
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -430,9 +431,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 
         // Run the subgraph on the UI view.
         graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_camera))?;
-
-        // maybe render error
-        // graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container))?;
+        graph.run_sub_graph(SubGraphUi, vec![], Some(ui_camera_view.ui_container))?;
         Ok(())
     }
 }
@@ -897,12 +896,11 @@ pub fn extract_ui_camera_view(
                 entity_commands.insert(*shadow_samples);
             }
 
-            // maybe render error
             transparent_render_phases.insert_or_clear(retained_view_entity);
-            // transparent_render_phases.insert_or_clear(retained_view_entity_contain);
+            transparent_render_phases.insert_or_clear(retained_view_entity_contain);
 
             live_entities.insert(retained_view_entity);
-            // live_entities.insert(retained_view_entity_contain);
+            live_entities.insert(retained_view_entity_contain);
         }
     }
 
@@ -1537,7 +1535,6 @@ pub fn queue_uinodes(
             });
         };
 
-        // maybe render error
         if let Some((view, ui_anti_alias, transparent_phase)) = current_phase_container.as_mut()
             && extracted_uinode.is_container
         {
@@ -1554,7 +1551,7 @@ pub fn queue_uinodes(
                 draw_function,
                 pipeline,
                 entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                sort_key: FloatOrd(extracted_uinode.z_order),
+                sort_key: FloatOrd(extracted_uinode.z_order + stack_z_offsets::UI_CONTAINER),
                 index,
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
