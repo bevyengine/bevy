@@ -1,0 +1,882 @@
+#usda 1.0
+(
+	subLayers = [
+        @usdGeom/schema.usda@
+	]
+)
+
+over "GLOBAL" (
+	customData = {
+	string libraryName = "usdPhysics"
+	string libraryPath = "pxr/usd/usdPhysics"
+    bool useLiteralIdentifier = 0
+    dictionary libraryTokens = {
+        dictionary colliders = {
+            string doc = """
+            This token represents the collection name to use
+            with UsdCollectionAPI to represent colliders
+            of a CollisionGroup prim.
+            """
+            }
+        dictionary kilogramsPerUnit = {
+            string doc = """Stage-level metadata that encodes a scene's
+            linear unit of measure as kilograms per encoded unit."""
+            }
+        dictionary transX = {
+            string doc = """
+            This token represents the translate around X axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary transY = {
+            string doc = """
+            This token represents the translate around Y axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary transZ = {
+            string doc = """
+            This token represents the translate around Z axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary rotX = {
+            string doc = """
+            This token represents the rotate around X axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary rotY = {
+            string doc = """
+            This token represents the rotate around Y axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary rotZ = {
+            string doc = """
+            This token represents the rotate around Z axis degree of freedom
+            used in Joint Limits and Drives.
+            """
+            }
+        dictionary linear = {
+            string doc = """
+            This token represents the linear degree of freedom
+            used in Prismatic Joint Drive.
+            """
+            }
+        dictionary angular = {
+            string doc = """
+            This token represents the angular degree of freedom
+            used in Revolute Joint Drive.
+            """
+            }
+        dictionary distance = {
+            string doc = """
+            This token represents the distance limit used for generic D6 joint.
+            """
+            }
+
+        }
+	}
+)
+{
+
+}
+
+class PhysicsScene "PhysicsScene"
+(
+    customData = {
+        string className = "Scene"
+    }
+    doc = """General physics simulation properties, required for simulation."""
+
+    inherits = </Typed>
+)
+{
+    vector3f physics:gravityDirection = (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "gravityDirection"
+        }
+        displayName = "Gravity Direction"
+        doc = """Gravity direction vector in simulation world space. Will be
+        normalized before use. A zero vector is a request to use the negative 
+        upAxis. Unitless."""
+    )
+
+    float physics:gravityMagnitude = -inf (
+        customData = {
+            string apiName = "gravityMagnitude"
+        }
+        displayName = "Gravity Magnitude"
+        doc = """Gravity acceleration magnitude in simulation world space. 
+        A negative value is a request to use a value equivalent to earth 
+        gravity regardless of the metersPerUnit scaling used by this scene. 
+        Units: distance/second/second."""
+    )
+}
+
+class "PhysicsRigidBodyAPI"
+(
+    customData = {
+        string className = "RigidBodyAPI"
+        string extraIncludes = """
+#include "pxr/base/gf/matrix3f.h"
+#include "pxr/base/gf/quatf.h" """
+    }
+    doc = """Applies physics body attributes to any UsdGeomXformable prim and
+    marks that prim to be driven by a simulation. If a simulation is running
+    it will update this prim's pose. All prims in the hierarchy below this 
+    prim should move rigidly along with the body, except when the descendant
+    prim has its own UsdPhysicsRigidBodyAPI (marking a separate rigid body
+    subtree which moves independently of the parent rigid body)."""
+
+    inherits = </APISchemaBase>
+    
+)
+
+{
+
+    bool physics:rigidBodyEnabled = true (
+        customData = {
+            string apiName = "rigidBodyEnabled"
+        }
+        displayName = "Rigid Body Enabled"
+        doc = """Determines if this PhysicsRigidBodyAPI is enabled."""
+    )
+
+  	bool physics:kinematicEnabled = false (
+        customData = {
+            string apiName = "kinematicEnabled"
+        }
+        displayName = "Kinematic Enabled"
+        doc = """Determines whether the body is kinematic or not. A kinematic 
+        body is a body that is moved through animated poses or through 
+        user defined poses. The simulation derives velocities for the
+        kinematic body based on the external motion. When a continuous motion
+        is not desired, this kinematic flag should be set to false."""
+    )
+
+    rel physics:simulationOwner (
+        customData = {
+            string apiName = "simulationOwner"
+        }
+        displayName = "Simulation Owner"
+        doc = """Single PhysicsScene that will simulate this body. By 
+        default this is the first PhysicsScene found in the stage using 
+        UsdStage::Traverse()."""
+
+    )
+
+	uniform bool physics:startsAsleep = false (
+        customData = {
+            string apiName = "startsAsleep"
+        }
+        displayName = "Starts as Asleep"
+        doc = "Determines if the body is asleep when the simulation starts."
+    )
+    
+    vector3f physics:velocity= (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "velocity"
+        }
+        displayName = "Linear Velocity"
+        doc = """Linear velocity in the same space as the node's xform. 
+        Units: distance/second."""
+    )
+
+    vector3f physics:angularVelocity = (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "angularVelocity"
+        }
+        displayName = "Angular Velocity"
+        doc = """Angular velocity in the same space as the node's xform. 
+        Units: degrees/second."""
+    )    
+}
+
+class "PhysicsMassAPI"
+(
+    customData = {
+        string className = "MassAPI"
+    }
+
+    doc = """Defines explicit mass properties (mass, density, inertia etc.).        
+    MassAPI can be applied to any object that has a PhysicsCollisionAPI or
+    a PhysicsRigidBodyAPI."""
+
+    inherits = </APISchemaBase>
+)
+{
+	float physics:mass = 0.0 (
+        customData = {
+            string apiName = "mass"
+        }
+        displayName = "Mass"
+        doc = """If non-zero, directly specifies the mass of the object.
+        Note that any child prim can also have a mass when they apply massAPI.
+        In this case, the precedence rule is 'parent mass overrides the
+        child's'. This may come as counter-intuitive, but mass is a computed 
+        quantity and in general not accumulative. For example, if a parent 
+        has mass of 10, and one of two children has mass of 20, allowing 
+        child's mass to override its parent results in a mass of -10 for the 
+        other child. Note if mass is 0.0 it is ignored. Units: mass.
+        """
+    )
+
+	float physics:density = 0.0 (
+        customData = {
+            string apiName = "density"
+        }
+        displayName = "Density"
+        doc = """If non-zero, specifies the density of the object.
+        In the context of rigid body physics, density indirectly results in 
+        setting mass via (mass = density x volume of the object). How the 
+        volume is computed is up to implementation of the physics system.
+        It is generally computed from the collision approximation rather than
+        the graphical mesh. In the case where both density and mass are 
+        specified for the same object, mass has precedence over density. 
+        Unlike mass, child's prim's density overrides parent prim's density 
+        as it is accumulative. Note that density of a collisionAPI can be also
+        alternatively set through a PhysicsMaterialAPI. The material density
+        has the weakest precedence in density definition. Note if density is
+        0.0 it is ignored. Units: mass/distance/distance/distance."""
+    )
+
+	point3f physics:centerOfMass = (-inf, -inf, -inf) (
+        customData = {
+            string apiName = "centerOfMass"
+        }
+        displayName = "Center of Mass"
+        doc = """Center of mass in the prim's local space. Units: distance."""
+    )
+
+	float3 physics:diagonalInertia = (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "diagonalInertia"
+        }
+        displayName = "Diagonal Inertia"
+        doc = """If non-zero, specifies diagonalized inertia tensor along the 
+        principal axes. Note if diagonalInertial is (0.0, 0.0, 0.0) it is 
+        ignored. Units: mass*distance*distance."""
+    )
+
+	quatf physics:principalAxes = (0, 0, 0, 0) (
+        customData = {
+            string apiName = "principalAxes"
+        }
+        displayName = "Principal Axes"
+        doc = """Orientation of the inertia tensor's principal axes in the 
+        prim's local space."""
+    )
+}
+
+class "PhysicsCollisionAPI"
+(
+    customData = {
+        string className = "CollisionAPI"
+    }
+    doc = """Applies collision attributes to a UsdGeomXformable prim. If a 
+    simulation is running, this geometry will collide with other geometries that 
+    have PhysicsCollisionAPI applied. If any prim in the parent hierarchy has
+    the RigidBodyAPI applied, the collider is considered a part of the closest
+    ancestor body. If there is no body in the parent hierarchy, this collider
+    is considered to be static."""
+
+    inherits = </APISchemaBase>
+)
+{
+    bool physics:collisionEnabled = true (
+        customData = {
+            string apiName = "collisionEnabled"
+        }
+        displayName = "Collision Enabled"
+        doc = """Determines if the PhysicsCollisionAPI is enabled."""
+    )
+
+    rel physics:simulationOwner (
+        customData = {
+            string apiName = "simulationOwner"
+        }
+        displayName = "Simulation Owner"
+        doc = """Single PhysicsScene that will simulate this collider. 
+        By default this object belongs to the first PhysicsScene.
+        Note that if a RigidBodyAPI in the hierarchy above has a different
+        simulationOwner then it has a precedence over this relationship."""
+    )
+}
+
+class "PhysicsMeshCollisionAPI"
+(
+    customData = {
+        string className = "MeshCollisionAPI"
+    }
+	doc = """Attributes to control how a Mesh is made into a collider.
+       Can be applied to only a USDGeomMesh in addition to its
+       PhysicsCollisionAPI."""
+
+   inherits = </APISchemaBase>
+)
+{
+	uniform token physics:approximation = "none" (
+        customData = {
+            string apiName = "approximation"
+        }
+	allowedTokens = ["none","convexDecomposition","convexHull",
+		"boundingSphere","boundingCube","meshSimplification"]
+	
+    displayName = "Approximation"
+	doc = """Determines the mesh's collision approximation:
+	"none" - The mesh geometry is used directly as a collider without any 
+    approximation.
+	"convexDecomposition" - A convex mesh decomposition is performed. This 
+    results in a set of convex mesh colliders.
+	"convexHull" - A convex hull of the mesh is generated and used as the 
+    collider.
+	"boundingSphere" - A bounding sphere is computed around the mesh and used 
+    as a collider.
+	"boundingCube" - An optimally fitting box collider is computed around the 
+    mesh.
+	"meshSimplification" - A mesh simplification step is performed, resulting 
+    in a simplified triangle mesh collider."""
+	)
+}
+
+class "PhysicsMaterialAPI"
+(
+    customData = {
+        string className = "MaterialAPI"
+    }
+    doc = """ Adds simulation material properties to a Material. All collisions 
+    that have a relationship to this material will have their collision response 
+    defined through this material."""
+
+    inherits = </APISchemaBase>
+)
+{
+    float physics:dynamicFriction = 0.0 (
+        customData = {
+            string apiName = "dynamicFriction"
+        }
+        displayName = "Dynamic Friction"
+        doc = """Dynamic friction coefficient. Unitless."""
+    )
+
+    float physics:staticFriction = 0.0 (
+        customData = {
+            string apiName = "staticFriction"
+        }
+        displayName = "Static Friction"
+        doc = """Static friction coefficient. Unitless."""
+    )
+
+    float physics:restitution = 0.0 (
+        customData = {
+            string apiName = "restitution"
+        }
+        displayName = "Restitution"
+        doc = """Restitution coefficient. Unitless."""
+    )
+
+    float physics:density = 0.0 (
+        customData = {
+            string apiName = "density"
+        }
+        displayName = "Density"
+        doc = """If non-zero, defines the density of the material. This can be
+        used for body mass computation, see PhysicsMassAPI.
+        Note that if the density is 0.0 it is ignored. 
+        Units: mass/distance/distance/distance."""
+    )
+}
+
+class PhysicsCollisionGroup "PhysicsCollisionGroup"
+(
+    customData = {
+        string className = "CollisionGroup"
+        string extraIncludes = """
+#include "pxr/usd/usd/collectionAPI.h" """
+    }    
+    doc = """Defines a collision group for coarse filtering. When a collision 
+    occurs between two objects that have a PhysicsCollisionGroup assigned,
+    they will collide with each other unless this PhysicsCollisionGroup pair 
+    is filtered. See filteredGroups attribute.
+    
+    A CollectionAPI:colliders maintains a list of PhysicsCollisionAPI rel-s that 
+    defines the members of this Collisiongroup.
+    """
+
+    inherits = </Typed>
+    prepend apiSchemas = ["CollectionAPI:colliders"]
+)
+{
+	rel physics:filteredGroups (
+        customData = {
+            string apiName = "filteredGroups"
+        }
+
+        displayName = "Filtered Groups"
+        doc = """References a list of PhysicsCollisionGroups with which 
+        collisions should be ignored."""
+    )
+
+    string physics:mergeGroup (
+        customData = {
+            string apiName = "mergeGroupName"
+        }
+
+        displayName = "Merge With Groups"
+        doc = """If non-empty, any collision groups in a stage with a matching
+        mergeGroup should be considered to refer to the same collection. Matching
+        collision groups should behave as if there were a single group containing
+        referenced colliders and filter groups from both collections."""
+    )
+
+    bool physics:invertFilteredGroups (
+        customData = {
+            string apiName = "invertFilteredGroups"
+        }
+
+        displayName = "Invert Filtered Groups"
+        doc = """Normally, the filter will disable collisions against the selected
+        filter groups. However, if this option is set, the filter will disable
+        collisions against all colliders except for those in the selected filter
+        groups."""
+    )
+}
+
+class "PhysicsFilteredPairsAPI"
+(
+    customData = {
+        string className = "FilteredPairsAPI"
+    }
+    doc = """API to describe fine-grained filtering. If a collision between
+    two objects occurs, this pair might be filtered if the pair is defined
+    through this API. This API can be applied either to a body or collision
+    or even articulation. The "filteredPairs" defines what objects it should 
+    not collide against. Note that FilteredPairsAPI filtering has precedence 
+    over CollisionGroup filtering."""
+
+    inherits = </APISchemaBase>
+)
+{    
+    rel physics:filteredPairs (
+        customData = {
+            string apiName = "filteredPairs"
+        }
+        displayName = "Filtered Pairs"
+        doc = """Relationship to objects that should be filtered."""
+    )
+}
+
+
+class PhysicsJoint "PhysicsJoint"
+(
+    customData = {
+        string className = "Joint"
+    }
+    doc = """A joint constrains the movement of rigid bodies. Joint can be 
+    created between two rigid bodies or between one rigid body and world.
+    By default joint primitive defines a D6 joint where all degrees of 
+    freedom are free. Three linear and three angular degrees of freedom.
+    Note that default behavior is to disable collision between jointed bodies.
+    """
+
+    inherits = </Imageable> 
+)
+{
+    rel physics:body0 (
+        customData = {
+            string apiName = "body0"
+        }
+        displayName = "Body 0"
+        doc = """Relationship to any UsdGeomXformable."""
+    )
+
+    rel physics:body1 (
+        customData = {
+            string apiName = "body1"
+        }
+        displayName = "Body 1"
+        doc = """Relationship to any UsdGeomXformable."""
+    )
+
+    point3f physics:localPos0 = (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "localPos0"
+        }
+        displayName = "Local Position 0"
+        doc = """Relative position of the joint frame to body0's frame."""
+    )
+
+    quatf physics:localRot0 = (1.0, 0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "localRot0"
+        }
+        displayName = "Local Rotation 0"
+        doc = """Relative orientation of the joint frame to body0's frame."""
+    )
+
+    point3f physics:localPos1 = (0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "localPos1"
+        }
+        displayName = "Local Position 1"
+        doc = """Relative position of the joint frame to body1's frame."""
+    )
+
+    quatf physics:localRot1 = (1.0, 0.0, 0.0, 0.0) (
+        customData = {
+            string apiName = "localRot1"
+        }
+        displayName = "Local Rotation 1"
+        doc = """Relative orientation of the joint frame to body1's frame."""
+    )
+
+    bool physics:jointEnabled = true (
+        customData = {
+            string apiName = "jointEnabled"
+        }
+        displayName = "Joint Enabled"
+        doc = """Determines if the joint is enabled."""
+    )
+
+    bool physics:collisionEnabled = false (
+        customData = {
+            string apiName = "collisionEnabled"
+        }
+        displayName = "Collision Enabled"
+        doc = """Determines if the jointed subtrees should collide or not."""
+    )
+
+    uniform bool physics:excludeFromArticulation = false (
+        customData = {
+            string apiName = "excludeFromArticulation"
+        }
+        displayName = "Exclude From Articulation"
+        doc = """Determines if the joint can be included in an Articulation."""
+    )
+
+    float physics:breakForce = inf (
+        customData = {
+            string apiName = "breakForce"
+        }
+        displayName = "Break Force"
+        doc = """Joint break force. If set, joint is to break when this force
+        limit is reached. (Used for linear DOFs.) 
+        Units: mass * distance / second / second"""
+    )
+
+    float physics:breakTorque = inf (
+        customData = {
+            string apiName = "breakTorque"
+        }
+        displayName = "Break Torque"
+        doc = """Joint break torque. If set, joint is to break when this torque
+        limit is reached. (Used for angular DOFs.) 
+        Units: mass * distance * distance / second / second"""
+    )
+
+}
+
+class PhysicsRevoluteJoint "PhysicsRevoluteJoint"
+(
+    customData = {
+        string className = "RevoluteJoint"
+    }
+    doc = """Predefined revolute joint type (rotation along revolute joint
+    axis is permitted.)"""
+
+    inherits = </PhysicsJoint>
+)
+{
+    uniform token physics:axis = "X" (
+        customData = {
+            string apiName = "axis"
+        }
+        allowedTokens = ["X", "Y", "Z"]
+        displayName = "Axis"
+        doc = """Joint axis."""
+    )  
+
+    float physics:lowerLimit = -inf (
+        customData = {
+            string apiName = "lowerLimit"
+        }
+        displayName = "Lower Limit"
+        doc = """Lower limit. Units: degrees. -inf means not limited in 
+        negative direction."""
+    )
+
+    float physics:upperLimit = inf (
+        customData = {
+            string apiName = "upperLimit"
+        }
+        displayName = "Upper Limit"
+        doc = """Upper limit. Units: degrees. inf means not limited in 
+        positive direction."""
+    )
+}
+
+class PhysicsPrismaticJoint "PhysicsPrismaticJoint"
+(
+    customData = {
+        string className = "PrismaticJoint"
+    }
+    doc = """Predefined prismatic joint type (translation along prismatic 
+    joint axis is permitted.)"""
+
+    inherits = </PhysicsJoint>
+)
+{
+    uniform token physics:axis = "X" (
+        customData = {
+            string apiName = "axis"
+        }
+        displayName = "Axis"
+        allowedTokens = ["X", "Y", "Z"]
+        doc = """Joint axis."""
+    )  
+
+    float physics:lowerLimit = -inf (
+        customData = {
+            string apiName = "lowerLimit"
+        }
+        displayName = "Lower Limit"
+        doc = """Lower limit. Units: distance. -inf means not limited in 
+        negative direction."""
+    )
+
+    float physics:upperLimit = inf (
+        customData = {
+            string apiName = "upperLimit"
+        }
+        displayName = "Upper Limit"
+        doc = """Upper limit. Units: distance. inf means not limited in 
+        positive direction."""
+    )
+}
+
+class PhysicsSphericalJoint "PhysicsSphericalJoint"
+(
+    customData = {
+        string className = "SphericalJoint"
+    }
+    doc = """Predefined spherical joint type (Removes linear degrees of 
+    freedom, cone limit may restrict the motion in a given range.) It allows
+    two limit values, which when equal create a circular, else an elliptic 
+    cone limit around the limit axis."""
+
+    inherits = </PhysicsJoint>
+)
+{
+    uniform token physics:axis = "X" (
+        customData = {
+            string apiName = "axis"
+        }
+        allowedTokens = ["X", "Y", "Z"]
+        displayName = "Axis"
+        doc = """Cone limit axis."""
+    )  
+
+    float physics:coneAngle0Limit = -1.0 (
+        customData = {
+            string apiName = "coneAngle0Limit"
+        }
+        displayName = "Cone Angle0 Limit"
+        doc = """Cone limit from the primary joint axis in the local0 frame 
+        toward the next axis. (Next axis of X is Y, and of Z is X.) A 
+        negative value means not limited. Units: degrees."""
+    )
+
+    float physics:coneAngle1Limit = -1.0 (
+        customData = {
+            string apiName = "coneAngle1Limit"
+        }
+        displayName = "Cone Angle1 Limit"
+        doc = """Cone limit from the primary joint axis in the local0 frame 
+        toward the second to next axis. A negative value means not limited. 
+        Units: degrees."""
+    )
+}
+
+
+class PhysicsDistanceJoint "PhysicsDistanceJoint"
+(
+    customData = {
+        string className = "DistanceJoint"
+    }
+    doc = """Predefined distance joint type (Distance between rigid bodies
+    may be limited to given minimum or maximum distance.)"""
+
+    inherits = </PhysicsJoint>
+)
+{
+    float physics:minDistance = -1.0 (
+        customData = {
+            string apiName = "minDistance"
+        }
+        displayName = "Minimum Distance"
+        doc = """Minimum distance. If attribute is negative, the joint is not 
+        limited. Units: distance."""
+    )
+
+    float physics:maxDistance = -1.0 (
+        customData = {
+            string apiName = "maxDistance"
+        }
+        displayName = "Maximum Distance"
+        doc = """Maximum distance. If attribute is negative, the joint is not 
+        limited. Units: distance."""
+    )
+}
+
+class PhysicsFixedJoint "PhysicsFixedJoint"
+(
+    customData = {
+        string className = "FixedJoint"
+    }
+    doc = """Predefined fixed joint type (All degrees of freedom are 
+    removed.)"""
+
+    inherits = </PhysicsJoint>
+)
+{
+}
+
+class "PhysicsLimitAPI"
+(
+    customData = {
+        string className = "LimitAPI"
+        token apiSchemaType = "multipleApply"
+        token propertyNamespacePrefix = "limit"
+    }
+    doc = """The PhysicsLimitAPI can be applied to a PhysicsJoint and will
+    restrict the movement along an axis. PhysicsLimitAPI is a multipleApply 
+    schema: The PhysicsJoint can be restricted along "transX", "transY", 
+    "transZ", "rotX", "rotY", "rotZ", "distance". Setting these as a 
+    multipleApply schema TfToken name will define the degree of freedom the
+    PhysicsLimitAPI is applied to. Note that if the low limit is higher than 
+    the high limit, motion along this axis is considered locked."""
+
+    inherits = </APISchemaBase>
+
+)
+{
+    float physics:low = -inf (
+        customData = {
+            string apiName = "low"
+        }
+        displayName = "Low Limit"
+        doc = """Lower limit. Units: degrees or distance depending on trans or
+        rot axis applied to. -inf means not limited in negative direction."""
+    )
+
+    float physics:high = inf (
+        customData = {
+            string apiName = "high"
+        }
+        displayName = "High Limit"
+        doc = """Upper limit. Units: degrees or distance depending on trans or 
+        rot axis applied to. inf means not limited in positive direction."""
+    )
+}
+
+class "PhysicsDriveAPI"
+(
+    customData = {
+        string className = "DriveAPI"
+        token apiSchemaType = "multipleApply"
+        token propertyNamespacePrefix = "drive"
+    }
+    doc = """The PhysicsDriveAPI when applied to any joint primitive will drive
+    the joint towards a given target. The PhysicsDriveAPI is a multipleApply 
+    schema: drive can be set per axis "transX", "transY", "transZ", "rotX", 
+    "rotY", "rotZ" or its "linear" for prismatic joint or "angular" for revolute 
+    joints. Setting these as a multipleApply schema TfToken name will 
+    define the degree of freedom the DriveAPI is applied to. Each drive is an 
+    implicit force-limited damped spring: 
+    Force or acceleration = stiffness * (targetPosition - position) 
+    + damping * (targetVelocity - velocity)"""
+
+    inherits = </APISchemaBase>
+)
+{
+    uniform token physics:type = "force" (
+        customData = {
+            string apiName = "type"
+        }
+        allowedTokens = ["force", "acceleration"]
+        displayName = "Type"
+        doc = """Drive spring is for the acceleration at the joint (rather 
+        than the force)."""
+    )
+
+    float physics:maxForce = inf (
+        customData = {
+            string apiName = "maxForce"
+        }
+        displayName = "Max Force"
+        doc = """Maximum force that can be applied to drive. Units: 
+                if linear drive: mass*DIST_UNITS/second/second
+                if angular drive: mass*DIST_UNITS*DIST_UNITS/second/second
+                inf means not limited. Must be non-negative.
+        """
+    )
+
+    float physics:targetPosition = 0.0 (
+        customData = {
+            string apiName = "targetPosition"
+        }
+        displayName = "Target Position"
+        doc = """Target value for position. Units: 
+        if linear drive: distance
+        if angular drive: degrees."""
+    )
+
+    float physics:targetVelocity = 0.0 (
+        customData = {
+            string apiName = "targetVelocity"
+        }
+        displayName = "Target Velocity"
+        doc = """Target value for velocity. Units: 
+        if linear drive: distance/second
+        if angular drive: degrees/second."""
+    )
+
+    float physics:damping = 0.0 (
+        customData = {
+            string apiName = "damping"
+        }
+        doc = """Damping of the drive. Units: 
+		if linear drive: mass/second
+		If angular drive: mass*DIST_UNITS*DIST_UNITS/second/degrees."""
+    )
+
+    float physics:stiffness = 0.0 (
+        customData = {
+            string apiName = "stiffness"
+        }
+        doc = """Stiffness of the drive. Units:
+		if linear drive: mass/second/second
+		if angular drive: mass*DIST_UNITS*DIST_UNITS/degrees/second/second."""
+    )
+}
+
+class "PhysicsArticulationRootAPI"
+(
+    customData = {
+        string className = "ArticulationRootAPI"
+    }
+    doc = """PhysicsArticulationRootAPI can be applied to a scene graph node, 
+    and marks the subtree rooted here for inclusion in one or more reduced 
+    coordinate articulations. For floating articulations, this should be on
+    the root body. For fixed articulations (robotics jargon for e.g. a robot 
+    arm for welding that is bolted to the floor), this API can be on a direct 
+    or indirect parent of the root joint which is connected to the world, or 
+    on the joint itself.."""
+
+    inherits = </APISchemaBase>
+)
+{
+}
+
