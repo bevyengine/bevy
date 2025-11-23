@@ -125,7 +125,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |fallback-flac|FLAC audio format support (through `claxon`)|
-|fallback-vorbis|OGG/VORBIS audio format support (through `lewton`)|
+|fallback-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
 |fallback-wav|WAV audio format support (through `hound`)|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
@@ -193,7 +193,7 @@ This is the complete `bevy` cargo feature list, without "profiles" or "collectio
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |type_label_buffers|Pre-populate buffer labels with buffer types for debugging.|
 |ui_picking|Provides an implementation for picking UI|
-|vorbis|OGG/VORBIS audio format support (through `symphonia`)|
+|vorbis|OGG/VORBIS audio format support (through `lewton`)|
 |wav|WAV audio format support (through `symphonia`)|
 |wayland|Wayland display server support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
