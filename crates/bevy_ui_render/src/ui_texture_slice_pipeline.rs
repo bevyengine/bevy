@@ -732,18 +732,18 @@ fn compute_texture_slices(
 
             // calculate the normalized extents of the nine-patched image slices
             let slices = [
-                border_rect.min.x / image_size.x,
-                border_rect.min.y / image_size.y,
-                1. - border_rect.max.x / image_size.x,
-                1. - border_rect.max.y / image_size.y,
+                border_rect.min_inset.x / image_size.x,
+                border_rect.min_inset.y / image_size.y,
+                1. - border_rect.max_inset.x / image_size.x,
+                1. - border_rect.max_inset.y / image_size.y,
             ];
 
             // calculate the normalized extents of the target slices
             let border = [
-                (border_rect.min.x / target_size.x) * min_coeff,
-                (border_rect.min.y / target_size.y) * min_coeff,
-                1. - (border_rect.max.x / target_size.x) * min_coeff,
-                1. - (border_rect.max.y / target_size.y) * min_coeff,
+                (border_rect.min_inset.x / target_size.x) * min_coeff,
+                (border_rect.min_inset.y / target_size.y) * min_coeff,
+                1. - (border_rect.max_inset.x / target_size.x) * min_coeff,
+                1. - (border_rect.max_inset.y / target_size.y) * min_coeff,
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);

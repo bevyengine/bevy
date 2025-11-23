@@ -1704,7 +1704,12 @@ pub fn prepare_uinodes(
                                 color,
                                 flags: flags | shader_flags::CORNERS[i],
                                 radius: (*border_radius).into(),
-                                border: [border.min.x, border.min.y, border.max.x, border.max.y],
+                                border: [
+                                    border.min_inset.x,
+                                    border.min_inset.y,
+                                    border.max_inset.x,
+                                    border.max_inset.y,
+                                ],
                                 size: rect_size.into(),
                                 point: points[i].into(),
                             });

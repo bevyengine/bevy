@@ -51,8 +51,8 @@ impl TextureSlicer {
     fn corner_slices(&self, base_rect: Rect, render_size: Vec2) -> [TextureSlice; 4] {
         let coef = render_size / base_rect.size();
         let BorderRect {
-            min: Vec2 { x: left, y: top },
-            max: Vec2 {
+            min_inset: Vec2 { x: left, y: top },
+            max_inset: Vec2 {
                 x: right,
                 y: bottom,
             },
@@ -122,10 +122,10 @@ impl TextureSlicer {
             // Left
             TextureSlice {
                 texture_rect: Rect {
-                    min: base_rect.min + vec2(0.0, self.border.min.y),
+                    min: base_rect.min + vec2(0.0, self.border.min_inset.y),
                     max: vec2(
-                        base_rect.min.x + self.border.min.x,
-                        base_rect.max.y - self.border.max.y,
+                        base_rect.min.x + self.border.min_inset.x,
+                        base_rect.max.y - self.border.max_inset.y,
                     ),
                 },
                 draw_size: vec2(
@@ -141,10 +141,10 @@ impl TextureSlicer {
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(
-                        base_rect.max.x - self.border.max.x,
-                        base_rect.min.y + self.border.min.y,
+                        base_rect.max.x - self.border.max_inset.x,
+                        base_rect.min.y + self.border.min_inset.y,
                     ),
-                    max: base_rect.max - vec2(0.0, self.border.max.y),
+                    max: base_rect.max - vec2(0.0, self.border.max_inset.y),
                 },
                 draw_size: vec2(
                     tr_corner.draw_size.x,
@@ -170,10 +170,10 @@ impl TextureSlicer {
             // Top
             TextureSlice {
                 texture_rect: Rect {
-                    min: base_rect.min + vec2(self.border.min.x, 0.0),
+                    min: base_rect.min + vec2(self.border.min_inset.x, 0.0),
                     max: vec2(
-                        base_rect.max.x - self.border.max.x,
-                        base_rect.min.y + self.border.min.y,
+                        base_rect.max.x - self.border.max_inset.x,
+                        base_rect.min.y + self.border.min_inset.y,
                     ),
                 },
                 draw_size: vec2(
@@ -189,10 +189,10 @@ impl TextureSlicer {
             TextureSlice {
                 texture_rect: Rect {
                     min: vec2(
-                        base_rect.min.x + self.border.min.x,
-                        base_rect.max.y - self.border.max.y,
+                        base_rect.min.x + self.border.min_inset.x,
+                        base_rect.max.y - self.border.max_inset.y,
                     ),
-                    max: base_rect.max - vec2(self.border.max.x, 0.0),
+                    max: base_rect.max - vec2(self.border.max_inset.x, 0.0),
                 },
                 draw_size: vec2(
                     render_size.x - (bl_corner.draw_size.x + br_corner.draw_size.x),
@@ -217,7 +217,10 @@ impl TextureSlicer {
     #[must_use]
     pub fn compute_slices(&self, rect: Rect, render_size: Option<Vec2>) -> Vec<TextureSlice> {
         let render_size = render_size.unwrap_or_else(|| rect.size());
-        if (self.border.min + self.border.max).cmpge(rect.size()).any() {
+        if (self.border.min_inset + self.border.max_inset)
+            .cmpge(rect.size())
+            .any()
+        {
             tracing::error!(
                 "TextureSlicer::border has out of bounds values. No slicing will be applied"
             );
@@ -237,8 +240,8 @@ impl TextureSlicer {
         // Center
         let center = TextureSlice {
             texture_rect: Rect {
-                min: rect.min + self.border.min,
-                max: rect.max - self.border.max,
+                min: rect.min + self.border.min_inset,
+                max: rect.max - self.border.max_inset,
             },
             draw_size: vec2(
                 render_size.x - (corners[0].draw_size.x + corners[1].draw_size.x),
@@ -323,8 +326,8 @@ mod test {
     fn test_horizontal_sizes_non_uniform_bigger() {
         let slicer = TextureSlicer {
             border: BorderRect {
-                min: Vec2::new(20., 10.),
-                max: Vec2::splat(10.),
+                min_inset: Vec2::new(20., 10.),
+                max_inset: Vec2::splat(10.),
             },
             center_scale_mode: SliceScaleMode::Stretch,
             sides_scale_mode: SliceScaleMode::Stretch,
@@ -353,8 +356,8 @@ mod test {
     fn test_horizontal_sizes_non_uniform_smaller() {
         let slicer = TextureSlicer {
             border: BorderRect {
-                min: Vec2::new(5., 10.),
-                max: Vec2::splat(10.),
+                min_inset: Vec2::new(5., 10.),
+                max_inset: Vec2::splat(10.),
             },
             center_scale_mode: SliceScaleMode::Stretch,
             sides_scale_mode: SliceScaleMode::Stretch,
@@ -396,8 +399,8 @@ mod test {
     fn test_horizontal_sizes_non_uniform_zero() {
         let slicer = TextureSlicer {
             border: BorderRect {
-                min: Vec2::new(0., 10.),
-                max: Vec2::splat(10.),
+                min_inset: Vec2::new(0., 10.),
+                max_inset: Vec2::splat(10.),
             },
             center_scale_mode: SliceScaleMode::Stretch,
             sides_scale_mode: SliceScaleMode::Stretch,

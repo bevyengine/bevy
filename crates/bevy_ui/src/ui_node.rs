@@ -196,7 +196,7 @@ impl ComputedNode {
             let sm = s.x.min(s.y);
             r.min(sm)
         }
-        let b = Vec4::from((self.border.min, self.border.max));
+        let b = Vec4::from((self.border.min_inset, self.border.max_inset));
         let s = self.size() - b.xy() - b.zw();
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
@@ -277,8 +277,8 @@ impl ComputedNode {
             OverflowClipBox::PaddingBox => self.border(),
         };
 
-        clip_rect.min += clip_inset.min;
-        clip_rect.max -= clip_inset.max;
+        clip_rect.min += clip_inset.min_inset;
+        clip_rect.max -= clip_inset.max_inset;
 
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;

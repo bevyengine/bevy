@@ -517,10 +517,10 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             size: extracted_uinode.rect.size().into(),
                             radius: extracted_uinode.border_radius,
                             border: [
-                                extracted_uinode.border.min.x,
-                                extracted_uinode.border.min.y,
-                                extracted_uinode.border.max.x,
-                                extracted_uinode.border.max.y,
+                                extracted_uinode.border.min_inset.x,
+                                extracted_uinode.border.min_inset.y,
+                                extracted_uinode.border.max_inset.x,
+                                extracted_uinode.border.max_inset.y,
                             ],
                         });
                     }
