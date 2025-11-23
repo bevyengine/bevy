@@ -261,9 +261,6 @@ bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
 
-# Enable using a shared stdlib for cxx on Android.
-android_shared_stdcxx = ["bevy_audio?/android_shared_stdcxx"]
-
 # Enable AccessKit on Unix backends (currently only works with experimental
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]

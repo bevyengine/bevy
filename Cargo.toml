@@ -197,7 +197,6 @@ default_app = [
 default_platform = [
   "std",
   "android-game-activity",
-  "android_shared_stdcxx",
   "bevy_gilrs",
   "bevy_winit",
   "default_font",
@@ -553,9 +552,6 @@ morph = ["bevy_internal/morph"]
 
 # Enables bevy_mesh and bevy_animation morph weight support
 morph_animation = ["bevy_internal/morph_animation"]
-
-# Enable using a shared stdlib for cxx on Android
-android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 
 # Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in
 detailed_trace = ["bevy_internal/detailed_trace"]
