@@ -58,11 +58,11 @@ fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
 }
 
 fn is_light_in_array(arr: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>, len: u32, light: u32, out_index: ptr<function, u32>) -> bool {
-    for (var i = 0u; i < len; i++) {
-        if arr[i].light == light {
-            *out_index = i;
-            return true;
-        }
+    var found: bool = false;
+    for (var i = 0u; i < WORLD_CACHE_CELL_LIGHT_COUNT; i++) {
+        let found_here = arr[i].light == light && i < len;
+        *out_index = select(*out_index, i, found_here);
+        found |= found_here;
     }
-    return false;
+    return found;
 }
