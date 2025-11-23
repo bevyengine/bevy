@@ -67,9 +67,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let spatial = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
     let merge_result = merge_reservoirs(input_reservoir, surface.world_position, surface.world_normal, surface.material.base_color / PI,
         spatial.reservoir, spatial.world_position, spatial.world_normal, spatial.diffuse_brdf, &rng);
-    var combined_reservoir = merge_result.merged_reservoir;
-
-    combined_reservoir.radiance *= trace_point_visibility(surface.world_position, combined_reservoir.sample_point_world_position);
+    let combined_reservoir = merge_result.merged_reservoir;
 
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 
@@ -164,7 +162,9 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     }
 
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
-    let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
+    var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
+
+    spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
 
     return NeighborInfo(spatial_reservoir, spatial_surface.world_position, spatial_surface.world_normal, spatial_diffuse_brdf);
 }
