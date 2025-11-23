@@ -485,7 +485,7 @@ where
     current_ptr: subsecond::HotFnPtr,
     state: Option<FunctionSystemState<F::Param>>,
     system_meta: SystemMeta,
-    // NOTE: PhantomData<fn(In)-> T> gives this safe Send/Sync impls
+    // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
     marker: PhantomData<fn(In) -> (Marker, Out)>,
 }
 
@@ -950,7 +950,7 @@ mod tests {
 
             use core::any::TypeId;
 
-            let system = IntoSystem::<In, Out, _>::into_system(function);
+            let system = IntoSystem::into_system(function);
 
             assert_eq!(
                 system.type_id(),
@@ -966,13 +966,13 @@ mod tests {
 
             assert_ne!(
                 system.type_id(),
-                IntoSystem::<(), (), _>::into_system(reference_system).type_id(),
+                IntoSystem::into_system(reference_system).type_id(),
                 "Different systems should have different TypeIds"
             );
         }
 
         fn function_system() {}
 
-        test::<_, (), (), _>(function_system);
+        test(function_system);
     }
 }
