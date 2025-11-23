@@ -1097,6 +1097,9 @@ impl AssetProcessor {
         // TODO: this class of failure can be recovered via re-processing + smarter log validation that allows for duplicate transactions in the event of failures
         self.log_begin_processing(asset_path).await;
         if let Some(processor) = processor {
+            // Unwrap is ok since we have a processor, so the `AssetAction` must have been
+            // `AssetAction::Process` (which includes its settings).
+            let settings = source_meta.process_settings().unwrap();
             let mut writer = processed_writer.write(path).await.map_err(writer_err)?;
             let mut processed_meta = {
                 let mut context = ProcessContext::new(
@@ -1106,7 +1109,7 @@ impl AssetProcessor {
                     &mut new_processed_info,
                 );
                 processor
-                    .process(&mut context, source_meta, &mut *writer)
+                    .process(&mut context, settings, &mut *writer)
                     .await?
             };
 
@@ -1421,23 +1424,17 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
     fn process(
         &self,
         context: &mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut crate::io::Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as crate::AssetLoader>::Settings, ProcessError>,
     > {
-        // Change the processor type for the `AssetMeta`, which works because we share the `Settings` type.
-        let meta = AssetMeta {
-            meta_format_version: meta.meta_format_version,
-            processed_info: meta.processed_info,
-            asset: meta.asset,
-        };
         let span = info_span!(
             "asset processing",
             processor = core::any::type_name::<T>(),
             asset = context.path().to_string(),
         );
-        self.0.process(context, meta, writer).instrument(span)
+        self.0.process(context, settings, writer).instrument(span)
     }
 }
 

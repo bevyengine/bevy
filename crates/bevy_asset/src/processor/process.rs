@@ -35,7 +35,7 @@ pub trait Process: Send + Sync + Sized + 'static {
     fn process(
         &self,
         context: &mut ProcessContext,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
@@ -173,12 +173,9 @@ where
     async fn process(
         &self,
         context: &mut ProcessContext<'_>,
-        meta: AssetMeta<(), Self>,
+        settings: &Self::Settings,
         writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let AssetAction::Process { settings, .. } = meta.asset else {
-            return Err(ProcessError::WrongMetaType);
-        };
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
             context
                 .load_source_asset::<Loader>(&settings.loader_settings)
@@ -211,7 +208,7 @@ pub trait ErasedProcessor: Send + Sync {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: Box<dyn AssetMetaDyn>,
+        settings: &'a dyn Settings,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>>;
     /// Deserialized `meta` as type-erased [`AssetMeta`], operating under the assumption that it matches the meta
@@ -225,14 +222,12 @@ impl<P: Process> ErasedProcessor for P {
     fn process<'a>(
         &'a self,
         context: &'a mut ProcessContext,
-        meta: Box<dyn AssetMetaDyn>,
+        settings: &'a dyn Settings,
         writer: &'a mut Writer,
     ) -> BoxedFuture<'a, Result<Box<dyn AssetMetaDyn>, ProcessError>> {
         Box::pin(async move {
-            let meta = meta
-                .downcast::<AssetMeta<(), P>>()
-                .map_err(|_e| ProcessError::WrongMetaType)?;
-            let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
+            let settings = settings.downcast_ref().ok_or(ProcessError::WrongMetaType)?;
+            let loader_settings = <P as Process>::process(self, context, settings, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
                     loader: core::any::type_name::<P::OutputLoader>().to_string(),
