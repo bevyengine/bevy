@@ -23,8 +23,8 @@ impl BorderRect {
     #[inline]
     pub const fn all(extent: f32) -> Self {
         Self {
-            min: Vec2::new(extent, extent),
-            max: Vec2::new(extent, extent),
+            min: Vec2::splat(extent),
+            max: Vec2::splat(extent),
         }
     }
 
@@ -32,9 +32,10 @@ impl BorderRect {
     #[must_use]
     #[inline]
     pub const fn axes(horizontal: f32, vertical: f32) -> Self {
+        let extents = Vec2::new(horizontal, vertical);
         Self {
-            min: Vec2::new(horizontal, vertical),
-            max: Vec2::new(horizontal, vertical),
+            min: extents,
+            max: extents,
         }
     }
 }
