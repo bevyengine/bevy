@@ -6,7 +6,7 @@ use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, BVec2, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{BVec2, Rect, UVec2, Vec2, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
@@ -196,12 +196,7 @@ impl ComputedNode {
             let sm = s.x.min(s.y);
             r.min(sm)
         }
-        let b = vec4(
-            self.border.left,
-            self.border.top,
-            self.border.right,
-            self.border.bottom,
-        );
+        let b = Vec4::from((self.border.min, self.border.max));
         let s = self.size() - b.xy() - b.zw();
         ResolvedBorderRadius {
             top_left: clamp_corner(self.border_radius.top_left, s, b.xy()),
@@ -282,10 +277,8 @@ impl ComputedNode {
             OverflowClipBox::PaddingBox => self.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.min += clip_inset.min;
+        clip_rect.max -= clip_inset.max;
 
         if overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;

@@ -1,20 +1,17 @@
+use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Defines the extents of the border of a rectangle.
 ///
-/// This struct is used to represent thickness or offsets from the edges
-/// of a rectangle (left, right, top, and bottom), with values increasing inwards.
+/// This struct is used to represent thickness or offsets from the four edges
+/// of a rectangle, with values increasing inwards.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct BorderRect {
-    /// Extent of the border along the left edge
-    pub left: f32,
-    /// Extent of the border along the right edge
-    pub right: f32,
-    /// Extent of the border along the top edge
-    pub top: f32,
-    /// Extent of the border along the bottom edge
-    pub bottom: f32,
+    /// Extents of the border from the minimum corner of the rectangle
+    pub min: Vec2,
+    /// Extents of the border from the maximum corner of the rectangle
+    pub max: Vec2,
 }
 
 impl BorderRect {
@@ -26,22 +23,18 @@ impl BorderRect {
     #[inline]
     pub const fn all(extent: f32) -> Self {
         Self {
-            left: extent,
-            right: extent,
-            top: extent,
-            bottom: extent,
+            min: Vec2::new(extent, extent),
+            max: Vec2::new(extent, extent),
         }
     }
 
-    /// Creates a new border with the `left` and `right` extents equal to `horizontal`, and `top` and `bottom` extents equal to `vertical`.
+    /// Creates a new border with the `min.x` and `max.x` extents equal to `horizontal`, and the `min.y` and `max.y` extents equal to `vertical`.
     #[must_use]
     #[inline]
     pub const fn axes(horizontal: f32, vertical: f32) -> Self {
         Self {
-            left: horizontal,
-            right: horizontal,
-            top: vertical,
-            bottom: vertical,
+            min: Vec2::new(horizontal, vertical),
+            max: Vec2::new(horizontal, vertical),
         }
     }
 }
@@ -53,12 +46,10 @@ impl From<f32> for BorderRect {
 }
 
 impl From<[f32; 4]> for BorderRect {
-    fn from([left, right, top, bottom]: [f32; 4]) -> Self {
+    fn from([min_x, max_x, min_y, max_y]: [f32; 4]) -> Self {
         Self {
-            left,
-            right,
-            top,
-            bottom,
+            min: Vec2::new(min_x, min_y),
+            max: Vec2::new(max_x, max_y),
         }
     }
 }
@@ -67,10 +58,8 @@ impl core::ops::Add for BorderRect {
     type Output = Self;
 
     fn add(mut self, rhs: Self) -> Self::Output {
-        self.left += rhs.left;
-        self.right += rhs.right;
-        self.top += rhs.top;
-        self.bottom += rhs.bottom;
+        self.min += rhs.min;
+        self.max += rhs.max;
         self
     }
 }
@@ -79,10 +68,8 @@ impl core::ops::Sub for BorderRect {
     type Output = Self;
 
     fn sub(mut self, rhs: Self) -> Self::Output {
-        self.left -= rhs.left;
-        self.right -= rhs.right;
-        self.top -= rhs.top;
-        self.bottom -= rhs.bottom;
+        self.min -= rhs.min;
+        self.max -= rhs.max;
         self
     }
 }
@@ -91,10 +78,8 @@ impl core::ops::Mul<f32> for BorderRect {
     type Output = Self;
 
     fn mul(mut self, rhs: f32) -> Self::Output {
-        self.left *= rhs;
-        self.right *= rhs;
-        self.top *= rhs;
-        self.bottom *= rhs;
+        self.min *= rhs;
+        self.max *= rhs;
         self
     }
 }
@@ -103,10 +88,8 @@ impl core::ops::Div<f32> for BorderRect {
     type Output = Self;
 
     fn div(mut self, rhs: f32) -> Self::Output {
-        self.left /= rhs;
-        self.right /= rhs;
-        self.top /= rhs;
-        self.bottom /= rhs;
+        self.min /= rhs;
+        self.max /= rhs;
         self
     }
 }

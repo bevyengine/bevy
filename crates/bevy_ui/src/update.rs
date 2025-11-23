@@ -109,10 +109,8 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
-        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
+        clip_rect.min += clip_inset.min;
+        clip_rect.max -= clip_inset.max + computed_node.scrollbar_size;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
