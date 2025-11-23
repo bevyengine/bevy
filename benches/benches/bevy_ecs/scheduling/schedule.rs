@@ -1,5 +1,5 @@
 use bevy_app::{App, Update};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, schedule::ExecutorKind};
 use criterion::Criterion;
 
 pub fn schedule(c: &mut Criterion) {
@@ -125,13 +125,13 @@ pub fn empty_schedule_run(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("run_empty_schedule");
 
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
+    schedule.set_executor_kind(ExecutorKind::SingleThreaded);
     group.bench_function("SingleThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
 
     let mut schedule = Schedule::default();
-    schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
+    schedule.set_executor_kind(ExecutorKind::MultiThreaded);
     group.bench_function("MultiThreaded", |bencher| {
         bencher.iter(|| schedule.run(app.world_mut()));
     });
@@ -176,84 +176,58 @@ pub fn run_schedule(criterion: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    group.bench_function("full/single_threaded", |bencher| {
+    fn new_schedule(kind: ExecutorKind) -> Schedule {
+        let mut schedule = Schedule::default();
+        schedule.set_executor_kind(kind);
+        schedule.add_systems((system_a, system_b, system_c).in_set(SetA));
+        schedule.add_systems((system_a, system_b, system_c).in_set(SetB));
+        schedule.add_systems((system_a, system_b, system_c).in_set(SetC));
+        assert_eq!(schedule.graph().systems.len(), 9);
+        schedule
+    }
+
+    group.bench_function("full/SingleThreaded", |bencher| {
         let mut world = World::default();
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
 
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
-        schedule.add_systems(system_a.in_set(SetA));
-        schedule.add_systems(system_b.in_set(SetB));
-        schedule.add_systems(system_c.in_set(SetC));
+        let mut schedule = new_schedule(ExecutorKind::SingleThreaded);
+        // Make sure its initialized before benchmarking
         schedule.run(&mut world);
 
         bencher.iter(|| schedule.run(&mut world));
     });
 
-    group.bench_function("full/multi_threaded", |bencher| {
+    group.bench_function("full/MultiThreaded", |bencher| {
         let mut world = World::default();
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
 
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
-        schedule.add_systems(system_a.in_set(SetA));
-        schedule.add_systems(system_b.in_set(SetB));
-        schedule.add_systems(system_c.in_set(SetC));
+        let mut schedule = new_schedule(ExecutorKind::MultiThreaded);
+        // Make sure its initialized before benchmarking
         schedule.run(&mut world);
 
         bencher.iter(|| schedule.run(&mut world));
     });
 
-    group.bench_function("single_system_in_set/single_threaded", |bencher| {
+    group.bench_function("single_set/SingleThreaded", |bencher| {
         let mut world = World::default();
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
 
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
-        schedule.add_systems(system_a.in_set(SetA));
-        schedule.add_systems(system_b.in_set(SetB));
-        schedule.add_systems(system_c.in_set(SetC));
+        let mut schedule = new_schedule(ExecutorKind::SingleThreaded);
+        // Make sure its cached before benchmarking
         schedule.run_system_set(&mut world, SetB);
 
         bencher.iter(|| schedule.run_system_set(&mut world, SetB));
     });
 
-    group.bench_function("single_system_in_set/multi_threaded", |bencher| {
+    group.bench_function("single_set/MultiThreaded", |bencher| {
         let mut world = World::default();
         world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
 
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
-        schedule.add_systems(system_a.in_set(SetA));
-        schedule.add_systems(system_b.in_set(SetB));
-        schedule.add_systems(system_c.in_set(SetC));
+        let mut schedule = new_schedule(ExecutorKind::MultiThreaded);
+        // Make sure its cached before benchmarking
         schedule.run_system_set(&mut world, SetB);
 
         bencher.iter(|| schedule.run_system_set(&mut world, SetB));
-    });
-
-    group.bench_function("multiple_systems_in_set/single_threaded", |bencher| {
-        let mut world = World::default();
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
-
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::SingleThreaded);
-        schedule.add_systems((system_a, system_b, system_c).in_set(SetA));
-        schedule.run_system_set(&mut world, SetA);
-
-        bencher.iter(|| schedule.run_system_set(&mut world, SetA));
-    });
-
-    group.bench_function("multiple_systems_in_set/multi_threaded", |bencher| {
-        let mut world = World::default();
-        world.spawn_batch((0..10000).map(|_| (A(0.0), B(0.0), C(0.0))));
-
-        let mut schedule = Schedule::default();
-        schedule.set_executor_kind(bevy_ecs::schedule::ExecutorKind::MultiThreaded);
-        schedule.add_systems((system_a, system_b, system_c).in_set(SetA));
-        schedule.run_system_set(&mut world, SetA);
-
-        bencher.iter(|| schedule.run_system_set(&mut world, SetA));
     });
 
     group.finish();
