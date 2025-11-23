@@ -358,7 +358,7 @@ mod tests {
             a
         }
 
-        fn takes_static_usize(StaticSystemInput(In(b)): StaticSystemInput<In<usize>>) -> usize {
+        fn takes_static_usize(StaticSystemInput(b): StaticSystemInput<In<usize>>) -> usize {
             b
         }
 
