@@ -16,6 +16,7 @@
     query_world_cache_radiance,
     query_world_cache_lights, 
     evaluate_lighting_from_cache,
+    write_world_cache_light,
     WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
 }
 
@@ -40,7 +41,8 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
 
         let cell = query_world_cache_lights(&rng, geometry_data.world_position, geometry_data.world_normal, view.world_position);
         let direct_lighting = evaluate_lighting_from_cache(&rng, cell, geometry_data.world_position, geometry_data.world_normal, geometry_data.world_normal, material, view.exposure);
-        var new_radiance = direct_lighting.radiance * direct_lighting.inverse_pdf;
+        write_world_cache_light(&rng, direct_lighting, geometry_data.world_position, geometry_data.world_normal, view.world_position, view.exposure);
+        var new_radiance = direct_lighting.radiance;
 
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);

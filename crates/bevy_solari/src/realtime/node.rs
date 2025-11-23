@@ -266,7 +266,7 @@ impl ViewNode for SolariLightingNode {
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
         pass.set_pipeline(decay_world_cache_pipeline);
-        pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
+        pass.dispatch_workgroups((WORLD_CACHE_SIZE / 64) as u32, 1, 1);
 
         pass.set_pipeline(compact_world_cache_single_block_pipeline);
         pass.dispatch_workgroups((WORLD_CACHE_SIZE / 1024) as u32, 1, 1);
@@ -458,9 +458,12 @@ impl FromWorld for SolariLightingNode {
             decay_world_cache_pipeline: create_pipeline(
                 "solari_lighting_decay_world_cache_pipeline",
                 "decay_world_cache",
-                load_embedded_asset!(world, "world_cache_compact.wgsl"),
+                load_embedded_asset!(world, "world_cache_decay.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
-                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
+                vec![
+                    "WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into(),
+                    "WORLD_CACHE_DECAY".into(),
+                ],
             ),
             compact_world_cache_single_block_pipeline: create_pipeline(
                 "solari_lighting_compact_world_cache_single_block_pipeline",

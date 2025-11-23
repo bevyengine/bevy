@@ -1,13 +1,9 @@
 #import bevy_solari::realtime_bindings::{ 
-    world_cache_checksums, 
     world_cache_life, 
-    world_cache_radiance, 
     world_cache_a, 
     world_cache_b, 
     world_cache_active_cell_indices,
     world_cache_active_cells_count, 
-    world_cache_light_data, 
-    world_cache_light_data_new_lights, 
     WORLD_CACHE_CELL_LIGHT_COUNT,
     WorldCacheSingleLightData, 
 }
@@ -17,66 +13,6 @@
 
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
-
-@compute @workgroup_size(1024, 1, 1)
-fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    var life = world_cache_life[global_id.x];
-    if life > 0u {
-        life -= 1u;
-        world_cache_life[global_id.x] = life;
-
-        if life == 0u {
-            world_cache_checksums[global_id.x] = WORLD_CACHE_EMPTY_CELL;
-            world_cache_radiance[global_id.x] = vec4(0.0);
-        } else {
-            let old_count = world_cache_light_data[global_id.x].visible_light_count;
-            let old_lights = world_cache_light_data[global_id.x].visible_lights;
-            let new_count = min(WORLD_CACHE_CELL_LIGHT_COUNT, atomicLoad(&world_cache_light_data_new_lights[global_id.x].visible_light_count));
-            atomicStore(&world_cache_light_data_new_lights[global_id.x].visible_light_count, 0u);
-            var out_i = 0u;
-            var out_lights: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>;
-
-            for (var i = 0u; i < new_count; i++) {
-                let data = atomicLoad(&world_cache_light_data_new_lights[global_id.x].visible_lights[i]);
-                atomicStore(&world_cache_light_data_new_lights[global_id.x].visible_lights[i], 0);
-                if data == 0 { 
-                    break; 
-                }
-
-                let light = u32(data & 0xffffffff);
-                let weight = bitcast<f32>(u32(data >> 32u));
-                var exist_index = 0u;
-                if is_light_in_array(out_lights, out_i, light, &exist_index) {
-                    out_lights[exist_index].weight = max(out_lights[exist_index].weight, weight);
-                } else {
-                    out_lights[out_i] = WorldCacheSingleLightData(light, weight);
-                    out_i++;
-                }
-            }
-            for (var i = 0u; i < old_count && out_i < WORLD_CACHE_CELL_LIGHT_COUNT; i++) {
-                var exist_index = 0u;
-                if is_light_in_array(out_lights, out_i, old_lights[i].light, &exist_index) {
-                    out_lights[exist_index].weight = max(out_lights[exist_index].weight, old_lights[i].weight);
-                } else {
-                    out_lights[out_i] = old_lights[i];
-                    out_i++;
-                }
-            }
-            world_cache_light_data[global_id.x].visible_light_count = out_i;
-            world_cache_light_data[global_id.x].visible_lights = out_lights;
-        }
-    }
-}
-
-fn is_light_in_array(arr: array<WorldCacheSingleLightData, WORLD_CACHE_CELL_LIGHT_COUNT>, len: u32, light: u32, out_index: ptr<function, u32>) -> bool {
-    for (var i = 0u; i < len; i++) {
-        if arr[i].light == light {
-            *out_index = i;
-            return true;
-        }
-    }
-    return false;
-}
 
 @compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_single_block(
