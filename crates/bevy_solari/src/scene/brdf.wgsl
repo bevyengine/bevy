@@ -44,7 +44,7 @@ fn evaluate_specular_brdf(
     let NdotL = saturate(dot(N, L));
     let NdotH = saturate(dot(N, H));
     let LdotH = saturate(dot(L, H));
-    let NdotV = max(dot(N, V), 0.0001);
+    let NdotV = max(dot(N, V), 0.01);
 
     let F0 = calculate_F0(base_color, metallic, reflectance);
     let F_ab = F_AB(perceptual_roughness, NdotV);
