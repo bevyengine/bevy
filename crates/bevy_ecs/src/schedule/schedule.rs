@@ -521,44 +521,21 @@ impl Schedule {
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
-        #[cfg(feature = "trace")]
-        let _span = info_span!("schedule", name = ?self.label).entered();
-
-        world.check_change_ticks();
-        self.initialize(world).unwrap_or_else(|e| {
-            panic!(
-                "Error when initializing schedule {:?}: {}",
-                self.label,
-                e.to_string(self.graph(), world)
-            )
-        });
-
-        let error_handler = world.default_error_handler();
-
-        #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor
-            .run(&mut self.executable, world, None, None, error_handler);
-
-        #[cfg(feature = "bevy_debug_stepping")]
-        {
-            let skip_systems = match world.get_resource_mut::<Stepping>() {
-                None => None,
-                Some(mut stepping) => stepping.skipped_systems(self),
-            };
-
-            self.executor.run(
-                &mut self.executable,
-                world,
-                None,
-                skip_systems.as_ref(),
-                error_handler,
-            );
-        }
+        self.run_internal(world, None);
     }
 
     /// Runs all systems in the specified system set (including transitively) on
     /// the `world`, using its current execution strategy.
     pub fn run_system_set<M>(&mut self, world: &mut World, set: impl IntoSystemSet<M>) {
+        let set = set.into_system_set().intern();
+        let Some(set_key) = self.graph.system_sets.get_key(set) else {
+            return;
+        };
+        self.run_internal(world, Some((set_key, set)));
+    }
+
+    #[inline(always)]
+    fn run_internal(&mut self, world: &mut World, set: Option<(SystemSetKey, InternedSystemSet)>) {
         #[cfg(feature = "trace")]
         let _span = info_span!("schedule", name = ?self.label).entered();
 
@@ -571,29 +548,27 @@ impl Schedule {
             )
         });
 
-        let set = set.into_system_set().intern();
-        let Some(set_key) = self.graph.system_sets.get_key(set) else {
-            return;
-        };
-        // Lazily initialize `systems_in_set` with the newly requested set. If
-        // the graph changes at any point, this will be cleared and need to be
-        // lazily re-populated again.
-        if let Entry::Vacant(entry) = self.executable.systems_in_sets.entry(set_key) {
-            let Ok(systems_in_set) = self.graph.systems_in_set(set) else {
-                // Just log and do nothing if the set does not exist.
-                warn!(
-                    "Tried to run non-existent system set {:?} in schedule {:?}.",
-                    set, self.label
-                );
-                return;
-            };
-            let mut systems = FixedBitSet::with_capacity(self.executable.systems.len());
-            for (index, key) in self.executable.system_ids.iter().enumerate() {
-                if systems_in_set.contains(key) {
-                    systems.insert(index);
+        if let Some((set_key, set)) = set {
+            // Lazily initialize `systems_in_set` with the newly requested set. If
+            // the graph changes at any point, this will be cleared and need to be
+            // lazily re-populated again.
+            if let Entry::Vacant(entry) = self.executable.systems_in_sets.entry(set_key) {
+                let Ok(systems_in_set) = self.graph.systems_in_set(set) else {
+                    // Just log and do nothing if the set does not exist.
+                    warn!(
+                        "Tried to run non-existent system set {:?} in schedule {:?}.",
+                        set, self.label
+                    );
+                    return;
+                };
+                let mut systems = FixedBitSet::with_capacity(self.executable.systems.len());
+                for (index, key) in self.executable.system_ids.iter().enumerate() {
+                    if systems_in_set.contains(key) {
+                        systems.insert(index);
+                    }
                 }
+                entry.insert(systems);
             }
-            entry.insert(systems);
         }
 
         let error_handler = world.default_error_handler();
@@ -602,7 +577,7 @@ impl Schedule {
         self.executor.run(
             &mut self.executable,
             world,
-            Some(set_key),
+            set.map(|(key, _)| key),
             None,
             error_handler,
         );
@@ -617,7 +592,7 @@ impl Schedule {
             self.executor.run(
                 &mut self.executable,
                 world,
-                Some(set_key),
+                set.map(|(key, _)| key),
                 skip_systems.as_ref(),
                 error_handler,
             );
