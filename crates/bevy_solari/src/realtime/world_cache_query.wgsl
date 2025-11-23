@@ -7,7 +7,7 @@
 const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// How many direct light samples each cell takes when updating each frame
 const WORLD_CACHE_DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
-/// Maximum amount of distance to trace GI rays between two cache cells 
+/// Maximum amount of distance to trace GI rays between two cache cells
 const WORLD_CACHE_MAX_GI_RAY_DISTANCE: f32 = 4.0;
 
 /// Maximum amount of frames a cell can live for without being queried
@@ -74,7 +74,7 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
             // Cache entry already exists - get radiance
             return world_cache_radiance[key].rgb;
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
-            // Cell is empty - initialize it 
+            // Cell is empty - initialize it
             world_cache_geometry_data[key].world_position = jittered_position;
             world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
