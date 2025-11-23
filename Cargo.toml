@@ -4864,3 +4864,6 @@ name = "Pan Camera"
 description = "Example Pan-Camera Styled Camera Controller for 2D scenes"
 category = "Camera"
 wasm = true
+
+[patch.crates-io]
+cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "de5f48fb8f80580014e11402c6aae483e0cb578c" }
