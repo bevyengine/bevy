@@ -179,12 +179,10 @@ where
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);
         };
-        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: core::any::type_name::<Loader>().to_string(),
-            settings: settings.loader_settings,
-        });
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
-            context.load_source_asset(loader_meta).await?,
+            context
+                .load_source_asset::<Loader>(&settings.loader_settings)
+                .await?,
         )
         .unwrap();
 
@@ -304,15 +302,15 @@ impl<'a> ProcessContext<'a> {
     /// current asset.
     pub async fn load_source_asset<L: AssetLoader>(
         &mut self,
-        meta: AssetMeta<L, ()>,
+        settings: &L::Settings,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
         let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 self.path,
-                &meta,
+                settings,
                 &*loader,
                 &mut self.reader,
                 false,

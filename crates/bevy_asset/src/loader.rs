@@ -1,7 +1,7 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     loader_builders::{Deferred, NestedLoader, StaticTyped},
-    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
+    meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfo, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetIndex, AssetLoadError, AssetServer, AssetServerMode, Assets, ErasedAssetIndex,
     Handle, UntypedHandle,
@@ -56,7 +56,7 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>>;
 
@@ -84,13 +84,11 @@ where
     fn load<'a>(
         &'a self,
         reader: &'a mut dyn Reader,
-        meta: &'a dyn AssetMetaDyn,
+        settings: &'a dyn Settings,
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<'a, Result<ErasedLoadedAsset, BevyError>> {
         Box::pin(async move {
-            let settings = meta
-                .loader_settings()
-                .expect("Loader settings should exist")
+            let settings = settings
                 .downcast_ref::<L::Settings>()
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
@@ -529,15 +527,16 @@ impl<'a> LoadContext<'a> {
     pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
-        meta: &dyn AssetMetaDyn,
+        settings: &dyn Settings,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
+        processed_info: Option<&ProcessedInfo>,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         let loaded_asset = self
             .asset_server
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 &path,
-                meta,
+                settings,
                 loader,
                 reader,
                 self.should_load_dependencies,
@@ -548,8 +547,7 @@ impl<'a> LoadContext<'a> {
                 dependency: path.clone(),
                 error,
             })?;
-        let info = meta.processed_info().as_ref();
-        let hash = info.map(|i| i.full_hash).unwrap_or_default();
+        let hash = processed_info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }

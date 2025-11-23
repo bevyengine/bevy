@@ -826,9 +826,9 @@ impl AssetServer {
         };
 
         match self
-            .load_with_meta_loader_and_reader(
+            .load_with_settings_loader_and_reader(
                 &base_path,
-                meta.as_ref(),
+                meta.loader_settings().expect("meta is set to Load"),
                 &*loader,
                 &mut *reader,
                 true,
@@ -1517,10 +1517,10 @@ impl AssetServer {
         }
     }
 
-    pub(crate) async fn load_with_meta_loader_and_reader(
+    pub(crate) async fn load_with_settings_loader_and_reader(
         &self,
         asset_path: &AssetPath<'_>,
-        meta: &dyn AssetMetaDyn,
+        settings: &dyn Settings,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
         load_dependencies: bool,
@@ -1530,7 +1530,7 @@ impl AssetServer {
         let asset_path = asset_path.clone_owned();
         let load_context =
             LoadContext::new(self, asset_path.clone(), load_dependencies, populate_hashes);
-        AssertUnwindSafe(loader.load(reader, meta, load_context))
+        AssertUnwindSafe(loader.load(reader, settings, load_context))
             .catch_unwind()
             .await
             .map_err(|_| AssetLoadError::AssetLoaderPanic {
