@@ -5323,3 +5323,6 @@ name = "Dynamic Mipmap Generation"
 description = "Demonstrates use of the mipmap generation plugin to generate mipmaps for a texture"
 category = "2D Rendering"
 wasm = false
+
+[patch.crates-io]
+cpal = { git = "https://github.com/RustAudio/cpal.git", rev = "de5f48fb8f80580014e11402c6aae483e0cb578c" }
