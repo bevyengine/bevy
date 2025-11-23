@@ -239,7 +239,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        subgraph: Option<SystemSetKey>,
+        system_set: Option<SystemSetKey>,
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
@@ -254,7 +254,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             .clone_from(&schedule.system_dependencies);
         state.ready_systems.clone_from(&self.starting_systems);
 
-        if let Some(set) = subgraph {
+        if let Some(set) = system_set {
             // Get the systems in the set
             let systems_in_set = schedule
                 .systems_in_sets

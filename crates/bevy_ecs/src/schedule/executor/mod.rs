@@ -35,7 +35,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        subgraph: Option<SystemSetKey>,
+        system_set: Option<SystemSetKey>,
         skip_systems: Option<&FixedBitSet>,
         error_handler: fn(BevyError, ErrorContext),
     );

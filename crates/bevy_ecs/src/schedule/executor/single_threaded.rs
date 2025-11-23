@@ -58,11 +58,11 @@ impl SystemExecutor for SingleThreadedExecutor {
         &mut self,
         schedule: &mut SystemSchedule,
         world: &mut World,
-        subgraph: Option<SystemSetKey>,
+        system_set: Option<SystemSetKey>,
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
-        if let Some(set) = subgraph {
+        if let Some(set) = system_set {
             // Get the systems in the set
             let systems_in_set = schedule
                 .systems_in_sets
