@@ -400,12 +400,9 @@ impl MeshBuilder for Capsule3dMeshBuilder {
             i += 1;
         }
 
-        let vs: Vec<[f32; 3]> = vs.into_iter().map(Into::into).collect();
-        let vns: Vec<[f32; 3]> = vns.into_iter().map(Into::into).collect();
-        let vts: Vec<[f32; 2]> = vts.into_iter().map(Into::into).collect();
-
-        assert_eq!(vs.len(), vert_len);
-        assert_eq!(tris.len(), fs_len as usize);
+        let vs: Vec<[f32; 3]> = bytemuck::cast_vec(vs);
+        let vns: Vec<[f32; 3]> = bytemuck::cast_vec(vns);
+        let vts: Vec<[f32; 2]> = bytemuck::cast_vec(vts);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,

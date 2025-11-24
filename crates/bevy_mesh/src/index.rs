@@ -80,6 +80,15 @@ pub enum Indices {
 }
 
 impl Indices {
+    /// Create a empty indices with the given capacity and vertex count. It will be [`Indices::U16`] if the vertex count <= [`u16::MAX`], otherwise it will be [`Indices::U32`].
+    pub fn new(capacity: usize, vertex_count: u32) -> Self {
+        if vertex_count <= u16::MAX as u32 {
+            Indices::U16(Vec::with_capacity(capacity))
+        } else {
+            Indices::U32(Vec::with_capacity(capacity))
+        }
+    }
+
     /// Returns an iterator over the indices.
     pub fn iter(&self) -> impl Iterator<Item = usize> + '_ {
         match self {

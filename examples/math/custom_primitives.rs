@@ -17,7 +17,7 @@ use bevy::{
         },
         Isometry2d,
     },
-    mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
+    mesh::{Extrudable, ExtrusionBuilder, Indices, PerimeterSegment},
     prelude::*,
 };
 
@@ -517,7 +517,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // We create buffers for the vertices, their normals and UVs, as well as the indices used to connect the vertices.
         let mut vertices = Vec::with_capacity(2 * self.resolution);
         let mut uvs = Vec::with_capacity(2 * self.resolution);
-        let mut indices = Vec::with_capacity(6 * self.resolution - 9);
+        let mut indices = Indices::new(6 * self.resolution - 9, 2 * self.resolution as u32);
         // Since the heart is flat, we know all the normals are identical already.
         let normals = vec![[0f32, 0f32, 1f32]; 2 * self.resolution];
 
@@ -548,7 +548,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // This is where we build all the triangles from the points created above.
         // Each triangle has one corner on the middle point with the other two being adjacent points on the perimeter of the heart.
         for i in 2..2 * self.resolution as u32 {
-            indices.extend_from_slice(&[i - 1, i, 0]);
+            indices.extend(&[i - 1, i, 0]);
         }
 
         // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
@@ -556,7 +556,7 @@ impl MeshBuilder for HeartMeshBuilder {
             bevy::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(bevy::mesh::Indices::U32(indices))
+        .with_inserted_indices(indices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

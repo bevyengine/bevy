@@ -38,7 +38,7 @@ impl MeshBuilder for TetrahedronMeshBuilder {
         }
 
         // There are four faces and none of them share vertices.
-        let indices = Indices::U32(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+        let indices = Indices::U16(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 
         Mesh::new(
             PrimitiveTopology::TriangleList,
