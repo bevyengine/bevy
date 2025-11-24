@@ -498,7 +498,7 @@ impl FromWorld for SolariLightingNode {
                 "sample_radiance",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
-                vec![],
+                vec!["WORLD_CACHE_QUERY_ATOMIC_MAX_LIFETIME".into()],
             ),
             blend_new_world_cache_samples_pipeline: create_pipeline(
                 "solari_lighting_blend_new_world_cache_samples_pipeline",
