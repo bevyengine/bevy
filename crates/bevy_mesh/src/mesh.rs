@@ -549,28 +549,28 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
             {
-                Some(VertexFormat::Float16x2)
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                Some(VertexFormat::Float16x2)
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                Some(VertexFormat::Float16x2)
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
             {
-                Some(VertexFormat::Float16x2)
+                Some(VertexFormat::Unorm16x2)
             }
             id if id == Self::ATTRIBUTE_COLOR.id
                 && (self
@@ -594,7 +594,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_JOINT_WEIGHT) =>
             {
-                Some(VertexFormat::Float16x4)
+                Some(VertexFormat::Unorm16x4)
             }
             _ => None,
         }
@@ -612,28 +612,28 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_NORMAL) =>
             {
-                Some(attribute_values.create_octahedral_encode_f16x2())
+                Some(attribute_values.create_octahedral_encode_unorm16())
             }
             id if id == Self::ATTRIBUTE_UV_0.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                Some(attribute_values.create_f16_values())
+                Some(attribute_values.create_unrom16_values())
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                Some(attribute_values.create_f16_values())
+                Some(attribute_values.create_unrom16_values())
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_TANGENT) =>
             {
-                Some(attribute_values.create_octahedral_encode_f16x2())
+                Some(attribute_values.create_octahedral_encode_unorm16())
             }
             id if id == Self::ATTRIBUTE_COLOR.id
                 && (self
