@@ -8,12 +8,15 @@ use bevy_asset::AssetId;
 use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::prelude::Component;
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::prelude::ReflectResource;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
+use bevy_math::Affine2;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_reflect::Reflect;
@@ -28,8 +31,8 @@ use bevy_ui::ResolvedBorderRadius;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
-#[derive(Resource, Reflect)]
-#[reflect(Resource)]
+#[derive(Component, Resource, Reflect)]
+#[reflect(Component, Resource)]
 pub struct UiDebugOptions {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
@@ -85,6 +88,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
+            Option<&UiDebugOptions>,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
@@ -96,7 +100,9 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, maybe_clip, computed_target) in &uinode_query {
+    for (entity, uinode, transform, visibility, maybe_clip, computed_target, debug) in &uinode_query
+    {
+        let debug_options = debug.unwrap_or(&debug_options);
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -105,35 +111,113 @@ pub fn extract_debug_overlay(
             continue;
         };
 
-        // Extract a border box to display an outline for every UI Node in the layout
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            // Add a large number to the UI node's stack index so that the overlay is always drawn on top
-            z_order: (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32,
-            clip: maybe_clip
-                .filter(|_| !debug_options.show_clipped)
-                .map(|clip| clip.clip),
-            image: AssetId::default(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: Hsla::sequential_dispersed(entity.index_u32()).into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
+        let color = Hsla::sequential_dispersed(entity.index_u32()).into();
+        let z_order = (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32;
+        let border = BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor());
+        let transform = transform.affine();
+
+        let mut push_outline = |rect: Rect, radius: ResolvedBorderRadius| {
+            if rect.is_empty() {
+                return;
+            }
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                // Keep all overlays above UI, and nudge each type slightly in Z so ordering is stable.
+                z_order,
+                clip: maybe_clip
+                    .filter(|_| !debug_options.show_clipped)
+                    .map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform * Affine2::from_translation(rect.center()),
+                item: ExtractedUiItem::Node {
+                    color,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: rect.size(),
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border,
+                    border_radius: radius,
+                    node_type: NodeType::Border(shader_flags::BORDER_ALL),
                 },
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
-                border_radius: if debug_options.ignore_border_radius {
-                    ResolvedBorderRadius::ZERO
-                } else {
-                    uinode.border_radius()
-                },
-                node_type: NodeType::Border(shader_flags::BORDER_ALL),
-            },
-            main_entity: entity.into(),
-        });
+                main_entity: entity.into(),
+            });
+        };
+
+        let border_box = Rect::from_center_size(Vec2::ZERO, uinode.size);
+
+        if debug_options.show_border_box {
+            push_outline(border_box, uinode.border_radius());
+        }
+
+        if debug_options.show_padding_box {
+            let mut padding_box = border_box;
+            padding_box.min.x += uinode.border.left;
+            padding_box.max.x -= uinode.border.right;
+            padding_box.min.y += uinode.border.top;
+            padding_box.max.y -= uinode.border.bottom;
+            push_outline(padding_box, uinode.inner_radius());
+        }
+
+        if debug_options.show_content_box {
+            let mut content_box = border_box;
+            let content_inset = uinode.content_inset();
+            content_box.min.x += content_inset.left;
+            content_box.max.x -= content_inset.right;
+            content_box.min.y += content_inset.top;
+            content_box.max.y -= content_inset.bottom;
+            push_outline(content_box, ResolvedBorderRadius::ZERO);
+        }
+
+        if debug_options.show_scrollbars {
+            if uinode.scrollbar_size.y <= 0. {
+                let content_inset = uinode.content_inset();
+                let half_size = 0.5 * uinode.size;
+                let min_x = -half_size.x + content_inset.left;
+                let max_x = half_size.x - content_inset.right - uinode.scrollbar_size.x;
+                let max_y = half_size.y - content_inset.bottom;
+                let min_y = max_y - uinode.scrollbar_size.y;
+                let gutter = Rect {
+                    min: Vec2::new(min_x, min_y),
+                    max: Vec2::new(max_x, max_y),
+                };
+                let gutter_length = gutter.size().x;
+                let thumb_min =
+                    gutter.min.x + gutter_length * uinode.scroll_position.x / uinode.content_size.x;
+                let thumb_max = thumb_min + gutter_length * gutter_length / uinode.content_size.x;
+                let thumb = Rect {
+                    min: Vec2::new(thumb_min, gutter.min.y),
+                    max: Vec2::new(thumb_max, gutter.max.y),
+                };
+                push_outline(gutter, ResolvedBorderRadius::ZERO);
+                push_outline(thumb, ResolvedBorderRadius::ZERO);
+            }
+            if uinode.scrollbar_size.x <= 0. {
+                let content_inset = uinode.content_inset();
+                let half_size = 0.5 * uinode.size;
+                let max_x = half_size.x - content_inset.right;
+                let min_x = max_x - uinode.scrollbar_size.x;
+                let min_y = -half_size.y + content_inset.top;
+                let max_y = half_size.y - content_inset.bottom - uinode.scrollbar_size.y;
+                let gutter = Rect {
+                    min: Vec2::new(min_x, min_y),
+                    max: Vec2::new(max_x, max_y),
+                };
+                let gutter_length = gutter.size().y;
+                let thumb_min =
+                    gutter.min.y + gutter_length * uinode.scroll_position.y / uinode.content_size.y;
+                let thumb_max = thumb_min + gutter_length * gutter_length / uinode.content_size.y;
+                let thumb = Rect {
+                    min: Vec2::new(gutter.min.x, thumb_min),
+                    max: Vec2::new(gutter.max.x, thumb_max),
+                };
+                push_outline(gutter, ResolvedBorderRadius::ZERO);
+                push_outline(thumb, ResolvedBorderRadius::ZERO);
+            }
+        }
     }
 }
