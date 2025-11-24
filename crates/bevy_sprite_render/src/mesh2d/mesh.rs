@@ -509,6 +509,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
             shader_defs.push("VERTEX_NORMALS".into());
+            if layout.0.is_vertex_normal_compressed() {
+                shader_defs.push("VERTEX_NORMALS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
@@ -519,6 +522,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
             shader_defs.push("VERTEX_TANGENTS".into());
+            if layout.0.is_vertex_tangent_compressed() {
+                shader_defs.push("VERTEX_TANGENTS_COMPRESSED".into());
+            }
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
