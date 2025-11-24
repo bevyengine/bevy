@@ -118,6 +118,30 @@ impl Indices {
     pub fn push(&mut self, index: u32) {
         self.extend([index]);
     }
+
+    /// Resize the indices in place so that `len` is equal to `new_len`.
+    pub fn resize(&mut self, new_len: usize, value: u32) {
+        match self {
+            Indices::U16(indices) => {
+                indices.resize(new_len, value as u16);
+            }
+            Indices::U32(indices) => {
+                indices.resize(new_len, value);
+            }
+        }
+    }
+
+    /// Set a value of indices at the given index.
+    pub fn set(&mut self, index: usize, value: u32) {
+        match self {
+            Indices::U16(indices) => {
+                indices[index] = value as u16;
+            }
+            Indices::U32(indices) => {
+                indices[index] = value;
+            }
+        }
+    }
 }
 
 /// Extend the indices with indices from an iterator.

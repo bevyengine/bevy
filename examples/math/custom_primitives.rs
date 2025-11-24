@@ -548,7 +548,7 @@ impl MeshBuilder for HeartMeshBuilder {
         // This is where we build all the triangles from the points created above.
         // Each triangle has one corner on the middle point with the other two being adjacent points on the perimeter of the heart.
         for i in 2..2 * self.resolution as u32 {
-            indices.extend(&[i - 1, i, 0]);
+            indices.extend([i - 1, i, 0]);
         }
 
         // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
