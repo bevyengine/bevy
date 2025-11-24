@@ -24,6 +24,7 @@ use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
 use bevy_ui::ComputedUiTargetCamera;
+use bevy_ui::ResolvedBorderRadius;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
@@ -32,12 +33,22 @@ use bevy_ui::UiStack;
 pub struct UiDebugOptions {
     /// Set to true to enable the UI debug overlay
     pub enabled: bool,
+    /// Show outlines for the border boxes of UI nodes
+    pub show_border_box: bool,
+    /// Show outlines for the padding boxes of UI nodes
+    pub show_padding_box: bool,
+    /// Show outlines for the content boxes of UI nodes
+    pub show_content_box: bool,
+    /// Show outlines for the scrollbar regions of UI nodes
+    pub show_scrollbars: bool,
     /// Width of the overlay's lines in logical pixels
     pub line_width: f32,
     /// Show outlines for non-visible UI nodes
     pub show_hidden: bool,
     /// Show outlines for clipped sections of UI nodes
     pub show_clipped: bool,
+    /// Draw outlines without curved corners
+    pub ignore_border_radius: bool,
 }
 
 impl UiDebugOptions {
@@ -53,6 +64,11 @@ impl Default for UiDebugOptions {
             line_width: 1.,
             show_hidden: false,
             show_clipped: false,
+            ignore_border_radius: false,
+            show_border_box: true,
+            show_padding_box: false,
+            show_content_box: false,
+            show_scrollbars: false,
         }
     }
 }
@@ -110,7 +126,11 @@ pub fn extract_debug_overlay(
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
-                border_radius: uinode.border_radius(),
+                border_radius: if debug_options.ignore_border_radius {
+                    ResolvedBorderRadius::ZERO
+                } else {
+                    uinode.border_radius()
+                },
                 node_type: NodeType::Border(shader_flags::BORDER_ALL),
             },
             main_entity: entity.into(),
