@@ -619,14 +619,14 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV0) =>
             {
-                Some(attribute_values.create_unrom16_values())
+                Some(attribute_values.create_unorm16_values())
             }
             id if id == Self::ATTRIBUTE_UV_1.id
                 && self
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_UV1) =>
             {
-                Some(attribute_values.create_unrom16_values())
+                Some(attribute_values.create_unorm16_values())
             }
             id if id == Self::ATTRIBUTE_TANGENT.id
                 && self
@@ -649,9 +649,9 @@ impl Mesh {
                 {
                     Some(attribute_values.create_f16_values())
                 } else {
-                    let uncompressed_values = match attribute_values {
-                        VertexAttributeValues::Float32x4(val) => val,
-                        _ => unreachable!(),
+                    let VertexAttributeValues::Float32x4(uncompressed_values) = attribute_values
+                    else {
+                        unreachable!()
                     };
                     let mut values = Vec::<[u8; 4]>::with_capacity(uncompressed_values.len());
                     for val in uncompressed_values {
