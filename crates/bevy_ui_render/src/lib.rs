@@ -770,6 +770,9 @@ pub struct UiCameraView {
 #[derive(Component)]
 pub struct UiViewTarget(pub Entity);
 
+#[derive(Component)]
+pub struct UiContainerViewTarget;
+
 /// Extracts all UI elements associated with a camera into the render world.
 pub fn extract_ui_camera_view(
     mut commands: Commands,
@@ -876,6 +879,7 @@ pub fn extract_ui_camera_view(
                     },
                     // Link to the main camera view.
                     UiViewTarget(render_entity),
+                    UiContainerViewTarget,
                     TemporaryRenderEntity,
                 ))
                 .id();
