@@ -380,7 +380,7 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Create a new VertexAttributeValues with the values converted from f32 to f16. Panic if the values are not Float32, Float32x2 or Float32x4.
+    /// Create a new `VertexAttributeValues` with the values converted from f32 to f16. Panic if the values are not Float32, Float32x2 or Float32x4.
     pub fn create_f16_values(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32(uncompressed_values) => {
@@ -413,8 +413,8 @@ impl VertexAttributeValues {
         }
     }
 
-    /// Create a new VertexAttributeValues with the values converted from f32 to unrom16. Panic if the values are not Float32, Float32x2 or Float32x4.
-    pub fn create_unrom16_values(&self) -> VertexAttributeValues {
+    /// Create a new `VertexAttributeValues` with the values converted from f32 to unorm16. Panic if the values are not Float32, Float32x2 or Float32x4.
+    pub fn create_unorm16_values(&self) -> VertexAttributeValues {
         match &self {
             VertexAttributeValues::Float32x2(uncompressed_values) => {
                 let mut values = Vec::<[u16; 2]>::with_capacity(uncompressed_values.len());
