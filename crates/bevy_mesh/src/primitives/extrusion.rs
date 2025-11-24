@@ -256,7 +256,7 @@ where
                     });
             let mut positions = Vec::with_capacity(vert_count);
             let mut normals = Vec::with_capacity(vert_count);
-            let mut indices = Indices::new(index_count, vert_count as u32);
+            let mut indices = Indices::with_capacity(index_count, vert_count as u32);
             let mut uvs = Vec::with_capacity(vert_count);
 
             // Compute the amount of horizontal space allocated to each segment of the perimeter.

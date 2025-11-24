@@ -295,7 +295,7 @@ impl MeshBuilder for Capsule3dMeshBuilder {
         let tri_offset_south_cap = tri_offset_south_hemi + hemi_lons;
 
         let fs_len = tri_offset_south_cap + lons3;
-        let mut tris = Indices::new(fs_len as usize, vert_len as u32);
+        let mut tris = Indices::with_capacity(fs_len as usize, vert_len as u32);
         tris.resize(fs_len as usize, 0);
 
         // Polar caps.

@@ -80,7 +80,7 @@ impl MeshBuilder for ConeMeshBuilder {
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
-        let mut indices = Indices::new(num_indices, num_vertices as u32);
+        let mut indices = Indices::with_capacity(num_indices, num_vertices as u32);
 
         // Tip
         positions.push([0.0, half_height, 0.0]);

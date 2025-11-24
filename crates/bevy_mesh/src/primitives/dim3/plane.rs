@@ -103,7 +103,7 @@ impl MeshBuilder for PlaneMeshBuilder {
         let mut positions: Vec<Vec3> = Vec::with_capacity(num_vertices);
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(num_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(num_vertices);
-        let mut indices = Indices::new(num_indices, num_vertices as u32);
+        let mut indices = Indices::with_capacity(num_indices, num_vertices as u32);
 
         let rotation = Quat::from_rotation_arc(Vec3::Y, *self.plane.normal);
         let size = self.plane.half_size * 2.0;

@@ -177,7 +177,7 @@ impl CircularSectorMeshBuilder {
 impl MeshBuilder for CircularSectorMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Indices::new((resolution - 1) * 3, (resolution + 1) as u32);
+        let mut indices = Indices::with_capacity((resolution - 1) * 3, (resolution + 1) as u32);
         let mut positions = Vec::with_capacity(resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
         let mut uvs = Vec::with_capacity(resolution + 1);
@@ -315,7 +315,7 @@ impl CircularSegmentMeshBuilder {
 impl MeshBuilder for CircularSegmentMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Indices::new((resolution - 1) * 3, (resolution + 1) as u32);
+        let mut indices = Indices::with_capacity((resolution - 1) * 3, (resolution + 1) as u32);
         let mut positions = Vec::with_capacity(resolution + 1);
         let normals = vec![[0.0, 0.0, 1.0]; resolution + 1];
         let mut uvs = Vec::with_capacity(resolution + 1);
@@ -429,7 +429,7 @@ impl Meshable for ConvexPolygon {
 impl MeshBuilder for ConvexPolygonMeshBuilder {
     fn build(&self) -> Mesh {
         let len = self.vertices.len();
-        let mut indices = Indices::new((len - 2) * 3, len as u32);
+        let mut indices = Indices::with_capacity((len - 2) * 3, len as u32);
         let mut positions = Vec::with_capacity(len);
 
         for vertex in &self.vertices {
@@ -578,7 +578,7 @@ impl EllipseMeshBuilder {
 impl MeshBuilder for EllipseMeshBuilder {
     fn build(&self) -> Mesh {
         let resolution = self.resolution as usize;
-        let mut indices = Indices::new((resolution - 2) * 3, resolution as u32);
+        let mut indices = Indices::with_capacity((resolution - 2) * 3, resolution as u32);
         let mut positions = Vec::with_capacity(resolution);
         let normals = vec![[0.0, 0.0, 1.0]; resolution];
         let mut uvs = Vec::with_capacity(resolution);
@@ -696,7 +696,8 @@ impl MeshBuilder for Polyline2dMeshBuilder {
             .map(|v| v.extend(0.0))
             .collect();
 
-        let mut indices = Indices::new(self.polyline.vertices.len() - 1, positions.len() as u32);
+        let mut indices =
+            Indices::with_capacity(self.polyline.vertices.len() - 1, positions.len() as u32);
         indices.extend((0..self.polyline.vertices.len() as u32 - 1).flat_map(|i| [i, i + 1]));
 
         Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
@@ -766,7 +767,7 @@ impl MeshBuilder for AnnulusMeshBuilder {
         let outer_radius = self.annulus.outer_circle.radius;
 
         let num_vertices = (self.resolution as usize + 1) * 2;
-        let mut indices = Indices::new(self.resolution as usize * 6, num_vertices as u32);
+        let mut indices = Indices::with_capacity(self.resolution as usize * 6, num_vertices as u32);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut uvs = Vec::with_capacity(num_vertices);
         let normals = vec![[0.0, 0.0, 1.0]; num_vertices];
@@ -1146,7 +1147,8 @@ impl MeshBuilder for Capsule2dMeshBuilder {
         let vertex_count = 2 * resolution;
 
         // Six extra indices for the two triangles between the semicircles
-        let mut indices = Indices::new((resolution as usize - 2) * 2 * 3 + 6, vertex_count);
+        let mut indices =
+            Indices::with_capacity((resolution as usize - 2) * 2 * 3 + 6, vertex_count);
         let mut positions = Vec::with_capacity(vertex_count as usize);
         let normals = vec![[0.0, 0.0, 1.0]; vertex_count as usize];
         let mut uvs = Vec::with_capacity(vertex_count as usize);
