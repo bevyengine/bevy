@@ -87,9 +87,7 @@ fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
 #endif
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_TANGENTS_COMPRESSED
-    let binormal_sign = sign(vertex_in.tangent.y);
-    let tangent = vec4<f32>(bevy_pbr::utils::octahedral_decode(vec2<f32>(vertex_in.tangent.x, abs(vertex_in.tangent.y))), binormal_sign);
-    uncompressed_vertex.tangent = tangent;
+    uncompressed_vertex.tangent = bevy_pbr::utils::octahedral_decode_tangent(vertex_in.tangent);
 #else
     uncompressed_vertex.tangent = vertex_in.tangent;
 #endif

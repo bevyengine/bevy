@@ -68,6 +68,15 @@ fn octahedral_decode_signed(v: vec2<f32>) -> vec3<f32> {
     return normalize(n);
 }
 
+// Decode tangent vectors from octahedral coordinates and return the sign. The sign should have been encoded in y component using corresponding `octahedral_encode_tangent`.
+fn octahedral_decode_tangent(v: vec2<f32>) -> vec4<f32> {
+    var f = v;
+    f.y = f.y * 2.0 - 1.0;
+    let sign = select(-1.0, 1.0, f.y >= 0.0);
+    f.y = abs(f.y);
+    return vec4<f32>(octahedral_decode(f), sign);
+}
+
 // https://blog.demofox.org/2022/01/01/interleaved-gradient-noise-a-different-kind-of-low-discrepancy-sequence
 fn interleaved_gradient_noise(pixel_coordinates: vec2<f32>, frame: u32) -> f32 {
     let xy = pixel_coordinates + 5.588238 * f32(frame % 64u);
