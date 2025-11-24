@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, collections::BTreeSet, string::String, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use core::{
     any::TypeId,
     fmt::{self, Debug},
@@ -609,7 +609,7 @@ impl Systems {
         flat_dependency_analysis: &DagAnalysis<SystemKey>,
         flat_ambiguous_with: &UnGraph<SystemKey>,
         ambiguous_with_all: &HashSet<NodeId>,
-        ignored_ambiguities: &BTreeSet<ComponentId>,
+        ignored_ambiguities: &HashSet<ComponentId>,
     ) -> ConflictingSystems {
         let mut conflicting_systems: Vec<(_, _, Box<[_]>)> = Vec::new();
         for &(a, b) in flat_dependency_analysis.disconnected() {
