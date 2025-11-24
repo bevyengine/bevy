@@ -517,7 +517,8 @@ impl MeshBuilder for HeartMeshBuilder {
         // We create buffers for the vertices, their normals and UVs, as well as the indices used to connect the vertices.
         let mut vertices = Vec::with_capacity(2 * self.resolution);
         let mut uvs = Vec::with_capacity(2 * self.resolution);
-        let mut indices = Indices::with_capacity(6 * self.resolution - 9, 2 * self.resolution as u32);
+        let mut indices =
+            Indices::with_capacity(6 * self.resolution - 9, 2 * self.resolution as u32);
         // Since the heart is flat, we know all the normals are identical already.
         let normals = vec![[0f32, 0f32, 1f32]; 2 * self.resolution];
 
