@@ -249,6 +249,7 @@ pub struct ExtractedGradient {
     pub border: BorderRect,
     pub resolved_gradient: ResolvedGradient,
     pub color_space: InterpolationColorSpace,
+    pub is_container: bool,
 }
 
 #[derive(Resource, Default)]
@@ -461,6 +462,7 @@ pub fn extract_gradients(
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Linear { angle: *angle },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                     Gradient::Radial(RadialGradient {
@@ -511,6 +513,7 @@ pub fn extract_gradients(
                             border: uinode.border,
                             resolved_gradient: ResolvedGradient::Radial { center: c, size },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                     Gradient::Conic(ConicGradient {
@@ -570,6 +573,7 @@ pub fn extract_gradients(
                                 center: g_start,
                             },
                             color_space: *color_space,
+                            is_container,
                         });
                     }
                 }
@@ -600,49 +604,47 @@ pub fn queue_gradient(
             continue;
         };
 
-        let views = [
-            camera_views.get(default_camera_view.ui_camera),
-            camera_views.get(default_camera_view.ui_container),
-        ];
+        let get_views = if gradient.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
 
-        for view in views {
-            let Ok(view) = view else {
-                continue;
-            };
+        let Ok(view) = get_views else {
+            continue;
+        };
 
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &gradients_pipeline,
-                UiGradientPipelineKey {
-                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-                    color_space: gradient.color_space,
-                    hdr: view.hdr,
-                },
-            );
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &gradients_pipeline,
+            UiGradientPipelineKey {
+                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                color_space: gradient.color_space,
+                hdr: view.hdr,
+            },
+        );
 
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (gradient.render_entity, gradient.main_entity),
-                sort_key: FloatOrd(
-                    gradient.stack_index as f32
-                        + match gradient.node_type {
-                            NodeType::Rect => stack_z_offsets::GRADIENT,
-                            NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                        },
-                ),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                index,
-                indexed: true,
-            });
-        }
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (gradient.render_entity, gradient.main_entity),
+            sort_key: FloatOrd(
+                gradient.stack_index as f32
+                    + match gradient.node_type {
+                        NodeType::Rect => stack_z_offsets::GRADIENT,
+                        NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
+                    },
+            ),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: true,
+        });
     }
 }
 

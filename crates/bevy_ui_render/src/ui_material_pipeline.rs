@@ -307,6 +307,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
+    pub is_container: bool,
 }
 
 #[derive(Resource)]
@@ -335,14 +336,23 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
+            Has<UiContainerTarget>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
+    for (
+        entity,
+        computed_node,
+        transform,
+        handle,
+        inherited_visibility,
+        clip,
+        camera,
+        is_container,
+    ) in uinode_query.iter()
     {
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
@@ -372,6 +382,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
             main_entity: entity.into(),
+            is_container,
         });
     }
 }
@@ -610,45 +621,43 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        let views = [
-            camera_views.get(default_camera_view.ui_camera),
-            camera_views.get(default_camera_view.ui_container),
-        ];
+        let get_view = if extracted_uinode.is_container {
+            camera_views.get(default_camera_view.ui_container)
+        } else {
+            camera_views.get(default_camera_view.ui_camera)
+        };
 
-        for view in views {
-            let Ok(view) = view else {
-                continue;
-            };
+        let Ok(view) = get_view else {
+            continue;
+        };
 
-            let Some(transparent_phase) =
-                transparent_render_phases.get_mut(&view.retained_view_entity)
-            else {
-                continue;
-            };
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
+            continue;
+        };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &ui_material_pipeline,
-                UiMaterialKey {
-                    hdr: view.hdr,
-                    bind_group_data: material.key.clone(),
-                },
+        let pipeline = pipelines.specialize(
+            &pipeline_cache,
+            &ui_material_pipeline,
+            UiMaterialKey {
+                hdr: view.hdr,
+                bind_group_data: material.key.clone(),
+            },
+        );
+        if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
+            transparent_phase.items.reserve_exact(
+                extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
             );
-            if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {
-                transparent_phase.items.reserve_exact(
-                    extracted_uinodes.uinodes.len() - transparent_phase.items.capacity(),
-                );
-            }
-            transparent_phase.add(TransparentUi {
-                draw_function,
-                pipeline,
-                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-                sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
-                batch_range: 0..0,
-                extra_index: PhaseItemExtraIndex::None,
-                index,
-                indexed: false,
-            });
         }
+        transparent_phase.add(TransparentUi {
+            draw_function,
+            pipeline,
+            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+            sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
+            batch_range: 0..0,
+            extra_index: PhaseItemExtraIndex::None,
+            index,
+            indexed: false,
+        });
     }
 }

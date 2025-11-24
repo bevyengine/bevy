@@ -323,13 +323,13 @@ pub fn queue_shadows(
             continue;
         };
 
-        let view = if extracted_shadow.is_container {
+        let get_view = if extracted_shadow.is_container {
             camera_views.get(default_camera_view.ui_container)
         } else {
             camera_views.get(default_camera_view.ui_camera)
         };
 
-        let Ok(view) = view else {
+        let Ok(view) = get_view else {
             continue;
         };
 
