@@ -94,15 +94,14 @@ pub fn extract_debug_overlay(
     ui_stack: Extract<Res<UiStack>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    if !debug_options.enabled {
-        return;
-    }
-
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, visibility, maybe_clip, computed_target, debug) in &uinode_query
     {
         let debug_options = debug.unwrap_or(&debug_options);
+        if !debug_options.enabled {
+            continue;
+        }
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
@@ -174,7 +173,7 @@ pub fn extract_debug_overlay(
         }
 
         if debug_options.show_scrollbars {
-            if uinode.scrollbar_size.y <= 0. {
+            if 0. <= uinode.scrollbar_size.y {
                 let content_inset = uinode.content_inset();
                 let half_size = 0.5 * uinode.size;
                 let min_x = -half_size.x + content_inset.left;
@@ -196,7 +195,7 @@ pub fn extract_debug_overlay(
                 push_outline(gutter, ResolvedBorderRadius::ZERO);
                 push_outline(thumb, ResolvedBorderRadius::ZERO);
             }
-            if uinode.scrollbar_size.x <= 0. {
+            if 0. <= uinode.scrollbar_size.x {
                 let content_inset = uinode.content_inset();
                 let half_size = 0.5 * uinode.size;
                 let max_x = half_size.x - content_inset.right;
