@@ -157,15 +157,14 @@ pub fn ui_layout_system(
             }
         }
 
-        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
-
         update_children_recursively(
             &mut ui_surface,
             &ui_children,
             &added_node_query,
             ui_root_entity,
-            // &removed_container_target,
         );
+
+        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
             ui_root_entity,
@@ -211,7 +210,7 @@ pub fn ui_layout_system(
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-        contain_query: &Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
+        container_query: &Query<(&GlobalTransform, &UiContainerSize, &Anchor)>,
     ) {
         if let Ok((
             mut node,
@@ -225,9 +224,6 @@ pub fn ui_layout_system(
             container_target,
         )) = node_update_query.get_mut(entity)
         {
-            // Transform the node coordinate system
-            let flip_y = Affine2::from_scale(Vec2::new(1.0, -1.0));
-
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -281,14 +277,15 @@ pub fn ui_layout_system(
             );
 
             if let Some(target) = container_target
-                && let Ok((global, contain, anchor)) = contain_query.get(target.0)
+                && let Ok((global, contain, anchor)) = container_query.get(target.0)
             {
                 // Coordinate correction for root node
                 if ui_children.get_parent(entity).is_none() {
                     local_transform.translation += global.translation().xy();
 
+                    // Transform Coordinate System
+                    let offset = contain.0.as_vec2() * Vec2::new(1.0, -1.0);
                     // Root node center offset
-                    let offset = flip_y.transform_vector2(contain.0.as_vec2());
                     local_transform.translation -= offset / 2.0;
 
                     // Anchor offset
@@ -296,7 +293,8 @@ pub fn ui_layout_system(
                     local_transform.translation -= offset_anchor;
                 }
 
-                local_transform.translation += flip_y.transform_vector2(local_center);
+                // Transform Coordinate System
+                local_transform.translation += Vec2::new(local_center.x, -local_center.y);
                 inherited_transform *= local_transform;
             } else {
                 local_transform.translation += local_center;
@@ -382,7 +380,7 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
-                    contain_query,
+                    container_query,
                 );
             }
         }
