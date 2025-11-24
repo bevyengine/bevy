@@ -1,8 +1,9 @@
 #define_import_path bevy_pbr::prepass_io
 
+
 // Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
 // pass them to custom prepass shaders like pbr_prepass.wgsl.
-struct Vertex {
+struct UncompressedVertex {
     @builtin(instance_index) instance_index: u32,
     @location(0) position: vec3<f32>,
 
@@ -35,6 +36,92 @@ struct Vertex {
 #ifdef MORPH_TARGETS
     @builtin(vertex_index) index: u32,
 #endif // MORPH_TARGETS
+};
+
+struct Vertex {
+    @builtin(instance_index) instance_index: u32,
+    @location(0) position: vec3<f32>,
+
+#ifdef VERTEX_UVS_A
+    @location(1) uv: vec2<f32>,
+#endif
+
+#ifdef VERTEX_UVS_B
+    @location(2) uv_b: vec2<f32>,
+#endif
+
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
+#ifdef VERTEX_NORMALS_COMPRESSED
+    @location(3) normal: vec2<f32>,
+#else
+    @location(3) normal: vec3<f32>,
+#endif
+#endif
+#ifdef VERTEX_TANGENTS
+#ifdef VERTEX_TANGENTS_COMPRESSED
+    @location(4) tangent: vec2<f32>,
+#else
+    @location(4) tangent: vec4<f32>,
+#endif
+#endif
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
+
+#ifdef SKINNED
+    @location(5) joint_indices: vec4<u32>,
+    @location(6) joint_weights: vec4<f32>,
+#endif
+
+#ifdef VERTEX_COLORS
+    @location(7) color: vec4<f32>,
+#endif
+
+#ifdef MORPH_TARGETS
+    @builtin(vertex_index) index: u32,
+#endif // MORPH_TARGETS
+}
+
+fn decompress_vertex(vertex_in: Vertex) -> UncompressedVertex {
+    var uncompressed_vertex: UncompressedVertex;
+    uncompressed_vertex.instance_index = vertex_in.instance_index;
+#ifdef VERTEX_POSITIONS
+    uncompressed_vertex.position = vertex_in.position;
+#endif
+#ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
+#ifdef VERTEX_NORMALS_COMPRESSED
+    uncompressed_vertex.normal = bevy_pbr::utils::octahedral_decode(vertex_in.normal);
+#else
+    uncompressed_vertex.normal = vertex_in.normal;
+#endif
+#endif
+#ifdef VERTEX_TANGENTS
+#ifdef VERTEX_TANGENTS_COMPRESSED
+    let binormal_sign = sign(vertex_in.tangent.y);
+    let tangent = vec4<f32>(bevy_pbr::utils::octahedral_decode(vec2<f32>(vertex_in.tangent.x, abs(vertex_in.tangent.y))), binormal_sign);
+    uncompressed_vertex.tangent = tangent;
+#else
+    uncompressed_vertex.tangent = vertex_in.tangent;
+#endif
+#endif
+#endif // NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_UVS_A
+    uncompressed_vertex.uv = vertex_in.uv;
+#endif
+#ifdef VERTEX_UVS_B
+    uncompressed_vertex.uv_b = vertex_in.uv_b;
+#endif
+#ifdef VERTEX_COLORS
+    uncompressed_vertex.color = vertex_in.color;
+#endif
+#ifdef SKINNED
+    uncompressed_vertex.joint_indices = vertex_in.joint_indices;
+    uncompressed_vertex.joint_weights = vertex_in.joint_weights;
+#endif
+#ifdef MORPH_TARGETS
+    uncompressed_vertex.index = vertex_in.index;
+#endif
+    return uncompressed_vertex;
 }
 
 struct VertexOutput {
