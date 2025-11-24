@@ -665,7 +665,7 @@ impl Mesh {
                     .attribute_compression
                     .contains(MeshAttributeCompressionFlags::COMPRESS_JOINT_WEIGHT) =>
             {
-                Some(attribute_values.create_f16_values())
+                Some(attribute_values.create_unorm16_values())
             }
             _ => None,
         }
