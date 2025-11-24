@@ -212,7 +212,7 @@ pub fn prepare_solari_lighting_resources(
 
         let world_cache_active_cells_new_radiance =
             render_device.create_buffer(&BufferDescriptor {
-                label: Some("solari_lighting_world_cache_active_cells_new_irradiance"),
+                label: Some("solari_lighting_world_cache_active_cells_new_radiance"),
                 size: WORLD_CACHE_SIZE * size_of::<[f32; 4]>() as u64,
                 usage: BufferUsages::STORAGE,
                 mapped_at_creation: false,
